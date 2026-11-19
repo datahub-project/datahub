@@ -2,7 +2,6 @@ package com.linkedin.metadata.aspect.validation;
 
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 
@@ -33,7 +32,6 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
@@ -41,7 +39,6 @@ import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
-import com.linkedin.util.Pair;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.lang.reflect.Field;
 import java.util.Collection;
@@ -52,7 +49,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.apache.http.HttpStatus;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
@@ -61,21 +57,15 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /**
- * Privilege-constraint validators must not deny a write that the API write gate admits for lack of
- * a base privilege.
+ * The coarse write gate and the privilege-constraint validators agree on structured property and
+ * tag writes.
  *
- * <p>The write gate ({@link AuthUtil#isAPIAuthorizedUrns}, used by Rest.li ingestProposal, OpenAPI
- * and the GraphQL write paths that ingest as the caller) picks the privilege per entity type,
- * change type and entity existence: Manage Documents for documents, Manage Users &amp; Groups for
- * users and groups, Create Entity for entities that do not exist yet, Delete Entity for aspect
- * deletes. The structured property and tag validators only accept Edit Entity or the
- * aspect-specific Edit privilege, so writes the gate admitted are rejected with "Unauthorized to
- * modify one or more ... Urns". Services such as forms and proposals authorize by their own rules
- * and then write as the caller, which the validators denied the same way.
- *
- * <p>The validators decide only whether privilegeConstraints narrow the actor: they deny when the
- * actor holds the Edit privilege on the entity but no grant covers every changed property or tag.
- * Whether the actor may write at all is left to the gate or the service.
+ * <p>Both accept the entity's update privileges (Manage Documents on documents, Manage Users &amp;
+ * Groups on users and groups, Create Entity when the entity does not exist yet, Delete Entity when
+ * the aspect is deleted) or the aspect privilege (Edit Entity Properties, Edit Entity Tags). A
+ * privilegeConstraints list narrows only the policy that contains it. An actor with no matching
+ * privilege is denied by both. A form assignment writes as the system and does not reach this
+ * decision.
  *
  * <p>Uses the real {@link AuthUtil} and entity registry; only the policy decision is faked, by a
  * session that grants a fixed privilege set, optionally limited by a privilege constraint.
@@ -186,6 +176,7 @@ public class PrivilegeConstraintsWriteGateParityTest {
       {DOCUMENT, true, Write.PROPERTIES_UPSERT, MANAGE_DOCUMENTS},
       {DOCUMENT, false, Write.PROPERTIES_UPSERT, MANAGE_DOCUMENTS},
       {DOCUMENT, true, Write.PROPERTIES_PATCH, MANAGE_DOCUMENTS},
+      {DOCUMENT, false, Write.PROPERTIES_PATCH, MANAGE_DOCUMENTS},
       {DOCUMENT, true, Write.PROPERTIES_DELETE, MANAGE_DOCUMENTS},
       {DOCUMENT, true, Write.TAGS_UPSERT, MANAGE_DOCUMENTS},
       {DOCUMENT, true, Write.TAGS_PATCH, MANAGE_DOCUMENTS},
@@ -201,6 +192,9 @@ public class PrivilegeConstraintsWriteGateParityTest {
       {DATASET, false, Write.PROPERTIES_UPSERT, CREATE_ENTITY},
       {CHART, false, Write.PROPERTIES_UPSERT, CREATE_ENTITY},
       {DATASET, false, Write.TAGS_UPSERT, CREATE_ENTITY},
+      // A patch is an update even when the entity does not exist yet.
+      {DATASET, false, Write.PROPERTIES_PATCH, EDIT_ENTITY},
+      {DATASET, false, Write.TAGS_PATCH, EDIT_ENTITY},
       // Deleting the aspect: the gate admits Delete Entity.
       {DATASET, true, Write.PROPERTIES_DELETE, DELETE_ENTITY},
     };
@@ -222,13 +216,11 @@ public class PrivilegeConstraintsWriteGateParityTest {
   }
 
   /**
-   * {entity, exists, write, privilege}. Writes that a service authorizes by its own rule and then
-   * makes as the caller, e.g. a form assignee answering a structured property prompt or a user
-   * accepting a proposal. The actor holds no Edit privilege at all, so no privilege constraint
-   * narrows them and the validator must not deny.
+   * An actor who holds none of the write privileges is denied. A form assignment does not reach
+   * this check: the form writes as the system after its own authorization.
    */
-  @DataProvider(name = "serviceAuthorizedWrites")
-  public Object[][] serviceAuthorizedWrites() {
+  @DataProvider(name = "noMatchingPrivilege")
+  public Object[][] noMatchingPrivilege() {
     return new Object[][] {
       {DATASET, true, Write.PROPERTIES_PATCH, "NO_PRIVILEGES"},
       {DATASET, true, Write.PROPERTIES_UPSERT, "MANAGE_ENTITY_PROPERTIES"},
@@ -237,16 +229,29 @@ public class PrivilegeConstraintsWriteGateParityTest {
     };
   }
 
-  @Test(dataProvider = "serviceAuthorizedWrites")
-  public void testServiceAuthorizedWriteIsNotDeniedByValidator(
+  @Test(dataProvider = "noMatchingPrivilege")
+  public void testWriteWithNoMatchingPrivilegeIsDenied(
       Urn entity, boolean exists, Write write, String privilege) {
     BatchItem item = prepare(entity, exists, write);
     AuthorizationSession session = grants(Map.of(privilege, Set.of()));
 
+    Assert.assertFalse(
+        gateAdmits(session, item, exists),
+        describe(entity, exists, write, privilege) + " must be denied by the write gate");
     Assert.assertEquals(
-        validate(validatorFor(write), session, item),
-        List.of(),
-        describe(entity, exists, write, privilege) + " was denied by the validator");
+        validate(validatorFor(write), session, item).size(),
+        1,
+        describe(entity, exists, write, privilege) + " must be denied by the validator");
+  }
+
+  @Test
+  public void testUnconstrainedPolicyStillGrantsWhenAnotherPolicyListsProperties() {
+    BatchItem item = prepare(DOCUMENT, true, Write.PROPERTIES_UPSERT);
+    AuthorizationSession session =
+        grants(Map.of(MANAGE_DOCUMENTS, Set.of(), EDIT_ENTITY_PROPERTIES, Set.of(PROP_A)));
+
+    Assert.assertTrue(gateAdmits(session, item, true));
+    Assert.assertEquals(validate(validatorFor(Write.PROPERTIES_UPSERT), session, item), List.of());
   }
 
   /**
@@ -262,14 +267,6 @@ public class PrivilegeConstraintsWriteGateParityTest {
       {DATASET, true, Write.PROPERTIES_UPSERT, Map.of(EDIT_ENTITY, Set.of(PROP_A))},
       {DATASET, true, Write.TAGS_PATCH, Map.of(EDIT_ENTITY_TAGS, Set.of(TAG_A))},
       {DATASET, true, Write.TAGS_UPSERT, Map.of(EDIT_ENTITY, Set.of(TAG_A))},
-      // A constrained Edit policy still narrows an actor that the gate admits through another
-      // privilege.
-      {
-        DOCUMENT,
-        true,
-        Write.PROPERTIES_UPSERT,
-        Map.of(MANAGE_DOCUMENTS, Set.of(), EDIT_ENTITY_PROPERTIES, Set.of(PROP_A))
-      },
     };
   }
 
@@ -296,6 +293,7 @@ public class PrivilegeConstraintsWriteGateParityTest {
       // Create Entity never overwrites an existing entity.
       {DATASET, true, Write.PROPERTIES_UPSERT, CREATE_ENTITY},
       {DATASET, true, Write.TAGS_PATCH, CREATE_ENTITY},
+      {DATASET, false, Write.PROPERTIES_PATCH, CREATE_ENTITY},
       // Delete Entity does not grant edits.
       {DATASET, true, Write.PROPERTIES_UPSERT, DELETE_ENTITY},
     };
@@ -394,14 +392,9 @@ public class PrivilegeConstraintsWriteGateParityTest {
         .collect(Collectors.toList());
   }
 
-  /** The same decision Rest.li and OpenAPI ingest make before any validator runs. */
   private static boolean gateAdmits(AuthorizationSession session, BatchItem item, boolean exists) {
-    Pair<ChangeType, Urn> key =
-        DocumentAuthorizationUtils.effectiveDocumentIngestAuthorizationKey(
-            item.getChangeType(), item.getUrn(), exists);
-    return AuthUtil.isAPIAuthorizedUrns(session, ENTITY, Set.of(key), Map.of(item.getUrn(), exists))
-            .get(key)
-        == HttpStatus.SC_OK;
+    return AuthUtil.isCoarseSubResourceWriteAuthorized(
+        session, item.getChangeType(), item.getUrn(), item.getAspectName(), exists);
   }
 
   /**
@@ -423,11 +416,20 @@ public class PrivilegeConstraintsWriteGateParityTest {
           @Nullable EntitySpec resourceSpec,
           @Nonnull Collection<EntitySpec> subResources) {
         Set<Urn> constraint = privileges.get(privilege);
+        boolean wildcard =
+            subResources.stream()
+                .anyMatch(
+                    s ->
+                        com.linkedin.metadata.Constants.WILDCARD_URN
+                            .toString()
+                            .equals(s.getEntity()));
         boolean allowed =
             constraint != null
                 && (constraint.isEmpty()
-                    || subResources.stream()
-                        .allMatch(s -> constraint.contains(UrnUtils.getUrn(s.getEntity()))));
+                    || wildcard
+                    || (!subResources.isEmpty()
+                        && subResources.stream()
+                            .allMatch(s -> constraint.contains(UrnUtils.getUrn(s.getEntity())))));
         return new AuthorizationResult(
             null, allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY, null);
       }

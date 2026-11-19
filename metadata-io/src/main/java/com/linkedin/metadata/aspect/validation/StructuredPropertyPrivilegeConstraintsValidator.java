@@ -14,6 +14,7 @@ import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
@@ -60,7 +61,11 @@ public class StructuredPropertyPrivilegeConstraintsValidator
       if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(item.getAspectName())) {
         failures.addAll(
             validateStructuredProperties(
-                session, item, aspectRetriever, currentAspects.get(item.getUrn())));
+                operationContext,
+                session,
+                item,
+                aspectRetriever,
+                currentAspects.get(item.getUrn())));
       }
     }
     return failures;
@@ -93,6 +98,7 @@ public class StructuredPropertyPrivilegeConstraintsValidator
   }
 
   private List<AspectValidationException> validateStructuredProperties(
+      @Nonnull OperationFingerprint operationContext,
       AuthorizationSession session,
       BatchItem item,
       AspectRetriever aspectRetriever,
@@ -125,7 +131,10 @@ public class StructuredPropertyPrivilegeConstraintsValidator
       return Collections.emptyList();
     }
     if (!AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
-        session, item.getUrn(), difference)) {
+        session,
+        item.getUrn(),
+        difference,
+        operationFor(operationContext, aspectRetriever, item.getUrn(), item.getChangeType()))) {
       return List.of(
           AspectValidationException.forAuth(
               item, "Unauthorized to modify one or more structured property Urns: " + difference));
@@ -167,5 +176,18 @@ public class StructuredPropertyPrivilegeConstraintsValidator
                 StructuredPropertyValueAssignment::getPropertyUrn,
                 a -> Optional.ofNullable(a.getValues()).orElse(new PrimitivePropertyValueArray()),
                 (a, b) -> b));
+  }
+
+  private static ApiOperation operationFor(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Urn urn,
+      @Nonnull ChangeType changeType) {
+    boolean exists = false;
+    if (AuthUtil.subResourceWriteOperationNeedsExistence(changeType, urn)) {
+      Map<Urn, Boolean> existing = aspectRetriever.entityExists(operationContext, Set.of(urn));
+      exists = existing != null && Boolean.TRUE.equals(existing.get(urn));
+    }
+    return AuthUtil.subResourceWriteOperation(changeType, urn, exists);
   }
 }

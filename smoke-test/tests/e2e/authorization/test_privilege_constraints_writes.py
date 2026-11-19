@@ -1,10 +1,11 @@
 """
-Structured property and tag writes from users allowed to write without Edit privileges.
+Structured property and tag writes follow the actor's policies.
 
-The structured property and tag privilege-constraint validators run on every write API. They
-must only deny a write when a privilegeConstraints policy narrows the user, not when the user was
-allowed to write through another privilege or by a service's own rule. Each scenario uses a user
-holding only the privilege named in its test:
+A write is allowed when any one policy grants it: the resource filter matches the asset, the
+privilege covers the update (Edit Entity, Manage Documents, Edit Entity Properties, Create Entity,
+Delete Entity, or Edit Dataset Column Properties on the parent dataset), and a privilegeConstraints
+list on that policy allows the changed sub-resources. A tag list does not allow a property write.
+A denied write is 403. Each scenario uses a user holding only the privilege named in its test:
 
   - Manage Documents: Rest.li create and UPSERT, tag PATCH, OpenAPI v3 PATCH on documents
   - Manage Users & Groups: OpenAPI v3 upsert on a group, Rest.li tag PATCH on a user
@@ -86,10 +87,24 @@ GROUP_MANAGER = "groups"
 CREATOR = "creator"
 DELETER = "deleter"
 CONSTRAINED = "constrained"
+PROPERTIES = "properties"
+COLUMN = "column"
+TAG_LIST = "taglist"
 ASSIGNEE = "assignee"
 # No policy and not assigned to the form.
 OUTSIDER = "outsider"
-ROLES = (DOCS_WRITER, GROUP_MANAGER, CREATOR, DELETER, CONSTRAINED, ASSIGNEE, OUTSIDER)
+ROLES = (
+    DOCS_WRITER,
+    GROUP_MANAGER,
+    CREATOR,
+    DELETER,
+    CONSTRAINED,
+    PROPERTIES,
+    COLUMN,
+    TAG_LIST,
+    ASSIGNEE,
+    OUTSIDER,
+)
 
 
 def _email(role: str) -> str:
@@ -175,7 +190,13 @@ def _seed_metadata(graph: DataHubGraph) -> None:
                     valueType=Urn.make_data_type_urn("string"),
                     entityTypes=[
                         Urn.make_entity_type_urn(t)
-                        for t in ("dataset", "document", "corpGroup", "corpuser")
+                        for t in (
+                            "dataset",
+                            "schemaField",
+                            "document",
+                            "corpGroup",
+                            "corpuser",
+                        )
                     ],
                     cardinality="SINGLE",
                 ),
@@ -237,8 +258,6 @@ def _create_policies(graph: DataHubGraph) -> List[str]:
             "prop-a",
             CONSTRAINED,
             "METADATA",
-            # The API write check needs Edit Entity for any update, so this is the shape that
-            # reaches the validator: Edit Entity granted only through a constrained policy.
             ["EDIT_ENTITY"],
             DataHubResourceFilterClass(
                 type="dataset",
@@ -247,6 +266,37 @@ def _create_policies(graph: DataHubGraph) -> List[str]:
                     criteria=[
                         PolicyMatchCriterionClass(
                             field="URN", values=[PROP_A], condition="EQUALS"
+                        )
+                    ]
+                ),
+            ),
+        ),
+        (
+            "properties",
+            PROPERTIES,
+            "METADATA",
+            ["EDIT_ENTITY_PROPERTIES"],
+            every_dataset,
+        ),
+        (
+            "column",
+            COLUMN,
+            "METADATA",
+            ["EDIT_DATASET_COL_PROPERTIES"],
+            every_dataset,
+        ),
+        (
+            "tag-list",
+            TAG_LIST,
+            "METADATA",
+            ["EDIT_ENTITY"],
+            DataHubResourceFilterClass(
+                type="dataset",
+                allResources=True,
+                privilegeConstraints=PolicyMatchFilterClass(
+                    criteria=[
+                        PolicyMatchCriterionClass(
+                            field="URN", values=[TAG_A], condition="EQUALS"
                         )
                     ]
                 ),
@@ -692,8 +742,66 @@ def test_constrained_user_limited_to_allowed_property(setup, transport):
         lambda: _write(PROP_A, f"allowed-{transport}"),
         f"{transport} write of the property the constraint allows",
     )
-    with pytest.raises(
-        WriteDenied, match="Unauthorized to modify one or more structured property"
-    ):
+    with pytest.raises(WriteDenied, match="403"):
         _write(PROP_B, f"denied-{transport}")
     assert PROP_B not in _stored_props(setup["graph"], DATASET_EXISTING)
+
+
+def test_edit_entity_properties_allows_any_property(setup):
+    dataset = _new_dataset("properties")
+    setup["created"].append(dataset)
+    setup["graph"].emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset, aspect=DatasetPropertiesClass(name="properties")
+        )
+    )
+
+    def _write() -> None:
+        _restli(
+            setup,
+            PROPERTIES,
+            [
+                MetadataChangeProposalWrapper(
+                    entityUrn=dataset, aspect=_props((PROP_B, "any-property"))
+                )
+            ],
+        )
+
+    _eventually_allowed(_write, "Edit Entity Properties with no sub-resource list")
+    assert _stored_props(setup["graph"], dataset)[PROP_B] == ["any-property"]
+
+
+def test_column_properties_on_parent_dataset(setup):
+    field = f"urn:li:schemaField:({DATASET_EXISTING},my_column)"
+
+    def _write() -> None:
+        _restli(
+            setup,
+            COLUMN,
+            [
+                MetadataChangeProposalWrapper(
+                    entityUrn=field, aspect=_props((PROP_A, "column"))
+                )
+            ],
+        )
+
+    _eventually_allowed(_write, "Edit Dataset Column Properties on the parent dataset")
+    assert _stored_props(setup["graph"], field)[PROP_A] == ["column"]
+    setup["created"].append(field)
+
+
+def test_tag_list_does_not_allow_property_writes_and_allows_the_tag(setup):
+    with pytest.raises(WriteDenied, match="403"):
+        _restli(
+            setup,
+            TAG_LIST,
+            [
+                MetadataChangeProposalWrapper(
+                    entityUrn=DATASET_EXISTING, aspect=_props((PROP_A, "from-tag-list"))
+                )
+            ],
+        )
+    _eventually_allowed(
+        lambda: _restli(setup, TAG_LIST, _add_tag_patch(DATASET_EXISTING)),
+        "Edit Entity with a tag list still allows that tag",
+    )

@@ -774,13 +774,28 @@ user set/change/remove only that structured property on matching assets. `NOT_EQ
 specific properties. These policies apply by default in the UI and can be configured to apply
 to API operations as well through the `MCP_VALIDATION_PRIVILEGE_CONSTRAINTS` environment variable which should be applied globally (GMS, MCE Consumer, and DataHub Upgrade specifically), which is enabled by default.
 
-Constraints only narrow what a user may change; they do not decide whether the user may write
-the asset at all. A write is checked against a user's constraints when the user holds **Edit
-Entity**, **Edit Entity Properties** (structured properties) or **Edit Entity Tags** (tags) on the
-asset. If none of those grants covers every tag or structured property being changed, the write is
-rejected. A user without any of those privileges, who is allowed to write through another privilege
-(such as **Manage Documents**) or by answering a form assigned to them, is not limited by
-constraints.
+A policy grants a write when its resource filter matches the asset and its privilege covers the
+operation. Policies are combined with OR: one policy with no `privilegeConstraints` list still
+grants the whole privilege even when another policy lists sub-resources. A list scopes only the
+policy that contains it, and it is the whole grant of that policy. A list of tag URNs allows only
+those tag edits. It does not allow structured-property writes, and it does not allow edits that
+have no sub-resource. A list of structured-property URNs allows only those properties. A criterion
+of type `structuredProperty` with no property URNs matches every structured property. A tag or
+domain on the resource filter (`resources.filter`) selects which assets the policy applies to; it
+is not a sub-resource list.
+
+A sub-resource list narrows writes only. A policy with a list cannot include a read privilege,
+such as **View Entity Page**, **View Dataset Usage** or **View Entity Queries**. Saving such a
+policy is rejected unless it is inactive. A policy saved before this rule still grants its writes through the list but
+grants none of its read privileges. Split it into a read policy with no list and a write policy
+with the list.
+
+The privilege can be the entity's update privilege (**Edit Entity**, and **Manage Documents** on
+documents) or the aspect privilege (**Edit Entity Properties** for every property, **Edit Entity
+Tags** for tags, **Edit Dataset Column Properties** or **Edit Entity** on the parent dataset for a
+column). Creating an asset that does not exist yet uses **Create Entity**. Deleting the aspect
+uses **Delete Entity**. Answering a form prompt is a separate grant: the user, group, or owner
+named on the form may set only the properties that prompt asks for.
 
 Example JSON of a policy with constraints:
 

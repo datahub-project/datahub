@@ -1,0 +1,217 @@
+package com.linkedin.metadata.authorization;
+
+import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.WILDCARD_URN;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+
+import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.EntitySpec;
+import com.datahub.context.OperationFingerprint;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.lang.reflect.Field;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.http.HttpStatus;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
+
+/**
+ * The ingest gate for aspects whose validator checks sub-resources (structured properties, tags)
+ * picks create, update or delete from the change type the same way the validators do. Uses the real
+ * {@link AuthUtil}; only the policy decision is faked.
+ */
+public class EntityAuthorizationUtilsSubResourceGateTest {
+
+  private static final EntityRegistry REGISTRY = TestOperationContexts.defaultEntityRegistry();
+  private static final Urn DATASET =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,PROD)");
+  private static final Urn DOCUMENT = UrnUtils.getUrn("urn:li:document:my-doc");
+  private static final Urn PROP_A = UrnUtils.getUrn("urn:li:structuredProperty:prop_a");
+
+  private static final String EDIT_ENTITY = PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType();
+  private static final String EDIT_ENTITY_PROPERTIES =
+      PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE.getType();
+  private static final String CREATE_ENTITY = PoliciesConfig.CREATE_ENTITY_PRIVILEGE.getType();
+  private static final String DELETE_ENTITY = PoliciesConfig.DELETE_ENTITY_PRIVILEGE.getType();
+
+  private boolean previousRestApiAuthorization;
+
+  @BeforeMethod
+  public void setup() throws Exception {
+    previousRestApiAuthorization = AuthUtil.isRestApiAuthorizationEnabled();
+    setRestApiAuthorizationEnabled(true);
+  }
+
+  @AfterMethod
+  public void tearDown() throws Exception {
+    setRestApiAuthorizationEnabled(previousRestApiAuthorization);
+  }
+
+  /** {urn, exists, changeType, aspect, privilege, privilegeConstraints, expected status}. */
+  @DataProvider(name = "gateCases")
+  public Object[][] gateCases() {
+    return new Object[][] {
+      // Deleting the aspect is a delete, so Delete Entity is enough.
+      {
+        DATASET,
+        true,
+        ChangeType.DELETE,
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        DELETE_ENTITY,
+        Set.of(),
+        HttpStatus.SC_OK
+      },
+      {
+        DATASET,
+        true,
+        ChangeType.DELETE,
+        GLOBAL_TAGS_ASPECT_NAME,
+        DELETE_ENTITY,
+        Set.of(),
+        HttpStatus.SC_OK
+      },
+      // A patch is an update, whether or not the entity exists.
+      {
+        DATASET,
+        false,
+        ChangeType.PATCH,
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        EDIT_ENTITY,
+        Set.of(),
+        HttpStatus.SC_OK
+      },
+      {
+        DATASET,
+        true,
+        ChangeType.PATCH,
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        CREATE_ENTITY,
+        Set.of(),
+        HttpStatus.SC_FORBIDDEN
+      },
+      // A property list is checked by the validator; the gate lets it through.
+      {
+        DATASET,
+        true,
+        ChangeType.UPSERT,
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        EDIT_ENTITY_PROPERTIES,
+        Set.of(PROP_A),
+        HttpStatus.SC_OK
+      },
+      // Other aspects keep the entity privilege check, which a property grant does not satisfy.
+      {
+        DOCUMENT,
+        true,
+        ChangeType.UPSERT,
+        DOCUMENT_INFO_ASPECT_NAME,
+        EDIT_ENTITY_PROPERTIES,
+        Set.of(PROP_A),
+        HttpStatus.SC_FORBIDDEN
+      },
+    };
+  }
+
+  @Test(dataProvider = "gateCases")
+  public void testIngestGate(
+      Urn urn,
+      boolean exists,
+      ChangeType changeType,
+      String aspectName,
+      String privilege,
+      Set<Urn> privilegeConstraints,
+      int expected) {
+    MetadataChangeProposal proposal =
+        new MetadataChangeProposal()
+            .setEntityType(urn.getEntityType())
+            .setEntityUrn(urn)
+            .setChangeType(changeType)
+            .setAspectName(aspectName);
+    OperationContext opContext =
+        session(Map.of(privilege, privilegeConstraints), Map.of(urn, exists));
+
+    List<Pair<MetadataChangeProposal, Integer>> result =
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(opContext, REGISTRY, List.of(proposal));
+
+    assertEquals(
+        result.get(0).getSecond().intValue(),
+        expected,
+        String.format(
+            "%s %s on %s %s with %s%s",
+            changeType,
+            aspectName,
+            exists ? "existing" : "new",
+            urn.getEntityType(),
+            privilege,
+            privilegeConstraints));
+  }
+
+  /**
+   * An operation context that holds each privilege in {@code privileges}. A non-empty value is a
+   * privilegeConstraints list: the privilege then applies only to a wildcard or listed
+   * sub-resource, as {@code PolicyEngine.isSubResourceAllowed} evaluates it.
+   */
+  private static OperationContext session(
+      Map<String, Set<Urn>> privileges, Map<Urn, Boolean> existing) {
+    OperationContext opContext = mock(OperationContext.class);
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    when(aspectRetriever.entityExists(any(OperationFingerprint.class), anySet()))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> urns = invocation.getArgument(1);
+              return urns.stream()
+                  .collect(Collectors.toMap(u -> u, u -> existing.getOrDefault(u, false)));
+            });
+    when(opContext.authorize(anyString(), any()))
+        .thenAnswer(invocation -> decide(privileges, invocation.getArgument(0), List.of()));
+    when(opContext.authorize(anyString(), any(), anyCollection()))
+        .thenAnswer(
+            invocation -> decide(privileges, invocation.getArgument(0), invocation.getArgument(2)));
+    return opContext;
+  }
+
+  private static AuthorizationResult decide(
+      Map<String, Set<Urn>> privileges, String privilege, Collection<EntitySpec> subResources) {
+    Set<Urn> constraint = privileges.get(privilege);
+    boolean allowed =
+        constraint != null
+            && (constraint.isEmpty()
+                || (!subResources.isEmpty()
+                    && subResources.stream()
+                        .allMatch(
+                            s ->
+                                WILDCARD_URN.toString().equals(s.getEntity())
+                                    || constraint.contains(UrnUtils.getUrn(s.getEntity())))));
+    return new AuthorizationResult(
+        null, allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY, null);
+  }
+
+  private static void setRestApiAuthorizationEnabled(boolean enabled) throws Exception {
+    Field field = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
+    field.setAccessible(true);
+    field.setBoolean(null, enabled);
+  }
+}

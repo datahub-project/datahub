@@ -188,6 +188,36 @@ public class AuthorizationUtilsTest {
   }
 
   @Test
+  public void testCanEditStructuredPropertiesUsesSharedDecision() {
+    assertTrue(
+        AuthorizationUtils.canEditStructuredProperties(
+            TEST_DATASET_URN, getMockAllowContext(), List.of(TEST_STRUCTURED_PROPERTY_URN)));
+    assertFalse(
+        AuthorizationUtils.canEditStructuredProperties(
+            TEST_DATASET_URN, getMockDenyContext(), List.of(TEST_STRUCTURED_PROPERTY_URN)));
+  }
+
+  @Test
+  public void testCanEditStructuredPropertiesFlagUsesWildcardSubResource() {
+    QueryContext context = getMockAllowContext();
+    AuthorizationUtils.canEditStructuredProperties(
+        TEST_DATASET_URN, context, Collections.emptyList());
+
+    ArgumentCaptor<AuthorizationRequest> requestCaptor =
+        ArgumentCaptor.forClass(AuthorizationRequest.class);
+    Mockito.verify(context.getAuthorizer(), Mockito.atLeastOnce())
+        .authorize(requestCaptor.capture());
+    assertTrue(
+        requestCaptor.getAllValues().stream()
+            .flatMap(request -> request.getSubResources().stream())
+            .anyMatch(
+                spec ->
+                    com.linkedin.metadata.Constants.WILDCARD_URN
+                        .toString()
+                        .equals(spec.getEntity())));
+  }
+
+  @Test
   public void testCanCreateLogicalModelsAllowed() {
     QueryContext context = getMockAllowContext();
     assertTrue(AuthorizationUtils.canCreateLogicalModels(context));

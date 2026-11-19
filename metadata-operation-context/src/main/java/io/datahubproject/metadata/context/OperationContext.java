@@ -549,6 +549,21 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   }
 
   /**
+   * A write the caller has already authorized by its own rule, such as a form assignment. Aspect
+   * authorization validators skip system auth. The property attribution stays on the proposal; this
+   * only changes who the validator sees.
+   */
+  @Nonnull
+  public OperationContext asTrustedSystemWrite() {
+    if (systemActorContext == null) {
+      throw new IllegalStateException("Trusted system write requires a system actor");
+    }
+    OperationContextConfig trustedConfig =
+        operationContextConfig.toBuilder().allowSystemAuthentication(true).build();
+    return toBuilder().operationContextConfig(trustedConfig).build(systemActorContext, false);
+  }
+
+  /**
    * Whether default authentication is system level. Implements {@link
    * com.datahub.context.OperationFingerprint#isSystemAuth()}.
    */

@@ -492,6 +492,12 @@ public class PoliciesConfig {
           "Edit Dataset Column Glossary Terms",
           "The ability to edit the column (field) glossary terms associated with a dataset schema.");
 
+  public static final Privilege EDIT_DATASET_COL_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "EDIT_DATASET_COL_PROPERTIES",
+          "Edit Dataset Column Properties",
+          "The ability to edit the column (field) structured properties associated with a dataset schema.");
+
   public static final Privilege EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE =
       Privilege.of(
           "EDIT_DATASET_COL_DESCRIPTION",
@@ -706,6 +712,7 @@ public class PoliciesConfig {
                       VIEW_DATASET_PROFILE_PRIVILEGE,
                       VIEW_DATASET_OPERATIONS_PRIVILEGE,
                       EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE,
+                      EDIT_DATASET_COL_PROPERTIES_PRIVILEGE,
                       EDIT_DATASET_COL_TAGS_PRIVILEGE,
                       EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
                       EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
@@ -1599,6 +1606,18 @@ public class PoliciesConfig {
       return new ResourcePrivileges(
           resourceType, resourceTypeDisplayName, resourceTypeDescription, privileges);
     }
+  }
+
+  /**
+   * Whether a privilege only reads. privilegeConstraints narrow writes to listed sub-resources;
+   * read checks pass no sub-resources, so a read privilege cannot be combined with a list.
+   */
+  public static boolean isReadPrivilege(@Nonnull String privilegeType) {
+    return privilegeType.startsWith("VIEW_")
+        || GET_ENTITY_PRIVILEGE.getType().equals(privilegeType)
+        || EXISTS_ENTITY_PRIVILEGE.getType().equals(privilegeType)
+        || SEARCH_PRIVILEGE.getType().equals(privilegeType)
+        || DATA_READ_ONLY_PRIVILEGE.getType().equals(privilegeType);
   }
 
   private PoliciesConfig() {}

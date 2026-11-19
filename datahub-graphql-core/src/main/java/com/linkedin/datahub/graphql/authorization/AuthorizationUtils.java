@@ -187,9 +187,25 @@ public class AuthorizationUtils {
   }
 
   /**
-   * Checks EDIT_ENTITY_PROPERTIES on the target, scoped to the structured properties being modified
-   * so per-property privilege constraints are enforced. Callers that are not modifying structured
-   * properties must pass an empty collection explicitly.
+   * Structured-property value writes. Uses the shared privilege set, including the entity's update
+   * privileges, and evaluates the property URNs as sub-resources. An empty collection is the
+   * privilege-flag check: a wildcard sub-resource, so a policy that lists properties still shows
+   * the edit control. Rename and other non-property callers keep {@link #canEditProperties}.
+   */
+  public static boolean canEditStructuredProperties(
+      @Nonnull Urn targetUrn,
+      @Nonnull QueryContext context,
+      @Nonnull Collection<Urn> structuredPropertyUrns) {
+    Collection<Urn> subResources =
+        structuredPropertyUrns.isEmpty() ? List.of(WILDCARD_URN) : structuredPropertyUrns;
+    return AuthUtil.isAuthorizedStructuredPropertyModification(
+        context.getOperationContext(), targetUrn, subResources, UPDATE);
+  }
+
+  /**
+   * Checks Edit Entity Properties (or all entity privileges) on the target, for edits other than
+   * structured property writes, which use {@link #canEditStructuredProperties}. Pass an empty
+   * collection: a policy with a privilegeConstraints list then does not grant the edit.
    */
   public static boolean canEditProperties(
       @Nonnull Urn targetUrn,

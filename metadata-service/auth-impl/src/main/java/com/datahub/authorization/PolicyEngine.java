@@ -93,6 +93,18 @@ public class PolicyEngine {
               policy.getPrivileges(), privilege));
     }
 
+    // A sub-resource list narrows writes. Reads are not scoped to sub-resources, so a policy with
+    // a list grants none of its read privileges (new ones are rejected by
+    // PolicyFieldTypeValidator).
+    if (PoliciesConfig.isReadPrivilege(privilege) && hasPrivilegeConstraints(policy)) {
+      return new PolicyEvaluationResult(
+          policy.getDisplayName(),
+          false,
+          String.format(
+              "Policy denied: read privilege %s is not granted by a policy with privilegeConstraints",
+              privilege));
+    }
+
     // If policy is not applicable, deny the request
     if (!isPolicyApplicable(opContext, policy, resolvedActorSpec, resource, context, subResources)
         .isGranted()) {
@@ -271,7 +283,10 @@ public class PolicyEngine {
       PolicyEvaluationResult result =
           isPolicyApplicable(opContext, policy, resolvedActorSpec, resource, context, subResources);
       if (result.isGranted()) {
-        privileges.addAll(policy.getPrivileges());
+        boolean constrained = hasPrivilegeConstraints(policy);
+        policy.getPrivileges().stream()
+            .filter(privilege -> !constrained || !PoliciesConfig.isReadPrivilege(privilege))
+            .forEach(privileges::add);
       } else {
         reasonsOfDeny.put(result.getPolicyName(), result.getReason());
       }
@@ -331,20 +346,39 @@ public class PolicyEngine {
       log.debug("No resource defined on the policy.");
       return true;
     }
-    if (subResources.isEmpty()) {
-      log.debug("No subresources to evaluate.");
+    if (!hasPrivilegeConstraints(policyResourceFilter)) {
+      // No list: the privilege applies to the whole resource, including writes with no
+      // sub-resources and reads.
       return true;
     }
-    if (policyResourceFilter.getPrivilegeConstraints() != null) {
-      PolicyMatchFilter filter = policyResourceFilter.getPrivilegeConstraints();
-      return subResources.stream()
-          .allMatch(
-              subResource ->
-                  WILDCARD_URN.toString().equals(subResource.getSpec().getEntity())
-                      || checkFilter(filter, subResource));
+    // A list is the whole grant. A write or read that names no sub-resource does not match it.
+    // A wildcard sub-resource is the coarse check used by the ingest gate and privilege flags;
+    // the validator then evaluates the real URNs. privilegeConstraints are applied only here.
+    if (subResources.isEmpty()) {
+      return false;
     }
-    log.debug("No modification constraints specified.");
-    return true;
+    PolicyMatchFilter filter = policyResourceFilter.getPrivilegeConstraints();
+    return subResources.stream()
+        .allMatch(
+            subResource ->
+                WILDCARD_URN.toString().equals(subResource.getSpec().getEntity())
+                    || checkFilter(filter, subResource));
+  }
+
+  private static boolean hasPrivilegeConstraints(@Nonnull final DataHubPolicyInfo policy) {
+    return policy.hasResources()
+        && policy.getResources() != null
+        && hasPrivilegeConstraints(policy.getResources());
+  }
+
+  private static boolean hasPrivilegeConstraints(
+      @Nonnull final DataHubResourceFilter policyResourceFilter) {
+    if (!policyResourceFilter.hasPrivilegeConstraints()
+        || policyResourceFilter.getPrivilegeConstraints() == null) {
+      return false;
+    }
+    PolicyMatchFilter filter = policyResourceFilter.getPrivilegeConstraints();
+    return filter.hasCriteria() && !filter.getCriteria().isEmpty();
   }
 
   /**

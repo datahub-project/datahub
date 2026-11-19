@@ -15,11 +15,13 @@ import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.schema.EditableSchemaFieldInfo;
@@ -35,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -70,14 +73,34 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
               .get(item.getUrn());
       switch (item.getAspectName()) {
         case GLOBAL_TAGS_ASPECT_NAME:
-          failures.addAll(validateGlobalTags(session, item, aspectRetriever, currentAspect));
+          failures.addAll(
+              validateGlobalTags(
+                  session,
+                  item,
+                  aspectRetriever,
+                  currentAspect,
+                  operationFor(
+                      operationContext, aspectRetriever, item.getUrn(), item.getChangeType())));
           break;
         case SCHEMA_METADATA_ASPECT_NAME:
-          failures.addAll(validateSchemaMetadata(session, item, aspectRetriever, currentAspect));
+          failures.addAll(
+              validateSchemaMetadata(
+                  session,
+                  item,
+                  aspectRetriever,
+                  currentAspect,
+                  operationFor(
+                      operationContext, aspectRetriever, item.getUrn(), item.getChangeType())));
           break;
         case EDITABLE_SCHEMA_METADATA_ASPECT_NAME:
           failures.addAll(
-              validateEditableSchemaMetadata(session, item, aspectRetriever, currentAspect));
+              validateEditableSchemaMetadata(
+                  session,
+                  item,
+                  aspectRetriever,
+                  currentAspect,
+                  operationFor(
+                      operationContext, aspectRetriever, item.getUrn(), item.getChangeType())));
           break;
         default:
           break;
@@ -128,7 +151,8 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
       AuthorizationSession session,
       BatchItem item,
       AspectRetriever aspectRetriever,
-      @Nullable Aspect currentTagsAspect) {
+      @Nullable Aspect currentTagsAspect,
+      @Nonnull Supplier<ApiOperation> operation) {
     GlobalTags newTags;
     GlobalTags currentTags =
         currentTagsAspect == null
@@ -138,8 +162,13 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
         PatchItemImpl.resolveProposedAspect(item, currentTags, aspectRetriever, GlobalTags.class);
     if (newTags != null) {
       Set<Urn> tagDifference = extractTagDifference(newTags, currentTags);
-      if (!AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-          session, item.getUrn(), tagDifference, PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE)) {
+      if (!tagDifference.isEmpty()
+          && !AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
+              session,
+              item.getUrn(),
+              tagDifference,
+              PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE,
+              operation.get())) {
         return List.of(
             AspectValidationException.forAuth(
                 item, "Unauthorized to modify one or more tag Urns: " + tagDifference));
@@ -174,7 +203,8 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
       AuthorizationSession session,
       BatchItem item,
       AspectRetriever aspectRetriever,
-      @Nullable Aspect currentSchemaAspect) {
+      @Nullable Aspect currentSchemaAspect,
+      @Nonnull Supplier<ApiOperation> operation) {
     SchemaMetadata schemaMetadata;
     SchemaMetadata currentSchema =
         currentSchemaAspect == null
@@ -204,11 +234,13 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
                           existingTagsMap.get(schemaField.getFieldPath())))
               .flatMap(Set::stream)
               .collect(Collectors.toSet());
-      if (!AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-          session,
-          item.getUrn(),
-          tagDifference,
-          AuthUtil.tagModificationPrivilege(item.getUrn(), true))) {
+      if (!tagDifference.isEmpty()
+          && !AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
+              session,
+              item.getUrn(),
+              tagDifference,
+              AuthUtil.tagModificationPrivilege(item.getUrn(), true),
+              operation.get())) {
         return List.of(
             AspectValidationException.forAuth(
                 item, "Unauthorized to modify one or more tag Urns: " + tagDifference));
@@ -221,7 +253,8 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
       AuthorizationSession session,
       BatchItem item,
       AspectRetriever aspectRetriever,
-      @Nullable Aspect currentSchemaAspect) {
+      @Nullable Aspect currentSchemaAspect,
+      @Nonnull Supplier<ApiOperation> operation) {
     EditableSchemaMetadata editableSchemaMetadata;
     EditableSchemaMetadata currentSchema =
         currentSchemaAspect == null
@@ -252,16 +285,34 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
                           existingTagsMap.get(schemaField.getFieldPath())))
               .flatMap(Set::stream)
               .collect(Collectors.toSet());
-      if (!AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-          session,
-          item.getUrn(),
-          tagDifference,
-          AuthUtil.tagModificationPrivilege(item.getUrn(), true))) {
+      if (!tagDifference.isEmpty()
+          && !AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
+              session,
+              item.getUrn(),
+              tagDifference,
+              AuthUtil.tagModificationPrivilege(item.getUrn(), true),
+              operation.get())) {
         return List.of(
             AspectValidationException.forAuth(
                 item, "Unauthorized to modify one or more tag Urns: " + tagDifference));
       }
     }
     return Collections.emptyList();
+  }
+
+  /** Resolved only after a non-empty tag change, so unchanged writes skip the existence lookup. */
+  private static Supplier<ApiOperation> operationFor(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Urn urn,
+      @Nonnull ChangeType changeType) {
+    return () -> {
+      boolean exists = false;
+      if (AuthUtil.subResourceWriteOperationNeedsExistence(changeType, urn)) {
+        Map<Urn, Boolean> existing = aspectRetriever.entityExists(operationContext, Set.of(urn));
+        exists = existing != null && Boolean.TRUE.equals(existing.get(urn));
+      }
+      return AuthUtil.subResourceWriteOperation(changeType, urn, exists);
+    };
   }
 }

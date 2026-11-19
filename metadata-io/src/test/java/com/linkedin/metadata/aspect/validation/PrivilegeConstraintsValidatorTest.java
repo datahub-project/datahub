@@ -257,7 +257,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -284,7 +284,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(false);
 
     Stream<AspectValidationException> result =
@@ -321,7 +321,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -352,7 +352,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -383,7 +383,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -409,7 +409,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -435,7 +435,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(false);
 
     Stream<AspectValidationException> result =
@@ -473,7 +473,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -505,7 +505,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -538,7 +538,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -565,7 +565,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -592,7 +592,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(false);
 
     Stream<AspectValidationException> result =
@@ -631,7 +631,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -664,7 +664,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -697,7 +697,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -800,7 +800,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -871,7 +871,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(false);
 
     Stream<AspectValidationException> result =
@@ -895,6 +895,7 @@ public class PrivilegeConstraintsValidatorTest {
                 Mockito.eq(mockAuthSession),
                 Mockito.eq(TEST_DATASET_URN),
                 Mockito.eq(Set.of(TEST_TAG_URN_2)),
+                any(),
                 any()));
   }
 
@@ -944,7 +945,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    any(AuthorizationSession.class), any(Urn.class), any(), any()))
+                    any(AuthorizationSession.class), any(Urn.class), any(), any(), any()))
         .thenReturn(false);
 
     Stream<AspectValidationException> result =
@@ -1044,7 +1045,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    any(AuthorizationSession.class), any(Urn.class), any(), any()))
+                    any(AuthorizationSession.class), any(Urn.class), any(), any(), any()))
         .thenReturn(false);
 
     Stream<AspectValidationException> result =
@@ -1116,7 +1117,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -1218,7 +1219,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenAnswer(
             invocation -> {
               checkedTagsByEntity.put(invocation.getArgument(1), invocation.getArgument(2));
@@ -1264,7 +1265,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenAnswer(invocation -> !((Set<Urn>) invocation.getArgument(2)).contains(TEST_TAG_URN_2));
 
     // Both proposals clear their tags, so the only change either one carries is a removal.
@@ -1393,7 +1394,7 @@ public class PrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any(), any()))
         .thenReturn(false);
 
     Optional<AspectValidationException> denial =
@@ -1413,6 +1414,7 @@ public class PrivilegeConstraintsValidatorTest {
                 Mockito.eq(mockAuthSession),
                 Mockito.eq(TEST_DATASET_URN),
                 Mockito.eq(Set.of(TEST_TAG_URN_2)),
+                any(),
                 any()));
   }
 

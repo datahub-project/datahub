@@ -350,6 +350,14 @@ public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep 
     if (!info.hasPrivileges() || info.getPrivileges().contains(targetPrivilege)) {
       return false;
     }
+    // A policy with a privilegeConstraints list grants no read privileges, and saving one with a
+    // read privilege is rejected, so the backfill would only fail on it.
+    if (info.hasResources()
+        && info.getResources().hasPrivilegeConstraints()
+        && info.getResources().getPrivilegeConstraints().hasCriteria()
+        && !info.getResources().getPrivilegeConstraints().getCriteria().isEmpty()) {
+      return false;
+    }
     boolean triggeringPrivilegeGranted =
         info.getPrivileges().contains(VIEW_ENTITY_PAGE)
             || (alsoTriggerOnViewDatasetUsage && info.getPrivileges().contains(VIEW_DATASET_USAGE));

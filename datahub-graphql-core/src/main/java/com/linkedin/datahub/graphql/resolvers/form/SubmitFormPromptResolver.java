@@ -116,7 +116,8 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
               "Prompt %s on form %s does not ask for %s on %s",
               promptId, formUrn, structuredPropertyUrn, entityUrn));
     }
-    if (AuthorizationUtils.canEditProperties(entityUrn, context, List.of(structuredPropertyUrn))
+    if (AuthorizationUtils.canEditStructuredProperties(
+            entityUrn, context, List.of(structuredPropertyUrn))
         || AuthorizationUtils.canManageForms(context)) {
       return;
     }

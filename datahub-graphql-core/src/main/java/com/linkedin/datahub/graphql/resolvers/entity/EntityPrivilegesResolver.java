@@ -286,7 +286,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
             : AuthorizationUtils.canDeleteEntity(urn, context));
     result.setCanEditLineage(canEditEntityLineage(urn, context));
     result.setCanEditProperties(
-        AuthorizationUtils.canEditProperties(urn, context, Collections.emptyList()));
+        AuthorizationUtils.canEditStructuredProperties(urn, context, Collections.emptyList()));
     result.setCanEditAssertions(
         AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, urn));
     result.setCanEditAssertionOwners(

@@ -355,14 +355,24 @@ public class FormServiceTest {
             TEST_FORM_URN,
             TEST_PROMPT_ID);
 
+    final ArgumentCaptor<OperationContext> contextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
     final ArgumentCaptor<MetadataChangeProposal> captor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(mockClient, atLeastOnce()).ingestProposal(eq(OP_CONTEXT), captor.capture(), eq(false));
-    final MetadataChangeProposal mcp =
-        captor.getAllValues().stream()
-            .filter(proposal -> STRUCTURED_PROPERTIES_ASPECT_NAME.equals(proposal.getAspectName()))
-            .findFirst()
-            .orElseThrow(() -> new AssertionError("no structured properties were ingested"));
+    verify(mockClient, atLeastOnce())
+        .ingestProposal(contextCaptor.capture(), captor.capture(), eq(false));
+    int propertyWrite = -1;
+    for (int i = 0; i < captor.getAllValues().size(); i++) {
+      if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(captor.getAllValues().get(i).getAspectName())) {
+        propertyWrite = i;
+        break;
+      }
+    }
+    assertTrue(propertyWrite >= 0, "no structured properties were ingested");
+    assertTrue(
+        contextCaptor.getAllValues().get(propertyWrite).isSystemAuth(),
+        "the form writes the prompted property as a trusted system operation");
+    final MetadataChangeProposal mcp = captor.getAllValues().get(propertyWrite);
 
     // Other properties already on the entity are neither read nor rewritten, so their values are
     // not re-validated against their allowedValues.

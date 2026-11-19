@@ -731,24 +731,26 @@ public class AuthUtilTest {
             TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
             TEST_ENTITY_1,
             List.of(TEST_TAG),
-            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE,
+            UPDATE),
         "Expected EDIT_ENTITY_TAGS to authorize tag modifications without EDIT_ENTITY");
 
-    // Holding no tag privilege means no constraint narrows the actor; the write gate decides.
-    assertTrue(
+    assertFalse(
         AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
             TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
             TEST_ENTITY_1,
             List.of(TEST_TAG),
-            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
-        "Expected user without tag privileges to be left to the write gate");
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE,
+            UPDATE),
+        "Expected user without tag privileges to be denied");
 
     assertTrue(
         AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
             TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
             TEST_ENTITY_1,
             Collections.emptyList(),
-            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE,
+            UPDATE),
         "Expected empty tag list to skip authorization");
 
     Authorizer datasetColTagsAuthorizer =
@@ -762,7 +764,8 @@ public class AuthUtilTest {
             TestAuthSession.from(TEST_AUTH_A, datasetColTagsAuthorizer),
             TEST_ENTITY_1,
             List.of(TEST_TAG),
-            PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE),
+            PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE,
+            UPDATE),
         "Expected EDIT_DATASET_COL_TAGS to authorize dataset column tag modifications");
   }
 
@@ -833,14 +836,16 @@ public class AuthUtilTest {
   @Test
   public void testTagModificationPrivilegeGroup() {
     assertEquals(
-        AuthUtil.tagModificationPrivilegeGroup(PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+        AuthUtil.tagModificationPrivilegeGroup(
+            TEST_ENTITY_1, UPDATE, PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
         new DisjunctivePrivilegeGroup(
             List.of(
                 new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY")),
                 new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY_TAGS")))));
 
     assertEquals(
-        AuthUtil.tagModificationPrivilegeGroup(PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE),
+        AuthUtil.tagModificationPrivilegeGroup(
+            TEST_ENTITY_1, UPDATE, PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE),
         new DisjunctivePrivilegeGroup(
             List.of(
                 new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY")),
@@ -861,29 +866,31 @@ public class AuthUtilTest {
         AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
             TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
             TEST_ENTITY_1,
-            List.of(TEST_PROPERTY)),
+            List.of(TEST_PROPERTY),
+            UPDATE),
         "Expected EDIT_ENTITY_PROPERTIES to authorize structured property modifications without EDIT_ENTITY");
 
-    // Holding no property privilege means no constraint narrows the actor; the write gate decides.
-    assertTrue(
+    assertFalse(
         AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
             TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
             TEST_ENTITY_1,
-            List.of(TEST_PROPERTY)),
-        "Expected user without property privileges to be left to the write gate");
+            List.of(TEST_PROPERTY),
+            UPDATE),
+        "Expected user without property privileges to be denied");
 
     assertTrue(
         AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
             TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
             TEST_ENTITY_1,
-            Collections.emptyList()),
+            Collections.emptyList(),
+            UPDATE),
         "Expected empty property list to skip authorization");
   }
 
   @Test
   public void testStructuredPropertyModificationPrivilegeGroup() {
     assertEquals(
-        AuthUtil.structuredPropertyModificationPrivilegeGroup(),
+        AuthUtil.structuredPropertyModificationPrivilegeGroup(TEST_ENTITY_1, UPDATE),
         new DisjunctivePrivilegeGroup(
             List.of(
                 new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY")),
@@ -901,7 +908,8 @@ public class AuthUtilTest {
               TestAuthSession.from(TEST_AUTH_B, mock(Authorizer.class)),
               TEST_ENTITY_1,
               List.of(TEST_TAG),
-              PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+              PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE,
+              UPDATE),
           "Expected REST API authorization disabled to bypass tag checks");
     } finally {
       setRestApiAuthorizationEnabled(previous);

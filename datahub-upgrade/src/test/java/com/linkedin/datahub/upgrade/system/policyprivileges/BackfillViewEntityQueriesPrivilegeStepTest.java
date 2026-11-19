@@ -31,6 +31,11 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubPolicyInfo;
+import com.linkedin.policy.DataHubResourceFilter;
+import com.linkedin.policy.PolicyMatchCondition;
+import com.linkedin.policy.PolicyMatchCriterion;
+import com.linkedin.policy.PolicyMatchCriterionArray;
+import com.linkedin.policy.PolicyMatchFilter;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -88,6 +93,24 @@ public class BackfillViewEntityQueriesPrivilegeStepTest {
     assertFalse(
         BackfillViewEntityQueriesPrivilegeStep.shouldBackfill(new DataHubPolicyInfo()),
         "policies without privileges are untouched");
+  }
+
+  /** A policy with a sub-resource list grants no reads, and saving it with one is rejected. */
+  @Test
+  public void testShouldNotBackfillPolicyWithPrivilegeConstraints() {
+    DataHubPolicyInfo info = policyInfo(VIEW_ENTITY_PAGE, "EDIT_ENTITY_TAGS");
+    info.setResources(
+        new DataHubResourceFilter()
+            .setPrivilegeConstraints(
+                new PolicyMatchFilter()
+                    .setCriteria(
+                        new PolicyMatchCriterionArray(
+                            new PolicyMatchCriterion()
+                                .setField("URN")
+                                .setValues(new StringArray("urn:li:tag:public"))
+                                .setCondition(PolicyMatchCondition.EQUALS)))));
+
+    assertFalse(BackfillViewEntityQueriesPrivilegeStep.shouldBackfill(info));
   }
 
   /**
