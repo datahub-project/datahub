@@ -51,6 +51,7 @@ import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.VectorStore;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
+import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -59,6 +60,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRetrieval;
+import com.linkedin.search.template.SearchTemplateRetrievalAnchor;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
@@ -80,6 +82,7 @@ import java.util.function.Consumer;
 import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
@@ -103,6 +106,9 @@ public class ESSearchDAOVectorStoreTest {
   private static final Urn D1 = UrnUtils.getUrn("urn:li:document:d1");
   private static final Urn D2 = UrnUtils.getUrn("urn:li:document:d2");
   private static final Urn MASKED = UrnUtils.getUrn("urn:li:restricted:masked");
+  private static final Urn ANCHOR = UrnUtils.getUrn("urn:li:document:anchor");
+  private static final float[] FIRST_CHUNK = {1f, 0f};
+  private static final float[] SECOND_CHUNK = {0f, 1f};
 
   private SearchClientShim<?> client;
   private EmbeddingProvider provider;
@@ -114,6 +120,8 @@ public class ESSearchDAOVectorStoreTest {
   private ESSearchDAO dao;
   // The systems the document profile lists
   private Set<String> profileSystems;
+  // The time a similarity search has, from bind, for its anchor check, anchor read and searches
+  private long vectorTimeoutMillis;
 
   @BeforeMethod
   public void setUp() throws IOException {
@@ -135,6 +143,7 @@ public class ESSearchDAOVectorStoreTest {
     elastic.getEntityIndex().setSemanticSearch(semanticSearch);
     harness.store(VECTOR_URN, vector(r -> {}));
     profileSystems = Set.of(STORE);
+    vectorTimeoutMillis = 2_000;
     fake = new FakeVectorStore();
     fake.hits =
         List.of(
@@ -347,26 +356,95 @@ public class ESSearchDAOVectorStoreTest {
 
   @Test
   public void testAStoreWithoutFindByIdCannotServeSimilarity() throws Exception {
-    fake.anchor = new float[] {0.3f, 0.4f};
-    TemplateVectorSearch vectorSearch = new TemplateVectorSearch(dao);
-    OperationContext opContext = harness.opContext;
+    harness.store(VECTOR_URN, similarity());
+    fake.anchor = List.of(FIRST_CHUNK);
+    // Bind finds the anchor usable
+    hydrationReturns(D0);
 
-    assertThrows(
-        SearchTemplateFailClosedException.class,
-        () -> vectorSearch.anchorVectors(opContext, STORE, MODEL_KEY, D0));
+    assertThrows(SearchTemplateFailClosedException.class, this::similar);
+
+    // The store is asked neither for the anchor nor for its neighbors
     assertEquals(fake.findByIdCalls.get(), 0);
-    // The DataHub index store does not find by id either
-    assertThrows(
-        SearchTemplateFailClosedException.class,
-        () ->
-            vectorSearch.anchorVectors(
-                opContext, EmbeddingProfileRegistry.OPENSEARCH, MODEL_KEY, D0));
+    assertTrue(fake.requests.isEmpty());
+    verify(metrics)
+        .incrementMicrometer(
+            SearchTemplateMetrics.VECTOR_RETRIEVAL,
+            1,
+            "outcome",
+            SearchTemplateVectorRetrieval.UNAVAILABLE);
+  }
 
-    // With findById the store returns the anchor's query vector for the service to send back
+  @Test
+  public void testSimilarityOnAStoreFindsTheAnchorAndHydratesItsNeighbors() throws Exception {
     storeConfig.setCapabilities(Set.of(VectorStore.FIND_BY_ID));
-    List<float[]> vectors = vectorSearch.anchorVectors(opContext, STORE, MODEL_KEY, D0);
-    assertEquals(vectors.size(), 1);
-    assertEquals(vectors.get(0), fake.anchor);
+    harness.store(VECTOR_URN, similarity());
+    fake.anchor = List.of(FIRST_CHUNK, SECOND_CHUNK);
+    // Each chunk finds the anchor first, and d0 once per chunk it matches
+    fake.hits =
+        List.of(
+            new VectorStore.Hit(ANCHOR, 1.0),
+            new VectorStore.Hit(D1, 0.8),
+            new VectorStore.Hit(D0, 0.6),
+            new VectorStore.Hit(D0, 0.9));
+    hydrationReturns(D0, D1);
+
+    SearchResult result = similar();
+
+    // Each neighbor at its best cosine, and the anchor is not its own neighbor
+    assertEquals(urns(result), List.of(D0, D1));
+    assertEquals(result.getEntities().get(0).getScore(), 0.95, 1e-9);
+    verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+    // The store returns the anchor's vectors and is searched once per chunk, each search one
+    // longer than the window of ten for the anchor's place
+    assertEquals(fake.findByIdCalls.get(), 1);
+    assertEquals(fake.requests.size(), 2);
+    for (VectorStore.Request request : fake.requests) {
+      assertEquals(request.k(), 11);
+      assertEquals(request.collection(), MODEL_KEY);
+    }
+    VectorRetrievalExplanation explanation = result.getMetadata().getVectorRetrieval();
+    assertEquals(explanation.getStore(), STORE);
+    assertEquals(explanation.getCandidates().intValue(), 2);
+    assertTrue(explanation.hasAdapterLatencyMillis());
+    // Bind's anchor check, then one hydration request for the neighbors, without the anchor
+    ArgumentCaptor<SearchRequest> requests = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(client, times(2))
+        .search(any(OperationContext.class), requests.capture(), eq(RequestOptions.DEFAULT));
+    assertEquals(
+        urnTerms(requests.getAllValues().get(1).source()), List.of(D0.toString(), D1.toString()));
+  }
+
+  /**
+   * Bind checks the anchor on the store serving the rung, so a viewer who cannot use the anchor is
+   * refused before the result cache, as on the DataHub index.
+   */
+  @Test
+  public void testAViewerWhoCannotUseTheAnchorIsRefusedBeforeTheCache() throws Exception {
+    storeConfig.setCapabilities(Set.of(VectorStore.FIND_BY_ID));
+    harness.store(VECTOR_URN, similarity());
+    fake.anchor = List.of(FIRST_CHUNK);
+    hydrationReturns(D0);
+    CachingEntitySearchService cached = cached();
+    OperationContext searching = context(harness.opContext, f -> {});
+    assertEquals(
+        urns(
+            cached.search(
+                searching, DOCUMENT, ANCHOR.toString(), null, List.of(), 0, 10, List.of())),
+        List.of(D0));
+
+    try (MockedStatic<ESAccessControlUtil> access =
+        mockStatic(ESAccessControlUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      access.when(() -> ESAccessControlUtil.restrictUrn(any(), eq(ANCHOR))).thenReturn(true);
+
+      assertThrows(
+          SearchTemplateFailClosedException.class,
+          () ->
+              cached.search(
+                  searching, DOCUMENT, ANCHOR.toString(), null, List.of(), 0, 10, List.of()));
+    }
+
+    assertEquals(fake.findByIdCalls.get(), 1);
+    assertEquals(fake.requests.size(), 1);
   }
 
   @Test
@@ -403,6 +481,69 @@ public class ESSearchDAOVectorStoreTest {
     assertEquals(fake.requests.size(), 3);
   }
 
+  /**
+   * A similarity search that runs out of its own time cuts the store's call short. That says
+   * nothing about the store, so it does not count toward the breaker.
+   */
+  @Test
+  public void testSimilarityCallsTheSearchDeadlineCutsShortDoNotPauseTheStore() throws Exception {
+    storeConfig.setCapabilities(Set.of(VectorStore.FIND_BY_ID));
+    storeConfig.setTimeoutMillis(60_000);
+    vectorTimeoutMillis = 200;
+    harness.store(VECTOR_URN, similarity());
+    fake.anchor = List.of(FIRST_CHUNK);
+    hydrationReturns(D0);
+    fake.blockFindById = true;
+
+    for (int i = 0; i < 3; i++) {
+      assertThrows(SearchTemplateFailClosedException.class, this::similar);
+    }
+
+    // Each anchor read reached the store with the time the search had left, not the store's own
+    assertEquals(fake.findByIdCalls.get(), 3);
+    fake.findByIdTimeouts.forEach(
+        timeout -> assertTrue(timeout.toMillis() <= 200, timeout.toString()));
+    assertTrue(fake.requests.isEmpty());
+    // Three in a row did not pause the store
+    fake.blockFindById = false;
+    vectorTimeoutMillis = 2_000;
+    assertEquals(urns(similar()), List.of(D0));
+    assertEquals(fake.findByIdCalls.get(), 4);
+    assertEquals(fake.requests.size(), 1);
+  }
+
+  /** A store that cannot apply the caller's filter fails a similarity search before any call. */
+  @Test
+  public void testSimilarityWithACallerFilterOnAStoreWithoutPreFilterNeverCallsTheStore()
+      throws Exception {
+    storeConfig.setCapabilities(Set.of(VectorStore.FIND_BY_ID));
+    harness.store(VECTOR_URN, similarity());
+    fake.anchor = List.of(FIRST_CHUNK);
+    hydrationReturns(D0);
+
+    assertThrows(
+        SearchTemplateFailClosedException.class,
+        () ->
+            dao.search(
+                context(harness.opContext, f -> {}),
+                DOCUMENT,
+                ANCHOR.toString(),
+                filter("domains", "urn:li:domain:sales"),
+                null,
+                0,
+                10,
+                List.of()));
+
+    assertEquals(fake.findByIdCalls.get(), 0);
+    assertTrue(fake.requests.isEmpty());
+    verify(metrics)
+        .incrementMicrometer(
+            SearchTemplateMetrics.VECTOR_RETRIEVAL,
+            1,
+            "outcome",
+            SearchTemplateVectorRetrieval.NO_PRE_FILTER);
+  }
+
   @Test
   public void testAStoreCannotRaiseAHitPastMinScore() throws Exception {
     hydrationReturns(D0, D1, D2);
@@ -435,18 +576,21 @@ public class ESSearchDAOVectorStoreTest {
   }
 
   /**
-   * Records every call; returns the configured hits or anchor vector, throws the configured
-   * failure, or blocks until the call is cancelled. Calls run on the hybrid read executor.
+   * Records every call; returns the configured hits or anchor vectors, throws the configured
+   * failure, or blocks until the call is cancelled. Calls run on the hybrid read executor, and a
+   * similarity rung's on the anchor pool.
    */
   private static final class FakeVectorStore implements VectorStore {
     volatile List<Hit> hits = List.of();
-    volatile float[] anchor;
+    volatile List<float[]> anchor = List.of();
     volatile IOException failure;
     volatile boolean block;
+    volatile boolean blockFindById;
     final CountDownLatch interrupted = new CountDownLatch(1);
     final List<Request> requests = new CopyOnWriteArrayList<>();
     final List<Duration> timeouts = new CopyOnWriteArrayList<>();
     final AtomicInteger findByIdCalls = new AtomicInteger();
+    final List<Duration> findByIdTimeouts = new CopyOnWriteArrayList<>();
 
     @Override
     public List<Hit> search(OperationContext opContext, Request request, Duration timeout)
@@ -470,9 +614,19 @@ public class ESSearchDAOVectorStoreTest {
 
     @Override
     public List<float[]> findById(
-        OperationContext opContext, String collection, Urn urn, Duration timeout) {
+        OperationContext opContext, String collection, Urn urn, Duration timeout)
+        throws IOException {
       findByIdCalls.incrementAndGet();
-      return List.of(anchor);
+      findByIdTimeouts.add(timeout);
+      if (blockFindById) {
+        try {
+          Thread.sleep(20_000);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new InterruptedIOException("cancelled");
+        }
+      }
+      return anchor;
     }
   }
 
@@ -488,6 +642,19 @@ public class ESSearchDAOVectorStoreTest {
         context(base, flags), DOCUMENT, "quarterly revenue", filter, null, 0, 10, List.of());
   }
 
+  /** The neighbors of {@link #ANCHOR}. */
+  private SearchResult similar() throws Exception {
+    return dao.search(
+        context(harness.opContext, f -> {}),
+        DOCUMENT,
+        ANCHOR.toString(),
+        null,
+        null,
+        0,
+        10,
+        List.of());
+  }
+
   /** A fulltext search with explain on and the vector rung pinned. */
   private OperationContext context(
       OperationContext base, Consumer<com.linkedin.metadata.query.SearchFlags> flags)
@@ -497,15 +664,17 @@ public class ESSearchDAOVectorStoreTest {
             .systemTelemetryContext(
                 SystemTelemetryContext.TEST.toBuilder().metricUtils(metrics).build())
             .build(base.getSessionActorContext(), false);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            gates());
+    coordinator.setVectorTimeoutMillis(vectorTimeoutMillis);
     return TestOperationContexts.withFixedSearchClient(measured, client)
-        .withSearchTemplateRuntime(
-            new SearchTemplateCoordinator(
-                elastic,
-                null,
-                harness.loader,
-                ForkJoinPool.commonPool(),
-                SearchTemplateComponentRegistry.empty(),
-                gates()))
+        .withSearchTemplateRuntime(coordinator)
         .withSearchFlags(
             f -> {
               f.setFulltext(true).setIncludeExplain(true);
@@ -587,6 +756,18 @@ public class ESSearchDAOVectorStoreTest {
     setup.accept(retrieval);
     template.setRetrieval(retrieval);
     return template;
+  }
+
+  /** The ten entities nearest the anchor the query names, without the anchor. */
+  private static SearchTemplateProperties similarity() {
+    return vector(
+        r ->
+            r.setQuerySource("anchorEntity")
+                .setCandidateCap(10)
+                .setAnchor(
+                    new SearchTemplateRetrievalAnchor()
+                        .setUrnParameter("raw")
+                        .setExcludeSelf(true)));
   }
 
   private static Filter filter(String field, String value) {

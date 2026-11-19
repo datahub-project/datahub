@@ -723,7 +723,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         + SearchTemplateVectorRetrieval.resultWindow(system, stores)
         + (SearchTemplateCapabilities.QUERY_SOURCE_ANCHOR_ENTITY.equals(
                 template.getRetrieval().getQuerySource())
-            ? ":anchor=" + anchorStamp(opContext, template, resolved, query, selected)
+            ? ":anchor=" + anchorStamp(opContext, template, resolved, system, query, selected)
             : "");
   }
 
@@ -731,13 +731,15 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   // anchor changes the key. Bind runs before the result cache, so an anchor this viewer may not use
   // is never read here and no cached page is served for it: the selected template fails the search
   // as noAnchor. A similarity rung only a ladder reaches does not fail a search that stops first,
-  // so it is stamped unusable and fails if it runs. An anchor whose type has no profile is not read
-  // either, and the rung fails it. The rung reuses the answer recorded here.
+  // so it is stamped unusable and fails if it runs. An anchor whose type has no profile on the
+  // system serving the rung is not read either, and the rung fails it. The rung reuses the answer
+  // recorded here.
   @Nonnull
   private String anchorStamp(
       @Nonnull OperationContext opContext,
       @Nonnull MergedSearchTemplate template,
       @Nonnull ResolvedSearchTemplate resolved,
+      @Nullable String system,
       @Nonnull String query,
       boolean selected) {
     final Urn anchor;
@@ -746,8 +748,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     } catch (URISyntaxException e) {
       return "none";
     }
-    final Set<String> profiles =
-        gates.profileIds(template, anchor.getEntityType(), resolved.getSearchSystem());
+    final Set<String> profiles = gates.profileIds(template, anchor.getEntityType(), system);
     if (profiles.size() != 1) {
       return anchor + "@none";
     }
@@ -873,7 +874,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
 
   /**
    * The anchor's {@code semanticContent}, or null when it has none, read by the deadline. Bind
-   * reads it for the cache key and the rung for its vectors.
+   * reads it for the cache key.
    */
   @Nullable
   public Aspect anchorAspect(

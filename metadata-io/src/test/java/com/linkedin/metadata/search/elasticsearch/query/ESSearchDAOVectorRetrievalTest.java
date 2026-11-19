@@ -1076,12 +1076,11 @@ public class ESSearchDAOVectorRetrievalTest {
         urns(result), List.of("urn:li:document:d1", "urn:li:document:d0", "urn:li:document:d2"));
     assertEquals(result.getEntities().get(0).getScore(), 0.97);
     verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+    // Each chunk asks for one more than the window of 500, for the anchor's own place
     ArgumentCaptor<KnnSearchRequest> requests = ArgumentCaptor.forClass(KnnSearchRequest.class);
     verify(client, times(2)).searchKnn(any(), requests.capture());
     for (KnnSearchRequest request : requests.getAllValues()) {
-      assertEquals(request.k(), 500);
-      String filter = request.filter().orElseThrow().toString();
-      assertTrue(filter.contains("must_not") && filter.contains(ANCHOR), filter);
+      assertEquals(request.k(), 501);
     }
     VectorRetrievalExplanation explanation = result.getMetadata().getVectorRetrieval();
     assertEquals(explanation.getOutcome(), SearchTemplateVectorRetrieval.SERVED);
@@ -1224,7 +1223,8 @@ public class ESSearchDAOVectorRetrievalTest {
 
     assertEquals(urns(result), List.of("urn:li:document:d0", "urn:li:document:d1"));
     assertEquals(result.getNumEntities().intValue(), 2);
-    assertEquals(knnRequest().k(), 500);
+    // The window of 500 and one more for the anchor's place; the floor does not refill it
+    assertEquals(knnRequest().k(), 501);
     VectorRetrievalExplanation explanation = result.getMetadata().getVectorRetrieval();
     assertEquals(explanation.getMinSimilarity(), 0.8f);
     assertEquals(explanation.getBelowMinSimilarity().intValue(), 1);
@@ -1759,6 +1759,35 @@ public class ESSearchDAOVectorRetrievalTest {
 
     verify(client, never()).searchKnn(any(), any());
     assertVectorOutcome(SearchTemplateVectorRetrieval.NO_ANCHOR);
+  }
+
+  @Test
+  public void testExcludeSelfDropsTheAnchorTheStoreFindsWithoutShrinkingTheWindow()
+      throws Exception {
+    store(similarity(r -> r.setCandidateCap(2)));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    // The anchor is its own nearest neighbor, and nothing in the request filters it out
+    chunkFinds(FIRST_CHUNK, neighbor("anchor", 1.0), neighbor("d1", 0.97), neighbor("d2", 0.95));
+
+    SearchResult result = similar(context(DOCUMENT, f -> {}), DOCUMENT);
+
+    // The chunk asks for one more than the window, so the anchor's place goes to d2
+    assertEquals(urns(result), List.of("urn:li:document:d1", "urn:li:document:d2"));
+    KnnSearchRequest request = knnRequest();
+    assertEquals(request.k(), 3);
+    assertFalse(request.filter().orElseThrow().toString().contains(ANCHOR));
+
+    // Without excludeSelf the anchor is a neighbor like any other
+    store(
+        similarity(
+            r ->
+                r.setCandidateCap(2)
+                    .setAnchor(
+                        new SearchTemplateRetrievalAnchor()
+                            .setUrnParameter("raw")
+                            .setExcludeSelf(false))));
+    assertEquals(
+        urns(similar(context(DOCUMENT, f -> {}), DOCUMENT)), List.of(ANCHOR, "urn:li:document:d1"));
   }
 
   @Test
