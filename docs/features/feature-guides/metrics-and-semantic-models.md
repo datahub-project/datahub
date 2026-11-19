@@ -25,7 +25,7 @@ DataHub Metrics is a **catalog for metric definitions**, transforming how your t
 - **Lineage from KPI to source and consumers** — Trace every metric through the logical datasets it reads down to the physical tables and columns that feed it, and out to the Charts, Dashboards, and Datasets that consume it.
 - **AI-ready context** — Attach synonyms, natural-language instructions, and example questions to every metric so agents and Ask DataHub can resolve natural language questions against cataloged definitions instead of guessing.
 - **Governed like everything else** — Metrics and Semantic Models are full DataHub entities: owners, domains, tags, glossary terms, structured properties, and documentation all attach to them the same way they attach to Datasets.
-- **Portable, tool-agnostic model** — The model is designed to accept metrics from any semantic layer (Snowflake Semantic Views and dbt today, Cube and MicroStrategy in alpha; Databricks metric views and more BI-tool metrics on the roadmap), so investing in the catalog is not a bet on one tool. Field-level overlap with [Apache Ossie](./ossie-compatibility.md) is documented separately.
+- **Portable, tool-agnostic model** — The model is designed to accept metrics from any semantic layer (Snowflake Semantic Views, Databricks metric views and dbt today, Cube and MicroStrategy in alpha; more BI-tool metrics on the roadmap), so investing in the catalog is not a bet on one tool. Field-level overlap with [Apache Ossie](./ossie-compatibility.md) is documented separately.
 
 ## What's Included
 
@@ -124,6 +124,18 @@ The `emit_semantic_model_entities` control is tri-state:
 
 Snowflake Semantic Views are a native Snowflake capability. If you also use the Cortex Analyst integration on top of Semantic Views, that integration is gated to Snowflake Enterprise Edition and above — cataloging the Semantic Views into DataHub does not depend on Cortex.
 
+### From Databricks Unity Catalog metric views
+
+The [Databricks](../../generated/ingestion/sources/databricks.md) Unity Catalog source emits a Semantic Model per metric view, a logical dataset per source and join table, and a Metric per measure (with `derivedFrom` lineage for composable `MEASURE()` measures). It uses the same tri-state control as Snowflake:
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    include_metric_views: true
+    emit_semantic_model_entities: null # tri-state, as for Snowflake above
+```
+
 ### From Cube and MicroStrategy
 
 The [Cube](../../generated/ingestion/sources/cube.md) and [MicroStrategy](../../generated/ingestion/sources/microstrategy.md) sources can also emit Semantic Models and Metrics. Set `emit_semantic_model_entities: true` in the recipe. Both are in alpha.
@@ -217,7 +229,7 @@ Future releases will ensure AI Context feeds directly into Ask DataHub and any a
 We're actively investing in the Metrics experience. Near-term work includes:
 
 - **Metrics & Semantic Models via DataHub MCP** so agents can retrieve them during agentic workflows.
-- **Additional ingestion sources.** Expanding beyond Snowflake Semantic Views and dbt to cover Databricks Unity Catalog metric views, Sigma, and BI-tool measures.
+- **Additional ingestion sources.** Expanding beyond Snowflake Semantic Views, Databricks metric views and dbt to cover Sigma and BI-tool measures.
 - **Column-level lineage from source columns through to metrics.** Full column-to-metric impact analysis — see which KPIs are affected by a change to a raw column.
 - **Lineage visualization improvements.** Cleaner node labels, collapsed intermediate nodes, and a Semantic Model container view that reduces graph noise.
 - **AI-native discovery.** Ask DataHub resolving natural-language questions to cataloged metric definitions using synonyms and expression-aware SQL.
@@ -232,6 +244,9 @@ No. The Python SDK lets you emit Semantic Models and Metrics from any source. Sn
 
 **What happens to my existing Snowflake Semantic Views ingested before this feature launched?**
 They stay in DataHub as legacy `Semantic View` datasets. When you're ready to move to the new model, the `datahub migrate snowflake-semantic-views` CLI copies governance (owners, domains, tags, glossary terms, documentation, deprecation, applications, column-level tags/terms) onto the new Semantic Model and Metric URNs. The migration is not automatic — reach out to your DataHub representative to plan the cutover. Lineage and policies are not migrated by the CLI; run Snowflake ingestion with `emit_semantic_model_entities: true` afterward to fill structural aspects.
+
+**What happens to Databricks metric views I already ingested as `Metric View` datasets?**
+When `emit_semantic_model_entities` turns on (by default on DataHub Cloud 2.1.0 or later with Metrics enabled), the Unity Catalog source emits Semantic Models and Metrics instead, and stateful ingestion soft-deletes the old `Metric View` datasets. There is no migration command for Databricks yet, so owners, tags, glossary terms and documentation you added to those datasets in DataHub don't carry over; a command like the Snowflake one is planned. To keep that curation for now, set `emit_semantic_model_entities: false` in the Unity Catalog recipe.
 
 **Are metrics environment-specific?**
 No. Metric URNs deliberately omit the environment qualifier (`PROD`, `STAGING`, etc.) — `total_revenue` in PROD and STAGING resolve to the same metric entity. Cross-platform metrics (e.g. the same measure defined in both dbt and Snowflake) remain distinct because the platform is encoded in the URN.

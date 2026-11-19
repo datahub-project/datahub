@@ -2019,7 +2019,7 @@ class TestUnityCatalogMetricViews:
         """sqlglot returning None (empty/comment-only expr) must not silently produce empty CLL."""
         source = self._build_source(include_metric_views=True)
         with patch(
-            "datahub.ingestion.source.unity.source.sqlglot.parse_one",
+            "datahub.ingestion.source.unity.metric_view_semantic_model.sqlglot.parse_one",
             return_value=None,
         ):
             result, unresolved = source._parse_metric_view_expr(

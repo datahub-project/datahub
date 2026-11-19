@@ -1,0 +1,4631 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "databricks",
+                "env": "PROD",
+                "metastore": "exposure_metastore"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data",
+            "name": "exposure_metastore",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD),issuer_cpty_id)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "instr.issuer_cpty_id"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD),issuer_cpty_id)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Metastore"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:abc@acryl.io",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "databricks",
+                "env": "PROD",
+                "metastore": "exposure_metastore",
+                "catalog": "main"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main",
+            "name": "main",
+            "description": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),position_count)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "MEASURE",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "COUNT(1)"
+                    }
+                ]
+            },
+            "aggregationFunction": "COUNT"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),position_count)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Catalog"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "databricks",
+                "env": "PROD",
+                "metastore": "exposure_metastore",
+                "catalog": "main",
+                "unity_schema": "obda_metric_test"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main/obda_metric_test",
+            "name": "obda_metric_test",
+            "description": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:abc@acryl.io",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:abc@acryl.io",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value_trailing_5d)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+        "json": {
+            "name": "market_value_trailing_5d",
+            "description": "Window measure over the last five close-of-business dates.",
+            "created": {
+                "time": 1795050161254,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1795050195407,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "SUM(source.mv_usd) -- window: order=cob_date, range=trailing 5 day, semiadditive=last"
+                    }
+                ]
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+                    "urn": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+                    "urn": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+                },
+                {
+                    "id": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+                    "urn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value_trailing_5d)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+        "json": {
+            "derivedFrom": [],
+            "relatedMetrics": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value_trailing_5d)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acme_ws",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+                },
+                {
+                    "id": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+                    "urn": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+                },
+                {
+                    "id": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+                    "urn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b"
+                },
+                {
+                    "id": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+                    "urn": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+                },
+                {
+                    "id": "exposure_metrics",
+                    "urn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.cpty_mstr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value_trailing_5d)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:markets"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.cpty_mstr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "data_source_format": "DELTA",
+                "table_type": "MANAGED",
+                "created_by": "abc@acryl.io",
+                "table_id": "cpty_mstr-id",
+                "owner": "abc@acryl.io",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2023-11-14 22:13:30+00:00",
+                "created_at": "2023-11-14 22:13:20+00:00"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main/obda_metric_test/cpty_mstr",
+            "name": "cpty_mstr",
+            "qualifiedName": "main.obda_metric_test.cpty_mstr",
+            "created": {
+                "time": 1700000000000,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1700000010000,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value_trailing_5d)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:test-user@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.cpty_mstr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.cpty_mstr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "exposure_metastore.main.obda_metric_test.cpty_mstr",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "cpty_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "legal_nm",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "lei_cd",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "ctry_cd",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "sctr_cd",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.cpty_mstr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+                    "urn": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+                },
+                {
+                    "id": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+                    "urn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b"
+                },
+                {
+                    "id": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+                    "urn": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.cpty_mstr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:abc@acryl.io",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value_trailing_5d)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.cpty_mstr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:markets"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value_trailing_5d)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+        "json": {
+            "datasetUpstreams": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)"
+                }
+            ],
+            "fieldUpstreams": [
+                {
+                    "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),market_value_trailing_5d)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value_trailing_5d)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelProperties",
+    "aspect": {
+        "json": {
+            "alias": "instr",
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acme_ws",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+                },
+                {
+                    "id": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+                    "urn": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+                },
+                {
+                    "id": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+                    "urn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b"
+                },
+                {
+                    "id": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+                    "urn": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+                },
+                {
+                    "id": "exposure_metrics",
+                    "urn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)"
+                },
+                {
+                    "id": "instr",
+                    "urn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Semantic Model Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.instr_ref,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.instr_ref,PROD),asset_cls_cd)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD),asset_class)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:markets"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "asset_class",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "instr_id",
+                    "nullable": true,
+                    "description": "Join key of a metric view join; not a dimension of the metric view.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "issuer_cpty_id",
+                    "nullable": true,
+                    "description": "Join key of a metric view join; not a dimension of the metric view.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "metric_view.field.asset_class.display_name": "Asset class",
+                "metric_view.field.asset_class.synonyms": "product type"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:test-user@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.pos_eod,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.pos_eod,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "data_source_format": "DELTA",
+                "table_type": "MANAGED",
+                "created_by": "abc@acryl.io",
+                "table_id": "pos_eod-id",
+                "owner": "abc@acryl.io",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2023-11-14 22:13:30+00:00",
+                "created_at": "2023-11-14 22:13:20+00:00"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main/obda_metric_test/pos_eod",
+            "name": "pos_eod",
+            "qualifiedName": "main.obda_metric_test.pos_eod",
+            "created": {
+                "time": 1700000000000,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1700000010000,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.pos_eod,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.pos_eod,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "exposure_metastore.main.obda_metric_test.pos_eod",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "pos_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "book_cd",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "cpty_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "instr_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "ntnl_amt",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "mv_usd",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "cob_dt",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "date",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.pos_eod,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+                    "urn": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+                },
+                {
+                    "id": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+                    "urn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b"
+                },
+                {
+                    "id": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+                    "urn": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.pos_eod,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:abc@acryl.io",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.instr_ref,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.instr_ref,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "data_source_format": "DELTA",
+                "table_type": "MANAGED",
+                "created_by": "abc@acryl.io",
+                "table_id": "instr_ref-id",
+                "owner": "abc@acryl.io",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2023-11-14 22:13:30+00:00",
+                "created_at": "2023-11-14 22:13:20+00:00"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main/obda_metric_test/instr_ref",
+            "name": "instr_ref",
+            "qualifiedName": "main.obda_metric_test.instr_ref",
+            "created": {
+                "time": 1700000000000,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1700000010000,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.pos_eod,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:markets"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.instr_ref,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.instr_ref,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "exposure_metastore.main.obda_metric_test.instr_ref",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "instr_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "isin",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "asset_cls_cd",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "ccy",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "issuer_cpty_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.instr_ref,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+                    "urn": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+                },
+                {
+                    "id": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+                    "urn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b"
+                },
+                {
+                    "id": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+                    "urn": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.instr_ref,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:abc@acryl.io",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD),counterparty)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "cpty.legal_nm"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.instr_ref,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:markets"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD),counterparty)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD),cpty_id)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "instr.issuer.cpty_id"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD),cpty_id)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,avg_market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+        "json": {
+            "name": "Average position value",
+            "description": "Composable: built from two other measures, so it should get derivedFrom edges to both.",
+            "created": {
+                "time": 1795050161254,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1795050195407,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "MEASURE(market_value) / MEASURE(position_count)"
+                    }
+                ]
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,avg_market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+        "json": {
+            "derivedFrom": [
+                {
+                    "destinationUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value)"
+                },
+                {
+                    "destinationUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,position_count)"
+                }
+            ],
+            "relatedMetrics": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,avg_market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acme_ws",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+                },
+                {
+                    "id": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+                    "urn": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+                },
+                {
+                    "id": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+                    "urn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b"
+                },
+                {
+                    "id": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+                    "urn": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+                },
+                {
+                    "id": "exposure_metrics",
+                    "urn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,avg_market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:markets"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,avg_market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:test-user@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),instr_id)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "source.instr_id"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,avg_market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "MEASURE",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "SUM(source.mv_usd)"
+                    }
+                ]
+            },
+            "aggregationFunction": "SUM"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,avg_market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+        "json": {
+            "datasetUpstreams": [],
+            "fieldUpstreams": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "aiContext",
+    "aspect": {
+        "json": {
+            "synonyms": [
+                "exposure",
+                "MTM"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,avg_market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:sensitivity:internal"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),cpty_id)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "source.cpty_id"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+        "json": {
+            "name": "Market value (USD)",
+            "description": "Mark-to-market value in USD.",
+            "created": {
+                "time": 1795050161254,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1795050195407,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "SUM(source.mv_usd)"
+                    }
+                ]
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),market_value_trailing_5d)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "MEASURE",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "SUM(source.mv_usd)"
+                    }
+                ]
+            },
+            "aggregationFunction": "SUM"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+        "json": {
+            "derivedFrom": [],
+            "relatedMetrics": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acme_ws",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+                },
+                {
+                    "id": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+                    "urn": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+                },
+                {
+                    "id": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+                    "urn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b"
+                },
+                {
+                    "id": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+                    "urn": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+                },
+                {
+                    "id": "exposure_metrics",
+                    "urn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),cob_date)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "source.cob_dt"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": true
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "aiContext",
+    "aspect": {
+        "json": {
+            "synonyms": [
+                "exposure",
+                "MTM"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:markets"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:test-user@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),notional)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "MEASURE",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "SUM(source.ntnl_amt)"
+                    }
+                ]
+            },
+            "aggregationFunction": "SUM"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:test-user@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD),asset_class)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "instr.asset_cls_cd"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:markets"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD),asset_class)",
+    "changeType": "UPSERT",
+    "aspectName": "aiContext",
+    "aspect": {
+        "json": {
+            "synonyms": [
+                "product type"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:tier:gold",
+                    "attribution": {
+                        "time": 1638860400000,
+                        "actor": "urn:li:corpuser:datahub",
+                        "sourceDetail": {}
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+        "json": {
+            "datasetUpstreams": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)"
+                }
+            ],
+            "fieldUpstreams": [
+                {
+                    "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),market_value)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelInfo",
+    "aspect": {
+        "json": {
+            "name": "exposure_metrics",
+            "description": "Market exposure by counterparty, instrument and book. Synthetic demo data.",
+            "created": {
+                "time": 1795050161254,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1795050195407,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "nativeDefinition": "version: 1.1\n\nsource: main.obda_metric_test.pos_eod\n\njoins:\n  - name: cpty\n    source: main.obda_metric_test.cpty_mstr\n    \"on\": source.cpty_id = cpty.cpty_id\n  - name: instr\n    source: main.obda_metric_test.instr_ref\n    \"on\": source.instr_id = instr.instr_id\n    joins:\n      - name: issuer\n        source: main.obda_metric_test.cpty_mstr\n        \"on\": instr.issuer_cpty_id = issuer.cpty_id\n\nfilter: mv_usd IS NOT NULL\n\ndimensions:\n  - name: jurisdiction\n    expr: cpty.ctry_cd\n\n  - name: counterparty\n    expr: cpty.legal_nm\n\n  - name: asset_class\n    expr: instr.asset_cls_cd\n\n  - name: issuer_jurisdiction\n    expr: instr.issuer.ctry_cd\n\n  - name: book\n    expr: source.book_cd\n\n  - name: cob_date\n    expr: source.cob_dt\n\nmeasures:\n  - name: market_value\n    expr: SUM(source.mv_usd)\n\n  - name: notional\n    expr: SUM(source.ntnl_amt)\n\n  - name: position_count\n    expr: COUNT(1)\n\n  - name: avg_market_value\n    expr: MEASURE(market_value) / MEASURE(position_count)\n\n  - name: market_value_trailing_5d\n    expr: SUM(source.mv_usd)\n    window:\n      - order: cob_date\n        semiadditive: last\n        range: trailing 5 day\n\nmaterialization:\n  schedule: EVERY 6 HOURS\n  mode: relaxed\n  materialized_views:\n    - name: by_jurisdiction\n      type: aggregated\n      dimensions:\n        - jurisdiction\n        - cob_date\n      measures:\n        - market_value\n        - position_count",
+            "datasets": [],
+            "relationships": [
+                {
+                    "name": "cpty",
+                    "from": "source",
+                    "fromColumns": [
+                        "cpty_id"
+                    ],
+                    "to": "cpty",
+                    "toColumns": [
+                        "cpty_id"
+                    ],
+                    "cardinality": "N_ONE"
+                },
+                {
+                    "name": "instr",
+                    "from": "source",
+                    "fromColumns": [
+                        "instr_id"
+                    ],
+                    "to": "instr",
+                    "toColumns": [
+                        "instr_id"
+                    ],
+                    "cardinality": "N_ONE"
+                },
+                {
+                    "name": "instr.issuer",
+                    "from": "instr",
+                    "fromColumns": [
+                        "issuer_cpty_id"
+                    ],
+                    "to": "instr.issuer",
+                    "toColumns": [
+                        "cpty_id"
+                    ],
+                    "cardinality": "N_ONE"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),book)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "source.book_cd"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD),cpty_id)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "cpty.cpty_id"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acme_ws",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+                },
+                {
+                    "id": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+                    "urn": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+                },
+                {
+                    "id": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+                    "urn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b"
+                },
+                {
+                    "id": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+                    "urn": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD),cpty_id)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:geo",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "geo"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD),jurisdiction)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "cpty.ctry_cd"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD),jurisdiction)",
+    "changeType": "UPSERT",
+    "aspectName": "aiContext",
+    "aspect": {
+        "json": {
+            "synonyms": [
+                "country",
+                "domicile"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelProperties",
+    "aspect": {
+        "json": {
+            "alias": "source",
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:test-user@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acme_ws",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+                },
+                {
+                    "id": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+                    "urn": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+                },
+                {
+                    "id": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+                    "urn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b"
+                },
+                {
+                    "id": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+                    "urn": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+                },
+                {
+                    "id": "exposure_metrics",
+                    "urn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)"
+                },
+                {
+                    "id": "source",
+                    "urn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:test-user@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD),instr_id)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "instr.instr_id"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:markets"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:markets"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:test-user@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Semantic Model Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "issuer_jurisdiction",
+                    "nullable": true,
+                    "description": "Country of the instrument's issuer (through the nested join).",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "cpty_id",
+                    "nullable": true,
+                    "description": "Join key of a metric view join; not a dimension of the metric view.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelProperties",
+    "aspect": {
+        "json": {
+            "alias": "instr.issuer",
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.cpty_mstr,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.cpty_mstr,PROD),ctry_cd)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD),issuer_jurisdiction)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Semantic Model Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:markets"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acme_ws",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+                },
+                {
+                    "id": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+                    "urn": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+                },
+                {
+                    "id": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+                    "urn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b"
+                },
+                {
+                    "id": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+                    "urn": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+                },
+                {
+                    "id": "exposure_metrics",
+                    "urn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)"
+                },
+                {
+                    "id": "instr.issuer",
+                    "urn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.pos_eod,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.pos_eod,PROD),book_cd)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),book)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.pos_eod,PROD),cob_dt)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),cob_date)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.pos_eod,PROD),mv_usd)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),market_value)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.pos_eod,PROD),ntnl_amt)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),notional)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.pos_eod,PROD),mv_usd)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),market_value_trailing_5d)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "book",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "cob_date",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "date",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "market_value",
+                    "nullable": true,
+                    "description": "Mark-to-market value in USD.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "decimal(28,2)",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:sensitivity:internal"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "notional",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "decimal(28,2)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "position_count",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "market_value_trailing_5d",
+                    "nullable": true,
+                    "description": "Window measure over the last five close-of-business dates.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "decimal(28,2)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "cpty_id",
+                    "nullable": true,
+                    "description": "Join key of a metric view join; not a dimension of the metric view.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "instr_id",
+                    "nullable": true,
+                    "description": "Join key of a metric view join; not a dimension of the metric view.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Semantic Model Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "jurisdiction",
+                    "nullable": true,
+                    "description": "Country whose law the counterparty is organized under.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:geo"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "counterparty",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "cpty_id",
+                    "nullable": true,
+                    "description": "Join key of a metric view join; not a dimension of the metric view.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "metric_view.filter": "mv_usd IS NOT NULL",
+                "metric_view.spec_version": "1.1",
+                "metric_view.joins": "[{\"name\":\"cpty\",\"source\":\"main.obda_metric_test.cpty_mstr\",\"on\":\"source.cpty_id = cpty.cpty_id\"},{\"name\":\"instr\",\"source\":\"main.obda_metric_test.instr_ref\",\"on\":\"source.instr_id = instr.instr_id\",\"joins\":[{\"name\":\"issuer\",\"source\":\"main.obda_metric_test.cpty_mstr\",\"on\":\"instr.issuer_cpty_id = issuer.cpty_id\"}]}]",
+                "metric_view.materialization.schedule": "EVERY 6 HOURS",
+                "metric_view.materialization.mode": "relaxed",
+                "metric_view.materialization.materialized_views": "[{\"name\":\"by_jurisdiction\",\"type\":\"aggregated\",\"dimensions\":[\"jurisdiction\",\"cob_date\"],\"measures\":[\"market_value\",\"position_count\"]}]",
+                "metric_view.field.book.display_name": "Trading book",
+                "metric_view.field.cob_date.display_name": "Close of business",
+                "metric_view.field.market_value.display_name": "Market value (USD)",
+                "metric_view.field.market_value.synonyms": "exposure,MTM",
+                "metric_view.field.market_value.format.type": "currency",
+                "metric_view.field.market_value.format.currency_code": "USD",
+                "metric_view.field.notional.display_name": "Notional",
+                "metric_view.field.position_count.display_name": "Positions",
+                "metric_view.field.market_value_trailing_5d.window.order": "cob_date",
+                "metric_view.field.market_value_trailing_5d.window.range": "trailing 5 day",
+                "metric_view.field.market_value_trailing_5d.window.semiadditive": "last"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "metric_view.field.jurisdiction.display_name": "Counterparty jurisdiction",
+                "metric_view.field.jurisdiction.synonyms": "country,domicile",
+                "metric_view.field.counterparty.display_name": "Counterparty"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelProperties",
+    "aspect": {
+        "json": {
+            "alias": "cpty",
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.cpty_mstr,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.cpty_mstr,PROD),ctry_cd)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD),jurisdiction)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.cpty_mstr,PROD),legal_nm)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD),counterparty)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sensitivity:internal",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "sensitivity:internal"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.pos_eod,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acme_ws",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+                },
+                {
+                    "id": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+                    "urn": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+                },
+                {
+                    "id": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+                    "urn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b"
+                },
+                {
+                    "id": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+                    "urn": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+                },
+                {
+                    "id": "exposure_metrics",
+                    "urn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)"
+                },
+                {
+                    "id": "cpty",
+                    "urn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD),issuer_jurisdiction)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "instr.issuer.ctry_cd"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,position_count)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:test-user@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD),issuer_jurisdiction)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,position_count)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,position_count)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:markets"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,position_count)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,notional)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+        "json": {
+            "name": "Notional",
+            "created": {
+                "time": 1795050161254,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1795050195407,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "SUM(source.ntnl_amt)"
+                    }
+                ]
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,notional)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+        "json": {
+            "derivedFrom": [],
+            "relatedMetrics": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,position_count)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+        "json": {
+            "datasetUpstreams": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)"
+                }
+            ],
+            "fieldUpstreams": [
+                {
+                    "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),position_count)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,notional)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acme_ws",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+                },
+                {
+                    "id": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+                    "urn": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+                },
+                {
+                    "id": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+                    "urn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b"
+                },
+                {
+                    "id": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+                    "urn": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+                },
+                {
+                    "id": "exposure_metrics",
+                    "urn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.cpty_mstr,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,position_count)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+        "json": {
+            "name": "Positions",
+            "created": {
+                "time": 1795050161254,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1795050195407,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "DATABRICKS",
+                        "expression": "COUNT(1)"
+                    }
+                ]
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,position_count)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+        "json": {
+            "derivedFrom": [],
+            "relatedMetrics": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,notional)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:markets"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,position_count)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acme_ws",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+                },
+                {
+                    "id": "urn:li:container:74f5254308354e1adcce81f0b605effb",
+                    "urn": "urn:li:container:74f5254308354e1adcce81f0b605effb"
+                },
+                {
+                    "id": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b",
+                    "urn": "urn:li:container:0582a1ac4d00ae642141413b533b3b9b"
+                },
+                {
+                    "id": "urn:li:container:65f4a807cab00373895a8a510a08fd35",
+                    "urn": "urn:li:container:65f4a807cab00373895a8a510a08fd35"
+                },
+                {
+                    "id": "exposure_metrics",
+                    "urn": "urn:li:semanticModel:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test,exposure_metrics)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,notional)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:test-user@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,notional)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD),asset_class)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,notional)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+        "json": {
+            "datasetUpstreams": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD)"
+                }
+            ],
+            "fieldUpstreams": [
+                {
+                    "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),notional)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics,notional)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,acme_ws)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),book)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:tier:gold",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "tier:gold"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.instr_ref,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),notional)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.cpty,PROD),jurisdiction)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),cob_date)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr,PROD),instr_id)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),market_value_trailing_5d)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),market_value)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.instr.issuer,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),cpty_id)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,acme_ws.exposure_metastore.main.obda_metric_test.exposure_metrics.source,PROD),instr_id)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-exposure-unity_catalog_exposure_metric_view_mcps",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-exposure-metric-view-pipeline"
+    }
+}
+]

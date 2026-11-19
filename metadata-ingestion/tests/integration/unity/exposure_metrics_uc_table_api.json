@@ -1,0 +1,271 @@
+{
+  "browse_only": false,
+  "cache_version_info": {
+    "metastore_version": 4
+  },
+  "catalog_id": "00000000-0000-0000-0000-000000000000",
+  "catalog_name": "main",
+  "columns": [
+    {
+      "column_masks": {},
+      "comment": "Country whose law the counterparty is organized under.",
+      "metadata": {
+        "display_name": "Counterparty jurisdiction",
+        "synonyms": [
+          "country",
+          "domicile"
+        ]
+      },
+      "name": "jurisdiction",
+      "nullable": true,
+      "position": 0,
+      "type_json": "{\"name\":\"jurisdiction\",\"type\":\"string\",\"nullable\":true,\"metadata\":{\"metric_view.expr\":\"cpty.ctry_cd\",\"comment\":\"Country whose law the counterparty is organized under.\",\"metric_view.type\":\"dimension\",\"semantic_metadata\":\"{\\\"display_name\\\":\\\"Counterparty jurisdiction\\\",\\\"synonyms\\\":[\\\"country\\\",\\\"domicile\\\"]}\"}}",
+      "type_name": "STRING",
+      "type_precision": 0,
+      "type_scale": 0,
+      "type_text": "string"
+    },
+    {
+      "column_masks": {},
+      "metadata": {
+        "display_name": "Counterparty"
+      },
+      "name": "counterparty",
+      "nullable": true,
+      "position": 1,
+      "type_json": "{\"name\":\"counterparty\",\"type\":\"string\",\"nullable\":true,\"metadata\":{\"metric_view.expr\":\"cpty.legal_nm\",\"metric_view.type\":\"dimension\",\"semantic_metadata\":\"{\\\"display_name\\\":\\\"Counterparty\\\"}\"}}",
+      "type_name": "STRING",
+      "type_precision": 0,
+      "type_scale": 0,
+      "type_text": "string"
+    },
+    {
+      "column_masks": {},
+      "metadata": {
+        "display_name": "Asset class",
+        "synonyms": [
+          "product type"
+        ]
+      },
+      "name": "asset_class",
+      "nullable": true,
+      "position": 2,
+      "type_json": "{\"name\":\"asset_class\",\"type\":\"string\",\"nullable\":true,\"metadata\":{\"metric_view.expr\":\"instr.asset_cls_cd\",\"metric_view.type\":\"dimension\",\"semantic_metadata\":\"{\\\"display_name\\\":\\\"Asset class\\\",\\\"synonyms\\\":[\\\"product type\\\"]}\"}}",
+      "type_name": "STRING",
+      "type_precision": 0,
+      "type_scale": 0,
+      "type_text": "string"
+    },
+    {
+      "column_masks": {},
+      "comment": "Country of the instrument's issuer (through the nested join).",
+      "name": "issuer_jurisdiction",
+      "nullable": true,
+      "position": 3,
+      "type_json": "{\"name\":\"issuer_jurisdiction\",\"type\":\"string\",\"nullable\":true,\"metadata\":{\"metric_view.expr\":\"instr.issuer.ctry_cd\",\"comment\":\"Country of the instrument's issuer (through the nested join).\",\"metric_view.type\":\"dimension\"}}",
+      "type_name": "STRING",
+      "type_precision": 0,
+      "type_scale": 0,
+      "type_text": "string"
+    },
+    {
+      "column_masks": {},
+      "metadata": {
+        "display_name": "Trading book"
+      },
+      "name": "book",
+      "nullable": true,
+      "position": 4,
+      "type_json": "{\"name\":\"book\",\"type\":\"string\",\"nullable\":true,\"metadata\":{\"metric_view.expr\":\"source.book_cd\",\"metric_view.type\":\"dimension\",\"semantic_metadata\":\"{\\\"display_name\\\":\\\"Trading book\\\"}\"}}",
+      "type_name": "STRING",
+      "type_precision": 0,
+      "type_scale": 0,
+      "type_text": "string"
+    },
+    {
+      "column_masks": {},
+      "metadata": {
+        "display_name": "Close of business"
+      },
+      "name": "cob_date",
+      "nullable": true,
+      "position": 5,
+      "type_json": "{\"name\":\"cob_date\",\"type\":\"date\",\"nullable\":true,\"metadata\":{\"metric_view.expr\":\"source.cob_dt\",\"metric_view.type\":\"dimension\",\"semantic_metadata\":\"{\\\"display_name\\\":\\\"Close of business\\\"}\"}}",
+      "type_name": "DATE",
+      "type_precision": 0,
+      "type_scale": 0,
+      "type_text": "date"
+    },
+    {
+      "column_masks": {},
+      "comment": "Mark-to-market value in USD.",
+      "metadata": {
+        "display_name": "Market value (USD)",
+        "format": {
+          "number_currency": {
+            "currency_code": "USD"
+          }
+        },
+        "synonyms": [
+          "exposure",
+          "MTM"
+        ]
+      },
+      "name": "market_value",
+      "nullable": true,
+      "position": 6,
+      "type_json": "{\"name\":\"market_value\",\"type\":\"decimal(28,2)\",\"nullable\":true,\"metadata\":{\"metric_view.expr\":\"SUM(source.mv_usd)\",\"comment\":\"Mark-to-market value in USD.\",\"metric_view.type\":\"measure\",\"semantic_metadata\":\"{\\\"display_name\\\":\\\"Market value (USD)\\\",\\\"synonyms\\\":[\\\"exposure\\\",\\\"MTM\\\"],\\\"format\\\":{\\\"currency\\\":{\\\"currency_code\\\":\\\"USD\\\"}}}\"}}",
+      "type_name": "DECIMAL",
+      "type_precision": 0,
+      "type_scale": 0,
+      "type_text": "decimal(28,2)"
+    },
+    {
+      "column_masks": {},
+      "metadata": {
+        "display_name": "Notional"
+      },
+      "name": "notional",
+      "nullable": true,
+      "position": 7,
+      "type_json": "{\"name\":\"notional\",\"type\":\"decimal(28,2)\",\"nullable\":true,\"metadata\":{\"metric_view.expr\":\"SUM(source.ntnl_amt)\",\"metric_view.type\":\"measure\",\"semantic_metadata\":\"{\\\"display_name\\\":\\\"Notional\\\"}\"}}",
+      "type_name": "DECIMAL",
+      "type_precision": 0,
+      "type_scale": 0,
+      "type_text": "decimal(28,2)"
+    },
+    {
+      "column_masks": {},
+      "metadata": {
+        "display_name": "Positions"
+      },
+      "name": "position_count",
+      "nullable": false,
+      "position": 8,
+      "type_json": "{\"name\":\"position_count\",\"type\":\"long\",\"nullable\":false,\"metadata\":{\"metric_view.expr\":\"COUNT(1)\",\"metric_view.type\":\"measure\",\"semantic_metadata\":\"{\\\"display_name\\\":\\\"Positions\\\"}\"}}",
+      "type_name": "LONG",
+      "type_precision": 0,
+      "type_scale": 0,
+      "type_text": "bigint"
+    },
+    {
+      "column_masks": {},
+      "comment": "Composable: built from two other measures, so it should get derivedFrom edges to both.",
+      "metadata": {
+        "display_name": "Average position value"
+      },
+      "name": "avg_market_value",
+      "nullable": true,
+      "position": 9,
+      "type_json": "{\"name\":\"avg_market_value\",\"type\":\"decimal(38,12)\",\"nullable\":true,\"metadata\":{\"metric_view.expr\":\"MEASURE(market_value) / MEASURE(position_count)\",\"comment\":\"Composable: built from two other measures, so it should get derivedFrom edges to both.\",\"metric_view.type\":\"measure\",\"semantic_metadata\":\"{\\\"display_name\\\":\\\"Average position value\\\"}\"}}",
+      "type_name": "DECIMAL",
+      "type_precision": 0,
+      "type_scale": 0,
+      "type_text": "decimal(38,12)"
+    },
+    {
+      "column_masks": {},
+      "comment": "Window measure over the last five close-of-business dates.",
+      "name": "market_value_trailing_5d",
+      "nullable": true,
+      "position": 10,
+      "type_json": "{\"name\":\"market_value_trailing_5d\",\"type\":\"decimal(28,2)\",\"nullable\":true,\"metadata\":{\"metric_view.window\":[{\"offset\":\"\",\"semiadditive\":\"last\",\"range\":\"trailing 5 day\",\"order\":\"cob_date\"}],\"metric_view.expr\":\"SUM(source.mv_usd)\",\"comment\":\"Window measure over the last five close-of-business dates.\",\"metric_view.type\":\"measure\"}}",
+      "type_name": "DECIMAL",
+      "type_precision": 0,
+      "type_scale": 0,
+      "type_text": "decimal(28,2)"
+    }
+  ],
+  "comment": "Market exposure by counterparty, instrument and book. Synthetic demo data.",
+  "created_at": 1795050161254,
+  "created_by": "test-user@example.com",
+  "data_access_configuration_id": "00000000-0000-0000-0000-000000000000",
+  "etag": "CAESCAAAAaHxVEnP",
+  "full_name": "main.obda_metric_test.exposure_metrics",
+  "generation": 2,
+  "metastore_id": "00000000-0000-0000-0000-000000000000",
+  "metastore_version": 4,
+  "name": "exposure_metrics",
+  "owner": "test-user@example.com",
+  "properties": {
+    "metric_view.from.name": "main.obda_metric_test.pos_eod",
+    "metric_view.from.type": "ASSET",
+    "metric_view.joins": "[{\"name\":\"cpty\"},{\"name\":\"instr\",\"joins\":[{\"name\":\"issuer\"}]}]",
+    "metric_view.materialization.enabled": "true",
+    "metric_view.materialization.mode": "relaxed",
+    "metric_view.materialization.schedule": "{\"type\":\"periodic\",\"interval\":6,\"unit\":\"HOURS\"}",
+    "metric_view.materialization.sqlConfig.spark.databricks.sqlgateway.thriftServer.queryTimeout.enabled": "true",
+    "metric_view.materialization.sqlConfig.spark.databricks.sqlgateway.thriftServer.queryTimeout.maxTimeout": "172800",
+    "metric_view.materialization.sqlConfig.spark.sql.thriftServer.queryTimeout": "0",
+    "metric_view.where": "mv_usd IS NOT NULL",
+    "spark.internal.materialized_view.last_update.end_time": "2026-11-19T01:03:15Z",
+    "view.catalogAndNamespace.numParts": "2",
+    "view.catalogAndNamespace.part.0": "spark_catalog",
+    "view.catalogAndNamespace.part.1": "default",
+    "view.query.out.col.0": "jurisdiction",
+    "view.query.out.col.1": "counterparty",
+    "view.query.out.col.10": "market_value_trailing_5d",
+    "view.query.out.col.2": "asset_class",
+    "view.query.out.col.3": "issuer_jurisdiction",
+    "view.query.out.col.4": "book",
+    "view.query.out.col.5": "cob_date",
+    "view.query.out.col.6": "market_value",
+    "view.query.out.col.7": "notional",
+    "view.query.out.col.8": "position_count",
+    "view.query.out.col.9": "avg_market_value",
+    "view.query.out.numCols": "11",
+    "view.referredTempFunctionsNames": "[]",
+    "view.referredTempTableNames": "[]",
+    "view.referredTempVariablesNames": "[]",
+    "view.referredTempViewNames": "[]",
+    "view.resolutionPath": "[[\"system\",\"builtin\"],[\"system\",\"ai\"],[\"hive_metastore\",\"default\"]]",
+    "view.sqlConfig.runtime.databricks.sql.functions.counter_diff.enabled": "true"
+  },
+  "related_entity_hints": {
+    "policy": {
+      "exists": false
+    },
+    "tag": {
+      "exists": false
+    }
+  },
+  "row_filters": {},
+  "schema_id": "00000000-0000-0000-0000-000000000000",
+  "schema_name": "obda_metric_test",
+  "securable_kind": "TABLE_METRIC_VIEW",
+  "securable_type": "TABLE",
+  "storage_mode": "CUSTOMER_HOSTED",
+  "table_id": "00000000-0000-0000-0000-000000000000",
+  "table_type": "METRIC_VIEW",
+  "updated_at": 1795050195407,
+  "updated_by": "test-user@example.com",
+  "view_definition": "version: 1.1\n\nsource: main.obda_metric_test.pos_eod\n\njoins:\n  - name: cpty\n    source: main.obda_metric_test.cpty_mstr\n    \"on\": source.cpty_id = cpty.cpty_id\n  - name: instr\n    source: main.obda_metric_test.instr_ref\n    \"on\": source.instr_id = instr.instr_id\n    joins:\n      - name: issuer\n        source: main.obda_metric_test.cpty_mstr\n        \"on\": instr.issuer_cpty_id = issuer.cpty_id\n\nfilter: mv_usd IS NOT NULL\n\ndimensions:\n  - name: jurisdiction\n    expr: cpty.ctry_cd\n\n  - name: counterparty\n    expr: cpty.legal_nm\n\n  - name: asset_class\n    expr: instr.asset_cls_cd\n\n  - name: issuer_jurisdiction\n    expr: instr.issuer.ctry_cd\n\n  - name: book\n    expr: source.book_cd\n\n  - name: cob_date\n    expr: source.cob_dt\n\nmeasures:\n  - name: market_value\n    expr: SUM(source.mv_usd)\n\n  - name: notional\n    expr: SUM(source.ntnl_amt)\n\n  - name: position_count\n    expr: COUNT(1)\n\n  - name: avg_market_value\n    expr: MEASURE(market_value) / MEASURE(position_count)\n\n  - name: market_value_trailing_5d\n    expr: SUM(source.mv_usd)\n    window:\n      - order: cob_date\n        semiadditive: last\n        range: trailing 5 day\n\nmaterialization:\n  schedule: EVERY 6 HOURS\n  mode: relaxed\n  materialized_views:\n    - name: by_jurisdiction\n      type: aggregated\n      dimensions:\n        - jurisdiction\n        - cob_date\n      measures:\n        - market_value\n        - position_count",
+  "view_dependencies": {
+    "dependencies": [
+      {
+        "metastore_name": "2001e8c5-62a1-47a8-b662-4e1867109332",
+        "table": {
+          "table_full_name": "main.obda_metric_test.__68005e5e_2d32_4817_8f93_9be1fee2cc9e___metric_view_mat_93fc7a52-43d8-40b9-8845-e4ffb8aedc74_by_jurisdiction"
+        }
+      },
+      {
+        "metastore_name": "2001e8c5-62a1-47a8-b662-4e1867109332",
+        "table": {
+          "table_full_name": "main.obda_metric_test.cpty_mstr"
+        }
+      },
+      {
+        "metastore_name": "2001e8c5-62a1-47a8-b662-4e1867109332",
+        "table": {
+          "table_full_name": "main.obda_metric_test.instr_ref"
+        }
+      },
+      {
+        "metastore_name": "2001e8c5-62a1-47a8-b662-4e1867109332",
+        "table": {
+          "table_full_name": "main.obda_metric_test.pos_eod"
+        }
+      }
+    ]
+  }
+}

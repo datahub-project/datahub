@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 
+from datahub.errors import SdkUsageError
 from datahub.metadata.schema_classes import (
     AiContextClass,
     DerivedMetricInputClass,
@@ -333,8 +334,6 @@ def test_derived_from_scalar_string_is_single_edge() -> None:
 
 
 def test_semantic_model_reference_rejects_blank_and_malformed() -> None:
-    from datahub.errors import SdkUsageError
-
     for bad in ("", "   ", "urn:li:placeholder"):
         with pytest.raises(SdkUsageError):
             Metric(
@@ -346,8 +345,6 @@ def test_semantic_model_reference_rejects_blank_and_malformed() -> None:
 
 
 def test_set_semantic_model_rejects_blank() -> None:
-    from datahub.errors import SdkUsageError
-
     metric = Metric(
         platform="snowflake", path="analytics", id="revenue", semantic_model=_SM
     )
@@ -377,3 +374,42 @@ def test_clear_hydrated_ai_context_emits_empty_overwrite() -> None:
     assert cleared.instructions is None
     assert cleared.examples is None
     assert cleared.customInstructions is None
+
+
+def test_metric_upstream_fields() -> None:
+    model_urn = "urn:li:semanticModel:(urn:li:dataPlatform:databricks,c.s,mv)"
+    smd = "urn:li:dataset:(urn:li:dataPlatform:databricks,c.s.mv.source,PROD)"
+    field = f"urn:li:schemaField:({smd},revenue)"
+    metric = Metric(
+        platform="databricks",
+        path="c.s.mv",
+        id="revenue",
+        semantic_model=model_urn,
+        upstream_datasets=[smd],
+        upstream_fields=[field],
+    )
+    upstreams = _aspects_by_name(metric)["metricUpstreams"]
+    assert [e.destinationUrn for e in upstreams.fieldUpstreams] == [field]
+    assert metric.upstream_fields == [field]
+
+
+def test_metric_upstream_fields_absent_by_default() -> None:
+    metric = Metric(
+        platform="databricks",
+        path="c.s.mv",
+        id="revenue",
+        semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:databricks,c.s,mv)",
+    )
+    assert _aspects_by_name(metric)["metricUpstreams"].fieldUpstreams is None
+
+
+def test_metric_upstream_fields_require_parent_dataset() -> None:
+    smd = "urn:li:dataset:(urn:li:dataPlatform:databricks,c.s.mv.source,PROD)"
+    with pytest.raises(SdkUsageError, match="not one of its upstream_datasets"):
+        Metric(
+            platform="databricks",
+            path="c.s.mv",
+            id="revenue",
+            semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:databricks,c.s,mv)",
+            upstream_fields=[f"urn:li:schemaField:({smd},revenue)"],
+        )

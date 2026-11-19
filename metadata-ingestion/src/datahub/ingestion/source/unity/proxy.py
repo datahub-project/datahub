@@ -88,6 +88,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     TableReference,
     Volume,
     escape_unity_name,
+    is_metric_view_type,
     make_schema,
     qualified_table_name,
     usage_statement_types,
@@ -1541,7 +1542,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             return None
         return make_schema(catalog, obj.name, comment=obj.comment, owner=obj.owner)
 
-    def _create_column(self, table_id: str, obj: ColumnInfo) -> Optional[Column]:
+    def _create_column(
+        self, table_id: str, obj: ColumnInfo, keep_type_json: bool = False
+    ) -> Optional[Column]:
         if not obj.name:
             self.report.num_columns_missing_name += 1
             return None
@@ -1556,6 +1559,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             nullable=obj.nullable,
             comment=obj.comment,
             partition_index=obj.partition_index,
+            type_json=obj.type_json if keep_type_json else None,
         )
 
     def _create_table(
@@ -1582,7 +1586,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             storage_location=obj.storage_location,
             data_source_format=obj.data_source_format,
             columns=(
-                list(self._extract_columns(obj.columns, table_id))
+                list(
+                    self._extract_columns(
+                        obj.columns,
+                        table_id,
+                        keep_type_json=is_metric_view_type(obj.table_type),
+                    )
+                )
                 if obj.columns
                 else []
             ),
@@ -1601,10 +1611,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         )
 
     def _extract_columns(
-        self, columns: List[ColumnInfo], table_id: str
+        self, columns: List[ColumnInfo], table_id: str, keep_type_json: bool = False
     ) -> Iterable[Column]:
         for column in columns:
-            optional_column = self._create_column(table_id, column)
+            optional_column = self._create_column(table_id, column, keep_type_json)
             if optional_column:
                 yield optional_column
 

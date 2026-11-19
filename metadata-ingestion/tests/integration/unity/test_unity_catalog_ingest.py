@@ -1,7 +1,9 @@
+import json
 import uuid
 from collections import namedtuple
 from datetime import datetime, timezone
-from typing import Iterable
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from unittest import mock
 from unittest.mock import patch
 
@@ -12,14 +14,19 @@ from databricks.sdk.service.catalog import (
     CatalogInfo,
     GetMetastoreSummaryResponse,
     SchemaInfo,
+    TableType,
 )
 from databricks.sdk.service.iam import ServicePrincipal
 from databricks.sdk.service.sql import QueryStatementType
 
+from datahub.api.entities.external.unity_catalog_external_entites import (
+    UnityCatalogTag,
+)
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query
+from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2021-12-07 07:00:00"
@@ -1766,8 +1773,6 @@ def _run_view_filter_pipeline(tmp_path, requests_mock, source_extra):
         pipeline.run()
         pipeline.raise_from_status()
 
-    import json
-
     with open(f"/{tmp_path}/{output_file_name}") as f:
         mcps = json.load(f)
     return {
@@ -1801,3 +1806,808 @@ def test_include_tables_false_skips_tables(pytestconfig, tmp_path, requests_mock
     urns = _run_view_filter_pipeline(tmp_path, requests_mock, {"include_tables": False})
     assert not any("my_table" in urn for urn in urns)
     assert any("my_view" in urn for urn in urns)
+
+
+_EXPOSURE_METASTORE_ID = "22222222-2222-2222-2222-222222222222"
+_EXPOSURE_AUDIT = {
+    "owner": "abc@acryl.io",
+    "metastore_id": _EXPOSURE_METASTORE_ID,
+    "created_at": 1700000000000,
+    "created_by": "abc@acryl.io",
+    "updated_at": 1700000010000,
+    "updated_by": "abc@acryl.io",
+}
+
+
+def _exposure_columns(columns: Iterable[Tuple[str, str, str]]) -> List[Dict[str, Any]]:
+    return [
+        {
+            "name": name,
+            "type_text": type_text,
+            "type_json": (
+                f'{{"name":"{name}","type":"{type_text}","nullable":true,'
+                '"metadata":{}}'
+            ),
+            "type_name": type_name,
+            "type_precision": 0,
+            "type_scale": 0,
+            "position": position,
+            "nullable": True,
+        }
+        for position, (name, type_text, type_name) in enumerate(columns)
+    ]
+
+
+def _exposure_table(
+    name: str,
+    table_type: str,
+    columns: List[Tuple[str, str, str]],
+    schema: str = "markets",
+    **extra: Any,
+) -> Dict[str, Any]:
+    return {
+        "name": name,
+        "catalog_name": "main",
+        "schema_name": schema,
+        "table_type": table_type,
+        "data_source_format": "DELTA",
+        "columns": _exposure_columns(columns),
+        "full_name": f"main.{schema}.{name}",
+        "table_id": f"{name}-id",
+        **_EXPOSURE_AUDIT,
+        **extra,
+    }
+
+
+def register_exposure_metric_view_mock_data(
+    workspace_client: mock.MagicMock,
+    metric_view_yaml: str,
+    schema: str = "markets",
+    metric_view_payload: Optional[Dict[str, Any]] = None,
+) -> None:
+    """The finance demo metric view (exposure_metrics.yaml) over three tables.
+
+    ``metric_view_payload`` replaces the hand-built metric view with a real
+    Unity Catalog tables API response."""
+    workspace_client.metastores.summary.return_value = (
+        GetMetastoreSummaryResponse.from_dict(
+            {
+                "name": "exposure_metastore",
+                "metastore_id": _EXPOSURE_METASTORE_ID,
+                "global_metastore_id": f"aws:us-east-1:{_EXPOSURE_METASTORE_ID}",
+                "region": "us-east-1",
+                "cloud": "aws",
+                "owner": "abc@acryl.io",
+            }
+        )
+    )
+    catalog_dict = {
+        "name": "main",
+        "comment": "",
+        "catalog_type": "MANAGED_CATALOG",
+        **_EXPOSURE_AUDIT,
+    }
+    workspace_client.catalogs.list.return_value = [CatalogInfo.from_dict(catalog_dict)]
+    workspace_client.catalogs.get.return_value = CatalogInfo.from_dict(catalog_dict)
+    workspace_client.schemas.list.return_value = [
+        SchemaInfo.from_dict(
+            {
+                "name": schema,
+                "catalog_name": "main",
+                "comment": "",
+                "full_name": f"main.{schema}",
+                "catalog_type": "MANAGED_CATALOG",
+                **_EXPOSURE_AUDIT,
+            }
+        )
+    ]
+
+    s, d, dt, bi = (
+        ("string", "STRING"),
+        ("double", "DOUBLE"),
+        ("date", "DATE"),
+        (
+            "bigint",
+            "LONG",
+        ),
+    )
+    tables = [
+        _exposure_table(
+            "pos_eod",
+            "MANAGED",
+            [
+                ("pos_id", *s),
+                ("book_cd", *s),
+                ("cpty_id", *s),
+                ("instr_id", *s),
+                ("ntnl_amt", *d),
+                ("mv_usd", *d),
+                ("cob_dt", *dt),
+            ],
+        ),
+        _exposure_table(
+            "cpty_mstr",
+            "MANAGED",
+            [
+                ("cpty_id", *s),
+                ("legal_nm", *s),
+                ("lei_cd", *s),
+                ("ctry_cd", *s),
+                ("sctr_cd", *s),
+            ],
+        ),
+        _exposure_table(
+            "instr_ref",
+            "MANAGED",
+            [
+                ("instr_id", *s),
+                ("isin", *s),
+                ("asset_cls_cd", *s),
+                ("ccy", *s),
+                ("issuer_cpty_id", *s),
+            ],
+        ),
+    ]
+    metric_view = _exposure_table(
+        "exposure_metrics",
+        "METRIC_VIEW",
+        [
+            ("jurisdiction", *s),
+            ("counterparty", *s),
+            ("asset_class", *s),
+            ("issuer_jurisdiction", *s),
+            ("book", *s),
+            ("cob_date", *dt),
+            ("market_value", *d),
+            ("notional", *d),
+            ("position_count", *bi),
+            ("avg_market_value", *d),
+            ("market_value_trailing_5d", *d),
+        ],
+        view_definition=metric_view_yaml,
+        properties={"view.sqlConfig.spark.sql.ansi.enabled": "true"},
+        comment="Unity Catalog comment, superseded by the YAML comment.",
+    )
+    for t in tables:
+        t["schema_name"] = schema
+        t["full_name"] = f"main.{schema}.{t['name']}"
+    if metric_view_payload is not None:
+        # As tables.list() returns it live: the field metadata is in each
+        # column's type_json.
+        metric_view = metric_view_payload
+    workspace_client.tables.list = lambda *args, **kwargs: [
+        databricks.sdk.service.catalog.TableInfo.from_dict(t)
+        for t in [*tables, metric_view]
+    ]
+    workspace_client.tables.get = lambda *args, **kwargs: (
+        databricks.sdk.service.catalog.TableInfo.from_dict(metric_view)
+    )
+    workspace_client.service_principals.list.return_value = []
+    workspace_client.groups.list.return_value = []
+    workspace_client.workspace.list.return_value = []
+    workspace_client.registered_models.list.return_value = []
+    workspace_client.model_versions.list.return_value = []
+
+
+# Tags Unity Catalog would return for the real-payload metric view, by key.
+_EXPOSURE_TABLE_TAGS = {
+    "main.obda_metric_test.exposure_metrics": [
+        UnityCatalogTag(key="tier", value="gold")
+    ]
+}
+_EXPOSURE_COLUMN_TAGS = {
+    "main.obda_metric_test.exposure_metrics.market_value": [
+        UnityCatalogTag(key="sensitivity", value="internal")
+    ],
+    "main.obda_metric_test.exposure_metrics.jurisdiction": [
+        UnityCatalogTag(key="geo", value=None)
+    ],
+}
+
+
+def _run_exposure_metric_view(
+    tmp_path: Path,
+    requests_mock: Any,
+    pytestconfig: pytest.Config,
+    real_payload: bool = False,
+    run_name: str = "unity_catalog_exposure_metric_view_mcps",
+    **config: Any,
+) -> Tuple[Path, List[Dict[str, Any]], Pipeline]:
+    if not hasattr(TableType, "METRIC_VIEW"):
+        pytest.skip("Installed databricks-sdk lacks TableType.METRIC_VIEW")
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+    metric_view_yaml = (test_resources_dir / "exposure_metrics.yaml").read_text()
+    register_mock_api(request_mock=requests_mock)
+    output_path = tmp_path / f"{run_name}.json"
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        # Tags come from SQL over information_schema; serve them directly.
+        patch.object(
+            UnityCatalogApiProxy, "get_table_tags", return_value=_EXPOSURE_TABLE_TAGS
+        ),
+        patch.object(
+            UnityCatalogApiProxy, "get_column_tags", return_value=_EXPOSURE_COLUMN_TAGS
+        ),
+        patch.object(UnityCatalogApiProxy, "get_schema_tags", return_value={}),
+        patch.object(UnityCatalogApiProxy, "get_catalog_tags", return_value={}),
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        if real_payload:
+            # A metric view as the tables API really returns it: the YAML is
+            # normalized, and field metadata lives on the columns.
+            payload = json.loads(
+                (test_resources_dir / "exposure_metrics_uc_table_api.json").read_text()
+            )
+            register_exposure_metric_view_mock_data(
+                workspace_client,
+                payload["view_definition"],
+                schema=payload["schema_name"],
+                metric_view_payload=payload,
+            )
+        else:
+            register_exposure_metric_view_mock_data(workspace_client, metric_view_yaml)
+        pipeline = Pipeline.create(
+            {
+                "run_id": f"unity-catalog-exposure-{run_name}",
+                "pipeline_name": "unity-catalog-exposure-metric-view-pipeline",
+                "source": {
+                    "type": "unity-catalog",
+                    "config": {
+                        "workspace_url": "https://dummy.cloud.databricks.com",
+                        "token": "fake",
+                        "include_metric_views": True,
+                        "include_hive_metastore": False,
+                        "include_ownership": False,
+                        "include_notebooks": False,
+                        "include_usage_statistics": False,
+                        "include_tags": False,
+                        "include_table_lineage": False,
+                        "include_column_lineage": True,
+                        **config,
+                    },
+                },
+                "sink": {"type": "file", "config": {"filename": str(output_path)}},
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+    return output_path, json.loads(output_path.read_text()), pipeline
+
+
+_MV_DATASET = (
+    "urn:li:dataset:(urn:li:dataPlatform:databricks,main.markets.exposure_metrics,PROD)"
+)
+_MODEL = "urn:li:semanticModel:(urn:li:dataPlatform:databricks,main.markets,exposure_metrics)"
+
+
+def _physical(table: str) -> str:
+    return f"urn:li:dataset:(urn:li:dataPlatform:databricks,main.markets.{table},PROD)"
+
+
+def _smd(alias: str) -> str:
+    return (
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        f"main.markets.exposure_metrics.{alias},PROD)"
+    )
+
+
+def _metric(name: str) -> str:
+    return (
+        "urn:li:metric:(urn:li:dataPlatform:databricks,"
+        f"main.markets.exposure_metrics,{name})"
+    )
+
+
+def _unity_report(pipeline: Pipeline) -> UnityCatalogReport:
+    report = pipeline.source.get_report()
+    assert isinstance(report, UnityCatalogReport)
+    return report
+
+
+def _aspects(mcps: List[Dict[str, Any]], aspect_name: str) -> Dict[str, Any]:
+    return {
+        m["entityUrn"]: m["aspect"]["json"]
+        for m in mcps
+        if m.get("aspectName") == aspect_name
+    }
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_exposure_metric_view_semantic_model(pytestconfig, tmp_path, requests_mock):
+    """exposure_metrics.yaml against the EXPECTED.md oracle of the finance demo."""
+    output_path, mcps, pipeline = _run_exposure_metric_view(
+        tmp_path, requests_mock, pytestconfig, emit_semantic_model_entities=True
+    )
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_path),
+        golden_path=str(
+            pytestconfig.rootpath
+            / "tests/integration/unity/exposure_metric_view_semantic_model_mces_golden.json"
+        ),
+    )
+
+    # Entities: one semantic model, five metrics.
+    urns = {m["entityUrn"] for m in mcps}
+    model_info = _aspects(mcps, "semanticModelInfo")
+    assert list(model_info) == [_MODEL]
+    metric_info = _aspects(mcps, "metricInfo")
+    assert set(metric_info) == {
+        _metric(n)
+        for n in (
+            "market_value",
+            "notional",
+            "position_count",
+            "avg_market_value",
+            "market_value_trailing_5d",
+        )
+    }
+    assert all(info["semanticModel"] == _MODEL for info in metric_info.values())
+
+    # Six declared dimensions; any other dimension field is a join key.
+    annotations = _aspects(mcps, "semanticFieldAnnotation")
+    dimension_fields = {
+        urn.rsplit(",", 1)[-1].rstrip(")"): urn
+        for urn, a in annotations.items()
+        if a["type"] == "DIMENSION"
+    }
+    declared = {
+        "jurisdiction",
+        "counterparty",
+        "asset_class",
+        "issuer_jurisdiction",
+        "book",
+        "cob_date",
+    }
+    assert declared <= set(dimension_fields)
+    schemas = _aspects(mcps, "schemaMetadata")
+    descriptions = {
+        f["fieldPath"]: f.get("description")
+        for schema in schemas.values()
+        for f in schema["fields"]
+    }
+    for extra in set(dimension_fields) - declared:
+        assert descriptions[extra].startswith("Join key")
+
+    # Legacy `Metric View` dataset: not emitted (ING-2944, as Snowflake does).
+    assert _MV_DATASET not in urns
+
+    # Relationships, including the nested join, with each alias's physical table.
+    upstream_lineage = _aspects(mcps, "upstreamLineage")
+    alias_table = {
+        alias: [u["dataset"] for u in upstream_lineage[_smd(alias)]["upstreams"]][0]
+        for alias in ("source", "cpty", "instr", "instr.issuer")
+    }
+    assert alias_table == {
+        "source": _physical("pos_eod"),
+        "cpty": _physical("cpty_mstr"),
+        "instr": _physical("instr_ref"),
+        "instr.issuer": _physical("cpty_mstr"),
+    }
+    relationships = {
+        (r["from"], r["to"]): (r["fromColumns"], r["toColumns"])
+        for r in model_info[_MODEL]["relationships"]
+    }
+    assert relationships == {
+        ("source", "cpty"): (["cpty_id"], ["cpty_id"]),
+        ("source", "instr"): (["instr_id"], ["instr_id"]),
+        ("instr", "instr.issuer"): (["issuer_cpty_id"], ["cpty_id"]),
+    }
+
+    # Column lineage, physical column -> logical-dataset field.
+    column_lineage = {
+        f["downstreams"][0].rsplit(",", 1)[-1].rstrip(")"): sorted(f["upstreams"])
+        for lineage in upstream_lineage.values()
+        for f in lineage.get("fineGrainedLineages") or []
+    }
+
+    def col(table: str, column: str) -> str:
+        return f"urn:li:schemaField:({_physical(table)},{column})"
+
+    assert column_lineage == {
+        "market_value": [col("pos_eod", "mv_usd")],
+        "notional": [col("pos_eod", "ntnl_amt")],
+        "market_value_trailing_5d": [col("pos_eod", "mv_usd")],
+        "jurisdiction": [col("cpty_mstr", "ctry_cd")],
+        "counterparty": [col("cpty_mstr", "legal_nm")],
+        "asset_class": [col("instr_ref", "asset_cls_cd")],
+        "issuer_jurisdiction": [col("cpty_mstr", "ctry_cd")],
+        "book": [col("pos_eod", "book_cd")],
+        "cob_date": [col("pos_eod", "cob_dt")],
+    }
+    # issuer_jurisdiction (`instr.issuer.ctry_cd`) lands on the nested join's
+    # dataset, aliased by its path.
+    assert any(
+        f["downstreams"]
+        == [f"urn:li:schemaField:({_smd('instr.issuer')},issuer_jurisdiction)"]
+        for f in upstream_lineage[_smd("instr.issuer")]["fineGrainedLineages"]
+    )
+    # position_count: no column lineage, but its dataset reads pos_eod.
+    upstreams = _aspects(mcps, "metricUpstreams")
+    assert [
+        e["destinationUrn"]
+        for e in upstreams[_metric("position_count")]["datasetUpstreams"]
+    ] == [_smd("source")]
+    assert {
+        u["dataset"]
+        for lineage in upstream_lineage.values()
+        for u in lineage["upstreams"]
+    } == {_physical("pos_eod"), _physical("cpty_mstr"), _physical("instr_ref")}
+
+    # Metric -> metric: only avg_market_value, from market_value and position_count.
+    relationships_by_metric = _aspects(mcps, "metricRelationships")
+    derived = {
+        urn: sorted(e["destinationUrn"] for e in rel["derivedFrom"])
+        for urn, rel in relationships_by_metric.items()
+    }
+    assert derived == {
+        _metric("avg_market_value"): [
+            _metric("market_value"),
+            _metric("position_count"),
+        ],
+        _metric("market_value"): [],
+        _metric("notional"): [],
+        _metric("position_count"): [],
+        _metric("market_value_trailing_5d"): [],
+    }
+    assert upstreams[_metric("avg_market_value")] == {
+        "datasetUpstreams": [],
+        "fieldUpstreams": [],
+    }
+    assert [
+        e["destinationUrn"]
+        for e in upstreams[_metric("market_value")]["fieldUpstreams"]
+    ] == [f"urn:li:schemaField:({_smd('source')},market_value)"]
+
+    # Databricks extensions on the logical datasets' custom properties.
+    props = _aspects(mcps, "datasetProperties")
+    root = props[_smd("source")]["customProperties"]
+    assert root["metric_view.filter"] == "mv_usd IS NOT NULL"
+    assert root["metric_view.spec_version"] == "1.1"
+    assert root["metric_view.materialization.schedule"] == "every 6 hours"
+    assert root["metric_view.materialization.mode"] == "relaxed"
+    assert (
+        json.loads(root["metric_view.materialization.materialized_views"])[0]["name"]
+        == "by_jurisdiction"
+    )
+    assert root["metric_view.field.market_value.format.type"] == "currency"
+    assert root["metric_view.field.market_value.format.currency_code"] == "USD"
+    assert root["metric_view.field.market_value.display_name"] == "Market value (USD)"
+    assert root["metric_view.field.market_value.synonyms"] == "exposure,MTM"
+    assert root["metric_view.field.market_value_trailing_5d.window.order"] == "cob_date"
+    assert (
+        root["metric_view.field.market_value_trailing_5d.window.range"]
+        == "trailing 5 day"
+    )
+    assert (
+        root["metric_view.field.market_value_trailing_5d.window.semiadditive"] == "last"
+    )
+    cpty = props[_smd("cpty")]["customProperties"]
+    assert cpty["metric_view.field.jurisdiction.display_name"] == (
+        "Counterparty jurisdiction"
+    )
+    assert cpty["metric_view.field.counterparty.display_name"] == "Counterparty"
+
+    # Display names name the metrics; synonyms also go to aiContext.
+    assert metric_info[_metric("market_value")]["name"] == "Market value (USD)"
+    assert metric_info[_metric("market_value_trailing_5d")]["name"] == (
+        "market_value_trailing_5d"
+    )
+    ai_context = _aspects(mcps, "aiContext")
+    assert ai_context[_metric("market_value")]["synonyms"] == ["exposure", "MTM"]
+    assert ai_context[f"urn:li:schemaField:({_smd('cpty')},jurisdiction)"][
+        "synonyms"
+    ] == ["country", "domicile"]
+    assert ai_context[f"urn:li:schemaField:({_smd('instr')},asset_class)"][
+        "synonyms"
+    ] == ["product type"]
+    assert (
+        "window: order=cob_date"
+        in (
+            metric_info[_metric("market_value_trailing_5d")]["expression"]["dialects"][
+                0
+            ]["expression"]
+        )
+    )
+
+    # Descriptions from `comment`; the model's from the top-level comment.
+    assert model_info[_MODEL]["description"] == (
+        "Market exposure by counterparty, instrument and book. Synthetic demo data."
+    )
+    assert metric_info[_metric("market_value")]["description"] == (
+        "Mark-to-market value in USD."
+    )
+    assert descriptions["issuer_jurisdiction"] == (
+        "Country of the instrument's issuer (through the nested join)."
+    )
+
+    report = _unity_report(pipeline)
+    assert report.num_metric_view_semantic_models_emitted == 1
+    assert report.num_metric_view_metrics_emitted == 5
+    assert report.num_metric_view_relationships_emitted == 3
+    assert report.num_metric_view_derived_metric_edges == 2
+    assert report.num_metric_view_unresolved_qualifiers == 0
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_exposure_metric_view_legacy_when_flag_off(
+    pytestconfig, tmp_path, requests_mock
+):
+    """emit_semantic_model_entities: false keeps the legacy `Metric View` dataset."""
+    _, mcps, pipeline = _run_exposure_metric_view(
+        tmp_path, requests_mock, pytestconfig, emit_semantic_model_entities=False
+    )
+    assert _aspects(mcps, "subTypes")[_MV_DATASET] == {"typeNames": ["Metric View"]}
+    assert not _aspects(mcps, "semanticModelInfo")
+    assert not _aspects(mcps, "metricInfo")
+    # `source.<col>` resolves to the top-level source in the legacy path too.
+    assert _unity_report(pipeline).num_metric_view_unresolved_qualifiers == 0
+
+
+_REAL = "main.obda_metric_test"
+# The enriched real-payload run: include_metastore with a workspace name, so
+# URNs carry the platform instance and the metastore.
+_WORKSPACE = "acme_ws"
+_ENRICHED = f"{_WORKSPACE}.exposure_metastore.{_REAL}"
+_ENRICHED_CONFIG: Dict[str, Any] = {
+    "include_metastore": True,
+    "workspace_name": _WORKSPACE,
+    "include_ownership": True,
+    "include_tags": True,
+    "warehouse_id": "test-warehouse",
+    "domain": {"urn:li:domain:markets": {"allow": [r"main\.obda_metric_test\..*"]}},
+}
+
+
+def _real_smd(alias: str) -> str:
+    return (
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        f"{_ENRICHED}.exposure_metrics.{alias},PROD)"
+    )
+
+
+def _real_metric(name: str) -> str:
+    return (
+        f"urn:li:metric:(urn:li:dataPlatform:databricks,{_ENRICHED}.exposure_metrics,"
+        f"{name})"
+    )
+
+
+def _real_physical(table: str) -> str:
+    return f"urn:li:dataset:(urn:li:dataPlatform:databricks,{_ENRICHED}.{table},PROD)"
+
+
+def _assert_real_field_properties(props: Dict[str, str]) -> None:
+    """Field metadata Unity Catalog keeps on columns, as metric_view.* properties."""
+    assert props["metric_view.field.market_value.display_name"] == "Market value (USD)"
+    assert props["metric_view.field.market_value.synonyms"] == "exposure,MTM"
+    # semantic_metadata's {"currency": {...}} reshaped to the YAML form.
+    assert props["metric_view.field.market_value.format.type"] == "currency"
+    assert props["metric_view.field.market_value.format.currency_code"] == "USD"
+    assert props["metric_view.field.market_value_trailing_5d.window.order"] == (
+        "cob_date"
+    )
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_exposure_metric_view_real_payload_semantic_model(
+    pytestconfig, tmp_path, requests_mock
+):
+    """The real tables API payload: the normalized YAML has no comment,
+    display_name, synonyms or format; they come from the columns. Run with
+    owners, tags, a domain and include_metastore (with a workspace instance)."""
+    output_path, mcps, pipeline = _run_exposure_metric_view(
+        tmp_path,
+        requests_mock,
+        pytestconfig,
+        real_payload=True,
+        emit_semantic_model_entities=True,
+        **_ENRICHED_CONFIG,
+    )
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_path),
+        golden_path=str(
+            pytestconfig.rootpath
+            / "tests/integration/unity/exposure_metric_view_real_payload_mces_golden.json"
+        ),
+    )
+    metric_info = _aspects(mcps, "metricInfo")
+    assert len(metric_info) == 5
+    assert metric_info[_real_metric("market_value")]["name"] == "Market value (USD)"
+    assert metric_info[_real_metric("position_count")]["name"] == "Positions"
+    assert metric_info[_real_metric("market_value")]["description"] == (
+        "Mark-to-market value in USD."
+    )
+    ai_context = _aspects(mcps, "aiContext")
+    assert ai_context[_real_metric("market_value")]["synonyms"] == ["exposure", "MTM"]
+    assert ai_context[f"urn:li:schemaField:({_real_smd('cpty')},jurisdiction)"][
+        "synonyms"
+    ] == ["country", "domicile"]
+    assert ai_context[f"urn:li:schemaField:({_real_smd('instr')},asset_class)"][
+        "synonyms"
+    ] == ["product type"]
+
+    props = _aspects(mcps, "datasetProperties")
+    root = props[_real_smd("source")]["customProperties"]
+    _assert_real_field_properties(root)
+    assert root["metric_view.filter"] == "mv_usd IS NOT NULL"
+    cpty = props[_real_smd("cpty")]["customProperties"]
+    assert cpty["metric_view.field.jurisdiction.display_name"] == (
+        "Counterparty jurisdiction"
+    )
+    descriptions = {
+        f["fieldPath"]: f.get("description")
+        for schema in _aspects(mcps, "schemaMetadata").values()
+        for f in schema["fields"]
+    }
+    assert descriptions["jurisdiction"] == (
+        "Country whose law the counterparty is organized under."
+    )
+    model = next(iter(_aspects(mcps, "semanticModelInfo").values()))
+    assert model["description"] == (
+        "Market exposure by counterparty, instrument and book. Synthetic demo data."
+    )
+    report = _unity_report(pipeline)
+    assert report.num_metric_view_derived_metric_edges == 2
+    assert report.num_metric_view_relationships_emitted == 3
+    assert report.num_metric_view_unresolved_qualifiers == 0
+    assert report.num_metric_view_column_metadata_invalid == 0
+    assert report.num_metric_view_semantic_model_fallbacks == 0
+
+    # include_metastore: URNs carry the instance and the metastore, and each
+    # logical dataset's upstream is the physical dataset this run emitted.
+    model_urn = (
+        f"urn:li:semanticModel:(urn:li:dataPlatform:databricks,{_ENRICHED},"
+        "exposure_metrics)"
+    )
+    assert set(_aspects(mcps, "semanticModelInfo")) == {model_urn}
+    upstreams = _aspects(mcps, "upstreamLineage")
+    assert upstreams[_real_smd("source")]["upstreams"][0]["dataset"] == (
+        _real_physical("pos_eod")
+    )
+    emitted_datasets = set(_aspects(mcps, "schemaMetadata"))
+    assert {
+        u["dataset"] for lineage in upstreams.values() for u in lineage["upstreams"]
+    } <= emitted_datasets
+    browse = _aspects(mcps, "browsePathsV2")[model_urn]["path"]
+    assert browse[0]["id"] == _WORKSPACE
+    assert len(browse) == 4  # instance, metastore, catalog, schema
+
+    # Owner and domain on the model, its logical datasets and its metrics.
+    owner = "urn:li:corpuser:test-user@example.com"
+    ownership = _aspects(mcps, "ownership")
+    domains = _aspects(mcps, "domains")
+    for urn in (model_urn, _real_smd("source"), _real_metric("market_value")):
+        assert [o["owner"] for o in ownership[urn]["owners"]] == [owner]
+        assert domains[urn]["domains"] == ["urn:li:domain:markets"]
+    # Table tags on the model only; column tags on the field and the metric.
+    tags = _aspects(mcps, "globalTags")
+    assert [t["tag"] for t in tags[model_urn]["tags"]] == ["urn:li:tag:tier:gold"]
+    assert _real_smd("source") not in tags
+    assert [t["tag"] for t in tags[_real_metric("market_value")]["tags"]] == [
+        "urn:li:tag:sensitivity:internal"
+    ]
+    cpty_fields = {
+        f["fieldPath"]: f
+        for f in _aspects(mcps, "schemaMetadata")[_real_smd("cpty")]["fields"]
+    }
+    assert [t["tag"] for t in cpty_fields["jurisdiction"]["globalTags"]["tags"]] == [
+        "urn:li:tag:geo"
+    ]
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_exposure_metric_view_real_payload_legacy(
+    pytestconfig, tmp_path, requests_mock
+):
+    """The same payload on the legacy `Metric View` dataset path."""
+    _, mcps, pipeline = _run_exposure_metric_view(
+        tmp_path,
+        requests_mock,
+        pytestconfig,
+        real_payload=True,
+        emit_semantic_model_entities=False,
+    )
+    dataset = (
+        f"urn:li:dataset:(urn:li:dataPlatform:databricks,{_REAL}.exposure_metrics,PROD)"
+    )
+    props = _aspects(mcps, "datasetProperties")[dataset]
+    _assert_real_field_properties(props["customProperties"])
+    assert props["customProperties"]["metric_view.field.jurisdiction.synonyms"] == (
+        "country,domicile"
+    )
+    assert props["customProperties"]["metric_view.field.book.display_name"] == (
+        "Trading book"
+    )
+    assert props["description"] == (
+        "Market exposure by counterparty, instrument and book. Synthetic demo data."
+    )
+    fields = {
+        f["fieldPath"]: f for f in _aspects(mcps, "schemaMetadata")[dataset]["fields"]
+    }
+    assert fields["issuer_jurisdiction"]["description"] == (
+        "Country of the instrument's issuer (through the nested join)."
+    )
+    assert _unity_report(pipeline).num_metric_view_unresolved_qualifiers == 0
+
+
+def _soft_deleted(mcps: List[Dict[str, Any]]) -> set:
+    return {
+        urn for urn, status in _aspects(mcps, "status").items() if status["removed"]
+    }
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_exposure_metric_view_flag_flip_soft_deletes(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Stateful ingestion retires whichever representation the flag drops."""
+    stateful: Dict[str, Any] = {
+        "stateful_ingestion": {
+            "enabled": True,
+            "remove_stale_metadata": True,
+            "fail_safe_threshold": 100,
+            "state_provider": {
+                "type": "file",
+                "config": {"filename": str(tmp_path / "checkpoint.json")},
+            },
+        }
+    }
+
+    def run(name: str, emit: bool) -> List[Dict[str, Any]]:
+        _, mcps, _ = _run_exposure_metric_view(
+            tmp_path,
+            requests_mock,
+            pytestconfig,
+            run_name=name,
+            emit_semantic_model_entities=emit,
+            **stateful,
+        )
+        return mcps
+
+    legacy = run("legacy", emit=False)
+    assert _MV_DATASET in {m["entityUrn"] for m in legacy}
+    assert not _soft_deleted(legacy)
+
+    # false -> true: the `Metric View` dataset is soft-deleted. The global
+    # Dimension / Measure / Window Measure tags only the legacy path references
+    # are carried forward, not soft-deleted.
+    legacy_tags = {
+        "urn:li:tag:Dimension",
+        "urn:li:tag:Measure",
+        "urn:li:tag:Window Measure",
+    }
+    assert legacy_tags <= {m["entityUrn"] for m in legacy}
+    semantic = run("semantic", emit=True)
+    assert _soft_deleted(semantic) == {_MV_DATASET}
+    # Still kept a run later, with nothing referencing them.
+    again = run("semantic_again", emit=True)
+    assert not _soft_deleted(again) & legacy_tags
+    semantic_urns = {
+        urn
+        for urn in {m["entityUrn"] for m in semantic}
+        if urn.startswith(("urn:li:semanticModel:", "urn:li:metric:"))
+        or urn.startswith(_smd(""))
+    }
+    assert _MODEL in semantic_urns and _metric("market_value") in semantic_urns
+
+    # true -> false: the semantic model, its metrics and its logical datasets.
+    back = run("back", emit=False)
+    deleted = _soft_deleted(back)
+    assert semantic_urns <= deleted
+    assert _MV_DATASET not in deleted

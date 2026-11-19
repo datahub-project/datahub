@@ -1,0 +1,90 @@
+# A Databricks Unity Catalog metric view over the finance demo tables (finance_model.py), written to exercise every
+# part of the Metric View -> SemanticModel/Metric mapping (ING-2946). Synthetic data; no customer names.
+#
+# What it covers:
+#   joins          positions -> counterparty, positions -> instrument -> issuer (a nested join)
+#   dimensions     with display_name and synonyms, one per joined table, plus a date
+#   measures       plain aggregates with format, a composable MEASURE() ratio, and a window measure
+#   filter         a top-level filter
+#   materialization
+#
+# Create it with create_metric_view.sql (needs CREATE TABLE in a Unity Catalog schema; metric views don't exist in
+# hive_metastore). The tables it reads must be in Unity Catalog too: setup copies them there.
+version: 1.1
+
+comment: "Market exposure by counterparty, instrument and book. Synthetic demo data."
+
+source: main.markets.pos_eod
+
+filter: mv_usd IS NOT NULL
+
+joins:
+  - name: cpty
+    source: main.markets.cpty_mstr
+    on: source.cpty_id = cpty.cpty_id
+  - name: instr
+    source: main.markets.instr_ref
+    on: source.instr_id = instr.instr_id
+    joins:
+      - name: issuer
+        source: main.markets.cpty_mstr
+        on: instr.issuer_cpty_id = issuer.cpty_id
+
+dimensions:
+  - name: jurisdiction
+    expr: cpty.ctry_cd
+    comment: "Country whose law the counterparty is organized under."
+    display_name: "Counterparty jurisdiction"
+    synonyms: ["country", "domicile"]
+  - name: counterparty
+    expr: cpty.legal_nm
+    display_name: "Counterparty"
+  - name: asset_class
+    expr: instr.asset_cls_cd
+    display_name: "Asset class"
+    synonyms: ["product type"]
+  - name: issuer_jurisdiction
+    expr: instr.issuer.ctry_cd
+    comment: "Country of the instrument's issuer (through the nested join)."
+  - name: book
+    expr: source.book_cd
+    display_name: "Trading book"
+  - name: cob_date
+    expr: source.cob_dt
+    display_name: "Close of business"
+
+measures:
+  - name: market_value
+    expr: SUM(source.mv_usd)
+    comment: "Mark-to-market value in USD."
+    display_name: "Market value (USD)"
+    synonyms: ["exposure", "MTM"]
+    format:
+      type: currency
+      currency_code: USD
+  - name: notional
+    expr: SUM(source.ntnl_amt)
+    display_name: "Notional"
+  - name: position_count
+    expr: COUNT(1)
+    display_name: "Positions"
+  - name: avg_market_value
+    expr: MEASURE(market_value) / MEASURE(position_count)
+    comment: "Composable: built from two other measures, so it should get derivedFrom edges to both."
+    display_name: "Average position value"
+  - name: market_value_trailing_5d
+    expr: SUM(source.mv_usd)
+    comment: "Window measure over the last five close-of-business dates."
+    window:
+      - order: cob_date
+        range: trailing 5 day
+        semiadditive: last
+
+materialization:
+  schedule: every 6 hours
+  mode: relaxed
+  materialized_views:
+    - name: by_jurisdiction
+      type: aggregated
+      dimensions: [jurisdiction, cob_date]
+      measures: [market_value, position_count]
