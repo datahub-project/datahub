@@ -27,7 +27,7 @@ to GMS. `frontend.log` contains startup and HMR output; use `tail -f <data-dir>/
   port is reserved in the shared registry, including additional processes.
 
 - `--opensearch 2|3`: select the embedded engine for a new stack. The default comes
-  from `embeddedOpenSearchDefault` in root `gradle.properties` (currently 2), with
+  from `embeddedOpenSearchDefault` in root `gradle.properties` (currently 3), with
   `EMBEDDED_OPENSEARCH_VERSION` as an override. Restarts retain the recorded major.
   Changing an existing stack's major requires `--fresh`; its old indices are removed
   on the old node before starting with fresh H2 and search data. Unmarked legacy

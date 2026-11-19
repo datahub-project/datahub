@@ -311,13 +311,24 @@ public final class SearchTemplateFixtures {
 
   @Nonnull
   public static Map<String, SearchTemplateProperties> readShipped() {
-    String yaml = readUtf8("/bootstrap_mcps/search-templates.yaml");
+    Map<String, SearchTemplateProperties> byUrn = readSeed("/bootstrap_mcps/search-templates.yaml");
+    if (!byUrn.containsKey(SEARCH_TEMPLATE_FULLTEXT_URN)
+        || !byUrn.containsKey("urn:li:searchTemplate:structured")) {
+      throw new IllegalStateException("Shipped search templates were not found");
+    }
+    return byUrn;
+  }
+
+  /** The templates a bootstrap seed file writes, by URN, as they are stored. */
+  @Nonnull
+  public static Map<String, SearchTemplateProperties> readSeed(@Nonnull String resource) {
+    String yaml = readUtf8(resource);
     yaml = yaml.replace("{{&auditStamp}}", "\"1970-01-01T00:00:00Z\"");
     List<Map<String, Object>> rows;
     try {
       rows = YAML.readValue(yaml, LIST);
     } catch (Exception e) {
-      throw new IllegalStateException("Could not read shipped search templates", e);
+      throw new IllegalStateException("Could not read search templates from " + resource, e);
     }
     Map<String, SearchTemplateProperties> byUrn = new LinkedHashMap<>();
     for (Map<String, Object> row : rows) {
@@ -325,10 +336,6 @@ public final class SearchTemplateFixtures {
       @SuppressWarnings("unchecked")
       Map<String, Object> aspect = (Map<String, Object>) row.get("aspect");
       byUrn.put(urn, shipped(aspect));
-    }
-    if (!byUrn.containsKey(SEARCH_TEMPLATE_FULLTEXT_URN)
-        || !byUrn.containsKey("urn:li:searchTemplate:structured")) {
-      throw new IllegalStateException("Shipped search templates were not found");
     }
     return byUrn;
   }

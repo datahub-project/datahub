@@ -34,6 +34,17 @@ const VOID_TAGS = new Set([
     'wbr',
 ]);
 
+// HTML boolean attributes are present with an empty value (`disabled=""`). React reads an empty
+// string as false, so the ones read-only markdown can produce are passed as booleans: task-list
+// checkboxes (`disabled`, `readonly`) and expanded `<details>` sections (`open`).
+const REACT_BOOLEAN_ATTR_NAMES: Record<string, string> = {
+    disabled: 'disabled',
+    readonly: 'readOnly',
+    open: 'open',
+};
+
+const CHECKABLE_INPUT_TYPES = new Set(['checkbox', 'radio']);
+
 const REACT_ATTR_NAMES: Record<string, string> = {
     class: 'className',
     for: 'htmlFor',
@@ -212,6 +223,10 @@ function elementAttributes(element: HTMLElement): Record<string, unknown> {
     Array.from(element.attributes).forEach((attr) => {
         const name = urlAttributeName(attr);
         if (name.startsWith('on') || name === 'style') return;
+        if (Object.hasOwn(REACT_BOOLEAN_ATTR_NAMES, name)) {
+            props[REACT_BOOLEAN_ATTR_NAMES[name]] = true;
+            return;
+        }
         if (name === 'srcset') {
             const srcset = scrubSrcset(attr.value);
             if (srcset === null) return;
@@ -225,6 +240,12 @@ function elementAttributes(element: HTMLElement): Record<string, unknown> {
         }
         props[REACT_ATTR_NAMES[name] ?? attr.name] = attr.value;
     });
+    // Controlled rather than defaultChecked: nodes are keyed by position, so an input reused for
+    // new content must take its checked state from that content.
+    if (element.tagName === 'INPUT' && CHECKABLE_INPUT_TYPES.has((element.getAttribute('type') ?? '').toLowerCase())) {
+        props.checked = element.hasAttribute('checked');
+        props.readOnly = true;
+    }
     const fontSize = fontSizeFromStyle(element.getAttribute('style') ?? '');
     if (fontSize) props.style = { fontSize };
     return props;
@@ -306,6 +327,7 @@ function nodeToReact(
     node: ChildNode,
     key: string,
     options: ReadOnlyRenderOptions,
+    mentionUrns: Set<string>,
     parentTag?: string,
 ): React.ReactNode {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -331,6 +353,7 @@ function nodeToReact(
     const { mentionView: MentionView } = options;
     if (MentionView && node.hasAttribute(DATAHUB_MENTION_ATTRS.urn)) {
         const mention = mentionProps(node);
+        if (mention.urn) mentionUrns.add(mention.urn);
         // The wrapper keeps the mention attributes but not the `mentions` class: that class
         // styles the plain `@name` text, and the view draws its own chip.
         return (
@@ -338,7 +361,7 @@ function nodeToReact(
                 key={key}
                 {...{ [DATAHUB_MENTION_ATTRS.urn]: mention.urn, [DATAHUB_MENTION_ATTRS.name]: mention.name }}
             >
-                <MentionView urn={mention.urn} name={mention.name} />
+                <MentionView urn={mention.urn} name={mention.name} readOnly />
             </span>
         );
     }
@@ -355,16 +378,26 @@ function nodeToReact(
     if (VOID_TAGS.has(tag)) return React.createElement(tag, props);
 
     const children = Array.from(node.childNodes).map((child, index) =>
-        nodeToReact(child, `${key}-${index}`, options, tag),
+        nodeToReact(child, `${key}-${index}`, options, mentionUrns, tag),
     );
     return React.createElement(tag, props, children);
 }
 
+export type ReadOnlyContent = {
+    nodes: React.ReactNode;
+    /** URNs of the mentions rendered with `mentionView`, in document order, without duplicates. */
+    mentionUrns: string[];
+};
+
 /** Sanitized HTML, with file spans replaced by the file card and mention spans by `mentionView`. */
-export function readOnlyHtmlToReact(html: string, options: ReadOnlyRenderOptions = {}): React.ReactNode {
+export function readOnlyHtmlToReact(html: string, options: ReadOnlyRenderOptions = {}): ReadOnlyContent {
     if (typeof DOMParser === 'undefined') {
-        return <div dangerouslySetInnerHTML={{ __html: html }} />;
+        return { nodes: <div dangerouslySetInnerHTML={{ __html: html }} />, mentionUrns: [] };
     }
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    return Array.from(doc.body.childNodes).map((node, index) => nodeToReact(node, `readonly-${index}`, options));
+    const mentionUrns = new Set<string>();
+    const nodes = Array.from(doc.body.childNodes).map((node, index) =>
+        nodeToReact(node, `readonly-${index}`, options, mentionUrns),
+    );
+    return { nodes, mentionUrns: Array.from(mentionUrns) };
 }

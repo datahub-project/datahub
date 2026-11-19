@@ -229,6 +229,11 @@ const ODCS = 'odcs';
 const ODCS_URN = `urn:li:dataPlatform:${ODCS}`;
 export const DATABRICKS = 'databricks';
 const DATABRICKS_URN = `urn:li:dataPlatform:${DATABRICKS}`;
+// Tile source types that metadata-ingestion registers as an alias of another source
+// (source_registry.register_alias). The connector registry lists only the target.
+export const SOURCE_TYPE_ALIASES: Record<string, string> = {
+    [DATABRICKS]: UNITY_CATALOG,
+};
 const DATAPROC_METASTORE = 'dataproc-metastore';
 const DATAPROC_METASTORE_URN = `urn:li:dataPlatform:${DATAPROC_METASTORE}`;
 export const DBT_CLOUD = 'dbt-cloud';

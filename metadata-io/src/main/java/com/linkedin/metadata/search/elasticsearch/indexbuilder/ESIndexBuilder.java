@@ -12,9 +12,12 @@ import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -71,6 +74,7 @@ import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
 import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
+import org.opensearch.action.admin.indices.alias.Alias;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
@@ -142,6 +146,13 @@ public class ESIndexBuilder {
    */
   @Getter private final SearchClientShim<?> searchClient;
 
+  /**
+   * Client for the cluster that holds V2 entity indices. A V3 build runs on the V3 cluster, which
+   * does not have those indices when the two families are split. Null falls back to {@link
+   * #searchClient}.
+   */
+  private final SearchClientShim<?> v2Client;
+
   @Getter @VisibleForTesting private final ElasticSearchConfiguration config;
 
   private final IndexConfiguration indexConfig;
@@ -189,8 +200,10 @@ public class ESIndexBuilder {
       ElasticSearchConfiguration elasticSearchConfiguration,
       StructuredPropertiesConfiguration structuredPropertiesConfiguration,
       Map<String, ? extends Map<String, ?>> indexSettingOverrides,
-      GitVersion gitVersion) {
+      GitVersion gitVersion,
+      @Nullable SearchClientShim<?> v2Client) {
     this.searchClient = searchClient;
+    this.v2Client = v2Client != null ? v2Client : searchClient;
     this.config = elasticSearchConfiguration;
     this.indexConfig = elasticSearchConfiguration.getIndex();
     this.structPropConfig = structuredPropertiesConfiguration;
@@ -630,7 +643,11 @@ public class ESIndexBuilder {
     ReindexResult result;
     // If index doesn't exist, create index
     if (!indexState.exists()) {
-      createIndex(opContext, indexState.name(), indexState);
+      Map<String, Object> mappings = indexState.targetMappings();
+      if (replacesRetiredV2(opContext, indexState.name())) {
+        mappings = IndexMigrationStamp.stamped(mappings, IndexMigrationStamp.INCOMPLETE);
+      }
+      createIndex(opContext, indexState.name(), mappings, indexState.targetSettings());
       result = ReindexResult.CREATED_NEW;
       return result;
     }
@@ -1121,11 +1138,7 @@ public class ESIndexBuilder {
   }
 
   private static boolean servesV3Reads(@Nullable EntityIndexConfiguration entityIndex) {
-    return EntitySearchIndexResolver.shouldReadV3(entityIndex)
-        || (entityIndex != null
-            && entityIndex.getV3() != null
-            && entityIndex.getV3().isEnabled()
-            && entityIndex.getV3().isSemanticReadEnabled());
+    return EntitySearchIndexResolver.shouldReadV3(entityIndex);
   }
 
   /** Whether a root field that the current mapping declares as an alias is a real field now. */
@@ -1163,9 +1176,14 @@ public class ESIndexBuilder {
           String.format("Input to reindexInPlaceAsync should be an alias. %s is not", indexAlias));
     }
 
-    // Point alias at new index
+    // Point alias at new index. The destination receives this index's documents, so it keeps the
+    // migration mark the target mappings do not carry.
     String nextIndexName = getNextIndexName(indexAlias, System.currentTimeMillis());
-    createIndex(opContext, nextIndexName, config);
+    createIndex(
+        opContext,
+        nextIndexName,
+        IndexMigrationStamp.copyOnto(config.targetMappings(), config.currentMappings()),
+        config.targetSettings());
     renameReindexedIndices(
         searchClient, opContext, indexAlias, null, nextIndexName, false, requestOptionsLong);
     int targetShards = extractTargetShards(config);
@@ -1959,7 +1977,11 @@ public class ESIndexBuilder {
       @Nonnull OperationContext opContext, String destination, ReindexConfig indexState)
       throws IOException {
     try {
-      createIndex(opContext, destination, indexState);
+      createIndex(
+          opContext,
+          destination,
+          IndexMigrationStamp.copyOnto(indexState.targetMappings(), indexState.currentMappings()),
+          indexState.targetSettings());
     } catch (IOException | RuntimeException e) {
       // The destination would keep the index's differences from the definitions; these are the
       // ones ReindexConfig starts a reindex for.
@@ -1999,7 +2021,11 @@ public class ESIndexBuilder {
           e);
       try {
         createIndex(
-            opContext, destination, liveStructuredPropertyMappings, indexState.targetSettings());
+            opContext,
+            destination,
+            IndexMigrationStamp.copyOnto(
+                liveStructuredPropertyMappings, indexState.currentMappings()),
+            indexState.targetSettings());
       } catch (IOException | RuntimeException retryFailure) {
         if (retryFailure != e) {
           retryFailure.addSuppressed(e);
@@ -3249,6 +3275,12 @@ public class ESIndexBuilder {
    */
   private Map<String, Object> getCurrentMappings(
       @Nonnull OperationContext opContext, String indexName) throws IOException {
+    return getCurrentMappings(opContext, searchClient, indexName);
+  }
+
+  private Map<String, Object> getCurrentMappings(
+      @Nonnull OperationContext opContext, SearchClientShim<?> client, String indexName)
+      throws IOException {
     try {
       return retryRegistry
           .retry("getCurrentMappings", "countRetry")
@@ -3257,11 +3289,11 @@ public class ESIndexBuilder {
                 try {
                   // Checked rather than reading the 404 off getIndexMapping: the two client shims
                   // raise different exception types for a missing index, indexExists does not.
-                  if (!searchClient.indexExists(
+                  if (!client.indexExists(
                       opContext, new GetIndexRequest(indexName), requestOptionsLong)) {
                     return Collections.<String, Object>emptyMap();
                   }
-                  return searchClient
+                  return client
                       .getIndexMapping(
                           opContext,
                           new GetMappingsRequest().indices(indexName),
@@ -3364,6 +3396,25 @@ public class ESIndexBuilder {
   public boolean indexExists(@Nonnull OperationContext opContext, @Nonnull String indexName)
       throws IOException {
     return searchClient.indexExists(opContext, new GetIndexRequest(indexName), requestOptionsLong);
+  }
+
+  /**
+   * Whether {@code indexName} exists on the V2 cluster. A builder whose own client is the V3
+   * cluster still reaches a split V2 cluster through the client passed for that purpose.
+   */
+  public boolean indexExistsOnV2Cluster(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) throws IOException {
+    return v2Client.indexExists(opContext, new GetIndexRequest(indexName), requestOptionsLong);
+  }
+
+  /**
+   * Whether the V2 index is stamped retired. A missing index is not retired. A builder whose own
+   * client is the V3 cluster still reads a split V2 cluster through the client passed for that
+   * purpose.
+   */
+  public boolean v2CutoverRetired(@Nonnull OperationContext opContext, @Nonnull String indexName)
+      throws IOException {
+    return SearchV3CutoverStamp.retired(getCurrentMappings(opContext, v2Client, indexName));
   }
 
   /**
@@ -3594,21 +3645,19 @@ public class ESIndexBuilder {
   }
 
   /**
-   * Creates {@code physicalIndexName} from {@code state}'s target mappings and settings and points
-   * the alias {@code aliasName} at it. For an alias that does not exist yet; nothing is swapped or
-   * deleted.
+   * Creates {@code physicalIndexName} from {@code mappings} and {@code state}'s settings and points
+   * the alias {@code aliasName} at it, in one create request. For an alias that does not exist yet;
+   * nothing is swapped or deleted. A failed request leaves no alias. The caller stamps {@code
+   * mappings} before this runs, so the alias never points at an unstamped index.
    */
   public void createAliasedIndex(
       @Nonnull OperationContext opContext,
       @Nonnull String aliasName,
       @Nonnull String physicalIndexName,
-      @Nonnull ReindexConfig state)
+      @Nonnull ReindexConfig state,
+      @Nonnull Map<String, Object> mappings)
       throws IOException {
-    createIndex(opContext, physicalIndexName, state);
-    IndicesAliasesRequest request =
-        new IndicesAliasesRequest()
-            .addAliasAction(AliasActions.add().alias(aliasName).index(physicalIndexName));
-    searchClient.updateIndexAliases(opContext, request, requestOptionsLong);
+    createIndex(opContext, physicalIndexName, mappings, state.targetSettings(), aliasName);
     log.info("Created index {} behind alias {}", physicalIndexName, aliasName);
   }
 
@@ -3621,6 +3670,69 @@ public class ESIndexBuilder {
   public void markMigrationIncomplete(
       @Nonnull OperationContext opContext, @Nonnull String indexName) throws IOException {
     markMigration(opContext, indexName, IndexMigrationStamp.INCOMPLETE);
+  }
+
+  /**
+   * A legacy create has no fill of its own. When the new V3 index replaces one whose V2 pair is
+   * already retired, the create carries the incomplete stamp, so the next incremental run rebuilds
+   * the index from primary storage. The stamp does not keep readers down. It is part of the create
+   * request rather than a second write: a failed create leaves no index behind, and a retry creates
+   * the stamped index again. A V2 index that exists but whose stamp cannot be read, or that cannot
+   * be listed, counts the same.
+   */
+  private boolean replacesRetiredV2(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) {
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    if (!indexConvention.isV3EntityIndexType(indexName)) {
+      return false;
+    }
+    Optional<String> indexKey = indexConvention.getEntityIndexKeyV3(opContext, indexName);
+    EntityRegistry entityRegistry = opContext.getEntityRegistry();
+    if (indexKey.isEmpty() || entityRegistry == null) {
+      return false;
+    }
+    for (EntitySpec spec : V3IndexKeys.entitySpecsForKey(entityRegistry, indexKey.get())) {
+      String v2Index = indexConvention.getEntityIndexName(opContext, spec.getName());
+      final boolean v2Exists;
+      try {
+        v2Exists =
+            v2Client.indexExists(opContext, new GetIndexRequest(v2Index), requestOptionsLong);
+      } catch (IOException e) {
+        log.warn(
+            "Index {}: cannot list V2 index {}; creating the new index incomplete. An empty"
+                + " index is served until it is filled, with no automatic fallback to V2",
+            indexName,
+            v2Index,
+            e);
+        return true;
+      }
+      if (!v2Exists) {
+        continue;
+      }
+      final boolean retired;
+      try {
+        retired = SearchV3CutoverStamp.retired(getCurrentMappings(opContext, v2Client, v2Index));
+      } catch (IOException e) {
+        log.warn(
+            "Index {}: V2 index {} exists but its cutover stamp cannot be read; creating the new"
+                + " index incomplete. An empty index is served until it is filled, with no"
+                + " automatic fallback to V2",
+            indexName,
+            v2Index,
+            e);
+        return true;
+      }
+      if (retired) {
+        log.info(
+            "Index {}: created while V2 index {} is retired; migration marked incomplete."
+                + " Readers serve the new index until it is filled. Catch-up marks it complete"
+                + " only when incremental reindex replays the fill window",
+            indexName,
+            v2Index);
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Marks the migration of {@code indexName} as finished: filled and caught up. */
@@ -3693,6 +3805,21 @@ public class ESIndexBuilder {
       Map<String, Object> mappings,
       Map<String, Object> settings)
       throws IOException {
+    createIndex(opContext, indexName, mappings, settings, null);
+  }
+
+  /**
+   * @param aliasName alias to attach in the same request, or null when the index is created alone.
+   *     A timeout that finds the index already exists is treated as success because the alias, when
+   *     set, was part of that same request.
+   */
+  private void createIndex(
+      @Nonnull OperationContext opContext,
+      String indexName,
+      Map<String, Object> mappings,
+      Map<String, Object> settings,
+      @Nullable String aliasName)
+      throws IOException {
     log.info("Index {} does not exist. Creating", indexName);
     if (EntityIndexVersion.V3.matches(indexName)) {
       logV3MappingsOnce(mappings);
@@ -3704,6 +3831,9 @@ public class ESIndexBuilder {
     CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
     createIndexRequest.mapping(mappings);
     createIndexRequest.settings(settings);
+    if (aliasName != null) {
+      createIndexRequest.alias(new Alias(aliasName));
+    }
     boolean createIndexRetryEnabled =
         config.getBuildIndices() == null || config.getBuildIndices().isCreateIndexRetryEnabled();
     try {

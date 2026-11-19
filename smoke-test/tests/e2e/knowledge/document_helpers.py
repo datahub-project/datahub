@@ -1,3 +1,4 @@
+import time
 import uuid
 
 import tenacity
@@ -32,6 +33,35 @@ def execute_graphql(
         )
     response.raise_for_status()
     return response.json()
+
+
+_SEARCH_DOCUMENTS_URNS = """
+    query SearchDocUrns($input: SearchDocumentsInput!) {
+      searchDocuments(input: $input) { documents { urn } }
+    }
+"""
+
+
+def wait_for_search_documents(
+    auth_session, search_input: dict, expected_urns: list[str], timeout: float = 30
+) -> None:
+    """Poll searchDocuments until every expected URN is returned, or time out.
+
+    Replaces a fixed sleep before a search assertion. On timeout it returns
+    without raising, so the caller's own search and assertions report the
+    failure as before.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        res = execute_graphql(
+            auth_session, _SEARCH_DOCUMENTS_URNS, {"input": search_input}
+        )
+        documents = ((res.get("data") or {}).get("searchDocuments") or {}).get(
+            "documents"
+        ) or []
+        if set(expected_urns) <= {doc["urn"] for doc in documents}:
+            return
+        time.sleep(1)
 
 
 def unique_id(prefix: str) -> str:

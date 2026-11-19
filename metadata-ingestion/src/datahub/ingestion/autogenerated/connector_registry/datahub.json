@@ -661,7 +661,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.confluence.confluence_source.ConfluenceSource",
+      "classname": "datahub.ingestion.source.confluence.source.ConfluenceSource",
       "platform_id": "confluence",
       "platform_name": "Confluence",
       "support_status": "ALPHA"
