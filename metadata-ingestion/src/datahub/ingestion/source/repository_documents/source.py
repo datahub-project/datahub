@@ -44,11 +44,13 @@ from datahub.ingestion.source.repository_documents.okf_bundles import (
 )
 from datahub.ingestion.source.repository_documents.okf_cleanup import clear_okf_metadata
 from datahub.ingestion.source.repository_documents.okf_frontmatter import (
+    OkfFrontmatter,
     parse_okf_frontmatter,
 )
 from datahub.ingestion.source.repository_documents.okf_mapping import (
     MAPPING_VERSION,
     OkfLookupCache,
+    OkfMapping,
     map_okf,
 )
 from datahub.ingestion.source.repository_documents.paths import (
@@ -146,6 +148,18 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
     Subclasses set ``platform`` and supply the API client and file URLs. The
     platform name also prefixes source ids and the ``<platform>_*`` custom
     properties, so documents from different hosts never share an identity.
+
+    Hooks for subclasses. Each host source must define ``platform``,
+    ``platform_display_name``, ``_parse_config``, ``_make_client``,
+    ``_repository_url`` and ``_build_external_url``. These may also be
+    overridden, and keep their signatures across releases:
+
+    - ``_create_client``: build the client from the source instance rather
+      than from the config alone.
+    - ``_map_okf``: adjust the metadata mapped from OKF frontmatter.
+    - ``_build_document``: adjust the document built for a file or folder.
+
+    Other underscore methods are internal and may change without notice.
     """
 
     platform: ClassVar[str]
@@ -177,7 +191,9 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         self._repo_root_source_id: Optional[str] = (
             None
             if config.parent_document_urn or not config.create_repo_root_document
-            else make_repo_source_id(config.repository, source_prefix=self.platform)
+            else make_repo_source_id(
+                config.repository, source_prefix=self._source_prefix
+            )
         )
         # Cache of import_source_id -> existing document URN (sync-back round-trip).
         self._resolved_source_id_urns: Dict[str, Optional[str]] = {}
@@ -219,6 +235,19 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         self, owner_repo: str, branch: str, path: str, *, is_directory: bool
     ) -> str:
         raise NotImplementedError
+
+    @property
+    def _source_prefix(self) -> str:
+        """Prefix of every source id. A configured ``platform_instance`` is
+        part of it, so sources on different instances never share an id."""
+        if self.config.platform_instance:
+            return f"{self.platform}.{self.config.platform_instance}"
+        return self.platform
+
+    def _instance_name(self, owner_repo: str) -> str:
+        """The document's data platform instance: the configured
+        ``platform_instance``, or the repository when none is set."""
+        return self.config.platform_instance or owner_repo
 
     def _prop(self, name: str) -> str:
         return f"{self.platform}_{name}"
@@ -386,14 +415,14 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         richer folder content than the repository (a deliberate DH ⊇ GH split).
         """
         dir_source_id = make_dir_source_id(
-            owner_repo, dir_path, source_prefix=self.platform
+            owner_repo, dir_path, source_prefix=self._source_prefix
         )
         parent_source_id = resolve_parent_dir_source_id(
             owner_repo,
             dir_path,
             path_prefix,
             repo_root_source_id=self._repo_root_source_id,
-            source_prefix=self.platform,
+            source_prefix=self._source_prefix,
         )
         parent_urn = self._resolve_parent_urn(parent_source_id)
 
@@ -451,7 +480,7 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             else self.client.fetch_file_content(owner_repo, file_path, commit_sha)
         )
         source_id = make_file_source_id(
-            owner_repo, file_path, source_prefix=self.platform
+            owner_repo, file_path, source_prefix=self._source_prefix
         )
         if content is None:
             self.report.files_skipped += 1
@@ -540,7 +569,7 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             file_path,
             path_prefix,
             repo_root_source_id=self._repo_root_source_id,
-            source_prefix=self.platform,
+            source_prefix=self._source_prefix,
         )
         parent_urn = self._resolve_parent_urn(parent_source_id)
 
@@ -548,7 +577,7 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         okf_mapping = None
         text = content
         if frontmatter is not None and bundle is not None:
-            okf_mapping = map_okf(
+            okf_mapping = self._map_okf(
                 frontmatter,
                 document_urn=document_urn,
                 bundle=bundle,
@@ -1062,7 +1091,7 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
                         entity_types=["document"],
                         platform=self.platform,
                         platform_instance=make_dataplatform_instance_urn(
-                            self.platform, owner_repo
+                            self.platform, self._instance_name(owner_repo)
                         ),
                         status=RemovedStatusFilter.ONLY_SOFT_DELETED,
                     )
@@ -1091,11 +1120,44 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             entityUrn=document_urn, aspect=StatusClass(removed=False)
         ).as_workunit()
 
+    def _map_okf(
+        self,
+        frontmatter: OkfFrontmatter,
+        *,
+        document_urn: str,
+        bundle: OkfBundleClass,
+        file_path: str,
+        revision: OkfRevisionClass,
+        attribution_source: Optional[str],
+        ctx: PipelineContext,
+        report: RepositoryDocumentsSourceReport,
+        lookup_cache: Optional[OkfLookupCache] = None,
+    ) -> Optional[OkfMapping]:
+        """Map a file's OKF frontmatter to DataHub metadata.
+
+        Override to adjust the mapping, for example to filter or add owners.
+        Wrapping the module-level ``map_okf`` does not work: this method is
+        the only call site.
+        """
+        return map_okf(
+            frontmatter,
+            document_urn=document_urn,
+            bundle=bundle,
+            file_path=file_path,
+            revision=revision,
+            attribution_source=attribution_source,
+            ctx=ctx,
+            report=report,
+            lookup_cache=lookup_cache,
+        )
+
     def _attach_platform_instance(self, doc: Document, owner_repo: str) -> None:
         doc._set_aspect(
             DataPlatformInstanceClass(
                 platform=make_data_platform_urn(self.platform),
-                instance=make_dataplatform_instance_urn(self.platform, owner_repo),
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self._instance_name(owner_repo)
+                ),
             )
         )
 

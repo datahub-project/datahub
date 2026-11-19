@@ -26,6 +26,7 @@ from datahub.ingestion.source.repository_documents.source import (
 @platform_name("GitLab")
 @config_class(GitLabDocumentsSourceConfig)
 @support_status(SupportStatus.ALPHA)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class GitLabDocumentsSource(RepositoryDocumentsSourceBase):
     """

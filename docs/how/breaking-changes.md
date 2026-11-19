@@ -24,6 +24,14 @@ by another script or agent. To connect to another instance, use a separate name,
 To intentionally replace an existing connection, add `--force`. Refreshing a token for the same
 server continues to work. Existing connection files and environment variables keep working.
 
+### Custom github-documents sources
+
+The shared code of the `github-documents` source moved to `datahub.ingestion.source.repository_documents`, so a GitLab source can reuse it ([PR #21230](https://github.com/datahub-project/datahub/pull/21230)). Recipes and the documents they import are unchanged. This only affects Python code that subclasses `GitHubDocumentsSource` or imports its modules:
+
+- `_build_document` now takes `repo_path` and `is_directory` instead of `github_path`. A subclass that overrides it must use the new parameters, or it fails with a `TypeError` on the first document.
+- To change how OKF frontmatter is mapped, override the new `_map_okf` method. Wrapping or patching `map_okf` in `github_documents_source` no longer has any effect.
+- The old `github_documents.okf_*`, `github_hierarchy` and `github_documents_report` modules still work, but now raise a `DeprecationWarning` and will be removed in a later release. Import from the matching `repository_documents` module instead.
+
 <!--
 
 ## <version number>

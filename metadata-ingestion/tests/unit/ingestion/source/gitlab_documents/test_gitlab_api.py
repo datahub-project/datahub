@@ -1,4 +1,3 @@
-import base64
 from unittest.mock import patch
 
 import pytest
@@ -9,6 +8,7 @@ from datahub.ingestion.source.gitlab_documents.gitlab_api import (
     GitLabApiClient,
     parse_project_path,
 )
+from datahub.ingestion.source.repository_documents.client import MAX_FILE_SIZE_BYTES
 
 API = "https://gitlab.com/api/v4/projects/acme%2Fdata%2Fdocs"
 
@@ -86,21 +86,14 @@ def test_list_matching_files_raises_with_error_detail() -> None:
             client.list_matching_files("acme/data/docs", "main", "", [".md"])
 
 
-def test_fetch_file_content_decodes_base64_and_skips_large_files() -> None:
+def test_fetch_file_content_reads_the_raw_file_and_skips_large_files() -> None:
     client = GitLabApiClient("glpat-test")
     with requests_mock.Mocker() as m:
-        m.head(requests_mock.ANY, status_code=404)
+        m.get(f"{API}/repository/files/docs%2Fa.md/raw?ref=main", text="# Hello")
         m.get(
-            f"{API}/repository/files/docs%2Fa.md?ref=main",
-            json={
-                "size": 7,
-                "encoding": "base64",
-                "content": base64.b64encode(b"# Hello").decode(),
-            },
-        )
-        m.get(
-            f"{API}/repository/files/docs%2Fbig.md?ref=main",
-            json={"size": 5_000_000, "encoding": "base64", "content": ""},
+            f"{API}/repository/files/docs%2Fbig.md/raw?ref=main",
+            content=b"",
+            headers={"Content-Length": str(MAX_FILE_SIZE_BYTES + 1)},
         )
         assert client.fetch_file_content("acme/data/docs", "docs/a.md", "main") == (
             "# Hello"
@@ -108,28 +101,29 @@ def test_fetch_file_content_decodes_base64_and_skips_large_files() -> None:
         assert (
             client.fetch_file_content("acme/data/docs", "docs/big.md", "main") is None
         )
+        assert not any(r.method == "HEAD" for r in m.request_history)
 
 
-def test_fetch_file_content_skips_large_file_before_downloading() -> None:
+def test_fetch_file_content_stops_reading_a_file_without_a_declared_size() -> None:
     client = GitLabApiClient("glpat-test")
-    url = f"{API}/repository/files/docs%2Fbig.md?ref=main"
     with requests_mock.Mocker() as m:
-        m.head(url, headers={"X-Gitlab-Size": "5000000"})
-        download = m.get(url, json={"size": 5_000_000, "content": ""})
+        m.get(
+            f"{API}/repository/files/docs%2Fbig.md/raw?ref=main",
+            content=b"x" * (MAX_FILE_SIZE_BYTES + 1),
+        )
         assert (
             client.fetch_file_content("acme/data/docs", "docs/big.md", "main") is None
         )
-        assert not download.called
 
 
 def test_file_skipped_for_size_does_not_report_an_earlier_error() -> None:
     client = GitLabApiClient("glpat-test")
     with requests_mock.Mocker() as m:
-        m.head(requests_mock.ANY, status_code=404)
-        m.get(f"{API}/repository/files/docs%2Fa.md?ref=main", status_code=503)
-        m.head(
-            f"{API}/repository/files/docs%2Fbig.md?ref=main",
-            headers={"X-Gitlab-Size": "5000000"},
+        m.get(f"{API}/repository/files/docs%2Fa.md/raw?ref=main", status_code=503)
+        m.get(
+            f"{API}/repository/files/docs%2Fbig.md/raw?ref=main",
+            content=b"",
+            headers={"Content-Length": str(MAX_FILE_SIZE_BYTES + 1)},
         )
         assert client.fetch_file_content("acme/data/docs", "docs/a.md", "main") is None
         assert client.last_api_error is not None
@@ -252,7 +246,32 @@ def test_keyset_last_full_page_is_not_truncated() -> None:
     assert m.call_count == 2
 
 
-def test_list_matching_files_refuses_next_link_to_another_host() -> None:
+def test_next_link_from_another_host_is_replayed_on_the_configured_instance() -> None:
+    # Behind a TLS proxy, GitLab builds links from its external_url, which can
+    # differ from the configured instance in scheme, host and port.
+    client = GitLabApiClient("glpat-test")
+    proxied = "http://gitlab.internal:8080/api/v4/projects/acme%2Fdata%2Fdocs"
+    with requests_mock.Mocker() as m:
+        m.get(
+            f"{API}/repository/tree",
+            [
+                {
+                    "json": [{"id": "b1", "type": "blob", "path": "a.md"}],
+                    "headers": {
+                        "Link": f'<{proxied}/repository/tree?id_after=b1>; rel="next"'
+                    },
+                },
+                {"json": [{"id": "b2", "type": "blob", "path": "b.md"}]},
+            ],
+        )
+        files, _ = client.list_matching_files("acme/data/docs", "main", "", [".md"])
+
+    assert [f.path for f in files] == ["a.md", "b.md"]
+    assert [r.netloc for r in m.request_history] == ["gitlab.com", "gitlab.com"]
+    assert m.request_history[1].qs["id_after"] == ["b1"]
+
+
+def test_list_matching_files_refuses_a_next_link_that_is_not_an_api_link() -> None:
     client = GitLabApiClient("glpat-test")
     with requests_mock.Mocker() as m:
         m.get(
@@ -260,34 +279,21 @@ def test_list_matching_files_refuses_next_link_to_another_host() -> None:
             json=[],
             headers={"Link": '<http://internal.example/tree?page=2>; rel="next"'},
         )
-        with pytest.raises(RuntimeError, match="outside"):
+        with pytest.raises(RuntimeError, match="not an API link"):
             client.list_matching_files("acme/data/docs", "main", "", [".md"])
 
 
-def test_non_json_success_response_is_reported_as_an_api_error() -> None:
+def test_html_page_instead_of_a_file_is_reported_as_an_api_error() -> None:
     client = GitLabApiClient("glpat-test")
     with requests_mock.Mocker() as m:
-        m.head(requests_mock.ANY, status_code=404)
         m.get(
-            f"{API}/repository/files/a.md",
+            f"{API}/repository/files/a.md/raw",
             text="<html>Sign in</html>",
             headers={"Content-Type": "text/html"},
         )
         assert client.fetch_file_content("acme/data/docs", "a.md", "main") is None
     assert client.last_api_error is not None
-    assert "text/html" in client.last_api_error
-
-
-def test_undecodable_file_content_is_reported_not_raised() -> None:
-    client = GitLabApiClient("glpat-test")
-    with requests_mock.Mocker() as m:
-        m.head(requests_mock.ANY, status_code=404)
-        m.get(
-            f"{API}/repository/files/a.md",
-            json={"size": 3, "encoding": "base64", "content": "abc"},
-        )
-        assert client.fetch_file_content("acme/data/docs", "a.md", "main") is None
-    assert client.last_api_error is not None
+    assert "HTML" in client.last_api_error
 
 
 def test_transient_timeout_is_retried() -> None:
