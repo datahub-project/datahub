@@ -446,6 +446,46 @@ class TestWaitForExport:
         assert status.state == ExportJobState.TIMEOUT
         assert any("job-timeout" in e for e in client.report.export_jobs_failed)
 
+    def test_retries_after_read_timeout(self, client):
+        client._session_id = "s"
+        client._base_url = "https://pod/saas"
+        client._session_last_validated_at = 1e12
+
+        ok = _build_response(200, {"status": {"state": "SUCCESSFUL", "message": ""}})
+        with (
+            patch.object(
+                client._session,
+                "request",
+                side_effect=[requests.ConnectionError("read timed out"), ok],
+            ),
+            patch("datahub.ingestion.source.informatica.client.time.sleep"),
+        ):
+            status = client.wait_for_export("job-1")
+        assert status.state == ExportJobState.SUCCESSFUL
+
+
+class TestPrefetchTaskflowDefinitions:
+    def test_submit_timeout_is_warned_per_batch(self, client):
+        client._session_id = "s"
+        client._base_url = "https://pod/saas"
+        client._session_last_validated_at = 1e12
+        client.config.export_batch_size = 2
+
+        with patch.object(
+            client._session,
+            "request",
+            side_effect=requests.ConnectionError("read timed out"),
+        ) as mock_request:
+            client.prefetch_taskflow_definitions(["tf1", "tf2", "tf3"])
+
+        submitted = [
+            len(c.kwargs["json"]["objects"]) for c in mock_request.call_args_list
+        ]
+        assert submitted == [2, 1]
+        assert [w.title for w in client.report.warnings] == [
+            "IDMC Taskflow batch export submit failed"
+        ]
+
 
 class TestSubmitExportJob:
     def test_raises_typed_error_on_missing_id(self, client):

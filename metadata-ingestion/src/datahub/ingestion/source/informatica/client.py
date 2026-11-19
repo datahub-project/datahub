@@ -540,7 +540,7 @@ class InformaticaClient:
         return None
 
     def prefetch_taskflow_definitions(self, taskflow_v3_guids: Iterable[str]) -> None:
-        """Batch-export N Taskflows in a single job and cache the parsed DAGs.
+        """Export Taskflows in ``export_batch_size`` jobs and cache the parsed DAGs.
 
         Idempotent — already-cached GUIDs are skipped.
         """
@@ -551,11 +551,17 @@ class InformaticaClient:
         ]
         if not guids:
             return
-        definitions = self._download_taskflow_export_definitions(guids)
-        self._taskflow_definition_cache.update(definitions)
+        batch_size = self.config.export_batch_size
+        prefetched = 0
+        for i in range(0, len(guids), batch_size):
+            definitions = self._download_taskflow_export_definitions(
+                guids[i : i + batch_size]
+            )
+            self._taskflow_definition_cache.update(definitions)
+            prefetched += len(definitions)
         logger.info(
             "Prefetched %d/%d Taskflow definitions via batched v3 export",
-            len(definitions),
+            prefetched,
             len(guids),
         )
 
@@ -568,7 +574,7 @@ class InformaticaClient:
         """
         try:
             job_id = self.submit_export_job(guids)
-        except (InformaticaApiError, requests.HTTPError) as e:
+        except (InformaticaApiError, requests.RequestException) as e:
             self.report.warning(
                 title="IDMC Taskflow batch export submit failed",
                 message=(
@@ -600,7 +606,7 @@ class InformaticaClient:
                 stream=True,
             )
             resp.raise_for_status()
-        except (InformaticaApiError, requests.HTTPError) as e:
+        except (InformaticaApiError, requests.RequestException) as e:
             self.report.warning(
                 title="IDMC Taskflow export package download failed",
                 message="Taskflow step DAGs will be missing for this batch.",
@@ -639,7 +645,7 @@ class InformaticaClient:
         while time.time() < deadline:
             try:
                 status = self.poll_export_job(job_id)
-            except (InformaticaApiError, requests.HTTPError) as e:
+            except (InformaticaApiError, requests.RequestException) as e:
                 logger.warning("Transient error polling export job %s: %s", job_id, e)
                 time.sleep(
                     self.config.export_poll_interval_secs + random.uniform(-1, 1)
