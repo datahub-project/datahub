@@ -15,7 +15,7 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
-### PATCH writes are checked against `@UrnValidation`
+### PATCH writes are checked against `@UrnValidation` ([#21465](https://github.com/datahub-project/datahub/pull/21465))
 
 PATCH writes are now checked against `@UrnValidation` for the URNs they add, as UPSERT writes
 already were. For example, a PATCH that adds a platform that does not exist to a structured
