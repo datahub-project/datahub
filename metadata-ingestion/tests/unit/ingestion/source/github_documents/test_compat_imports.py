@@ -106,7 +106,7 @@ def test_old_github_documents_import_paths_resolve(module: str, name: str) -> No
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", FutureWarning)
         imported = importlib.import_module(f"{_PACKAGE}.{module}")
-    assert hasattr(imported, name)
+        assert hasattr(imported, name)
 
 
 @pytest.mark.parametrize("module", _MOVED_MODULES)
@@ -118,3 +118,41 @@ def test_moved_modules_warn_on_import(module: str) -> None:
     # sys.modules keep pointing at the same module object.
     with pytest.warns(FutureWarning, match="repository_documents"):
         importlib.reload(imported)
+
+
+# Names in modules that still hold their own code, kept only as aliases of a
+# repository_documents name. Each warns when it is imported.
+_DEPRECATED_ALIASES: List[Tuple[str, str]] = [
+    ("github_api", "GitHubFileInfo"),
+    ("github_api", "RepositoryDocumentsClient"),
+    ("github_api", "MAX_FILE_SIZE_BYTES"),
+    ("github_api", "collect_intermediate_directories"),
+    ("github_api", "normalize_document_id"),
+    ("github_api", "make_file_source_id"),
+    ("github_api", "make_dir_source_id"),
+    ("github_api", "make_repo_source_id"),
+    ("github_api", "resolve_parent_dir_source_id"),
+    ("github_documents_source", "EXTRACTION_ALGO_VERSION"),
+    ("github_documents_source", "LAST_EXPORTED_CONTENT_HASH_KEY"),
+    ("github_documents_source", "PROP_IMPORT_SOURCE_ID"),
+    ("github_documents_source", "compute_file_content_hash"),
+    ("github_documents_source", "compute_source_hash"),
+]
+
+
+@pytest.mark.parametrize("module, name", _DEPRECATED_ALIASES)
+def test_deprecated_aliases_warn_on_access(module: str, name: str) -> None:
+    imported = importlib.import_module(f"{_PACKAGE}.{module}")
+    with pytest.warns(
+        FutureWarning, match=rf"\.{name} is deprecated.*repository_documents"
+    ):
+        getattr(imported, name)
+
+
+def test_github_source_id_aliases_keep_the_github_prefix() -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        from datahub.ingestion.source.github_documents.github_api import (
+            make_file_source_id,
+        )
+    assert make_file_source_id("acme/docs", "a/b.md") == "github.acme.docs.a.b"

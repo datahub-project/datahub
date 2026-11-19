@@ -53,12 +53,32 @@ def _validate_json_keys(value: object) -> None:
             _validate_json_keys(child)
 
 
-def parse_frontmatter(
-    content: str, *, path: str, report: RepositoryDocumentsSourceReport
-) -> Optional[OkfFrontmatter]:
+@dataclass(frozen=True)
+class FrontmatterRead:
+    """The outcome of reading a file's frontmatter, without reporting it.
+
+    ``frontmatter`` is set when it was read; otherwise ``rejection`` says why
+    not. ``error`` is set when the file has a frontmatter block that could not
+    be parsed safely, as opposed to having none or not being a mapping.
+    """
+
+    frontmatter: Optional[OkfFrontmatter]
+    rejection: Optional[str] = None
+    error: Optional[Exception] = None
+
+
+def is_okf_concept(frontmatter: Optional[OkfFrontmatter]) -> bool:
+    """Whether the frontmatter declares an OKF concept: a non-empty string ``type``."""
+    if frontmatter is None:
+        return False
+    concept_type = frontmatter.values.get("type")
+    return isinstance(concept_type, str) and bool(concept_type.strip())
+
+
+def read_frontmatter(content: str) -> FrontmatterRead:
     lines = content.splitlines(keepends=True)
     if not lines or lines[0].rstrip("\r\n") != FRONTMATTER_DELIMITER:
-        return None
+        return FrontmatterRead(None, rejection="the file has no frontmatter")
 
     try:
         block_size = len(lines[0].encode("utf-8"))
@@ -77,14 +97,18 @@ def parse_frontmatter(
                 raise ValueError("Frontmatter anchors and aliases are not supported")
         values: object = yaml.load(yaml_text, Loader=_FrontmatterLoader)
         if not isinstance(values, dict):
-            return None
+            return FrontmatterRead(
+                None, rejection="the frontmatter is not a YAML mapping"
+            )
         _validate_json_keys(values)
         # Validate JSON compatibility without storing a second copy of the YAML.
         json.dumps(values, ensure_ascii=False, allow_nan=False)
-        return OkfFrontmatter(
-            values=values,
-            raw="".join(lines[: end + 1]),
-            body="".join(lines[end + 1 :]),
+        return FrontmatterRead(
+            OkfFrontmatter(
+                values=values,
+                raw="".join(lines[: end + 1]),
+                body="".join(lines[end + 1 :]),
+            )
         )
     except (
         StopIteration,
@@ -93,6 +117,24 @@ def parse_frontmatter(
         TypeError,
         RecursionError,
     ) as exc:
+        return FrontmatterRead(None, rejection=str(exc), error=exc)
+
+
+def read_okf_frontmatter(content: str) -> FrontmatterRead:
+    """Read frontmatter that declares an OKF concept, or say why it does not."""
+    result = read_frontmatter(content)
+    if result.frontmatter is None or is_okf_concept(result.frontmatter):
+        return result
+    return FrontmatterRead(
+        None, rejection="the frontmatter has no non-empty string `type`"
+    )
+
+
+def parse_frontmatter(
+    content: str, *, path: str, report: RepositoryDocumentsSourceReport
+) -> Optional[OkfFrontmatter]:
+    result = read_frontmatter(content)
+    if result.error is not None:
         report.okf_parse_errors += 1
         report.warning(
             title="Invalid OKF frontmatter",
@@ -102,13 +144,25 @@ def parse_frontmatter(
                 "anchors and aliases are not supported)."
             ),
             context=f"path={path}",
-            exc=exc,
+            exc=result.error,
         )
-        return None
+    return result.frontmatter
 
 
 def parse_okf_frontmatter(
     content: str, *, path: str, report: RepositoryDocumentsSourceReport
 ) -> Optional[OkfFrontmatter]:
     frontmatter = parse_frontmatter(content, path=path, report=report)
-    return frontmatter if frontmatter and "type" in frontmatter.values else None
+    if is_okf_concept(frontmatter):
+        return frontmatter
+    if frontmatter is not None and "type" in frontmatter.values:
+        report.okf_unresolved_values += 1
+        report.warning(
+            title="Unresolved OKF value",
+            message=(
+                "The file has no usable type, so it is imported as a plain "
+                "document, not an OKF concept."
+            ),
+            context=f"path={path}, key=type",
+        )
+    return None

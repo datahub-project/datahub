@@ -4,7 +4,9 @@ import pytest
 
 from datahub.ingestion.source.repository_documents.okf_frontmatter import (
     MAX_FRONTMATTER_BYTES,
+    is_okf_concept,
     parse_okf_frontmatter,
+    read_okf_frontmatter,
 )
 from datahub.ingestion.source.repository_documents.report import (
     RepositoryDocumentsSourceReport,
@@ -51,3 +53,38 @@ def test_limit_applies_to_frontmatter_not_body() -> None:
     )
     assert parsed is not None and parsed.raw == raw
     assert report.okf_parse_errors == 0
+
+
+@pytest.mark.parametrize(
+    "content, concept",
+    [
+        ("---\ntype: Guide\n---\nBody", True),
+        ("---\ntype: '  '\n---\nBody", False),
+        ("---\ntype: 3\n---\nBody", False),
+        ("---\ntitle: Guide\n---\nBody", False),
+    ],
+)
+def test_a_concept_needs_a_non_empty_string_type(content: str, concept: bool) -> None:
+    report = RepositoryDocumentsSourceReport()
+    parsed = parse_okf_frontmatter(content, path="guide.md", report=report)
+    assert (parsed is not None) == concept
+    assert is_okf_concept(read_okf_frontmatter(content).frontmatter) == concept
+    # A declared but unusable type is reported; a missing one is not.
+    assert report.okf_unresolved_values == int("type:" in content and not concept)
+
+
+@pytest.mark.parametrize(
+    "content, reason",
+    [
+        ("Body", "no frontmatter"),
+        ("---\n- a\n---\nBody", "not a YAML mapping"),
+        ("---\ntitle: Guide\n---\nBody", "type"),
+        ("---\nvalue: *missing\n---\nBody", "aliases"),
+    ],
+)
+def test_read_okf_frontmatter_says_why_without_reporting(
+    content: str, reason: str
+) -> None:
+    result = read_okf_frontmatter(content)
+    assert result.frontmatter is None
+    assert result.rejection is not None and reason in result.rejection

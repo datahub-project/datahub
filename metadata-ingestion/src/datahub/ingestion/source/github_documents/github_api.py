@@ -4,26 +4,15 @@ import base64
 import logging
 import re
 import time
+import warnings
 from dataclasses import dataclass
-from typing import List, Optional, Protocol, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Protocol, Set, Tuple, Union
 from urllib.parse import quote
 
 import requests
 
-from datahub.ingestion.source.repository_documents.client import (
-    MAX_FILE_SIZE_BYTES,
-    RepositoryDocumentsClient as RepositoryDocumentsClient,
-    RepositoryFileInfo,
-)
-from datahub.ingestion.source.repository_documents.paths import (
-    collect_intermediate_directories as collect_intermediate_directories,
-    make_dir_source_id as _make_dir_source_id,
-    make_file_source_id as _make_file_source_id,
-    make_repo_source_id as _make_repo_source_id,
-    matches_filters,
-    normalize_document_id as normalize_document_id,
-    resolve_parent_dir_source_id as _resolve_parent_dir_source_id,
-)
+from datahub.ingestion.source.repository_documents import client as _client, paths
+from datahub.ingestion.source.repository_documents.client import RepositoryFileInfo
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +122,7 @@ class GitHubApiClient:
             path = item.get("path", "")
             if path == "index.md" or path.endswith("/index.md"):
                 self._index_file_paths.add(path)
-            if not matches_filters(path, normalized_prefix, ext_set):
+            if not paths.matches_filters(path, normalized_prefix, ext_set):
                 continue
             size = item.get("size")
             blob_sha = item.get("sha")
@@ -161,12 +150,12 @@ class GitHubApiClient:
             return None
 
         size = node.get("size")
-        if isinstance(size, int) and size > MAX_FILE_SIZE_BYTES:
+        if isinstance(size, int) and size > _client.MAX_FILE_SIZE_BYTES:
             logger.warning(
                 "File %s is %s bytes (max %s), skipping",
                 file_path,
                 size,
-                MAX_FILE_SIZE_BYTES,
+                _client.MAX_FILE_SIZE_BYTES,
             )
             return None
 
@@ -180,12 +169,12 @@ class GitHubApiClient:
 
         return None
 
-    def get_latest_commit_sha(self, owner_repo: str, branch: str) -> str:
+    def get_latest_commit_sha(self, owner_repo: str, branch: str) -> Optional[str]:
         url = f"{GITHUB_API_BASE}/repos/{owner_repo}/branches/{quote(branch, safe='')}"
         node = self._get_json(url)
-        if node and "commit" in node:
-            return node["commit"].get("sha", "unknown")
-        return "unknown"
+        commit = node.get("commit") if node else None
+        sha = commit.get("sha") if isinstance(commit, dict) else None
+        return sha if isinstance(sha, str) and sha else None
 
     def _get_json(
         self, url: str, *, allow_rate_limit_retry: bool = True
@@ -282,28 +271,23 @@ class GitHubApiClient:
             return None
 
 
-# Kept so code built on the github-documents modules keeps importing.
-GitHubFileInfo = RepositoryFileInfo
-_matches_filters = matches_filters
-
-
-def make_file_source_id(
+def _github_file_source_id(
     owner_repo: str, file_path: str, *, source_prefix: str = "github"
 ) -> str:
-    return _make_file_source_id(owner_repo, file_path, source_prefix=source_prefix)
+    return paths.make_file_source_id(owner_repo, file_path, source_prefix=source_prefix)
 
 
-def make_dir_source_id(
+def _github_dir_source_id(
     owner_repo: str, dir_path: str, *, source_prefix: str = "github"
 ) -> str:
-    return _make_dir_source_id(owner_repo, dir_path, source_prefix=source_prefix)
+    return paths.make_dir_source_id(owner_repo, dir_path, source_prefix=source_prefix)
 
 
-def make_repo_source_id(owner_repo: str, *, source_prefix: str = "github") -> str:
-    return _make_repo_source_id(owner_repo, source_prefix=source_prefix)
+def _github_repo_source_id(owner_repo: str, *, source_prefix: str = "github") -> str:
+    return paths.make_repo_source_id(owner_repo, source_prefix=source_prefix)
 
 
-def resolve_parent_dir_source_id(
+def _github_parent_dir_source_id(
     owner_repo: str,
     full_path: str,
     path_prefix: str,
@@ -311,10 +295,56 @@ def resolve_parent_dir_source_id(
     repo_root_source_id: Optional[str] = None,
     source_prefix: str = "github",
 ) -> Optional[str]:
-    return _resolve_parent_dir_source_id(
+    return paths.resolve_parent_dir_source_id(
         owner_repo,
         full_path,
         path_prefix,
         repo_root_source_id=repo_root_source_id,
         source_prefix=source_prefix,
     )
+
+
+# Deprecated names kept so code built on the github-documents modules keeps
+# importing: name -> (value, where to import it from instead).
+_DEPRECATED_ALIASES: Dict[str, Tuple[object, str]] = {
+    "GitHubFileInfo": (RepositoryFileInfo, "client.RepositoryFileInfo"),
+    "RepositoryDocumentsClient": (
+        _client.RepositoryDocumentsClient,
+        "client.RepositoryDocumentsClient",
+    ),
+    "MAX_FILE_SIZE_BYTES": (_client.MAX_FILE_SIZE_BYTES, "client.MAX_FILE_SIZE_BYTES"),
+    "collect_intermediate_directories": (
+        paths.collect_intermediate_directories,
+        "paths.collect_intermediate_directories",
+    ),
+    "normalize_document_id": (
+        paths.normalize_document_id,
+        "paths.normalize_document_id",
+    ),
+    "make_file_source_id": (_github_file_source_id, "paths.make_file_source_id"),
+    "make_dir_source_id": (_github_dir_source_id, "paths.make_dir_source_id"),
+    "make_repo_source_id": (_github_repo_source_id, "paths.make_repo_source_id"),
+    "resolve_parent_dir_source_id": (
+        _github_parent_dir_source_id,
+        "paths.resolve_parent_dir_source_id",
+    ),
+}
+
+
+def __getattr__(name: str) -> Any:
+    # Any, not object: callers of a deprecated name keep type-checking.
+    if name not in _DEPRECATED_ALIASES:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value, replacement = _DEPRECATED_ALIASES[name]
+    warnings.warn(
+        f"{__name__}.{name} is deprecated and will be removed in a future release. "
+        f"Import datahub.ingestion.source.repository_documents.{replacement} instead"
+        + (
+            ', passing source_prefix="github".'
+            if replacement.startswith(("paths.make_", "paths.resolve_"))
+            else "."
+        ),
+        FutureWarning,
+        stacklevel=2,
+    )
+    return value

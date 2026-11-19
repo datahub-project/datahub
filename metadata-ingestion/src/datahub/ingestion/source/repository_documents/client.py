@@ -20,7 +20,9 @@ class RepositoryDocumentsClient(Protocol):
     @property
     def last_api_error(self) -> Optional[str]: ...
 
-    def get_latest_commit_sha(self, owner_repo: str, branch: str) -> str: ...
+    def get_latest_commit_sha(self, owner_repo: str, branch: str) -> Optional[str]:
+        """The commit the branch points at, or None when it cannot be resolved."""
+        ...
 
     def list_matching_files(
         self,

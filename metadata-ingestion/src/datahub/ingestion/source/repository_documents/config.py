@@ -1,7 +1,7 @@
 from pathlib import PurePosixPath
 from typing import List, Optional
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator
 
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -9,10 +9,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
-)
-from datahub.ingestion.source.unstructured.config import (
-    DocumentMappingConfig,
-    HierarchyConfig,
 )
 
 
@@ -102,15 +98,6 @@ class RepositoryDocumentsSourceConfigBase(
         ),
     )
 
-    document_mapping: DocumentMappingConfig = Field(
-        default_factory=DocumentMappingConfig,
-        description="Document entity mapping configuration.",
-    )
-    hierarchy: HierarchyConfig = Field(
-        default_factory=HierarchyConfig,
-        description="Parent-child relationship configuration.",
-    )
-
     @field_validator("okf_bundle_roots")
     @classmethod
     def normalize_bundle_roots(cls, roots: List[str]) -> List[str]:
@@ -140,17 +127,3 @@ class RepositoryDocumentsSourceConfigBase(
                 ext = f".{ext}"
             normalized.append(ext)
         return normalized or [".md", ".txt"]
-
-    @model_validator(mode="after")
-    def apply_document_mapping_defaults(self) -> "RepositoryDocumentsSourceConfigBase":
-        if self.document_mapping.id_pattern == "{source_type}-{directory}-{basename}":
-            self.document_mapping.id_pattern = "{source_type}-{basename}"
-
-        if self.document_import_mode == DocumentImportMode.NATIVE:
-            self.document_mapping.source.type = "NATIVE"
-        else:
-            self.document_mapping.source.type = "EXTERNAL"
-
-        if self.parent_document_urn:
-            self.hierarchy.folder_mapping.root_parent = self.parent_document_urn
-        return self

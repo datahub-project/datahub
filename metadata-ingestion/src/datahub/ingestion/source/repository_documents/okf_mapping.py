@@ -12,6 +12,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.repository_documents.okf_bundles import concept_id
 from datahub.ingestion.source.repository_documents.okf_frontmatter import (
     OkfFrontmatter,
+    is_okf_concept,
 )
 from datahub.ingestion.source.repository_documents.okf_metadata import (
     parse_stamp,
@@ -42,12 +43,16 @@ MAPPING_VERSION = "6"
 # The frontmatter keys whose values are references to other entities.
 OkfReferenceKey = Literal["owners", "tags", "glossary_terms"]
 
-NATIVE_MAPPINGS: Dict[str, str] = {
-    "title": "documentInfo.title",
-    "type": "subTypes",
+# The reference keys and the aspect each one maps to.
+REFERENCE_MAPPINGS: Dict[OkfReferenceKey, str] = {
     "owners": "ownership",
     "tags": "globalTags",
     "glossary_terms": "glossaryTerms",
+}
+NATIVE_MAPPINGS: Dict[str, str] = {
+    "title": "documentInfo.title",
+    "type": "subTypes",
+    **{str(key): target for key, target in REFERENCE_MAPPINGS.items()},
 }
 EMAIL_PATTERN = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
 
@@ -87,16 +92,6 @@ def _resolve_term_name(name: str, ctx: PipelineContext) -> Optional[str]:
             if len(matches) > 1:
                 return None
     return next(iter(matches)) if matches else None
-
-
-def _reference_key(key: str) -> OkfReferenceKey:
-    if key == "owners":
-        return "owners"
-    if key == "tags":
-        return "tags"
-    if key == "glossary_terms":
-        return "glossary_terms"
-    raise ValueError(f"{key!r} is not an OKF reference key")
 
 
 def resolve_reference(
@@ -163,14 +158,15 @@ def map_okf(
             context=f"path={file_path}, key={key}",
         )
 
-    concept_type = _optional_string(values, "type")
-    if not concept_type or not concept_type.strip():
+    if not is_okf_concept(frontmatter):
         unresolved(
             "type",
             "The file has no usable type, so it is imported as a plain "
             "document, not an OKF concept.",
         )
         return None
+    concept_type = values["type"]
+    assert isinstance(concept_type, str)
 
     aspects: List[_Aspect] = [
         OkfPropertiesClass(
@@ -203,22 +199,18 @@ def map_okf(
             verified=parse_verified(values, path=file_path, report=report),
             raw=frontmatter.raw,
             revision=revision,
-        )
+        ),
+        SubTypesClass(typeNames=[concept_type]),
     ]
     title: Optional[str] = None
+    if "title" in values:
+        title_value = values["title"]
+        if isinstance(title_value, str) and title_value.strip():
+            title = title_value
+        else:
+            unresolved("title")
     patcher = DocumentPatchBuilder(document_urn)
-    for key, target in NATIVE_MAPPINGS.items():
-        if target == "documentInfo.title":
-            if key in values:
-                value = values[key]
-                if isinstance(value, str) and value.strip():
-                    title = value
-                else:
-                    unresolved(key)
-            continue
-        if target == "subTypes":
-            aspects.append(SubTypesClass(typeNames=[concept_type]))
-            continue
+    for key, target in REFERENCE_MAPPINGS.items():
         value = values.get(key, [])
         entries: List[object]
         if value is None or (isinstance(value, str) and not value.strip()):
@@ -233,9 +225,7 @@ def map_okf(
             urn = None
             if isinstance(entry, str) and entry.strip():
                 try:
-                    urn = resolve_reference(
-                        entry.strip(), _reference_key(key), ctx, cache
-                    )
+                    urn = resolve_reference(entry.strip(), key, ctx, cache)
                 except Exception:
                     # A failed catalog lookup or invalid URN must not discard
                     # the concept, including its original unresolved value.

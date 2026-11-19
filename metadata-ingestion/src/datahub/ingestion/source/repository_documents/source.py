@@ -7,7 +7,18 @@ import os
 from abc import abstractmethod
 from functools import cached_property, partial
 from pathlib import PurePosixPath
-from typing import Any, ClassVar, Dict, Iterable, List, Optional, Set, Tuple
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+)
 
 from datahub.emitter.mce_builder import (
     datahub_guid,
@@ -45,7 +56,9 @@ from datahub.ingestion.source.repository_documents.okf_bundles import (
 from datahub.ingestion.source.repository_documents.okf_cleanup import clear_okf_metadata
 from datahub.ingestion.source.repository_documents.okf_frontmatter import (
     OkfFrontmatter,
+    is_okf_concept,
     parse_okf_frontmatter,
+    read_okf_frontmatter,
 )
 from datahub.ingestion.source.repository_documents.okf_mapping import (
     MAPPING_VERSION,
@@ -95,6 +108,17 @@ LAST_EXPORTED_CONTENT_HASH_KEY = "last_exported_content_hash"
 PROP_IMPORT_SOURCE_ID = "import_source_id"
 _DOCUMENT_URN_PREFIX = "urn:li:document:"
 
+ConfigT = TypeVar("ConfigT", bound=RepositoryDocumentsSourceConfigBase)
+
+
+def _property_filter(key: str, value: str) -> Dict[str, Any]:
+    """A search filter matching documents whose custom property ``key`` is ``value``."""
+    return {
+        "field": "customProperties",
+        "condition": "EQUAL",
+        "values": [f"{key}={value}"],
+    }
+
 
 def compute_file_content_hash(content: str) -> str:
     """Hash document text plus the extraction version for the sync-back contract.
@@ -133,19 +157,18 @@ def _looks_like_concept(file_path: str, content: str) -> bool:
     path = PurePosixPath(file_path)
     if path.suffix.lower() != ".md" or path.name in RESERVED_FILENAMES:
         return False
-    # A throwaway report: the real parse, with its warnings, happens on import.
-    frontmatter = parse_okf_frontmatter(
-        content, path=file_path, report=RepositoryDocumentsSourceReport()
-    )
-    concept_type = frontmatter.values.get("type") if frontmatter else None
-    return isinstance(concept_type, str) and bool(concept_type.strip())
+    # Not reported: the real parse, with its warnings, happens on import.
+    return read_okf_frontmatter(content).frontmatter is not None
 
 
-class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource):
+class RepositoryDocumentsSourceBase(
+    StatefulIngestionSourceBase, TestableSource, Generic[ConfigT]
+):
     """
     Shared import logic for documents sources backed by a git host.
 
-    Subclasses set ``platform`` and supply the API client and file URLs. The
+    Subclasses parametrize it with their config class, set ``platform`` and
+    supply the API client and file URLs. The
     platform name also prefixes source ids and the ``<platform>_*`` custom
     properties, so documents from different hosts never share an identity.
 
@@ -165,10 +188,9 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
     platform: ClassVar[str]
     # Human-readable host name used in report messages.
     platform_display_name: ClassVar[str]
+    config: ConfigT
 
-    def __init__(
-        self, config: RepositoryDocumentsSourceConfigBase, ctx: PipelineContext
-    ):
+    def __init__(self, config: ConfigT, ctx: PipelineContext):
         super().__init__(config, ctx)  # type: ignore[arg-type]
         self.config = config
         self.report: RepositoryDocumentsSourceReport = RepositoryDocumentsSourceReport()
@@ -205,19 +227,17 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
     @classmethod
     def create(
         cls, config_dict: dict, ctx: PipelineContext
-    ) -> "RepositoryDocumentsSourceBase":
+    ) -> "RepositoryDocumentsSourceBase[ConfigT]":
         return cls(cls._parse_config(config_dict), ctx)
 
     @classmethod
     @abstractmethod
-    def _parse_config(cls, config_dict: dict) -> RepositoryDocumentsSourceConfigBase:
+    def _parse_config(cls, config_dict: dict) -> ConfigT:
         raise NotImplementedError
 
     @classmethod
     @abstractmethod
-    def _make_client(
-        cls, config: RepositoryDocumentsSourceConfigBase
-    ) -> RepositoryDocumentsClient:
+    def _make_client(cls, config: ConfigT) -> RepositoryDocumentsClient:
         raise NotImplementedError
 
     def _create_client(self) -> RepositoryDocumentsClient:
@@ -253,13 +273,7 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         path_prefix = self.config.path_prefix.strip("/")
         extensions = self.config.file_extensions
 
-        commit_sha = self.client.get_latest_commit_sha(owner_repo, branch)
-        if not commit_sha or commit_sha == "unknown":
-            detail = self.client.last_api_error or "branch not found"
-            raise RuntimeError(
-                f"Could not resolve branch {branch!r} in {owner_repo} "
-                f"to a commit snapshot: {detail}"
-            )
+        commit_sha = self._resolve_commit_sha(self.client, owner_repo, branch)
         self._okf_lookup_cache = OkfLookupCache()
         files, tree_truncated = self.client.list_matching_files(
             owner_repo, commit_sha, path_prefix, extensions
@@ -270,14 +284,15 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             # from the repository.
             self._keep_previous_documents()
             self.report.warning(
-                title=f"{self.platform}-tree-truncated",
+                title="Repository tree truncated",
                 message=(
-                    f"{self.platform_display_name} returned a truncated tree; "
-                    "only a subset of files will be imported and documents "
-                    "imported by earlier runs are kept. Narrow path_prefix or "
-                    "split across multiple ingestion sources."
+                    "The git host returned a truncated file tree; only a subset of "
+                    "files will be imported and documents imported by earlier runs "
+                    "are kept. Narrow path_prefix or split across multiple "
+                    "ingestion sources."
                 ),
-                context=f"repository={owner_repo}, branch={branch}",
+                context=f"platform={self.platform}, repository={owner_repo}, "
+                f"branch={branch}",
             )
         if not files:
             logger.info("No matching files found in %s (branch=%s)", owner_repo, branch)
@@ -289,14 +304,15 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             self.report.files_truncated_by_limit = True
             self._keep_previous_documents()
             self.report.warning(
-                title=f"{self.platform}-files-truncated",
+                title="Matching files truncated by max_files",
                 message=(
                     "Found more matching files than max_files allows; "
                     "only the first batch will be imported and documents "
                     "imported by earlier runs are kept."
                 ),
-                context=f"repository={owner_repo}, branch={branch}, "
-                f"total_matches={total_matches}, max_files={self.config.max_files}",
+                context=f"platform={self.platform}, repository={owner_repo}, "
+                f"branch={branch}, total_matches={total_matches}, "
+                f"max_files={self.config.max_files}",
             )
 
         self._okf_index_contents.clear()
@@ -362,13 +378,12 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
 
         title = owner_repo.split("/")[-1] if "/" in owner_repo else owner_repo
         doc_id = normalize_document_id(source_id)
-        custom_properties = {
-            "import_source": self.platform,
-            self._prop("repo"): owner_repo,
-            self._prop("branch"): branch,
-            "is_repo_root_document": "true",
-            PROP_IMPORT_SOURCE_ID: source_id,
-        }
+        custom_properties = self._base_custom_properties(
+            owner_repo=owner_repo,
+            branch=branch,
+            source_id=source_id,
+            extra={"is_repo_root_document": "true"},
+        )
 
         doc = self._build_document(
             doc_id=doc_id,
@@ -381,10 +396,9 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             custom_properties=custom_properties,
             is_directory=True,
         )
-        self._register_hierarchy(source_id, title, parent_source_id=None)
-        self._source_id_to_urn[source_id] = str(doc.urn)
-        self._attach_browse_path(doc, source_id)
-        self.report.folders_processed += 1
+        self._register_document(
+            doc, source_id, title, parent_source_id=None, is_directory=True
+        )
         yield from doc.as_workunits()
 
     def _emit_folder_document(
@@ -431,23 +445,21 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
                 branch=branch,
                 repo_path=dir_path,
                 parent_document=parent_urn,
-                custom_properties={
-                    "import_source": self.platform,
-                    self._prop("repo"): owner_repo,
-                    self._prop("branch"): branch,
-                    self._prop("directory_path"): dir_path,
-                    "is_folder_document": "true",
-                    PROP_IMPORT_SOURCE_ID: dir_source_id,
-                },
+                custom_properties=self._base_custom_properties(
+                    owner_repo=owner_repo,
+                    branch=branch,
+                    source_id=dir_source_id,
+                    extra={
+                        self._prop("directory_path"): dir_path,
+                        "is_folder_document": "true",
+                    },
+                ),
                 is_directory=True,
             )
         doc._set_aspect(StatusClass(removed=False))
-        self._register_hierarchy(
-            dir_source_id, title, parent_source_id=parent_source_id
+        self._register_document(
+            doc, dir_source_id, title, parent_source_id, is_directory=True
         )
-        self._source_id_to_urn[dir_source_id] = str(doc.urn)
-        self._attach_browse_path(doc, dir_source_id)
-        self.report.folders_processed += 1
         yield from doc.as_workunits()
 
     def _emit_file_document(
@@ -468,39 +480,7 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             owner_repo, file_path, source_prefix=self.platform
         )
         if content is None:
-            self.report.files_skipped += 1
-            api_error = self.client.last_api_error
-            if api_error:
-                # A failed request says nothing about the file, so keep the
-                # previous import rather than let stale removal delete it. Without
-                # a graph match, fall back to the canonical URN only if the last
-                # run imported it: a file never imported has nothing to keep.
-                canonical_urn = (
-                    f"{_DOCUMENT_URN_PREFIX}{normalize_document_id(source_id)}"
-                )
-                existing_urn = self._find_existing_document_urn(
-                    source_id,
-                    owner_repo,
-                    file_path,
-                    canonical_urn,
-                    is_directory=False,
-                ) or (
-                    canonical_urn
-                    if canonical_urn in self._previous_document_urns()
-                    else None
-                )
-                if existing_urn:
-                    self._register_document_for_stale_removal(existing_urn)
-            self.report.warning(
-                title=f"{self.platform}-file-not-read",
-                message=(
-                    "A file could not be read and was skipped. Files that failed "
-                    "to download keep their previous import; files that are too "
-                    "large or not text are not imported."
-                ),
-                context=f"repository={owner_repo}, path={file_path}, "
-                f"error={api_error or 'file too large or not readable as text'}",
-            )
+            self._skip_unreadable_file(owner_repo, file_path, source_id)
             return
 
         doc_id, document_urn = self._resolve_document_identity(
@@ -519,31 +499,18 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             content, enable_okf=self.config.enable_okf, bundle=bundle
         )
 
-        filename = PurePosixPath(file_path).name
-        frontmatter = None
-        if (
-            self.config.enable_okf
-            and bundle
-            and filename not in RESERVED_FILENAMES
-            and PurePosixPath(file_path).suffix.lower() == ".md"
-        ):
-            frontmatter = parse_okf_frontmatter(
-                content, path=file_path, report=self.report
-            )
-
-        concept_type = frontmatter.values.get("type") if frontmatter else None
-        is_okf_concept = isinstance(concept_type, str) and bool(concept_type.strip())
+        frontmatter = self._okf_frontmatter(file_path, content, bundle)
         if self._should_skip_unchanged_file(
             document_urn,
             source_hash,
             compute_file_content_hash(content),
-            is_okf_concept=is_okf_concept,
+            is_okf_concept=is_okf_concept(frontmatter),
         ):
             logger.info("Skipping unchanged file document: %s", file_path)
             self.report.files_skipped_unchanged += 1
             self._register_document_for_stale_removal(document_urn)
             yield from self._resurrect_unchanged_document(document_urn, owner_repo)
-            if not is_okf_concept:
+            if not is_okf_concept(frontmatter):
                 yield from clear_okf_metadata(
                     document_urn, ctx=self.ctx, report=self.report
                 )
@@ -568,29 +535,13 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
                 bundle=bundle,
                 file_path=file_path,
                 revision=OkfRevisionClass(
-                    ref=branch,
-                    commit=commit_sha if commit_sha != "unknown" else None,
-                    blobSha=blob_sha,
+                    ref=branch, commit=commit_sha, blobSha=blob_sha
                 ),
             )
             if okf_mapping is not None:
                 text = frontmatter.body
                 title = okf_mapping.title or title
                 self.report.okf_files_processed += 1
-        custom_properties = {
-            "import_source": self.platform,
-            self._prop("repo"): owner_repo,
-            self._prop("branch"): branch,
-            self._prop("file_path"): file_path,
-            self._prop("commit_sha"): commit_sha,
-            PROP_IMPORT_SOURCE_ID: source_id,
-            "content_hash": compute_file_content_hash(text),
-            "source_content_hash": source_hash,
-            "extraction_algo_version": EXTRACTION_ALGO_VERSION,
-        }
-        if blob_sha:
-            custom_properties[self._prop("blob_sha")] = blob_sha
-
         doc = self._build_document(
             doc_id=doc_id,
             title=title,
@@ -599,7 +550,16 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             branch=branch,
             repo_path=file_path,
             parent_document=parent_urn,
-            custom_properties=custom_properties,
+            custom_properties=self._file_custom_properties(
+                owner_repo=owner_repo,
+                branch=branch,
+                file_path=file_path,
+                source_id=source_id,
+                commit_sha=commit_sha,
+                blob_sha=blob_sha,
+                text=text,
+                source_hash=source_hash,
+            ),
         )
         # The repository is source of truth for import: if the file still exists, clear
         # Status.removed so a previously soft-deleted DataHub doc is resurrected.
@@ -609,10 +569,9 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         if okf_mapping is not None:
             for aspect in okf_mapping.aspects:
                 doc._set_aspect(aspect)
-        self._register_hierarchy(source_id, title, parent_source_id=parent_source_id)
-        self._source_id_to_urn[source_id] = str(doc.urn)
-        self._attach_browse_path(doc, source_id)
-        self.report.files_processed += 1
+        self._register_document(
+            doc, source_id, title, parent_source_id, is_directory=False
+        )
         yield from doc.as_workunits()
         if okf_mapping is not None:
             for index, patch in enumerate(okf_mapping.patches):
@@ -624,6 +583,121 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             yield from clear_okf_metadata(
                 document_urn, ctx=self.ctx, report=self.report
             )
+
+    def _skip_unreadable_file(
+        self, owner_repo: str, file_path: str, source_id: str
+    ) -> None:
+        """Count and report a file whose content could not be read.
+
+        A failed request says nothing about the file, so keep the previous
+        import rather than let stale removal delete it. Without a graph match,
+        fall back to the canonical URN only if the last run imported it: a file
+        never imported has nothing to keep.
+        """
+        self.report.files_skipped += 1
+        api_error = self.client.last_api_error
+        if api_error:
+            canonical_urn = f"{_DOCUMENT_URN_PREFIX}{normalize_document_id(source_id)}"
+            existing_urn = self._find_existing_document_urn(
+                source_id, owner_repo, file_path, canonical_urn, is_directory=False
+            ) or (
+                canonical_urn
+                if canonical_urn in self._previous_document_urns()
+                else None
+            )
+            if existing_urn:
+                self._register_document_for_stale_removal(existing_urn)
+        self.report.warning(
+            title="Repository file not read",
+            message=(
+                "A file could not be read and was skipped. Files that failed "
+                "to download keep their previous import; files that are too "
+                "large or not text are not imported."
+            ),
+            context=f"platform={self.platform}, repository={owner_repo}, "
+            f"path={file_path}, "
+            f"error={api_error or 'file too large or not readable as text'}",
+        )
+
+    def _okf_frontmatter(
+        self, file_path: str, content: str, bundle: Optional[OkfBundleClass]
+    ) -> Optional[OkfFrontmatter]:
+        """The file's OKF concept frontmatter, or None when it is not a concept."""
+        path = PurePosixPath(file_path)
+        if (
+            not self.config.enable_okf
+            or bundle is None
+            or path.name in RESERVED_FILENAMES
+            or path.suffix.lower() != ".md"
+        ):
+            return None
+        return parse_okf_frontmatter(content, path=file_path, report=self.report)
+
+    def _base_custom_properties(
+        self,
+        *,
+        owner_repo: str,
+        branch: str,
+        source_id: str,
+        extra: Dict[str, str],
+    ) -> Dict[str, str]:
+        return {
+            "import_source": self.platform,
+            self._prop("repo"): owner_repo,
+            self._prop("branch"): branch,
+            **extra,
+            PROP_IMPORT_SOURCE_ID: source_id,
+        }
+
+    def _file_custom_properties(
+        self,
+        *,
+        owner_repo: str,
+        branch: str,
+        file_path: str,
+        source_id: str,
+        commit_sha: str,
+        blob_sha: Optional[str],
+        text: str,
+        source_hash: str,
+    ) -> Dict[str, str]:
+        properties = self._base_custom_properties(
+            owner_repo=owner_repo,
+            branch=branch,
+            source_id=source_id,
+            extra={
+                self._prop("file_path"): file_path,
+                self._prop("commit_sha"): commit_sha,
+            },
+        )
+        properties.update(
+            {
+                "content_hash": compute_file_content_hash(text),
+                "source_content_hash": source_hash,
+                "extraction_algo_version": EXTRACTION_ALGO_VERSION,
+            }
+        )
+        if blob_sha:
+            properties[self._prop("blob_sha")] = blob_sha
+        return properties
+
+    def _register_document(
+        self,
+        doc: Document,
+        source_id: str,
+        title: str,
+        parent_source_id: Optional[str],
+        *,
+        is_directory: bool,
+    ) -> None:
+        """Record an emitted document for its descendants and attach its browse path."""
+        self._register_hierarchy(source_id, title, parent_source_id=parent_source_id)
+        self._source_id_to_urn[source_id] = str(doc.urn)
+        self._attach_browse_path(doc, source_id)
+        if is_directory:
+            self.report.folders_processed += 1
+        else:
+            self.report.files_processed += 1
 
     @cached_property
     def _okf_attribution_source(self) -> Optional[str]:
@@ -788,14 +862,23 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         # first ingest; DataHub-created docs get it on first successful sync-back.
         try:
             matches = self._search_documents_by_properties(
-                [
-                    {
-                        "field": "customProperties",
-                        "condition": "EQUAL",
-                        "values": [f"{PROP_IMPORT_SOURCE_ID}={source_id}"],
-                    }
-                ]
+                [_property_filter(PROP_IMPORT_SOURCE_ID, source_id)]
             )
+            if not matches:
+                # Fallback for documents whose import_source_id predates this
+                # scheme: match the stamped repository path instead. The key
+                # differs by kind: a folder document carries
+                # <platform>_directory_path and no <platform>_file_path, so
+                # querying the file key for a directory could never match.
+                path_property = self._prop(
+                    "directory_path" if is_directory else "file_path"
+                )
+                matches = self._search_documents_by_properties(
+                    [
+                        _property_filter(path_property, path),
+                        _property_filter(self._prop("repo"), owner_repo),
+                    ]
+                )
         except Exception as exc:
             # Reported as a failure, not a warning: StaleEntityRemovalHandler skips
             # soft-deletion entirely when the source has failures. Without that,
@@ -814,44 +897,6 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             )
             self._resolved_source_id_urns[source_id] = None
             return None
-
-        if not matches:
-            # Fallback for documents whose import_source_id predates this scheme:
-            # match the stamped repository path instead. The key differs by kind:
-            # a folder document carries <platform>_directory_path and no
-            # <platform>_file_path, so querying the file key for a directory could
-            # never match.
-            path_property = self._prop(
-                "directory_path" if is_directory else "file_path"
-            )
-            try:
-                matches = self._search_documents_by_properties(
-                    [
-                        {
-                            "field": "customProperties",
-                            "condition": "EQUAL",
-                            "values": [f"{path_property}={path}"],
-                        },
-                        {
-                            "field": "customProperties",
-                            "condition": "EQUAL",
-                            "values": [f"{self._prop('repo')}={owner_repo}"],
-                        },
-                    ]
-                )
-            except Exception as exc:
-                self.report.failure(
-                    title="Document identity lookup failed",
-                    message=(
-                        f"Fallback {path_property} search failed for this repository "
-                        "path. Stale entity removal is skipped for this run so no "
-                        "document is soft-deleted; re-run once search is reachable."
-                    ),
-                    context=f"path={path}, source_id={source_id}",
-                    exc=exc,
-                )
-                self._resolved_source_id_urns[source_id] = None
-                return None
 
         chosen = self._prefer_existing_document_urn(
             matches, canonical_urn, path=path, source_id=source_id
@@ -1136,6 +1181,20 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             )
         )
 
+    @staticmethod
+    def _resolve_commit_sha(
+        client: RepositoryDocumentsClient, owner_repo: str, branch: str
+    ) -> str:
+        """The commit the branch points at, so a run reads one consistent snapshot."""
+        commit_sha = client.get_latest_commit_sha(owner_repo, branch)
+        if not commit_sha:
+            detail = client.last_api_error or "branch not found"
+            raise RuntimeError(
+                f"Could not resolve branch {branch!r} in {owner_repo} "
+                f"to a commit snapshot: {detail}"
+            )
+        return commit_sha
+
     def get_report(self) -> RepositoryDocumentsSourceReport:
         return self.report
 
@@ -1153,12 +1212,9 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             client = cls._make_client(config)
             # Resolve the branch the same way ingestion does, so a tag or a
             # missing branch fails here rather than on the first run.
-            commit_sha = client.get_latest_commit_sha(config.repository, config.branch)
-            if not commit_sha or commit_sha == "unknown":
-                detail = client.last_api_error or "branch not found"
-                raise RuntimeError(
-                    f"Could not resolve branch {config.branch!r}: {detail}"
-                )
+            commit_sha = cls._resolve_commit_sha(
+                client, config.repository, config.branch
+            )
             client.list_matching_files(
                 config.repository,
                 commit_sha,
