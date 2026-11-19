@@ -56,16 +56,13 @@ public class StructuredPropertyPrivilegeConstraintsValidator
     List<AspectValidationException> failures = new ArrayList<>();
 
     Map<Urn, Aspect> currentAspects = fetchCurrentAspects(operationContext, items, aspectRetriever);
+    Map<Urn, Boolean> entityExists = entityExists(operationContext, items, aspectRetriever);
 
     for (BatchItem item : items) {
       if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(item.getAspectName())) {
         failures.addAll(
             validateStructuredProperties(
-                operationContext,
-                session,
-                item,
-                aspectRetriever,
-                currentAspects.get(item.getUrn())));
+                session, item, aspectRetriever, currentAspects.get(item.getUrn()), entityExists));
       }
     }
     return failures;
@@ -98,11 +95,11 @@ public class StructuredPropertyPrivilegeConstraintsValidator
   }
 
   private List<AspectValidationException> validateStructuredProperties(
-      @Nonnull OperationFingerprint operationContext,
       AuthorizationSession session,
       BatchItem item,
       AspectRetriever aspectRetriever,
-      @Nullable Aspect currentAspect) {
+      @Nullable Aspect currentAspect,
+      @Nonnull Map<Urn, Boolean> entityExists) {
     StructuredProperties currentProps =
         currentAspect == null
             ? null
@@ -130,11 +127,11 @@ public class StructuredPropertyPrivilegeConstraintsValidator
     if (difference.isEmpty()) {
       return Collections.emptyList();
     }
-    if (!AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
+    if (!AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
         session,
         item.getUrn(),
         difference,
-        operationFor(operationContext, aspectRetriever, item.getUrn(), item.getChangeType()))) {
+        operationFor(item.getUrn(), item.getChangeType(), entityExists))) {
       return List.of(
           AspectValidationException.forAuth(
               item, "Unauthorized to modify one or more structured property Urns: " + difference));
@@ -178,16 +175,29 @@ public class StructuredPropertyPrivilegeConstraintsValidator
                 (a, b) -> b));
   }
 
-  private static ApiOperation operationFor(
+  @Nonnull
+  private static Map<Urn, Boolean> entityExists(
       @Nonnull OperationFingerprint operationContext,
-      @Nonnull AspectRetriever aspectRetriever,
-      @Nonnull Urn urn,
-      @Nonnull ChangeType changeType) {
-    boolean exists = false;
-    if (AuthUtil.subResourceWriteOperationNeedsExistence(changeType, urn)) {
-      Map<Urn, Boolean> existing = aspectRetriever.entityExists(operationContext, Set.of(urn));
-      exists = existing != null && Boolean.TRUE.equals(existing.get(urn));
+      @Nonnull List<? extends BatchItem> items,
+      @Nonnull AspectRetriever aspectRetriever) {
+    Set<Urn> urns =
+        items.stream()
+            .filter(
+                item ->
+                    AuthUtil.subResourceWriteOperationNeedsExistence(
+                        item.getChangeType(), item.getUrn()))
+            .map(BatchItem::getUrn)
+            .collect(Collectors.toSet());
+    if (urns.isEmpty()) {
+      return Map.of();
     }
-    return AuthUtil.subResourceWriteOperation(changeType, urn, exists);
+    Map<Urn, Boolean> existing = aspectRetriever.entityExists(operationContext, urns);
+    return existing == null ? Map.of() : existing;
+  }
+
+  private static ApiOperation operationFor(
+      @Nonnull Urn urn, @Nonnull ChangeType changeType, @Nonnull Map<Urn, Boolean> entityExists) {
+    return AuthUtil.subResourceWriteOperation(
+        changeType, urn, Boolean.TRUE.equals(entityExists.get(urn)));
   }
 }

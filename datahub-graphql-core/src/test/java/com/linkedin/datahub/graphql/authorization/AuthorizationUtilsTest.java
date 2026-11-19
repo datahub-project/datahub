@@ -201,7 +201,7 @@ public class AuthorizationUtilsTest {
   public void testCanEditStructuredPropertiesFlagUsesWildcardSubResource() {
     QueryContext context = getMockAllowContext();
     AuthorizationUtils.canEditStructuredProperties(
-        TEST_DATASET_URN, context, Collections.emptyList());
+        TEST_DATASET_URN, context, List.of(com.linkedin.metadata.Constants.WILDCARD_URN));
 
     ArgumentCaptor<AuthorizationRequest> requestCaptor =
         ArgumentCaptor.forClass(AuthorizationRequest.class);
@@ -215,6 +215,16 @@ public class AuthorizationUtilsTest {
                     com.linkedin.metadata.Constants.WILDCARD_URN
                         .toString()
                         .equals(spec.getEntity())));
+  }
+
+  @Test
+  public void testCanEditStructuredPropertiesEmptyCollectionIsNotAWildcard() {
+    QueryContext context = getMockAllowContext();
+    Mockito.clearInvocations(context.getAuthorizer());
+    assertTrue(
+        AuthorizationUtils.canEditStructuredProperties(
+            TEST_DATASET_URN, context, Collections.emptyList()));
+    Mockito.verify(context.getAuthorizer(), Mockito.never()).authorize(Mockito.any());
   }
 
   @Test

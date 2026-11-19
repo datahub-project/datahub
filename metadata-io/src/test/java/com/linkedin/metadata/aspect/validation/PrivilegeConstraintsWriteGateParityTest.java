@@ -63,9 +63,11 @@ import org.testng.annotations.Test;
  * <p>Both accept the entity's update privileges (Manage Documents on documents, Manage Users &amp;
  * Groups on users and groups, Create Entity when the entity does not exist yet, Delete Entity when
  * the aspect is deleted) or the aspect privilege (Edit Entity Properties, Edit Entity Tags). A
- * privilegeConstraints list narrows only the policy that contains it. An actor with no matching
- * privilege is denied by both. A form assignment writes as the system and does not reach this
- * decision.
+ * privilegeConstraints list narrows only the policy that contains it, and only when the action
+ * names sub-resources. An actor with no matching privilege is denied by both. A form prompt checks
+ * that the answer matches the prompt. An assigned user answers without this check: the value is
+ * written as the system actor. A user who is not assigned is authorized as the caller and reaches
+ * this decision.
  *
  * <p>Uses the real {@link AuthUtil} and entity registry; only the policy decision is faked, by a
  * session that grants a fixed privilege set, optionally limited by a privilege constraint.
@@ -192,9 +194,11 @@ public class PrivilegeConstraintsWriteGateParityTest {
       {DATASET, false, Write.PROPERTIES_UPSERT, CREATE_ENTITY},
       {CHART, false, Write.PROPERTIES_UPSERT, CREATE_ENTITY},
       {DATASET, false, Write.TAGS_UPSERT, CREATE_ENTITY},
-      // A patch is an update even when the entity does not exist yet.
+      // A patch of a missing entity is a create. Edit Entity is inside the create group, and
+      // Create Entity is enough.
       {DATASET, false, Write.PROPERTIES_PATCH, EDIT_ENTITY},
       {DATASET, false, Write.TAGS_PATCH, EDIT_ENTITY},
+      {DATASET, false, Write.PROPERTIES_PATCH, CREATE_ENTITY},
       // Deleting the aspect: the gate admits Delete Entity.
       {DATASET, true, Write.PROPERTIES_DELETE, DELETE_ENTITY},
     };
@@ -216,8 +220,9 @@ public class PrivilegeConstraintsWriteGateParityTest {
   }
 
   /**
-   * An actor who holds none of the write privileges is denied. A form assignment does not reach
-   * this check: the form writes as the system after its own authorization.
+   * An actor who holds none of the write privileges is denied, and so is an aspect privilege used
+   * to create a missing entity. A form answer from a user who is not assigned writes as that
+   * caller, so this denial applies to that prompted property as well.
    */
   @DataProvider(name = "noMatchingPrivilege")
   public Object[][] noMatchingPrivilege() {
@@ -226,6 +231,11 @@ public class PrivilegeConstraintsWriteGateParityTest {
       {DATASET, true, Write.PROPERTIES_UPSERT, "MANAGE_ENTITY_PROPERTIES"},
       {DATASET, true, Write.TAGS_UPSERT, "MANAGE_ENTITY_TAGS"},
       {DOCUMENT, true, Write.PROPERTIES_PATCH, "NO_PRIVILEGES"},
+      // An aspect privilege does not create a missing entity.
+      {DATASET, false, Write.PROPERTIES_UPSERT, EDIT_ENTITY_PROPERTIES},
+      {DATASET, false, Write.PROPERTIES_PATCH, EDIT_ENTITY_PROPERTIES},
+      {DATASET, false, Write.TAGS_UPSERT, EDIT_ENTITY_TAGS},
+      {DATASET, false, Write.TAGS_PATCH, EDIT_ENTITY_TAGS},
     };
   }
 
@@ -293,7 +303,6 @@ public class PrivilegeConstraintsWriteGateParityTest {
       // Create Entity never overwrites an existing entity.
       {DATASET, true, Write.PROPERTIES_UPSERT, CREATE_ENTITY},
       {DATASET, true, Write.TAGS_PATCH, CREATE_ENTITY},
-      {DATASET, false, Write.PROPERTIES_PATCH, CREATE_ENTITY},
       // Delete Entity does not grant edits.
       {DATASET, true, Write.PROPERTIES_UPSERT, DELETE_ENTITY},
     };

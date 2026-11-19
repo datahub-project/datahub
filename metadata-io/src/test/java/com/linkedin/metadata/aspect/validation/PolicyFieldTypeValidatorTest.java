@@ -430,67 +430,6 @@ public class PolicyFieldTypeValidatorTest {
         "Patch setting a valid filter field type should pass");
   }
 
-  @Test
-  public void testReadPrivilegeWithPrivilegeConstraintsIsRejected() {
-    DataHubPolicyInfo policyInfo = createPolicyInfoWithPrivilegeConstraints("URN");
-    policyInfo.setPrivileges(new StringArray("VIEW_ENTITY_PAGE", "EDIT_ENTITY_TAGS"));
-
-    assertEquals(preCommit(ChangeType.UPSERT, policyInfo), 1);
-  }
-
-  /** A patch that adds a list to a read policy is checked on the merged policy. */
-  @Test
-  public void testPatchAddingPrivilegeConstraintsToReadPolicyIsRejected() {
-    DataHubPolicyInfo merged = createPolicyInfoWithPrivilegeConstraints("URN");
-    merged.setPrivileges(new StringArray("VIEW_ENTITY_PAGE"));
-
-    assertEquals(preCommit(ChangeType.PATCH, merged), 1);
-  }
-
-  @Test
-  public void testInactiveReadPolicyWithPrivilegeConstraintsIsAccepted() {
-    DataHubPolicyInfo policyInfo = createPolicyInfoWithPrivilegeConstraints("URN");
-    policyInfo.setPrivileges(new StringArray("VIEW_ENTITY_PAGE", "EDIT_ENTITY_TAGS"));
-    policyInfo.setState("INACTIVE");
-
-    assertEquals(preCommit(ChangeType.UPSERT, policyInfo), 0);
-  }
-
-  @Test
-  public void testWritePrivilegeWithPrivilegeConstraintsIsAccepted() {
-    DataHubPolicyInfo policyInfo = createPolicyInfoWithPrivilegeConstraints("URN");
-    policyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
-
-    assertEquals(preCommit(ChangeType.UPSERT, policyInfo), 0);
-  }
-
-  @Test
-  public void testReadPrivilegeWithoutPrivilegeConstraintsIsAccepted() {
-    DataHubPolicyInfo policyInfo = createPolicyInfoWithFilter("TYPE", "dataset");
-    policyInfo.setPrivileges(new StringArray("VIEW_ENTITY_PAGE"));
-
-    assertEquals(preCommit(ChangeType.UPSERT, policyInfo), 0);
-  }
-
-  private long preCommit(ChangeType changeType, DataHubPolicyInfo merged) {
-    return validator
-        .validatePreCommit(
-            OperationFingerprint.EMPTY,
-            List.of(
-                TestMCP.builder()
-                    .changeType(changeType)
-                    .urn(TEST_POLICY_URN)
-                    .entitySpec(entityRegistry.getEntitySpec(TEST_POLICY_URN.getEntityType()))
-                    .aspectSpec(
-                        entityRegistry
-                            .getEntitySpec(TEST_POLICY_URN.getEntityType())
-                            .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
-                    .recordTemplate(merged)
-                    .build()),
-            mockRetrieverContext)
-        .count();
-  }
-
   private DataHubPolicyInfo createPolicyInfoWithFilter(String fieldType, String value) {
     DataHubPolicyInfo policyInfo = createBasicPolicyInfo();
 

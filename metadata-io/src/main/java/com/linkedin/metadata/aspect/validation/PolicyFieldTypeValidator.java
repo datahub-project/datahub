@@ -13,13 +13,11 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.PolicyMatchCriterion;
 import com.linkedin.policy.PolicyMatchFilter;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -31,8 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Validator to ensure that policy filter field types and privilege constraint field types are valid
- * EntityFieldType enum values, and that a policy with privilegeConstraints grants no read
- * privileges.
+ * EntityFieldType enum values.
  */
 @Slf4j
 @Setter
@@ -146,35 +143,6 @@ public class PolicyFieldTypeValidator extends AspectPayloadValidator {
       OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
-    // Checked on the merged aspect so a patch that adds a read privilege or a list is covered.
-    return changeMCPs.stream()
-        .flatMap(
-            item -> {
-              DataHubPolicyInfo policyInfo = item.getAspect(DataHubPolicyInfo.class);
-              // An inactive policy grants nothing, so an admin can switch one off before splitting.
-              if (policyInfo == null
-                  || PoliciesConfig.INACTIVE_POLICY_STATE.equals(policyInfo.getState())
-                  || !policyInfo.hasResources()
-                  || !policyInfo.getResources().hasPrivilegeConstraints()
-                  || !policyInfo.getResources().getPrivilegeConstraints().hasCriteria()
-                  || policyInfo.getResources().getPrivilegeConstraints().getCriteria().isEmpty()
-                  || policyInfo.getPrivileges() == null) {
-                return Stream.empty();
-              }
-              List<String> readPrivileges =
-                  policyInfo.getPrivileges().stream()
-                      .filter(PoliciesConfig::isReadPrivilege)
-                      .collect(Collectors.toList());
-              if (readPrivileges.isEmpty()) {
-                return Stream.empty();
-              }
-              return Stream.of(
-                  AspectValidationException.forItem(
-                      item,
-                      String.format(
-                          "Read privileges cannot be combined with privilegeConstraints: %s. Move"
-                              + " them to a policy without privilegeConstraints.",
-                          String.join(", ", readPrivileges))));
-            });
+    return Stream.empty();
   }
 }

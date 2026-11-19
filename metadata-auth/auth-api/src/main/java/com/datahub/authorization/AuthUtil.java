@@ -1,10 +1,7 @@
 package com.datahub.authorization;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.WILDCARD_URN;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
@@ -386,17 +383,22 @@ public class AuthUtil {
   }
 
   /**
-   * Entity update privileges for {@code operation}, plus the specific tag privilege. A schema field
-   * is authorized on its parent dataset. An empty tag set writes nothing.
+   * Entity privileges for {@code operation}, plus the specific tag privilege on an update or
+   * delete. A create uses only the entity create group, so a tag privilege cannot create the
+   * entity. A schema field matches a policy on its parent dataset or on the schema field itself. An
+   * empty tag set writes nothing.
    */
   public static DisjunctivePrivilegeGroup tagModificationPrivilegeGroup(
       @Nonnull final Urn entityUrn,
       @Nonnull final ApiOperation operation,
       @Nonnull final PoliciesConfig.Privilege specificTagPrivilege) {
-    return withPrivilege(
-        entityUpdatePrivilegeGroup(
-            authorizationTarget(entityUrn), operationFor(entityUrn, operation)),
-        specificTagPrivilege);
+    final ApiOperation effective = operationFor(entityUrn, operation);
+    final DisjunctivePrivilegeGroup entityPrivileges =
+        entityUpdatePrivilegeGroup(authorizationTarget(entityUrn), effective);
+    if (CREATE.equals(effective)) {
+      return entityPrivileges;
+    }
+    return withPrivilege(entityPrivileges, specificTagPrivilege);
   }
 
   public static boolean isAuthorizedForTagModification(
@@ -415,7 +417,7 @@ public class AuthUtil {
    * Whether a policy grants changing {@code tagUrns}. Denied when no policy grants. An empty set
    * writes nothing and is allowed here; the caller still has its own coarse check.
    */
-  public static boolean isAPIAllowedByTagPrivilegeConstraints(
+  public static boolean isAPIAuthorizedForTagModification(
       @Nonnull final AuthorizationSession session,
       @Nonnull final Urn entityUrn,
       @Nonnull final Collection<Urn> tagUrns,
@@ -429,9 +431,11 @@ public class AuthUtil {
   }
 
   /**
-   * Privileges that cover a structured-property value write. Schema fields use Edit Entity or Edit
-   * Dataset Column Properties on the parent dataset. Other entities use that entity's update
-   * privileges for {@code operation} (Manage Documents for documents) or Edit Entity Properties.
+   * Privileges that cover a structured-property value write. A schema field matches a policy on its
+   * parent dataset or on the schema field itself, using Edit Entity or Edit Dataset Column
+   * Properties. Other entities use that entity's privileges for {@code operation}. A create does
+   * not add Edit Entity Properties, so that privilege cannot create the entity. An update or delete
+   * does.
    */
   public static DisjunctivePrivilegeGroup structuredPropertyModificationPrivilegeGroup(
       @Nonnull final Urn entityUrn, @Nonnull final ApiOperation operation) {
@@ -443,16 +447,19 @@ public class AuthUtil {
               new ConjunctivePrivilegeGroup(
                   List.of(PoliciesConfig.EDIT_DATASET_COL_PROPERTIES_PRIVILEGE.getType()))));
     }
-    return withPrivilege(
-        entityUpdatePrivilegeGroup(entityUrn, operation),
-        PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE);
+    final DisjunctivePrivilegeGroup entityPrivileges =
+        entityUpdatePrivilegeGroup(entityUrn, operation);
+    if (CREATE.equals(operation)) {
+      return entityPrivileges;
+    }
+    return withPrivilege(entityPrivileges, PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE);
   }
 
   /**
    * Whether a policy grants changing {@code propertyUrns}. Denied when no policy grants. An empty
    * set writes nothing and is allowed here.
    */
-  public static boolean isAPIAllowedByStructuredPropertyPrivilegeConstraints(
+  public static boolean isAPIAuthorizedForStructuredPropertyModification(
       @Nonnull final AuthorizationSession session,
       @Nonnull final Urn entityUrn,
       @Nonnull final Collection<Urn> propertyUrns,
@@ -464,8 +471,8 @@ public class AuthUtil {
         structuredPropertyModificationPrivilegeGroup(entityUrn, operation));
   }
 
-  /** GraphQL counterpart of {@link #isAPIAllowedByStructuredPropertyPrivilegeConstraints}. */
-  public static boolean isAuthorizedStructuredPropertyModification(
+  /** GraphQL counterpart of {@link #isAPIAuthorizedForStructuredPropertyModification}. */
+  public static boolean isAuthorizedForStructuredPropertyModification(
       @Nonnull final AuthorizationSession session,
       @Nonnull final Urn entityUrn,
       @Nonnull final Collection<Urn> propertyUrns,
@@ -477,7 +484,10 @@ public class AuthUtil {
         structuredPropertyModificationPrivilegeGroup(entityUrn, operation));
   }
 
-  /** Parent dataset for a schema field; the entity itself otherwise. */
+  /**
+   * Parent dataset for a schema field; the entity itself otherwise. Privilege lookup uses this
+   * dataset. A schema-field write is also matched against the schema field URN.
+   */
   @Nonnull
   public static Urn authorizationTarget(@Nonnull final Urn entityUrn) {
     if (SCHEMA_FIELD_ENTITY_NAME.equals(entityUrn.getEntityType())
@@ -487,6 +497,25 @@ public class AuthUtil {
     return entityUrn;
   }
 
+  /**
+   * Resources a schema-field tag or structured-property write is matched against. The parent
+   * dataset is first, then the schema field, so a policy on either can grant. Other entities are
+   * matched as themselves.
+   */
+  @Nonnull
+  private static List<Urn> authorizationTargets(@Nonnull final Urn entityUrn) {
+    Urn parent = authorizationTarget(entityUrn);
+    if (parent.equals(entityUrn)) {
+      return List.of(entityUrn);
+    }
+    return List.of(parent, entityUrn);
+  }
+
+  @Nonnull
+  private static EntitySpec entitySpec(@Nonnull final Urn urn) {
+    return new EntitySpec(urn.getEntityType(), urn.toString());
+  }
+
   /** Sub-resource that matches any privilegeConstraints list. Used by coarse checks. */
   @Nonnull
   public static EntitySpec wildcardSubResource() {
@@ -494,9 +523,34 @@ public class AuthUtil {
   }
 
   /**
-   * The operation a tag or structured-property write is authorized as. Matches the ingest gate
-   * ({@link #isAPIAuthorizedUrns} and the document create-versus-update rule), so the coarse gate
-   * and the validators agree. A schema field is always an update of its parent dataset.
+   * Privilege path for an entity write given change type and existence. A missing entity's upsert,
+   * update, restate, or patch is a create. An existing entity's is an update. Aspect-level {@link
+   * ChangeType#CREATE} is always an update. Shared by domain writes and property and tag writes.
+   */
+  @Nonnull
+  public static ApiOperation resolveEntityWriteOperation(
+      @Nonnull final ChangeType changeType, final boolean entityExists) {
+    switch (changeType) {
+      case CREATE_ENTITY:
+        return entityExists ? UPDATE : CREATE;
+      case CREATE:
+        return UPDATE;
+      case PATCH:
+        return entityExists ? UPDATE : CREATE;
+      case UPSERT:
+      case UPDATE:
+      case RESTATE:
+        return entityExists ? UPDATE : CREATE;
+      case DELETE:
+        return DELETE;
+      default:
+        return UPDATE;
+    }
+  }
+
+  /**
+   * The operation a tag or structured-property write is authorized as. A schema field is always an
+   * update of its parent dataset. Every other entity uses {@link #resolveEntityWriteOperation}.
    */
   @Nonnull
   public static ApiOperation subResourceWriteOperation(
@@ -504,34 +558,39 @@ public class AuthUtil {
     if (SCHEMA_FIELD_ENTITY_NAME.equals(entityUrn.getEntityType())) {
       return UPDATE;
     }
-    switch (changeType) {
-      case DELETE:
-        return DELETE;
-      case PATCH:
-      case CREATE:
-        return DOCUMENT_ENTITY_NAME.equals(entityUrn.getEntityType()) && !exists ? CREATE : UPDATE;
-      default:
-        return exists ? UPDATE : CREATE;
-    }
-  }
-
-  /** Whether {@link #subResourceWriteOperation} depends on the entity existing. */
-  public static boolean subResourceWriteOperationNeedsExistence(
-      @Nonnull final ChangeType changeType, @Nonnull final Urn entityUrn) {
-    if (SCHEMA_FIELD_ENTITY_NAME.equals(entityUrn.getEntityType())
-        || ChangeType.DELETE.equals(changeType)) {
-      return false;
-    }
-    if (ChangeType.PATCH.equals(changeType) || ChangeType.CREATE.equals(changeType)) {
-      return DOCUMENT_ENTITY_NAME.equals(entityUrn.getEntityType());
-    }
-    return true;
+    return resolveEntityWriteOperation(changeType, exists);
   }
 
   /**
-   * Coarse check the ingest gate makes for an aspect whose validator checks sub-resources: the
-   * shared privilege set against a wildcard sub-resource, on the parent dataset for a schema field.
-   * It may deny earlier than the validator but never denies a write the validator would allow.
+   * Whether {@link #subResourceWriteOperation} depends on the entity existing. A schema field, a
+   * delete, and an aspect-level create do not.
+   */
+  public static boolean subResourceWriteOperationNeedsExistence(
+      @Nonnull final ChangeType changeType, @Nonnull final Urn entityUrn) {
+    if (SCHEMA_FIELD_ENTITY_NAME.equals(entityUrn.getEntityType())) {
+      return false;
+    }
+    switch (changeType) {
+      case UPSERT:
+      case UPDATE:
+      case RESTATE:
+      case PATCH:
+      case CREATE_ENTITY:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Coarse check the ingest gate makes for an aspect that holds only the sub-resource, {@code
+   * structuredProperties} or {@code globalTags}: the shared privilege set against a wildcard
+   * sub-resource. A schema field matches a policy on the parent dataset or on the schema field. It
+   * may deny earlier than the validator but never denies a write the validator would allow.
+   *
+   * <p>Not for {@code schemaMetadata} or {@code editableSchemaMetadata}. Those aspects carry field
+   * types, descriptions and terms alongside tags, so a tag privilege must not admit a write to
+   * them. They keep the entity privilege check and the validator then limits the tag changes.
    *
    * @param exists whether the entity exists; ignored for a schema field, which is always an update
    */
@@ -546,23 +605,17 @@ public class AuthUtil {
     if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectName)) {
       group = structuredPropertyModificationPrivilegeGroup(entityUrn, operation);
     } else {
-      final boolean columnTags =
-          SCHEMA_METADATA_ASPECT_NAME.equals(aspectName)
-              || EDITABLE_SCHEMA_METADATA_ASPECT_NAME.equals(aspectName);
       group =
           tagModificationPrivilegeGroup(
-              entityUrn,
-              operation,
-              columnTags
-                  ? PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE
-                  : PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE);
+              entityUrn, operation, PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE);
     }
-    final Urn target = authorizationTarget(entityUrn);
-    return isAPIAuthorized(
-        session,
-        group,
-        new EntitySpec(target.getEntityType(), target.toString()),
-        Set.of(wildcardSubResource()));
+    Set<EntitySpec> subResources = Set.of(wildcardSubResource());
+    for (Urn target : authorizationTargets(entityUrn)) {
+      if (isAPIAuthorized(session, group, entitySpec(target), subResources)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static ApiOperation operationFor(
@@ -593,12 +646,13 @@ public class AuthUtil {
     if (subResourceUrns.isEmpty()) {
       return true;
     }
-    final Urn target = authorizationTarget(entityUrn);
-    return isAPIAuthorized(
-        session,
-        privilegeGroup,
-        new EntitySpec(target.getEntityType(), target.toString()),
-        subResourceSpecs(subResourceUrns));
+    Set<EntitySpec> subResources = subResourceSpecs(subResourceUrns);
+    for (Urn target : authorizationTargets(entityUrn)) {
+      if (isAPIAuthorized(session, privilegeGroup, entitySpec(target), subResources)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static boolean isAuthorizedForSubResources(
@@ -609,12 +663,13 @@ public class AuthUtil {
     if (subResourceUrns.isEmpty()) {
       return true;
     }
-    final Urn target = authorizationTarget(entityUrn);
-    return isAuthorized(
-        session,
-        privilegeGroup,
-        new EntitySpec(target.getEntityType(), target.toString()),
-        subResourceSpecs(subResourceUrns));
+    Set<EntitySpec> subResources = subResourceSpecs(subResourceUrns);
+    for (Urn target : authorizationTargets(entityUrn)) {
+      if (isAuthorized(session, privilegeGroup, entitySpec(target), subResources)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static Set<EntitySpec> subResourceSpecs(@Nonnull final Collection<Urn> subResourceUrns) {

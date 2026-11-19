@@ -65,6 +65,7 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
 
     Map<String, Map<Urn, Aspect>> currentAspects =
         fetchCurrentAspects(operationContext, items, aspectRetriever);
+    Map<Urn, Boolean> entityExists = entityExists(operationContext, items, aspectRetriever);
 
     for (BatchItem item : items) {
       Aspect currentAspect =
@@ -79,8 +80,7 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
                   item,
                   aspectRetriever,
                   currentAspect,
-                  operationFor(
-                      operationContext, aspectRetriever, item.getUrn(), item.getChangeType())));
+                  operationFor(item.getUrn(), item.getChangeType(), entityExists)));
           break;
         case SCHEMA_METADATA_ASPECT_NAME:
           failures.addAll(
@@ -89,8 +89,7 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
                   item,
                   aspectRetriever,
                   currentAspect,
-                  operationFor(
-                      operationContext, aspectRetriever, item.getUrn(), item.getChangeType())));
+                  operationFor(item.getUrn(), item.getChangeType(), entityExists)));
           break;
         case EDITABLE_SCHEMA_METADATA_ASPECT_NAME:
           failures.addAll(
@@ -99,8 +98,7 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
                   item,
                   aspectRetriever,
                   currentAspect,
-                  operationFor(
-                      operationContext, aspectRetriever, item.getUrn(), item.getChangeType())));
+                  operationFor(item.getUrn(), item.getChangeType(), entityExists)));
           break;
         default:
           break;
@@ -153,26 +151,36 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
       AspectRetriever aspectRetriever,
       @Nullable Aspect currentTagsAspect,
       @Nonnull Supplier<ApiOperation> operation) {
-    GlobalTags newTags;
     GlobalTags currentTags =
         currentTagsAspect == null
             ? null
             : RecordUtils.toRecordTemplate(GlobalTags.class, currentTagsAspect.data());
-    newTags =
-        PatchItemImpl.resolveProposedAspect(item, currentTags, aspectRetriever, GlobalTags.class);
-    if (newTags != null) {
-      Set<Urn> tagDifference = extractTagDifference(newTags, currentTags);
-      if (!tagDifference.isEmpty()
-          && !AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
-              session,
-              item.getUrn(),
-              tagDifference,
-              PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE,
-              operation.get())) {
-        return List.of(
-            AspectValidationException.forAuth(
-                item, "Unauthorized to modify one or more tag Urns: " + tagDifference));
+    final Set<Urn> tagDifference;
+    if (ChangeType.DELETE.equals(item.getChangeType())) {
+      // The whole aspect is being removed, so every current tag is removed. Each one must be
+      // authorized, or a constrained user could bypass the per-tag check by deleting the aspect.
+      tagDifference =
+          currentTags == null
+              ? Collections.emptySet()
+              : extractTagDifference(new GlobalTags(), currentTags);
+    } else {
+      GlobalTags newTags =
+          PatchItemImpl.resolveProposedAspect(item, currentTags, aspectRetriever, GlobalTags.class);
+      if (newTags == null) {
+        return Collections.emptyList();
       }
+      tagDifference = extractTagDifference(newTags, currentTags);
+    }
+    if (!tagDifference.isEmpty()
+        && !AuthUtil.isAPIAuthorizedForTagModification(
+            session,
+            item.getUrn(),
+            tagDifference,
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE,
+            operation.get())) {
+      return List.of(
+          AspectValidationException.forAuth(
+              item, "Unauthorized to modify one or more tag Urns: " + tagDifference));
     }
     return Collections.emptyList();
   }
@@ -235,7 +243,7 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
               .flatMap(Set::stream)
               .collect(Collectors.toSet());
       if (!tagDifference.isEmpty()
-          && !AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
+          && !AuthUtil.isAPIAuthorizedForTagModification(
               session,
               item.getUrn(),
               tagDifference,
@@ -286,7 +294,7 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
               .flatMap(Set::stream)
               .collect(Collectors.toSet());
       if (!tagDifference.isEmpty()
-          && !AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
+          && !AuthUtil.isAPIAuthorizedForTagModification(
               session,
               item.getUrn(),
               tagDifference,
@@ -300,19 +308,35 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
     return Collections.emptyList();
   }
 
-  /** Resolved only after a non-empty tag change, so unchanged writes skip the existence lookup. */
-  private static Supplier<ApiOperation> operationFor(
+  /**
+   * One existence lookup for the batch. Schema fields, deletes, and aspect-level creates are left
+   * out because their operation does not depend on existence.
+   */
+  @Nonnull
+  private static Map<Urn, Boolean> entityExists(
       @Nonnull OperationFingerprint operationContext,
-      @Nonnull AspectRetriever aspectRetriever,
-      @Nonnull Urn urn,
-      @Nonnull ChangeType changeType) {
-    return () -> {
-      boolean exists = false;
-      if (AuthUtil.subResourceWriteOperationNeedsExistence(changeType, urn)) {
-        Map<Urn, Boolean> existing = aspectRetriever.entityExists(operationContext, Set.of(urn));
-        exists = existing != null && Boolean.TRUE.equals(existing.get(urn));
-      }
-      return AuthUtil.subResourceWriteOperation(changeType, urn, exists);
-    };
+      @Nonnull List<? extends BatchItem> items,
+      @Nonnull AspectRetriever aspectRetriever) {
+    Set<Urn> urns =
+        items.stream()
+            .filter(
+                item ->
+                    AuthUtil.subResourceWriteOperationNeedsExistence(
+                        item.getChangeType(), item.getUrn()))
+            .map(BatchItem::getUrn)
+            .collect(Collectors.toSet());
+    if (urns.isEmpty()) {
+      return Map.of();
+    }
+    Map<Urn, Boolean> existing = aspectRetriever.entityExists(operationContext, urns);
+    return existing == null ? Map.of() : existing;
+  }
+
+  /** Resolved only after a non-empty tag change. The existence map is already loaded. */
+  private static Supplier<ApiOperation> operationFor(
+      @Nonnull Urn urn, @Nonnull ChangeType changeType, @Nonnull Map<Urn, Boolean> entityExists) {
+    return () ->
+        AuthUtil.subResourceWriteOperation(
+            changeType, urn, Boolean.TRUE.equals(entityExists.get(urn)));
   }
 }

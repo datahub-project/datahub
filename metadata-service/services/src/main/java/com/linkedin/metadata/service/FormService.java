@@ -324,6 +324,9 @@ public class FormService extends BaseService {
       @Nonnull final Urn structuredPropertyUrn,
       @Nonnull final PrimitivePropertyValueArray values)
       throws Exception {
+    // The resolver has already allowed this caller, either by form assignment or by the property
+    // privilege. The value is written as the system actor so an assignee who lacks that privilege
+    // passes the aspect validator. The audit stamp stays the caller.
     final AuditStamp lastModified =
         new AuditStamp()
             .setActor(UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr()))
@@ -338,13 +341,37 @@ public class FormService extends BaseService {
             .setProperty(structuredPropertyUrn, values, lastModified)
             .build();
     try {
-      // Assignment was checked by the caller. Write as the system so the property validator does
-      // not apply the caller's other policies to this prompt.
       this.entityClient.ingestProposal(
-          opContext.asTrustedSystemWrite(), structuredPropertiesProposal, false);
+          systemWriteContext(opContext), structuredPropertiesProposal, false);
     } catch (Exception e) {
       throw new RuntimeException("Failed to submit form response", e);
     }
+  }
+
+  /**
+   * A user session rebuilt on the context's system authentication. {@code isSystemAuth} is true
+   * only when the session actor is already the system actor.
+   */
+  @Nonnull
+  private static OperationContext systemWriteContext(@Nonnull OperationContext opContext) {
+    if (opContext.isSystemAuth()) {
+      return opContext;
+    }
+    final Authentication systemAuthentication =
+        opContext
+            .getSystemAuthentication()
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "System authentication is required to write a form prompt response"));
+    return opContext.toBuilder()
+        .operationContextConfig(
+            Objects.requireNonNull(
+                opContext.getOperationContextConfig().toBuilder()
+                    .allowSystemAuthentication(true)
+                    .build()))
+        .build(
+            systemAuthentication, opContext.getSessionActorContext().isEnforceExistenceEnabled());
   }
 
   private void ingestForms(

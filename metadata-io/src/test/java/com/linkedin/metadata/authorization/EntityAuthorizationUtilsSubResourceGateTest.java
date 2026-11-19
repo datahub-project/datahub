@@ -1,7 +1,9 @@
 package com.linkedin.metadata.authorization;
 
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.WILDCARD_URN;
 import static org.mockito.ArgumentMatchers.any;
@@ -50,7 +52,13 @@ public class EntityAuthorizationUtilsSubResourceGateTest {
   private static final Urn DOCUMENT = UrnUtils.getUrn("urn:li:document:my-doc");
   private static final Urn PROP_A = UrnUtils.getUrn("urn:li:structuredProperty:prop_a");
 
+  private static final Urn TAG_A = UrnUtils.getUrn("urn:li:tag:tag_a");
+
   private static final String EDIT_ENTITY = PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType();
+  private static final String EDIT_ENTITY_TAGS =
+      PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType();
+  private static final String EDIT_DATASET_COL_TAGS =
+      PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE.getType();
   private static final String EDIT_ENTITY_PROPERTIES =
       PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE.getType();
   private static final String CREATE_ENTITY = PoliciesConfig.CREATE_ENTITY_PRIVILEGE.getType();
@@ -92,7 +100,7 @@ public class EntityAuthorizationUtilsSubResourceGateTest {
         Set.of(),
         HttpStatus.SC_OK
       },
-      // A patch is an update, whether or not the entity exists.
+      // A patch of a missing entity is a create. Edit Entity is inside the create group.
       {
         DATASET,
         false,
@@ -101,6 +109,34 @@ public class EntityAuthorizationUtilsSubResourceGateTest {
         EDIT_ENTITY,
         Set.of(),
         HttpStatus.SC_OK
+      },
+      // An aspect privilege does not create the entity.
+      {
+        DATASET,
+        false,
+        ChangeType.UPSERT,
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        EDIT_ENTITY_PROPERTIES,
+        Set.of(),
+        HttpStatus.SC_FORBIDDEN
+      },
+      {
+        DATASET,
+        false,
+        ChangeType.PATCH,
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        EDIT_ENTITY_PROPERTIES,
+        Set.of(),
+        HttpStatus.SC_FORBIDDEN
+      },
+      {
+        DATASET,
+        false,
+        ChangeType.UPSERT,
+        GLOBAL_TAGS_ASPECT_NAME,
+        EDIT_ENTITY_TAGS,
+        Set.of(),
+        HttpStatus.SC_FORBIDDEN
       },
       {
         DATASET,
@@ -119,6 +155,92 @@ public class EntityAuthorizationUtilsSubResourceGateTest {
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         EDIT_ENTITY_PROPERTIES,
         Set.of(PROP_A),
+        HttpStatus.SC_OK
+      },
+      // A schema aspect holds field types, descriptions and terms as well as tags, so a column tag
+      // privilege does not admit a write to it. The validator limits the tag changes afterwards.
+      {
+        DATASET,
+        true,
+        ChangeType.UPSERT,
+        SCHEMA_METADATA_ASPECT_NAME,
+        EDIT_DATASET_COL_TAGS,
+        Set.of(),
+        HttpStatus.SC_FORBIDDEN
+      },
+      {
+        DATASET,
+        true,
+        ChangeType.UPSERT,
+        EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+        EDIT_DATASET_COL_TAGS,
+        Set.of(),
+        HttpStatus.SC_FORBIDDEN
+      },
+      {
+        DATASET,
+        true,
+        ChangeType.PATCH,
+        EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+        EDIT_ENTITY_TAGS,
+        Set.of(),
+        HttpStatus.SC_FORBIDDEN
+      },
+      {
+        DATASET,
+        true,
+        ChangeType.PATCH,
+        EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+        EDIT_ENTITY,
+        Set.of(),
+        HttpStatus.SC_OK
+      },
+      // Deleting a schema aspect is an entity delete. A tag privilege does not grant it.
+      {
+        DATASET,
+        true,
+        ChangeType.DELETE,
+        SCHEMA_METADATA_ASPECT_NAME,
+        EDIT_ENTITY_TAGS,
+        Set.of(),
+        HttpStatus.SC_FORBIDDEN
+      },
+      {
+        DATASET,
+        true,
+        ChangeType.DELETE,
+        EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+        EDIT_DATASET_COL_TAGS,
+        Set.of(),
+        HttpStatus.SC_FORBIDDEN
+      },
+      {
+        DATASET,
+        true,
+        ChangeType.DELETE,
+        SCHEMA_METADATA_ASPECT_NAME,
+        DELETE_ENTITY,
+        Set.of(),
+        HttpStatus.SC_OK
+      },
+      {
+        DATASET,
+        true,
+        ChangeType.DELETE,
+        EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+        DELETE_ENTITY,
+        Set.of(),
+        HttpStatus.SC_OK
+      },
+      // A tag list on Edit Entity names sub-resources only when tags change; the gate passes it and
+      // the validator applies the list to the changed tags.
+      {
+        DATASET,
+        true,
+        ChangeType.UPSERT,
+        SCHEMA_METADATA_ASPECT_NAME,
+        EDIT_ENTITY,
+        Set.of(TAG_A),
         HttpStatus.SC_OK
       },
       // Other aspects keep the entity privilege check, which a property grant does not satisfy.
@@ -170,8 +292,8 @@ public class EntityAuthorizationUtilsSubResourceGateTest {
 
   /**
    * An operation context that holds each privilege in {@code privileges}. A non-empty value is a
-   * privilegeConstraints list: the privilege then applies only to a wildcard or listed
-   * sub-resource, as {@code PolicyEngine.isSubResourceAllowed} evaluates it.
+   * privilegeConstraints list: the privilege then applies to a wildcard or listed sub-resource, and
+   * to an action that names none, as {@code PolicyEngine.isSubResourceAllowed} evaluates it.
    */
   private static OperationContext session(
       Map<String, Set<Urn>> privileges, Map<Urn, Boolean> existing) {
@@ -199,12 +321,12 @@ public class EntityAuthorizationUtilsSubResourceGateTest {
     boolean allowed =
         constraint != null
             && (constraint.isEmpty()
-                || (!subResources.isEmpty()
-                    && subResources.stream()
-                        .allMatch(
-                            s ->
-                                WILDCARD_URN.toString().equals(s.getEntity())
-                                    || constraint.contains(UrnUtils.getUrn(s.getEntity())))));
+                || subResources.isEmpty()
+                || subResources.stream()
+                    .allMatch(
+                        s ->
+                            WILDCARD_URN.toString().equals(s.getEntity())
+                                || constraint.contains(UrnUtils.getUrn(s.getEntity()))));
     return new AuthorizationResult(
         null, allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY, null);
   }

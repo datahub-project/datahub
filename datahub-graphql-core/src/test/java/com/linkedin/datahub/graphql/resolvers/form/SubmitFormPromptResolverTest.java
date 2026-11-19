@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContextForResource;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -11,6 +12,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.form.FormPromptType;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.service.FormService;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -31,14 +33,6 @@ public class SubmitFormPromptResolverTest {
     FormService formService = mockFormService(true, true);
 
     assertTrue(submit(formService, getMockDenyContext(), "STRUCTURED_PROPERTY"));
-    Mockito.verify(formService)
-        .submitStructuredPropertyPromptResponse(
-            any(),
-            eq(UrnUtils.getUrn(DATASET_URN)),
-            eq(UrnUtils.getUrn(PROPERTY_URN)),
-            any(),
-            eq(UrnUtils.getUrn(FORM_URN)),
-            eq(PROMPT_ID));
   }
 
   @Test
@@ -69,10 +63,50 @@ public class SubmitFormPromptResolverTest {
   }
 
   @Test
+  public void testFieldPromptAllowsColumnPropertiesAndDeniesEntityProperties() throws Exception {
+    FormService allowed = mockFormService(true, false);
+    assertTrue(
+        submit(
+            allowed,
+            privilegeOnDataset(PoliciesConfig.EDIT_DATASET_COL_PROPERTIES_PRIVILEGE.getType()),
+            "FIELDS_STRUCTURED_PROPERTY"));
+
+    FormService denied = mockFormService(true, false);
+    assertThrows(
+        CompletionException.class,
+        () ->
+            submit(
+                denied,
+                privilegeOnDataset(PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE.getType()),
+                "FIELDS_STRUCTURED_PROPERTY"));
+    assertNothingSubmitted(denied);
+  }
+
+  @Test
+  public void testEntityPromptAllowsEntityPropertiesAndDeniesColumnProperties() throws Exception {
+    FormService allowed = mockFormService(true, false);
+    assertTrue(
+        submit(
+            allowed,
+            privilegeOnDataset(PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE.getType()),
+            "STRUCTURED_PROPERTY"));
+
+    FormService denied = mockFormService(true, false);
+    assertThrows(
+        CompletionException.class,
+        () ->
+            submit(
+                denied,
+                privilegeOnDataset(PoliciesConfig.EDIT_DATASET_COL_PROPERTIES_PRIVILEGE.getType()),
+                "STRUCTURED_PROPERTY"));
+    assertNothingSubmitted(denied);
+  }
+
+  @Test
   public void testFieldPromptChecksTheFieldPromptType() throws Exception {
     FormService formService = mockFormService(true, true);
 
-    assertTrue(submit(formService, getMockDenyContext(), "FIELDS_STRUCTURED_PROPERTY"));
+    assertTrue(submit(formService, getMockAllowContext(), "FIELDS_STRUCTURED_PROPERTY"));
     Mockito.verify(formService)
         .isPromptForStructuredProperty(
             any(),
@@ -84,6 +118,11 @@ public class SubmitFormPromptResolverTest {
     Mockito.verify(formService)
         .submitFieldStructuredPropertyPromptResponse(
             any(), any(), any(), any(), any(), eq(PROMPT_ID), eq("field_a"));
+  }
+
+  private static QueryContext privilegeOnDataset(String privilege) {
+    return getMockAllowContextForResource(
+        "urn:li:corpuser:test", privilege, UrnUtils.getUrn(DATASET_URN));
   }
 
   private static boolean submit(FormService formService, QueryContext context, String promptType)

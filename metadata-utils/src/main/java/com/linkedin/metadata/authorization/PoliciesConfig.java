@@ -1608,17 +1608,5 @@ public class PoliciesConfig {
     }
   }
 
-  /**
-   * Whether a privilege only reads. privilegeConstraints narrow writes to listed sub-resources;
-   * read checks pass no sub-resources, so a read privilege cannot be combined with a list.
-   */
-  public static boolean isReadPrivilege(@Nonnull String privilegeType) {
-    return privilegeType.startsWith("VIEW_")
-        || GET_ENTITY_PRIVILEGE.getType().equals(privilegeType)
-        || EXISTS_ENTITY_PRIVILEGE.getType().equals(privilegeType)
-        || SEARCH_PRIVILEGE.getType().equals(privilegeType)
-        || DATA_READ_ONLY_PRIVILEGE.getType().equals(privilegeType);
-  }
-
   private PoliciesConfig() {}
 }

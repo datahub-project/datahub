@@ -24,31 +24,25 @@ by another script or agent. To connect to another instance, use a separate name,
 To intentionally replace an existing connection, add `--force`. Refreshing a token for the same
 server continues to work. Existing connection files and environment variables keep working.
 
-### A sub-resource list is the whole grant, and structured property writes follow the policy ([#21453](https://github.com/datahub-project/datahub/pull/21453))
+### Structured property writes follow the policy ([#21453](https://github.com/datahub-project/datahub/pull/21453))
 
-A policy with a `privilegeConstraints` list now grants only the listed sub-resources. **Edit
-Entity** with a list of tag URNs allows those tag edits and no longer allows other edits, including
-structured-property writes and edits that change no sub-resource. A second policy with no list
+A `privilegeConstraints` list filters the sub-resources an action names. An action that names none
+is not filtered by the list. A list of tag URNs matches tag edits and does not match a
+structured-property URN, so it does not authorize that property write. A second policy with no list
 still grants its privilege in full. A tag or domain on the resource filter still selects which
 assets the policy applies to; that is unchanged.
 
 Structured-property and tag writes are allowed by the same privileges as other updates of that
 asset: **Edit Entity**, **Manage Documents** on documents, **Edit Entity Properties** for any
-property, **Edit Dataset Column Properties** on the parent dataset for a column, **Create Entity**
-when the asset does not exist yet, and **Delete Entity** when the aspect is deleted. A list of tag
-URNs does not authorize a structured-property write. Rest.li now returns **403** for these
-authorization failures, as OpenAPI already did.
+property, **Edit Dataset Column Properties** on the parent dataset or the schema field for a
+column, **Create Entity** when the asset does not exist yet, and **Delete Entity** when the aspect
+is deleted. Rest.li now returns **403** for these authorization failures, as OpenAPI already did.
 
-A policy cannot combine a read privilege, such as **View Entity Page**, with a `privilegeConstraints`
-list. A new or updated active policy that does is rejected when it is saved; it can still be saved as
-inactive. An existing one no longer
-grants its read privileges; its write privileges still follow the list. Split such a policy into
-a read policy with no list and a write policy with the list.
-
-Answering a form prompt is checked before anything is written. The form must be assigned to the
-asset, the answer must set the structured property the prompt asks for, and the user must be
-assigned to the form, be allowed to edit the asset's structured properties, or have **Manage
-Documentation Forms**.
+Answering a form prompt is checked before anything is written. The form must be on the asset and
+the answer must set the structured property the prompt asks for. An assigned user or group can
+answer that property without **Edit Entity Properties**. The audit stamp stays that user. A user
+who is not assigned still needs the property privilege. **Manage Documentation Forms** does not
+grant the answer.
 
 ### Filtering policies with more than one filter group ([#21412](https://github.com/datahub-project/datahub/pull/21412))
 
@@ -552,7 +546,7 @@ Requirements:
 
 - [#19430](https://github.com/datahub-project/datahub/pull/19430) **(Ingestion / BigQuery)** `enable_legacy_sharded_table_support: false` now takes effect reliably. The flag is applied by overwriting process-wide state on `BigqueryTableIdentifier`, but only the `true` branch ever assigned it, so in a process that had already constructed a BigQuery source with the flag enabled (the default) — for example an executor running several recipes — a later source setting it to `false` was silently ignored and kept collapsing sharded tables to the base name. **Action:** if you set `enable_legacy_sharded_table_support: false` and saw it apply inconsistently, it will now apply on every run; expect sharded tables to move to their `_yyyymmdd` URNs on the runs where it previously failed to take effect.
 
-- [#16478](https://github.com/datahub-project/datahub/pull/16478) **(GMS / Structured Properties)** A `privilegeConstraints` list of tag URNs does not authorize structured-property writes: a tag URN never matches a `urn:li:structuredProperty:...` sub-resource. A tag or domain criterion on the resource filter still selects which assets the policy applies to. A policy with a sub-resource list grants only those sub-resources, so **Edit Entity** with a tag list no longer grants other edits. A separate policy with no list still grants its privilege in full. A policy with a list grants no read privileges (such as **View Entity Page**), and a new or updated active policy that combines them is rejected. **Action:** review any policy that sets `privilegeConstraints`, add an unconstrained policy when that actor should keep making other edits, and move read privileges to a policy with no list. Toggle via `metadataChangeProposal.validation.privilegeConstraints.enabled` (default `true`).
+- [#16478](https://github.com/datahub-project/datahub/pull/16478) **(GMS / Structured Properties)** Policies that set the experimental `privilegeConstraints` filter to scope **Edit Entity** or **Edit Entity Properties** (today only usable to constrain tag URNs) now also apply that filter to structured-property writes, enforced by `StructuredPropertyPrivilegeConstraintsValidator`. Previously structured-property writes ignored `privilegeConstraints` entirely. Because a tag-URN filter never matches a `urn:li:structuredProperty:...` sub-resource, a policy with `privilegeConstraints` set can now deny structured-property writes that were previously allowed under it. **Action:** before upgrading, review any policy that sets the experimental `privilegeConstraints` field and confirm it should also restrict structured-property writes; if not, add a separate unconstrained policy granting **Edit Entity** / **Edit Entity Properties** for structured properties. Toggle via `metadataChangeProposal.validation.privilegeConstraints.enabled` (default `true`).
 
 - #17678 **(Ingestion / Trino)** For catalogs listed in `catalog_to_connector_details`, an explicit `connector_database` now always builds a three-tier (`database.schema.table`) connector-source URN, taking precedence over the two-tier connector list (`clickhouse`, `hive`, `glue`, `mysql`, `iceberg`, and now `oracle`). Previously the two-tier list was checked first, so `connector_database` was silently ignored for those connectors and the URN was always two-tier (`schema.table`). This changes the `Siblings` and `UpstreamLineage` target URNs for any two-tier catalog that also sets `connector_database`. For Oracle catalogs the configured `connector_database` is folded to lowercase when it is all-uppercase, mirroring the identifier normalization the `oracle` source applies, so a value copied verbatim from Oracle (e.g. `ORCLPDB1`) still matches the native URN; other platforms use the value as given. **Action:** drop `connector_database` from `catalog_to_connector_details` entries for two-tier connectors to keep the previous two-tier URNs. Keep it only where the native platform really is ingested three-tier — for example Oracle ingested with `add_database_name_to_urn: true`, or StarRocks reached through Trino's `mysql` connector.
 

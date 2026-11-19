@@ -12,9 +12,11 @@ import com.linkedin.datahub.graphql.generated.FormPromptType;
 import com.linkedin.datahub.graphql.generated.SubmitFormPromptInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.FormUtils;
 import com.linkedin.metadata.service.FormService;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -59,8 +61,22 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
             final PrimitivePropertyValueArray values =
                 FormUtils.getStructuredPropertyValuesFromInput(input);
 
+            // A field prompt writes the property on the schema field, so that is the URN the
+            // privilege check has to see. The dataset check accepts Edit Entity Properties, which
+            // the schema-field write does not.
+            final Urn propertyTarget =
+                input.getType().equals(FormPromptType.FIELDS_STRUCTURED_PROPERTY)
+                    ? SchemaFieldUtils.generateSchemaFieldUrn(
+                        entityUrn, Objects.requireNonNull(fieldPath))
+                    : entityUrn;
             authorize(
-                context, entityUrn, formUrn, promptId, input.getType(), structuredPropertyUrn);
+                context,
+                entityUrn,
+                propertyTarget,
+                formUrn,
+                promptId,
+                input.getType(),
+                structuredPropertyUrn);
 
             if (input.getType().equals(FormPromptType.STRUCTURED_PROPERTY)) {
               return _formService.submitStructuredPropertyPromptResponse(
@@ -92,13 +108,14 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
 
   /**
    * The response must answer a prompt on a form assigned to the entity, and set the property that
-   * prompt asks for. The caller must be assigned to the form, or be allowed to edit the entity's
-   * structured properties or manage forms. Nothing else checks this write, so it runs before
-   * anything is written.
+   * prompt asks for. An assigned user or group may answer without a property privilege. A caller
+   * who is not assigned may answer only when they may edit that property on {@code propertyTarget}:
+   * the entity for an entity prompt, the schema field for a field prompt.
    */
   private void authorize(
       @Nonnull final QueryContext context,
       @Nonnull final Urn entityUrn,
+      @Nonnull final Urn propertyTarget,
       @Nonnull final Urn formUrn,
       @Nonnull final String promptId,
       @Nonnull final FormPromptType promptType,
@@ -116,18 +133,19 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
               "Prompt %s on form %s does not ask for %s on %s",
               promptId, formUrn, structuredPropertyUrn, entityUrn));
     }
-    if (AuthorizationUtils.canEditStructuredProperties(
-            entityUrn, context, List.of(structuredPropertyUrn))
-        || AuthorizationUtils.canManageForms(context)) {
+    Collection<Urn> groups = context.getOperationContext().getActorGroups();
+    if (_formService.isFormAssignedToUser(
+        context.getOperationContext(),
+        formUrn,
+        entityUrn,
+        UrnUtils.getUrn(context.getActorUrn()),
+        groups == null ? List.of() : List.copyOf(groups))) {
       return;
     }
-    final Urn actorUrn = UrnUtils.getUrn(context.getAuthentication().getActor().toUrnStr());
-    final List<Urn> groupsForUser =
-        List.copyOf(context.getOperationContext().getSessionActorContext().getGroupMembership());
-    if (!_formService.isFormAssignedToUser(
-        context.getOperationContext(), formUrn, entityUrn, actorUrn, groupsForUser)) {
+    if (!AuthorizationUtils.canEditStructuredProperties(
+        propertyTarget, context, List.of(structuredPropertyUrn))) {
       throw new AuthorizationException(
-          String.format("Form %s is not assigned to %s on %s", formUrn, actorUrn, entityUrn));
+          String.format("Unauthorized to edit structured properties on %s", propertyTarget));
     }
   }
 }

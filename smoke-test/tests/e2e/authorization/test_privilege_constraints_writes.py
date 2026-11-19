@@ -11,8 +11,9 @@ A denied write is 403. Each scenario uses a user holding only the privilege name
   - Manage Users & Groups: OpenAPI v3 upsert on a group, Rest.li tag PATCH on a user
   - Create Entity: new dataset with structured properties and tags (OpenAPI v3 and Rest.li)
   - Delete Entity: OpenAPI v3 DELETE of the structuredProperties aspect
-  - Form assignee (no privileges): GraphQL submitFormPrompt. A user who is not assigned, or an
-    answer for a property the prompt does not ask for, is denied and nothing is written.
+  - Form assignee (no privileges): GraphQL submitFormPrompt stores the prompted property. A user
+    who is not assigned, or an answer for a property the prompt does not ask for, is denied and
+    nothing is written.
   - Edit Entity constrained to one property: that property is allowed, any other is
     denied on Rest.li and OpenAPI v3
 
@@ -29,6 +30,7 @@ from urllib.parse import quote
 
 import pytest
 import requests
+import tenacity
 
 from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -55,7 +57,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import Urn
 from datahub.specific.aspect_helpers.tags import HasTagsPatch
-from tests.e2e.utils import get_gms_url
+from tests.e2e.utils import get_gms_url, with_test_retry
 from utilities.consistency_utils import wait_for_writes_to_sync
 from utilities.domains import Domain
 
@@ -64,9 +66,6 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.domain(Domain.PLATFORM)]
 
 _UNIQUE = uuid.uuid4().hex[:8]
-# New policies reach GMS through its policy cache (refreshed every 10s in CI); allow-cases
-# retry until they land.
-_POLICY_WAIT_SECONDS = 60.0
 
 PROP_A = f"urn:li:structuredProperty:io.datahub.test.constraintsA{_UNIQUE}"
 PROP_B = f"urn:li:structuredProperty:io.datahub.test.constraintsB{_UNIQUE}"
@@ -441,18 +440,17 @@ def _sp_patch(prop: str, value: str) -> Dict[str, Any]:
     }
 
 
+@with_test_retry(max_attempts=4, retry=tenacity.retry_if_exception_type(WriteDenied))
+def _write_until_allowed(write: Callable[[], None]) -> None:
+    write()
+
+
 def _eventually_allowed(write: Callable[[], None], description: str) -> None:
     """Retries until the write succeeds, so a cold policy cache is not mistaken for a denial."""
-    deadline = time.time() + _POLICY_WAIT_SECONDS
-    last = ""
-    while time.time() < deadline:
-        try:
-            write()
-            return
-        except WriteDenied as e:
-            last = str(e)
-        time.sleep(2.0)
-    raise AssertionError(f"{description} was denied: {last}")
+    try:
+        _write_until_allowed(write)
+    except WriteDenied as e:
+        raise AssertionError(f"{description} was denied: {e}") from e
 
 
 def _stored_props(graph: DataHubGraph, urn: str) -> Dict[str, List[Any]]:
@@ -691,16 +689,24 @@ def _submit_prompt(setup: Dict[str, Any], role: str, prop: str, value: str) -> N
     )
 
 
-def test_form_assignee_graphql_submit_prompt(setup):
+def test_form_assignee_without_edit_privilege_can_answer(setup):
     _eventually_allowed(
         lambda: _submit_prompt(setup, ASSIGNEE, PROP_A, "answered"),
-        "GraphQL submitFormPrompt by a form assignee without Edit privileges",
+        "GraphQL submitFormPrompt by an assignee who cannot otherwise edit the property",
+    )
+    assert _stored_props(setup["graph"], DATASET_FORM)[PROP_A] == ["answered"]
+
+
+def test_form_prompt_allowed_for_property_editor(setup):
+    _eventually_allowed(
+        lambda: _submit_prompt(setup, PROPERTIES, PROP_A, "answered"),
+        "GraphQL submitFormPrompt by a caller who may edit the property",
     )
     assert _stored_props(setup["graph"], DATASET_FORM)[PROP_A] == ["answered"]
 
 
 def test_form_prompt_denied_for_unassigned_user(setup):
-    with pytest.raises(WriteDenied, match="not assigned"):
+    with pytest.raises(WriteDenied, match="Unauthorized to edit structured properties"):
         _submit_prompt(setup, OUTSIDER, PROP_A, "outsider")
     assert _stored_props(setup["graph"], DATASET_FORM).get(PROP_A) != ["outsider"]
 
@@ -773,6 +779,8 @@ def test_edit_entity_properties_allows_any_property(setup):
 
 def test_column_properties_on_parent_dataset(setup):
     field = f"urn:li:schemaField:({DATASET_EXISTING},my_column)"
+    # Register before the write so a failed assertion still hard-deletes the field.
+    setup["created"].append(field)
 
     def _write() -> None:
         _restli(
@@ -787,10 +795,15 @@ def test_column_properties_on_parent_dataset(setup):
 
     _eventually_allowed(_write, "Edit Dataset Column Properties on the parent dataset")
     assert _stored_props(setup["graph"], field)[PROP_A] == ["column"]
-    setup["created"].append(field)
 
 
 def test_tag_list_does_not_allow_property_writes_and_allows_the_tag(setup):
+    # The allow-case waits until the policy cache is live. A denial before that is also what a
+    # cold cache returns, so it would not show that the tag list refuses the property write.
+    _eventually_allowed(
+        lambda: _restli(setup, TAG_LIST, _add_tag_patch(DATASET_EXISTING)),
+        "Edit Entity with a tag list still allows that tag",
+    )
     with pytest.raises(WriteDenied, match="403"):
         _restli(
             setup,
@@ -801,7 +814,3 @@ def test_tag_list_does_not_allow_property_writes_and_allows_the_tag(setup):
                 )
             ],
         )
-    _eventually_allowed(
-        lambda: _restli(setup, TAG_LIST, _add_tag_patch(DATASET_EXISTING)),
-        "Edit Entity with a tag list still allows that tag",
-    )

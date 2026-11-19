@@ -172,7 +172,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
+                AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
                     any(), any(), anyCollection(), any()))
         .thenReturn(true);
 
@@ -195,7 +195,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
+                AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
                     any(), any(), anyCollection(), any()))
         .thenReturn(false);
 
@@ -241,7 +241,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
+                AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
                     any(), any(), anyCollection(), any()))
         .thenReturn(true);
 
@@ -261,7 +261,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
             UrnUtils.getUrn("urn:li:structuredProperty:p3"));
     authUtilMockedStatic.verify(
         () ->
-            AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
+            AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
                 any(), eq(TEST_DATASET_URN), eq(expected), any()));
   }
 
@@ -288,7 +288,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
+                AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
                     any(), any(), anyCollection(), any()))
         .thenReturn(true);
 
@@ -304,7 +304,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
 
     authUtilMockedStatic.verify(
         () ->
-            AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
+            AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
                 any(),
                 eq(TEST_DATASET_URN),
                 eq(Set.of(UrnUtils.getUrn("urn:li:structuredProperty:p1"))),
@@ -333,7 +333,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
+                AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
                     any(), any(), anyCollection(), any()))
         .thenReturn(true);
 
@@ -349,7 +349,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
 
     authUtilMockedStatic.verify(
         () ->
-            AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
+            AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
                 any(), eq(TEST_DATASET_URN), eq(expected), any()));
   }
 
@@ -364,7 +364,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
+                AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
                     any(), any(), anyCollection(), any()))
         .thenReturn(false);
 

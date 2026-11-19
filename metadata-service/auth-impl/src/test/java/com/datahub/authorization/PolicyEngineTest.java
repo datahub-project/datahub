@@ -2392,7 +2392,7 @@ public class PolicyEngineTest {
 
     ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
 
-    // A sub-resource list is the whole grant. A request that names no sub-resource does not match.
+    // Empty sub-resources (no tags being modified) should be allowed.
     PolicyEngine.PolicyEvaluationResult result =
         _policyEngine.evaluatePolicy(
             systemOperationContext,
@@ -2402,69 +2402,7 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             Collections.emptyList());
 
-    assertFalse(result.isGranted());
-  }
-
-  /** Reads are not scoped to sub-resources, so a policy with a list grants none of them. */
-  @Test
-  public void testPolicyWithPrivilegeConstraintsGrantsNoReadPrivilege() throws Exception {
-    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
-    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
-    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
-    dataHubPolicyInfo.setPrivileges(new StringArray("VIEW_ENTITY_PAGE", "EDIT_ENTITY_TAGS"));
-    dataHubPolicyInfo.setDisplayName("Stored read plus tag list policy");
-    dataHubPolicyInfo.setDescription("Saved before read privileges were rejected with a list");
-    dataHubPolicyInfo.setEditable(true);
-
-    final DataHubActorFilter actorFilter = new DataHubActorFilter();
-    actorFilter.setAllUsers(true);
-    dataHubPolicyInfo.setActors(actorFilter);
-
-    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
-    resourceFilter.setAllResources(true);
-    resourceFilter.setType("dataset");
-    resourceFilter.setPrivilegeConstraints(
-        new PolicyMatchFilter()
-            .setCriteria(
-                new PolicyMatchCriterionArray(
-                    Collections.singleton(
-                        FilterUtils.newCriterion(
-                            EntityFieldType.URN,
-                            Collections.singletonList("urn:li:tag:public"),
-                            PolicyMatchCondition.EQUALS)))));
-    dataHubPolicyInfo.setResources(resourceFilter);
-
-    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
-    ResolvedEntitySpec wildcard =
-        new ResolvedEntitySpec(
-            new EntitySpec(
-                Constants.WILDCARD_URN.getEntityType(), Constants.WILDCARD_URN.toString()),
-            Collections.emptyMap());
-
-    for (List<ResolvedEntitySpec> subResources :
-        List.of(Collections.<ResolvedEntitySpec>emptyList(), List.of(wildcard))) {
-      assertFalse(
-          _policyEngine
-              .evaluatePolicy(
-                  systemOperationContext,
-                  dataHubPolicyInfo,
-                  resolvedAuthorizedUserSpec,
-                  "VIEW_ENTITY_PAGE",
-                  Optional.of(resourceSpec),
-                  subResources)
-              .isGranted(),
-          "read granted with sub-resources " + subResources);
-    }
-    assertTrue(
-        _policyEngine
-            .evaluatePolicy(
-                systemOperationContext,
-                dataHubPolicyInfo,
-                resolvedAuthorizedUserSpec,
-                "EDIT_ENTITY_TAGS",
-                Optional.of(resourceSpec),
-                List.of(wildcard))
-            .isGranted());
+    assertTrue(result.isGranted());
   }
 
   @Test

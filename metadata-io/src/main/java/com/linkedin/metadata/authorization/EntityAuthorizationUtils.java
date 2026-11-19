@@ -7,11 +7,9 @@ import static com.linkedin.metadata.Constants.DATASET_USAGE_STATISTICS_ASPECT_NA
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_TRANSFORM_LOGIC_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VIEW_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
@@ -409,15 +407,17 @@ public final class EntityAuthorizationUtils {
   }
 
   /**
-   * Aspects whose validator checks the changed sub-resources. The gate accepts the same privilege
-   * set and a wildcard sub-resource, so a policy with a list is not rejected before the validator
-   * sees the diff. The validator then applies the list to the real URNs.
+   * Aspects that hold only the sub-resource their validator checks. The gate accepts the same
+   * privilege set and a wildcard sub-resource, so a policy with a list is not rejected before the
+   * validator sees the diff. The validator then applies the list to the real URNs.
+   *
+   * <p>{@code schemaMetadata} and {@code editableSchemaMetadata} are excluded on purpose: they hold
+   * more than tags, so they keep the entity privilege check. A column tag privilege alone must not
+   * admit a write to them.
    */
   private static boolean isSubResourceCheckedAspect(@Nullable String aspectName) {
     return STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectName)
-        || GLOBAL_TAGS_ASPECT_NAME.equals(aspectName)
-        || SCHEMA_METADATA_ASPECT_NAME.equals(aspectName)
-        || EDITABLE_SCHEMA_METADATA_ASPECT_NAME.equals(aspectName);
+        || GLOBAL_TAGS_ASPECT_NAME.equals(aspectName);
   }
 
   @Nullable
