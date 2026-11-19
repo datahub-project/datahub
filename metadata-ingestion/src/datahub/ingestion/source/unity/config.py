@@ -363,6 +363,26 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    emit_semantic_model_entities: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Tri-state control for emitting metric views as semanticModel entities "
+            "(one per metric view, with a logical dataset per source/join table and "
+            "one metric entity per measure) instead of legacy datasets subtyped "
+            '"Metric View". Only applies when `include_metric_views` is True. '
+            "`None` (default): follow the server - on DataHub Cloud >= 2.1.0 it is "
+            "enabled unless the Metrics feature is explicitly disabled; OSS/self-hosted, "
+            "older Cloud, and connectionless runs (e.g. file sink) stay off. It also "
+            "falls back to legacy datasets if the server version cannot be parsed or the "
+            "Metrics probe cannot be read (operational error). "
+            "`true`: request emission - on Cloud it is honored unless the server is "
+            "below 2.1.0 or Metrics is disabled (else warns and falls back to legacy "
+            "datasets); on OSS it enables emission (the operator must run a server that "
+            "registers these entities). "
+            "`false`: force legacy dataset behavior."
+        ),
+    )
+
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
         description='Attach domains to catalogs, schemas or tables during ingestion using regex patterns. Domain key can be a guid like *urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "Marketing".) If you provide strings, then datahub will attempt to resolve this name to a guid, and will error out if this fails. There can be multiple domain keys specified.',
@@ -1024,6 +1044,16 @@ class UnityCatalogSourceConfig(
             )
             logger.warning(msg)
             add_global_warning(msg)
+        return self
+
+    @model_validator(mode="after")
+    def warn_semantic_model_entities_without_metric_views(self):
+        if self.emit_semantic_model_entities and not self.include_metric_views:
+            logger.warning(
+                "emit_semantic_model_entities is set but include_metric_views is "
+                "False; no semanticModel/metric entities will be emitted. Set "
+                "include_metric_views to True."
+            )
         return self
 
     @field_validator("schema_pattern", mode="after")

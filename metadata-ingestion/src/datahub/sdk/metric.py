@@ -6,6 +6,7 @@ from typing import List, Optional, Sequence, Type, Union
 from typing_extensions import Self, TypeAlias
 
 from datahub.emitter.mce_builder import parse_ts_millis
+from datahub.errors import SdkUsageError
 from datahub.metadata.schema_classes import (
     AiContextClass,
     DerivedMetricInputClass,
@@ -17,7 +18,13 @@ from datahub.metadata.schema_classes import (
     MetricUpstreamsClass,
     StatusClass,
 )
-from datahub.metadata.urns import DatasetUrn, MetricUrn, SemanticModelUrn, Urn
+from datahub.metadata.urns import (
+    DatasetUrn,
+    MetricUrn,
+    SchemaFieldUrn,
+    SemanticModelUrn,
+    Urn,
+)
 from datahub.sdk._semantic_shared import (
     AiContextInput,
     DialectExpressionInput,
@@ -53,11 +60,13 @@ __all__ = [
     "MetricExpressionInputType",
     "SemanticModelInputType",
     "UpstreamDatasetInputType",
+    "UpstreamFieldInputType",
 ]
 
 SemanticModelInputType: TypeAlias = Union[str, SemanticModelUrn]
 DerivedFromInputType: TypeAlias = Union[str, MetricUrn]
 UpstreamDatasetInputType: TypeAlias = Union[str, DatasetUrn]
+UpstreamFieldInputType: TypeAlias = Union[str, SchemaFieldUrn]
 
 
 class Metric(
@@ -115,6 +124,7 @@ class Metric(
         expression: Optional[MetricExpressionInputType] = None,
         derived_from: Optional[Sequence[DerivedFromInputType]] = None,
         upstream_datasets: Optional[Sequence[UpstreamDatasetInputType]] = None,
+        upstream_fields: Optional[Sequence[UpstreamFieldInputType]] = None,
         ai_context: Optional[AiContextInput] = None,
         owners: Optional[OwnersInputType] = None,
         links: Optional[LinksInputType] = None,
@@ -150,6 +160,8 @@ class Metric(
         self.set_derived_from(derived_from or [])
         # Always emit metricUpstreams so re-emits clear stale datasetUpstreams.
         self.set_upstream_datasets(upstream_datasets or [])
+        if upstream_fields is not None:
+            self.set_upstream_fields(upstream_fields)
         if owners is not None:
             self.set_owners(owners)
         if links is not None:
@@ -309,6 +321,36 @@ class Metric(
             EdgeClass(destinationUrn=str(DatasetUrn.from_string(str(ds))))
             for ds in as_input_list(upstream_datasets)
         ]
+
+    @property
+    def upstream_fields(self) -> List[str]:
+        upstreams = self._get_aspect(MetricUpstreamsClass)
+        if upstreams is None or upstreams.fieldUpstreams is None:
+            return []
+        return [edge.destinationUrn for edge in upstreams.fieldUpstreams]
+
+    def set_upstream_fields(
+        self, upstream_fields: Sequence[UpstreamFieldInputType]
+    ) -> None:
+        """Set the schema-field URNs this metric reads (column-level lineage).
+
+        For semantic-model-backed metrics these are fields of the Semantic Model
+        Datasets in ``upstream_datasets``; every field's parent dataset must
+        already be one of them (the server rejects the aspect otherwise). Pass an
+        empty list to clear stale column edges on re-emit.
+        """
+        datasets = set(self.upstream_datasets)
+        edges: List[EdgeClass] = []
+        for raw in as_input_list(upstream_fields):
+            field_urn = SchemaFieldUrn.from_string(str(raw))
+            if field_urn.parent not in datasets:
+                raise SdkUsageError(
+                    f"Metric {str(self.urn)}: upstream field {str(field_urn)} "
+                    f"belongs to dataset {field_urn.parent}, which is not one of "
+                    f"its upstream_datasets."
+                )
+            edges.append(EdgeClass(destinationUrn=str(field_urn)))
+        self._ensure_metric_upstreams().fieldUpstreams = edges
 
     @property
     def ai_context(self) -> Optional[AiContextClass]:

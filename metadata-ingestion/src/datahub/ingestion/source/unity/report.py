@@ -119,5 +119,21 @@ class UnityCatalogReport(SQLSourceReport):
     num_metric_view_synonyms_dropped_invalid: int = 0
     num_metric_view_format_unknown_subkeys: int = 0
 
+    # Server-aware resolution of emit_semantic_model_entities (metric views as
+    # semanticModel/metric entities instead of `Metric View` datasets).
+    semantic_model_emission_effective: Optional[bool] = None
+    semantic_model_emission_reason: Optional[str] = None
+    semantic_model_emission_is_saas: Optional[bool] = None
+    semantic_model_emission_metrics_enabled: Optional[bool] = None
+    num_metric_view_semantic_models_emitted: int = 0
+    num_metric_view_semantic_model_datasets_emitted: int = 0
+    num_metric_view_metrics_emitted: int = 0
+    num_metric_view_derived_metric_edges: int = 0
+    num_metric_view_relationships_emitted: int = 0
+    num_metric_view_relationships_unresolved: int = 0
+    # Metric views emitted as legacy `Metric View` datasets although semantic
+    # model emission is on, because their YAML could not be read or mapped.
+    num_metric_view_semantic_model_fallbacks: int = 0
+
     # Platform resource repository for automatic cache statistics via SupportsAsObj
     tag_urn_resolver_cache: Optional["UnityCatalogPlatformResourceRepository"] = None

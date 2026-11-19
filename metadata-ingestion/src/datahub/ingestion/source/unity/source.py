@@ -20,9 +20,6 @@ from typing import (
 )
 from urllib.parse import urljoin
 
-import sqlglot
-import sqlglot.errors
-import sqlglot.expressions as sqlglot_exp
 import yaml
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import TableType
@@ -74,6 +71,9 @@ from datahub.ingestion.source.aws.s3_util import (
     make_s3_urn_for_lineage,
     strip_s3_prefix,
 )
+from datahub.ingestion.source.common.semantic_model_gate import (
+    resolve_emit_semantic_model_entities,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -107,6 +107,14 @@ from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HiveMetastoreProxy,
 )
 from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
+from datahub.ingestion.source.unity.metric_view_semantic_model import (
+    FIELD_CUSTOM_PROPERTY_PREFIX,
+    MEASURE_REF_RE,
+    ROOT_ALIAS,
+    MetricViewSemanticModelInput,
+    UnityMetricViewSemanticModelMapper,
+    parse_metric_view_expr,
+)
 from datahub.ingestion.source.unity.platform_resource_repository import (
     UnityCatalogPlatformResourceRepository,
 )
@@ -153,6 +161,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    BrowsePathEntryClass,
     BrowsePathsClass,
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
@@ -191,11 +200,6 @@ from datahub.utilities.urns.urn import guess_entity_type
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-
-# MEASURE(name) is a Databricks-specific token: https://docs.databricks.com/aws/en/business-semantics/metric-views/advanced-techniques
-_MEASURE_REF_RE = re.compile(
-    r"\bMEASURE\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)", re.IGNORECASE
-)
 
 _DISPLAY_NAME_MAX_LEN = 255
 _SYNONYMS_MAX_COUNT = 10
@@ -522,6 +526,21 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 log=False,
             )
 
+        # Resolved in get_workunits_internal against the server (tri-state flag).
+        self._emit_metric_view_semantic_models: bool = False
+        self.metric_view_semantic_model_mapper = UnityMetricViewSemanticModelMapper(
+            report=self.report,
+            platform_instance=self.platform_instance_name,
+            env=self.config.env,
+            include_column_lineage=self.config.include_column_lineage,
+            gen_dataset_urn=self.gen_dataset_urn,
+            resolve_source=lambda raw, table: _parse_metric_view_source(
+                raw,
+                default_catalog=table.ref.catalog,
+                default_metastore=table.ref.metastore,
+            ),
+        )
+
         # Include platform resource repository in report for automatic cache statistics
         if self.config.include_tags and self.platform_resource_repository:
             self.report.tag_urn_resolver_cache = self.platform_resource_repository
@@ -626,6 +645,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage("Ingestion Setup"):
+            self._resolve_semantic_model_emission()
             wait_on_warehouse = None
             if self.config.include_hive_metastore:
                 with self.report.new_stage("Start warehouse"):
@@ -941,8 +961,23 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     table.ref.qualified_table_name
                 )
                 and not table.is_view
+                and not self._is_semantic_model_metric_view(table)
             ):
                 self.tables[table.ref.qualified_table_name] = table
+
+            if self._is_semantic_model_metric_view(table):
+                emitted = self._gen_metric_view_semantic_model(table, schema)
+                if emitted is not None:
+                    # Emitted as a semanticModel, so there is no dataset at the
+                    # metric view's URN: keep it out of table_refs, which scopes
+                    # usage, operations and view lineage to emitted datasets.
+                    yield from emitted
+                    self.report.tables.processed(
+                        table.id, f"table ({table.table_type})"
+                    )
+                    self.report.metric_views.processed(table.id)
+                    continue
+                self.report.num_metric_view_semantic_model_fallbacks += 1
 
             if table.is_view:
                 self.view_refs.add(table.ref)
@@ -963,33 +998,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             metric_view_spec = self._load_metric_view_spec(table)
 
         table_props = self._create_table_property_aspect(table, metric_view_spec)
-        tags = None
-        if not isinstance(table.table_type, HiveTableType) and self.config.include_tags:
-            try:
-                table_tags = self._get_table_tags(
-                    table.ref.catalog, table.ref.schema, table.ref.table
-                )
-                if table_tags:
-                    logger.debug(f"Table tags for {table.ref}: {table_tags}")
-                    attribution = MetadataAttribution(
-                        # source="unity-catalog",
-                        actor="urn:li:corpuser:datahub",
-                        time=int(time.time() * 1000),
-                    )
-                    tags = GlobalTags(
-                        tags=[
-                            TagAssociation(
-                                tag=tag.to_datahub_tag_urn().urn(),
-                                attribution=attribution,
-                            )
-                            for tag in table_tags
-                        ]
-                    )
-
-                    yield from self.gen_platform_resources(table_tags)
-
-            except Exception as e:
-                logger.exception(f"Error fetching table {table.ref} tags", exc_info=e)
+        tags, table_tags = self._table_tags_aspect(table)
+        yield from self.gen_platform_resources(table_tags)
 
         view_props = None
         if table.view_definition:
@@ -1100,6 +1110,208 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 ],
             )
         ]
+
+    def _table_tags_aspect(
+        self, table: Table
+    ) -> Tuple[Optional[GlobalTags], List[UnityCatalogTag]]:
+        if isinstance(table.table_type, HiveTableType) or not self.config.include_tags:
+            return None, []
+        try:
+            table_tags = self._get_table_tags(
+                table.ref.catalog, table.ref.schema, table.ref.table
+            )
+        except Exception as e:
+            logger.exception(f"Error fetching table {table.ref} tags", exc_info=e)
+            return None, []
+        if not table_tags:
+            return None, []
+        logger.debug(f"Table tags for {table.ref}: {table_tags}")
+        attribution = MetadataAttribution(
+            # source="unity-catalog",
+            actor="urn:li:corpuser:datahub",
+            time=int(time.time() * 1000),
+        )
+        tags = GlobalTags(
+            tags=[
+                TagAssociation(
+                    tag=tag.to_datahub_tag_urn().urn(),
+                    attribution=attribution,
+                )
+                for tag in table_tags
+            ]
+        )
+        return tags, table_tags
+
+    def _resolve_semantic_model_emission(self) -> None:
+        # Nothing to resolve unless metric views are ingested - avoid the server
+        # probe (and misleading warnings) when the feature is off entirely.
+        if not self.config.include_metric_views:
+            return
+        recipe_value = self.config.emit_semantic_model_entities
+        decision = resolve_emit_semantic_model_entities(self.ctx.graph, recipe_value)
+        self._emit_metric_view_semantic_models = decision.enabled
+
+        self.report.semantic_model_emission_effective = decision.enabled
+        self.report.semantic_model_emission_reason = decision.reason
+        self.report.semantic_model_emission_is_saas = decision.is_saas
+        self.report.semantic_model_emission_metrics_enabled = decision.metrics_enabled
+        logger.info(
+            "Resolved emit_semantic_model_entities: effective=%s (recipe=%s, "
+            "managed_server=%s, version=%s, metricsEnabled=%s, reason=%s)",
+            decision.enabled,
+            recipe_value,
+            decision.is_saas,
+            decision.version,
+            decision.metrics_enabled,
+            decision.reason,
+        )
+
+        if decision.version_unparseable:
+            self.report.warning(
+                title="Could not parse DataHub server version",
+                message=(
+                    "The DataHub server version string could not be parsed, so "
+                    "semanticModel/metric emission stayed off and metric views "
+                    "were ingested as legacy `Metric View` datasets."
+                ),
+                context=decision.reason,
+            )
+        if decision.metrics_probe_failed:
+            self.report.warning(
+                title="Could not verify Metrics kill-switch",
+                message=(
+                    "The metricsEnabled feature-flag probe failed, so "
+                    "semanticModel/metric emission stayed off and metric views "
+                    "were ingested as legacy `Metric View` datasets."
+                ),
+                context=decision.reason,
+            )
+        # Warn instead of failing when the recipe asked for it but the server
+        # vetoed it, so ingestion still proceeds in legacy dataset mode.
+        if recipe_value is True and not decision.enabled:
+            self.report.warning(
+                title="emit_semantic_model_entities forced off",
+                message=(
+                    "emit_semantic_model_entities was requested but could not be "
+                    "enabled; falling back to legacy `Metric View` datasets."
+                ),
+                context=decision.reason,
+            )
+
+    def _is_semantic_model_metric_view(self, table: Table) -> bool:
+        return (
+            table.is_metric_view
+            and self.config.include_metric_views
+            and self._emit_metric_view_semantic_models
+        )
+
+    def _gen_metric_view_semantic_model(
+        self, table: Table, schema: Schema
+    ) -> Optional[List[MetadataWorkUnit]]:
+        """Workunits describing a metric view as a semanticModel, or None to fall
+        back to the legacy `Metric View` dataset (unreadable YAML or a mapping
+        failure), so the view never disappears from the catalog."""
+        spec = self._load_metric_view_spec(table)
+        if spec is None:
+            return None
+
+        view_tags, table_tags = self._table_tags_aspect(table)
+        workunits: List[MetadataWorkUnit] = list(
+            self.gen_platform_resources(table_tags)
+        )
+        column_tags: Dict[str, List[str]] = {}
+        if self.config.include_tags and not isinstance(table.table_type, HiveTableType):
+            unique_tags: Set[UnityCatalogTag] = set()
+            for column in table.columns:
+                tags = self._get_column_tags(
+                    table.ref.catalog, table.ref.schema, table.ref.table, column.name
+                )
+                unique_tags.update(tags)
+                if tags:
+                    column_tags[column.name.lower()] = [
+                        tag.to_datahub_tag_urn().urn() for tag in tags
+                    ]
+            workunits.extend(self.gen_platform_resources(list(unique_tags)))
+
+        spec_props = self._build_metric_view_spec_custom_props(spec)
+        inp = MetricViewSemanticModelInput(
+            table=table,
+            spec=spec,
+            model_path=self._metric_view_semantic_model_path(table),
+            browse_path=self._metric_view_browse_path(schema),
+            schema_container_urn=self.gen_schema_key(schema).as_urn(),
+            ownership=self._create_table_ownership_aspect(table),
+            domains=self._get_domain_aspect(
+                dataset_name=table.ref.qualified_table_name
+            ),
+            view_tags=view_tags,
+            column_tags=column_tags,
+            spec_custom_properties={
+                k: v
+                for k, v in spec_props.items()
+                if not k.startswith(FIELD_CUSTOM_PROPERTY_PREFIX)
+            },
+            field_custom_properties={
+                k: v
+                for k, v in spec_props.items()
+                if k.startswith(FIELD_CUSTOM_PROPERTY_PREFIX)
+            },
+            fallback_root_upstreams=lambda: self._metric_view_rest_upstreams(table),
+        )
+        try:
+            workunits.extend(self.metric_view_semantic_model_mapper.gen_workunits(inp))
+        except Exception as e:
+            self.report.warning(
+                title="Could not map metric view to a semantic model",
+                message="The metric view is ingested as a legacy `Metric View` "
+                "dataset instead.",
+                context=table.ref.qualified_table_name,
+                exc=e,
+            )
+            return None
+        return workunits
+
+    def _metric_view_semantic_model_path(self, table: Table) -> str:
+        # The semanticModel/metric keys have no env and no separate
+        # platform_instance field, so the instance is embedded into the path, as
+        # the Snowflake connector does.
+        parts = [
+            self.platform_instance_name,
+            table.ref.metastore,
+            table.ref.catalog,
+            table.ref.schema,
+        ]
+        return ".".join(p for p in parts if p)
+
+    def _metric_view_browse_path(self, schema: Schema) -> List[BrowsePathEntryClass]:
+        entries: List[BrowsePathEntryClass] = []
+        if self.platform_instance_name:
+            instance_urn = make_dataplatform_instance_urn(
+                self.platform, self.platform_instance_name
+            )
+            entries.append(
+                BrowsePathEntryClass(id=self.platform_instance_name, urn=instance_urn)
+            )
+        if self.config.include_metastore and schema.catalog.metastore:
+            metastore_urn = self.gen_metastore_key(schema.catalog.metastore).as_urn()
+            entries.append(BrowsePathEntryClass(id=metastore_urn, urn=metastore_urn))
+        catalog_urn = self.gen_catalog_key(schema.catalog).as_urn()
+        entries.append(BrowsePathEntryClass(id=catalog_urn, urn=catalog_urn))
+        schema_urn = self.gen_schema_key(schema).as_urn()
+        entries.append(BrowsePathEntryClass(id=schema_urn, urn=schema_urn))
+        return entries
+
+    def _metric_view_rest_upstreams(self, table: Table) -> List[str]:
+        lineage = self.ingest_lineage(table)
+        if lineage is None:
+            self.report.warning(
+                message="Metric view has no upstream lineage: neither YAML parsing "
+                "nor the table-lineage REST API produced any upstreams",
+                context=table.ref.qualified_table_name,
+                log=False,
+            )
+            return []
+        return [upstream.dataset for upstream in lineage.upstreams]
 
     def process_ml_models(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         if not self.config.include_ml_models:
@@ -2363,6 +2575,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
             if source_ref is not None:
                 alias_map[""] = source_ref
+                # Databricks exposes the top-level source as `source`; a join of
+                # that name (set below) takes precedence.
+                alias_map[ROOT_ALIAS] = source_ref
 
         joins_skipped = 0
         joins = spec.get("joins")
@@ -2481,7 +2696,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if not isinstance(col_name, str) or not isinstance(expr, str):
                 continue
             downstream_field = make_schema_field_urn(downstream_urn, col_name)
-            for match in _MEASURE_REF_RE.finditer(expr):
+            for match in MEASURE_REF_RE.finditer(expr):
                 ref_name = match.group(1)
                 canonical = known_measures.get(ref_name.lower())
                 if canonical is not None:
@@ -2520,48 +2735,29 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         alias_map: Dict[str, TableReference],
         context: str = "",
     ) -> Tuple[List[Tuple[TableReference, str]], Set[str]]:
-        # MEASURE(name) refers to a peer measure, not a source column — strip so sqlglot can't extract the inner name.
-        expr = _MEASURE_REF_RE.sub("0", expr)
-        try:
-            # sqlglot internals can leak AttributeError/TypeError on malformed ASTs.
-            tree = sqlglot.parse_one(expr, dialect="databricks")
-        except (
-            sqlglot.errors.SqlglotError,
-            RecursionError,
-            ValueError,
-            AttributeError,
-            TypeError,
-        ) as e:
+        parsed = parse_metric_view_expr(expr, alias_map)
+        if parsed.error is not None:
             self.report.num_metric_views_expr_parse_failures += 1
             self.report.warning(
                 message="Metric view expression failed to parse",
                 context=f"{context}: expr={expr!r}",
-                exc=e,
+                exc=parsed.error,
                 log=False,
             )
             return [], set()
-        if tree is None:
+        if parsed.empty_tree:
             self.report.num_metric_view_expr_empty_tree += 1
             return [], set()
-
+        # The same table can be reached through two aliases; one lineage row each.
         result: List[Tuple[TableReference, str]] = []
-        unresolved: Set[str] = set()
         seen: Set[Tuple[str, str]] = set()
-        for col in tree.find_all(sqlglot_exp.Column):
-            qualifier = col.table.lower() if col.table else ""
-            ref = alias_map.get(qualifier)
-            if ref is None:
-                # "<source>" sentinel surfaces unqualified columns when top `source`
-                # was unparseable; without it they would be silently dropped.
-                unresolved.add(qualifier or "<source>")
-                continue
-            col_name = col.name
-            key = (str(ref), col_name)
+        for col in parsed.columns:
+            key = (str(col.ref), col.column)
             if key in seen:
                 continue
             seen.add(key)
-            result.append((ref, col_name))
-        return result, unresolved
+            result.append((col.ref, col.column))
+        return result, parsed.unresolved_qualifiers
 
     def get_or_create_from_unity_tag(
         self,

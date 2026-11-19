@@ -90,6 +90,40 @@ If a metric view's `source` is a SQL subquery, or if it uses a 1-part identifier
 
 `include_metric_views` is `false` by default for backwards compatibility — when the flag is off (or when the installed `databricks-sdk` predates `TableType.METRIC_VIEW`), metric views continue to be emitted as plain `Table` entities with no view body.
 
+Expression columns may be unqualified (the top-level source), `source.<column>`, `<join>.<column>`, or, for a nested join, `<parent>.<join>.<column>` (for example `instr.issuer.ctry_cd`).
+
+#### Metric views as Semantic Models and Metrics
+
+With `include_metric_views: true`, metric views can instead be emitted as first-class [Semantic Model and Metric](../../../../docs/features/feature-guides/metrics-and-semantic-models.md) entities, the same model the Snowflake connector uses for Semantic Views. This is controlled by `emit_semantic_model_entities`, a tri-state flag with the same behavior as Snowflake's `semantic_views.emit_semantic_model_entities`:
+
+| Value            | Behavior                                                                                                                                                                                                                                                             |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `null` (default) | Follow the server. On DataHub Cloud 2.1.0 or later with Metrics enabled, emits Semantic Models and Metrics. Elsewhere (older Cloud, OSS/self-hosted, connectionless runs such as a file sink, or when the server check fails) metric views stay `Metric View` datasets. |
+| `true`           | Request Semantic Model and Metric emission. Honored on Cloud when the server supports it (otherwise a warning, and legacy datasets); on OSS the server must register these entities.                                                                                  |
+| `false`          | Always emit legacy `Metric View` datasets.                                                                                                                                                                                                                           |
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    include_metric_views: true
+    emit_semantic_model_entities: true
+```
+
+Each metric view then emits:
+
+- One **Semantic Model**, `urn:li:semanticModel:(urn:li:dataPlatform:databricks,[<platform_instance>.][<metastore>.]<catalog>.<schema>,<metric_view>)`. Its name is the metric view name, its description the YAML top-level `comment` (falling back to the Unity Catalog comment), and its definition the YAML body. Owner, domain and table tags are applied as for tables.
+- One **Semantic Model Dataset** (a dataset with subtype `Semantic Model Dataset`) per table the metric view reads: the top-level `source` (alias `source`) and every join, nested joins included (alias = the join's path, e.g. `instr.issuer`). Its URN name is `<metric view>.<alias>`, and its upstream lineage points at the physical table.
+- A **relationship** on the Semantic Model per join, from the parent alias to the join, with the equi-join columns taken from `on:` (`a = b` pairs; unqualified columns are read as `parent = join`) or `using:`. Joins are many-to-one. A join with no equi-join pair is reported and not emitted as a relationship.
+- Each dimension and measure as a field of the Semantic Model Dataset whose alias its expression reads (the `source` dataset when it reads no table or more than one), with a semantic annotation (`DIMENSION` or `MEASURE`, the expression in the `DATABRICKS` dialect, the aggregation function of a measure, time dimensions marked), its description from `comment`, and its `synonyms` in the field's AI context. Column-level lineage from the physical columns lands on the dataset's `upstreamLineage` (requires `include_column_lineage: true`). Join key columns that are not themselves a dimension are added as fields described as join keys, so relationships resolve.
+- One **Metric** per measure, `urn:li:metric:(urn:li:dataPlatform:databricks,<semantic model path>.<metric_view>,<measure>)`, named by its `display_name` when set, with its expression (a window measure's window is appended as a trailing SQL comment), `synonyms` as AI context, and lineage to its field on the Semantic Model Dataset (`metricUpstreams`).
+- **Metric-to-metric lineage** for composable measures: each `MEASURE(name)` reference becomes a `derivedFrom` edge on `metricRelationships`. A measure built only from other measures has no dataset upstream of its own.
+- The Databricks-specific settings as custom properties of the Semantic Model Datasets, using the same `metric_view.*` keys listed above: spec-level ones (`filter`, `spec_version`, `joins`, `materialization.*`) on the `source` dataset, per-field ones (`display_name`, `synonyms`, `format.*`, `window.*`) on the dataset carrying the field.
+
+Migration from `Metric View` datasets follows the cross-connector strategy used for Snowflake Semantic Views: the flag chooses one representation or the other, never both. With emission on, the metric view's `Metric View` dataset is no longer emitted (stateful ingestion soft-deletes it), and it is left out of usage statistics and operations. If a metric view's YAML cannot be read or mapped, that view falls back to a `Metric View` dataset, with a warning and the `num_metric_view_semantic_model_fallbacks` report counter. Owners, tags, terms and documentation added in DataHub to the old dataset are not copied to the new entities; there is no migration CLI for Databricks yet.
+
+Databricks metric views have no verified or example queries, so no AI-context examples are emitted.
+
 #### Usage statistics
 
 Usage is enabled by default (`include_usage_statistics: true`). Choose how query history is read with `usage_data_source`:
