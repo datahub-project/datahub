@@ -21,6 +21,7 @@ from typing import Annotated, List, Optional, Tuple, TypedDict
 
 from datahub.metadata.urns import Urn
 from datahub.utilities.urns.error import InvalidUrnError
+from fastmcp.exceptions import ToolError
 from pydantic import AliasChoices, BeforeValidator, WithJsonSchema
 from pydantic_core import from_json
 
@@ -103,6 +104,19 @@ def coerce_keyword_list(
 # canonical name missing from its own set becomes unreachable, so every name these
 # are applied to appears in them.
 FILTER_ALIASES = AliasChoices("filter", "filters")
+URN_ALIASES = AliasChoices(
+    "urn", "dataset_urn", "dataset", "datasetUrn", "entityUrn", "source_urn"
+)
+# Not `filter` or `query`: those are canonical on other tools for a different shape,
+# and a filter expression taken as a keyword would match no column.
+KEYWORDS_ALIASES = AliasChoices(
+    "keywords",
+    "keyword",
+    "filterKeyword",
+    "filter_keyword",
+    "keyword_filter",
+    "field_keyword",
+)
 URNS_ALIASES = AliasChoices("urns", "urn", "entityUrns", "dataset_urns", "dataset_urn")
 FIELDS_ALIASES = AliasChoices("fields", "aspects")
 SIZE_ALIASES = AliasChoices(
@@ -162,6 +176,14 @@ def urn_error_message(
             f'search(query="{candidate}") and pass the `urn` from the result.'
         )
     return None
+
+
+def require_urn(value: str, *, tool: str, param: str = "urn") -> str:
+    """``value`` stripped, or a ToolError saying how to get a URN."""
+    problem = urn_error_message(value, tool=tool, param=param)
+    if problem is not None:
+        raise ToolError(problem)
+    return value.strip()
 
 
 def partition_urns(
