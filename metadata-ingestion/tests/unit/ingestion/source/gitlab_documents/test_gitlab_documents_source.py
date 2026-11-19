@@ -1,4 +1,3 @@
-import base64
 from typing import Dict, List
 from unittest.mock import MagicMock, patch
 
@@ -73,19 +72,14 @@ def test_emits_gitlab_documents_with_project_urls() -> None:
         PipelineContext(run_id="test-run"),
     )
     with requests_mock.Mocker() as m:
-        m.head(requests_mock.ANY, status_code=404)
         m.get(f"{API}/repository/branches/main", json={"commit": {"id": "abc123"}})
         m.get(
             f"{API}/repository/tree",
             json=[{"id": "blob1", "type": "blob", "path": "docs/guides/a.md"}],
         )
         m.get(
-            f"{API}/repository/files/docs%2Fguides%2Fa.md",
-            json={
-                "size": 7,
-                "encoding": "base64",
-                "content": base64.b64encode(b"# Hello").decode(),
-            },
+            f"{API}/repository/files/docs%2Fguides%2Fa.md/raw",
+            text="# Hello",
         )
         workunits = [
             wu for wu in source.get_workunits() if isinstance(wu, MetadataWorkUnit)
@@ -148,7 +142,6 @@ def test_max_files_warning_names_gitlab() -> None:
         PipelineContext(run_id="test-run"),
     )
     with requests_mock.Mocker() as m:
-        m.head(requests_mock.ANY, status_code=404)
         m.get(f"{API}/repository/branches/main", json={"commit": {"id": "abc123"}})
         m.get(
             f"{API}/repository/tree",
@@ -158,12 +151,8 @@ def test_max_files_warning_names_gitlab() -> None:
             ],
         )
         m.get(
-            f"{API}/repository/files/a.md",
-            json={
-                "size": 3,
-                "encoding": "base64",
-                "content": base64.b64encode(b"# A").decode(),
-            },
+            f"{API}/repository/files/a.md/raw",
+            text="# A",
         )
         list(source.get_workunits())
 
@@ -180,15 +169,6 @@ def _source(**config: object) -> GitLabDocumentsSource:
     )
 
 
-def _encoded(text: str) -> Dict[str, object]:
-    raw = text.encode()
-    return {
-        "size": len(raw),
-        "encoding": "base64",
-        "content": base64.b64encode(raw).decode(),
-    }
-
-
 def test_failed_file_fetch_keeps_previous_import_and_warns() -> None:
     source = _source(base_url=BASE, create_repo_root_document=False)
     previous_urn = "urn:li:document:" + normalize_document_id(
@@ -201,13 +181,12 @@ def test_failed_file_fetch_keeps_previous_import_and_warns() -> None:
         return_value=MagicMock(state=MagicMock(urns=[previous_urn]))
     )
     with requests_mock.Mocker() as m:
-        m.head(requests_mock.ANY, status_code=404)
         m.get(f"{API}/repository/branches/main", json={"commit": {"id": "abc123"}})
         m.get(
             f"{API}/repository/tree",
             json=[{"id": "blob1", "type": "blob", "path": "a.md"}],
         )
-        m.get(f"{API}/repository/files/a.md", status_code=500)
+        m.get(f"{API}/repository/files/a.md/raw", status_code=500)
         with patch("time.sleep"):
             list(source.get_workunits_internal())
 
@@ -258,7 +237,6 @@ def test_self_managed_instance_under_a_path_with_special_characters() -> None:
         document_import_mode="EXTERNAL",
     )
     with requests_mock.Mocker() as m:
-        m.head(requests_mock.ANY, status_code=404)
         m.get(
             f"{api}/repository/branches/release%2F1.0",
             json={"commit": {"id": "abc123"}},
@@ -267,7 +245,7 @@ def test_self_managed_instance_under_a_path_with_special_characters() -> None:
             f"{api}/repository/tree",
             json=[{"id": "blob1", "type": "blob", "path": "my notes.md"}],
         )
-        m.get(f"{api}/repository/files/my%20notes.md", json=_encoded("# Notes"))
+        m.get(f"{api}/repository/files/my%20notes.md/raw", text="# Notes")
         infos = [
             info
             for wu in source.get_workunits()
@@ -290,7 +268,6 @@ def test_tree_without_pagination_headers_skips_stale_removal() -> None:
     # Images are listed but not imported, so no file is fetched.
     page = [{"id": f"b{i}", "type": "blob", "path": f"{i}.png"} for i in range(100)]
     with requests_mock.Mocker() as m:
-        m.head(requests_mock.ANY, status_code=404)
         m.get(f"{API}/repository/branches/main", json={"commit": {"id": "abc123"}})
         m.get(f"{API}/repository/tree", json=page)
         # The follow-up offset request shows more entries exist.
@@ -303,3 +280,49 @@ def test_tree_without_pagination_headers_skips_stale_removal() -> None:
     assert source.report.tree_truncated is True
     assert "gitlab-tree-truncated" in {w.title for w in source.report.warnings}
     assert not source.report.failures
+
+
+def _urns_and_instances(source: GitLabDocumentsSource) -> Dict[str, str]:
+    with requests_mock.Mocker() as m:
+        m.get(f"{API}/repository/branches/main", json={"commit": {"id": "abc123"}})
+        m.get(
+            f"{API}/repository/tree",
+            json=[{"id": "blob1", "type": "blob", "path": "guide.md"}],
+        )
+        m.get(f"{API}/repository/files/guide.md/raw", text="# Guide")
+        workunits = [
+            wu for wu in source.get_workunits() if isinstance(wu, MetadataWorkUnit)
+        ]
+    return {
+        wu.get_urn(): aspect.instance or ""
+        for wu in workunits
+        if (aspect := wu.get_aspect_of_type(DataPlatformInstanceClass)) is not None
+    }
+
+
+def test_platform_instance_separates_ids_and_sets_the_instance() -> None:
+    without = _urns_and_instances(
+        _source(base_url=BASE, create_repo_root_document=False)
+    )
+    with_instance = _urns_and_instances(
+        _source(base_url=BASE, create_repo_root_document=False, platform_instance="eu")
+    )
+
+    assert set(without) == {
+        "urn:li:document:"
+        + normalize_document_id(
+            make_file_source_id("acme/data/docs", "guide.md", source_prefix="gitlab")
+        )
+    }
+    assert set(without.values()) == {
+        "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gitlab,acme/data/docs)"
+    }
+    assert set(with_instance) == {
+        "urn:li:document:"
+        + normalize_document_id(
+            make_file_source_id("acme/data/docs", "guide.md", source_prefix="gitlab.eu")
+        )
+    }
+    assert set(with_instance.values()) == {
+        "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gitlab,eu)"
+    }

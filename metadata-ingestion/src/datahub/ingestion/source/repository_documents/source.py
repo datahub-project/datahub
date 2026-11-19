@@ -191,7 +191,9 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         self._repo_root_source_id: Optional[str] = (
             None
             if config.parent_document_urn or not config.create_repo_root_document
-            else make_repo_source_id(config.repository, source_prefix=self.platform)
+            else make_repo_source_id(
+                config.repository, source_prefix=self._source_prefix
+            )
         )
         # Cache of import_source_id -> existing document URN (sync-back round-trip).
         self._resolved_source_id_urns: Dict[str, Optional[str]] = {}
@@ -233,6 +235,19 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         self, owner_repo: str, branch: str, path: str, *, is_directory: bool
     ) -> str:
         raise NotImplementedError
+
+    @property
+    def _source_prefix(self) -> str:
+        """Prefix of every source id. A configured ``platform_instance`` is
+        part of it, so sources on different instances never share an id."""
+        if self.config.platform_instance:
+            return f"{self.platform}.{self.config.platform_instance}"
+        return self.platform
+
+    def _instance_name(self, owner_repo: str) -> str:
+        """The document's data platform instance: the configured
+        ``platform_instance``, or the repository when none is set."""
+        return self.config.platform_instance or owner_repo
 
     def _prop(self, name: str) -> str:
         return f"{self.platform}_{name}"
@@ -400,14 +415,14 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         richer folder content than the repository (a deliberate DH ⊇ GH split).
         """
         dir_source_id = make_dir_source_id(
-            owner_repo, dir_path, source_prefix=self.platform
+            owner_repo, dir_path, source_prefix=self._source_prefix
         )
         parent_source_id = resolve_parent_dir_source_id(
             owner_repo,
             dir_path,
             path_prefix,
             repo_root_source_id=self._repo_root_source_id,
-            source_prefix=self.platform,
+            source_prefix=self._source_prefix,
         )
         parent_urn = self._resolve_parent_urn(parent_source_id)
 
@@ -465,7 +480,7 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             else self.client.fetch_file_content(owner_repo, file_path, commit_sha)
         )
         source_id = make_file_source_id(
-            owner_repo, file_path, source_prefix=self.platform
+            owner_repo, file_path, source_prefix=self._source_prefix
         )
         if content is None:
             self.report.files_skipped += 1
@@ -554,7 +569,7 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             file_path,
             path_prefix,
             repo_root_source_id=self._repo_root_source_id,
-            source_prefix=self.platform,
+            source_prefix=self._source_prefix,
         )
         parent_urn = self._resolve_parent_urn(parent_source_id)
 
@@ -1076,7 +1091,7 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
                         entity_types=["document"],
                         platform=self.platform,
                         platform_instance=make_dataplatform_instance_urn(
-                            self.platform, owner_repo
+                            self.platform, self._instance_name(owner_repo)
                         ),
                         status=RemovedStatusFilter.ONLY_SOFT_DELETED,
                     )
@@ -1140,7 +1155,9 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         doc._set_aspect(
             DataPlatformInstanceClass(
                 platform=make_data_platform_urn(self.platform),
-                instance=make_dataplatform_instance_urn(self.platform, owner_repo),
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self._instance_name(owner_repo)
+                ),
             )
         )
 

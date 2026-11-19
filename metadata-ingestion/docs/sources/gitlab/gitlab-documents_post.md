@@ -45,6 +45,25 @@ This source shares its import logic with the [GitHub documents source](https://d
 - The OKF `bundle.location` is the project URL, such as `https://gitlab.com/example-group/analytics`.
 - With `include_organization_in_browse_path: true`, the browse path starts with the full group path (`data-platform/analytics`).
 
+#### Several GitLab instances or overlapping project paths
+
+Document IDs are built from the project path. Set `platform_instance` to keep sources apart when their projects could otherwise produce the same IDs:
+
+- The same project path on two GitLab instances, such as gitlab.com and a self-managed server.
+- Project paths that differ only by `.` and `/`, such as `data/platform.docs` and `data/platform/docs`. IDs join path segments with `.`, so these two projects produce the same IDs.
+
+```yaml
+source:
+  type: gitlab-documents
+  config:
+    gitlab_token: "${GITLAB_TOKEN}"
+    base_url: https://gitlab.example.com
+    repository: data/platform.docs
+    platform_instance: self-managed
+```
+
+The instance is part of every document ID, and it becomes the documents' data platform instance. Without it, the data platform instance is the project path. Changing `platform_instance` on an existing source creates new documents; with stateful ingestion enabled, the old ones are soft-deleted.
+
 The source resolves the branch head once and reads the tree and files at that commit, so all documents in a run come from one snapshot.
 
 ### Limitations
@@ -53,7 +72,7 @@ The source resolves the branch head once and reads the tree and files at that co
 - Requires network access from the ingestion executor to the GitLab instance.
 - Binary formats are not parsed; use text/markdown files.
 - Imports are capped by `max_files` (default 500) per run.
-- Document IDs are built from the project path, not the instance. Two sources that ingest the same project path from different GitLab instances into one DataHub overwrite each other's documents.
+- Document IDs are built from the project path. Without `platform_instance`, two sources whose projects produce the same IDs overwrite each other's documents. See [Several GitLab instances or overlapping project paths](#several-gitlab-instances-or-overlapping-project-paths).
 - Changes made in DataHub are not written back to GitLab.
 
 ### Troubleshooting
@@ -63,6 +82,6 @@ The source resolves the branch head once and reads the tree and files at that co
 - **Wrong instance**: When `repository` is a URL and `base_url` is also set, the URL must be on that instance.
 - **No files imported**: Check `path_prefix` and `file_extensions` filters.
 - **`gitlab-file-not-read` warnings**: The file could not be downloaded, was too large, or was not text. A file that failed to download keeps its previous import, so a temporary GitLab error does not remove the document.
-- **`gitlab-tree-truncated` failure**: GitLab returned a full page of the project tree without pagination headers, and a follow-up request showed more entries exist. This usually means a proxy stripped the headers. The run imports what it listed and skips stale document removal, so nothing is deleted. Let the executor reach the GitLab API directly.
-- **Non-JSON response errors**: A proxy or SSO login page answered instead of the GitLab API. Let the ingestion executor reach the API directly with the token.
+- **`gitlab-tree-truncated` warning**: GitLab returned a full page of the project tree without pagination headers, and a follow-up request showed more entries exist. This usually means a proxy stripped the headers. The run imports what it listed and skips stale document removal, so nothing is deleted. Let the executor reach the GitLab API directly.
+- **Non-JSON or HTML response errors**: A proxy or SSO login page answered instead of the GitLab API. Let the ingestion executor reach the API directly with the token.
 - **Documents not removed after a GitLab delete**: Ensure `stateful_ingestion.enabled: true` and the pipeline has a graph connection for checkpoint storage.

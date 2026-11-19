@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from pydantic import Field, field_validator, model_validator
 
+from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -18,6 +19,7 @@ from datahub.ingestion.source.unstructured.config import (
 
 class RepositoryDocumentsSourceConfigBase(
     StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
+    PlatformInstanceConfigMixin,
 ):
     """Settings shared by every git-host documents source."""
 

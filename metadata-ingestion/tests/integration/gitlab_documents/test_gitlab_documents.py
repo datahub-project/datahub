@@ -1,4 +1,3 @@
-import base64
 import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
@@ -41,15 +40,9 @@ def test_gitlab_documents_ingest(pytestconfig: pytest.Config, tmp_path: Path) ->
                     "path": relative,
                 }
             )
-            file_url = f"{api}/repository/files/{quote(relative, safe='')}"
-            m.head(file_url, headers={"X-Gitlab-Size": str(len(contents))})
             m.get(
-                file_url,
-                json={
-                    "size": len(contents),
-                    "encoding": "base64",
-                    "content": base64.b64encode(contents).decode(),
-                },
+                f"{api}/repository/files/{quote(relative, safe='')}/raw",
+                content=contents,
             )
         m.get(f"{api}/repository/tree", json=tree)
 
