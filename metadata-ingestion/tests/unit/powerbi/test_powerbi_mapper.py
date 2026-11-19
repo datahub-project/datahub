@@ -558,6 +558,54 @@ def test_extract_lineage_skips_odbc_only_platform_with_unmodeled_urn(
     )
 
 
+@pytest.mark.parametrize(
+    "dataset_type_mapping, expected_upstreams",
+    [
+        pytest.param(
+            {"MySQL": "mysql", "Odbc": "odbc"},
+            ["urn:li:dataset:(urn:li:dataPlatform:mysql,analytics.users,PROD)"],
+            id="target-mapped-athena-not",
+        ),
+        pytest.param(
+            {"Amazon Athena": "athena", "Odbc": "odbc"},
+            [],
+            id="athena-mapped-target-not",
+        ),
+    ],
+)
+def test_extract_lineage_athena_override_is_filtered_by_target_platform(
+    dataset_type_mapping: Dict[str, str], expected_upstreams: List[str]
+) -> None:
+    """An Athena override hands the upstream to the target platform, so the
+    dataset_type_mapping filter must judge it by that platform, not Athena."""
+    config = powerbi_config(
+        dataset_type_mapping=dataset_type_mapping,
+        athena_table_platform_override=[
+            {"database": "analytics", "table": "users", "platform": "mysql"}
+        ],
+        extract_column_level_lineage=False,
+    )
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    dataset = _dataset(
+        expression=_odbc_navigation_m_query(
+            "Simba Amazon Athena ODBC Driver",
+            [
+                ("AwsDataCatalog", "Database"),
+                ("analytics", "Schema"),
+                ("users", "Table"),
+            ],
+        )
+    )
+
+    mcps = mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace)
+
+    lineage = _aspects(mcps, UpstreamLineageClass)
+    assert [u.dataset for item in lineage for u in item.upstreams] == (
+        expected_upstreams
+    )
+
+
 def test_extract_lineage_skips_odbc_only_platform_when_odbc_is_not_mapped() -> None:
     config = powerbi_config(
         dataset_type_mapping={"PostgreSQL": "postgres"},

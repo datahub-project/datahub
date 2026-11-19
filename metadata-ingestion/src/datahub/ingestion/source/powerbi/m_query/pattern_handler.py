@@ -2561,9 +2561,21 @@ class OdbcLineage(AbstractLineage):
         updated_upstreams: List[DataPlatformTable] = []
         for upstream in lineage.upstreams:
             transformed_urn = transform_once(upstream.urn)
+            platform_pair = upstream.data_platform_pair
+            if transformed_urn != upstream.urn:
+                # A platform override hands the upstream to another platform; the
+                # dataset_type_mapping filter and instance resolution must judge it
+                # by that platform, not by Athena.
+                platform = (
+                    DatasetUrn.from_string(transformed_urn)
+                    .get_data_platform_urn()
+                    .platform_name
+                )
+                if platform != platform_pair.datahub_data_platform_name:
+                    platform_pair = _data_platform_pair_for(platform)
             updated_upstreams.append(
                 DataPlatformTable(
-                    data_platform_pair=upstream.data_platform_pair,
+                    data_platform_pair=platform_pair,
                     urn=transformed_urn,
                 )
             )
