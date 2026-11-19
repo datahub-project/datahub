@@ -32,7 +32,7 @@ def make_url_for_urn(
     """Build the public-facing URL for an entity urn.
 
     Args:
-        frontend_url: The public-facing base url of the frontend.
+        frontend_base_url: The public-facing base url of the frontend.
         entity_urn: The urn of the entity to get the url for.
         tab: The tab to deep link into. If not provided, the default tab for the entity will be shown.
 
