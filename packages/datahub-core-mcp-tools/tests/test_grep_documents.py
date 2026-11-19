@@ -73,6 +73,9 @@ class FakeBackend:
         ]
         return found + [None for urn in urns if urn in self.stubs]
 
+    def search_lineage(self, variables: JsonObject) -> JsonObject:
+        return {}
+
 
 def _grep(backend: FakeBackend, *items: object, **kwargs: Any) -> dict:
     context = ToolContext([ReadBackendBinding(backend), *items])

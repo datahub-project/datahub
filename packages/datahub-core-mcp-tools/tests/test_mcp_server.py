@@ -32,6 +32,7 @@ async def test_registration_is_per_instance() -> None:
     assert set(await _tools(registered)) == {
         "get_me",
         "search",
+        "get_lineage",
         "get_entities",
         "list_schema_fields",
         "search_documents",
@@ -52,6 +53,7 @@ async def test_registering_twice_on_separate_instances_is_independent() -> None:
         == {
             "get_me",
             "search",
+            "get_lineage",
             "get_entities",
             "list_schema_fields",
             "search_documents",

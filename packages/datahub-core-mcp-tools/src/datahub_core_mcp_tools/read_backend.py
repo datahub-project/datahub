@@ -64,6 +64,12 @@ class ReadBackend(Protocol):
         for those of ``document_semantic_search.gql``."""
         ...
 
+    def search_lineage(self, variables: JsonObject) -> JsonObject:
+        """``searchAcrossLineage`` for the ``input`` of ``GetEntityLineage``
+        (``entity_details.gql``): one direction, each node with its entity preview
+        and, for column lineage, the column paths."""
+        ...
+
 
 @dataclass(frozen=True)
 class ReadBackendBinding:
@@ -191,6 +197,18 @@ class GraphQLReadBackend:
                 variables=variables,
                 operation_name=operation,
             )[key],
+        )
+
+    def search_lineage(self, variables: JsonObject) -> JsonObject:
+        # In entity_details.gql: its nodes are read with entityPreview.
+        return cast(
+            JsonObject,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("entity_details.gql"),
+                variables={"input": variables},
+                operation_name="GetEntityLineage",
+            )["searchAcrossLineage"],
         )
 
 

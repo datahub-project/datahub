@@ -19,7 +19,7 @@ OpenAI-compatible endpoints, which reject the *whole* tool list with a 422
 
 from typing import Annotated, List, Optional, Tuple, TypedDict
 
-from datahub.metadata.urns import Urn
+from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.utilities.urns.error import InvalidUrnError
 from fastmcp.exceptions import ToolError
 from pydantic import AliasChoices, BeforeValidator, WithJsonSchema
@@ -119,6 +119,8 @@ KEYWORDS_ALIASES = AliasChoices(
 )
 URNS_ALIASES = AliasChoices("urns", "urn", "entityUrns", "dataset_urns", "dataset_urn")
 FIELDS_ALIASES = AliasChoices("fields", "aspects")
+UPSTREAM_ALIASES = AliasChoices("upstream", "direction")
+MAX_HOPS_ALIASES = AliasChoices("max_hops", "depth")
 SIZE_ALIASES = AliasChoices(
     "num_results",
     "limit",
@@ -140,6 +142,45 @@ DATASET_URN_EXAMPLE = (
     "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
 )
 DOCUMENT_URN_EXAMPLE = "urn:li:document:01234567-89ab-cdef-0123-456789abcdef"
+
+
+def coerce_lineage_direction(value: object) -> object:
+    """Map a direction string onto the boolean `get_lineage.upstream` takes.
+
+    `direction="upstream"` is the most-guessed lineage argument: the tool description
+    opens with "upstream or downstream lineage" while the parameter is a bool.
+    Unrecognized values pass through, so pydantic still handles real bools and its
+    own "true"/"false" coercion.
+    """
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in ("upstream", "upstreams"):
+            return True
+        if normalized in ("downstream", "downstreams"):
+            return False
+        if normalized in ("both", "all", "bidirectional", "either"):
+            # Falling through to pydantic gives "Input should be a valid boolean"
+            # against a parameter the schema does not publish, and the natural repair
+            # from that message is direction=true: upstream only, half the graph.
+            raise ToolError(
+                f"get_lineage: direction={value!r} is not supported. `upstream` is a "
+                "bool, so one call returns one direction. Call get_lineage twice: once "
+                "with upstream=true, once with upstream=false."
+            )
+    return value
+
+
+def schema_field_urn(urn: str, column: Optional[str], *, tool: str) -> str:
+    """The URN of ``column`` in dataset ``urn``; ``urn`` itself when there is no column."""
+    if not column:
+        return urn
+    parsed = Urn.from_string(urn)
+    if not isinstance(parsed, DatasetUrn):
+        raise ToolError(
+            f"{tool}: `column` needs a dataset URN, got {urn}. Only datasets have "
+            "columns; leave `column` out for any other entity."
+        )
+    return str(SchemaFieldUrn(parsed, column))
 
 
 class SkippedUrn(TypedDict):

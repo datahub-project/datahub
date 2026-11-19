@@ -172,6 +172,9 @@ def test_a_bound_backend_replaces_graphql_reads() -> None:
         def document_contents(self, urns: list[str]) -> list:
             return []
 
+        def search_lineage(self, variables: dict) -> dict:
+            return {}
+
     workspace = Workspace()
     client = MagicMock()
 
