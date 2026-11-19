@@ -1,7 +1,13 @@
+import re
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Iterable
 from urllib import parse
+
+# Matches Windows absolute paths like "C:\..." or "C:/...". urlparse()
+# misreads the drive letter as a URL scheme (e.g. "c"), so these must be
+# special-cased to "file" before falling through to urlparse.
+_WINDOWS_DRIVE_PATH_RE = re.compile(r"^[a-zA-Z]:[\\/]")
 
 
 @dataclass
@@ -43,6 +49,8 @@ class FileSystem(metaclass=ABCMeta):
 
 
 def get_path_schema(path: str) -> str:
+    if _WINDOWS_DRIVE_PATH_RE.match(path):
+        return "file"
     scheme = parse.urlparse(path).scheme
     if scheme == "":
         # This makes the default schema "file" for local paths.
