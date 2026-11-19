@@ -26,6 +26,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -399,26 +400,22 @@ public class V3SearchDocumentProjector {
   }
 
   /**
-   * A field with no searchLabel does not index a has* boolean. Drop the value the V2 transformer
-   * wrote, and do not null the root: a partial update must not clear a name this index no longer
-   * maps.
+   * A field with no searchLabel owns its has* boolean. The root keeps the true or false the
+   * transformer wrote, so false still means the source was written and is now empty. The aspect
+   * copy is dropped because the root is the only indexed value.
    */
-  private static void omitDedicatedHasValues(
+  private static void omitDirectHasValuesFromAspect(
       @Nonnull final AspectSpec aspectSpec, @Nonnull final ObjectNode aspectFields) {
     for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-      final SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
-      if (!resolved.isV3Searchable() || resolved.indexedFieldName().isPresent()) {
-        continue;
-      }
-      final Optional<String> declared = resolved.getHasValuesFieldName();
-      if (declared != null && declared.isPresent()) {
-        aspectFields.remove(declared.get());
-      }
+      V3SearchFields.directHasValuesName(fieldSpec.getSearchableAnnotation())
+          .ifPresent(aspectFields::remove);
     }
   }
 
   private static void omitV3ExcludedFields(
       @Nonnull final AspectSpec aspectSpec, @Nonnull final ObjectNode projectedFields) {
+    final Set<String> v3HasValues = new HashSet<>();
+    final Set<String> v2OnlyHasValues = new HashSet<>();
     for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
       final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
       if (!annotation.isV3Searchable()) {
@@ -426,10 +423,20 @@ public class V3SearchDocumentProjector {
         annotation.getHasValuesFieldName().ifPresent(projectedFields::remove);
         annotation.getNumValuesFieldName().ifPresent(projectedFields::remove);
       }
-      if (!annotation.resolvedForV3().isIncludeSystemModifiedAt()) {
+      final SearchableAnnotation resolved = annotation.resolvedForV3();
+      if (!resolved.isIncludeSystemModifiedAt()) {
         ESUtils.getSystemModifiedAtFieldName(fieldSpec).ifPresent(projectedFields::remove);
       }
+      if (annotation.isV3Searchable()) {
+        resolved.getHasValuesFieldName().ifPresent(v3HasValues::add);
+        if (!annotation.isV3HasValues()) {
+          annotation.getHasValuesFieldName().ifPresent(v2OnlyHasValues::add);
+        }
+      }
     }
+    // v3.hasValues false: the transformer still writes the V2 boolean, which V3 must not index.
+    v2OnlyHasValues.removeAll(v3HasValues);
+    v2OnlyHasValues.forEach(projectedFields::remove);
   }
 
   /**
@@ -630,8 +637,7 @@ public class V3SearchDocumentProjector {
 
     final ObjectNode aspectFields = projectedFields.deepCopy();
     aspectFields.remove(URN_FIELD);
-    omitDedicatedHasValues(aspectSpec, rootFields);
-    omitDedicatedHasValues(aspectSpec, aspectFields);
+    omitDirectHasValuesFromAspect(aspectSpec, aspectFields);
     for (String name : sharedHasValues) {
       // Drop a stored root true or false. The indexed term comes from copy_to.
       rootFields.putNull(name);

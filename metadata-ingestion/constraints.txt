@@ -563,7 +563,7 @@ hdbcli==2.27.24 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   sqlalchemy-hana
-hf-xet==1.6.0 ; (python_full_version >= '3.11' and python_full_version < '3.14' and platform_machine == 'AMD64') or (python_full_version >= '3.11' and python_full_version < '3.14' and platform_machine == 'aarch64') or (python_full_version >= '3.11' and python_full_version < '3.14' and platform_machine == 'amd64') or (python_full_version >= '3.11' and python_full_version < '3.14' and platform_machine == 'arm64') or (python_full_version >= '3.11' and python_full_version < '3.14' and platform_machine == 'x86_64')
+hf-xet==1.6.0 ; python_full_version >= '3.11' and python_full_version < '3.14' and (platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64')
     # via huggingface-hub
 html5lib==1.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via unstructured
@@ -599,9 +599,9 @@ humanize==4.15.0 ; python_full_version >= '3.11' and python_full_version < '3.14
     # via dlt
 hypothesis==6.152.7 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
-ibm-db==3.2.8 ; (python_full_version >= '3.11' and python_full_version < '3.14' and platform_machine == 'x86_64') or (python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'darwin')
+ibm-db==3.2.8 ; python_full_version >= '3.11' and python_full_version < '3.14' and (platform_machine == 'x86_64' or sys_platform == 'darwin')
     # via ibm-db-sa
-ibm-db-sa==0.4.4 ; (python_full_version >= '3.11' and python_full_version < '3.14' and platform_machine == 'x86_64') or (python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'darwin')
+ibm-db-sa==0.4.4 ; python_full_version >= '3.11' and python_full_version < '3.14' and (platform_machine == 'x86_64' or sys_platform == 'darwin')
     # via acryl-datahub
 id==1.5.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via twine
@@ -1759,7 +1759,7 @@ werkzeug==3.1.6 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   flask
     #   moto
     #   pytest-httpserver
-win-precise-time==1.4.2 ; (python_full_version >= '3.11' and python_full_version < '3.13' and os_name == 'nt' and platform_machine != 'arm64') or (python_full_version >= '3.11' and python_full_version < '3.13' and os_name == 'nt' and sys_platform != 'darwin')
+win-precise-time==1.4.2 ; python_full_version >= '3.11' and python_full_version < '3.13' and os_name == 'nt'
     # via dlt
 win32-setctime==1.2.0 ; python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'win32'
     # via loguru

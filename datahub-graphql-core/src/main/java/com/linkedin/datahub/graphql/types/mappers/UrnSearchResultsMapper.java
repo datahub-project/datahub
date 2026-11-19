@@ -8,8 +8,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.generated.KeywordRerankExplanation;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.generated.VectorRetrievalExplanation;
 import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyInfoPolicyMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.KnownEntities;
 import com.linkedin.entity.Aspect;
@@ -67,8 +69,49 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
     if (searchResultMetadata.hasRouteChain()) {
       result.setRouteChain(new ArrayList<>(searchResultMetadata.getRouteChain()));
     }
+    if (searchResultMetadata.hasKeywordRerank()) {
+      result.setKeywordRerank(mapKeywordRerank(searchResultMetadata.getKeywordRerank()));
+    }
+    if (searchResultMetadata.hasVectorRetrieval()) {
+      result.setVectorRetrieval(mapVectorRetrieval(searchResultMetadata.getVectorRetrieval()));
+    }
 
     return result;
+  }
+
+  @Nonnull
+  private static KeywordRerankExplanation mapKeywordRerank(
+      @Nonnull com.linkedin.metadata.search.KeywordRerankExplanation input) {
+    final KeywordRerankExplanation explanation = new KeywordRerankExplanation();
+    explanation.setOutcome(input.getOutcome());
+    explanation.setReason(input.getReason());
+    explanation.setEligibleRows(input.getEligibleRows());
+    explanation.setIneligibleRows(input.getIneligibleRows());
+    explanation.setDeprecations(new ArrayList<>(input.getDeprecations()));
+    return explanation;
+  }
+
+  @Nonnull
+  private static VectorRetrievalExplanation mapVectorRetrieval(
+      @Nonnull com.linkedin.metadata.search.VectorRetrievalExplanation input) {
+    final VectorRetrievalExplanation explanation = new VectorRetrievalExplanation();
+    explanation.setOutcome(input.getOutcome());
+    explanation.setProfile(input.getProfile());
+    explanation.setStore(input.getStore());
+    explanation.setAdapterLatencyMillis(input.getAdapterLatencyMillis());
+    explanation.setRemovedByHydration(input.getRemovedByHydration());
+    explanation.setEntityTypes(new ArrayList<>(input.getEntityTypes()));
+    explanation.setExcludedEntityTypes(new ArrayList<>(input.getExcludedEntityTypes()));
+    explanation.setK(input.getK());
+    explanation.setClampedCandidateCap(input.getClampedCandidateCap());
+    explanation.setCandidates(input.getCandidates());
+    explanation.setMinSimilarity(input.getMinSimilarity());
+    explanation.setMinSimilaritySkipped(input.getMinSimilaritySkipped());
+    explanation.setBelowMinSimilarity(input.getBelowMinSimilarity());
+    explanation.setBelowMinScore(input.getBelowMinScore());
+    explanation.setFilterInVectorSearch(input.isFilterInVectorSearch());
+    explanation.setDeprecations(new ArrayList<>(input.getDeprecations()));
+    return explanation;
   }
 
   /**

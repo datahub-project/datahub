@@ -64,6 +64,7 @@ _Note: If using governed tags, you may also need ASSIGN permission on the tag po
 
 - **MODIFY**: Required to update comments/descriptions on Unity Catalog objects (tables, columns, catalogs, schemas)
 - **SELECT**: Required alongside MODIFY for table and column description operations
+- **Ownership of views**: Databricks lets only a view's owner change its comments, so MODIFY isn't enough for views. To sync descriptions to a view and its columns, the service principal must own the view (or be a member of the group that owns it).
 
 ### Example Permission Configuration
 
