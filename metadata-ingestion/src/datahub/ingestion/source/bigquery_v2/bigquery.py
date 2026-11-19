@@ -362,6 +362,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             queries_character_limit=self.config.usage.queries_character_limit,
             region_qualifiers=self.config.region_qualifiers,
             region_qualifiers_auto_discovery=self.config.region_qualifiers_auto_discovery,
+            temp_table_dataset_prefix=self.config.temp_table_dataset_prefix,
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
