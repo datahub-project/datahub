@@ -39,6 +39,9 @@ from datahub.ingestion.source.repository_documents.okf_mapping import (
 from datahub.ingestion.source.repository_documents.report import (
     RepositoryDocumentsSourceReport,
 )
+from datahub.ingestion.source.repository_documents.source import (
+    PROP_IMPORT_SOURCE_ID,
+)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BrowsePathsV2Class,
@@ -2880,3 +2883,92 @@ def test_map_okf_override_changes_emitted_metadata() -> None:
         if (info := wu.get_aspect_of_type(DocumentInfoClass)) is not None
     ]
     assert titles == ["Reviewed: MAU"]
+
+
+@pytest.mark.parametrize(
+    ("stamped", "reused"),
+    [
+        (None, True),
+        ("github.acme.docs.docs.guide", True),
+        ("github-other.acme.docs.docs.guide", False),
+    ],
+)
+def test_path_fallback_reuses_only_legacy_or_same_source_documents(
+    source: GitHubDocumentsSource, stamped: Optional[str], reused: bool
+) -> None:
+    # A document found only by repository path is reused when it predates
+    # import_source_id or has this source's id. One stamped with another id
+    # belongs to another source (another instance, or this source before its
+    # platform_instance changed); reusing it would make the two overwrite each
+    # other.
+    existing = "urn:li:document:existing"
+    source_id = "github.acme.docs.docs.guide"
+    canonical = f"urn:li:document:{normalize_document_id(source_id)}"
+    props = {"github_repo": "acme/docs", "github_file_path": "docs/guide.md"}
+    if stamped:
+        props[PROP_IMPORT_SOURCE_ID] = stamped
+    source.ctx.graph = MagicMock()
+    existing_info = MagicMock(spec=DocumentInfoClass)
+    existing_info.customProperties = props
+    source.ctx.graph.get_aspect.side_effect = lambda urn, _cls: (
+        existing_info if urn == existing else None
+    )
+    source.ctx.graph.get_urns_by_filter.side_effect = lambda **kwargs: (
+        []
+        if any(
+            value.startswith(f"{PROP_IMPORT_SOURCE_ID}=")
+            for rule in kwargs["extraFilters"]
+            for value in rule["values"]
+        )
+        else [existing]
+    )
+
+    found = source._find_existing_document_urn(
+        source_id, "acme/docs", "docs/guide.md", canonical, is_directory=False
+    )
+
+    assert found == (existing if reused else None)
+
+
+@pytest.mark.parametrize(
+    ("platform_instance", "urn", "instance"),
+    [
+        (
+            None,
+            "urn:li:document:github.acme.docs.docs.a-4da9989b88f2f589",
+            "acme/docs",
+        ),
+        (
+            "ghe",
+            "urn:li:document:github-ghe.acme.docs.docs.a-7a0cbc4b9a06fefa",
+            "ghe",
+        ),
+    ],
+)
+def test_platform_instance_prefixes_ids_and_sets_the_instance(
+    platform_instance: Optional[str], urn: str, instance: str
+) -> None:
+    source = GitHubDocumentsSource(
+        GitHubDocumentsSourceConfig(
+            github_token=SecretStr("ghp_test"),
+            repository="acme/docs",
+            path_prefix="docs",
+            create_repo_root_document=False,
+            platform_instance=platform_instance,
+        ),
+        PipelineContext(run_id="test-run"),
+    )
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="docs/a.md", size=3)],
+        file_content="# A",
+    )
+    instances = {
+        wu.get_urn(): aspect.instance
+        for wu in source.get_workunits()
+        if isinstance(wu, MetadataWorkUnit)
+        and (aspect := wu.get_aspect_of_type(DataPlatformInstanceClass)) is not None
+    }
+    assert instances[urn] == (
+        f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:github,{instance})"
+    )

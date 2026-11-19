@@ -315,3 +315,69 @@ def test_tree_listing_requests_keyset_pagination() -> None:
         m.get(f"{API}/repository/tree", json=[])
         client.list_matching_files("acme/data/docs", "main", "", [".md"])
     assert m.request_history[0].qs["pagination"] == ["keyset"]
+
+
+def test_raw_file_is_retried_after_a_transient_error() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m, patch("time.sleep"):
+        m.get(
+            f"{API}/repository/files/a.md/raw",
+            [{"status_code": 503}, {"text": "# A"}],
+        )
+        assert client.fetch_file_content("acme/data/docs", "a.md", "main") == "# A"
+
+
+def test_failure_while_reading_a_file_body_is_reported_not_raised() -> None:
+    client = GitLabApiClient("glpat-test")
+    with (
+        requests_mock.Mocker() as m,
+        patch("time.sleep"),
+        patch.object(
+            requests.Response,
+            "iter_content",
+            side_effect=requests.exceptions.ChunkedEncodingError("reset"),
+        ),
+    ):
+        m.get(f"{API}/repository/files/a.md/raw", text="# A")
+        assert client.fetch_file_content("acme/data/docs", "a.md", "main") is None
+        # Retried before giving up.
+        assert m.call_count > 1
+    assert client.last_api_error is not None
+
+
+def test_redirects_are_reported_not_followed() -> None:
+    # requests would keep the PRIVATE-TOKEN header on a redirect to another host.
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(
+            f"{API}/repository/files/a.md/raw",
+            status_code=302,
+            headers={"Location": "https://sso.example.com/login"},
+        )
+        sso = m.get("https://sso.example.com/login", text="<html>Sign in</html>")
+        assert client.fetch_file_content("acme/data/docs", "a.md", "main") is None
+        assert not sso.called
+    assert client.last_api_error is not None
+    assert "sso.example.com" in client.last_api_error
+
+
+def test_next_link_is_rebased_onto_an_instance_under_a_relative_path() -> None:
+    client = GitLabApiClient("glpat-test", base_url="https://host.example/gitlab")
+    api = "https://host.example/gitlab/api/v4/projects/acme%2Fdata%2Fdocs"
+    proxied = "http://internal:8080/gitlab/api/v4/projects/acme%2Fdata%2Fdocs"
+    with requests_mock.Mocker() as m:
+        m.get(
+            f"{api}/repository/tree",
+            [
+                {
+                    "json": [{"id": "b1", "type": "blob", "path": "a.md"}],
+                    "headers": {
+                        "Link": f'<{proxied}/repository/tree?id_after=b1>; rel="next"'
+                    },
+                },
+                {"json": [{"id": "b2", "type": "blob", "path": "b.md"}]},
+            ],
+        )
+        files, _ = client.list_matching_files("acme/data/docs", "main", "", [".md"])
+    assert [f.path for f in files] == ["a.md", "b.md"]
+    assert {r.netloc for r in m.request_history} == {"host.example"}

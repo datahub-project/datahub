@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Set, Tuple, Union
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlparse, urlsplit
 
 import requests
 from tenacity import (
@@ -27,6 +28,12 @@ TREE_PAGE_SIZE = 100
 MAX_RETRY_AFTER_SECONDS = 60
 MAX_REQUEST_ATTEMPTS = 4
 RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+
+
+@dataclass(frozen=True)
+class _RawFile:
+    # None when the file is larger than MAX_FILE_SIZE_BYTES.
+    content: Optional[bytes]
 
 
 class _RetryableResponse(Exception):
@@ -226,7 +233,7 @@ class GitLabApiClient:
         """
         if link.startswith(f"{self._api_base}/"):
             return link
-        parsed = urlparse(link)
+        parsed = urlsplit(link)
         marker = parsed.path.find(f"{API_PATH}/")
         if marker < 0:
             raise RuntimeError(
@@ -246,12 +253,63 @@ class GitLabApiClient:
             f"{self._project_url(owner_repo)}/repository/files/"
             f"{quote(file_path, safe='')}/raw"
         )
-        response = self._get(url, params={"ref": branch}, stream=True)
-        if response is None:
+        try:
+            raw = self._get_raw_file_with_retry(url, branch)
+        except _RetryableResponse as exc:
+            self._last_api_error = _describe_http_error(exc.response)
+            raw = None
+        except requests.RequestException as exc:
+            # Includes a connection reset or timeout while reading the body.
+            self._last_api_error = f"GitLab API request failed: {exc}"
+            raw = None
+        if raw is None:
             detail = self._last_api_error or "GitLab API request failed"
             logger.warning("Failed to fetch file content for %s: %s", file_path, detail)
             return None
+        if raw.content is None:
+            logger.warning(
+                "File %s is over %s bytes, skipping", file_path, MAX_FILE_SIZE_BYTES
+            )
+            return None
+        return raw.content.decode("utf-8", errors="replace")
+
+    @retry(
+        retry=retry_if_exception_type(
+            (
+                _RetryableResponse,
+                requests.ConnectionError,
+                requests.Timeout,
+                requests.exceptions.ChunkedEncodingError,
+            )
+        ),
+        stop=stop_after_attempt(MAX_REQUEST_ATTEMPTS),
+        wait=_wait_before_retry,
+        reraise=True,
+    )
+    def _get_raw_file_with_retry(self, url: str, ref: str) -> Optional[_RawFile]:
+        """The file, or None when GitLab answered with an error. The body is read
+        here, inside the retry, because a streamed body can still fail after
+        the response headers arrived."""
+        response = self._session.get(
+            url,
+            params={"ref": ref},
+            headers={"PRIVATE-TOKEN": self._token},
+            timeout=self._timeout,
+            stream=True,
+            allow_redirects=False,
+        )
         with response:
+            if response.status_code in RETRYABLE_STATUS_CODES:
+                logger.info(
+                    "GitLab returned HTTP %s for %s; retrying",
+                    response.status_code,
+                    url,
+                )
+                raise _RetryableResponse(response)
+            if response.status_code != 200:
+                self._last_api_error = _describe_http_error(response)
+                logger.warning("%s for %s", self._last_api_error, url)
+                return None
             if _is_html(response):
                 # A proxy or SSO login page can answer 200 with HTML. Raw files
                 # are served as text/plain, so this is not the file.
@@ -261,15 +319,10 @@ class GitLabApiClient:
                 )
                 logger.warning("%s for %s", self._last_api_error, response.url)
                 return None
-            body = _read_up_to(response, MAX_FILE_SIZE_BYTES)
-        if body is None:
-            logger.warning(
-                "File %s is over %s bytes, skipping", file_path, MAX_FILE_SIZE_BYTES
-            )
-            # A skip is not a failed read; don't leave an earlier request's error.
+            # A skip for size is not a failed read either, so clear any earlier
+            # request's error.
             self._last_api_error = None
-            return None
-        return body.decode("utf-8", errors="replace")
+            return _RawFile(content=_read_up_to(response, MAX_FILE_SIZE_BYTES))
 
     def _json_or_none(self, response: Optional[requests.Response]) -> object:
         if response is None:
@@ -292,10 +345,9 @@ class GitLabApiClient:
         url: str,
         *,
         params: Optional[Dict[str, Union[str, int]]] = None,
-        stream: bool = False,
     ) -> Optional[requests.Response]:
         try:
-            return self._get_with_retry(url, params, stream)
+            return self._get_with_retry(url, params)
         except _RetryableResponse as exc:
             self._last_api_error = _describe_http_error(exc.response)
         except requests.RequestException as exc:
@@ -312,21 +364,17 @@ class GitLabApiClient:
         reraise=True,
     )
     def _get_with_retry(
-        self,
-        url: str,
-        params: Optional[Dict[str, Union[str, int]]],
-        stream: bool = False,
+        self, url: str, params: Optional[Dict[str, Union[str, int]]]
     ) -> Optional[requests.Response]:
         response = self._session.get(
             url,
             params=params,
             headers={"PRIVATE-TOKEN": self._token},
             timeout=self._timeout,
-            stream=stream,
+            # requests keeps custom headers such as PRIVATE-TOKEN on a redirect
+            # to another host, so redirects are reported rather than followed.
+            allow_redirects=False,
         )
-        if response.status_code != 200:
-            # Error bodies are small; release a streamed connection now.
-            response.close()
         if response.status_code in RETRYABLE_STATUS_CODES:
             logger.info(
                 "GitLab returned HTTP %s for %s; retrying", response.status_code, url
@@ -386,4 +434,12 @@ def _describe_http_error(response: requests.Response) -> str:
         )
     if status == 429:
         return "GitLab API rate limit exceeded (HTTP 429)."
+    if 300 <= status < 400:
+        # Not followed: the token would be sent to wherever it points.
+        return (
+            f"GitLab redirected the request (HTTP {status}) to "
+            f"{response.headers.get('Location', 'an unknown location')}. A proxy "
+            "or SSO login may be intercepting API requests; set base_url to the "
+            "address that serves the API."
+        )
     return f"GitLab API returned HTTP {status}"
