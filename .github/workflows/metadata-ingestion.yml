@@ -71,25 +71,29 @@ jobs:
           TEST_MATRIX: ${{ steps.ci.outputs.test_matrix }}
           EVENT_NAME: ${{ github.event_name }}
           FORCE_ALL: ${{ steps.label-check.outputs.force_all }}
-          PR_PYTHON: "3.11"
+          # Every Python version lives here. Pull requests and perf tests use the
+          # first (oldest) entry; integration batches use INTEGRATION_PYTHONS.
+          QUICK_PYTHONS_ALL: '["3.11","3.12","3.13"]'
+          INTEGRATION_PYTHONS: '["3.11","3.13"]'
           # testQuick is split into this many parallel jobs per Python version;
           # tests/conftest.py assigns whole test files to shards by recorded duration.
           QUICK_SHARDS: "4"
         run: |
-          # Pull requests run on PR_PYTHON only and skip testPerformance; pushes to
+          # Pull requests run on the oldest supported Python only and skip testPerformance; pushes to
           # master and releases, releases, manual runs and PRs labelled
           # run-all-ingestion-tests keep the full matrix. A break that only shows on
           # 3.12/3.13 is therefore caught after merge rather than before.
+          OLDEST_PYTHON=$(jq -r '.[0]' <<<"$QUICK_PYTHONS_ALL")
           if [ "$EVENT_NAME" = "pull_request" ] && [ "$FORCE_ALL" != "true" ]; then
-            QUICK_PYTHONS=$(jq -n -c --arg v "$PR_PYTHON" '[$v]')
+            QUICK_PYTHONS=$(jq -n -c --arg v "$OLDEST_PYTHON" '[$v]')
             FULL_PYTHONS="$QUICK_PYTHONS"
             PERF='[]'
           else
             # testQuick runs on every supported version; integration batches and
-            # selective connector jobs run on FULL_PYTHONS; perf on 3.11 only.
-            QUICK_PYTHONS='["3.11","3.12","3.13"]'
-            FULL_PYTHONS='["3.11","3.13"]'
-            PERF='[{"python-version":"3.11","command":"testPerformance"}]'
+            # selective connector jobs run on FULL_PYTHONS; perf on the oldest only.
+            QUICK_PYTHONS="$QUICK_PYTHONS_ALL"
+            FULL_PYTHONS="$INTEGRATION_PYTHONS"
+            PERF=$(jq -n -c --arg v "$OLDEST_PYTHON" '[{"python-version": $v, "command": "testPerformance"}]')
           fi
 
           BASE=$(jq -n -c --argjson v "$QUICK_PYTHONS" --argjson perf "$PERF" \

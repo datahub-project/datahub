@@ -239,15 +239,23 @@ def _nodeid_to_test_id(nodeid: str) -> str:
     return f"{module}::{parts[1]}"
 
 
+def _read_integration_weights() -> Dict[str, float]:
+    """Read {test_id: seconds} from the weights file, raising if it is unusable."""
+    with open(_INTEGRATION_WEIGHTS_FILE) as f:
+        data = json.load(f)
+    return {entry["testId"]: float(entry["duration"].rstrip("s")) for entry in data}
+
+
+_WEIGHTS_ERRORS = (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError)
+
+
 def _load_integration_weights() -> Dict[str, float]:
     """Load {test_id: seconds} from the weights file, or {} if unavailable."""
     if not _INTEGRATION_WEIGHTS_FILE.exists():
         return {}
     try:
-        with open(_INTEGRATION_WEIGHTS_FILE) as f:
-            data = json.load(f)
-        return {entry["testId"]: float(entry["duration"].rstrip("s")) for entry in data}
-    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        return _read_integration_weights()
+    except _WEIGHTS_ERRORS as exc:
         logger.warning("Failed to load integration test weights: %s", exc)
         return {}
 
@@ -316,8 +324,10 @@ def _bin_pack_groups(
 _UNIT_SHARD_ENV = "DATAHUB_UNIT_TEST_SHARD"
 _UNIT_SHARD_RE = re.compile(r"^(\d+)/(\d+)$")
 # Per-file cost the JUnit test times do not include: importing the module and
-# its module-scoped fixtures.
-_UNIT_FILE_OVERHEAD_SECONDS = 0.5
+# its module-scoped fixtures. Measured on the first sharded CI run as (session
+# wall time - sum of test times) / files, which came to 0.22-0.27s on each of
+# the three multi-file shards. Re-measure if collection gets much slower.
+_UNIT_FILE_OVERHEAD_SECONDS = 0.25
 
 
 def _parse_unit_shard(value: str) -> Optional[Tuple[int, int]]:
@@ -407,36 +417,62 @@ class _UnitShard:
 _UNIT_SHARD_KEY = pytest.StashKey[Optional[_UnitShard]]()
 
 
+def _build_unit_shard(
+    index: int,
+    count: int,
+    root: pathlib.Path,
+    python_files: List[str],
+    weights: Dict[str, float],
+) -> _UnitShard:
+    """Assign every test file under tests/unit to a shard and return shard ``index``."""
+    unit_dir = root / "tests" / "unit"
+    shard = _UnitShard(
+        index=index,
+        count=count,
+        root=root,
+        unit_dir=unit_dir,
+        python_files=python_files,
+        assignment={},
+        estimated_seconds=0.0,
+    )
+    modules = sorted(
+        _module_id(path, root)
+        for path in unit_dir.rglob("*.py")
+        if shard.is_test_file(path)
+    )
+    module_weights = _unit_file_weights(modules, weights)
+    shard.assignment = _assign_unit_shards(module_weights, count)
+    shard.estimated_seconds = sum(
+        weight
+        for module, weight in module_weights.items()
+        if shard.assignment[module] == index
+    )
+    return shard
+
+
 def _unit_shard(config: pytest.Config) -> Optional[_UnitShard]:
     if _UNIT_SHARD_KEY in config.stash:
         return config.stash[_UNIT_SHARD_KEY]
     parsed = _parse_unit_shard(os.environ.get(_UNIT_SHARD_ENV, ""))
     shard: Optional[_UnitShard] = None
     if parsed is not None:
-        index, count = parsed
-        root = pathlib.Path(config.rootpath)
-        unit_dir = root / "tests" / "unit"
-        python_files = list(config.getini("python_files"))
-        shard = _UnitShard(
-            index=index,
-            count=count,
-            root=root,
-            unit_dir=unit_dir,
-            python_files=python_files,
-            assignment={},
-            estimated_seconds=0.0,
-        )
-        modules = sorted(
-            _module_id(path, root)
-            for path in unit_dir.rglob("*.py")
-            if shard.is_test_file(path)
-        )
-        module_weights = _unit_file_weights(modules, _load_integration_weights())
-        shard.assignment = _assign_unit_shards(module_weights, count)
-        shard.estimated_seconds = sum(
-            weight
-            for module, weight in module_weights.items()
-            if shard.assignment[module] == index
+        # Each shard computes the assignment on its own, so all of them must
+        # read the same weights. Falling back to {} on one runner would give it
+        # a different partition, and some files would then run in no shard while
+        # every job still passed. Fail the job instead.
+        try:
+            weights = _read_integration_weights()
+        except _WEIGHTS_ERRORS as exc:
+            raise pytest.UsageError(
+                f"{_UNIT_SHARD_ENV} is set but {_INTEGRATION_WEIGHTS_FILE} "
+                f"could not be read: {exc}"
+            ) from exc
+        shard = _build_unit_shard(
+            parsed[0],
+            parsed[1],
+            pathlib.Path(config.rootpath),
+            list(config.getini("python_files")),
+            weights,
         )
     config.stash[_UNIT_SHARD_KEY] = shard
     return shard
