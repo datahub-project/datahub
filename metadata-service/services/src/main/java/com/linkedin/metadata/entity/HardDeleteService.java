@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
@@ -116,7 +117,8 @@ public class HardDeleteService {
    * Hard-deletes the entity, then hands back the delete of the references other entities hold to
    * it, for the caller to run where it runs that cleanup. The entity delete runs before this
    * returns and its failure is thrown, so references to an entity that stays are left alone. When
-   * the entity does not exist, only its references are offered.
+   * the entity does not exist, only its references are offered. When the delete runs here, its
+   * graph referrers are read before it, and the cleanup removes those.
    *
    * @param runHere runs the reference cleanup when it stays in this process, the way the caller
    *     runs it today
@@ -133,11 +135,38 @@ public class HardDeleteService {
         && offered(opContext, HardDeleteRequest.entityAndReferences(urn, versions.get()))) {
       return () -> {};
     }
+    // Read before the delete: processing the delete of its key removes every graph edge of the
+    // entity, so a cleanup that read the graph afterwards could find no references to remove.
+    final List<RelatedEntities> graphReferrers = readGraphReferrersAhead(opContext, urn);
     deleteHere(opContext, urn, versions);
     if (versions.isEmpty() && offered(opContext, HardDeleteRequest.references(urn))) {
       return () -> {};
     }
-    return () -> runHere.apply(() -> deleteEntityService.deleteReferencesTo(opContext, urn, false));
+    return () ->
+        runHere.apply(
+            () ->
+                graphReferrers != null
+                    ? deleteEntityService.deleteReferencesTo(opContext, urn, graphReferrers)
+                    : deleteEntityService.deleteReferencesTo(opContext, urn, false));
+  }
+
+  /**
+   * @return null when the graph could not be read: the delete still goes ahead and its cleanup
+   *     reads the graph when it runs, so an unreadable edge cannot make the entity undeletable
+   */
+  @Nullable
+  private List<RelatedEntities> readGraphReferrersAhead(
+      @Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
+    try {
+      return deleteEntityService.getGraphReferrers(opContext, urn);
+    } catch (RuntimeException e) {
+      log.error(
+          "Could not read the graph references to {} before deleting it; its cleanup reads the"
+              + " graph when it runs",
+          urn,
+          e);
+      return null;
+    }
   }
 
   /**

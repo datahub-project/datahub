@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
@@ -21,8 +22,10 @@ import static org.testng.Assert.expectThrows;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.run.DeleteEntityResponse;
 import com.linkedin.metadata.run.DeleteReferencesResponse;
 import com.linkedin.metadata.run.RelatedAspectArray;
@@ -60,6 +63,14 @@ public class HardDeleteServiceTest {
   private static final List<String> TWO_ASPECTS = List.of("datasetProfile", "operation");
   private static final long START = 10L;
   private static final long END = 20L;
+  private static final List<RelatedEntities> REFERRERS =
+      List.of(
+          new RelatedEntities(
+              "DownstreamOf",
+              OTHER.toString(),
+              URN.toString(),
+              RelationshipDirection.INCOMING,
+              null));
 
   private final OperationContext opContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
@@ -85,6 +96,9 @@ public class HardDeleteServiceTest {
         .thenReturn(keyDeleted(URN, 5));
     when(entityService.deleteUrn(any(), eq(URN))).thenReturn(keyDeleted(URN, 6));
     when(deleteEntityService.deleteReferencesTo(any(), eq(URN), anyBoolean()))
+        .thenReturn(referencesDeleted);
+    when(deleteEntityService.getGraphReferrers(any(), eq(URN))).thenReturn(REFERRERS);
+    when(deleteEntityService.deleteReferencesTo(any(), eq(URN), anyList()))
         .thenReturn(referencesDeleted);
     when(timeseriesAspectService.deleteAspectValues(any(), anyString(), anyString(), any()))
         .thenReturn(new DeleteAspectValuesResult().setNumDocsDeleted(4L));
@@ -198,10 +212,26 @@ public class HardDeleteServiceTest {
     final Runnable references =
         service(true, null).deleteEntityThenReferences(opContext, URN, Supplier::get);
 
-    verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
-    verifyNoInteractions(deleteEntityService);
+    final InOrder order = inOrder(deleteEntityService, entityService);
+    order.verify(deleteEntityService).getGraphReferrers(opContext, URN);
+    order.verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
     references.run();
+    verify(deleteEntityService).deleteReferencesTo(opContext, URN, REFERRERS);
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean());
+  }
+
+  /** A graph that cannot be read does not block the delete: the cleanup reads it when it runs. */
+  @Test
+  public void deleteEntityThenReferencesStillDeletesWhenTheReferrersCannotBeRead() {
+    when(deleteEntityService.getGraphReferrers(any(), eq(URN)))
+        .thenThrow(new IllegalArgumentException("unparseable urn in the graph index"));
+
+    service(true, null).deleteEntityThenReferences(opContext, URN, Supplier::get).run();
+
+    verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
     verify(deleteEntityService).deleteReferencesTo(opContext, URN, false);
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
   }
 
   @Test
@@ -209,7 +239,7 @@ public class HardDeleteServiceTest {
     service(false, null).deleteEntityThenReferences(opContext, URN, Supplier::get).run();
 
     verify(entityService).deleteUrn(any(), eq(URN));
-    verify(deleteEntityService).deleteReferencesTo(opContext, URN, false);
+    verify(deleteEntityService).deleteReferencesTo(opContext, URN, REFERRERS);
   }
 
   @Test
@@ -241,7 +271,7 @@ public class HardDeleteServiceTest {
     verify(dispatcher, times(1)).dispatch(any(), any());
     verify(dispatcher).dispatch(opContext, HardDeleteRequest.entityAndReferences(URN, CAPTURED));
     verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
-    verify(deleteEntityService).deleteReferencesTo(opContext, URN, false);
+    verify(deleteEntityService).deleteReferencesTo(opContext, URN, REFERRERS);
     assertEquals(ranBy, List.of("caller"));
   }
 
@@ -264,7 +294,8 @@ public class HardDeleteServiceTest {
     expectThrows(
         IllegalStateException.class,
         () -> service(true, dispatcher).deleteEntityThenReferences(opContext, URN, Supplier::get));
-    verifyNoInteractions(deleteEntityService);
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean());
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
   }
 
   /** An absent entity is handled here as today; its references are still offered. */
@@ -277,7 +308,8 @@ public class HardDeleteServiceTest {
 
     verify(dispatcher, times(1)).dispatch(any(), any());
     verify(entityService, never()).deleteUrn(any(), eq(URN), any(DeleteCeiling.class));
-    verifyNoInteractions(deleteEntityService);
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean());
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
   }
 
   // ---- deleteEntityAndTimeseries(op, urn, aspects, start, end)
