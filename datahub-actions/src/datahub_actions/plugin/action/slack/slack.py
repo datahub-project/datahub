@@ -143,4 +143,4 @@ class SlackNotificationAction(Action):
             else:
                 logger.debug("Skipping message because it didn't match our filter")
         except Exception as e:
-            logger.debug("Failed to process event", e)
+            logger.debug("Failed to process event: %s", e)
