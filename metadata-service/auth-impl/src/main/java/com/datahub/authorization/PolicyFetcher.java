@@ -108,7 +108,10 @@ public class PolicyFetcher {
         result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
 
     if (policyUrns.isEmpty()) {
-      return PolicyFetchResult.EMPTY;
+      // Search drops hits missing from the primary store, so a page during a delete burst can be
+      // empty and still have later pages. Keep the scroll ID so callers keep reading.
+      return new PolicyFetchResult(
+          Collections.emptyList(), result.getNumEntities(), result.getScrollId());
     }
 
     // Fetch DataHubPolicyInfo aspects for each urn
