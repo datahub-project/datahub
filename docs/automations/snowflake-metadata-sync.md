@@ -95,12 +95,31 @@ GRANT OWNERSHIP ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATA
    - **Tags & Terms**: You can limit propagation based on specific Tags and Glossary Terms. If none are selected, then ALL Tags or Glossary Terms will be automatically propagated to Snowflake tables and columns.
    - **Descriptions**: Enable description sync to automatically update Snowflake table and column comments with DataHub descriptions.
    - **Sync descriptions from logical models**: Shown when **Descriptions** is selected. Off by default. See [Logical model descriptions](#logical-model-descriptions).
+   - **Structured Properties**: Write the structured properties of Snowflake tables and columns as Snowflake tags, for every structured property or only the ones you pick.
+   - **Where to create Snowflake tags**: Shown for **Tags & Glossary Terms** and **Structured Properties**. See [Where tags are created](#where-tags-are-created).
 
    Finally, click 'Save and Run' to start the automation
 
 <p align="center">
   <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/automation-form.png"/>
 </p>
+
+## Where tags are created
+
+Each DataHub tag, glossary term and structured property becomes a Snowflake tag.
+
+- **In each table's schema** (default): the tag is created in the schema of the table it is applied to. A tag used in many schemas becomes one Snowflake tag per schema.
+- **In one schema**: every tag is created once in the database and schema you enter, and applied to tables in any database. Each classification then has a single Snowflake tag, so a masking or row access policy can be attached to it once.
+
+With one schema, the automation's role needs `CREATE TAG` on that schema:
+
+```sql
+GRANT USAGE ON DATABASE governance TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT USAGE ON SCHEMA governance.tags TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT CREATE TAG ON SCHEMA governance.tags TO ROLE DATAHUB_AUTOMATION_ROLE;
+```
+
+The schema may already hold your own tags. The automation never sets or unsets a tag there that DataHub didn't create: if one of your tags has the same name as a DataHub tag, term or property, that write is skipped and listed in the automation's run report. Tags created in table schemas before you choose one schema stay where they are.
 
 ## Propagating for Existing Assets
 
