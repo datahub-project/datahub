@@ -6,8 +6,10 @@ import pytest
 _PACKAGE = "datahub.ingestion.source.github_documents"
 
 # What github_documents keeps after the shared code moved to
-# repository_documents. Code built on github-documents imports these, so
-# removing one is a breaking change.
+# repository_documents. Code built on github-documents (including DataHub Cloud
+# sync-back) imports these from these paths, so removing or moving one is a
+# breaking change and must come with a docs/how/breaking-changes.md entry. The
+# names are exercised by their own tests; this only guards the import paths.
 _PUBLIC_NAMES: List[Tuple[str, str]] = [
     ("github_api", "GITHUB_API_BASE"),
     ("github_api", "REPO_URL_PATTERN"),

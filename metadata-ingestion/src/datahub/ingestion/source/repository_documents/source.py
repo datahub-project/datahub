@@ -367,7 +367,6 @@ class RepositoryDocumentsSourceBase(
                 return content
 
             self._okf_bundles = discover_bundles(
-                repo=owner_repo,
                 file_paths=[file.path for file in files],
                 index_paths=self.client.index_file_paths,
                 explicit_roots=self.config.okf_bundle_roots,

@@ -13,14 +13,15 @@ from datahub.ingestion.source.github_documents.github_api import (
 from datahub.ingestion.source.github_documents.github_documents_config import (
     GitHubDocumentsSourceConfig,
 )
+from datahub.ingestion.source.repository_documents.paths import RepositoryPropertyKeys
 from datahub.ingestion.source.repository_documents.source import (
     RepositoryDocumentsSourceBase,
 )
 
-# Public: the custom property keys holding a document's path in the
-# repository. Code outside this repository, such as sync-back, reads them.
-PROP_GITHUB_FILE_PATH = "github_file_path"
-PROP_GITHUB_DIRECTORY_PATH = "github_directory_path"
+# Kept for code outside this repository that reads a GitHub document's path from
+# its custom properties. New code should use RepositoryPropertyKeys("github").
+PROP_GITHUB_FILE_PATH = RepositoryPropertyKeys("github").file_path
+PROP_GITHUB_DIRECTORY_PATH = RepositoryPropertyKeys("github").directory_path
 
 
 @platform_name("GitHub")
