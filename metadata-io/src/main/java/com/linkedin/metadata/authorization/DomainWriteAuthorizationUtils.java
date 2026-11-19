@@ -355,6 +355,23 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
+   * Whether the platform-wide {@code MANAGE_ALL_DATA_PRODUCTS} authorizes this write of a data
+   * product's domains. The Domain of a Data Product is optional, so the privilege covers setting,
+   * changing and clearing it. Every proposed domain must be a domain URN; an unresolved proposal
+   * ({@code null}) is not authorized here, so unresolvable patches still fail closed.
+   */
+  public static boolean isAuthorizedDataProductDomainsWithManageAll(
+      @Nonnull AuthorizationSession session, @Nonnull Urn urn, @Nullable Domains proposedDomains) {
+    if (proposedDomains == null
+        || !DATA_PRODUCT_ENTITY_NAME.equals(urn.getEntityType())
+        || !EntityAspectAuthorizationUtils.canManageAllDataProducts(session)) {
+      return false;
+    }
+    return EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(proposedDomains).stream()
+        .allMatch(domainUrn -> DOMAIN_ENTITY_NAME.equals(domainUrn.getEntityType()));
+  }
+
+  /**
    * Resolves proposed Domains for one batch item using any earlier in-batch Domains for the same
    * URN as prior (falling back to {@code persistedFallback}), then stores the result in {@code
    * proposedSoFar} when non-null.

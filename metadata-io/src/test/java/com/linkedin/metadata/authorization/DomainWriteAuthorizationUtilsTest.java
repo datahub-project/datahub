@@ -264,10 +264,33 @@ public class DomainWriteAuthorizationUtilsTest {
     assertFalse(
         DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
             session, DATASET_URN, domains(DOMAIN_X)));
-    // Moving a product that already has a domain stays on Edit Entity / Edit Domain.
+  }
+
+  @Test
+  public void testIsAuthorizedDataProductDomainsWithManageAll() {
+    AuthorizationSession session =
+        sessionAllowing(PoliciesConfig.MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE.getType());
+    // Set, change or clear: any set of domain URNs, including none.
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsWithManageAll(
+            session, DATA_PRODUCT_URN, domains(DOMAIN_Y)));
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsWithManageAll(
+            session, DATA_PRODUCT_URN, new Domains()));
+    // An unresolved proposal, a non-domain URN, or another entity type is not covered.
     assertFalse(
-        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
-            session, DATA_PRODUCT_URN, domains(DOMAIN_X), domains(DOMAIN_Y)));
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsWithManageAll(
+            session, DATA_PRODUCT_URN, null));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsWithManageAll(
+            session, DATA_PRODUCT_URN, domains(DATASET_URN)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsWithManageAll(
+            session, DATASET_URN, domains(DOMAIN_X)));
+    // Without the privilege.
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsWithManageAll(
+            dataProductManagerSession(Set.of(DOMAIN_X)), DATA_PRODUCT_URN, domains(DOMAIN_X)));
   }
 
   @Test

@@ -152,11 +152,34 @@ public class DomainWriteAuthorizationValidatorDataProductTest {
   }
 
   @Test
-  public void testMoveIsNotAuthorizedByManageAllDataProducts() {
+  public void testManageAllDataProductsCanMoveAndClearDomains() {
+    // The Domain of a Data Product is optional: the platform privilege covers changing and
+    // removing it, not only setting the first one.
     mockPersistedDomains(domains(DOMAIN_X));
+    AuthorizationSession manageAll = manageAllDataProducts();
+
+    assertEquals(validate(domainsItem(ChangeType.UPSERT, DOMAIN_Y), manageAll).size(), 0);
+    assertEquals(validate(clearDomainsItem(), manageAll).size(), 0);
+    assertEquals(
+        validator
+            .validatePreCommitAspectsWithAuth(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    changeMCP(domains(DOMAIN_X), domains(DOMAIN_Y)),
+                    changeMCP(domains(DOMAIN_X), new Domains().setDomains(new UrnArray()))),
+                retrieverContext,
+                manageAll)
+            .count(),
+        0);
+  }
+
+  @Test
+  public void testManageAllDataProductsRejectsANonDomainUrn() {
+    mockPersistedDomains(null);
+    Urn dataset = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
 
     assertEquals(
-        validate(domainsItem(ChangeType.UPSERT, DOMAIN_Y), manageAllDataProducts()).size(), 1);
+        validate(domainsItem(ChangeType.UPSERT, dataset), manageAllDataProducts()).size(), 1);
   }
 
   private void mockPersistedDomains(Domains persisted) {
@@ -178,6 +201,16 @@ public class DomainWriteAuthorizationValidatorDataProductTest {
         .aspectSpec(domainsAspectSpec)
         .recordTemplate(domains(domainUrn))
         .changeType(changeType)
+        .build();
+  }
+
+  private TestMCP clearDomainsItem() {
+    return TestMCP.builder()
+        .urn(DATA_PRODUCT_URN)
+        .entitySpec(entitySpec)
+        .aspectSpec(domainsAspectSpec)
+        .recordTemplate(new Domains().setDomains(new UrnArray()))
+        .changeType(ChangeType.UPSERT)
         .build();
   }
 
