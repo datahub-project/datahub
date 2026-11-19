@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import dataclasses
 import threading
+import time
 from typing import Any, AsyncIterator, Optional
 
 import requests
@@ -39,6 +40,7 @@ class FakeGms:
     open_clients: int = 0
     # When set, every getMe call waits here, so concurrent calls overlap.
     get_me_barrier: Optional[threading.Barrier] = None
+    get_me_seconds: float = 0.0
 
     def execute_graphql(self, token: str, operation_name: Optional[str]) -> Any:
         if self.down:
@@ -48,6 +50,8 @@ class FakeGms:
         self.me_calls += 1
         if operation_name == "getMe" and self.get_me_barrier:
             self.get_me_barrier.wait()
+        if operation_name == "getMe":
+            time.sleep(self.get_me_seconds)
         urn = self.users[token]
         return {
             "me": {
