@@ -13,6 +13,7 @@ from datahub.sdk.main_client import DataHubClient
 from fastmcp.exceptions import ToolError
 
 from datahub_core_mcp_tools.graphql_helpers import with_datahub_client
+from datahub_core_mcp_tools.openapi_client import RawVersionedBatch, VersionedAspectPair
 from datahub_core_mcp_tools.read_backend import JsonObject, ReadBackendBinding
 from datahub_core_mcp_tools.search_flags import SearchFlagsOverride
 from datahub_core_mcp_tools.tool_context import ToolContext
@@ -807,6 +808,9 @@ class FakeBackend:
 
     def dataset_usage(self, urn: str, time_range: str) -> JsonObject | None:
         return None
+
+    def aspect_versions(self, pairs: list[VersionedAspectPair]) -> RawVersionedBatch:
+        return RawVersionedBatch(aspects={}, errors={}, http_calls=0)
 
     def list_queries(self, variables: JsonObject) -> JsonObject:
         return {}

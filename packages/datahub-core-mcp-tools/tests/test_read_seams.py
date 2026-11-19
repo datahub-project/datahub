@@ -6,6 +6,7 @@ from pydantic import JsonValue
 
 from datahub_core_mcp_tools.graphql_helpers import with_datahub_client
 from datahub_core_mcp_tools.mcp_server import ToolType, register_tool
+from datahub_core_mcp_tools.openapi_client import RawVersionedBatch, VersionedAspectPair
 from datahub_core_mcp_tools.read_backend import (
     GraphQLReadBackend,
     ReadBackendBinding,
@@ -174,6 +175,11 @@ def test_a_bound_backend_replaces_graphql_reads() -> None:
 
         def dataset_usage(self, urn: str, time_range: str) -> None:
             return None
+
+        def aspect_versions(
+            self, pairs: list[VersionedAspectPair]
+        ) -> RawVersionedBatch:
+            return RawVersionedBatch(aspects={}, errors={}, http_calls=0)
 
         def list_queries(self, variables: dict) -> dict:
             return {}
