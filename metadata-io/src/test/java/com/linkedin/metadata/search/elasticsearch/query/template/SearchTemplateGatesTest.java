@@ -9,6 +9,7 @@ import static com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry.OP
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
@@ -69,24 +70,25 @@ public class SearchTemplateGatesTest {
           Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset")));
 
   @Test
-  public void testThisBuildAdvertisesNoSemanticShapeYet() {
+  public void testThisBuildAdvertisesDocumentRerankVectorRetrievalPartitionAndSimilarity() {
     SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC, true);
-    assertEquals(gates.rejectionCode(merged(retrieval("vector")).build(), true), VECTOR_RETRIEVAL);
+    assertNull(gates.rejectionCode(merged(retrieval("vector")).build(), true));
     // Anchor similarity needs vector retrieval and similarity.
     MergedSearchTemplate anchored =
         merged(retrieval("vector").setQuerySource("anchorEntity")).build();
-    assertEquals(gates.rejectionCode(anchored, true), VECTOR_RETRIEVAL);
+    assertNull(gates.rejectionCode(anchored, true));
     assertEquals(VECTOR_BUILD.rejectionCode(anchored, true), SIMILARITY);
     assertEquals(
         gates.rejectionCode(merged(retrieval("vectorThenKeyword")).build(), true),
         SearchTemplateGates.VECTOR_THEN_KEYWORD);
-    assertEquals(
+    // This build partitions, so a scope binds.
+    assertTrue(gates.advertises(ENTITY_PARTITION));
+    assertNull(
         gates.rejectionCode(
             merged(retrieval("keywordRerank"))
                 .scope(new SearchTemplateScope().setEntityTypes(ids("document")))
                 .build(),
-            true),
-        ENTITY_PARTITION);
+            true));
     assertEquals(
         gates.rejectionCode(merged(null).query("{ {{&embeddingClausesJson}} }").build(), true),
         SearchTemplateGates.NATIVE_MIXED_QUERY);
@@ -104,32 +106,65 @@ public class SearchTemplateGatesTest {
         merged(retrieval("keywordRerank").setProfileScore("weightedSum"))
             .profiles(replace(DOCUMENT_DEFAULT.id(), CONNECTOR.id()))
             .build();
-    // This build does not rerank, so the selection only the rerank uses does not fail the search.
+    // This build reranks only when the request can, so while it cannot, the selection only the
+    // rerank uses does not fail the search.
     SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC, true);
-    assertNull(gates.rejectionCode(rerank, true));
-    assertNull(gates.bindingRejection(rerank, List.of("document"), OPENSEARCH, true));
-
-    // A build that reranks still keeps keyword order when this request cannot rerank.
-    SearchTemplateGates reranking =
-        new SearchTemplateGates(
-            REGISTRY,
-            SEMANTIC,
-            true,
-            Set.of(DOCUMENT_RERANK),
-            SearchTemplateGates.ADVERTISED_ENTITY_TYPES);
-    assertNull(reranking.rejectionCode(rerank, false));
-    assertNull(reranking.bindingRejection(rerank, List.of("document"), OPENSEARCH, false));
+    assertTrue(gates.advertises(DOCUMENT_RERANK));
+    assertNull(gates.rejectionCode(rerank, false));
+    assertNull(gates.bindingRejection(rerank, List.of("document"), OPENSEARCH, false));
+    // With hybrid read off it never reranks.
+    SearchTemplateGates hybridOff = SearchTemplateGates.of(REGISTRY, SEMANTIC, false);
+    assertNull(hybridOff.rejectionCode(rerank, true));
+    assertNull(hybridOff.bindingRejection(rerank, List.of("document"), OPENSEARCH, true));
 
     // When it can, combining several profiles is a capability it does not run.
-    assertEquals(reranking.rejectionCode(rerank, true), SearchTemplateGates.SEVERAL_PROFILES);
+    assertEquals(gates.rejectionCode(rerank, true), SearchTemplateGates.SEVERAL_PROFILES);
     MergedSearchTemplate twoProfiles =
         merged(retrieval("keywordRerank"))
             .profiles(replace(DOCUMENT_DEFAULT.id(), CONNECTOR.id()))
             .build();
-    assertNull(reranking.rejectionCode(twoProfiles, true));
+    assertNull(gates.rejectionCode(twoProfiles, true));
     assertEquals(
-        reranking.bindingRejection(twoProfiles, List.of("document"), OPENSEARCH, true),
+        gates.bindingRejection(twoProfiles, List.of("document"), OPENSEARCH, true),
         SearchTemplateGates.SEVERAL_PROFILES);
+  }
+
+  @Test
+  public void testKeywordRerankPlansFromTheRenderedBlend() {
+    // The write check renders a Mustache value in the blend, so the rerank reads it the same way.
+    MergedSearchTemplate templated =
+        merged(retrieval("keywordRerank")).knn("{ \"vectorWeight\": {{partialFactor}} }").build();
+    assertTrue(
+        SearchTemplateKeywordRerank.plan(
+                    templated, VECTOR_BUILD, List.of("document"), OPENSEARCH, null)
+                .merger()
+            != null);
+  }
+
+  @Test
+  public void testKeywordRerankOverAMixedRequestGatesEachEntity() {
+    MergedSearchTemplate rerank = merged(retrieval("keywordRerank")).build();
+    SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC, true);
+    List<String> mixed = List.of("document", "dataset");
+    assertNull(gates.rejectionCode(rerank, true));
+    assertNull(gates.bindingRejection(rerank, mixed, OPENSEARCH, true));
+    // Document joins the rerank; this build does not rerank Dataset rows, so they keep their
+    // places.
+    Map<String, String> entityGates = gates.entityGates(rerank, mixed, OPENSEARCH);
+    assertNull(entityGates.get("document"));
+    assertEquals(entityGates.get("dataset"), SearchTemplateGates.ENTITY_NOT_ADVERTISED);
+    assertEquals(gates.joinedProfileIds(rerank, mixed, OPENSEARCH), Set.of(DOCUMENT_DEFAULT.id()));
+    // The rerank runs only with a joined profile the query embedding service embeds.
+    assertNull(
+        SearchTemplateKeywordRerank.keptReason(
+            rerank, gates, mixed, OPENSEARCH, DOCUMENT_DEFAULT.id()));
+    assertEquals(
+        SearchTemplateKeywordRerank.keptReason(rerank, gates, mixed, OPENSEARCH, "another"),
+        SearchTemplateKeywordRerank.PROFILE_NOT_EMBEDDABLE);
+    assertEquals(
+        SearchTemplateKeywordRerank.keptReason(
+            rerank, gates, List.of("dataset"), OPENSEARCH, DOCUMENT_DEFAULT.id()),
+        SearchTemplateKeywordRerank.NO_ELIGIBLE_ROWS);
   }
 
   @Test
@@ -181,10 +216,50 @@ public class SearchTemplateGatesTest {
     assertEquals(
         VECTOR_BUILD.bindingRejection(floor, List.of("dataset"), OPENSEARCH, true),
         SearchTemplateGates.MIN_SIMILARITY);
-    // The same template on a build without vector retrieval fails earlier, by capability.
+    // This build runs the vector leg for Document only, so Dataset does not join it.
     assertNull(
         SearchTemplateGates.of(REGISTRY, SEMANTIC, true)
             .bindingRejection(floor, List.of("dataset"), OPENSEARCH, true));
+  }
+
+  @Test
+  public void testTheDeploymentFloorAppliesToAVectorRungThatSetsNone() {
+    SemanticSearchConfiguration floored = semantic("document", "dataset");
+    floored.setMinSimilarity(0.5f);
+    SearchTemplateGates gates =
+        new SearchTemplateGates(
+            REGISTRY,
+            floored,
+            true,
+            Set.of(VECTOR_RETRIEVAL, DOCUMENT_RERANK),
+            Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset")));
+    MergedSearchTemplate vector = merged(retrieval("vector")).build();
+    assertEquals(gates.minSimilarity(vector), 0.5f);
+    // An inherited floor does not fail bind on an L2 profile; the rung skips it there
+    assertNull(gates.bindingRejection(vector, List.of("dataset"), OPENSEARCH, true));
+    assertNull(gates.bindingRejection(vector, List.of("document"), OPENSEARCH, true));
+    // A template floor replaces it, and keywordRerank drops nothing
+    assertEquals(
+        gates.minSimilarity(merged(retrieval("vector").setMinSimilarity(0.9f)).build()), 0.9f);
+    assertNull(gates.minSimilarity(merged(retrieval("keywordRerank")).build()));
+    assertNull(
+        gates.bindingRejection(
+            merged(retrieval("keywordRerank")).build(), List.of("dataset"), OPENSEARCH, true));
+  }
+
+  @Test
+  public void testAKeywordRerankThatRemovesTheDefaultLeavesTheEntityOut() {
+    MergedSearchTemplate rerank =
+        merged(retrieval("keywordRerank"))
+            .profiles(
+                new SearchTemplateProfiles()
+                    .setRemove(ids(DOCUMENT_DEFAULT.id()))
+                    .setAdd(ids(DATASET_L2.id())))
+            .build();
+    // The removed default does not come back as the dataset profile's fallback
+    assertEquals(
+        VECTOR_BUILD.entityGates(rerank, List.of("document"), OPENSEARCH).get("document"),
+        EmbeddingProfileRegistry.EMPTY_SELECTION);
   }
 
   @Test
@@ -352,6 +427,26 @@ public class SearchTemplateGatesTest {
         SearchTemplateCapabilities.rejectionCode(
             legacy, false, false, SearchTemplateComponentRegistry.empty(), VECTOR_BUILD),
         "knn");
+    assertNull(SearchTemplateCapabilities.effectiveCombine(legacy));
+
+    // With both model and field it is the earlier keywordRerank shape: no document rerank needed,
+    // and its names stay opaque, so it resolves the entity default.
+    MergedSearchTemplate migrated =
+        merged(null)
+            .knn("{ \"model\": \"dataset_l2\", \"field\": \"embeddings.vector\", \"k\": 10 }")
+            .build();
+    assertTrue(SearchTemplateCapabilities.keywordRerank(migrated));
+    assertNull(
+        SearchTemplateCapabilities.rejectionCode(
+            migrated, false, false, SearchTemplateComponentRegistry.empty(), VECTOR_BUILD));
+    assertNull(SearchTemplateGates.legacyProfileId(migrated));
+    assertEquals(
+        VECTOR_BUILD.joinedProfileIds(migrated, List.of("document"), OPENSEARCH),
+        Set.of(DOCUMENT_DEFAULT.id()));
+    // A blank model is not the migrated shape.
+    assertNull(
+        SearchTemplateCapabilities.effectiveCombine(
+            merged(null).knn("{ \"model\": \" \", \"field\": \"embeddings.vector\" }").build()));
   }
 
   @Test

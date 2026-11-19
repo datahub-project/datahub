@@ -15,14 +15,18 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.SearchV3CutoverSt
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SearchV3ReadHoldPolicy;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SearchV3ReadHoldPolicy.Decision;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
+import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -31,6 +35,7 @@ import java.util.TreeSet;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
@@ -113,7 +118,7 @@ public class SearchV3ReadHold {
     if (entityIndex == null || !EntitySearchIndexResolver.shouldReadV3(entityIndex)) {
       return;
     }
-    Map<String, PairedIndex> v2ToV3 = pairedIndices();
+    Map<String, PairedIndex> v2ToV3 = pairedIndices(elasticSearchConfiguration);
     if (v2ToV3.isEmpty()) {
       return;
     }
@@ -353,34 +358,107 @@ public class SearchV3ReadHold {
   }
 
   /**
-   * Existing V2 entity indices and the V3 index each is paired with. A V2 cluster that cannot be
-   * listed fails startup rather than reading as a fresh install.
+   * Existing V2 entity indices and the V3 index each is paired with, for every index prefix on the
+   * V2 cluster. Per-namespace prefixes give each namespace its own V2 and V3 indices, so checking
+   * only the default prefix could lift the hold while another namespace still writes V2. A V2
+   * cluster that cannot be listed fails startup rather than reading as a fresh install.
    */
-  private Map<String, PairedIndex> pairedIndices() {
+  private Map<String, PairedIndex> pairedIndices(
+      ElasticSearchConfiguration elasticSearchConfiguration) {
     SearchClientShim<?> v2Client = searchClusterRegistry.clientFor(SearchComponent.SEARCH_V2);
+    List<EntitySpec> specs = List.copyOf(entityRegistry.getEntitySpecs().values());
+    String defaultV2Token = prefixToken(SearchComponent.SEARCH_V2);
+    String defaultV3Token = prefixToken(SearchComponent.SEARCH_V3);
+    // A V3 overlay replaces the namespace prefix, so every namespace shares the default V3 index.
+    // Equality with INDEX_PREFIX is not "no overlay": the overlay still ignores per-namespace
+    // prefixes, and that is the case where the two resolved prefixes are the same string.
+    boolean v3Overlay =
+        IndexConventionImpl.explicitComponentPrefixOverlays(elasticSearchConfiguration)
+                .containsKey(SearchComponent.SEARCH_V3)
+            || !indexConvention
+                .getPrefix(OperationFingerprint.EMPTY, SearchComponent.SEARCH_V3)
+                .equals(indexConvention.getPrefix(OperationFingerprint.EMPTY));
+    Set<String> tokens = new TreeSet<>(prefixTokensOnV2Cluster(v2Client, specs));
+    tokens.add(defaultV2Token);
+
     Map<String, PairedIndex> paired = new TreeMap<>();
-    for (EntitySpec spec : entityRegistry.getEntitySpecs().values()) {
-      String v2Index =
-          indexConvention.getEntityIndexName(OperationFingerprint.EMPTY, spec.getName());
-      try {
-        if (indexExists(v2Client, v2Index)) {
-          paired.put(
-              v2Index,
-              new PairedIndex(
-                  indexConvention.getEntityIndexNameV3(
-                      OperationFingerprint.EMPTY, V3IndexKeys.resolve(spec)),
-                  spec.getName()));
+    for (EntitySpec spec : specs) {
+      String v2Base =
+          indexConvention
+              .getEntityIndexName(OperationFingerprint.EMPTY, spec.getName())
+              .substring(defaultV2Token.length());
+      String v3Default =
+          indexConvention.getEntityIndexNameV3(
+              OperationFingerprint.EMPTY, V3IndexKeys.resolve(spec));
+      String v3Base = v3Default.substring(defaultV3Token.length());
+      for (String token : tokens) {
+        String v2Index = token + v2Base;
+        try {
+          if (indexExists(v2Client, v2Index)) {
+            String v3Index = token.equals(defaultV2Token) || v3Overlay ? v3Default : token + v3Base;
+            paired.put(v2Index, new PairedIndex(v3Index, spec.getName()));
+          }
+        } catch (IOException e) {
+          throw new IllegalStateException(
+              "Cannot check V2 entity index "
+                  + v2Index
+                  + "; startup stops rather than assume a fresh install",
+              e);
         }
-      } catch (IOException e) {
-        throw new IllegalStateException(
-            "Cannot list V2 entity index "
-                + v2Index
-                + "; startup stops rather than assume a"
-                + " fresh install",
-            e);
       }
     }
     return paired;
+  }
+
+  /**
+   * The index prefix token ({@code "acme_"}, or empty) of every namespace with V2 entity indices,
+   * found by listing the cluster. Each V2 key is the token followed by the entity name, so the
+   * token is what precedes an entity name at an underscore boundary.
+   */
+  private Set<String> prefixTokensOnV2Cluster(
+      SearchClientShim<?> v2Client, List<EntitySpec> specs) {
+    Set<String> keys = new TreeSet<>();
+    try {
+      // The default get-index options set allow_no_indices to false, so a fresh cluster whose
+      // wildcard matches nothing returns 404. That must be an empty list, not a failed startup.
+      GetIndexRequest request =
+          new GetIndexRequest("*" + EntityIndexVersion.V2.token() + "*")
+              .indicesOptions(IndicesOptions.lenientExpand());
+      GetIndexResponse listing =
+          v2Client.getIndex(OperationFingerprint.EMPTY, request, RequestOptions.DEFAULT);
+      String[] indices = listing.getIndices();
+      if (indices != null) {
+        for (String indexName : indices) {
+          EntityIndexVersion.V2.keyOf(indexName).ifPresent(keys::add);
+        }
+      }
+    } catch (IOException e) {
+      throw new IllegalStateException(
+          "Cannot list V2 entity indices; startup stops rather than assume a fresh install", e);
+    }
+    Set<String> tokens = new TreeSet<>();
+    for (String key : keys) {
+      for (EntitySpec spec : specs) {
+        // Index names are lowercased at creation. Entity names keep their registry case, so
+        // dataJob is stored as datajob and a case-sensitive endsWith never sees it.
+        String entityName = spec.getName().toLowerCase(Locale.ROOT);
+        int tokenLength = key.length() - entityName.length();
+        if (tokenLength >= 0
+            && key.regionMatches(tokenLength, entityName, 0, entityName.length())
+            && (tokenLength == 0 || key.charAt(tokenLength - 1) == '_')) {
+          tokens.add(key.substring(0, tokenLength));
+        }
+      }
+    }
+    return tokens;
+  }
+
+  /** The prefix token the convention puts ahead of a base name for {@code component}. */
+  private String prefixToken(SearchComponent component) {
+    return indexConvention
+        .getPrefix(OperationFingerprint.EMPTY, component)
+        .map(prefix -> prefix + "_")
+        .orElse("");
   }
 
   /**

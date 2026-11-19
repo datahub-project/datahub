@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
+import { ActionDisabledReason } from '@app/entityV2/shared/components/styled/search/types';
 import {
     EditOwnersModal,
     OperationType,
@@ -10,11 +11,12 @@ import {
 type Props = {
     urns: Array<string>;
     disabled: boolean;
+    disabledReason?: ActionDisabledReason;
     refetch?: () => void;
 };
 
 // eslint-disable-next-line
-export default function OwnersDropdown({ urns, disabled = false, refetch }: Props) {
+export default function OwnersDropdown({ urns, disabled = false, disabledReason, refetch }: Props) {
     const { t } = useTranslation('entity.shared.components');
     const { t: tcl } = useTranslation('common.labels');
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
@@ -41,6 +43,7 @@ export default function OwnersDropdown({ urns, disabled = false, refetch }: Prop
                     },
                 ]}
                 disabled={disabled}
+                disabledReason={disabledReason}
             />
             {isEditModalVisible && (
                 <EditOwnersModal

@@ -199,9 +199,12 @@ public final class SearchFieldResolver {
     byName.forEach((name, field) -> resolved.put(name, field.toField()));
     fields = Collections.unmodifiableMap(resolved);
     Map<String, Field> exactSources = new LinkedHashMap<>();
+    // One grouping for the whole registry. The entity-spec overload regroups every field per call.
+    Map<String, List<SearchableFieldSpec>> rootSources =
+        V3SearchFields.rootSourceFieldSpecs(entitySpecs);
     sources.forEach(
         (name, field) -> {
-          if (!V3SearchFields.omitsSourceRoot(name, entitySpecs)) {
+          if (!V3SearchFields.omitsSourceRoot(name, rootSources.get(name))) {
             exactSources.put(name, field.toField());
           }
         });

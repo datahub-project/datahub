@@ -802,6 +802,18 @@ type SearchResults {
   Templates visited while choosing this result, when the caller asked for an explanation
   """
   routeChain: [String!]
+
+  """
+  How the served template's keywordRerank ordered this result, when the caller asked for an
+  explanation
+  """
+  keywordRerank: KeywordRerankExplanation
+
+  """
+  How the served template's vector rung retrieved this result, when the caller asked for an
+  explanation
+  """
+  vectorRetrieval: VectorRetrievalExplanation
 }
 
 type ExtraProperty {
@@ -1760,4 +1772,127 @@ enum LineageSearchPath {
   Designates the lightning lineage code path
   """
   LIGHTNING
+}
+
+"""
+How the served template's keywordRerank ordered a search result
+"""
+type KeywordRerankExplanation {
+  """
+  applied when the rerank reordered the ranking window, else keptKeywordOrder
+  """
+  outcome: String!
+
+  """
+  Why the result kept keyword order, such as hybridReadOff, noEligibleRows, failed, timeout, or
+  notApplicable. Unset when the rerank applied
+  """
+  reason: String
+
+  """
+  Rows in the ranking window whose entity type passes the entity gates
+  """
+  eligibleRows: Int
+
+  """
+  Rows in the ranking window that keep their keyword places because their entity type fails the
+  entity gates
+  """
+  ineligibleRows: Int
+
+  """
+  Deprecated inputs this search used, each with its replacement
+  """
+  deprecations: [String!]
+}
+
+"""
+How the served template's vector rung (combine: vector) retrieved a search result
+"""
+type VectorRetrievalExplanation {
+  """
+  served, empty (no hit survived), pastWindow (the page starts past the surviving hits), or
+  noEligibleEntities (no requested entity type passes the entity gates)
+  """
+  outcome: String!
+
+  """
+  The embedding profile the kNN request queried
+  """
+  profile: String
+
+  """
+  The store that served the neighbors: elasticsearch or opensearch for the DataHub index, else the
+  external store's configured name
+  """
+  store: String
+
+  """
+  Milliseconds the external store's search call took. Absent on the DataHub index
+  """
+  adapterLatencyMillis: Long
+
+  """
+  Hits an external store returned that hydration on the DataHub index dropped: deleted, hidden,
+  outside the filter there, or not viewable by the caller
+  """
+  removedByHydration: Int!
+
+  """
+  Requested entity types the kNN request searched
+  """
+  entityTypes: [String!]
+
+  """
+  Requested entity types left out of the vector leg, each as entityType:reason
+  """
+  excludedEntityTypes: [String!]
+
+  """
+  Neighbors requested: the template's candidateCap, clamped to the store's maximum, or the window
+  semantic search fetches for the page when the template sets no cap
+  """
+  k: Int
+
+  """
+  The template's candidateCap, set when it exceeded the store's maximum and k was clamped to it
+  """
+  clampedCandidateCap: Int
+
+  """
+  Hits the store returned, before any floor
+  """
+  candidates: Int
+
+  """
+  The raw cosine floor in effect: retrieval.minSimilarity, else semanticSearch.minSimilarity
+  """
+  minSimilarity: Float
+
+  """
+  Why the floor inherited from semanticSearch.minSimilarity was not applied, such as
+  profileNotCosine
+  """
+  minSimilaritySkipped: String
+
+  """
+  Hits below minSimilarity. They are dropped and the window is not refilled
+  """
+  belowMinSimilarity: Int!
+
+  """
+  Hits below the deprecated SearchFlags.minScore. They are dropped and the window is not refilled
+  """
+  belowMinScore: Int!
+
+  """
+  The caller's filter and the default search filters ran inside the vector search. False on an
+  external store without preFilter, where hydration applies the default search filters
+  """
+  filterInVectorSearch: Boolean!
+
+  """
+  Deprecated inputs this search used, each with its replacement
+  """
+  deprecations: [String!]
 }

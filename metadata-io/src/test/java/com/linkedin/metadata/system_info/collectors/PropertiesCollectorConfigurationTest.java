@@ -122,6 +122,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "spring.autoconfigure.exclude[*]",
           // Cache configuration with dynamic entity/aspect combinations
           "cache.client.entityClient.entityAspectTTLSeconds.*.*",
+          // External vector stores by operator-chosen name: limits and capabilities, not
+          // credentials. A store field that carries a secret needs its own sensitive entry.
+          "elasticsearch.entityIndex.semanticSearch.stores.*.capabilities[*]",
+          "elasticsearch.entityIndex.semanticSearch.stores.*.timeoutMillis",
+          "elasticsearch.entityIndex.semanticSearch.stores.*.maxK",
+          "elasticsearch.entityIndex.semanticSearch.stores.*.resultTtlMillis",
           // Gradle test worker properties (Java system properties)
           "org.gradle.test.worker*",
           // System update properties
@@ -929,6 +935,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "graphQL.query.depthLimit",
           "graphQL.query.introspectionEnabled",
           "graphQL.query.maxParentDepth",
+          "graphQL.query.maxSiblingGroupUrns",
           "graphQL.query.maxVisitedUrns",
           "graphQL.query.slowQueryThresholdMs",
           "graphQL.query.streamResponse",
@@ -1147,6 +1154,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "searchService.resultBatchSize",
           "siblings.consumerGroupSuffix",
           "siblings.enabled",
+          "siblings.maxGroupHops",
           "springdoc.api-docs.path",
           "springdoc.api-docs.version",
           "springdoc.cache.disabled",
@@ -1297,6 +1305,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Semantic search configuration
           "elasticsearch.entityIndex.semanticSearch.enabled",
           "elasticsearch.entityIndex.semanticSearch.enabledEntities",
+          "elasticsearch.entityIndex.semanticSearch.minSimilarity",
           "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.vectorDimension",
           "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.knnEngine",
           "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.spaceType",
