@@ -118,6 +118,7 @@ export const DEFAULT_APP_CONFIG = {
         structuredPropertiesInPoliciesEnabled: false,
         multipleDataProductsPerAsset: false,
         showTestsInHealthIcon: false,
+        mcpServerEnabled: false,
         i18nEnabled: true,
     },
     chromeExtensionConfig: {

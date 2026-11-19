@@ -934,6 +934,12 @@ type FeatureFlagsConfig {
   showTestsInHealthIcon: Boolean!
 
   """
+  If enabled, DataHub's built-in MCP server is on, and the UI shows the MCP settings page and the
+  Connect AI Tools home page module. Controlled by MCP_SERVER_ENABLED.
+  """
+  mcpServerEnabled: Boolean!
+
+  """
   If enabled, internationalization (i18n) features are active.
   """
   i18nEnabled: Boolean!

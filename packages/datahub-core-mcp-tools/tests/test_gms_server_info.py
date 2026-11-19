@@ -52,6 +52,16 @@ def test_auth_enabled(authentication: object, expected: bool | None) -> None:
     assert GmsServerInfo.from_config(config).auth_enabled is expected
 
 
+@pytest.mark.parametrize(
+    ("mcp_server", "expected"),
+    [({"enabled": True}, True), ({"enabled": False}, False), ({}, None), (None, None)],
+)
+def test_mcp_server_enabled(mcp_server: object, expected: bool | None) -> None:
+    config = {**_config("v1.9.0"), "mcpServer": mcp_server}
+
+    assert GmsServerInfo.from_config(config).mcp_server_enabled is expected
+
+
 class _FakeGms:
     def __init__(self) -> None:
         self.now = 0.0

@@ -109,6 +109,11 @@ public class Config extends HttpServlet {
       authenticationConfig.put("enabled", configProvider.getAuthentication().isEnabled());
       newConfig.put("authentication", authenticationConfig);
 
+      // Whether DataHub's built-in MCP server is on (MCP_SERVER_ENABLED). datahub-ai-service reads
+      // it and answers 404 on /mcp while it is off.
+      newConfig.put(
+          "mcpServer", Map.of("enabled", configProvider.getFeatureFlags().isMcpServerEnabled()));
+
       // pgQueue Configuration (exposed for Python CLI/executor)
       try {
         PostgresSqlSetupProperties pgProps = ctx.getBean(PostgresSqlSetupProperties.class);
