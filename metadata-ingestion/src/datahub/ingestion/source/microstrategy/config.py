@@ -539,7 +539,7 @@ class MicroStrategyConfig(
             "`stateful_ingestion.fail_safe_threshold` for that run when more "
             "than the default percentage of entities would change. The design "
             "note is metadata-ingestion/src/datahub/ingestion/source/"
-            "microstrategy/docs/dataset-identity.md in the DataHub repository."
+            "microstrategy/dataset_identity.md in the DataHub repository."
         ),
     )
     datasource_platform_mapping: Dict[str, ConnectionPlatformConfig] = Field(
