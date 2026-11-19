@@ -59,11 +59,11 @@ import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryUnderstanding;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateBootstrap;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateContextVariables;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFields;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateHybrid;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateJson;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateKeywordRerank;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLight;
@@ -71,6 +71,8 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateM
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMustache;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateQueryShape;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
+import com.linkedin.metadata.search.embedding.VectorStore;
+import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
 import com.linkedin.metadata.search.hybrid.HybridRerankPlan;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
@@ -203,14 +205,26 @@ public class ESSearchDAO {
   @Nonnull private final EntityDocumentIdHasher entityDocumentIdHasher;
   @Nullable private final HybridSearchResultReranker hybridSearchResultReranker;
 
+  /**
+   * Embeds the query of a search template vector rung. Null when this process cannot run one, which
+   * fails that rung closed.
+   */
+  @Nullable final HybridQueryEmbeddingService vectorQueryEmbedding;
+
+  /**
+   * Adapters for the external vector stores named in {@code semanticSearch.stores}. DataHub ships
+   * none, so a profile served by an external store fails its vector rung closed.
+   */
+  @Nonnull volatile Map<String, VectorStore> vectorStores = Map.of();
+
   private final TemplateSearchExecutor templateSearch = new TemplateSearchExecutor(this);
 
   private final AtomicInteger hybridFailures = new AtomicInteger();
   private final AtomicLong hybridPausedUntilNanos = new AtomicLong(System.nanoTime());
   private final AtomicLong hybridLastFailureNanos = new AtomicLong(System.nanoTime());
   private volatile long hybridPauseNanos = TimeUnit.MILLISECONDS.toNanos(HYBRID_PAUSE_MILLIS);
-  private volatile long hybridTimeoutMillis = HYBRID_TIMEOUT_MILLIS;
-  private volatile ExecutorService hybridExecutor = HYBRID_EXECUTOR;
+  volatile long hybridTimeoutMillis = HYBRID_TIMEOUT_MILLIS;
+  volatile ExecutorService hybridExecutor = HYBRID_EXECUTOR;
 
   public ESSearchDAO(
       boolean pointInTimeCreationEnabled,
@@ -261,6 +275,7 @@ public class ESSearchDAO {
         testLoggingEnabled,
         searchServiceConfig,
         entityDocumentIdHasher,
+        null,
         null);
   }
 
@@ -682,8 +697,6 @@ public class ESSearchDAO {
     if (templateSearch.templateReads(opContext)) {
       final int hybridFetchSize =
           hybridFetchSize(opContext, entityNames, input, sortCriteria, from, size);
-      final int requestFrom = hybridFetchSize > 0 ? 0 : from;
-      final Integer requestSize = hybridFetchSize > 0 ? hybridFetchSize : size;
       final TemplateSearchExecutor.BoundSearch searched =
           templateSearch.searchWithTemplates(
               opContext,
@@ -691,9 +704,12 @@ public class ESSearchDAO {
               input,
               postFilters,
               sortCriteria,
-              requestFrom,
-              requestSize,
+              from,
+              size,
+              hybridFetchSize,
               facets);
+      // A rung that fetched only the page is not sliced again. A keywordRerank rung still reports
+      // why it kept keyword order.
       return finishTemplateHybrid(
           searched.context(),
           entityNames,
@@ -702,7 +718,7 @@ public class ESSearchDAO {
           searched.result(),
           from,
           size,
-          hybridFetchSize);
+          searched.pageFetched() ? 0 : hybridFetchSize);
     }
 
     // A hybrid search fetches the keyword rows from the top to rerank them, then slices the page
@@ -824,18 +840,26 @@ public class ESSearchDAO {
         result.getEntities() == null ? List.of() : new ArrayList<>(result.getEntities());
     final SearchFlags flags = opContext.getSearchContext().getSearchFlags();
     final Float minScore = flags != null && flags.hasMinScore() ? flags.getMinScore() : null;
-    String reason =
-        templateRerankSkip(
-            opContext, resolved, entityNames, input, sortCriteria, from, size, hybridFetchSize);
+    String reason;
     HybridRerankPlan plan = null;
-    if (reason == null) {
-      try {
-        final SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
-        final MergedSearchTemplate template =
-            coordinator.loader().load(opContext, resolved.getTemplateRerank());
-        // When the served request applied the rung's own sort, that sort orders the window, so
-        // there is no relevance order to rerank. A sort section that renders empty leaves score
-        // order.
+    try {
+      final SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+      final MergedSearchTemplate template =
+          coordinator.loader().load(opContext, resolved.getTemplateRerank());
+      reason =
+          templateRerankSkip(
+              opContext,
+              resolved,
+              template,
+              entityNames,
+              input,
+              sortCriteria,
+              from,
+              size,
+              hybridFetchSize);
+      // When the served request applied the rung's own sort, that sort orders the window, so there
+      // is no relevance order to rerank. A sort section that renders empty leaves score order.
+      if (reason == null) {
         reason =
             resolved.isTemplateSortApplied()
                 ? SearchTemplateKeywordRerank.NOT_APPLICABLE
@@ -845,15 +869,15 @@ public class ESSearchDAO {
                     entityNames,
                     resolved.getSearchSystem(),
                     hybridSearchResultReranker.modelEmbeddingKey());
-        if (reason == null) {
-          plan =
-              SearchTemplateKeywordRerank.plan(
-                  template, coordinator.gates(), entityNames, resolved.getSearchSystem(), minScore);
-        }
-      } catch (RuntimeException e) {
-        log.warn("keywordRerank could not plan its rerank; serving the keyword ranking", e);
-        reason = SearchTemplateKeywordRerank.FAILED;
       }
+      if (reason == null) {
+        plan =
+            SearchTemplateKeywordRerank.plan(
+                template, coordinator.gates(), entityNames, resolved.getSearchSystem(), minScore);
+      }
+    } catch (RuntimeException e) {
+      log.warn("keywordRerank could not plan its rerank; serving the keyword ranking", e);
+      reason = SearchTemplateKeywordRerank.FAILED;
     }
     List<SearchEntity> ranked = rows;
     if (plan != null) {
@@ -909,13 +933,14 @@ public class ESSearchDAO {
 
   /**
    * Why a keywordRerank rung cannot rerank this request before its window is looked at, or null:
-   * the request ranks no relevance window, hybrid read is off, the request cannot run document
-   * rerank, no requested type has vectors, or hybrid read is paused.
+   * the request ranks no relevance window, hybrid read is off, the rung's scope assigns it no
+   * Document, semantic read is off, no requested type has vectors, or hybrid read is paused.
    */
   @Nullable
   private String templateRerankSkip(
       @Nonnull OperationContext opContext,
       @Nonnull ResolvedSearchTemplate resolved,
+      @Nonnull MergedSearchTemplate template,
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable List<SortCriterion> sortCriteria,
@@ -928,10 +953,12 @@ public class ESSearchDAO {
     if (hybridSearchResultReranker == null) {
       return SearchTemplateKeywordRerank.HYBRID_READ_OFF;
     }
+    // The rung searched only its assigned types, so Document elsewhere in the request is not enough
+    if (!SearchTemplateCapabilities.assignsDocument(template, entityNames)) {
+      return SearchTemplateKeywordRerank.NO_DOCUMENT;
+    }
     if (!resolved.isDocumentRerank()) {
-      return SearchTemplateHybrid.includesDocument(entityNames)
-          ? SearchTemplateKeywordRerank.SEMANTIC_READ_OFF
-          : SearchTemplateKeywordRerank.NO_DOCUMENT;
+      return SearchTemplateKeywordRerank.SEMANTIC_READ_OFF;
     }
     if (hybridSearchResultReranker.vectorEntityNames(opContext, entityNames).isEmpty()) {
       return SearchTemplateKeywordRerank.NO_ELIGIBLE_ROWS;
@@ -1185,6 +1212,11 @@ public class ESSearchDAO {
   @VisibleForTesting
   void setHybridPauseMillis(long millis) {
     hybridPauseNanos = TimeUnit.MILLISECONDS.toNanos(millis);
+  }
+
+  @VisibleForTesting
+  void setVectorStores(@Nonnull Map<String, VectorStore> stores) {
+    vectorStores = Map.copyOf(stores);
   }
 
   @VisibleForTesting
@@ -2347,7 +2379,7 @@ public class ESSearchDAO {
     if (templateSearch.templateReads(opContext)) {
       return templateSearch
           .prepareTemplateSearch(
-              opContext,
+              templateSearch.bindWhole(opContext, "*", List.of(entityName)),
               List.of(entityName),
               "*",
               filters,

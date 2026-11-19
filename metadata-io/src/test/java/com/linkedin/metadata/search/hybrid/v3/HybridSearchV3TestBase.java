@@ -36,6 +36,9 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SearchTemplateConfiguration;
+import com.linkedin.metadata.config.search.SearchTemplateSource;
+import com.linkedin.metadata.config.search.SearchV3Configuration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -59,8 +62,17 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateBootstrap;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateKeywordRerank;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingTaskType;
 import com.linkedin.metadata.search.hybrid.HybridCandidateMerger;
@@ -83,6 +95,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.test.metadata.aspect.batch.TestMCL;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -91,11 +104,13 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -133,6 +148,8 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
 
   private final List<String> createdIndices = new ArrayList<>();
   private OperationContext opContext;
+  private ElasticSearchConfiguration config;
+  private SemanticSearchConfiguration semanticSearch;
   private ESSearchDAO keywordSearch;
   private ESSearchDAO hybridSearch;
 
@@ -145,13 +162,13 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
   @BeforeClass
   public void setUp() throws Exception {
     if (!SemanticEntitySearchService.supportsV3SemanticFilters(getSearchClient())) {
-      throw new SkipException(
-          "Hybrid read needs V3 semantic reads, which DataHub refuses on OpenSearch before 3.5");
+      throw new SkipException("Hybrid read needs a Search V3 client that supports semantic reads");
     }
     ModelEmbeddingConfig model = new ModelEmbeddingConfig();
     model.setVectorDimension(QUERY_VECTOR.length);
-    SemanticSearchConfiguration semanticSearch =
-        new SemanticSearchConfiguration(true, Set.of("document"), Map.of(MODEL_KEY, model), null);
+    semanticSearch =
+        new SemanticSearchConfiguration(
+            true, Set.of("document"), Map.of(MODEL_KEY, model), null, null, null);
     EntityIndexConfiguration entityIndex =
         V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.toBuilder()
             .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
@@ -162,8 +179,7 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
                     .build())
             .semanticSearch(semanticSearch)
             .build();
-    ElasticSearchConfiguration config =
-        TEST_ES_SEARCH_CONFIG.toBuilder().entityIndex(entityIndex).build();
+    config = TEST_ES_SEARCH_CONFIG.toBuilder().entityIndex(entityIndex).build();
     IndexConvention indexConvention =
         new IndexConventionImpl(
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
@@ -241,7 +257,8 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
                     new HybridVectorScoreNormalizer(
                         getSearchClient().getEngineType(), model.getSpaceType())),
                 new HybridCandidateMerger(
-                    new HybridLexicalScoreNormalizer(), new HybridScoreCombiner())));
+                    new HybridLexicalScoreNormalizer(), new HybridScoreCombiner())),
+            null);
 
     ElasticSearchService searchService =
         new ElasticSearchService(
@@ -352,6 +369,105 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
             opContext, ENTITY_TYPES, "revenue", documentsOnly, null, 0, 10, List.of());
 
     assertEquals(urns(hybrid), List.of(NEAR_DOCUMENT, FAR_DOCUMENT));
+  }
+
+  /**
+   * Keyword-surface parity with hybrid read on. When no row in the window can be blended, the
+   * shipped fulltext template returns exactly what the same template without its keywordRerank
+   * sections returns, which the default hybrid reranker serves: the ordered URNs, the scores, the
+   * total, and the facets.
+   */
+  @Test
+  public void testShippedFulltextKeepsTheKeywordResultWithNoEligibleRows() {
+    String fulltext = "urn:li:searchTemplate:fulltext";
+    String keywordOnlyUrn = "urn:li:searchTemplate:fulltextKeywordOnly";
+    Map<String, SearchTemplateProperties> catalog = new HashMap<>();
+    for (String urn : SearchTemplateBootstrap.urns()) {
+      catalog.put(urn, SearchTemplateBootstrap.get(urn));
+    }
+    SearchTemplateProperties keywordOnly = SearchTemplateBootstrap.get(fulltext);
+    keywordOnly.removeRetrieval();
+    keywordOnly.removeKnn();
+    keywordOnly.setApiVersion(SearchTemplateCapabilities.API_VERSION);
+    catalog.put(keywordOnlyUrn, keywordOnly);
+    SearchTemplateConfiguration templates = new SearchTemplateConfiguration();
+    templates.setEnabled(true);
+    SearchTemplateFixtures.setShippedLimits(templates);
+    OperationContext searching =
+        opContext.withSearchTemplateRuntime(
+            new SearchTemplateCoordinator(
+                config.toBuilder()
+                    .search(
+                        config.getSearch().toBuilder()
+                            .v3(new SearchV3Configuration().setTemplates(templates))
+                            .build())
+                    .build(),
+                null,
+                new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH, catalog),
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.of(
+                    EmbeddingProfileRegistry.fromSemanticSearch(semanticSearch, MODEL_KEY),
+                    semanticSearch,
+                    true)));
+    // The window holds the dataset and one document, and one document row cannot be blended
+    Filter oneDocument =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                new Criterion()
+                                    .setField("urn")
+                                    .setCondition(Condition.EQUAL)
+                                    .setValues(
+                                        new StringArray(
+                                            List.of(
+                                                DATASET.toString(), NEAR_DOCUMENT.toString())))))));
+    List<String> facets = List.of("_entityType", "platform");
+    List<SearchResult> served = new ArrayList<>();
+    for (String template : List.of(fulltext, keywordOnlyUrn)) {
+      served.add(
+          hybridSearch.search(
+              searching.withSearchFlags(
+                  flags -> flags.setSearchTemplate(UrnUtils.getUrn(template))),
+              ENTITY_TYPES,
+              "revenue",
+              oneDocument,
+              null,
+              0,
+              10,
+              facets));
+    }
+
+    assertEquals(Set.copyOf(urns(served.get(0))), Set.of(DATASET, NEAR_DOCUMENT));
+    assertEquals(urns(served.get(0)), urns(served.get(1)));
+    assertEquals(scores(served.get(0)), scores(served.get(1)));
+    assertEquals(served.get(0).getNumEntities(), served.get(1).getNumEntities());
+    assertEquals(
+        served.get(0).getMetadata().getAggregations(),
+        served.get(1).getMetadata().getAggregations());
+    // The shipped rung is a keywordRerank rung that kept keyword order for this reason
+    SearchResult explained =
+        hybridSearch.search(
+            searching.withSearchFlags(
+                flags ->
+                    flags.setSearchTemplate(UrnUtils.getUrn(fulltext)).setIncludeExplain(true)),
+            ENTITY_TYPES,
+            "revenue",
+            oneDocument,
+            null,
+            0,
+            10,
+            facets);
+    assertEquals(
+        explained.getMetadata().getKeywordRerank().getReason(),
+        SearchTemplateKeywordRerank.NO_ELIGIBLE_ROWS);
+  }
+
+  private static List<Double> scores(SearchResult result) {
+    return result.getEntities().stream().map(SearchEntity::getScore).collect(Collectors.toList());
   }
 
   private List<MCLItem> document(Urn urn, String title, String text, float[]... chunkVectors) {

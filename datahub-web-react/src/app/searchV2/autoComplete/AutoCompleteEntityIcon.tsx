@@ -9,10 +9,13 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Entity } from '@types';
 
 const PreviewImage = styled(Image)`
-    height: 16px;
-    width: 16px;
-    object-fit: contain;
-    background-color: transparent;
+    /* antd 5 sizes .ant-image .ant-image-img with two classes; && keeps these sizes winning */
+    && {
+        height: 16px;
+        width: 16px;
+        object-fit: contain;
+        background-color: transparent;
+    }
 `;
 
 type Props = {

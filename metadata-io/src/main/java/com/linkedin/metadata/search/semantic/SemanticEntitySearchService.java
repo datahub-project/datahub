@@ -4,6 +4,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -22,6 +23,8 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
@@ -74,10 +77,10 @@ import org.apache.commons.lang3.StringUtils;
  * <p>REQUIREMENTS:
  *
  * <ul>
- *   <li>Elasticsearch 8.x, or OpenSearch 2.17.0+ (for pre-filtering support with nested kNN
- *       vectors)
- *   <li>Search V3 semantic reads (semantic search on, and keyword reads on V3): OpenSearch 3.5+ or
- *       Elasticsearch 8.18+ on the Search V3 cluster
+ *   <li>Elasticsearch 8.18+, or OpenSearch 2.17.0+ (for pre-filtering support with nested kNN
+ *       vectors). A model that uses faiss cosine needs OpenSearch 2.19+. {@link
+ *       #requireSupportedV3Engine} enforces that floor on the Search V3 client when semantic reads
+ *       are on V3. An unreadable engine version does not fail startup.
  *   <li>Semantic indices with nested vector fields at {@code
  *       embeddings.{modelEmbeddingKey}.chunks.vector}
  * </ul>
@@ -498,80 +501,63 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   }
 
   /**
-   * Refuses semantic reads on a Search V3 cluster that would silently drop facet and View filters.
-   * See {@link #supportsV3SemanticFilters}. Only queries the cluster when semantic search reads V3.
+   * Refuses Search V3 semantic reads on an engine below the V2 semantic floor: OpenSearch 2.17+, or
+   * 2.19+ when a model uses faiss cosine, and Elasticsearch 8.18+. The old OpenSearch 3.5 refusal
+   * was for k-NN pre-filters under {@code _aspects}. Those filters are top-level fields now. An
+   * unreadable version is skipped. {@code getEngineVersion} returns {@code "unknown"} when cluster
+   * info is restricted, and that is not evidence of an old engine.
    */
   public static void requireSupportedV3Engine(
       @Nullable EntityIndexConfiguration entityIndex, @Nonnull SearchClientShim<?> v3Client) {
-    if (!shouldReadSemanticV3(entityIndex)
-        || entityIndex.getSemanticSearch() == null
-        || !entityIndex.getSemanticSearch().isEnabled()
-        || !isOpenSearch(v3Client)) {
+    if (v3Client == null || !shouldReadSemanticV3(entityIndex)) {
       return;
     }
-    String version = engineVersion(v3Client);
-    int[] majorMinor = majorMinor(version);
-    if (majorMinor == null) {
-      throw new IllegalStateException(
-          "Semantic search on the Search V3 index needs OpenSearch 3.5+ on the Search V3 cluster, but"
-              + " its version could not be read (got '"
-              + version
-              + "'); grant the cluster:monitor/main permission or keep semantic search on V2");
+    SearchEngineType engine = v3Client.getEngineType();
+    if (engine == null || engine == SearchEngineType.UNKNOWN) {
+      return;
     }
-    if (!atLeastOpenSearch35(majorMinor)) {
-      throw new IllegalStateException(
-          "Semantic search on the Search V3 index needs OpenSearch 3.5+ or Elasticsearch 8.18+ on"
-              + " the Search V3 cluster, which runs OpenSearch "
-              + version
-              + ", where V3 semantic reads have not been validated");
-    }
-  }
-
-  /**
-   * False for OpenSearch before 3.5, whose k-NN plugin runs a nested query's pre-filter in the
-   * nested scope for fields under an underscore-prefixed object. V3 facet and View filters read
-   * such fields under {@code _aspects} until they moved to top-level fields; V3 semantic reads are
-   * validated only on OpenSearch 3.5+ and Elasticsearch, which applies them.
-   */
-  public static boolean supportsV3SemanticFilters(@Nonnull SearchClientShim<?> client) {
-    if (!isOpenSearch(client)) {
-      return true;
-    }
-    int[] majorMinor = majorMinor(engineVersion(client));
-    return majorMinor != null && atLeastOpenSearch35(majorMinor);
-  }
-
-  private static boolean isOpenSearch(@Nonnull SearchClientShim<?> client) {
-    SearchEngineType engineType = client.getEngineType();
-    return engineType != null && engineType.isOpenSearch();
-  }
-
-  @Nullable
-  private static String engineVersion(@Nonnull SearchClientShim<?> client) {
+    String version = null;
     try {
-      return client.getEngineVersion();
+      version = v3Client.getEngineVersion();
     } catch (IOException e) {
-      return null;
+      version = null;
+    }
+    if (version == null || version.isBlank() || "unknown".equals(version)) {
+      log.warn("Unable to read the Search V3 engine version; skipping the semantic version check");
+      return;
+    }
+    if (engine.isOpenSearch()) {
+      OpenSearchSearchClientShim.assertSemanticSearchSupported(
+          version, faissCosineConfigured(entityIndex));
+      return;
+    }
+    if (engine.isElasticsearch()) {
+      Es8SearchClientShim.assertSemanticSearchSupported(version);
     }
   }
 
-  @Nullable
-  private static int[] majorMinor(@Nullable String version) {
-    if (version == null) {
-      return null;
+  /** True when any configured model stores faiss cosine vectors, which need OpenSearch 2.19+. */
+  private static boolean faissCosineConfigured(@Nonnull EntityIndexConfiguration entityIndex) {
+    SemanticSearchConfiguration semanticSearch = entityIndex.getSemanticSearch();
+    if (semanticSearch == null || semanticSearch.getModels() == null) {
+      return false;
     }
-    String[] parts = version.split("\\.");
-    try {
-      return new int[] {
-        Integer.parseInt(parts[0]), parts.length > 1 ? Integer.parseInt(parts[1]) : 0
-      };
-    } catch (NumberFormatException e) {
-      return null;
+    for (ModelEmbeddingConfig model : semanticSearch.getModels().values()) {
+      if (model == null || model.getKnnEngine() == null || model.getSpaceType() == null) {
+        continue;
+      }
+      String spaceType = model.getSpaceType().trim();
+      if ("faiss".equalsIgnoreCase(model.getKnnEngine().trim())
+          && ("cosine".equalsIgnoreCase(spaceType) || "cosinesimil".equalsIgnoreCase(spaceType))) {
+        return true;
+      }
     }
+    return false;
   }
 
-  private static boolean atLeastOpenSearch35(@Nonnull int[] majorMinor) {
-    return majorMinor[0] > 3 || (majorMinor[0] == 3 && majorMinor[1] >= 5);
+  /** V3 facet and View filters are top-level, so they are not limited to OpenSearch 3.5+. */
+  public static boolean supportsV3SemanticFilters(@Nonnull SearchClientShim<?> client) {
+    return client != null;
   }
 
   /**

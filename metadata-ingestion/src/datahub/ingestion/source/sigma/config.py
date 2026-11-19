@@ -290,6 +290,8 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Siblings added as upstreams by orphan recovery; not in intra_upstreams,
     # which counts what /lineage reported.
     data_model_element_intra_upstreams_recovered: int = 0
+    # Union branches /lineage did not list, added as upstreams from /spec.
+    data_model_element_union_upstreams_added: int = 0
     data_model_element_external_upstreams: int = 0
     # Split intentionally so operators can triage "upstream dataset
     # exists but wasn't ingested in this run" (typically a pattern
@@ -361,15 +363,20 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Refs whose source element is outside this DM; deferred to cross-DM resolution.
     data_model_element_fgl_cross_dm_deferred: int = 0
     # Warehouse-passthrough refs where columnId-based resolution failed.
-    # Fires for self-ref formulas (element name == formula source) AND for
-    # formulas where the source is the warehouse table name but resolution fails
-    # (e.g. inode-shaped columnId with /files miss or unmappable connection).
+    # Fires only when the columnId is inode-<url_id>/<COL> with url_id one of
+    # the element's sources and it fails to resolve (/files miss, unmappable
+    # connection), on a self-ref formula (element name == formula source), a
+    # formula naming the warehouse table, or an empty formula. Not counted:
+    # other columnIds, or an ingested Sigma Dataset. A Sigma Dataset excluded
+    # by workspace_pattern still counts: the lookup does not record why it
+    # returned nothing.
     # Note: semantics changed in this release — previously this counter fired on
     # every self-ref (a throughput signal); now it fires only on failure.
     data_model_element_fgl_warehouse_passthrough_deferred: int = 0
     # Warehouse-passthrough FGL emitted via columnId (inode-<url_id>/<COL>).
-    # Covers both the self-ref case and the case where the formula source is
-    # the warehouse table name rather than the element name.
+    # Covers the self-ref case, the case where the formula source is the
+    # warehouse table name rather than the element name, and a column with an
+    # empty formula.
     data_model_element_fgl_warehouse_resolved: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
     # /lineage, whose cross-DM rescue (_try_emit_self_named_cross_dm_fgl) found
@@ -385,6 +392,22 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Sigma, so counted apart from the edges /lineage backs, and emitted with a
     # lower confidenceScore. Counts edges, not refs.
     data_model_element_fgl_orphan_recovered: int = 0
+    # Union output-column edges read from /spec, one per branch.
+    data_model_element_fgl_union_resolved: int = 0
+    # Union branch edges /spec named that could not be matched to an ingested
+    # element and column, plus output refs on a union whose /spec is not
+    # trusted (unknown schemaVersion, misaligned branches); and branches that
+    # are a warehouse table or another Data Model's element, not mapped yet.
+    data_model_element_fgl_union_unresolved: int = 0
+    data_model_element_fgl_union_branch_unmapped: int = 0
+    # Data Models whose /spec could not be fetched (see the warning for why),
+    # and those whose /spec did not match the shape the parser expects, so
+    # what is read from it may be incomplete until the connector is updated.
+    data_model_spec_fetch_failed: int = 0
+    # /spec not called: an earlier 410, or 403/404 from several Data Models,
+    # before any call succeeded.
+    data_model_spec_skipped: int = 0
+    data_model_spec_drift_detected: int = 0
     # Refs whose listed upstream element came back with no columns, so the column
     # could not be checked; usually a /columns fetch that failed partway.
     # /columns is one list across all elements, so an abort leaves every
@@ -736,6 +759,17 @@ class SigmaSourceConfig(
         "Sigma has deprecated that endpoint; set this to ``False`` to stop "
         "calling it, and those columns keep pointing at themselves. Requires "
         "extract_lineage to be enabled.",
+    )
+    extract_data_model_spec_lineage: bool = pydantic.Field(
+        default=True,
+        description="Whether to read each Data Model's ``/dataModels/{id}/spec`` "
+        "for column lineage a formula cannot express. A union element's column "
+        "formula names the union's output, not a branch, so without ``/spec`` "
+        "no branch gets column lineage; with it, each column reading an output "
+        "gets an edge from every branch in the same Data Model. Costs one API call per Data "
+        "Model, which needs the same access as reading its elements. A failed "
+        "call is counted and reported, with each model's status, and never "
+        "fails the run. Requires ``ingest_data_models`` and ``extract_lineage``.",
     )
     data_model_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

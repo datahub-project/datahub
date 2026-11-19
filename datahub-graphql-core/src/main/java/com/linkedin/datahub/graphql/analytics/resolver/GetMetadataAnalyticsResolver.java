@@ -21,6 +21,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -83,13 +84,21 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     // searchAcrossEntities directly rather than going through one of those resolvers.
     final List<String> filterEntityTypes =
         entities.isEmpty() ? SearchUtils.getSearchEntityNames(opContext) : entities;
+    // Whether the caller's own filter has a criterion before the defaults
+    final boolean callerFiltered = FilterUtils.hasCriterion(filter);
     filter =
         DefaultEntityFiltersUtil.applyDefaultEntityFilters(
             filter, filterEntityTypes, null, context);
 
     SearchResult searchResult =
         _entityClient.searchAcrossEntities(
-            opContext, entities, query, filter, 0, 0, Collections.emptyList());
+            opContext.withCallerFiltered(callerFiltered),
+            entities,
+            query,
+            filter,
+            0,
+            0,
+            Collections.emptyList());
 
     List<AggregationMetadata> aggregationMetadataList =
         searchResult.getMetadata().getAggregations();
