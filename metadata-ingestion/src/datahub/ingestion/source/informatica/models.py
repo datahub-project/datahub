@@ -432,6 +432,8 @@ class InformaticaSourceReport(StaleEntityRemovalSourceReport):
 
     connections_resolved: int = 0
     connections_unresolved: LossyList[str] = field(default_factory=LossyList)
+    # Lineage endpoints that another connector soft-deleted; left deleted.
+    external_datasets_soft_deleted: int = 0
 
     export_jobs_submitted: int = 0
     export_jobs_failed: LossyList[str] = field(default_factory=LossyList)

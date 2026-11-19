@@ -1,4 +1,5 @@
 import threading
+from functools import partial
 from typing import Any, List
 from unittest.mock import MagicMock, patch
 
@@ -27,6 +28,9 @@ from datahub.ingestion.source.informatica.source import (
     InformaticaSource,
     OrchestrateState,
 )
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    auto_stale_entity_removal,
+)
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
@@ -34,6 +38,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DataJobInputOutputClass,
     OwnershipTypeClass,
+    StatusClass,
 )
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
@@ -929,6 +934,14 @@ class TestLineageEmission:
         # Second emission references the same URNs — dedup guard must skip
         # both Status aspects.
         assert _status_urns(second_wus) == []
+        # Other connectors own these datasets, so nothing written to them may
+        # enter this source's stale-removal state.
+        assert all(
+            not wu.is_primary_source
+            for wu in first_wus
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and (wu.metadata.entityUrn or "").startswith("urn:li:dataset:")
+        )
 
     def test_emit_lineage_sets_empty_inputdatajobs_for_first_mt_in_chain(self):
         # Entry-point contract: an MT with no Taskflow predecessor emits
@@ -958,6 +971,44 @@ class TestLineageEmission:
         assert aspect.inputDatajobs == []
 
 
+class TestExternalDatasetStaleSafety:
+    DS_URN = "urn:li:dataset:(urn:li:dataPlatform:oracle,oltp.apps.orders,PROD)"
+
+    def _source_with_graph(self, **get_aspect: Any) -> InformaticaSource:
+        source = _make_source()
+        source.ctx.graph = MagicMock()
+        source.ctx.graph.get_aspect = MagicMock(**get_aspect)
+        return source
+
+    def test_stub_written_when_datahub_has_no_status(self):
+        source = self._source_with_graph(return_value=None)
+        [wu] = list(source._stub_external_datasets([self.DS_URN], []))
+        assert wu.get_urn() == self.DS_URN
+        assert not wu.is_primary_source
+
+    def test_soft_deleted_dataset_is_not_undeleted(self):
+        source = self._source_with_graph(return_value=StatusClass(removed=True))
+        assert list(source._stub_external_datasets([self.DS_URN], [])) == []
+        assert source.report.external_datasets_soft_deleted == 1
+
+    def test_status_lookup_error_skips_stub(self):
+        source = self._source_with_graph(side_effect=ConnectionError("gms down"))
+        assert list(source._stub_external_datasets([self.DS_URN], [])) == []
+        assert len(source.report.warnings) == 1
+
+    def test_datasets_from_earlier_state_are_exempt_from_removal(self):
+        # Earlier versions tracked stubbed datasets as primary, so a dataset
+        # left in last run's state must not be soft-deleted by this source.
+        source = _make_source()
+        job_urn = "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt,PROD),transform)"
+        source._previous_state_urns = {self.DS_URN, job_urn}
+        with patch.object(
+            source.stale_entity_removal_handler, "add_urn_to_skip"
+        ) as add_urn_to_skip:
+            source._skip_previously_tracked_datasets()
+        add_urn_to_skip.assert_called_once_with(self.DS_URN)
+
+
 class TestSafeListHelper:
     def test_yields_items_on_success(self):
         source = _make_source()
@@ -983,7 +1034,7 @@ class TestSafeListHelper:
 
         out = list(source._safe_list(boom, title="t", message="m", context="/api/test"))
         assert out == []
-        assert len(source.report.warnings) == 1
+        assert len(source.report.failures) == 1
 
     def test_catches_iteration_time_exception(self):
         source = _make_source()
@@ -994,7 +1045,8 @@ class TestSafeListHelper:
 
         out = list(source._safe_list(gen, title="t", message="m", context="/api/test"))
         assert out == [1]
-        assert len(source.report.warnings) == 1
+        # A truncated listing is a failure so stale removal keeps the rest.
+        assert len(source.report.failures) == 1
 
     def test_programmer_errors_propagate_from_safe_list(self):
         # A programmer error (AttributeError, TypeError, etc.) must NOT be
@@ -1063,7 +1115,7 @@ class TestFilteringAndErrorHandling:
         # flow_id now uses the human-readable name, not the v3 GUID.
         assert "daily_refresh" in str(flow.urn)
         assert flow.display_name == "daily_refresh"
-        assert len(source.report.warnings) > 0
+        assert len(source.report.failures) > 0
 
     def test_extract_taskflows_batches_prefetch_into_single_call(self):
         # All filtered Taskflows' v3 GUIDs should land in ONE
@@ -1101,7 +1153,7 @@ class TestFilteringAndErrorHandling:
             ),
         ):
             list(source._extract_mappings_and_tasks())
-        assert len(source.report.warnings) > 0
+        assert len(source.report.failures) > 0
 
     def test_load_connections_failure_reported_as_failure(self):
         source = _make_source()
@@ -1325,6 +1377,38 @@ class TestTaskflowStepEmission:
             entities = list(source._emit_taskflow_steps(self.TF_OBJ, flow))
         assert entities == []
 
+    def test_unreadable_definition_keeps_previous_orchestrate_job(self):
+        source = self._prepared_source()
+        flow = source._make_taskflow(self.TF_OBJ)
+        orchestrate_urn = str(DataJob(name="orchestrate", flow=flow).urn)
+        source._previous_state_urns = {orchestrate_urn}
+        with (
+            patch.object(source.client, "get_taskflow_definition", return_value=None),
+            patch.object(
+                source.stale_entity_removal_handler, "add_entity_to_state"
+            ) as add_to_state,
+        ):
+            list(source._emit_taskflow_steps(self.TF_OBJ, flow))
+        add_to_state.assert_called_once_with("", orchestrate_urn)
+
+    def test_stepless_definition_does_not_keep_orchestrate_job(self):
+        # The export succeeded and the Taskflow genuinely has no steps, so an
+        # earlier orchestrate job is stale and may be removed.
+        source = self._prepared_source()
+        flow = source._make_taskflow(self.TF_OBJ)
+        source._previous_state_urns = {str(DataJob(name="orchestrate", flow=flow).urn)}
+        source.client._taskflow_definition_cache[self.TF_OBJ.id] = TaskflowDefinition(
+            taskflow_id=self.TF_OBJ.id, taskflow_name=self.TF_OBJ.name
+        )
+        with (
+            patch.object(source.client, "get_taskflow_definition", return_value=None),
+            patch.object(
+                source.stale_entity_removal_handler, "add_entity_to_state"
+            ) as add_to_state,
+        ):
+            list(source._emit_taskflow_steps(self.TF_OBJ, flow))
+        add_to_state.assert_not_called()
+
     def test_chains_mts_and_orchestrate_sits_at_end(self):
         # Taskflow step order (s1 → s2) is surfaced as: MT2.inputDatajobs
         # picks up MT1 as a predecessor; orchestrate's inputDatajobs is just
@@ -1476,9 +1560,9 @@ class TestTaskflowStepEmission:
 
 
 class TestSourceLifecycle:
-    def test_stale_entity_removal_handler_registered(self):
-        # Stateful ingestion hinges on AutoStaleEntityRemovalProcessor being in the
-        # workunit processor chain when remove_stale_metadata is enabled.
+    def test_stale_entity_removal_uses_the_source_owned_handler(self):
+        # The source keeps entities it could not re-read through its own
+        # handler, so that handler must run instead of the automatic one.
         config = InformaticaSourceConfig.model_validate(
             {
                 "username": "svc",
@@ -1492,14 +1576,16 @@ class TestSourceLifecycle:
         )
         ctx.graph = MagicMock()
         source = InformaticaSource(config, ctx)
-        processors = source.get_workunit_processors()
-        assert any(
+        processors = [p for p in source.get_workunit_processors() if p]
+        assert not any(
             isinstance(getattr(p, "__self__", None), AutoStaleEntityRemovalProcessor)
             for p in processors
-            if p
-        ), (
-            "AutoStaleEntityRemovalProcessor must be in the "
-            "processor chain returned by get_workunit_processors()"
+        )
+        assert any(
+            isinstance(p, partial)
+            and p.func is auto_stale_entity_removal
+            and p.args == (source.stale_entity_removal_handler,)
+            for p in processors
         )
 
     def test_login_failure_aborts_cleanly(self):

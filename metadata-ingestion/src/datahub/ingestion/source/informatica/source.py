@@ -2,6 +2,7 @@ import logging
 import re
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from functools import partial
 from typing import (
     Callable,
     Dict,
@@ -11,6 +12,7 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    Type,
     TypeVar,
     Union,
 )
@@ -31,10 +33,12 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    MetadataWorkUnitProcessor,
     TestableSource,
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.source.informatica.client import InformaticaClient
 from datahub.ingestion.source.informatica.config import (
     CONNECTION_TYPE_MAP,
@@ -56,8 +60,16 @@ from datahub.ingestion.source.informatica.models import (
     V2Id,
     V3Guid,
 )
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    auto_stale_entity_removal,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -69,11 +81,12 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import CorpUserUrn, DatasetUrn, TagUrn
+from datahub.metadata.urns import CorpUserUrn, DataJobUrn, DatasetUrn, TagUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.entity import Entity
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +201,19 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         # lineage need a minimal Status aspect to register as existing
         # entities; otherwise ``searchAcrossLineage`` filters them out.
         self._stubbed_external_dataset_urns: Set[str] = set()
+        # Owned here rather than by the automatic processor so the source can
+        # keep entities it could not re-read, and exempt other connectors'
+        # datasets that earlier versions of this source recorded in its state.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            state_provider=self.state_provider,
+            report=self.report,
+            config=self.config,
+            state_type_class=GenericCheckpointState,
+            pipeline_name=ctx.pipeline_name,
+            run_id=ctx.run_id,
+            platform=self.platform,
+        )
+        self._previous_state_urns: Optional[Set[str]] = None
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "InformaticaSource":
@@ -228,6 +254,44 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
     def get_report(self) -> InformaticaSourceReport:
         return self.report
 
+    def get_excluded_workunit_processors(
+        self,
+    ) -> List[Union[str, Type[WorkunitProcessor]]]:
+        return [AutoStaleEntityRemovalProcessor]
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            partial(auto_stale_entity_removal, self.stale_entity_removal_handler),
+        ]
+
+    def _get_previous_state_urns(self) -> Set[str]:
+        if self._previous_state_urns is None:
+            handler = self.stale_entity_removal_handler
+            last = (
+                self.state_provider.get_last_checkpoint(
+                    handler.job_id, GenericCheckpointState
+                )
+                if handler.is_checkpointing_enabled()
+                else None
+            )
+            self._previous_state_urns = set(last.state.urns) if last else set()
+        return self._previous_state_urns
+
+    def _keep_previous_entity(self, urn: str) -> None:
+        # Only URNs from the last run: soft-deleting a URN that was never
+        # emitted would create an empty entity on the next successful run.
+        if urn in self._get_previous_state_urns():
+            self.stale_entity_removal_handler.add_entity_to_state("", urn)
+
+    def _skip_previously_tracked_datasets(self) -> None:
+        # This source never owns datasets. Earlier versions recorded the
+        # external datasets referenced by lineage in their state, and those
+        # must not be soft-deleted when a later run no longer references them.
+        for urn in self._get_previous_state_urns():
+            if guess_entity_type(urn) == "dataset":
+                self.stale_entity_removal_handler.add_urn_to_skip(urn)
+
     def close(self) -> None:
         self.client.close()
         super().close()
@@ -245,6 +309,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                 exc=e,
             )
             return
+        self._skip_previously_tracked_datasets()
         yield from self._extract_containers()
         # MTs emit before Taskflows so step resolution sees real MT URNs.
         yield from self._extract_mappings_and_tasks()
@@ -283,7 +348,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         projects = self._safe_list(
             lambda: self._iter_with_tags("Project"),
             title="Failed to list IDMC projects",
-            message="Container hierarchy will be incomplete.",
+            message="Container hierarchy will be incomplete, and stale metadata removal is skipped for this run.",
             context="/public/core/v3/objects?type=Project",
         )
         for project in projects:
@@ -307,7 +372,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         folders = self._safe_list(
             lambda: self._iter_with_tags("Folder"),
             title="Failed to list IDMC folders",
-            message="Container hierarchy will be incomplete.",
+            message="Container hierarchy will be incomplete, and stale metadata removal is skipped for this run.",
             context="/public/core/v3/objects?type=Folder",
         )
         for folder in folders:
@@ -355,9 +420,9 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                 ValueError,
                 KeyError,
             ) as e:
-                self.report.warning(
+                self.report.failure(
                     title="Failed to process IDMC folder",
-                    message="This folder will be skipped.",
+                    message="This folder will be skipped, and stale metadata removal is skipped for this run.",
                     context=f"id={folder.id}, name={folder.name!r}",
                     exc=e,
                 )
@@ -371,9 +436,12 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         context: str,
     ) -> Iterator[T]:
         """Wrap an IDMC listing call, converting enumeration failures to
-        report warnings. Takes a zero-arg factory so call-time failures
+        report failures. Takes a zero-arg factory so call-time failures
         (non-generator clients that HTTP-fail on invocation) are caught
         the same as iteration-time failures.
+
+        A failure rather than a warning: the listing is incomplete, so stale
+        entity removal must not treat the unlisted objects as deleted.
         """
         try:
             yield from iterable_factory()
@@ -384,7 +452,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
             ValueError,
             KeyError,
         ) as e:
-            self.report.warning(title=title, message=message, context=context, exc=e)
+            self.report.failure(title=title, message=message, context=context, exc=e)
 
     def _make_project_container(self, project: IdmcObject) -> Container:
         return Container(
@@ -544,7 +612,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         taskflows = self._safe_list(
             lambda: self._iter_with_tags("TASKFLOW"),
             title="Failed to list IDMC taskflows",
-            message="Taskflow DataFlow entities will be missing.",
+            message="Taskflow DataFlow entities will be missing, and stale metadata removal is skipped for this run.",
             context="/public/core/v3/objects?type=TASKFLOW",
         )
         for tf in taskflows:
@@ -591,9 +659,9 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                 ValueError,
                 KeyError,
             ) as e:
-                self.report.warning(
+                self.report.failure(
                     title="Failed to process IDMC taskflow",
-                    message="This taskflow will be skipped.",
+                    message="This taskflow will be skipped, and stale metadata removal is skipped for this run.",
                     context=f"id={tf.id}, name={tf.name!r}",
                     exc=e,
                 )
@@ -694,6 +762,11 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         definition = self.client.get_taskflow_definition(
             taskflow_name=tf.name, taskflow_v3_guid=tf.id
         )
+        if definition is None and not self.client.has_taskflow_definition(tf.id):
+            # The steps could not be read this run, so keep the orchestrate job
+            # an earlier run emitted rather than letting stale removal drop it.
+            self._keep_previous_entity(str(DataJobUrn(flow.urn, "orchestrate")))
+            return
         if definition is None or not definition.steps:
             return
         walk = self._walk_taskflow_steps(definition.steps)
@@ -822,7 +895,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         mapping_tasks = self._safe_list(
             self.client.list_mapping_tasks,
             title="Failed to list IDMC mapping tasks",
-            message="Mapping Tasks will be missing from ingestion output.",
+            message="Mapping Tasks will be missing from ingestion output, and stale metadata removal is skipped for this run.",
             context="/public/core/v3/objects?type=MTT",
         )
         try:
@@ -1170,15 +1243,42 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         inside aspects and would otherwise remain ``exists: false``.
 
         Dedup'd per-source-run via ``_stubbed_external_dataset_urns``.
+
+        The stub is non-primary so these datasets never enter this source's
+        stale-removal state, and it is only written for datasets DataHub has
+        no ``Status`` for, so a dataset another connector soft-deleted is not
+        brought back.
         """
         for ds_urn in (*input_urns, *output_urns):
             if ds_urn in self._stubbed_external_dataset_urns:
                 continue
             self._stubbed_external_dataset_urns.add(ds_urn)
+            if not self._dataset_needs_status_stub(ds_urn):
+                continue
             yield MetadataChangeProposalWrapper(
                 entityUrn=ds_urn,
                 aspect=StatusClass(removed=False),
-            ).as_workunit()
+            ).as_workunit(is_primary_source=False)
+
+    def _dataset_needs_status_stub(self, ds_urn: str) -> bool:
+        graph = self.ctx.graph
+        if graph is None:
+            return True
+        try:
+            status = graph.get_aspect(ds_urn, StatusClass)
+        except Exception as e:
+            # Unknown state: skipping the stub can only hide an unknown input
+            # from lineage search, while stubbing could undelete a dataset.
+            self.report.warning(
+                title="Could not check external dataset status",
+                message="The lineage stub for this dataset was skipped.",
+                context=ds_urn,
+                exc=e,
+            )
+            return False
+        if status is not None and status.removed:
+            self.report.external_datasets_soft_deleted += 1
+        return status is None
 
     def _emit_mt_datajob_io(
         self,
@@ -1235,7 +1335,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                         for src_urn in input_urns
                     ]
                 ),
-            ).as_workunit()
+            ).as_workunit(is_primary_source=False)
 
     def _resolve_table_to_dataset_urn(self, table: LineageTable) -> Optional[str]:
         if not table.table_name:

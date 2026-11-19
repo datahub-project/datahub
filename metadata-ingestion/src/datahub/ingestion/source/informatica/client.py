@@ -582,6 +582,10 @@ class InformaticaClient:
                 return parsed if parsed.steps else None
         return None
 
+    def has_taskflow_definition(self, taskflow_v3_guid: str) -> bool:
+        """True when an export returned this Taskflow's definition, even one with no steps."""
+        return taskflow_v3_guid in self._taskflow_definition_cache
+
     def prefetch_taskflow_definitions(self, taskflow_v3_guids: Iterable[str]) -> None:
         """Export Taskflows in ``export_batch_size`` jobs and cache the parsed DAGs.
 
