@@ -1,30 +1,43 @@
 package com.linkedin.metadata.aspect.validation;
 
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.UrnValidationFieldSpec;
 import com.linkedin.metadata.models.annotation.UrnValidationAnnotation;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import jakarta.json.Json;
+import jakarta.json.JsonArrayBuilder;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.mockito.Mock;
@@ -457,5 +470,151 @@ public class UrnAnnotationValidatorTest {
             Collections.singletonList(mockBatchItem),
             mockRetrieverContext)
         .collect(Collectors.toList());
+  }
+
+  private static final Urn PROPERTY_URN = UrnUtils.getUrn("urn:li:structuredProperty:my_prop");
+  private static final Urn EXISTING_PLATFORM = UrnUtils.getUrn("urn:li:dataPlatform:existing");
+  private static final Urn MISSING_PLATFORM = UrnUtils.getUrn("urn:li:dataPlatform:missing");
+  private static final Urn DELETED_PLATFORM = UrnUtils.getUrn("urn:li:dataPlatform:deleted");
+
+  @Test
+  public void testPatchAddingNonExistentUrnIsRejected() {
+    ChangeItemImpl patched =
+        patchDefinition(
+            definition(), addOp("/allowedPlatforms/" + MISSING_PLATFORM, MISSING_PLATFORM));
+
+    List<AspectValidationException> exceptions = runPreCommit(patched);
+
+    assertEquals(exceptions.size(), 1);
+    assertTrue(exceptions.get(0).getMessage().contains(MISSING_PLATFORM.toString()));
+  }
+
+  @Test
+  public void testPatchAddingWrongEntityTypeIsRejected() {
+    Urn user = UrnUtils.getUrn("urn:li:corpuser:not_a_platform");
+    ChangeItemImpl patched =
+        patchDefinition(definition(), addOp("/allowedPlatforms/" + user, user));
+
+    List<AspectValidationException> exceptions = runPreCommit(patched);
+
+    assertEquals(exceptions.size(), 1);
+    assertTrue(exceptions.get(0).getMessage().contains("dataPlatform"));
+  }
+
+  /** A stored URN whose entity was deleted must not block edits that leave it untouched. */
+  @Test
+  public void testPatchKeepingStaleStoredUrnIsAccepted() {
+    StructuredPropertyDefinition stored =
+        definition().setAllowedPlatforms(new UrnArray(DELETED_PLATFORM));
+
+    ChangeItemImpl descriptionEdit =
+        patchDefinition(
+            stored,
+            Json.createArrayBuilder()
+                .add(
+                    Json.createObjectBuilder()
+                        .add("op", "add")
+                        .add("path", "/description")
+                        .add("value", "new description")));
+    assertTrue(runPreCommit(descriptionEdit).isEmpty());
+
+    ChangeItemImpl addsValidPlatform =
+        patchDefinition(stored, addOp("/allowedPlatforms/" + EXISTING_PLATFORM, EXISTING_PLATFORM));
+    assertTrue(runPreCommit(addsValidPlatform).isEmpty());
+    verify(mockAspectRetriever, never())
+        .entityExists(
+            any(OperationFingerprint.class), argThat(urns -> urns.contains(DELETED_PLATFORM)));
+  }
+
+  @Test
+  public void testPatchAddingValidUrnIsAccepted() {
+    ChangeItemImpl patched =
+        patchDefinition(
+            definition(), addOp("/allowedPlatforms/" + EXISTING_PLATFORM, EXISTING_PLATFORM));
+
+    assertTrue(runPreCommit(patched).isEmpty());
+  }
+
+  /** UPSERTs were checked as proposals; pre-commit doesn't check them again. */
+  @Test
+  public void testUpsertIsNotValidatedAgainAtPreCommit() {
+    ChangeItemImpl upsert =
+        ChangeItemImpl.builder()
+            .urn(PROPERTY_URN)
+            .aspectName(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+            .recordTemplate(definition().setAllowedPlatforms(new UrnArray(MISSING_PLATFORM)))
+            .auditStamp(auditStamp())
+            .build(TEST_CONTEXT.getAspectRetriever());
+
+    assertTrue(runPreCommit(upsert).isEmpty());
+  }
+
+  @Test
+  public void testPatchOnAspectWithoutUrnValidationFieldsIsSkipped() {
+    ChangeMCP item = mock(ChangeMCP.class);
+    when(item.getUrn()).thenReturn(PROPERTY_URN);
+    when(item.getAspectName()).thenReturn(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+    when(item.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(item.getMetadataChangeProposal())
+        .thenReturn(new MetadataChangeProposal().setChangeType(ChangeType.PATCH));
+    when(item.getAspectSpec()).thenReturn(mockAspectSpec);
+    when(mockAspectSpec.getUrnValidationFieldSpecMap()).thenReturn(Collections.emptyMap());
+
+    assertTrue(runPreCommit(item).isEmpty());
+    verify(item, never()).getRecordTemplate();
+    verify(item, never()).getPreviousRecordTemplate();
+    verify(mockAspectRetriever, never()).entityExists(any(OperationFingerprint.class), any());
+  }
+
+  private List<AspectValidationException> runPreCommit(ChangeMCP item) {
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), any()))
+        .thenAnswer(
+            inv ->
+                ((Set<Urn>) inv.getArgument(1))
+                    .stream()
+                        .collect(
+                            Collectors.toMap(
+                                u -> u,
+                                u -> !u.equals(MISSING_PLATFORM) && !u.equals(DELETED_PLATFORM))));
+    return validator
+        .validatePreCommit(OperationFingerprint.EMPTY, List.of(item), mockRetrieverContext)
+        .collect(Collectors.toList());
+  }
+
+  private static StructuredPropertyDefinition definition() {
+    return new StructuredPropertyDefinition()
+        .setQualifiedName("my_prop")
+        .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"))
+        .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
+  }
+
+  private static JsonArrayBuilder addOp(String path, Urn value) {
+    return Json.createArrayBuilder()
+        .add(
+            Json.createObjectBuilder()
+                .add("op", "add")
+                .add("path", path)
+                .add("value", value.toString()));
+  }
+
+  /** Applies the patch to {@code stored} as the write path does, with it as the previous value. */
+  private static ChangeItemImpl patchDefinition(
+      StructuredPropertyDefinition stored, JsonArrayBuilder ops) {
+    ChangeItemImpl patched =
+        PatchItemImpl.builder()
+            .urn(PROPERTY_URN)
+            .aspectName(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+            .auditStamp(auditStamp())
+            .patch(Json.createPatch(ops.build()))
+            .build(TEST_CONTEXT.getEntityRegistry())
+            .applyPatch(stored, TEST_CONTEXT.getAspectRetriever());
+    SystemAspect previous = mock(SystemAspect.class);
+    when(previous.getRecordTemplate()).thenReturn(stored);
+    patched.setPreviousSystemAspect(previous);
+    return patched;
+  }
+
+  private static AuditStamp auditStamp() {
+    return new AuditStamp().setTime(0L).setActor(UrnUtils.getUrn("urn:li:corpuser:datahub"));
   }
 }
