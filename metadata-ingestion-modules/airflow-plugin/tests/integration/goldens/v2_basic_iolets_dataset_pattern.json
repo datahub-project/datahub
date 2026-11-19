@@ -17,7 +17,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=basic_iolets",
+            "externalUrl": "http://airflow.example.com/dags/basic_iolets",
             "name": "basic_iolets",
             "env": "PROD"
         }
@@ -152,7 +152,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=basic_iolets",
+            "externalUrl": "http://airflow.example.com/dags/basic_iolets",
             "name": "basic_iolets",
             "env": "PROD"
         }

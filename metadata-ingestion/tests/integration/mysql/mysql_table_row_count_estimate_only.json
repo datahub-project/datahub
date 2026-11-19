@@ -667,7 +667,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
-            "rowCount": 0,
+            "rowCount": 5,
             "columnCount": 6,
             "fieldProfiles": [
                 {
@@ -675,6 +675,7 @@
                     "uniqueCount": 5,
                     "uniqueProportion": 1,
                     "nullCount": 0,
+                    "nullProportion": 0.0,
                     "min": "1",
                     "max": "5",
                     "mean": "3.0",
@@ -693,6 +694,7 @@
                     "uniqueCount": 5,
                     "uniqueProportion": 1,
                     "nullCount": 0,
+                    "nullProportion": 0.0,
                     "sampleValues": [
                         "Company A",
                         "Company B",
@@ -706,6 +708,7 @@
                     "uniqueCount": 5,
                     "uniqueProportion": 1,
                     "nullCount": 0,
+                    "nullProportion": 0.0,
                     "sampleValues": [
                         "Axen",
                         "Bedecs",
@@ -719,6 +722,7 @@
                     "uniqueCount": 5,
                     "uniqueProportion": 1,
                     "nullCount": 0,
+                    "nullProportion": 0.0,
                     "sampleValues": [
                         "Anna",
                         "Antonio",
@@ -732,6 +736,7 @@
                     "uniqueCount": 5,
                     "uniqueProportion": 1,
                     "nullCount": 0,
+                    "nullProportion": 0.0,
                     "sampleValues": [
                         "Bedecs@xyz.com",
                         "Gratacos@xyz.com",
@@ -744,7 +749,8 @@
                     "fieldPath": "priority",
                     "uniqueCount": 3,
                     "uniqueProportion": 0.75,
-                    "nullCount": 0,
+                    "nullCount": 1,
+                    "nullProportion": 0.2,
                     "min": "3.8",
                     "max": "4.9",
                     "mean": "4.175000011920929",

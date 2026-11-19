@@ -1,0 +1,17 @@
+namespace com.linkedin.dataset
+
+/**
+ * A primary key declared by users for a dataset whose source declares none, such as files, object
+ * stores or tables created without constraints. Ingestion does not write this aspect.
+ * A primary key declared by the source (SchemaMetadata.primaryKeys or SchemaField.isPartOfKey)
+ * takes precedence over this one.
+ */
+@Aspect = {
+  "name": "editablePrimaryKeys"
+}
+record EditablePrimaryKeys {
+  /**
+   * Field paths of the primary key, matching SchemaMetadata.fields[].fieldPath.
+   */
+  primaryKeys: array[string]
+}

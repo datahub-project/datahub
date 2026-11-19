@@ -1,9 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { Tab, Tabs } from '@components/components/Tabs/Tabs';
+import { Tab, TabErrorBoundaryProps, Tabs } from '@components/components/Tabs/Tabs';
 
 import themeV2 from '@conf/theme/themeV2';
 
@@ -22,6 +22,10 @@ const BASE_TAB: Tab = {
 };
 
 describe('Tabs', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
     it('opens a context menu on right click and runs the selected item', () => {
         const onClick = vi.fn();
         renderTabs([
@@ -110,5 +114,35 @@ describe('Tabs', () => {
         fireEvent.contextMenu(screen.getByText('First tab'));
 
         expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('wraps each tab content in the given error boundary with its reset keys', () => {
+        const boundary = vi.fn(({ resetKeys, children }: TabErrorBoundaryProps) => (
+            <div data-testid="tab-boundary" data-reset-keys={resetKeys.join(',')}>
+                {children}
+            </div>
+        ));
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Tabs
+                    tabs={[{ ...BASE_TAB, errorResetKey: 'urn:1' }]}
+                    selectedTab={BASE_TAB.key}
+                    tabErrorBoundary={boundary}
+                />
+            </ThemeProvider>,
+        );
+
+        const wrapper = screen.getByTestId('tab-boundary');
+        expect(wrapper).toHaveAttribute('data-reset-keys', 'first,urn:1');
+        expect(wrapper).toHaveTextContent('First content');
+    });
+
+    it('lets a tab error propagate when no error boundary is provided', () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const Broken = () => {
+            throw new Error('tab crashed');
+        };
+
+        expect(() => renderTabs([{ ...BASE_TAB, component: <Broken /> }])).toThrow('tab crashed');
     });
 });

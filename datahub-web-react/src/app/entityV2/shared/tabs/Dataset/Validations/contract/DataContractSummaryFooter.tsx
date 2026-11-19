@@ -29,7 +29,9 @@ const StatusText = styled.div`
 `;
 
 const ActionButton = styled(Button)`
-    color: ${(props) => props.theme.colors.textInformation};
+    && {
+        color: ${(props) => props.theme.colors.textInformation};
+    }
 `;
 
 const StyledArrowRightOutlined = styled(ArrowRight)`

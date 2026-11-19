@@ -38,6 +38,9 @@ public class FeatureFlags {
   private boolean schemaFieldEntityFetchEnabled = false;
   private boolean businessAttributeEntityEnabled = false;
   private boolean dataContractsEnabled = false;
+  // Shows the "Show Applications" toggle on the Appearance settings page. Applications are being
+  // deprioritized, so the toggle is hidden by default. Does not change the stored global setting.
+  private boolean showApplicationsFeatureToggle = false;
   private boolean editableDatasetNameEnabled = false;
   private boolean themeV2Enabled = false;
   private boolean themeV2Default = false;

@@ -204,7 +204,7 @@ export function SelectSourceStep() {
                                         <CardsWrapper>
                                             {visible.map((src) => (
                                                 <SourcePlatformCard
-                                                    key={src.urn || src.name}
+                                                    key={src.name}
                                                     source={src}
                                                     onSelect={onSelectCard}
                                                 />

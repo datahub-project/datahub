@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import {
     getEntityTypesPropertyFilter,
     getNotHiddenPropertyFilter,
@@ -37,7 +39,13 @@ export const useGetTableColumnProperties = (platformUrn?: string | null) => {
     });
 
     const results = data?.searchAcrossEntities?.searchResults;
-    if (!results) return results;
 
-    return results.filter((result) => matchesAllowedPlatforms(result.entity as StructuredPropertyEntity, platformUrn));
+    // Memoized so the schema table's columns, and with them every rendered cell, stay the same across renders.
+    return useMemo(
+        () =>
+            results?.filter((result) =>
+                matchesAllowedPlatforms(result.entity as StructuredPropertyEntity, platformUrn),
+            ),
+        [results, platformUrn],
+    );
 };

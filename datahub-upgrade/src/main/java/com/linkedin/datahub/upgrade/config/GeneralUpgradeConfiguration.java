@@ -14,10 +14,12 @@ import com.linkedin.gms.factory.kafka.trace.KafkaTraceReaderFactory;
 import com.linkedin.gms.factory.messaging.KafkaConsumerLagPort;
 import com.linkedin.gms.factory.messaging.PgQueueConsumerLagPort;
 import com.linkedin.gms.factory.ratelimit.RateLimitEngineFactory;
+import com.linkedin.gms.factory.search.SearchV3IndexRebuild;
 import com.linkedin.gms.factory.systemmetadata.EntityCountMetricsFactory;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import com.linkedin.gms.factory.trace.TraceServiceFactory;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.FilterType;
@@ -69,4 +71,14 @@ import org.springframework.context.annotation.FilterType;
             RateLimitEngineFactory.class
           })
     })
-public class GeneralUpgradeConfiguration {}
+public class GeneralUpgradeConfiguration {
+
+  /**
+   * System update and restore build indices and serve no reads, so a missing V3 index after the
+   * cutover does not stop them.
+   */
+  @Bean
+  public SearchV3IndexRebuild searchV3IndexRebuild() {
+    return new SearchV3IndexRebuild();
+  }
+}

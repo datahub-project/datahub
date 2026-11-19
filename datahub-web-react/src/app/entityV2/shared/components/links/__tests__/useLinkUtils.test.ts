@@ -1,5 +1,5 @@
 import { toast } from '@components';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -7,6 +7,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { LinkFormVariant } from '@app/entityV2/shared/components/links/types';
 import { useLinkUtils } from '@app/entityV2/shared/components/links/useLinkUtils';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 

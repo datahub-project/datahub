@@ -110,13 +110,6 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
     background-color: ${(props) => props.theme.colors.bg};
 `;
 
-const Tab = styled(Tabs.TabPane)`
-    font-size: 14px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-`;
-
 const TabIconContainer = styled.div<{ $isSelected?: boolean }>`
     display: flex;
     flex-direction: column;
@@ -295,31 +288,36 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                 activeKey={selectedTab?.name || ''}
                 onTabClick={handleTabClick}
                 $isClosed={isClosed}
-            >
-                {!hideCollapse && (
-                    <Tab
-                        tab={
-                            <TabIconContainer data-testid="entity-sidebar-collapse-tab">
-                                <IconWrapper>
-                                    <Icon icon={isClosed ? ArrowLineLeft : ArrowLineRight} size="lg" color="inherit" />
-                                </IconWrapper>
-                            </TabIconContainer>
-                        }
-                        key="collapse"
-                        data-node-key="collapse"
-                    />
-                )}
-                {tabs.map((tab) => {
-                    const TabIcon = tab.icon;
-                    const SelectedTabIcon = tab.selectedIcon || tab.icon;
-                    const { name } = tab;
-                    const isDisabled = !tab.display?.enabled(entityData, baseEntity);
-                    const isSelected = !isClosed && selectedTab?.name === tab.name;
+                items={[
+                    ...(hideCollapse
+                        ? []
+                        : [
+                              {
+                                  key: 'collapse',
+                                  label: (
+                                      <TabIconContainer data-testid="entity-sidebar-collapse-tab">
+                                          <IconWrapper>
+                                              <Icon
+                                                  icon={isClosed ? ArrowLineLeft : ArrowLineRight}
+                                                  size="lg"
+                                                  color="inherit"
+                                              />
+                                          </IconWrapper>
+                                      </TabIconContainer>
+                                  ),
+                              },
+                          ]),
+                    ...tabs.map((tab) => {
+                        const TabIcon = tab.icon;
+                        const SelectedTabIcon = tab.selectedIcon || tab.icon;
+                        const { name } = tab;
+                        const isDisabled = !tab.display?.enabled(entityData, baseEntity);
+                        const isSelected = !isClosed && selectedTab?.name === tab.name;
 
-                    return (
-                        <Tab
-                            disabled={isDisabled}
-                            tab={
+                        return {
+                            key: tab.name,
+                            disabled: isDisabled,
+                            label: (
                                 <TabIconContainer
                                     $isSelected={isSelected}
                                     data-testid={`entity-sidebar-tab-${tab.key}`}
@@ -350,13 +348,11 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                                         isSelected={isSelected}
                                     />
                                 </TabIconContainer>
-                            }
-                            key={tab.name}
-                            data-node-key={tab.name}
-                        />
-                    );
-                })}
-            </UnborderedTabs>
+                            ),
+                        };
+                    }),
+                ]}
+            />
         </TabsWrapper>
     );
 };

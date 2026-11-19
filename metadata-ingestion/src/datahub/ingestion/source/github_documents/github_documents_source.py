@@ -201,7 +201,6 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         self._okf_index_contents: Dict[str, Optional[str]] = {}
         self._okf_unread_index_dirs: Set[PurePosixPath] = set()
         self._okf_lookup_cache = OkfLookupCache()
-        self._okf_server_unsupported = False
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "GitHubDocumentsSource":
@@ -219,9 +218,6 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        self.__dict__.pop("_okf_enabled", None)
-        self._okf_server_unsupported = False
-        self.report.okf_disabled_reason = None
         owner_repo = self.config.repository
         branch = self.config.branch
         path_prefix = self.config.path_prefix.strip("/")
@@ -269,7 +265,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         self._okf_index_contents.clear()
         self._okf_unread_index_dirs.clear()
         self._okf_bundles = {}
-        if self._okf_enabled:
+        if self.config.enable_okf:
 
             def fetch_index(path: str) -> Optional[str]:
                 content = self.client.fetch_file_content(owner_repo, path, commit_sha)
@@ -443,13 +439,13 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             self._register_document_for_stale_removal(document_urn)
             return
         source_hash = compute_source_hash(
-            content, enable_okf=self._okf_enabled, bundle=bundle
+            content, enable_okf=self.config.enable_okf, bundle=bundle
         )
 
         filename = PurePosixPath(file_path).name
         frontmatter = None
         if (
-            self._okf_enabled
+            self.config.enable_okf
             and bundle
             and filename not in RESERVED_FILENAMES
             and PurePosixPath(file_path).suffix.lower() == ".md"
@@ -470,7 +466,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             self.report.files_skipped_unchanged += 1
             self._register_document_for_stale_removal(document_urn)
             yield from self._resurrect_unchanged_document(document_urn, owner_repo)
-            if not self._okf_server_unsupported and not is_okf_concept:
+            if not is_okf_concept:
                 yield from clear_okf_metadata(
                     document_urn, ctx=self.ctx, report=self.report
                 )
@@ -550,55 +546,10 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                     id=f"{document_urn}-okf-{patch.aspectName}-{index}",
                     mcp_raw=patch,
                 )
-        elif not self._okf_server_unsupported:
+        else:
             yield from clear_okf_metadata(
                 document_urn, ctx=self.ctx, report=self.report
             )
-
-    @cached_property
-    def _okf_enabled(self) -> bool:
-        if self.ctx.graph is None:
-            logger.debug(
-                "No graph connection; server support for okfProperties was not checked."
-            )
-            return self.config.enable_okf
-
-        try:
-            specs = self.ctx.graph.get_entity_aspect_specs()
-        except Exception:
-            logger.debug(
-                "Could not read the server entity/aspect registry", exc_info=True
-            )
-            specs = None
-        if specs is None:
-            self.report.warning(
-                title="Could not confirm OKF server support",
-                message=(
-                    "Server support for okfProperties could not be confirmed; writes "
-                    "may be rejected by an older server. Set enable_okf: false to "
-                    "import plain text."
-                ),
-            )
-            return self.config.enable_okf
-
-        try:
-            supported = specs.supports("document", "okfProperties")
-        except ValueError:
-            # A registry without the document entity cannot support its OKF aspect.
-            supported = False
-        if not supported:
-            self._okf_server_unsupported = True
-            self.report.okf_disabled_reason = "unsupported_aspect"
-            self.report.warning(
-                title="OKF handling disabled",
-                message=(
-                    "This DataHub server does not support the okfProperties aspect; "
-                    "OKF handling is disabled for this run. Upgrade DataHub to import "
-                    "OKF bundles."
-                ),
-            )
-            return False
-        return self.config.enable_okf
 
     @cached_property
     def _okf_attribution_source(self) -> Optional[str]:

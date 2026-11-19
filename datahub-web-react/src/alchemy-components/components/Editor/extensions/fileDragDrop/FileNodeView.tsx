@@ -19,7 +19,7 @@ import {
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { FileNode } from '@components/components/FileNode/FileNode';
 
-import { safeUrl } from '@app/sharedV2/urlUtils';
+import { safeUrl } from '@utils/urlUtils';
 
 const FileContainer = styled.div<{ $isInline?: boolean }>`
     display: inline-block;

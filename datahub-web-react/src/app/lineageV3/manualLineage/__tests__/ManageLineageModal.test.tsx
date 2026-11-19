@@ -277,6 +277,33 @@ describe('ManageLineageModal', () => {
         expect(mockExpandOneLevel).toHaveBeenCalled();
     });
 
+    it('auto-expands only once when a failed fetch resets the node to UNFETCHED', () => {
+        const withStatus = (status: FetchStatus) => ({
+            ...mockNode,
+            fetchStatus: { [LineageDirection.Upstream]: status, [LineageDirection.Downstream]: FetchStatus.COMPLETE },
+        });
+        const renderModal = (node: any) => (
+            <MockedProvider>
+                <TestPageContainer>
+                    <LineageNodesContext.Provider value={mockLineageNodesContext as any}>
+                        <ManageLineageModal
+                            node={node}
+                            direction={LineageDirection.Upstream}
+                            closeModal={mockCloseModal}
+                            refetch={mockRefetch}
+                        />
+                    </LineageNodesContext.Provider>
+                </TestPageContainer>
+            </MockedProvider>
+        );
+
+        const { rerender } = render(renderModal(withStatus(FetchStatus.UNFETCHED)));
+        rerender(renderModal(withStatus(FetchStatus.LOADING)));
+        rerender(renderModal(withStatus(FetchStatus.UNFETCHED)));
+
+        expect(mockExpandOneLevel).toHaveBeenCalledTimes(1);
+    });
+
     it('does not expand lineage if fetchStatus is already COMPLETE', () => {
         render(
             <MockedProvider>

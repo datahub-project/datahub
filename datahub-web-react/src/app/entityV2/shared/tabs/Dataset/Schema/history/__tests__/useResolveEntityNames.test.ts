@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useResolveEntityNames } from '@app/entityV2/shared/tabs/Dataset/Schema/history/useResolveEntityNames';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useGetEntityDisplayNamesQuery } from '@graphql/timeline.generated';
 import { ChangeTransaction, EntityType } from '@types';

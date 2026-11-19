@@ -100,6 +100,10 @@ const client = new ApolloClient({
                     },
                 },
             },
+            // Ingestion can assign the same id to models on different paths.
+            SemanticModel: {
+                keyFields: ['urn'],
+            },
             // ProductUpdate.id is a release version, not a unique cache identity across locales.
             ProductUpdate: {
                 keyFields: false,

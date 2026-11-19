@@ -2,6 +2,12 @@
 <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
 <suite name="metadata-io-opensearch" parallel="tests" thread-count="1">
     <test name="opensearch-testcontainers">
+        <!-- Es8SemanticSearchIT boots its own ES 8 container; it runs only in testng-es8.xml. -->
+        <groups>
+            <run>
+                <exclude name="es8-semantic"/>
+            </run>
+        </groups>
         <packages>
             <package name="com.linkedin.metadata.graph.search.opensearch.*" />
             <package name="com.linkedin.metadata.search.opensearch.*"/>
@@ -9,7 +15,7 @@
             <!-- Container-free shim unit tests (mocked RestClient / request converters / arch
                  rules). Historically these ran only via the es8 suite; that leg is unwired while
                  pre-existing failures are burned down, so run them here to keep the unified-shim
-                 unit coverage in CI. Es8SemanticSearchIT (excluded in build.gradle) is the one
+                 unit coverage in CI. Es8SemanticSearchIT (group es8-semantic, excluded above) is the one
                  class in these packages that boots its own container. -->
             <package name="com.linkedin.metadata.search.elasticsearch.client.shim"/>
             <package name="com.linkedin.metadata.search.elasticsearch.client.shim.impl"/>
@@ -70,6 +76,8 @@
             <class name="com.linkedin.metadata.search.query.ESSearchDAORawEntityTest"/>
             <class name="com.linkedin.metadata.service.UpdateGraphIndicesServiceTest"/>
             <class name="com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilderTest"/>
+            <!-- Container-free unit test of V3 field-name/alias conflict detection. -->
+            <class name="com.linkedin.metadata.search.elasticsearch.index.entity.v3.ConflictResolverTest"/>
             <!-- Ratchet against new getEntitySpec(<urn>.getEntityType()) lookups. -->
             <class name="com.linkedin.metadata.lint.UrnDerivedRegistryLookupLintTest"/>
             <!-- Container-free unit tests for the non-entity index family migration (write mirror,

@@ -13,6 +13,14 @@ from requests.sessions import Session, SessionRedirectMixin
 
 import datahub._version as datahub_version
 from datahub.cli import config_utils
+
+# Re-exported: the helper moved to datahub.configuration.gms_url so that
+# DatahubClientConfig can apply it without an import cycle; callers that
+# import it from here keep working.
+from datahub.configuration.gms_url import (
+    _ensure_valid_gms_url_acryl_cloud as _ensure_valid_gms_url_acryl_cloud,
+    fixup_gms_url as fixup_gms_url,
+)
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
@@ -98,7 +106,7 @@ def parse_run_restli_response(response: requests.Response) -> dict:
 
     if not isinstance(response_json, dict):
         click.echo(
-            f"Received error, please check your {config_utils.CONDENSED_DATAHUB_CONFIG_PATH}"
+            f"Received error, please check your {config_utils.resolve_profile().path}"
         )
         click.echo()
         click.echo(response_json)
@@ -107,7 +115,7 @@ def parse_run_restli_response(response: requests.Response) -> dict:
     summary = response_json.get("value")
     if not isinstance(summary, dict):
         click.echo(
-            f"Received error, please check your {config_utils.CONDENSED_DATAHUB_CONFIG_PATH}"
+            f"Received error, please check your {config_utils.resolve_profile().path}"
         )
         click.echo()
         click.echo(response_json)
@@ -368,32 +376,6 @@ def get_frontend_session_login_as(
     return session
 
 
-def _ensure_valid_gms_url_acryl_cloud(url: str) -> str:
-    if "acryl.io" not in url:
-        return url
-    if url.endswith(":8080"):
-        url = url.replace(":8080", "")
-    if url.startswith("http://"):
-        url = url.replace("http://", "https://")
-    if url.endswith("acryl.io"):
-        url = f"{url}/gms"
-    elif url.endswith("acryl.io/"):
-        url = f"{url}gms"
-    if url.endswith("acryl.io/api/gms"):
-        url = url.replace("acryl.io/api/gms", "acryl.io/gms")
-
-    return url
-
-
-def fixup_gms_url(url: str) -> str:
-    if url is None:
-        return ""
-    if url.endswith("/"):
-        url = url.rstrip("/")
-    url = _ensure_valid_gms_url_acryl_cloud(url)
-    return url
-
-
 def is_same_gms_origin(configured_url: str, server: str) -> bool:
     """Whether credentials meant for ``configured_url`` may be sent to ``server``.
 
@@ -514,6 +496,9 @@ def enable_auto_decorators(main_group: click.Group) -> None:
     def wrap_command_callback(command_obj):
         """Wrap a command's callback function to add decorators"""
         if hasattr(command_obj, "callback") and command_obj.callback:
+            from datahub.cli.profile_cli import announce_profile_target
+
+            announce_profile_target(command_obj)
             original_callback = command_obj.callback
 
             # Import here to avoid circular imports

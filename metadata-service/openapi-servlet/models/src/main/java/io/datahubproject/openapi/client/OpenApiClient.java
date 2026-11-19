@@ -1,13 +1,21 @@
 package io.datahubproject.openapi.client;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.v2.models.BatchGetUrnRequestV2;
 import io.datahubproject.openapi.v2.models.BatchGetUrnResponseV2;
-import java.io.ByteArrayOutputStream;
+import io.datahubproject.openapi.v2.models.GenericAspectV2;
+import io.datahubproject.openapi.v2.models.GenericEntityV2;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
@@ -28,7 +36,8 @@ public class OpenApiClient {
   private final boolean useSsl;
   @Getter private final OperationContext systemOperationContext;
 
-  private static final String OPENAPI_PATH = "/openapi/v2/entity/batch/";
+  private static final String OPENAPI_PATH = "/openapi/v3/entity/";
+  private static final String BATCH_GET_SUFFIX = "/batchGet";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   public OpenApiClient(
@@ -51,39 +60,116 @@ public class OpenApiClient {
   public BatchGetUrnResponseV2 getBatchUrns(
       String entityName, BatchGetUrnRequestV2 request, String authCredentials) {
     String url =
-        (useSsl ? "https://" : "http://") + gmsHost + ":" + gmsPort + OPENAPI_PATH + entityName;
+        (useSsl ? "https://" : "http://")
+            + gmsHost
+            + ":"
+            + gmsPort
+            + OPENAPI_PATH
+            + entityName
+            + BATCH_GET_SUFFIX
+            + "?systemMetadata="
+            + request.isWithSystemMetadata();
     HttpPost httpPost = new HttpPost(url);
     httpPost.setHeader(HttpHeaders.AUTHORIZATION, authCredentials);
     try {
       httpPost.setEntity(
           new StringEntity(
-              OBJECT_MAPPER.writeValueAsString(request), ContentType.APPLICATION_JSON));
+              OBJECT_MAPPER.writeValueAsString(toV3BatchGetBody(request)),
+              ContentType.APPLICATION_JSON));
       httpPost.setHeader("Content-type", "application/json");
-      return httpClient.execute(httpPost, OpenApiClient::mapResponse);
+      return httpClient.execute(httpPost, response -> mapResponse(response, request));
     } catch (IOException e) {
       log.error("Unable to execute Batch Get request for urn: " + request.getUrns(), e);
       throw new RuntimeException(e);
     }
   }
 
-  private static BatchGetUrnResponseV2 mapResponse(ClassicHttpResponse response) {
-    BatchGetUrnResponseV2 serializedResponse;
-    try {
-      ByteArrayOutputStream result = new ByteArrayOutputStream();
-      InputStream contentStream = response.getEntity().getContent();
-      byte[] buffer = new byte[1024];
-      int length = contentStream.read(buffer);
-      while (length > 0) {
-        result.write(buffer, 0, length);
-        length = contentStream.read(buffer);
+  /**
+   * The v3 batchGet body is one object per urn, keyed by the aspects to fetch: {@code [{"urn":
+   * "...", "<aspectName>": {}}]}. An object with only {@code urn} returns every aspect, matching an
+   * empty {@code aspectNames} in the v2 request.
+   */
+  static List<Map<String, Object>> toV3BatchGetBody(BatchGetUrnRequestV2 request) {
+    List<String> aspectNames =
+        request.getAspectNames() != null ? request.getAspectNames() : List.of();
+    List<Map<String, Object>> body = new ArrayList<>();
+    for (String urn : request.getUrns()) {
+      Map<String, Object> entity = new LinkedHashMap<>();
+      entity.put("urn", urn);
+      for (String aspectName : aspectNames) {
+        entity.put(aspectName, Map.of());
       }
-      serializedResponse =
-          OBJECT_MAPPER.readValue(
-              result.toString(StandardCharsets.UTF_8), BatchGetUrnResponseV2.class);
+      body.add(entity);
+    }
+    return body;
+  }
+
+  /**
+   * v3 returns {@code [{"urn": "...", "<aspectName>": {"value": ..., "systemMetadata": ...}}]}.
+   * Regroup the aspects under {@code aspects} and keep the v2 batch contract for existing callers:
+   *
+   * <ul>
+   *   <li>Every requested urn is returned, in request order. v3 omits urns it found no aspects for;
+   *       v2 returned them with empty {@code aspects}.
+   *   <li>Only the requested aspects are returned. When none of the requested names is a known
+   *       aspect, v3 falls back to every aspect; v2 returned none.
+   * </ul>
+   *
+   * <p>One difference remains: v2 always attached the entity's key aspect, even when it was not
+   * requested or the entity did not exist. v3 returns the key aspect only when it is requested and
+   * stored, so request it by name if you need it.
+   */
+  static BatchGetUrnResponseV2<GenericAspectV2, GenericEntityV2> toV2Response(
+      BatchGetUrnRequestV2 request, List<Map<String, Object>> v3Entities) {
+    Map<String, Map<String, Object>> v3ByUrn = new LinkedHashMap<>();
+    for (Map<String, Object> v3Entity : v3Entities) {
+      v3ByUrn.put((String) v3Entity.get("urn"), v3Entity);
+    }
+    Set<String> requestedAspects =
+        request.getAspectNames() != null ? Set.copyOf(request.getAspectNames()) : Set.of();
+
+    List<GenericEntityV2> entities = new ArrayList<>();
+    for (String urn : new LinkedHashSet<>(request.getUrns())) {
+      Map<String, GenericAspectV2> aspects = new LinkedHashMap<>();
+      for (Map.Entry<String, Object> field : v3ByUrn.getOrDefault(urn, Map.of()).entrySet()) {
+        if ("urn".equals(field.getKey())
+            || !(field.getValue() instanceof Map<?, ?> aspect)
+            || !isRequested(field.getKey(), requestedAspects)) {
+          continue;
+        }
+        Map<String, Object> v2Aspect = new LinkedHashMap<>();
+        v2Aspect.put("value", aspect.get("value"));
+        if (aspect.get("systemMetadata") != null) {
+          v2Aspect.put("systemMetadata", aspect.get("systemMetadata"));
+        }
+        aspects.put(field.getKey(), new GenericAspectV2(v2Aspect));
+      }
+      entities.add(new GenericEntityV2(urn, aspects));
+    }
+    return BatchGetUrnResponseV2.<GenericAspectV2, GenericEntityV2>builder()
+        .entities(entities)
+        .build();
+  }
+
+  /**
+   * An empty request means every aspect. Otherwise match names the way GMS resolves them: the exact
+   * aspect name, or its all-lowercase form.
+   */
+  private static boolean isRequested(String aspectName, Set<String> requestedAspects) {
+    return requestedAspects.isEmpty()
+        || requestedAspects.contains(aspectName)
+        || requestedAspects.contains(aspectName.toLowerCase(Locale.ROOT));
+  }
+
+  private static BatchGetUrnResponseV2 mapResponse(
+      ClassicHttpResponse response, BatchGetUrnRequestV2 request) {
+    try (InputStream contentStream = response.getEntity().getContent()) {
+      List<Map<String, Object>> v3Entities =
+          OBJECT_MAPPER.readValue(contentStream, new TypeReference<>() {});
+      return toV2Response(request, v3Entities);
     } catch (IOException e) {
       log.error("Wasn't able to convert response into expected type.", e);
       throw new RuntimeException(e);
     }
-    return serializedResponse;
   }
 }

@@ -14,7 +14,7 @@ vi.mock('@app/entityV2/shared/EntityContext', () => ({
 }));
 
 // Render each tab as a button so the test checks how EntityTabs wires keys, selection and routing.
-vi.mock('@components', () => ({
+vi.mock('@app/sharedV2/tabs/Tabs', () => ({
     Tabs: ({
         tabs,
         selectedTab,

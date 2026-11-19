@@ -7,6 +7,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     apply_preceding_loads,
     connection_lookup_names,
     drop_condition_variables,
+    expand_variables,
     expression_names,
     has_qualified_name,
     infer_data_connection,
@@ -1038,3 +1039,27 @@ def test_crosstable_fields(
     assert (
         apply_crosstable(table.crosstable, table.preceding_loads, columns) == expected
     )
+
+
+@pytest.mark.parametrize(
+    "expression, expanded",
+    [
+        ("Aggr(Sum(Sales), Day, $(vGrain))", "Aggr(Sum(Sales), Day, HOUR)"),
+        # A variable can name another variable.
+        ("Sum($(vMeasure))", "Sum(Sales)"),
+        # An = definition expands to its calculated value, which is unknown.
+        ("Max($(vMax))", "Max($(vMax))"),
+        ("$(vUnknown)", "$(vUnknown)"),
+        ("$(=Max(Year))", "$(=Max(Year))"),
+        ("$(vSelf)", "$(vSelf)"),
+    ],
+)
+def test_variables_expand_to_their_definition(expression: str, expanded: str) -> None:
+    variables = {
+        "vGrain": "HOUR",
+        "vMeasure": "$(vField)",
+        "vField": "Sales",
+        "vMax": "=Max(Year)",
+        "vSelf": "$(vSelf)",
+    }
+    assert expand_variables(expression, variables) == expanded

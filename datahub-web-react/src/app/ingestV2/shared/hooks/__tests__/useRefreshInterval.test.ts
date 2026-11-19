@@ -1,6 +1,5 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import useRefreshInterval from '@app/ingestV2/shared/hooks/useRefreshInterval';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.useFakeTimers();
 

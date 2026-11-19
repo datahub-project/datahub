@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 
 import { InteriorTitleContent } from '@app/entityV2/dataset/profile/schema/components/InteriorTitleContent';
+import { getEffectivePrimaryKeys, isPrimaryKeyField } from '@app/entityV2/dataset/profile/schema/utils/primaryKeys';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 
 import { SchemaMetadata } from '@types';
@@ -8,19 +9,28 @@ import { SchemaMetadata } from '@types';
 export default function useSchemaTitleRenderer(
     parentUrn: string,
     schemaMetadata: SchemaMetadata | undefined | null,
+    editedPrimaryKeys: string[] | undefined | null,
     filterText: string,
     isCompact?: boolean,
 ) {
-    return (fieldPath: string, record: ExtendedSchemaFields): JSX.Element => {
-        return (
-            <InteriorTitleContent
-                parentUrn={parentUrn}
-                isCompact={isCompact}
-                filterText={filterText}
-                fieldPath={fieldPath}
-                record={record}
-                schemaMetadata={schemaMetadata}
-            />
-        );
-    };
+    const primaryKeys = useMemo(
+        () => getEffectivePrimaryKeys(schemaMetadata, editedPrimaryKeys),
+        [schemaMetadata, editedPrimaryKeys],
+    );
+    return useCallback(
+        (fieldPath: string, record: ExtendedSchemaFields): JSX.Element => {
+            return (
+                <InteriorTitleContent
+                    parentUrn={parentUrn}
+                    isCompact={isCompact}
+                    filterText={filterText}
+                    fieldPath={fieldPath}
+                    record={record}
+                    schemaMetadata={schemaMetadata}
+                    isPrimaryKey={isPrimaryKeyField(primaryKeys, record)}
+                />
+            );
+        },
+        [parentUrn, isCompact, filterText, schemaMetadata, primaryKeys],
+    );
 }

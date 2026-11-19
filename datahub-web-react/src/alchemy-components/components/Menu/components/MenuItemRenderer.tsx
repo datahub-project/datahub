@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { Icon } from '@components/components/Icon';
 import { MenuItemRendererProps } from '@components/components/Menu/types';
+import { OverflowText } from '@components/components/OverflowText';
 import { Text } from '@components/components/Text';
 import { Tooltip } from '@components/components/Tooltip';
 import spacing from '@components/theme/foundations/spacing';
@@ -20,6 +21,7 @@ const Container = styled.div<{ $disabled?: boolean; $danger?: boolean }>`
     flex-direction: column;
     text-overflow: ellipsis;
     word-wrap: nowrap;
+    overflow: hidden;
     color: ${(props) => {
         if (props.$disabled) return props.theme.colors.textDisabled;
         if (props.$danger) return props.theme.colors.textError;
@@ -64,7 +66,9 @@ export default function MenuItemRenderer({ item }: MenuItemRendererProps) {
             )}
 
             <Container $disabled={item.disabled} $danger={item.danger}>
-                <Text weight="semiBold">{item.title}</Text>
+                <Text weight="semiBold">
+                    <OverflowText text={item.title} />
+                </Text>
                 {item.description && (
                     <Description $disabled={item.disabled} $danger={item.danger}>
                         <Text size="sm">{item.description}</Text>

@@ -1929,6 +1929,7 @@ fragment entityPrivileges on EntityPrivileges {
     canEditLineage
     canEditDomains
     canEditDataProducts
+    canManageDataProducts
     canEditTags
     canEditGlossaryTerms
     canEditDescription

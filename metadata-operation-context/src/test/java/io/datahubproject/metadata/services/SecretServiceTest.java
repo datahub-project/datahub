@@ -14,7 +14,14 @@ import io.datahubproject.metadata.context.AgentClass;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -456,5 +463,39 @@ public class SecretServiceTest {
     // Should NOT throw — encrypt() uses hardDeny=false
     String encrypted = secretService.encrypt(opCtx, "browser-initiated-value");
     assertNotNull(encrypted);
+  }
+
+  @Test
+  public void testConcurrentHashingMatchesSequential() throws Exception {
+    byte[] salt = secretService.generateSalt(16);
+    String expectedPassword = secretService.getHashedPassword(salt, "password");
+    String expectedString = secretService.hashString("invite-token");
+
+    int threads = 8;
+    ExecutorService pool = Executors.newFixedThreadPool(threads);
+    CountDownLatch start = new CountDownLatch(1);
+    try {
+      List<Future<Boolean>> results = new ArrayList<>();
+      for (int t = 0; t < threads; t++) {
+        results.add(
+            pool.submit(
+                () -> {
+                  start.await();
+                  for (int i = 0; i < 2000; i++) {
+                    if (!expectedPassword.equals(secretService.getHashedPassword(salt, "password"))
+                        || !expectedString.equals(secretService.hashString("invite-token"))) {
+                      return false;
+                    }
+                  }
+                  return true;
+                }));
+      }
+      start.countDown();
+      for (Future<Boolean> result : results) {
+        assertTrue(result.get(60, TimeUnit.SECONDS));
+      }
+    } finally {
+      pool.shutdownNow();
+    }
   }
 }

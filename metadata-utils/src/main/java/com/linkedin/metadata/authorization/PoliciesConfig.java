@@ -986,8 +986,8 @@ public class PoliciesConfig {
   public static final ResourcePrivileges ER_MODEL_RELATIONSHIP_PRIVILEGES =
       ResourcePrivileges.of(
           "erModelRelationship",
-          "ERModelRelationship",
-          "update privileges for ermodelrelations",
+          "ER Model Relationships",
+          "Privileges for ER Model Relationships",
           COMMON_ENTITY_PRIVILEGES);
   public static final ResourcePrivileges BUSINESS_ATTRIBUTE_PRIVILEGES =
       ResourcePrivileges.of(
