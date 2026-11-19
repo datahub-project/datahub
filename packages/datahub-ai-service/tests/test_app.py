@@ -11,6 +11,7 @@ from helpers import FakeClientFactory, FakeGms, serve
 from datahub_ai_service.app import create_app
 from datahub_ai_service.config import AiServiceConfig, ResponseMode
 from datahub_ai_service.mcp.telemetry import ToolCallEvent
+from datahub_core_mcp_tools.gms_server_info import GmsServerInfo
 
 INITIALIZE = {
     "jsonrpc": "2.0",
@@ -30,6 +31,7 @@ def _app(gms: FakeGms, **config: Any) -> Any:
     return create_app(
         AiServiceConfig(gms_url="http://gms.invalid:8080", **config),
         client_factory=FakeClientFactory(gms),
+        server_info=lambda: GmsServerInfo(version="v1.7.0", server_env="core"),
         observers=observers,
     )
 
