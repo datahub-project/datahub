@@ -107,6 +107,13 @@ If you later upgrade to this release again, system update keeps the restored tem
 version 18 already ran. To write the shipped templates again, run system update once with
 `DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable.
 
+### Parent Data Product is now checked on every API
+
+Setting a Data Product's parent through OpenAPI, Rest.li or YAML now fails if the parent doesn't exist
+or isn't a Data Product, as it already did in the UI and GraphQL ([PR #21307](https://github.com/datahub-project/datahub/pull/21307)).
+Create parents before their children. Existing products are unaffected unless their parent is changed.
+To turn the check off, set `metadataChangeProposal.validation.dataProductProperties.parent.enabled` to `false`.
+
 <!--
 
 ## <version number>
