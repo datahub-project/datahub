@@ -69,7 +69,14 @@ from datahub.sql_parsing._legacy_pushdown_projections import (
     pushdown_projections as legacy_pushdown_projections,
 )
 from datahub.sql_parsing._models import _FrozenModel, _ParserBaseModel, _TableName
-from datahub.sql_parsing.query_types import get_query_type_of_sql, is_create_table_ddl
+from datahub.sql_parsing.query_types import (
+    get_copy_load_target,
+    get_query_type_of_sql,
+    is_copy_load,
+    is_copy_source_uri_table,
+    is_create_table_ddl,
+    is_snowflake_stage_table,
+)
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,
@@ -942,6 +949,26 @@ def _resolve_tsql_update_alias(
     return table
 
 
+def _copy_input_tables(statement: sqlglot.exp.Copy) -> Iterator[sqlglot.exp.Table]:
+    # Copy.args["params"] can hold unquoted FILE_FORMAT=(FORMAT_NAME=db.s.ff) as a
+    # Table under Property; that is a format object, not an upstream. The source
+    # list is Copy.args["files"]. Unloads (COPY … TO, COPY INTO `stg/out` FROM t)
+    # keep the exported table on Copy.this, which files does not contain.
+    for file_expr in statement.args.get("files") or []:
+        yield from file_expr.find_all(sqlglot.exp.Table)
+    if is_copy_load(statement):
+        return
+    target = statement.this
+    if isinstance(target, sqlglot.exp.Table):
+        yield target
+    elif isinstance(target, sqlglot.exp.Schema) and isinstance(
+        target.this, sqlglot.exp.Table
+    ):
+        yield target.this
+    else:
+        yield from target.find_all(sqlglot.exp.Table)
+
+
 def _table_level_lineage(
     statement: sqlglot.exp.Expression, dialect: sqlglot.Dialect
 ) -> Tuple[AbstractSet[_TableName], AbstractSet[_TableName]]:
@@ -1022,17 +1049,57 @@ def _table_level_lineage(
             ),
             dialect,
         )
+        | _extract_table_names(
+            (
+                target
+                for target in [get_copy_load_target(statement)]
+                if target is not None
+            ),
+            dialect,
+        )
+        | _extract_table_names(
+            (
+                expr
+                for expr in (
+                    statement.expressions
+                    if isinstance(statement, sqlglot.exp.TruncateTable)
+                    else []
+                )
+                if isinstance(expr, sqlglot.exp.Table)
+            ),
+            dialect,
+        )
     )
+
+    input_table_nodes: Iterable[sqlglot.exp.Table]
+    if isinstance(statement, sqlglot.exp.Copy):
+        input_table_nodes = _copy_input_tables(statement)
+    else:
+        input_table_nodes = statement.find_all(sqlglot.exp.Table)
 
     tables = (
         (
             _extract_table_names(
                 (
                     table
-                    for table in statement.find_all(sqlglot.exp.Table)
+                    for table in input_table_nodes
                     # A DROP reads nothing, including the table that `DROP INDEX ix
                     # ON t` names, which 30.22 nests under an OnProperty.
-                    if not isinstance(statement, sqlglot.exp.Drop)
+                    # TRUNCATE is a write of its targets (like DELETE), not a read.
+                    if not isinstance(
+                        statement,
+                        (
+                            sqlglot.exp.Drop,
+                            sqlglot.exp.Grant,
+                            sqlglot.exp.Revoke,
+                            sqlglot.exp.TruncateTable,
+                        ),
+                    )
+                    and not is_snowflake_stage_table(table)
+                    and not (
+                        isinstance(statement, sqlglot.exp.Copy)
+                        and is_copy_source_uri_table(table)
+                    )
                     and not _is_clickhouse_non_input(
                         table, dialect, bool(clickhouse_to_tables)
                     )
@@ -1073,6 +1140,18 @@ _SupportedColumnLineageTypes = Union[
     sqlglot.exp.DerivedTable,
 ]
 _SupportedColumnLineageTypesTuple = (sqlglot.exp.Query, sqlglot.exp.DerivedTable)
+# These statement types cannot produce column lineage. Attempting it raises
+# UnsupportedStatementTypeError, which callers count as a column-lineage
+# failure and inflates parse-failure stats for query-log sources.
+_NO_COLUMN_LINEAGE_TYPES = (
+    sqlglot.exp.Delete,
+    sqlglot.exp.Copy,
+    sqlglot.exp.Grant,
+    sqlglot.exp.Revoke,
+    sqlglot.exp.Drop,
+    sqlglot.exp.TruncateTable,
+    sqlglot.exp.Alter,
+)
 
 
 class UnsupportedStatementTypeError(TypeError):
@@ -2698,10 +2777,7 @@ def _sqlglot_lineage_inner(
 
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     joins = None
-    # DELETE has no column lineage by construction. Attempting it raises
-    # UnsupportedStatementTypeError, which callers count as a column-lineage
-    # failure and inflates parse-failure stats for query-log sources.
-    if generate_column_lineage and not isinstance(statement, sqlglot.exp.Delete):
+    if generate_column_lineage and not isinstance(statement, _NO_COLUMN_LINEAGE_TYPES):
         optimizer_stats = _OptimizerStats()
         try:
             with cooperative_timeout(
