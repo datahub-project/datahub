@@ -51,6 +51,7 @@ public class FeatureFlags {
   private boolean showSeparateSiblings = false;
   private boolean alternateMCPValidation = false;
   private boolean showManageStructuredProperties = false;
+  private boolean actorPoliciesSelfServiceEnabled = true;
   private boolean hideDbtSourceInLineage = false;
   private boolean schemaFieldCLLEnabled = false;
   private boolean schemaFieldLineageIgnoreStatus = false;

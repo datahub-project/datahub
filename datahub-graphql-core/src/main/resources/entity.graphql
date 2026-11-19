@@ -4628,6 +4628,14 @@ type CorpUser implements Entity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges @noAspects
+
+  """
+  The access policies that apply to this user, and why each applies.
+  Users with the Manage Policies privilege get the FULL view of any user.
+  A user can view their own policies in the TRIMMED view (no actors, inactive policies never
+  included) when actorPoliciesSelfServiceEnabled is on. Anyone else is denied.
+  """
+  policies(input: ActorPoliciesInput): ActorPoliciesResult @noAspects
 }
 
 """
@@ -5071,6 +5079,14 @@ type CorpGroup implements Entity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges @noAspects
+
+  """
+  The access policies that apply to this group, and why each applies.
+  Users with the Manage Policies privilege get the FULL view of any group.
+  Members of the group can view its policies in the TRIMMED view (no actors, inactive policies never
+  included) when actorPoliciesSelfServiceEnabled is on. Anyone else is denied.
+  """
+  policies(input: ActorPoliciesInput): ActorPoliciesResult @noAspects
 }
 
 """
@@ -10307,6 +10323,173 @@ type ActorFilter {
   The list of roles on the Policy, resolved.
   """
   resolvedRoles: [DataHubRole!]
+}
+
+"""
+Input for listing the access policies that apply to a user or group
+"""
+input ActorPoliciesInput {
+  """
+  Whether to include inactive policies. Defaults to false. Honoured only for users with the Manage
+  Policies privilege; ignored otherwise.
+  """
+  includeInactive: Boolean
+}
+
+"""
+How much of each policy is shown
+"""
+enum ActorPoliciesView {
+  """
+  Every policy field, including actors. Returned to users with the Manage Policies privilege.
+  """
+  FULL
+
+  """
+  Policies without their actors. Returned to a user viewing their own policies, or a member viewing
+  their group's policies.
+  """
+  TRIMMED
+}
+
+"""
+The access policies that apply to a user or group
+"""
+type ActorPoliciesResult {
+  """
+  How much of each policy is shown
+  """
+  view: ActorPoliciesView!
+
+  """
+  Policies whose actor filter matches the user or group
+  """
+  policies: [ActorPolicy!]!
+
+  """
+  Policies granted to owners of a resource, which apply only to the resources the user or group owns
+  """
+  ownerPolicies: [ActorPolicy!]!
+}
+
+"""
+An access policy that applies to a user or group, with the reasons it applies
+"""
+type ActorPolicy {
+  """
+  The urn of the policy. Null for built-in policies, which are not stored.
+  """
+  urn: String
+
+  """
+  Whether the policy is built into DataHub rather than stored
+  """
+  builtIn: Boolean!
+
+  """
+  The name of the policy
+  """
+  name: String!
+
+  """
+  The description of the policy
+  """
+  description: String
+
+  """
+  The type of the policy
+  """
+  type: PolicyType!
+
+  """
+  The present state of the policy
+  """
+  state: PolicyState!
+
+  """
+  The privileges that the policy grants
+  """
+  privileges: [String!]!
+
+  """
+  The resources that the policy privileges apply to
+  """
+  resources: ResourceFilter
+
+  """
+  The actors that the policy grants privileges to. Null in the TRIMMED view.
+  """
+  actors: ActorFilter
+
+  """
+  Every reason the policy applies to the user or group
+  """
+  matchedBy: [PolicyMatchReason!]!
+}
+
+"""
+A reason a policy applies to a user or group
+"""
+type PolicyMatchReason {
+  """
+  The kind of match
+  """
+  type: PolicyMatchReasonType!
+
+  """
+  The group through which the policy applies. Set for DIRECT_GROUP, GROUP and ROLE_VIA_GROUP.
+  """
+  group: CorpGroup
+
+  """
+  The role through which the policy applies. Set for ROLE and ROLE_VIA_GROUP.
+  """
+  role: DataHubRole
+}
+
+"""
+The kind of match between a policy and a user or group
+"""
+enum PolicyMatchReasonType {
+  """
+  The policy names the user
+  """
+  DIRECT_USER
+
+  """
+  The policy names the group itself
+  """
+  DIRECT_GROUP
+
+  """
+  The policy names a group the user belongs to
+  """
+  GROUP
+
+  """
+  The policy names a role assigned to the user or group
+  """
+  ROLE
+
+  """
+  The policy names a role assigned to a group the user belongs to
+  """
+  ROLE_VIA_GROUP
+
+  """
+  The policy applies to all users
+  """
+  ALL_USERS
+
+  """
+  The policy applies to all groups
+  """
+  ALL_GROUPS
+
+  """
+  The policy applies to owners of a resource
+  """
+  RESOURCE_OWNER
 }
 
 """

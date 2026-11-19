@@ -338,6 +338,18 @@ To login using the `datahub` account, simply navigate to `<your-datahub-domain>/
 deployment by changing the `user.props` file within the `datahub-frontend` module. Notice that JaaS authentication must be enabled.
 :::
 
+### Viewing the policies that apply to a user or group
+
+The **Policies** tab on a user or group page lists the policies that apply to that user or group, and why each one
+applies: the user is named directly, a group they belong to is named, they hold a role the policy names, or the policy
+targets all users or all groups. A second list shows policies that apply to the entities they own.
+
+- Users with the `Manage Policies` privilege see the full view of any user or group, including the complete list of actors on each policy.
+- Any other user can open the tab on their own page, and on the page of a group they belong to. They see a trimmed view that omits the list of actors. They cannot view other users or groups.
+
+Set `ACTOR_POLICIES_SELF_SERVICE_ENABLED=false` on `datahub-gms` to turn off the trimmed view, so that only users with
+`Manage Policies` can see these tabs. It is on by default.
+
 ## Configuration
 
 By default, the Policies feature is _enabled_. This means that the deployment will support creating, editing, removing, and

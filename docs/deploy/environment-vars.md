@@ -1079,6 +1079,7 @@ Reference Links:
 | `SHOW_NAV_BAR_REDESIGN`                 | `true`  | Show newly designed nav bar                                                                                     | GMS        |
 | `SHOW_AUTO_COMPLETE_RESULTS`            | `true`  | Show auto complete results in search bar                                                                        | GMS        |
 | `ENTITY_VERSIONING_ENABLED`             | `false` | Enable entity versioning APIs                                                                                   | GMS        |
+| `ACTOR_POLICIES_SELF_SERVICE_ENABLED`   | `true`  | Let users see the policies that apply to them and their groups                                                  | GMS        |
 | `SHOW_HAS_SIBLINGS_FILTER`              | `false` | Show "has siblings" filter in search                                                                            | GMS        |
 | `SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN` | `false` | Show redesigned search bar autocomplete                                                                         | GMS        |
 | `SHOW_MANAGE_TAGS`                      | `true`  | Allow users to manage tags in UI                                                                                | GMS        |

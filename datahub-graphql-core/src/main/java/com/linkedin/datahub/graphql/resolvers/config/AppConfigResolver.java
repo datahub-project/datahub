@@ -279,6 +279,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                   .setMaxSiblingGroupUrns(context.getMaxSiblingGroupUrns())
                   .setShowManageStructuredProperties(
                       _featureFlags.isShowManageStructuredProperties())
+                  .setActorPoliciesSelfServiceEnabled(
+                      _featureFlags.isActorPoliciesSelfServiceEnabled())
                   .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
                   .setHideDbtSourceInLineage(_featureFlags.isHideDbtSourceInLineage())
                   .setSchemaFieldLineageIgnoreStatus(

@@ -92,6 +92,7 @@ export const DEFAULT_APP_CONFIG = {
         schemaFieldCLLEnabled: false,
         schemaFieldLineageIgnoreStatus: false,
         showManageStructuredProperties: false,
+        actorPoliciesSelfServiceEnabled: true,
         hideDbtSourceInLineage: false,
         showNavBarRedesign: false,
         showAutoCompleteResults: false,
