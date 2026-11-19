@@ -41,6 +41,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_WHITESPACE_RE,
     TEMPORAL_TAG_URN,
     USAGE_TARGET_DASHBOARD,
+    USAGE_TARGET_DATASET,
 )
 from datahub.ingestion.source.microstrategy.lineage import (
     ColumnSetBinding,
@@ -85,6 +86,8 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    DatasetUsageStatisticsClass,
+    DatasetUserUsageCountsClass,
     EdgeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
@@ -464,7 +467,7 @@ class MicroStrategyMapper:
     def dataset_external_url(
         self,
         project_id: str,
-        parent_id: str,
+        parent_id: Optional[str],
         dataset: DatasetObject,
         dataset_object: Optional[MicroStrategyObject],
     ) -> str:
@@ -472,8 +475,11 @@ class MicroStrategyMapper:
         Library renders dossiers, documents and reports by id, but has no viewer
         for intelligent/super cubes: a cube URL would land on an error page, so
         cubes (and datasets whose object info was unavailable) keep linking to
-        the parent dossier/report that embeds them."""
-        parent_url = f"{self.config.base_url}/app/{project_id}/{parent_id}"
+        the parent dossier/report that embeds them, or to the project when no
+        parent is known (a per-report dataset no dashboard uses)."""
+        parent_url = f"{self.config.base_url}/app/{project_id}"
+        if parent_id:
+            parent_url = f"{parent_url}/{parent_id}"
         if dataset_object is None or _is_cube_object(dataset_object):
             return parent_url
         return f"{self.config.base_url}/app/{project_id}/{dataset.id}"
@@ -555,10 +561,55 @@ class MicroStrategyMapper:
             sub_type=self.dataset_sub_type(dataset_object),
         )
 
+    def gen_report_dataset_workunits(
+        self,
+        project_id: str,
+        dataset: DatasetObject,
+        parent_key: ProjectKey,
+        dataset_object: Optional[MicroStrategyObject],
+        dashboard_ids: Sequence[str],
+        report_definition: Optional[ReportDefinition] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        """The one dataset entity a MicroStrategy report is under
+        dataset_identity=per_report: the report object itself, however many
+        dashboards embed it and whether or not the report pass saw it. The
+        first dashboard that used it is the fallback a cube's URL links to.
+        The report's owner lands here, since no `Report` chart carries it."""
+        first_dashboard_id = dashboard_ids[0] if dashboard_ids else None
+        custom_properties = self._report_dataset_custom_properties(
+            project_id=project_id,
+            dataset=dataset,
+            dashboard_ids=dashboard_ids,
+            report_definition=report_definition,
+        )
+        if dataset_object is not None:
+            custom_properties.update(self._dashboard_object_properties(dataset_object))
+        self.report.report_report_dataset_emitted()
+        yield from self._gen_dataset_entity_workunits(
+            project_id=project_id,
+            parent_id=first_dashboard_id,
+            dataset=dataset,
+            parent_key=parent_key,
+            custom_properties=custom_properties,
+            include_coarse_lineage=(
+                self.config.extract_warehouse_lineage
+                or self.config.extract_report_sql_lineage
+            ),
+            external_url=self.dataset_external_url(
+                project_id, first_dashboard_id, dataset, dataset_object
+            ),
+            sub_type=self.dataset_sub_type(dataset_object),
+        )
+        if self.config.ingest_owner and dataset_object and dataset_object.owner:
+            yield self._ownership_workunit(
+                self.lineage.dataset_urn(project_id, first_dashboard_id, dataset),
+                dataset_object.owner,
+            )
+
     def _gen_dataset_entity_workunits(
         self,
         project_id: str,
-        parent_id: str,
+        parent_id: Optional[str],
         dataset: DatasetObject,
         parent_key: ProjectKey,
         custom_properties: Dict[str, str],
@@ -575,7 +626,9 @@ class MicroStrategyMapper:
             aspect=DatasetPropertiesClass(
                 name=dataset.name,
                 description=dataset.description,
-                qualifiedName=f"{project_id}.{parent_id}.{dataset.id}".lower(),
+                qualifiedName=self.lineage.dataset_qualified_name(
+                    project_id, parent_id, dataset
+                ),
                 externalUrl=external_url,
                 customProperties=custom_properties,
             ),
@@ -1322,8 +1375,29 @@ class MicroStrategyMapper:
         """Daily usage bucket -> Dashboard/Chart usage statistics aspect."""
         granularity = TimeWindowSizeClass(unit=CalendarIntervalClass.DAY, multiple=1)
         sorted_user_counts = sorted(bucket.user_counts.items())
-        aspect: Union[DashboardUsageStatisticsClass, ChartUsageStatisticsClass]
-        if entity_kind == USAGE_TARGET_DASHBOARD:
+        aspect: Union[
+            DashboardUsageStatisticsClass,
+            ChartUsageStatisticsClass,
+            DatasetUsageStatisticsClass,
+        ]
+        if entity_kind == USAGE_TARGET_DATASET:
+            # A report dataset (dataset_identity=per_report): the Platform
+            # Analytics execution count is the closest thing to a query count.
+            aspect = DatasetUsageStatisticsClass(
+                timestampMillis=bucket.bucket_start_ms,
+                eventGranularity=granularity,
+                uniqueUserCount=len(bucket.user_counts) or None,
+                totalSqlQueries=bucket.view_count,
+                userCounts=[
+                    DatasetUserUsageCountsClass(
+                        user=builder.make_user_urn(user),
+                        count=count,
+                    )
+                    for user, count in sorted_user_counts
+                ]
+                or None,
+            )
+        elif entity_kind == USAGE_TARGET_DASHBOARD:
             aspect = DashboardUsageStatisticsClass(
                 timestampMillis=bucket.bucket_start_ms,
                 eventGranularity=granularity,
@@ -1563,24 +1637,50 @@ class MicroStrategyMapper:
             properties.update(
                 _warehouse_upstream_properties(dataset.warehouse_upstream_urns)
             )
-        if dataset.field_warehouse_upstreams:
-            upstream_field_urns = {
-                field_urn
-                for upstreams in dataset.field_warehouse_upstreams.values()
-                for field_urn in upstreams
-            }
-            upstream_dataset_urns = _upstream_dataset_urns(
-                dataset.field_warehouse_upstreams
+        properties.update(_model_lineage_properties(dataset))
+        properties.update(self._source_warehouse_properties(dataset.source_warehouse))
+        return properties
+
+    def _report_dataset_custom_properties(
+        self,
+        project_id: str,
+        dataset: DatasetObject,
+        dashboard_ids: Sequence[str],
+        report_definition: Optional[ReportDefinition],
+    ) -> Dict[str, str]:
+        """Properties of a per-report dataset: which dashboards use it (in the
+        order seen), what the report pass learned from its definition when it
+        fetched one, and the same semantic, lineage and warehouse summaries a
+        dashboard-scoped dataset carries."""
+        properties = {
+            "microstrategyProjectId": project_id,
+            "microstrategyReportId": dataset.id,
+            "microstrategyDashboardCount": str(len(dashboard_ids)),
+        }
+        if dashboard_ids:
+            properties["microstrategyDashboardIds"] = ",".join(dashboard_ids)
+        if report_definition is not None:
+            properties["microstrategyReportPromptCount"] = str(
+                report_definition.prompt_count
             )
-            properties["microstrategyModelLineageFieldCount"] = str(
-                len(dataset.field_warehouse_upstreams)
+            properties["microstrategyReportHasFilter"] = str(
+                report_definition.has_filter
+            ).lower()
+            if report_definition.source_id:
+                properties["microstrategyReportSourceId"] = report_definition.source_id
+            if report_definition.source_name:
+                properties["microstrategyReportSourceName"] = (
+                    report_definition.source_name
+                )
+        properties.update(_dataset_semantic_count_properties(dataset))
+        if (
+            self.config.extract_warehouse_lineage
+            or self.config.extract_report_sql_lineage
+        ) and dataset.warehouse_upstream_urns:
+            properties.update(
+                _warehouse_upstream_properties(dataset.warehouse_upstream_urns)
             )
-            properties["microstrategyModelLineageUpstreamFieldCount"] = str(
-                len(upstream_field_urns)
-            )
-            properties["microstrategyModelLineageUpstreamDatasetCount"] = str(
-                len(upstream_dataset_urns)
-            )
+        properties.update(_model_lineage_properties(dataset))
         properties.update(self._source_warehouse_properties(dataset.source_warehouse))
         return properties
 
@@ -2312,6 +2412,28 @@ def _dataset_semantic_count_properties(dataset: DatasetObject) -> Dict[str, str]
             len(metrics) + attribute_schema_field_count
         ),
         "microstrategyObjectIdCount": str(len(dataset.object_ids)),
+    }
+
+
+def _model_lineage_properties(dataset: DatasetObject) -> Dict[str, str]:
+    """Field-level lineage summary: how many fields have warehouse upstreams
+    and how many upstream fields and tables feed them. Empty without any."""
+    if not dataset.field_warehouse_upstreams:
+        return {}
+    upstream_field_urns = {
+        field_urn
+        for upstreams in dataset.field_warehouse_upstreams.values()
+        for field_urn in upstreams
+    }
+    upstream_dataset_urns = _upstream_dataset_urns(dataset.field_warehouse_upstreams)
+    return {
+        "microstrategyModelLineageFieldCount": str(
+            len(dataset.field_warehouse_upstreams)
+        ),
+        "microstrategyModelLineageUpstreamFieldCount": str(len(upstream_field_urns)),
+        "microstrategyModelLineageUpstreamDatasetCount": str(
+            len(upstream_dataset_urns)
+        ),
     }
 
 

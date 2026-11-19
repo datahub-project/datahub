@@ -706,6 +706,224 @@ def test_microstrategy_ingestion(pytestconfig: Any, tmp_path: Path) -> None:
     )
 
 
+def _dashboards_sharing_a_report(
+    client: MicroStrategyClient,
+    project_id: str,
+) -> Iterable[MicroStrategyObject]:
+    # A second dossier in the same folder that reads the report-backed
+    # dataset (ds-2) the first one also reads.
+    return [
+        *_dashboards(client, project_id),
+        MicroStrategyObject.model_validate(
+            {
+                "id": "dash-2",
+                "name": "Cost Review",
+                "type": "55",
+                "subtype": "14081",
+                "viewMedia": 1879072805,
+                "description": "Cost review dashboard",
+                "owner": {"username": "cost_owner"},
+                "ancestors": [
+                    {"id": "folder-1", "name": "Shared Reports"},
+                    {"id": "folder-2", "name": "Finance"},
+                ],
+            }
+        ),
+    ]
+
+
+def _dossier_definition_by_id(
+    client: MicroStrategyClient,
+    project_id: str,
+    dossier_id: str,
+) -> Dict[str, Any]:
+    if dossier_id == "dash-1":
+        return _dossier_definition(client, project_id, dossier_id)
+    assert dossier_id == "dash-2"
+    return {
+        "result": {
+            "definition": {
+                "datasets": [
+                    {
+                        "id": "ds-2",
+                        "name": "Cost Cube",
+                        "description": "Embedded cost cube",
+                        "availableObjects": {
+                            "metrics": [
+                                {"id": "metric-2", "name": "Cost", "dataType": "double"}
+                            ],
+                            "attributes": [],
+                        },
+                    }
+                ],
+                "chapters": [
+                    {
+                        "key": "chapter-2",
+                        "pages": [
+                            {
+                                "key": "page-3",
+                                "name": "COST",
+                                "visualizations": [
+                                    {
+                                        "key": "viz-3",
+                                        "name": "Cost Trend",
+                                        "type": "line",
+                                        "datasets": ["ds-2"],
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        }
+    }
+
+
+def _visualization_definition_by_id(
+    client: MicroStrategyClient,
+    project_id: str,
+    dossier_id: str,
+    instance_id: str,
+    chapter_key: str,
+    visualization_key: str,
+) -> Dict[str, Any]:
+    if dossier_id == "dash-1":
+        return _visualization_definition(
+            client, project_id, dossier_id, instance_id, chapter_key, visualization_key
+        )
+    assert (dossier_id, chapter_key, visualization_key) == (
+        "dash-2",
+        "chapter-2",
+        "viz-3",
+    )
+    return {
+        "key": "viz-3",
+        "name": "Cost Trend",
+        "datasets": ["ds-2"],
+        "template": {"metrics": [{"id": "metric-2", "name": "Cost"}]},
+    }
+
+
+def _dashboard_dependencies_by_id(
+    client: MicroStrategyClient,
+    project_id: str,
+    object_id: str,
+    object_type: str,
+) -> List[MicroStrategyObject]:
+    if object_id == "dash-1":
+        return _dashboard_dependencies(client, project_id, object_id, object_type)
+    return []
+
+
+def _dataset_sql_view_by_id(
+    client: MicroStrategyClient,
+    project_id: str,
+    dossier_id: str,
+    instance_id: str,
+) -> List[Dict[str, Any]]:
+    if dossier_id == "dash-1":
+        return _dataset_sql_view(client, project_id, dossier_id, instance_id)
+    return []
+
+
+def test_microstrategy_ingestion_per_report(pytestconfig: Any, tmp_path: Path) -> None:
+    # dataset_identity=per_report: the report-backed dataset both dossiers
+    # read (ds-2) is one entity, keyed by the report and filed under its own
+    # folder, with both dossiers' visualizations pointing at it.
+    output_path = tmp_path / "microstrategy_per_report_mcps.json"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/microstrategy"
+
+    config = _pipeline_config(output_path)
+    config["source"]["config"]["dataset_identity"] = "per_report"
+    config["source"]["config"]["dashboard_pattern"] = {
+        "allow": ["^Sales Performance$", "^Cost Review$"]
+    }
+
+    with (
+        patch.object(MicroStrategyClient, "login", return_value=None),
+        patch.object(MicroStrategyClient, "close", return_value=None),
+        patch.object(MicroStrategyClient, "list_projects", _projects),
+        patch.object(
+            MicroStrategyClient, "list_project_datasources", _source_warehouses
+        ),
+        patch.object(
+            MicroStrategyClient, "get_datasource_connection", _source_connection
+        ),
+        patch.object(
+            MicroStrategyClient, "search_dashboards", _dashboards_sharing_a_report
+        ),
+        patch.object(MicroStrategyClient, "get_object_info", _dataset_object_info),
+        patch.object(MicroStrategyClient, "get_model_report", _model_report),
+        patch.object(
+            MicroStrategyClient, "get_dossier_definition", _dossier_definition_by_id
+        ),
+        patch.object(
+            MicroStrategyClient,
+            "get_dossier_visualization",
+            _visualization_definition_by_id,
+        ),
+        patch.object(
+            MicroStrategyClient,
+            "get_object_dependencies",
+            _dashboard_dependencies_by_id,
+        ),
+        patch.object(MicroStrategyClient, "get_metric_model", _metric_model),
+        patch.object(MicroStrategyClient, "list_model_tables", _model_tables),
+        patch.object(
+            MicroStrategyClient, "get_predefined_folders", _standard_predefined_folders
+        ),
+        patch.object(MicroStrategyClient, "get_model_document", return_value={}),
+        patch.object(
+            MicroStrategyClient, "create_dossier_instance", return_value="i-1"
+        ),
+        patch.object(MicroStrategyClient, "delete_dossier_instance", return_value=True),
+        patch.object(
+            MicroStrategyClient, "create_document_instance", return_value="i-1"
+        ),
+        patch.object(
+            MicroStrategyClient, "delete_document_instance", return_value=True
+        ),
+        patch.object(
+            MicroStrategyClient, "get_dossier_datasets_sql", _dataset_sql_view_by_id
+        ),
+    ):
+        pipeline = Pipeline.create(config)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    mcps = json.loads(output_path.read_text())
+    dataset_urns = sorted(
+        {
+            mcp["entityUrn"]
+            for mcp in mcps
+            if mcp.get("aspectName") == "datasetProperties"
+        }
+    )
+    assert dataset_urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.ds-1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.ds-2,PROD)",
+    ]
+    chart_inputs = {
+        mcp["entityUrn"]: [entry["string"] for entry in mcp["aspect"]["json"]["inputs"]]
+        for mcp in mcps
+        if mcp.get("aspectName") == "chartInfo"
+    }
+    assert chart_inputs["urn:li:chart:(microstrategy,prod.project-1.dash-1.viz-2)"] == [
+        dataset_urns[0],
+        dataset_urns[1],
+    ]
+    assert chart_inputs["urn:li:chart:(microstrategy,prod.project-1.dash-2.viz-3)"] == [
+        dataset_urns[1]
+    ]
+
+    mce_helpers.check_golden_file(
+        pytestconfig=pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "microstrategy_per_report_golden.json",
+    )
+
+
 def _empty_model_tables(
     _client: MicroStrategyClient,
     _project_id: str,
