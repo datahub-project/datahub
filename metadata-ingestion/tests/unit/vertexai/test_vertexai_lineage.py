@@ -3,10 +3,11 @@ from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
-from google.api_core.exceptions import GoogleAPICallError, NotFound
+from google.api_core.exceptions import GoogleAPICallError, NotFound, PermissionDenied
 from google.cloud.aiplatform import PipelineJob
 from google.cloud.aiplatform_v1 import PipelineTaskDetail
 from google.cloud.aiplatform_v1.types import Execution, PipelineJob as PipelineJobType
+from google.rpc.error_details_pb2 import ErrorInfo
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -19,6 +20,7 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     TrainingJobMetadata,
 )
 from datahub.metadata.schema_classes import (
+    DataProcessInstancePropertiesClass,
     DataProcessInstanceRelationshipsClass,
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
@@ -126,11 +128,14 @@ def test_training_job_external_lineage_edges() -> None:
     )
 
     job = _Job()
-    job_meta = source.training_extractor._get_training_job_metadata(cast(Any, job))
+    job_meta = source.training_extractor._get_training_job_metadata(
+        cast(Any, job), job_config=None
+    )
     uris = source.uri_parser.extract_external_uris_from_job(cast(Any, job))
     job_meta.external_input_urns = uris.input_urns
     job_meta.external_output_urns = uris.output_urns
-    mcps = list(source.training_extractor._gen_training_job_mcps(job_meta))
+    lookup = source.training_extractor._look_up_job(cast(Any, job))
+    mcps = list(source.training_extractor._gen_training_job_mcps(job_meta, lookup))
     has_ext_inputs = any(
         getattr(m.metadata.aspect, "inputEdges", None)
         and any(
@@ -204,6 +209,7 @@ def test_model_downstream_lineage_from_pipeline_tasks(source: VertexAISource) ->
     mock_pipeline.location = "us-central1"
 
     gca_resource = MagicMock(spec=PipelineJobType)
+    gca_resource.update_time = mock_pipeline.update_time
     mock_pipeline.gca_resource = gca_resource
 
     task_detail = MagicMock(spec=PipelineTaskDetail)
@@ -385,6 +391,7 @@ def test_model_group_downstream_lineage_from_pipeline_tasks(
 
     # Set up the pipeline spec
     gca_resource = MagicMock(spec=PipelineJobType)
+    gca_resource.update_time = mock_pipeline.update_time
     mock_pipeline.gca_resource = gca_resource
     mock_pipeline.task_details = [mock_task_detail]
     gca_resource.pipeline_spec = {
@@ -533,11 +540,20 @@ def test_logged_training_jobs_emitted_as_upstream_instances(
 
 
 @pytest.mark.parametrize(
-    "error",
-    [NotFound("no jobs"), GoogleAPICallError("permission denied")],
+    "error,warnings",
+    [
+        (NotFound("logged job deleted"), 1),
+        (GoogleAPICallError("bad request"), 1),
+        (
+            PermissionDenied(
+                "no role", error_info=ErrorInfo(reason="IAM_PERMISSION_DENIED")
+            ),
+            1,
+        ),
+    ],
 )
 def test_logged_training_jobs_api_error_skips_upstream_instances(
-    source: VertexAISource, error: Exception
+    source: VertexAISource, error: Exception, warnings: int
 ) -> None:
     run = gen_mock_experiment_run()
     cast(MagicMock, run.get_logged_custom_jobs).side_effect = error
@@ -545,6 +561,12 @@ def test_logged_training_jobs_api_error_skips_upstream_instances(
     mcps = _run_experiment_run_mcps(source, run)
 
     assert _upstream_instance_aspects(mcps) == []
+    assert any(
+        isinstance(m.metadata, MetadataChangeProposalWrapper)
+        and isinstance(m.metadata.aspect, DataProcessInstancePropertiesClass)
+        for m in mcps
+    )
+    assert len(source.report.warnings) == warnings
 
 
 def test_training_job_tracker_feeds_into_model_mcps(source: VertexAISource) -> None:
@@ -565,7 +587,8 @@ def test_training_job_tracker_feeds_into_model_mcps(source: VertexAISource) -> N
         output_model_version=mock_version,
     )
 
-    list(source.training_extractor._gen_training_job_mcps(job_meta))
+    lookup = source.training_extractor._look_up_job(job_meta.job)
+    list(source.training_extractor._gen_training_job_mcps(job_meta, lookup))
 
     model_urn = source.urn_builder.make_ml_model_urn(
         mock_version, source.name_formatter.format_model_name(mock_model.name)

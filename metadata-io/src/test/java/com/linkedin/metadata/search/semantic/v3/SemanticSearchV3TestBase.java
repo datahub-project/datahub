@@ -44,7 +44,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.opensearch.client.Request;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -186,11 +185,6 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
 
   @Test
   public void testAspectFieldFilterMatchesV3Documents() {
-    if (!SemanticEntitySearchService.supportsV3SemanticFilters(getSearchClient())) {
-      throw new SkipException(
-          "DataHub refuses V3 semantic reads on OpenSearch before 3.5, where they are not"
-              + " validated; this test builds the service directly");
-    }
     // A domains filter reads the full URN field
     SearchResult byDomain =
         service.search(

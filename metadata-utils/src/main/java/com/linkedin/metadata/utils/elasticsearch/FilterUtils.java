@@ -17,6 +17,21 @@ import javax.annotation.Nullable;
 
 public class FilterUtils {
 
+  /** True when the filter has at least one criterion. */
+  public static boolean hasCriterion(@Nullable Filter filter) {
+    if (filter == null) {
+      return false;
+    }
+    if (filter.hasOr()) {
+      for (ConjunctiveCriterion clause : filter.getOr()) {
+        if (clause.hasAnd() && !clause.getAnd().isEmpty()) {
+          return true;
+        }
+      }
+    }
+    return filter.hasCriteria() && !filter.getCriteria().isEmpty();
+  }
+
   /**
    * Combines two {@link Filter} instances in a conjunction and returns a new instance of {@link
    * Filter} in disjunctive normal form.

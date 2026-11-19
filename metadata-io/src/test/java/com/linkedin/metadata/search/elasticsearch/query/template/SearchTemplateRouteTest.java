@@ -41,7 +41,9 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.search.template.SearchTemplateDefaultRoute;
 import com.linkedin.search.template.SearchTemplateLadder;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateRoute;
 import com.linkedin.search.template.SearchTemplateRouteArray;
+import com.linkedin.search.template.SearchTemplateRouteMatch;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
@@ -62,49 +64,66 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
   @Test
   public void testShippedRouteOrder() {
     installShippedRoutes();
-    SearchTemplateSelector selector = new SearchTemplateSelector(templates, loader);
+    SearchTemplateSelector selector =
+        new SearchTemplateSelector(templates, loader, SearchTemplateGates.none());
     assertEquals(
         selector
             .select(
-                opContext, "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)", true, null)
+                opContext,
+                "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)",
+                true,
+                null,
+                REQUEST)
             .getUrn(),
         SEARCH_TEMPLATE_IDENTITY_URN);
     assertEquals(
-        selector.select(opContext, "s3://bucket/path/object", true, null).getUrn(),
+        selector.select(opContext, "s3://bucket/path/object", true, null, REQUEST).getUrn(),
         SEARCH_TEMPLATE_IDENTITY_URN);
     assertEquals(
-        selector.select(opContext, "s3:\\/\\/bucket\\/key", true, null).getUrn(),
+        selector.select(opContext, "s3:\\/\\/bucket\\/key", true, null, REQUEST).getUrn(),
         SEARCH_TEMPLATE_IDENTITY_URN);
     assertEquals(
-        selector.select(opContext, "", true, null).getUrn(), SEARCH_TEMPLATE_LIST_BY_URN_URN);
+        selector.select(opContext, "", true, null, REQUEST).getUrn(),
+        SEARCH_TEMPLATE_LIST_BY_URN_URN);
     assertEquals(
-        selector.select(opContext, "*", true, null).getUrn(), SEARCH_TEMPLATE_LIST_BY_URN_URN);
+        selector.select(opContext, "*", true, null, REQUEST).getUrn(),
+        SEARCH_TEMPLATE_LIST_BY_URN_URN);
     assertEquals(
-        selector.select(opContext, "\\/q \"orders\"", true, null).getUrn(),
+        selector.select(opContext, "\\/q \"orders\"", true, null, REQUEST).getUrn(),
         SEARCH_TEMPLATE_STRUCTURED_EXACT_URN);
     assertEquals(
-        selector.select(opContext, "\\/q platform:snowflake", true, null).getUrn(),
+        selector.select(opContext, "\\/q platform:snowflake", true, null, REQUEST).getUrn(),
         SEARCH_TEMPLATE_STRUCTURED_URN);
     assertEquals(
-        selector.select(opContext, "\\/q *", true, null).getUrn(), SEARCH_TEMPLATE_LIST_URN);
+        selector.select(opContext, "\\/q *", true, null, REQUEST).getUrn(),
+        SEARCH_TEMPLATE_LIST_URN);
     assertEquals(
         selector
-            .select(opContext, "\\/q urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)", true, null)
+            .select(
+                opContext,
+                "\\/q urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)",
+                true,
+                null,
+                REQUEST)
             .getUrn(),
         SEARCH_TEMPLATE_IDENTITY_URN);
     assertNotEquals(
-        selector.select(opContext, "urn:orders", true, null).getUrn(),
+        selector.select(opContext, "urn:orders", true, null, REQUEST).getUrn(),
         SEARCH_TEMPLATE_IDENTITY_URN);
     assertNotEquals(
-        selector.select(opContext, "URN:orders", true, null).getUrn(),
+        selector.select(opContext, "URN:orders", true, null, REQUEST).getUrn(),
         SEARCH_TEMPLATE_IDENTITY_URN);
     assertNotEquals(
-        selector.select(opContext, "urn:", true, null).getUrn(), SEARCH_TEMPLATE_IDENTITY_URN);
+        selector.select(opContext, "urn:", true, null, REQUEST).getUrn(),
+        SEARCH_TEMPLATE_IDENTITY_URN);
     assertEquals(
-        selector.select(opContext, "\"orders\"", true, null).getUrn(), SEARCH_TEMPLATE_EXACT_URN);
+        selector.select(opContext, "\"orders\"", true, null, REQUEST).getUrn(),
+        SEARCH_TEMPLATE_EXACT_URN);
     assertEquals(
-        selector.select(opContext, "orders", true, null).getUrn(), SEARCH_TEMPLATE_EXACT_URN);
-    ResolvedSearchTemplate fulltext = selector.select(opContext, "customer orders", true, null);
+        selector.select(opContext, "orders", true, null, REQUEST).getUrn(),
+        SEARCH_TEMPLATE_EXACT_URN);
+    ResolvedSearchTemplate fulltext =
+        selector.select(opContext, "customer orders", true, null, REQUEST);
     assertEquals(fulltext.getUrn(), SEARCH_TEMPLATE_FULLTEXT_URN);
     assertEquals(
         fulltext.getRouteChain(),
@@ -121,18 +140,20 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     assertTrue(rendered.contains("customer"), rendered);
 
     assertEquals(
-        selector.select(opContext, "\"orders\"", false, null).getUrn(),
+        selector.select(opContext, "\"orders\"", false, null, REQUEST).getUrn(),
         SEARCH_TEMPLATE_STRUCTURED_EXACT_URN);
     assertEquals(
-        selector.select(opContext, "\\/q \"orders\"", false, null).getUrn(),
+        selector.select(opContext, "\\/q \"orders\"", false, null, REQUEST).getUrn(),
         SEARCH_TEMPLATE_STRUCTURED_EXACT_URN);
     assertEquals(
-        selector.select(opContext, "orders", false, null).getUrn(), SEARCH_TEMPLATE_STRUCTURED_URN);
-    assertEquals(
-        selector.select(opContext, "\\/q platform:snowflake", false, null).getUrn(),
+        selector.select(opContext, "orders", false, null, REQUEST).getUrn(),
         SEARCH_TEMPLATE_STRUCTURED_URN);
     assertEquals(
-        selector.select(opContext, "\\/q *", false, null).getUrn(), SEARCH_TEMPLATE_LIST_URN);
+        selector.select(opContext, "\\/q platform:snowflake", false, null, REQUEST).getUrn(),
+        SEARCH_TEMPLATE_STRUCTURED_URN);
+    assertEquals(
+        selector.select(opContext, "\\/q *", false, null, REQUEST).getUrn(),
+        SEARCH_TEMPLATE_LIST_URN);
   }
 
   @Test
@@ -140,15 +161,21 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     SearchTemplateLoader classpath = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
     MergedSearchTemplate searchLight =
         classpath.load(opContext, "urn:li:searchTemplate:searchLight");
-    assertEquals(SearchTemplateRoutes.decide(searchLight, "*").target(), SEARCH_TEMPLATE_LIST_URN);
     assertEquals(
-        SearchTemplateRoutes.decide(searchLight, "urn:orders").target(), SEARCH_TEMPLATE_LIGHT_URN);
+        SearchTemplateRoutes.decide(searchLight, "*", NO_INPUTS).target(),
+        SEARCH_TEMPLATE_LIST_URN);
     assertEquals(
-        SearchTemplateRoutes.decide(searchLight, "URN:orders").target(), SEARCH_TEMPLATE_LIGHT_URN);
+        SearchTemplateRoutes.decide(searchLight, "urn:orders", NO_INPUTS).target(),
+        SEARCH_TEMPLATE_LIGHT_URN);
     assertEquals(
-        SearchTemplateRoutes.decide(searchLight, "urn:").target(), SEARCH_TEMPLATE_LIGHT_URN);
+        SearchTemplateRoutes.decide(searchLight, "URN:orders", NO_INPUTS).target(),
+        SEARCH_TEMPLATE_LIGHT_URN);
     assertEquals(
-        SearchTemplateRoutes.decide(searchLight, "urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)")
+        SearchTemplateRoutes.decide(searchLight, "urn:", NO_INPUTS).target(),
+        SEARCH_TEMPLATE_LIGHT_URN);
+    assertEquals(
+        SearchTemplateRoutes.decide(
+                searchLight, "urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)", NO_INPUTS)
             .target(),
         SEARCH_TEMPLATE_IDENTITY_URN);
 
@@ -170,13 +197,14 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     assertFalse(
         SearchTemplateLadderPredicates.stopMatches(light.getLadder(), 0, "orders", null, null, 10));
     assertTrue(
-        SearchTemplateLadderPredicates.selectMatches(light.getLadder(), "orders", null, null, 10));
+        SearchTemplateLadderPredicates.selectMatches(
+            light.getLadder(), "orders", null, null, 10, INELIGIBLE));
     assertTrue(
         SearchTemplateLadderPredicates.selectMatches(
-            light.getLadder(), "customer orders", null, null, 10));
+            light.getLadder(), "customer orders", null, null, 10, INELIGIBLE));
     assertFalse(
         SearchTemplateLadderPredicates.selectMatches(
-            light.getLadder(), "one two three four", null, null, 10));
+            light.getLadder(), "one two three four", null, null, 10, INELIGIBLE));
 
     SearchV3QueryBuilder builder =
         new SearchV3QueryBuilder(classpath, new SearchConfiguration(), null);
@@ -241,14 +269,16 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
   @Test
   public void testSelection() {
     installShippedRoutes();
-    SearchTemplateSelector selector = new SearchTemplateSelector(templates, loader);
+    SearchTemplateSelector selector =
+        new SearchTemplateSelector(templates, loader, SearchTemplateGates.none());
     assertEquals(
         selector
             .select(
                 opContext,
                 "customer orders",
                 true,
-                SearchClientShim.SearchEngineType.ELASTICSEARCH_8)
+                SearchClientShim.SearchEngineType.ELASTICSEARCH_8,
+                REQUEST)
             .getUrn(),
         SEARCH_TEMPLATE_FULLTEXT_URN);
 
@@ -260,7 +290,8 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
                 opContext,
                 "customer orders",
                 true,
-                SearchClientShim.SearchEngineType.ELASTICSEARCH_8)
+                SearchClientShim.SearchEngineType.ELASTICSEARCH_8,
+                REQUEST)
             .getUrn(),
         SEARCH_TEMPLATE_FULLTEXT_URN);
     fulltextSlots.remove("elasticsearch8");
@@ -271,7 +302,7 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
                 flags
                     .setFulltext(true)
                     .setSearchTemplate(UrnUtils.getUrn(SEARCH_TEMPLATE_LIST_URN)));
-    ResolvedSearchTemplate selected = selector.select(pinned, "orders", true, null);
+    ResolvedSearchTemplate selected = selector.select(pinned, "orders", true, null, REQUEST);
     assertEquals(selected.getUrn(), SEARCH_TEMPLATE_LIST_URN);
     assertEquals(selected.getRouteChain(), List.of(SEARCH_TEMPLATE_LIST_URN));
 
@@ -282,7 +313,7 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
                     .setFulltext(true)
                     .setSearchTemplate(UrnUtils.getUrn(SEARCH_TEMPLATE_SEARCH_URN)));
     assertEquals(
-        selector.select(routed, "urn:li:corpuser:alice", true, null).getUrn(),
+        selector.select(routed, "urn:li:corpuser:alice", true, null, REQUEST).getUrn(),
         SEARCH_TEMPLATE_IDENTITY_URN);
 
     OperationContext postgresOverride =
@@ -293,18 +324,19 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
                     .setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:fulltextPostgres")));
     assertThrows(
         SearchTemplateException.class,
-        () -> selector.select(postgresOverride, "orders", true, null));
+        () -> selector.select(postgresOverride, "orders", true, null, REQUEST));
 
     templates.getDefaults().remove("fulltext");
     assertThrows(
         SearchTemplateException.class,
-        () -> selector.select(opContext, "customer orders", true, null));
+        () -> selector.select(opContext, "customer orders", true, null, REQUEST));
   }
 
   @Test
   public void testCallerCanSelectSearchTemplate() {
     installShippedRoutes();
-    SearchTemplateSelector selector = new SearchTemplateSelector(templates, loader);
+    SearchTemplateSelector selector =
+        new SearchTemplateSelector(templates, loader, SearchTemplateGates.none());
     OperationContext caller =
         opContext
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH)
@@ -314,7 +346,7 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
                         .setFulltext(true)
                         .setSearchTemplate(UrnUtils.getUrn(SEARCH_TEMPLATE_LIST_URN)));
 
-    ResolvedSearchTemplate selected = selector.select(caller, "orders", true, null);
+    ResolvedSearchTemplate selected = selector.select(caller, "orders", true, null, REQUEST);
     assertEquals(selected.getUrn(), SEARCH_TEMPLATE_LIST_URN);
     assertEquals(selected.getEngineSlot(), SearchTemplateMetrics.SLOT_CALLER);
   }
@@ -326,17 +358,18 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
       MergedSearchTemplate template = classpath.load(opContext, urn);
       for (String scheme : List.of("s3", "gs", "hdfs")) {
         assertEquals(
-            SearchTemplateRoutes.decide(template, scheme + "://bucket/key").target(),
+            SearchTemplateRoutes.decide(template, scheme + "://bucket/key", NO_INPUTS).target(),
             SEARCH_TEMPLATE_IDENTITY_URN,
             urn);
         assertEquals(
-            SearchTemplateRoutes.decide(template, scheme + ":\\/\\/bucket\\/key").target(),
+            SearchTemplateRoutes.decide(template, scheme + ":\\/\\/bucket\\/key", NO_INPUTS)
+                .target(),
             SEARCH_TEMPLATE_IDENTITY_URN,
             urn);
       }
       assertFalse(
           SEARCH_TEMPLATE_IDENTITY_URN.equals(
-              SearchTemplateRoutes.decide(template, "orders").target()),
+              SearchTemplateRoutes.decide(template, "orders", NO_INPUTS).target()),
           urn);
     }
   }
@@ -348,14 +381,16 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
         .getDefaults()
         .get("fulltext")
         .put("elasticsearch8", "urn:li:searchTemplate:missingEngine");
-    SearchTemplateSelector selector = new SearchTemplateSelector(templates, loader);
+    SearchTemplateSelector selector =
+        new SearchTemplateSelector(templates, loader, SearchTemplateGates.none());
     assertEquals(
         selector
             .select(
                 opContext,
                 "customer orders",
                 true,
-                SearchClientShim.SearchEngineType.ELASTICSEARCH_8)
+                SearchClientShim.SearchEngineType.ELASTICSEARCH_8,
+                REQUEST)
             .getUrn(),
         SEARCH_TEMPLATE_FULLTEXT_URN);
   }
@@ -371,14 +406,16 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
 
     SearchTemplateProperties inherited = parentOf("Inherited", parent);
     store("urn:li:searchTemplate:inherited", inherited);
-    SearchTemplateSelector selector = new SearchTemplateSelector(templates, loader);
+    SearchTemplateSelector selector =
+        new SearchTemplateSelector(templates, loader, SearchTemplateGates.none());
     OperationContext inheritedContext =
         opContext.withSearchFlags(
             flags -> flags.setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:inherited")));
     assertEquals(
-        selector.select(inheritedContext, "*", true, null).getUrn(), SEARCH_TEMPLATE_LIST_URN);
+        selector.select(inheritedContext, "*", true, null, REQUEST).getUrn(),
+        SEARCH_TEMPLATE_LIST_URN);
     assertEquals(
-        selector.select(inheritedContext, "orders", true, null).getUrn(),
+        selector.select(inheritedContext, "orders", true, null, REQUEST).getUrn(),
         "urn:li:searchTemplate:inherited");
 
     SearchTemplateProperties replaced = parentOf("Replaced", parent);
@@ -389,9 +426,10 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
         opContext.withSearchFlags(
             flags -> flags.setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:replaced")));
     assertEquals(
-        selector.select(replacedContext, "orders", true, null).getUrn(), SEARCH_TEMPLATE_EXACT_URN);
+        selector.select(replacedContext, "orders", true, null, REQUEST).getUrn(),
+        SEARCH_TEMPLATE_EXACT_URN);
     assertEquals(
-        selector.select(replacedContext, "customer orders", true, null).getUrn(),
+        selector.select(replacedContext, "customer orders", true, null, REQUEST).getUrn(),
         "urn:li:searchTemplate:replaced");
 
     SearchTemplateProperties dropped = parentOf("Dropped", parent);
@@ -401,7 +439,8 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
         opContext.withSearchFlags(
             flags -> flags.setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:dropped")));
     assertEquals(
-        selector.select(droppedContext, "*", true, null).getUrn(), "urn:li:searchTemplate:dropped");
+        selector.select(droppedContext, "*", true, null, REQUEST).getUrn(),
+        "urn:li:searchTemplate:dropped");
   }
 
   @Test
@@ -415,11 +454,13 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     child.setQuery("{ \"term\": { \"name\": \"{{query}}\" } }");
     store("urn:li:searchTemplate:child", child);
 
-    SearchTemplateSelector selector = new SearchTemplateSelector(templates, loader);
+    SearchTemplateSelector selector =
+        new SearchTemplateSelector(templates, loader, SearchTemplateGates.none());
     OperationContext context =
         opContext.withSearchFlags(
             flags -> flags.setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:child")));
-    ResolvedSearchTemplate resolved = selector.select(context, "customer orders", true, null);
+    ResolvedSearchTemplate resolved =
+        selector.select(context, "customer orders", true, null, REQUEST);
     assertEquals(resolved.getUrn(), "urn:li:searchTemplate:child");
     String rendered =
         new SearchV3QueryBuilder(loader, new SearchConfiguration(), null)
@@ -605,10 +646,11 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     templates
         .getDefaults()
         .put("fulltext", new HashMap<>(Map.of("default", "urn:li:searchTemplate:left")));
-    SearchTemplateSelector selector = new SearchTemplateSelector(templates, loader);
+    SearchTemplateSelector selector =
+        new SearchTemplateSelector(templates, loader, SearchTemplateGates.none());
     assertThrows(
         SearchTemplateException.class,
-        () -> selector.select(opContext, "customer orders", true, null));
+        () -> selector.select(opContext, "customer orders", true, null, REQUEST));
 
     String previous = null;
     for (int i = 0; i <= templates.getMaxRouteHops(); i++) {
@@ -626,7 +668,7 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
         .put("fulltext", new HashMap<>(Map.of("default", "urn:li:searchTemplate:hop0")));
     assertThrows(
         SearchTemplateException.class,
-        () -> selector.select(opContext, "customer orders", true, null));
+        () -> selector.select(opContext, "customer orders", true, null, REQUEST));
     assertNotNull(previous);
 
     assertSame(
@@ -646,6 +688,100 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     assertSame(compiled, reloaded.getRoutes().get(0).pattern());
     assertSame(
         compiled, SearchTemplateRoutes.pattern("^\\S+$", templates.getMaxRoutePatternLength()));
+  }
+
+  @Test
+  public void testRouteConditionsReadTheFullRequestAndAMissKeepsScanning() {
+    // Semantic search is on for Document and Dataset
+    SearchTemplateSelector selector =
+        new SearchTemplateSelector(templates, loader, semanticGates("document", "dataset"));
+    SearchTemplateRoute documents = route(".*", "urn:li:searchTemplate:documents");
+    documents.setMatch(new SearchTemplateRouteMatch().setEntityTypes(new StringArray("document")));
+    SearchTemplateRoute semantic = route(".*", "urn:li:searchTemplate:semantic");
+    semantic.setMatch(
+        new SearchTemplateRouteMatch()
+            .setSurfaces(new StringArray("semanticSearch"))
+            .setAnySemanticEligible(true));
+    SearchTemplateRoute notAllEligible = route(".*", "urn:li:searchTemplate:notAllEligible");
+    notAllEligible.setMatch(new SearchTemplateRouteMatch().setSemanticEligible(false));
+    SearchTemplateProperties router = body("Router", "{ \"match_all\": {} }", null);
+    router.setApiVersion(2);
+    router.setRoutes(
+        routes(documents, semantic, notAllEligible, route(".*", "urn:li:searchTemplate:fallback")));
+    store("urn:li:searchTemplate:router", router);
+    for (String target : List.of("documents", "semantic", "notAllEligible", "fallback")) {
+      store("urn:li:searchTemplate:" + target, pinned(target, "{ \"match_all\": {} }"));
+    }
+    OperationContext search =
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:router")));
+    OperationContext semanticSurface = search.withSearchSurface("semanticSearch");
+
+    assertEquals(routedTo(selector, search, "document"), "documents");
+    // The whole request must be in the list, so Dataset keeps the Document route from firing. A
+    // route whose conditions miss does not stop the scan, and every condition must hold.
+    assertEquals(routedTo(selector, semanticSurface, "document", "dataset"), "semantic");
+    assertEquals(routedTo(selector, semanticSurface, "chart"), "notAllEligible");
+    // Booleans compare exactly: an all-enabled request misses semanticEligible: false
+    assertEquals(routedTo(selector, search, "document", "dataset"), "fallback");
+    assertEquals(routedTo(selector, search, "chart", "document"), "notAllEligible");
+  }
+
+  @Test
+  public void testAConditionalRouteKeysTheResultCacheOnTheRequestInputs() {
+    SearchTemplateRoute bySurface = route(".*", SEARCH_TEMPLATE_EXACT_URN);
+    bySurface.setMatch(
+        new SearchTemplateRouteMatch()
+            .setSurfaces(new StringArray("searchEntities", "semanticSearch")));
+    SearchTemplateProperties router = body("Router", "{ \"match_all\": {} }", null);
+    router.setApiVersion(2);
+    router.setRoutes(routes(bySurface));
+    store("urn:li:searchTemplate:router", router);
+    store(SEARCH_TEMPLATE_EXACT_URN, pinned("Exact", "{ \"match_all\": {} }"));
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
+    OperationContext routed =
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:router")));
+    OperationContext pinned =
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSearchTemplate(UrnUtils.getUrn(SEARCH_TEMPLATE_EXACT_URN)));
+
+    String onSearch = cacheKey(coordinator, routed.withSearchSurface("searchEntities"));
+    // Both surfaces fire the route to the same template, and the surface is not otherwise in the
+    // search cache key, so the route's inputs are
+    assertNotEquals(onSearch, cacheKey(coordinator, routed.withSearchSurface("semanticSearch")));
+    assertNotEquals(onSearch, cacheKey(coordinator, pinned.withSearchSurface("searchEntities")));
+  }
+
+  private static String routedTo(
+      SearchTemplateSelector selector, OperationContext context, String... entityTypes) {
+    return UrnUtils.getUrn(
+            selector.select(context, "orders", true, null, List.of(entityTypes)).getUrn())
+        .getId();
+  }
+
+  private static String cacheKey(SearchTemplateCoordinator coordinator, OperationContext context) {
+    return coordinator
+        .bind(context, "orders", false, REQUEST)
+        .getSearchContext()
+        .getResolvedSearchTemplate()
+        .cacheKeyComponent();
   }
 
   @Test

@@ -28,4 +28,10 @@ record SearchResultMetadata {
    */
   keywordRerank: optional KeywordRerankExplanation
 
+  /**
+   * How the served template's vector rung retrieved this result. Set when the caller asks for an
+   * explanation and the served rung declares combine: vector.
+   */
+  vectorRetrieval: optional VectorRetrievalExplanation
+
 }

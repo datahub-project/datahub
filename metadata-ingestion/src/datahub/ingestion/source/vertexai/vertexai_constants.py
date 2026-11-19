@@ -1,5 +1,5 @@
 import re
-from typing import List, Literal, Set, Type
+from typing import Dict, List, Literal, Set, Type
 
 from google.cloud import aiplatform
 
@@ -16,7 +16,6 @@ KUBEFLOW_TIMESTAMP_SUFFIX_PATTERN = re.compile(r"-\d{14}$")
 # Field names for object attributes
 UPDATE_TIME_FIELD = "update_time"
 CREATE_TIME_FIELD = "create_time"
-VERSION_ID_FIELD = "version_id"
 
 # Model version sorting configuration
 # Padding for version IDs to ensure correct string-based sorting (supports up to 9,999,999,999)
@@ -37,6 +36,103 @@ class ResourceTypes:
     CUSTOM_JOB = "CustomJob"
     BATCH_PREDICTION_JOB = "BatchPredictionJob"
     HYPERPARAMETER_TUNING_JOB = "HyperparameterTuningJob"
+
+
+class ResourceReads:
+    """The reads of a region: three in parallel (phase 1), then the model step."""
+
+    TRAINING_JOBS = "training_jobs"
+    EXPERIMENTS = "experiments"
+    PIPELINES = "pipelines"
+    MODELS = "models"
+
+
+class DetailCalls:
+    """Call kinds of detail reads: a stop covers one of these in one region."""
+
+    TRAINING_JOB_LOOKUP = "training_job_lookup"
+    ML_METADATA = "ml_metadata"
+    ML_METADATA_ARTIFACTS = "ml_metadata_artifacts"
+    ML_METADATA_EXECUTION_CACHE = "ml_metadata_execution_cache"
+    AUTOML_OUTPUT_MODEL = "automl_output_model"
+    TRAINING_DATASETS = "training_datasets"
+    MODEL_LOOKUP = "model_lookup"
+    ENDPOINT_LIST = "endpoint_list"
+    EVALUATION_LOOKUP = "evaluation_lookup"
+    EXPERIMENT_RUN_EXECUTIONS = "experiment_run_executions"
+    EXPERIMENT_RUN_LOGGED_JOBS = "experiment_run_logged_jobs"
+    EXPERIMENT_RUN_DETAIL = "experiment_run_detail"
+    EXPERIMENT_RUN_ARTIFACTS = "experiment_run_artifacts"
+    PIPELINE_LOOKUP = "pipeline_lookup"
+    PIPELINE_TASK_ARTIFACTS = "pipeline_task_artifacts"
+    AUTOML_JOB_CONFIG = "automl_job_config"
+    REGION_DISCOVERY = "region_discovery"
+
+
+RATE_LIMIT_SWITCH = "rate_limit"
+
+# Before a detail read has worked in a region, this many refusals stop it there:
+# the permission is then most likely missing, not one item locked.
+REFUSALS_BEFORE_STOP = 25
+
+DETAIL_SWITCHES: Dict[str, str] = {
+    DetailCalls.ML_METADATA: "extract_execution_metrics or use_ml_metadata_for_lineage",
+    DetailCalls.ML_METADATA_ARTIFACTS: "use_ml_metadata_for_lineage",
+    DetailCalls.ML_METADATA_EXECUTION_CACHE: "ml_metadata_max_execution_search_limit",
+    DetailCalls.EVALUATION_LOOKUP: "include_evaluations",
+}
+
+
+# Only a pipeline's task details name the models its tasks use, so a stopped
+# lookup holds the region's models back; every other kept item's links are
+# rebuilt from its listing or never reach a written model.
+LINKS_LOST_ON_STOP = frozenset({DetailCalls.PIPELINE_LOOKUP})
+# Only the lost pipeline's own region is held back.
+PIPELINE_LINKS_ELSEWHERE = 'Models in other regions or projects used by these pipelines may lose their pipeline "used by" links until a run reads these pipelines again.'
+REGION_DISCOVERY_FAILED = "Could not list regions, so only the configured region is read. Entity names do not carry their region, so every earlier entity of the project is kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project: stale-entity removal is paused for this project until discovery works again. A refusal needs aiplatform.locations.list; to skip discovery, set `discover_regions: false` and list `regions`."
+LOCATIONS_SKIPPED_TITLE = "Vertex AI locations skipped"
+LOCATIONS_SKIPPED = "These locations of the project are not read. `newer_regions` are Vertex AI regions the installed Google Cloud SDK (google-cloud-aiplatform) cannot read yet; `multi_regions` are multi-region locations and `unsupported` is the `global` location, which the connector does not read yet. Full coverage is planned for a later release."
+GLOBAL_LOCATION = "global"
+SKIPPED_NEWER_REGIONS = "newer_regions"
+SKIPPED_MULTI_REGIONS = "multi_regions"
+SKIPPED_UNSUPPORTED = "unsupported"
+REGION_UNKNOWN_TITLE = "Configured region is not a Vertex AI location"
+REGION_UNKNOWN = "A region set in `regions` (or the deprecated `region`) is not in Google's list of Vertex AI locations, so no project is read. Earlier entities are kept and not soft-deleted. Correct the region name in the recipe."
+REGION_UNCHECKED_TITLE = "Configured region could not be checked"
+REGION_UNCHECKED = "A region set in `regions` (or the deprecated `region`) is not one the installed Google Cloud SDK (google-cloud-aiplatform) can read, and Google's list of Vertex AI locations could not be read to tell a newer region from a misspelt one, so this project is not read. Its earlier entities are kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project. Remove the region from the recipe, or grant aiplatform.locations.list so it can be checked."
+UNSCOPED_KEPT_TITLE = "Pipelines and containers kept in every project"
+UNSCOPED_KEPT = "A read was lost in the project named in the context, so earlier pipelines, pipeline tasks or containers of every project are kept this run: their URNs do not show their project, so their stale-entity removal pauses."
+UNSCOPED_KEPT_DISCOVERED = "A read was lost in the discovered project named in the context, so earlier pipelines, pipeline tasks or containers of every project are kept this run: their URNs do not show their project, so their stale-entity removal pauses. If this repeats on every run, exclude the project with `project_id_pattern`, or restore its access."
+UNSCOPED_REMOVED_TITLE = "Experiment folders not kept while unreadable"
+UNSCOPED_REMOVED = "A read in the discovered project named in the context was refused, or failed in a way that repeats, so its earlier experiment folders are not kept for it this run, and stale-entity removal can soft-delete them. They come back on the first run that reads them. To stop this, exclude the project with `project_id_pattern`, or restore its access."
+UNEXPECTED_ERROR_TITLE = "Unexpected error while reading Vertex AI"
+UNEXPECTED_ERROR = "This looks like an error in the connector, not one from Google Cloud. Earlier entities are kept, because the error says nothing about what Vertex AI holds. Report it to DataHub with this entry and the ingestion log run with debug logging."
+UNEXPECTED_DETAIL_ERROR = "This looks like an error in the connector, not one from Google Cloud, so this detail was skipped. What depends on it is written without it, or kept as it was when it cannot be written without it. Report it to DataHub with this entry and the ingestion log run with debug logging."
+EVALUATIONS_KEPT_PROJECT_WIDE = "Earlier model evaluations in this project are kept until this model's evaluation list can be read, and evaluations deleted from other models are removed once it reads again. Evaluation names carry only the evaluation id, so they cannot be tied to one model."
+
+# The switch that turns each read off, named when a read is lost for good.
+READ_SWITCHES: Dict[str, str] = {
+    ResourceReads.TRAINING_JOBS: "include_training_jobs",
+    ResourceReads.EXPERIMENTS: "include_experiments",
+    ResourceReads.PIPELINES: "include_pipelines",
+    ResourceReads.MODELS: "include_models",
+}
+
+
+class ResourceKinds:
+    """The kind segment of an entity name: `{project}.{kind}.{id}`."""
+
+    MODEL_GROUP = "model_group"
+    MODEL = "model"
+    ENDPOINT = "endpoint"
+    DATASET = "dataset"
+    JOB = "job"
+    EXPERIMENT = "experiment"
+    EXPERIMENT_RUN = "experiment_run"
+    EXECUTION = "execution"
+    PIPELINE_RUN = "pipeline_run"
+    PIPELINE_TASK_RUN = "pipeline_task_run"
+    MODEL_EVALUATION = "model_evaluation"
 
 
 # Type for external data platforms referenced in Vertex AI lineage
@@ -85,6 +181,18 @@ class ResourceCategory:
     PIPELINES: ResourceCategoryType = "Pipelines"
     EXPERIMENTS: ResourceCategoryType = "Experiments"
     EVALUATIONS: ResourceCategoryType = "Evaluations"
+
+    @classmethod
+    def all(cls) -> List[ResourceCategoryType]:
+        return [
+            cls.MODELS,
+            cls.TRAINING_JOBS,
+            cls.DATASETS,
+            cls.ENDPOINTS,
+            cls.PIPELINES,
+            cls.EXPERIMENTS,
+            cls.EVALUATIONS,
+        ]
 
 
 class MLMetadataSchemas:

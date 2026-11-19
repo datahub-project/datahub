@@ -28,6 +28,7 @@ import com.linkedin.metadata.aspect.validation.CorpUserCredentialsAuthorizationV
 import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.DataPlatformInstanceWriteAuthorizationValidator;
+import com.linkedin.metadata.aspect.validation.DataProductDeleteValidator;
 import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.DomainPropertiesParentValidator;
 import com.linkedin.metadata.aspect.validation.DomainWriteAuthorizationValidator;
@@ -1013,6 +1014,32 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(ALL)
                             .aspectName(LOGICAL_PARENT_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.dataProduct.deleteProtection.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator dataProductDeleteValidator() {
+    return new DataProductDeleteValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(DataProductDeleteValidator.class.getName())
+                .enabled(true)
+                // RESTATE is left out so restoring a backup in any order is not blocked.
+                .supportedOperations(List.of("DELETE", "UPSERT", "CREATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DATA_PRODUCT_ENTITY_NAME)
+                            .aspectName(DATA_PRODUCT_KEY_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DATA_PRODUCT_ENTITY_NAME)
+                            .aspectName(STATUS_ASPECT_NAME)
                             .build()))
                 .build());
   }

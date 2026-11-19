@@ -39,6 +39,12 @@ public class ResolvedSearchTemplate {
   @Nonnull private final List<String> routeChain = new ArrayList<>();
 
   /**
+   * The request inputs route conditions read (entity types, surface, and their semantic
+   * eligibility), set when a route with conditions fired. Part of the result-cache identity.
+   */
+  @Nullable private String routeMatch;
+
+  /**
    * Engine slot that supplied the seed ({@code default}, {@code elasticsearch8}, {@code
    * opensearch3}, …) or {@code caller} when the request named a template. Not part of the
    * result-cache identity.
@@ -62,6 +68,34 @@ public class ResolvedSearchTemplate {
    */
   @Nullable private String cacheIdentity;
 
+  /**
+   * A rung this search may reach retrieves by vector, so the search cache runs it once for the
+   * caller's page instead of in batches. Set at bind.
+   */
+  private boolean vectorReachable;
+
+  /**
+   * A vector rung failed and the ladder served its next rung, so the result is not cached and the
+   * next search tries the vector rung again. Not part of the cache identity.
+   */
+  private boolean skipResultCache;
+
+  /**
+   * The similarity anchor bind checked, and whether this viewer may use it: view authorization lets
+   * them see it, and the default search filters keep it. A similarity rung for that anchor reuses
+   * the answer either way. Unset when bind did not check it or the check did not finish, so the
+   * rung checks it. Not part of the cache identity.
+   */
+  @Nullable private String checkedAnchor;
+
+  private boolean checkedAnchorUsable;
+
+  /**
+   * When a selected similarity rung's anchor check and retrieval must finish, from {@link
+   * System#nanoTime()}, or 0 when bind did not start one. Not part of the cache identity.
+   */
+  private long vectorDeadlineNanos;
+
   public ResolvedSearchTemplate(
       @Nonnull String urn, long lastModified, @Nullable String intent, @Nullable String subIntent) {
     this.urn = urn;
@@ -82,6 +116,10 @@ public class ResolvedSearchTemplate {
 
   public void setEngineSlot(@Nullable String engineSlot) {
     this.engineSlot = engineSlot;
+  }
+
+  public void setRouteMatch(@Nullable String routeMatch) {
+    this.routeMatch = routeMatch;
   }
 
   public void setKnn(boolean applied, float keywordWeight, float vectorWeight, int knnK) {
@@ -112,6 +150,23 @@ public class ResolvedSearchTemplate {
 
   public void setCacheIdentity(@Nonnull String cacheIdentity) {
     this.cacheIdentity = cacheIdentity;
+  }
+
+  public void setVectorReachable(boolean vectorReachable) {
+    this.vectorReachable = vectorReachable;
+  }
+
+  public void setSkipResultCache(boolean skipResultCache) {
+    this.skipResultCache = skipResultCache;
+  }
+
+  public void setAnchorCheck(@Nonnull String anchor, boolean usable) {
+    this.checkedAnchor = anchor;
+    this.checkedAnchorUsable = usable;
+  }
+
+  public void setVectorDeadlineNanos(long vectorDeadlineNanos) {
+    this.vectorDeadlineNanos = vectorDeadlineNanos;
   }
 
   /**

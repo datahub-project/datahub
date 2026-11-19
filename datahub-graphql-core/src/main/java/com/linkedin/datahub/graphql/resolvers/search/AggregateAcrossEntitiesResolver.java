@@ -96,6 +96,9 @@ public class AggregateAcrossEntitiesResolver
                         inputFilter, maybeResolvedView.getDefinition().getFilter())
                     : inputFilter;
 
+            // Whether the caller's own filter, with its view, has a criterion before the defaults
+            final boolean callerFiltered = FilterUtils.hasCriterion(effectiveFilter);
+
             // Add default entity filters (e.g. showInGlobalContext for documents)
             effectiveFilter =
                 DefaultEntityFiltersUtil.applyDefaultEntityFilters(
@@ -107,7 +110,8 @@ public class AggregateAcrossEntitiesResolver
                     context
                         .getOperationContext()
                         .withSearchSurface(SearchTemplateSurfaces.AGGREGATE_ENTITIES)
-                        .withSearchFlags(flags -> searchFlags),
+                        .withSearchFlags(flags -> searchFlags)
+                        .withCallerFiltered(callerFiltered),
                     finalEntities,
                     sanitizedQuery,
                     effectiveFilter,

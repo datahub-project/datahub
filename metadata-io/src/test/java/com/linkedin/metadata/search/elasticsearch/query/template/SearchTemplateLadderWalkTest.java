@@ -6,6 +6,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
@@ -21,6 +22,7 @@ import com.linkedin.metadata.aspect.validation.SearchTemplateValidator;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchV3Configuration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
@@ -35,6 +37,7 @@ import com.linkedin.search.template.SearchTemplateLadder;
 import com.linkedin.search.template.SearchTemplateLadderStop;
 import com.linkedin.search.template.SearchTemplateLadderStopArray;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateRetrieval;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -42,6 +45,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -63,15 +67,18 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
   public void testSelectIsAConjunctionAndStopIsADisjunction() {
     SearchTemplateLadder select = new SearchTemplateLadder();
     select.setSelect(new StringArray("scoreSort", "pageSize", "-columnFilter"));
-    assertTrue(SearchTemplateLadderPredicates.selectMatches(select, "orders", null, null, 10));
+    assertTrue(
+        SearchTemplateLadderPredicates.selectMatches(select, "orders", null, null, 10, INELIGIBLE));
     assertFalse(
         SearchTemplateLadderPredicates.selectMatches(
             select,
             "orders",
             null,
             List.of(new SortCriterion().setField("name").setOrder(SortOrder.ASCENDING)),
-            10));
-    assertFalse(SearchTemplateLadderPredicates.selectMatches(select, "orders", null, null, 0));
+            10,
+            INELIGIBLE));
+    assertFalse(
+        SearchTemplateLadderPredicates.selectMatches(select, "orders", null, null, 0, INELIGIBLE));
 
     SearchTemplateLadder stop = new SearchTemplateLadder();
     SearchTemplateLadderStop minHits = new SearchTemplateLadderStop();
@@ -93,7 +100,9 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
 
     SearchTemplateLadder pageSize = new SearchTemplateLadder();
     pageSize.setSelect(new StringArray("pageSize"));
-    assertTrue(SearchTemplateLadderPredicates.selectMatches(pageSize, "orders", null, null, null));
+    assertTrue(
+        SearchTemplateLadderPredicates.selectMatches(
+            pageSize, "orders", null, null, null, INELIGIBLE));
 
     assertFalse(matches("singleTerm", " "));
     assertTrue(matches("dotted", "a.b.c"));
@@ -491,8 +500,8 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
                 ForkJoinPool.commonPool(),
                 "urn:li:searchTemplate:shardGroup",
                 new SearchTemplateWalk.Request(
-                    "orders", null, null, 10, SearchTemplateWalk.identity()),
-                urn -> {
+                    "orders", null, null, 10, REQUEST, SearchTemplateWalk.identity()),
+                (urn, assigned) -> {
                   SearchResult result = page(0);
                   return SearchTemplateWalk.AttemptResult.ok(
                       result,
@@ -624,6 +633,42 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testAReachableLegacyKnnKeysTheResultCacheOnDocumentRerank() {
+    String knn = "urn:li:searchTemplate:knnMember";
+    String next = "urn:li:searchTemplate:afterCapability";
+    SearchTemplateProperties knnBody = body("Knn", "{ \"match_all\": {} }", null);
+    knnBody.setKnn("{ \"field\": \"embedding\" }");
+    store(knn, knnBody);
+    store(next, body("Next", "{ \"match_all\": {} }", null));
+    SearchTemplateProperties group = body("Capability group", "{ \"match_all\": {} }", null);
+    SearchTemplateLadder ladder = new SearchTemplateLadder();
+    ladder.setParallel(new UrnArray(UrnUtils.getUrn(knn)));
+    ladder.setJoin("allEmpty");
+    ladder.setNext(UrnUtils.getUrn(next));
+    group.setLadder(ladder);
+    store("urn:li:searchTemplate:capabilityGroup", group);
+    OperationContext grouped =
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:capabilityGroup")));
+    OperationContext plain =
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSearchTemplate(UrnUtils.getUrn(next)));
+    List<String> documents = List.of("document");
+
+    // The member runs only with document rerank, and without it the group serves its next
+    assertNotEquals(
+        cacheKey(semanticRead(true), grouped, documents),
+        cacheKey(semanticRead(false), grouped, documents));
+    // With no legacy knn reachable, semantic read stays out of the key
+    assertEquals(
+        cacheKey(semanticRead(true), plain, documents),
+        cacheKey(semanticRead(false), plain, documents));
+  }
+
+  @Test
   public void testScrollOmitsRescoreAndRerankStaysOnSearch() throws Exception {
     SearchTemplateProperties rescored = body("Fulltext", "{ \"match_all\": {} }", null);
     rescored.setRescore(
@@ -746,10 +791,396 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
             .isEmpty());
   }
 
+  @Test
+  public void testEachRungSearchesTheRequestedTypesInItsScope() {
+    String scopedUrn = "urn:li:searchTemplate:scoped";
+    String whole = "urn:li:searchTemplate:whole";
+    SearchTemplateProperties scopedBody = scoped("Scoped", "glossaryTerm", "chart", "document");
+    scopedBody.setLadder(stopLadder(1, whole));
+    store(scopedUrn, scopedBody);
+    store(whole, body("Whole", "{ \"match_all\": {} }", null));
+
+    Map<String, List<String>> assignedTo = new ConcurrentHashMap<>();
+    SearchTemplateWalk.Served<SearchResult> served =
+        walk(
+            ForkJoinPool.commonPool(),
+            scopedUrn,
+            "orders",
+            null,
+            10,
+            List.of("dataset", "document", "chart", "document"),
+            (urn, assigned) -> {
+              assignedTo.put(urn, assigned);
+              return page(0);
+            });
+
+    // The scoped rung gets the requested types in its scope, in request order. The unscoped rung
+    // its empty result fell through to gets the whole request.
+    assertEquals(assignedTo.get(scopedUrn), List.of("document", "chart"));
+    assertEquals(assignedTo.get(whole), List.of("dataset", "document", "chart"));
+    assertEquals(served.urn(), whole);
+  }
+
+  @Test
+  public void testAnEmptyAssignmentSkipsTheRungAsASelectMissDoes() {
+    String charts = "urn:li:searchTemplate:charts";
+    String whole = "urn:li:searchTemplate:whole";
+    SearchTemplateProperties chartsBody = scoped("Charts", "chart");
+    chartsBody.setLadder(stopLadder(1, whole));
+    store(charts, chartsBody);
+    store(whole, body("Whole", "{ \"match_all\": {} }", null));
+    store("urn:li:searchTemplate:lastCharts", scoped("Last charts", "chart"));
+
+    Set<String> called = ConcurrentHashMap.newKeySet();
+    SearchTemplateWalk.Served<SearchResult> served =
+        walk(
+            ForkJoinPool.commonPool(),
+            charts,
+            "orders",
+            null,
+            10,
+            List.of("dataset"),
+            (urn, assigned) -> {
+              called.add(urn);
+              return page(1, "urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)");
+            });
+    assertEquals(served.urn(), whole);
+    assertEquals(called, Set.of(whole));
+    // A skipped rung with no next fails the search
+    assertThrows(
+        SearchTemplateException.class,
+        () ->
+            walk(
+                ForkJoinPool.commonPool(),
+                "urn:li:searchTemplate:lastCharts",
+                "orders",
+                null,
+                10,
+                List.of("dataset"),
+                (urn, assigned) -> page(1, "urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)")));
+  }
+
+  @Test
+  public void testARungAssignedNoTypeIsSkippedBeforeItsShapeIsChecked() {
+    // This build does not run vectorThenKeyword, so a selected rung that sets it fails closed
+    String documents = "urn:li:searchTemplate:documents";
+    String keyword = "urn:li:searchTemplate:keyword";
+    SearchTemplateProperties unsupported = scoped("Documents", "document");
+    unsupported.setRetrieval(new SearchTemplateRetrieval().setCombine("vectorThenKeyword"));
+    unsupported.setLadder(stopLadder(1, keyword));
+    store(documents, unsupported);
+    store(keyword, body("Keyword", "{ \"match_all\": {} }", null));
+    SearchTemplateProperties group = body("Group", "{ \"match_all\": {} }", null);
+    SearchTemplateLadder groupLadder = new SearchTemplateLadder();
+    groupLadder.setParallel(new UrnArray(UrnUtils.getUrn(documents), UrnUtils.getUrn(keyword)));
+    groupLadder.setJoin("allEmpty");
+    group.setLadder(groupLadder);
+    store("urn:li:searchTemplate:group", group);
+    List<String> datasets = List.of("dataset");
+
+    // A Dataset request assigns the Document rung nothing, so it is skipped, not checked
+    assertEquals(servedFor(documents, datasets), keyword);
+    assertEquals(servedFor("urn:li:searchTemplate:group", datasets), keyword);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
+    OperationContext pinned =
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSearchTemplate(UrnUtils.getUrn(documents)));
+    assertNotNull(
+        coordinator
+            .bind(pinned, "orders", false, datasets)
+            .getSearchContext()
+            .getResolvedSearchTemplate());
+    // Assigned a type, the rung is checked and fails the search
+    assertThrows(SearchTemplateException.class, () -> servedFor(documents, List.of("document")));
+    assertThrows(
+        SearchTemplateException.class,
+        () -> coordinator.bind(pinned, "orders", false, List.of("document")));
+  }
+
+  @Test
+  public void testPreviewAndShadowApplyTheScopeAsExecutionDoes() {
+    String documents = "urn:li:searchTemplate:documents";
+    String keyword = "urn:li:searchTemplate:keyword";
+    SearchTemplateProperties unsupported = scoped("Documents", "document");
+    unsupported.setRetrieval(new SearchTemplateRetrieval().setCombine("vectorThenKeyword"));
+    unsupported.setLadder(stopLadder(1, keyword));
+    store(documents, unsupported);
+    store(keyword, body("Keyword", "{ \"match_all\": {} }", null));
+    store("urn:li:searchTemplate:scopedKeyword", scoped("Scoped keyword", "document"));
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
+    OperationContext pinned =
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSearchTemplate(UrnUtils.getUrn(documents)));
+
+    // A page search skips a root the request assigns no type, so the dry render accepts it
+    assertTrue(
+        sectionsAccepted(coordinator.preview(pinned, "orders", List.of("dataset"), false, null)));
+    assertFalse(
+        sectionsAccepted(coordinator.preview(pinned, "orders", List.of("document"), false, null)));
+
+    // A filter, aggregation, or count does not walk, so its shadow fails a partial scope
+    OperationContext scopedKeyword =
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:scopedKeyword")));
+    coordinator.shadow(
+        scopedKeyword, List.of(registry.getEntitySpec("dataset")), "*", true, false, false);
+    assertNull(coordinator.lastShadowDsl());
+    coordinator.shadow(
+        scopedKeyword, List.of(registry.getEntitySpec("document")), "*", true, false, false);
+    assertNotNull(coordinator.lastShadowDsl());
+    // A page search's shadow partitions the request instead
+    coordinator.shadow(
+        scopedKeyword, List.of(registry.getEntitySpec("dataset")), "*", true, false, true);
+    assertNotNull(coordinator.lastShadowDsl());
+    // A scroll fails a partial scope at bind, so its shadow fails it too, even where it walks
+    coordinator.shadow(
+        scopedKeyword, List.of(registry.getEntitySpec("dataset")), "*", true, true, true);
+    assertNull(coordinator.lastShadowDsl());
+  }
+
+  private static boolean sectionsAccepted(SearchTemplateDryRender preview) {
+    return preview.capabilities().stream()
+        .anyMatch(decision -> "sections".equals(decision.name()) && decision.accepted());
+  }
+
+  @Test
+  public void testSemanticPredicatesReadTheTypesTheRungIsAssigned() {
+    // Semantic search is on for Document and Dataset. This build runs vectors for Document only.
+    useRuntime(
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            semanticGates("document", "dataset")));
+    String whole = "urn:li:searchTemplate:whole";
+    store(whole, body("Whole", "{ \"match_all\": {} }", null));
+    storeSelected("urn:li:searchTemplate:documents", "semanticEligible", "document");
+    storeSelected("urn:li:searchTemplate:all", "semanticEligible");
+    storeSelected("urn:li:searchTemplate:any", "anySemanticEligible");
+    storeSelected("urn:li:searchTemplate:none", "-anySemanticEligible");
+    storeSelected("urn:li:searchTemplate:datasets", "semanticEligible", "dataset");
+    List<String> mixed = List.of("chart", "document");
+
+    // The Document rung reads its assignment, so the requested Chart does not make it ineligible
+    assertEquals(
+        servedFor("urn:li:searchTemplate:documents", mixed), "urn:li:searchTemplate:documents");
+    assertEquals(servedFor("urn:li:searchTemplate:all", mixed), whole);
+    assertEquals(servedFor("urn:li:searchTemplate:any", mixed), "urn:li:searchTemplate:any");
+    assertEquals(servedFor("urn:li:searchTemplate:none", mixed), whole);
+    // Eligibility is enabledEntities, not the other gates: Dataset is enabled, though this build
+    // does not run vectors for it
+    assertEquals(
+        servedFor("urn:li:searchTemplate:datasets", List.of("chart", "dataset")),
+        "urn:li:searchTemplate:datasets");
+    // Only select reads the assignment. A stop sees the result.
+    accept("-semanticEligible");
+    accept("anySemanticEligible");
+    assertThrows(
+        SearchTemplateException.class,
+        () -> SearchTemplatePolicyChecks.checkLadder(emptyWhen("semanticEligible"), null));
+  }
+
+  @Test
+  public void testASemanticSelectKeysTheResultCacheOnEligibility() {
+    String whole = "urn:li:searchTemplate:whole";
+    store(whole, body("Whole", "{ \"match_all\": {} }", null));
+    storeSelected("urn:li:searchTemplate:any", "anySemanticEligible");
+    OperationContext selecting =
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:any")));
+    OperationContext plain =
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSearchTemplate(UrnUtils.getUrn(whole)));
+    List<String> documents = List.of("document");
+
+    // enabledEntities decides which rung serves, so deployments that differ in it share no page
+    assertNotEquals(
+        cacheKey(gated(semanticGates("document")), selecting, documents),
+        cacheKey(gated(semanticGates("dataset")), selecting, documents));
+    // A type the request does not name does not split the cache
+    assertEquals(
+        cacheKey(gated(semanticGates("document")), selecting, documents),
+        cacheKey(gated(semanticGates("document", "dataset")), selecting, documents));
+    // Without a semantic select, eligibility stays out of the key
+    assertEquals(
+        cacheKey(gated(semanticGates("document")), plain, documents),
+        cacheKey(gated(semanticGates("dataset")), plain, documents));
+  }
+
+  @Test
+  public void testParallelMembersAreAssignedIndependentlyAndOneMemberIsServed() {
+    String first = "urn:li:searchTemplate:firstDocuments";
+    String second = "urn:li:searchTemplate:secondDocuments";
+    String datasets = "urn:li:searchTemplate:datasets";
+    String charts = "urn:li:searchTemplate:charts";
+    for (String[] member :
+        new String[][] {
+          {first, "document"}, {second, "document"}, {datasets, "dataset"}, {charts, "chart"}
+        }) {
+      SearchTemplateProperties memberBody = scoped("Member", member[1]);
+      memberBody.setLadder(stopLadder(1, null));
+      store(member[0], memberBody);
+    }
+    SearchTemplateProperties group = body("Group", "{ \"match_all\": {} }", null);
+    SearchTemplateLadder ladder = new SearchTemplateLadder();
+    ladder.setParallel(
+        new UrnArray(
+            UrnUtils.getUrn(first),
+            UrnUtils.getUrn(second),
+            UrnUtils.getUrn(datasets),
+            UrnUtils.getUrn(charts)));
+    ladder.setJoin("allEmpty");
+    group.setLadder(ladder);
+    store("urn:li:searchTemplate:group", group);
+
+    Map<String, List<String>> assignedTo = new ConcurrentHashMap<>();
+    SearchTemplateWalk.Served<SearchResult> served =
+        walk(
+            ForkJoinPool.commonPool(),
+            "urn:li:searchTemplate:group",
+            "orders",
+            null,
+            10,
+            List.of("dataset", "document"),
+            (urn, assigned) -> {
+              assignedTo.put(urn, assigned);
+              return page(1, hit(urn));
+            });
+
+    // Overlapping scopes each get the type. A member whose scope misses the request is skipped.
+    assertEquals(
+        assignedTo,
+        Map.of(
+            first, List.of("document"),
+            second, List.of("document"),
+            datasets, List.of("dataset")));
+    // The first listed member that stopped is served alone; no other member's hits are merged in
+    assertEquals(served.urn(), first);
+    assertEquals(
+        served.page().getEntities().stream().map(e -> e.getEntity().toString()).toList(),
+        List.of(hit(first)));
+  }
+
+  /** A hit only the rung at {@code urn} returns. */
+  private static String hit(String urn) {
+    return "urn:li:dataset:(urn:li:dataPlatform:hive," + UrnUtils.getUrn(urn).getId() + ",PROD)";
+  }
+
+  @Test
+  public void testScrollFailsAScopeThatLeavesOutARequestedType() {
+    store("urn:li:searchTemplate:documents", scoped("Documents", "document"));
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
+    OperationContext pinned =
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:documents")));
+    List<String> mixed = List.of("dataset", "document");
+
+    // Scroll does not walk, so it cannot leave Dataset to another rung
+    assertThrows(
+        SearchTemplateException.class, () -> coordinator.bind(pinned, "orders", true, mixed));
+    // A scope that covers the request scrolls, and a search partitions the request instead
+    assertNotNull(
+        coordinator
+            .bind(pinned, "orders", true, List.of("document"))
+            .getSearchContext()
+            .getResolvedSearchTemplate());
+    assertNotNull(
+        coordinator
+            .bind(pinned, "orders", false, mixed)
+            .getSearchContext()
+            .getResolvedSearchTemplate());
+  }
+
+  private void storeSelected(String urn, String predicate, String... scope) {
+    SearchTemplateProperties rung =
+        scope.length == 0 ? body("Rung", "{ \"match_all\": {} }", null) : scoped("Rung", scope);
+    SearchTemplateLadder ladder = stopLadder(1, "urn:li:searchTemplate:whole");
+    ladder.setSelect(new StringArray(predicate));
+    rung.setLadder(ladder);
+    store(urn, rung);
+  }
+
+  private static String cacheKey(
+      SearchTemplateCoordinator coordinator, OperationContext context, List<String> entityTypes) {
+    return coordinator
+        .bind(context, "orders", false, entityTypes)
+        .getSearchContext()
+        .getResolvedSearchTemplate()
+        .cacheKeyComponent();
+  }
+
+  private SearchTemplateCoordinator gated(SearchTemplateGates gates) {
+    return new SearchTemplateCoordinator(
+        v3Config(),
+        null,
+        loader,
+        ForkJoinPool.commonPool(),
+        SearchTemplateComponentRegistry.empty(),
+        gates);
+  }
+
+  private SearchTemplateCoordinator semanticRead(boolean enabled) {
+    ElasticSearchConfiguration elastic = v3Config();
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(enabled);
+    elastic.getEntityIndex().setSemanticSearch(semanticSearch);
+    return new SearchTemplateCoordinator(
+        elastic,
+        null,
+        loader,
+        ForkJoinPool.commonPool(),
+        SearchTemplateComponentRegistry.empty(),
+        SearchTemplateGates.none());
+  }
+
+  private String servedFor(String urn, List<String> entityTypes) {
+    return walk(
+            ForkJoinPool.commonPool(),
+            urn,
+            "orders",
+            null,
+            10,
+            entityTypes,
+            (rung, assigned) -> page(1, "urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)"))
+        .urn();
+  }
+
   private static boolean matches(String predicate, String query) {
     SearchTemplateLadder ladder = new SearchTemplateLadder();
     ladder.setSelect(new StringArray(predicate));
-    return SearchTemplateLadderPredicates.selectMatches(ladder, query, null, null, 10);
+    return SearchTemplateLadderPredicates.selectMatches(ladder, query, null, null, 10, INELIGIBLE);
   }
 
   private static void accept(String predicate) {
