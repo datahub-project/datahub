@@ -164,7 +164,8 @@ check_fails() {
   printf '  ok    %s\n' "${name}"
 }
 
-ALL=":metadata-service:war,:datahub-upgrade,:metadata-jobs:mae-consumer-job,:metadata-jobs:mce-consumer-job,:datahub-frontend,:datahub-actions"
+ALL=":metadata-service:war,:datahub-upgrade,:metadata-jobs:mae-consumer-job,:metadata-jobs:mce-consumer-job,:datahub-frontend,:datahub-actions,:packages:datahub-ai-service"
+PYTHON_IMAGES=":datahub-actions,:packages:datahub-ai-service"
 
 echo "nothing that reaches an image"
 check "smoke-test only" "" 'CHANGED_FILES=["smoke-test/tests/a_test.py"]'
@@ -177,10 +178,13 @@ check "product-update json" "" 'CHANGED_FILES=["metadata-service/configuration/s
 check "product-update saas json" "" 'CHANGED_FILES=["metadata-service/configuration/src/main/resources/product-update-saas.json"]'
 check "productUpdateCiGate" "" 'CHANGED_FILES=["metadata-service/configuration/src/productUpdateCiGate/java/com/linkedin/metadata/config/productupdate/ProductUpdateReleaseSyncTest.java"]'
 
-echo "ingestion only rebuilds actions"
-check "metadata-ingestion" ":datahub-actions" 'CHANGED_FILES=["metadata-ingestion/src/datahub/emitter/rest_emitter.py"]'
+echo "ingestion only rebuilds the Python images"
+check "metadata-ingestion" "${PYTHON_IMAGES}" 'CHANGED_FILES=["metadata-ingestion/src/datahub/emitter/rest_emitter.py"]'
 check "datahub-actions" ":datahub-actions" 'CHANGED_FILES=["datahub-actions/src/x.py"]'
 check "actions readme (baked into image)" ":datahub-actions" 'CHANGED_FILES=["datahub-actions/README.md"]'
+check "datahub-ai-service" ":packages:datahub-ai-service" 'CHANGED_FILES=["packages/datahub-ai-service/src/datahub_ai_service/app.py"]'
+check "datahub-core-mcp-tools (bundled in the ai-service image)" ":packages:datahub-ai-service" 'CHANGED_FILES=["packages/datahub-core-mcp-tools/src/datahub_core_mcp_tools/mcp_server.py"]'
+check "ai-service dockerfile" ":packages:datahub-ai-service" 'CHANGED_FILES=["docker/datahub-ai-service/requirements.lock"]'
 
 echo "reused images are pinned to a digest, not the bare floating tag"
 check_version_env "reused image pinned to quickstart@digest" \
@@ -189,7 +193,7 @@ check_version_env "reused image pinned to quickstart@digest" \
 check_version_env "reused -slim image pinned to its own digest" \
   "DATAHUB_ACTIONS_VERSION=quickstart-slim@sha256:0000000000000000000000000000000000000000000000000000004119348442" \
   'CHANGED_FILES=["smoke-test/tests/a_test.py"]'
-check "ingestion plus docs" ":datahub-actions" 'CHANGED_FILES=["metadata-ingestion/src/datahub/x.py","docs/a.md","smoke-test/tests/b_test.py"]'
+check "ingestion plus docs" "${PYTHON_IMAGES}" 'CHANGED_FILES=["metadata-ingestion/src/datahub/x.py","docs/a.md","smoke-test/tests/b_test.py"]'
 
 echo "any JVM-image path builds the full set (measured: narrowing saved nothing)"
 check "datahub-web-react" "${ALL}" 'CHANGED_FILES=["datahub-web-react/src/App.tsx"]'
@@ -206,6 +210,7 @@ check "service dockerfile" "${ALL}" 'CHANGED_FILES=["docker/datahub-gms/Dockerfi
 check "jvm-shared snippet" "${ALL}" 'CHANGED_FILES=["docker/snippets/setup_java_runtime.sh"]'
 check "jvm-shared snippet (wait_for_deps)" "${ALL}" 'CHANGED_FILES=["docker/snippets/wait_for_deps.sh"]'
 check "ingestion-only snippet" ":datahub-actions" 'CHANGED_FILES=["docker/snippets/ingestion_base.template"]'
+check "uv snippet (both Python images)" "${PYTHON_IMAGES}" 'CHANGED_FILES=["docker/snippets/uv/uv.toml"]'
 check "ingestion plus jvm" "${ALL}" 'CHANGED_FILES=["metadata-ingestion/src/datahub/x.py","metadata-io/src/main/java/A.java"]'
 
 echo "unclassified paths force a full build"
@@ -232,9 +237,9 @@ check "publish label bakes every image even with a smoke profile" \
   SMOKE_BUILD_TASK=:docker:buildImagesquickstartPg \
   SMOKE_MODULES=":datahub-upgrade :metadata-service:war :datahub-frontend :datahub-actions" \
   'CHANGED_FILES=["smoke-test/a.py"]'
-QUICKSTART_PG_MODULES=":datahub-upgrade :metadata-service:war :datahub-frontend :datahub-actions"
-QUICKSTART_PG_BUILT=":metadata-service:war,:datahub-upgrade,:datahub-frontend,:datahub-actions"
-QUICKSTART_PG_CONSUMERS_MODULES=":datahub-upgrade :metadata-service:war :datahub-frontend :metadata-jobs:mce-consumer-job :metadata-jobs:mae-consumer-job :datahub-actions"
+QUICKSTART_PG_MODULES=":datahub-upgrade :metadata-service:war :datahub-frontend :datahub-actions :packages:datahub-ai-service"
+QUICKSTART_PG_BUILT=":metadata-service:war,:datahub-upgrade,:datahub-frontend,:datahub-actions,:packages:datahub-ai-service"
+QUICKSTART_PG_CONSUMERS_MODULES=":datahub-upgrade :metadata-service:war :datahub-frontend :metadata-jobs:mce-consumer-job :metadata-jobs:mae-consumer-job :datahub-actions :packages:datahub-ai-service"
 # Same fake digest the curl stub emits for the bare `quickstart` tag.
 QUICKSTART_DIGEST="sha256:0000000000000000000000000000000000000000000000000000003571886052"
 check "smoke: quickstartPg builds its modules only" \

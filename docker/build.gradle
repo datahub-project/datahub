@@ -19,6 +19,7 @@ ext {
     ]
 
     python_services_modules = [
+            ':packages:datahub-ai-service',
     ]
 
     // Load environment variables from file if DATAHUB_LOCAL_COMMON_ENV is set
@@ -167,7 +168,7 @@ ext {
             ],
             'quickstartOS2': [
                     profile: 'quickstart-opensearch2',
-                    modules: backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
             ],
             'quickstartOS2Debug': [
                     profile: 'debug-opensearch2',
@@ -179,7 +180,7 @@ ext {
             ],
             'quickstartOS3': [
                     profile: 'quickstart-opensearch3',
-                    modules: backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
                     // Image-based CI stack still needs /openapi/operations/dev/featureFlags
                     // (smoke-test/tests/dev_tooling). Compose defaults DEV_TOOLING_ENABLED to false.
                     additionalEnv: [
@@ -232,7 +233,7 @@ ext {
             ],
             'quickstartCDC': [
                     profile: 'quickstart-consumers-cdc',
-                    modules: backend_profile_modules + [':datahub-frontend',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
                                                         ':metadata-jobs:mce-consumer-job',
                                                         ':metadata-jobs:mae-consumer-job',
                                                         ':datahub-actions',
@@ -262,14 +263,14 @@ ext {
             ],
             'quickstartPg': [
                     profile: 'quickstart-postgres',
-                    modules: backend_profile_modules + [
+                    modules: python_services_modules + backend_profile_modules + [
                             ':datahub-frontend',
                             ':datahub-actions',
                     ]
             ],
             'quickstartPgConsumers': [
                     profile: 'quickstart-postgres-consumers',
-                    modules: backend_profile_modules + [
+                    modules: python_services_modules + backend_profile_modules + [
                             ':datahub-frontend',
                             ':metadata-jobs:mce-consumer-job',
                             ':metadata-jobs:mae-consumer-job',
@@ -278,7 +279,7 @@ ext {
             ],
             'quickstartPgCdc': [
                 profile: 'quickstart-postgres-cdc',
-                modules: backend_profile_modules + [
+                modules: python_services_modules + backend_profile_modules + [
                     ':datahub-frontend',
                     ':datahub-actions',
                 ]
@@ -355,6 +356,7 @@ ext {
     // Though these support hot reload, they need to be restarted if any ENVs have been modified and ReloadEnv is run.
     moduleToContainerWithHotReload = [
         ':datahub-actions': 'datahub-actions',
+        ':packages:datahub-ai-service': 'datahub-ai-service',
     ]
 
     // Helper function to read the captured profile name from file
@@ -563,6 +565,10 @@ task generateQuickstartComposeConfig {
         // Use unique high port numbers as placeholders that will be replaced later
         composeExecutor.parameters.environment.put("DATAHUB_MAPPED_GMS_PORT", '58080')
         composeExecutor.parameters.environment.put("DATAHUB_MAPPED_FRONTEND_PORT", '59002')
+        composeExecutor.parameters.environment.put("DATAHUB_MAPPED_AI_PORT", '59005')
+        composeExecutor.parameters.environment.put("DATAHUB_AI_MCP_ENABLED", '__AI_MCP_ENABLED__')
+        composeExecutor.parameters.environment.put("MCP_SERVER_ENABLED", '__MCP_SERVER_ENABLED__')
+        composeExecutor.parameters.environment.put("DATAHUB_AI_IMAGE", '__AI_IMAGE__')
 
         def configOutput = composeExecutor.execute('config')
 
@@ -574,6 +580,9 @@ task generateQuickstartComposeConfig {
         configOutput = configOutput.replace('__SIGNING_KEY__', '${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}')
         configOutput = configOutput.replace('__SALT__', '${DATAHUB_TOKEN_SERVICE_SALT}')
         configOutput = configOutput.replace('__SYSTEM_CLIENT_SECRET__', '${DATAHUB_SYSTEM_CLIENT_SECRET:-JohnSnowKnowsNothing}')
+        configOutput = configOutput.replace('__AI_MCP_ENABLED__', '${DATAHUB_AI_MCP_ENABLED:-true}')
+        configOutput = configOutput.replace('__MCP_SERVER_ENABLED__', '${MCP_SERVER_ENABLED:-false}')
+        configOutput = configOutput.replace('__AI_IMAGE__', '${DATAHUB_AI_IMAGE:-acryldata/datahub-ai-service}')
         configOutput = configOutput.replace(System.getenv('HOME'), '${HOME}')
 
         // Parse configOutput as yaml and add UI_INGESTION_DEFAULT_CLI_VERSION as an env var under datahub-gms-quickstart.environment key
@@ -593,6 +602,7 @@ task generateQuickstartComposeConfig {
         // Replace port placeholders with environment variable syntax (after YAML processing)
         configOutput = configOutput.replace("published: '58080'", 'published: ${DATAHUB_MAPPED_GMS_PORT:-8080}')
         configOutput = configOutput.replace("published: '59002'", 'published: ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}')
+        configOutput = configOutput.replace("published: '59005'", 'published: ${DATAHUB_MAPPED_AI_PORT:-9005}')
 
         // Preserve create_host_path so host dirs (e.g. ~/.datahub/plugins) are created on first run
         configOutput = configOutput.replace("bind: {}", "bind:\n        create_host_path: true")

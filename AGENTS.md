@@ -508,15 +508,17 @@ See [scripts/dev/README.md](scripts/dev/README.md) for details and offline tests
 
 ### Module-to-Container Mapping
 
-| Source directory                  | Container                                     |
-| --------------------------------- | --------------------------------------------- |
-| `metadata-service/`               | `datahub-gms`                                 |
-| `datahub-graphql-core/`           | `datahub-gms`                                 |
-| `metadata-io/`                    | `datahub-gms`                                 |
-| `datahub-frontend/`               | `datahub-frontend-react`                      |
-| `metadata-jobs/mce-consumer-job/` | `datahub-mce-consumer`                        |
-| `metadata-jobs/mae-consumer-job/` | `datahub-mae-consumer`                        |
-| `metadata-models/`                | All (triggers full rebuild + code generation) |
+| Source directory                   | Container                                     |
+| ---------------------------------- | --------------------------------------------- |
+| `metadata-service/`                | `datahub-gms`                                 |
+| `datahub-graphql-core/`            | `datahub-gms`                                 |
+| `metadata-io/`                     | `datahub-gms`                                 |
+| `datahub-frontend/`                | `datahub-frontend-react`                      |
+| `packages/datahub-ai-service/`     | `datahub-ai-service`                          |
+| `packages/datahub-core-mcp-tools/` | `datahub-ai-service`                          |
+| `metadata-jobs/mce-consumer-job/`  | `datahub-mce-consumer`                        |
+| `metadata-jobs/mae-consumer-job/`  | `datahub-mae-consumer`                        |
+| `metadata-models/`                 | All (triggers full rebuild + code generation) |
 
 ### Environment Variables
 
