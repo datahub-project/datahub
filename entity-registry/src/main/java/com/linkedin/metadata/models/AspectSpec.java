@@ -30,7 +30,9 @@ public class AspectSpec {
   // Classpath & Pegasus-specific: Temporary.
   private final RecordDataSchema _schema;
   private final Class<RecordTemplate> _aspectClass;
-  @Setter @Getter private String registryName = "unknownRegistry";
+  public static final String DEFAULT_REGISTRY_NAME = "unknownRegistry";
+
+  @Setter @Getter private String registryName = DEFAULT_REGISTRY_NAME;
   @Setter @Getter private ComparableVersion registryVersion = new ComparableVersion("0.0.0.0-dev");
 
   @EqualsAndHashCode.Exclude private volatile List<SearchableFieldSpec> _searchableFieldSpecsList;
@@ -241,5 +243,10 @@ public class AspectSpec {
 
   public Class<RecordTemplate> getDataTemplateClass() {
     return _aspectClass;
+  }
+
+  /** True for an aspect defined by a model plugin: only the plugin registry stamps its name. */
+  public boolean isDefinedByPlugin() {
+    return !DEFAULT_REGISTRY_NAME.equals(registryName);
   }
 }

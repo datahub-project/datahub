@@ -28,6 +28,8 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -692,42 +694,59 @@ public class PatchItemImplTest {
   }
 
   /**
-   * Aspects without a registered template, such as ones added by a model plugin, apply plain RFC
-   * 6902 ops through the generic path instead of failing.
+   * A plugin-defined aspect has no template, so plain RFC 6902 ops go through the generic path.
+   * {@code subTypes} stands in for one: it has no template and is marked as plugin-defined here.
    */
   @Test
-  public void testPatchAspectWithoutTemplate() {
+  public void testPatchPluginAspectWithoutTemplate() {
     assertFalse(entityRegistry.getAspectTemplateEngine().hasTemplate(SUB_TYPES_ASPECT_NAME));
 
     ChangeItemImpl created =
-        subTypesPatch("[{\"op\":\"add\",\"path\":\"/typeNames\",\"value\":[\"View\"]}]")
+        pluginPatch(
+                SUB_TYPES_ASPECT_NAME,
+                "[{\"op\":\"add\",\"path\":\"/typeNames\",\"value\":[\"View\"]}]")
             .applyPatch(null, aspectRetriever);
     assertEquals(created.getRecordTemplate(), new SubTypes().setTypeNames(new StringArray("View")));
 
     ChangeItemImpl appended =
-        subTypesPatch("[{\"op\":\"add\",\"path\":\"/typeNames/-\",\"value\":\"Table\"}]")
+        pluginPatch(
+                SUB_TYPES_ASPECT_NAME,
+                "[{\"op\":\"add\",\"path\":\"/typeNames/-\",\"value\":\"Table\"}]")
             .applyPatch(created.getRecordTemplate(), aspectRetriever);
     assertEquals(
         appended.getRecordTemplate(),
         new SubTypes().setTypeNames(new StringArray("View", "Table")));
 
     ChangeItemImpl removed =
-        subTypesPatch("[{\"op\":\"remove\",\"path\":\"/typeNames/0\"}]")
+        pluginPatch(SUB_TYPES_ASPECT_NAME, "[{\"op\":\"remove\",\"path\":\"/typeNames/0\"}]")
             .applyPatch(appended.getRecordTemplate(), aspectRetriever);
     assertEquals(
         removed.getRecordTemplate(), new SubTypes().setTypeNames(new StringArray("Table")));
   }
 
+  /** Stock aspects without a template still reject PATCH; the generic fallback is plugin-only. */
+  @Test
+  public void testPatchStockAspectWithoutTemplateIsStillRejected() {
+    MetadataChangeProposal mcp =
+        patchMcp(
+            SUB_TYPES_ASPECT_NAME,
+            "[{\"op\":\"add\",\"path\":\"/typeNames\",\"value\":[\"View\"]}]");
+    PatchItemImpl patchItem = PatchItemImpl.builder().build(mcp, auditStamp, entityRegistry);
+    assertFalse(patchItem.getAspectSpec().isDefinedByPlugin());
+    assertThrows(
+        UnsupportedOperationException.class, () -> patchItem.applyPatch(null, aspectRetriever));
+  }
+
   /**
-   * Invalid patches on aspects without a template must surface as client errors (the API layers map
+   * Invalid patches on plugin aspects must surface as client errors (the API layers map
    * ValidationException and IllegalArgumentException to 4xx), not as wrapped server errors.
    */
   @Test
-  public void testInvalidPatchOnAspectWithoutTemplateIsClientError() {
+  public void testInvalidPatchOnPluginAspectIsClientError() {
     assertThrows(
         ValidationException.class,
         () ->
-            patchFor(
+            pluginPatch(
                     CONTAINER_ASPECT_NAME,
                     "[{\"op\":\"add\",\"path\":\"/container\",\"value\":\"urn:li:corpuser:not_a_container\"}]")
                 .applyPatch(null, aspectRetriever));
@@ -735,33 +754,49 @@ public class PatchItemImplTest {
     assertThrows(
         ValidationException.class,
         () ->
-            subTypesPatch("[{\"op\":\"add\",\"path\":\"/typeNames/-\",\"value\":\"View\"}]")
+            pluginPatch(
+                    SUB_TYPES_ASPECT_NAME,
+                    "[{\"op\":\"add\",\"path\":\"/typeNames/-\",\"value\":\"View\"}]")
                 .applyPatch(null, aspectRetriever));
     assertThrows(
         ValidationException.class,
         () ->
-            subTypesPatch("[{\"op\":\"remove\",\"path\":\"/typeNames/0\"}]")
+            pluginPatch(SUB_TYPES_ASPECT_NAME, "[{\"op\":\"remove\",\"path\":\"/typeNames/0\"}]")
                 .applyPatch(null, aspectRetriever));
-    // An op the JSON patch library rejects (index out of range).
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            subTypesPatch("[{\"op\":\"remove\",\"path\":\"/typeNames/5\"}]")
-                .applyPatch(new SubTypes().setTypeNames(new StringArray("View")), aspectRetriever));
+    // An op the JSON patch library rejects (index out of range). The message must not quote the
+    // stored aspect.
+    IllegalArgumentException e =
+        expectThrows(
+            IllegalArgumentException.class,
+            () ->
+                pluginPatch(
+                        SUB_TYPES_ASPECT_NAME, "[{\"op\":\"remove\",\"path\":\"/typeNames/5\"}]")
+                    .applyPatch(
+                        new SubTypes().setTypeNames(new StringArray("storedValue")),
+                        aspectRetriever));
+    assertFalse(e.getMessage().contains("storedValue"), e.getMessage());
   }
 
-  private PatchItemImpl subTypesPatch(String ops) {
-    return patchFor(SUB_TYPES_ASPECT_NAME, ops);
+  /** Builds the patch against a registry in which {@code aspectName} is plugin-defined. */
+  private PatchItemImpl pluginPatch(String aspectName, String ops) {
+    AspectSpec pluginAspect =
+        spy(entityRegistry.getEntitySpec(DATASET_ENTITY_NAME).getAspectSpec(aspectName));
+    pluginAspect.setRegistryName("test-plugin");
+    EntitySpec dataset = spy(entityRegistry.getEntitySpec(DATASET_ENTITY_NAME));
+    doReturn(pluginAspect).when(dataset).getAspectSpec(aspectName);
+    EntityRegistry pluginRegistry = spy(entityRegistry);
+    doReturn(dataset).when(pluginRegistry).getEntitySpec(DATASET_ENTITY_NAME);
+    return PatchItemImpl.builder().build(patchMcp(aspectName, ops), auditStamp, pluginRegistry);
   }
 
-  private PatchItemImpl patchFor(String aspectName, String ops) {
+  private MetadataChangeProposal patchMcp(String aspectName, String ops) {
     MetadataChangeProposal mcp = new MetadataChangeProposal();
     mcp.setEntityUrn(urn);
     mcp.setEntityType(DATASET_ENTITY_NAME);
     mcp.setAspectName(aspectName);
     mcp.setChangeType(ChangeType.PATCH);
     mcp.setAspect(GenericRecordUtils.serializePatch(patchOf(ops)));
-    return PatchItemImpl.builder().build(mcp, auditStamp, entityRegistry);
+    return mcp;
   }
 
   private MetadataChangeProposal conditionalPatchMcp(GenericAspect patchAspect) {

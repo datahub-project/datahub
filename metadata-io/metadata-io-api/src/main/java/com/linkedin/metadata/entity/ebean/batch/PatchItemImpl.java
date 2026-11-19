@@ -186,9 +186,11 @@ public class PatchItemImpl implements PatchMCP {
             || genericJsonPatch.isForceGenericPatch())) {
       return applyGenericPatch(recordTemplate, aspectRetriever);
     }
-    // Aspects without a registered template (e.g. ones added by a model plugin) take plain
-    // RFC 6902 ops through the generic path.
-    if (!aspectRetriever.getEntityRegistry().getAspectTemplateEngine().hasTemplate(aspectName)) {
+    // Plugin-defined aspects have no template, so plain RFC 6902 ops go through the generic path.
+    // Stock aspects without a template keep rejecting PATCH: their validators and clients were
+    // written assuming none arrives.
+    if (aspectSpec.isDefinedByPlugin()
+        && !aspectRetriever.getEntityRegistry().getAspectTemplateEngine().hasTemplate(aspectName)) {
       return applyGenericPatch(recordTemplate, aspectRetriever);
     }
     return applyTemplatePatch(recordTemplate, aspectRetriever);

@@ -55,14 +55,30 @@ public class ValidationApiUtils {
   }
 
   public static void validateTrimOrThrow(RecordTemplate record) {
-    RecordTemplateValidator.validateTrim(
-        record,
-        validationResult -> {
-          throw new ValidationException(
-              String.format(
-                  "Failed to validate record with class %s: %s",
-                  record.getClass().getName(), validationResult.getMessages().toString()));
-        });
+    final String prefix =
+        String.format("Failed to validate record with class %s: ", record.getClass().getName());
+    rejectWrongShape(
+        prefix,
+        () ->
+            RecordTemplateValidator.validateTrim(
+                record,
+                validationResult -> {
+                  throw new ValidationException(prefix + validationResult.getMessages().toString());
+                }));
+  }
+
+  /**
+   * Pegasus throws an {@link IllegalStateException} instead of reporting a failure when a value has
+   * the wrong shape for its schema (e.g. an object where an array is declared). Reject it like any
+   * other schema violation, so the caller gets a client error.
+   */
+  private static void rejectWrongShape(
+      @Nonnull String messagePrefix, @Nonnull Runnable validation) {
+    try {
+      validation.run();
+    } catch (IllegalStateException e) {
+      throw new ValidationException(messagePrefix + e.getMessage());
+    }
   }
 
   /**
@@ -279,14 +295,9 @@ public class ValidationApiUtils {
     RecordTemplateValidator.validate(
         EntityApiUtils.buildKeyAspect(entityRegistry, urn), resultFunction, validator);
     if (aspect != null) {
-      try {
-        RecordTemplateValidator.validateTrim(aspect, resultFunction, validator);
-      } catch (IllegalStateException e) {
-        // Pegasus throws instead of reporting when a value has the wrong shape for its schema
-        // (e.g. an object where an array is declared), as a malformed patch can produce.
-        throw new ValidationException(
-            "Invalid format for aspect: " + entitySpec.getName() + "\n Cause: " + e.getMessage());
-      }
+      rejectWrongShape(
+          "Invalid format for aspect: " + entitySpec.getName() + "\n Cause: ",
+          () -> RecordTemplateValidator.validateTrim(aspect, resultFunction, validator));
     }
   }
 
