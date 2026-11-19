@@ -26,6 +26,7 @@ from .tool_context import BackgroundExecution
 from .tools.documents import grep_documents, search_documents
 from .tools.entities import SchemaFieldsTool, get_entities, list_schema_fields
 from .tools.get_me import get_me
+from .tools.grep_entities import grep_entities
 from .tools.search import search, search_description
 from .version_requirements import tool_annotations
 
@@ -200,4 +201,6 @@ def register_tools(
     add("search_documents", search_documents, ToolType.SEARCH)
     # Regex over whole document bodies: many large documents can take a while.
     add("grep_documents", grep_documents, ToolType.SEARCH, slow=True)
+    if get_boolean_env_variable("GREP_ENTITIES_ENABLED", default=True):
+        add("grep_entities", grep_entities, ToolType.SEARCH, slow=True)
     return registered
