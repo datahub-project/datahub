@@ -5,7 +5,7 @@ import React from 'react';
 import GroupPoliciesTab from '@app/permissions/policy/actorPolicies/GroupPoliciesTab';
 import UserPoliciesTab from '@app/permissions/policy/actorPolicies/UserPoliciesTab';
 import { ListedPolicy } from '@app/permissions/policy/actorPolicies/actorPolicies.types';
-import { listPoliciesByField } from '@app/permissions/policy/actorPolicies/actorPolicies.utils';
+import { PolicyFieldMatch, listPoliciesMatchingAny } from '@app/permissions/policy/actorPolicies/actorPolicies.utils';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { GetGroupRoleUrnsDocument, GetUserPolicyAccessDocument } from '@graphql/actorPolicies.generated';
@@ -44,13 +44,12 @@ function policy(name: string, actors: Partial<ListedPolicy['actors']>, state = P
 }
 
 function listPoliciesMock(
-    field: string,
-    values: string[],
+    matches: PolicyFieldMatch[],
     policies: ListedPolicy[],
     total = policies.length,
 ): MockedResponse {
     return {
-        request: { query: ListPoliciesDocument, variables: listPoliciesByField(field, values) },
+        request: { query: ListPoliciesDocument, variables: listPoliciesMatchingAny(matches) },
         result: {
             data: { listPolicies: { start: 0, count: policies.length, total, policies } },
         },
@@ -68,6 +67,11 @@ function groupRolesMock(roleUrns: string[]): MockedResponse {
     };
 }
 
+const GROUP_MATCHES: PolicyFieldMatch[] = [
+    { field: 'groups', values: [GROUP] },
+    { field: 'allGroups', values: ['true'] },
+];
+
 const TRUNCATION_WARNING = /Only the first/;
 const LOAD_ERROR = 'Failed to load policies! An unexpected error occurred.';
 
@@ -80,20 +84,14 @@ function renderWithMocks(mocks: MockedResponse[], ui: React.ReactElement) {
 }
 
 describe('GroupPoliciesTab', () => {
-    it('merges group, all-groups and role queries, without all-users policies, and explains each row', async () => {
+    it('ORs group, all-groups and role filters in one query, without all-users policies, and explains each row', async () => {
         const mocks = [
-            {
-                request: { query: GetGroupRoleUrnsDocument, variables: { urn: GROUP } },
-                result: {
-                    data: { corpGroup: { urn: GROUP, roles: { relationships: [{ entity: { urn: ROLE } }] } } },
-                },
-            },
-            listPoliciesMock('groups', [GROUP], [policy('Named group', { groups: [GROUP] })]),
-            listPoliciesMock('allGroups', ['true'], [policy('Every group', { allGroups: true })]),
+            groupRolesMock([ROLE]),
             listPoliciesMock(
-                'roles',
-                [ROLE],
+                [...GROUP_MATCHES, { field: 'roles', values: [ROLE] }],
                 [
+                    policy('Named group', { groups: [GROUP] }),
+                    policy('Every group', { allGroups: true }),
                     policy('Editors', {
                         roles: [ROLE],
                         resolvedRoles: [{ urn: ROLE, type: EntityType.DatahubRole, name: 'Editor', description: '' }],
@@ -114,25 +112,23 @@ describe('GroupPoliciesTab', () => {
         expect(screen.queryByText(TRUNCATION_WARNING)).not.toBeInTheDocument();
     });
 
-    it('skips the roles query for a group with no roles', async () => {
+    it('leaves out the roles filter for a group with no roles', async () => {
         const mocks = [
             groupRolesMock([]),
-            listPoliciesMock('groups', [GROUP], [policy('Named group', { groups: [GROUP] })]),
-            listPoliciesMock('allGroups', ['true'], []),
+            listPoliciesMock(GROUP_MATCHES, [policy('Named group', { groups: [GROUP] })]),
         ];
         renderWithMocks(mocks, <GroupPoliciesTab urn={GROUP} />);
 
         expect(await screen.findByText('Named group')).toBeInTheDocument();
         expect(screen.getByText('1 policy')).toBeInTheDocument();
-        // An unskipped roles query would have no matching mock and surface as a load error.
+        // A query with a roles filter would have no matching mock and surface as a load error.
         expect(screen.queryByText(LOAD_ERROR)).not.toBeInTheDocument();
     });
 
-    it('warns when a query returns fewer policies than its total', async () => {
+    it('warns when the query returns fewer policies than its total', async () => {
         const mocks = [
             groupRolesMock([]),
-            listPoliciesMock('groups', [GROUP], [policy('Named group', { groups: [GROUP] })], 1500),
-            listPoliciesMock('allGroups', ['true'], []),
+            listPoliciesMock(GROUP_MATCHES, [policy('Named group', { groups: [GROUP] })], 1500),
         ];
         renderWithMocks(mocks, <GroupPoliciesTab urn={GROUP} />);
 
@@ -157,11 +153,7 @@ describe('UserPoliciesTab', () => {
                     data: { debugAccess: { policies: policies.map((p) => p.urn), groups: [], allRoles: [] } },
                 },
             },
-            listPoliciesMock(
-                'urn',
-                policies.map((p) => p.urn),
-                policies,
-            ),
+            listPoliciesMock([{ field: 'urn', values: policies.map((p) => p.urn) }], policies),
         ];
         renderWithMocks(mocks, <UserPoliciesTab urn={USER} />);
 
@@ -183,7 +175,7 @@ describe('UserPoliciesTab', () => {
                 request: { query: GetUserPolicyAccessDocument, variables: { urn: USER } },
                 result: { data: { debugAccess: { policies: [policies[0].urn], groups: [], allRoles: [] } } },
             },
-            listPoliciesMock('urn', [policies[0].urn], [policies[0]], 2),
+            listPoliciesMock([{ field: 'urn', values: [policies[0].urn] }], [policies[0]], 2),
         ];
         renderWithMocks(mocks, <UserPoliciesTab urn={USER} />);
 

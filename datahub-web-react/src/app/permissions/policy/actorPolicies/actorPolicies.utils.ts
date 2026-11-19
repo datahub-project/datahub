@@ -10,14 +10,22 @@ import { Maybe, PlatformPrivileges } from '@types';
 // ponytail: one page per query, no pagination. Raise it, or paginate, if an actor ever matches more policies.
 export const ACTOR_POLICIES_PAGE_SIZE = 1000;
 
-/** listPolicies variables for policies whose `field` matches any of `values`. */
-export function listPoliciesByField(field: string, values: string[]) {
-    return { input: { start: 0, count: ACTOR_POLICIES_PAGE_SIZE, orFilters: [{ and: [{ field, values }] }] } };
+export type PolicyFieldMatch = { field: string; values: string[] };
+
+/** listPolicies variables for policies matching any of `matches`; each match is its own OR branch. */
+export function listPoliciesMatchingAny(matches: PolicyFieldMatch[]) {
+    return {
+        input: {
+            start: 0,
+            count: ACTOR_POLICIES_PAGE_SIZE,
+            orFilters: matches.map((match) => ({ and: [match] })),
+        },
+    };
 }
 
-/** True when any listPolicies result holds fewer policies than its total, i.e. the page cut the list off. */
-export function isTruncated(results: Array<{ total: number; policies: unknown[] } | null | undefined>): boolean {
-    return results.some((result) => !!result && result.total > result.policies.length);
+/** True when a listPolicies result holds fewer policies than its total, i.e. the page cut the list off. */
+export function isTruncated(result: { total: number; policies: unknown[] } | null | undefined): boolean {
+    return !!result && result.total > result.policies.length;
 }
 
 export type ActorPolicyContext = {

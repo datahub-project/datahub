@@ -5,7 +5,7 @@ import ActorPoliciesTable from '@app/permissions/policy/actorPolicies/ActorPolic
 import {
     buildActorPolicyRows,
     isTruncated,
-    listPoliciesByField,
+    listPoliciesMatchingAny,
 } from '@app/permissions/policy/actorPolicies/actorPolicies.utils';
 
 import { useGetUserPolicyAccessQuery } from '@graphql/actorPolicies.generated';
@@ -23,7 +23,7 @@ export default function UserPoliciesTab({ urn }: { urn: string }) {
     const policyUrns = debugAccess?.policies ?? [];
 
     const policies = useListPoliciesQuery({
-        variables: listPoliciesByField('urn', policyUrns),
+        variables: listPoliciesMatchingAny([{ field: 'urn', values: policyUrns }]),
         skip: policyUrns.length === 0,
     });
 
@@ -39,7 +39,7 @@ export default function UserPoliciesTab({ urn }: { urn: string }) {
             rows={rows}
             loading={access.loading || policies.loading}
             error={!!access.error || !!policies.error}
-            truncated={isTruncated([policies.data?.listPolicies])}
+            truncated={isTruncated(policies.data?.listPolicies)}
             note={t('actorPolicies.userGapNote')}
         />
     );
