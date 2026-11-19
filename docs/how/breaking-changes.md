@@ -15,6 +15,27 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Databricks metric views as Semantic Models and Metrics
+
+With `include_metric_views: true`, the Unity Catalog source can now emit each metric view as a
+`semanticModel`, one `metric` per measure, and a logical dataset for each table the view reads,
+instead of one dataset with subtype `Metric View`. The new `emit_semantic_model_entities` setting
+works like Snowflake's: left unset, it turns on against DataHub Cloud 2.1.0 or later with Metrics
+enabled, and stays off on OSS, older Cloud, and runs with no server connection (such as a file sink);
+`true` asks for it; `false` keeps the `Metric View` dataset. When it's on, the old `Metric View`
+dataset is no longer emitted and stateful ingestion soft-deletes it, so links, tags, owners and terms
+added to it in DataHub don't carry over; there is no migration command for Databricks yet. A view
+whose YAML can't be read falls back to the `Metric View` dataset.
+
+Separately, both modes now read display names, synonyms, formats and descriptions from the metric
+view's columns, where Unity Catalog stores them (it strips them from the YAML it returns). Before,
+they were lost on real workspaces. Both modes also accept the documented `fields:` key alongside
+`dimensions:`.
+
+**Action:** none to keep today's output on OSS. On DataHub Cloud, re-ingest to get the new entities,
+and repoint anything attached to the old `Metric View` dataset URNs; set
+`emit_semantic_model_entities: false` to keep the old dataset.
+
 ### CLI initialization from scripts
 
 When you run `datahub init` without an interactive terminal, it now stops if an existing
