@@ -27,14 +27,6 @@ import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 
-/**
- * How long the graph viewport must hold still to count as settled: longer than the graph's own
- * deferred fitView (a 1s timer once entity data loads, then a 1s pan/zoom animation — see
- * useFitView in LineageDisplay.tsx), so a pending fit that has not visibly started yet is waited
- * out rather than declared settled.
- */
-const VIEWPORT_SETTLE_MS = 2200;
-
 /** Toggles in the graph's filters panel, keyed by the suffix of their test id. */
 export type LineageFilterToggle =
   | 'hide-transformations'
@@ -255,7 +247,8 @@ export class LineageBasePage extends BasePage {
   }
 
   /**
-   * Wait for the graph viewport to stop moving before hover-driven interactions.
+   * Wait for the graph to finish loading and its viewport to stop moving before hover-driven
+   * interactions.
    *
    * The graph pans/zooms itself well after it looks ready: a deferred fitView fires up to a
    * second after all entity data loads and animates for another second. If that lands after a
@@ -264,20 +257,9 @@ export class LineageBasePage extends BasePage {
    * lineage controls) unmounts mid-assertion.
    */
   async waitForViewportToSettle(): Promise<void> {
-    await this.page.waitForFunction(
-      (settleMs) => {
-        const viewport = document.querySelector<HTMLElement>('.react-flow__viewport');
-        const transform = viewport?.style.transform ?? '';
-        const holder = window as { __viewportSettle?: { transform: string; since: number } };
-        if (holder.__viewportSettle?.transform !== transform) {
-          holder.__viewportSettle = { transform, since: Date.now() };
-          return false;
-        }
-        return Date.now() - holder.__viewportSettle.since >= settleMs;
-      },
-      VIEWPORT_SETTLE_MS,
-      { polling: 200, timeout: 15000 },
-    );
+    await expect(this.page.getByTestId('lineage-state')).toHaveAttribute('data-state', 'settled', {
+      timeout: 15000,
+    });
   }
 
   // ── Node interactions ───────────────────────────────────────────────────────
