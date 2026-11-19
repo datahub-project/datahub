@@ -9,7 +9,6 @@ from typing import (
     Any,
     Callable,
     Dict,
-    FrozenSet,
     Iterable,
     List,
     Optional,
@@ -111,10 +110,13 @@ from datahub.ingestion.source.unity.metric_view_semantic_model import (
     FIELD_CUSTOM_PROPERTY_PREFIX,
     MEASURE_REF_RE,
     ROOT_ALIAS,
+    MetricViewReportBuffer,
     MetricViewSemanticModelInput,
     UnityMetricViewSemanticModelMapper,
-    join_custom_properties,
+    entry_description,
     merge_column_metadata,
+    metric_view_custom_properties,
+    metric_view_description,
     normalize_dimension_keys,
     parse_metric_view_expr,
 )
@@ -204,10 +206,6 @@ from datahub.utilities.urns.urn import guess_entity_type
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-_DISPLAY_NAME_MAX_LEN = 255
-_SYNONYMS_MAX_COUNT = 10
-_SYNONYM_MAX_LEN = 255
-
 # Databricks external lineage can return object-storage paths with a trailing
 # partition-set component in brace-list syntax, e.g.
 #   s3://bucket/topics/event/{20260410,20260411,20260412}
@@ -236,23 +234,6 @@ def _strip_s3_partition_from_path(path: str) -> str:
     if not cleaned:
         return path
     return f"{scheme}://{'/'.join(cleaned)}"
-
-
-# Known format subkeys per type, from the agent-metadata spec
-_FORMAT_NUMERIC_SUBKEYS = frozenset(
-    {"decimal_places", "hide_group_separator", "abbreviation", "currency_code"}
-)
-_FORMAT_DATE_SUBKEYS = frozenset({"date_format", "leading_zeros"})
-_FORMAT_DATETIME_SUBKEYS = frozenset({"date_format", "time_format", "leading_zeros"})
-_FORMAT_DECIMAL_PLACES_SUBKEYS = frozenset({"type", "places"})
-_FORMAT_KNOWN_SUBKEYS: Dict[str, FrozenSet[str]] = {
-    "number": _FORMAT_NUMERIC_SUBKEYS,
-    "currency": _FORMAT_NUMERIC_SUBKEYS,
-    "percentage": frozenset({"decimal_places", "hide_group_separator"}),
-    "byte": frozenset({"decimal_places", "hide_group_separator"}),
-    "date": _FORMAT_DATE_SUBKEYS,
-    "date_time": _FORMAT_DATETIME_SUBKEYS,
-}
 
 
 # PyYAML's safe_load follows YAML 1.1, which coerces bareword keys/values
@@ -343,6 +324,14 @@ def _parse_metric_view_source(
         schema=schema,
         table=name,
     )
+
+
+@dataclasses.dataclass(frozen=True)
+class _LoadedMetricViewSpec:
+    """A metric view spec already loaded (None: it could not be read), so the
+    legacy fallback does not load and report it a second time."""
+
+    spec: Optional[Dict[str, Any]]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -532,7 +521,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # Resolved in get_workunits_internal against the server (tri-state flag).
         self._emit_metric_view_semantic_models: bool = False
         self.metric_view_semantic_model_mapper = UnityMetricViewSemanticModelMapper(
-            report=self.report,
             platform_instance=self.platform_instance_name,
             env=self.config.env,
             include_column_lineage=self.config.include_column_lineage,
@@ -968,8 +956,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             ):
                 self.tables[table.ref.qualified_table_name] = table
 
+            loaded_spec: Optional[_LoadedMetricViewSpec] = None
             if self._is_semantic_model_metric_view(table):
-                emitted = self._gen_metric_view_semantic_model(table, schema)
+                # Loaded once: a fallback to the legacy dataset reuses it, so its
+                # parse warnings and counters are not doubled.
+                loaded_spec = _LoadedMetricViewSpec(self._load_metric_view_spec(table))
+                emitted = (
+                    self._gen_metric_view_semantic_model(
+                        table, schema, loaded_spec.spec
+                    )
+                    if loaded_spec.spec is not None
+                    else None
+                )
                 if emitted is not None:
                     # Emitted as a semanticModel, so there is no dataset at the
                     # metric view's URN: keep it out of table_refs, which scopes
@@ -987,18 +985,27 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 # Keep metric views in table_refs so stateful soft-delete still tracks them.
                 self.table_refs.add(table.ref)
-            yield from self.process_table(table, schema)
+            yield from self.process_table(table, schema, loaded_spec)
             self.report.tables.processed(table.id, f"table ({table.table_type})")
             if table.is_metric_view and self.config.include_metric_views:
                 self.report.metric_views.processed(table.id)
 
-    def process_table(self, table: Table, schema: Schema) -> Iterable[MetadataWorkUnit]:
+    def process_table(
+        self,
+        table: Table,
+        schema: Schema,
+        loaded_spec: Optional["_LoadedMetricViewSpec"] = None,
+    ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self.gen_dataset_urn(table.ref)
         yield from self.add_table_to_dataset_container(dataset_urn, schema)
 
         metric_view_spec: Optional[Dict[str, Any]] = None
         if table.is_metric_view and self.config.include_metric_views:
-            metric_view_spec = self._load_metric_view_spec(table)
+            metric_view_spec = (
+                loaded_spec.spec
+                if loaded_spec is not None
+                else self._load_metric_view_spec(table)
+            )
 
         table_props = self._create_table_property_aspect(table, metric_view_spec)
         tags, table_tags = self._table_tags_aspect(table)
@@ -1029,8 +1036,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 lineage = self.ingest_lineage(table)
                 if lineage is None:
                     self.report.warning(
-                        message="Metric view has no upstream lineage: neither YAML parsing "
-                        "nor the table-lineage REST API produced any upstreams",
+                        message=self._no_metric_view_upstreams_message(),
                         context=table.ref.qualified_table_name,
                         log=False,
                     )
@@ -1209,60 +1215,69 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _gen_metric_view_semantic_model(
-        self, table: Table, schema: Schema
+        self, table: Table, schema: Schema, spec: Dict[str, Any]
     ) -> Optional[List[MetadataWorkUnit]]:
         """Workunits describing a metric view as a semanticModel, or None to fall
-        back to the legacy `Metric View` dataset (unreadable YAML or a mapping
-        failure), so the view never disappears from the catalog."""
-        spec = self._load_metric_view_spec(table)
-        if spec is None:
-            return None
+        back to the legacy `Metric View` dataset (a mapping failure), so the view
+        never disappears from the catalog.
 
-        view_tags, table_tags = self._table_tags_aspect(table)
-        workunits: List[MetadataWorkUnit] = list(
-            self.gen_platform_resources(table_tags)
-        )
-        column_tags: Dict[str, List[str]] = {}
-        if self.config.include_tags and not isinstance(table.table_type, HiveTableType):
-            unique_tags: Set[UnityCatalogTag] = set()
-            for column in table.columns:
-                tags = self._get_column_tags(
-                    table.ref.catalog, table.ref.schema, table.ref.table, column.name
-                )
-                unique_tags.update(tags)
-                if tags:
-                    column_tags[column.name.lower()] = [
-                        tag.to_datahub_tag_urn().urn() for tag in tags
-                    ]
-            workunits.extend(self.gen_platform_resources(list(unique_tags)))
-
-        spec_props = self._build_metric_view_spec_custom_props(spec)
-        inp = MetricViewSemanticModelInput(
-            table=table,
-            spec=spec,
-            model_path=self._metric_view_semantic_model_path(table),
-            browse_path=self._metric_view_browse_path(schema),
-            schema_container_urn=self.gen_schema_key(schema).as_urn(),
-            ownership=self._create_table_ownership_aspect(table),
-            domains=self._get_domain_aspect(
-                dataset_name=table.ref.qualified_table_name
-            ),
-            view_tags=view_tags,
-            column_tags=column_tags,
-            spec_custom_properties={
-                k: v
-                for k, v in spec_props.items()
-                if not k.startswith(FIELD_CUSTOM_PROPERTY_PREFIX)
-            },
-            field_custom_properties={
-                k: v
-                for k, v in spec_props.items()
-                if k.startswith(FIELD_CUSTOM_PROPERTY_PREFIX)
-            },
-            fallback_root_upstreams=lambda: self._metric_view_rest_upstreams(table),
-        )
+        Counters and warnings are buffered and committed only on success, so a
+        fallback is not counted twice."""
+        buffer = MetricViewReportBuffer()
         try:
-            workunits.extend(self.metric_view_semantic_model_mapper.gen_workunits(inp))
+            view_tags, table_tags = self._table_tags_aspect(table)
+            workunits: List[MetadataWorkUnit] = list(
+                self.gen_platform_resources(table_tags)
+            )
+            column_tags: Dict[str, List[str]] = {}
+            if self.config.include_tags and not isinstance(
+                table.table_type, HiveTableType
+            ):
+                unique_tags: Set[UnityCatalogTag] = set()
+                for column in table.columns:
+                    tags = self._get_column_tags(
+                        table.ref.catalog,
+                        table.ref.schema,
+                        table.ref.table,
+                        column.name,
+                    )
+                    unique_tags.update(tags)
+                    if tags:
+                        column_tags[column.name.lower()] = [
+                            tag.to_datahub_tag_urn().urn() for tag in tags
+                        ]
+                workunits.extend(self.gen_platform_resources(list(unique_tags)))
+
+            spec_props = metric_view_custom_properties(spec, buffer)
+            inp = MetricViewSemanticModelInput(
+                table=table,
+                spec=spec,
+                model_path=self._metric_view_semantic_model_path(table),
+                browse_path=self._metric_view_browse_path(schema),
+                schema_container_urn=self.gen_schema_key(schema).as_urn(),
+                ownership=self._create_table_ownership_aspect(table),
+                domains=self._get_domain_aspect(
+                    dataset_name=table.ref.qualified_table_name
+                ),
+                view_tags=view_tags,
+                column_tags=column_tags,
+                spec_custom_properties={
+                    k: v
+                    for k, v in spec_props.items()
+                    if not k.startswith(FIELD_CUSTOM_PROPERTY_PREFIX)
+                },
+                field_custom_properties={
+                    k: v
+                    for k, v in spec_props.items()
+                    if k.startswith(FIELD_CUSTOM_PROPERTY_PREFIX)
+                },
+                fallback_root_upstreams=lambda: self._metric_view_rest_upstreams(
+                    table, buffer
+                ),
+            )
+            workunits.extend(
+                self.metric_view_semantic_model_mapper.gen_workunits(inp, buffer)
+            )
         except Exception as e:
             self.report.warning(
                 title="Could not map metric view to a semantic model",
@@ -1272,6 +1287,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 exc=e,
             )
             return None
+        buffer.commit(self.report)
         return workunits
 
     def _metric_view_semantic_model_path(self, table: Table) -> str:
@@ -1304,17 +1320,29 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         entries.append(BrowsePathEntryClass(id=schema_urn, urn=schema_urn))
         return entries
 
-    def _metric_view_rest_upstreams(self, table: Table) -> List[str]:
+    def _metric_view_rest_upstreams(
+        self, table: Table, buffer: MetricViewReportBuffer
+    ) -> List[str]:
         lineage = self.ingest_lineage(table)
         if lineage is None:
-            self.report.warning(
-                message="Metric view has no upstream lineage: neither YAML parsing "
-                "nor the table-lineage REST API produced any upstreams",
+            buffer.warning(
+                message=self._no_metric_view_upstreams_message(),
                 context=table.ref.qualified_table_name,
-                log=False,
             )
             return []
         return [upstream.dataset for upstream in lineage.upstreams]
+
+    def _no_metric_view_upstreams_message(self) -> str:
+        if not self.config.include_table_lineage:
+            return (
+                "Metric view has no upstream lineage: its YAML `source` is not a "
+                "table reference (e.g. a SQL query), and the table-lineage REST API "
+                "fallback is off because include_table_lineage is false"
+            )
+        return (
+            "Metric view has no upstream lineage: neither YAML parsing nor the "
+            "table-lineage REST API produced any upstreams"
+        )
 
     def process_ml_models(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         if not self.config.include_ml_models:
@@ -2315,9 +2343,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             and self.config.include_metric_views
             and metric_view_spec is not None
         ):
+            buffer = MetricViewReportBuffer()
             custom_properties.update(
-                self._build_metric_view_spec_custom_props(metric_view_spec)
+                metric_view_custom_properties(metric_view_spec, buffer)
             )
+            buffer.commit(self.report)
 
         created: Optional[TimeStampClass] = None
         if table.created_at:
@@ -2345,9 +2375,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             and self.config.include_metric_views
             and metric_view_spec is not None
         ):
-            yaml_comment = metric_view_spec.get("comment")
-            if isinstance(yaml_comment, str) and yaml_comment.strip():
-                description = yaml_comment
+            description = metric_view_description(metric_view_spec, table.comment)
 
         return DatasetPropertiesClass(
             name=table.name,
@@ -3024,145 +3052,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     tags.append(TagUrn("Window Measure"))
                 tag_map[key_lower] = tags
 
-                # v1.1 uses "comment"; fall back to "description" for older YAML.
-                raw_desc = entry.get("comment") or entry.get("description")
-                if isinstance(raw_desc, str) and raw_desc.strip():
+                raw_desc = entry_description(entry)
+                if raw_desc is not None:
                     desc_map[key_lower] = raw_desc
         return tag_map, desc_map
-
-    def _build_metric_view_spec_custom_props(
-        self, spec: Dict[str, Any]
-    ) -> Dict[str, str]:
-        """Return dataset-level custom properties derived from the metric view YAML spec."""
-        props: Dict[str, str] = {}
-        filter_expr = spec.get("filter")
-        if isinstance(filter_expr, str) and filter_expr.strip():
-            props["metric_view.filter"] = filter_expr
-
-        version = spec.get("version")
-        if version is not None:
-            props["metric_view.spec_version"] = str(version)
-
-        joins = spec.get("joins")
-        if isinstance(joins, list) and joins:
-            props["metric_view.joins"] = json.dumps(
-                joins, separators=(",", ":"), default=str
-            )
-
-        props.update(join_custom_properties(spec))
-
-        mat = spec.get("materialization")
-        if isinstance(mat, dict):
-            if isinstance(mat.get("schedule"), str):
-                props["metric_view.materialization.schedule"] = mat["schedule"]
-            if isinstance(mat.get("mode"), str):
-                props["metric_view.materialization.mode"] = mat["mode"]
-            mvs = mat.get("materialized_views")
-            if isinstance(mvs, list):
-                props["metric_view.materialization.materialized_views"] = json.dumps(
-                    mvs, separators=(",", ":"), default=str
-                )
-
-        props.update(self._build_metric_view_field_custom_props(spec))
-        return props
-
-    def _build_metric_view_field_custom_props(
-        self, spec: Dict[str, Any]
-    ) -> Dict[str, str]:
-        """Flatten per-field agent metadata (display_name, synonyms, format, window) into custom properties keyed by metric_view.field.<name>.*."""
-        props: Dict[str, str] = {}
-        for section in ("dimensions", "measures"):
-            entries = spec.get(section)
-            if not isinstance(entries, list):
-                continue
-            for entry in entries:
-                if not isinstance(entry, dict):
-                    continue
-                name = entry.get("name")
-                if not isinstance(name, str) or not name:
-                    continue
-                # Lowercase keeps prop keys consistent with tag/description keys (case-insensitive lookup).
-                prefix = f"metric_view.field.{name.lower()}"
-                self._add_display_name_prop(entry, prefix, props)
-                self._add_synonyms_props(entry, prefix, props)
-                self._add_format_props(entry, prefix, props)
-                if section == "measures":
-                    self._add_window_props(entry, prefix, props)
-        return props
-
-    def _add_display_name_prop(
-        self, entry: Dict[str, Any], prefix: str, props: Dict[str, str]
-    ) -> None:
-        raw = entry.get("display_name")
-        if not isinstance(raw, str) or not raw.strip():
-            return
-        truncated = raw[:_DISPLAY_NAME_MAX_LEN]
-        if len(raw) > _DISPLAY_NAME_MAX_LEN:
-            self.report.num_metric_view_display_name_truncated += 1
-        props[f"{prefix}.display_name"] = truncated
-
-    def _add_synonyms_props(
-        self, entry: Dict[str, Any], prefix: str, props: Dict[str, str]
-    ) -> None:
-        synonyms = entry.get("synonyms")
-        if not isinstance(synonyms, list) or not synonyms:
-            return
-        cleaned: List[str] = []
-        for s in synonyms:
-            if not isinstance(s, str) or not s.strip():
-                self.report.num_metric_view_synonyms_dropped_invalid += 1
-                continue
-            if len(s) > _SYNONYM_MAX_LEN:
-                self.report.num_metric_view_synonyms_truncated += 1
-            cleaned.append(s[:_SYNONYM_MAX_LEN])
-        if len(cleaned) > _SYNONYMS_MAX_COUNT:
-            self.report.num_metric_view_synonyms_overflow += 1
-            cleaned = cleaned[:_SYNONYMS_MAX_COUNT]
-        if cleaned:
-            props[f"{prefix}.synonyms"] = ",".join(cleaned)
-
-    def _add_format_props(
-        self, entry: Dict[str, Any], prefix: str, props: Dict[str, str]
-    ) -> None:
-        fmt = entry.get("format")
-        if not isinstance(fmt, dict):
-            return
-        fmt_type = fmt.get("type")
-        if not isinstance(fmt_type, str):
-            return
-        props[f"{prefix}.format.type"] = fmt_type
-        known = _FORMAT_KNOWN_SUBKEYS.get(fmt_type.lower(), frozenset())
-        for subkey, val in fmt.items():
-            if subkey == "type":
-                continue
-            if subkey not in known:
-                self.report.num_metric_view_format_unknown_subkeys += 1
-                continue
-            if subkey == "decimal_places" and isinstance(val, dict):
-                for dp_key, dp_val in val.items():
-                    if dp_key in _FORMAT_DECIMAL_PLACES_SUBKEYS:
-                        props[f"{prefix}.format.decimal_places.{dp_key}"] = str(dp_val)
-                    else:
-                        self.report.num_metric_view_format_unknown_subkeys += 1
-            else:
-                props[f"{prefix}.format.{subkey}"] = str(val)
-
-    def _add_window_props(
-        self, entry: Dict[str, Any], prefix: str, props: Dict[str, str]
-    ) -> None:
-        window = entry.get("window")
-        if not isinstance(window, list) or not window:
-            return
-        if len(window) == 1 and isinstance(window[0], dict):
-            w = window[0]
-            for wk in ("order", "range", "semiadditive"):
-                wv = w.get(wk)
-                if wv is not None:
-                    props[f"{prefix}.window.{wk}"] = str(wv)
-        else:
-            props[f"{prefix}.window"] = json.dumps(
-                window, separators=(",", ":"), default=str
-            )
 
     @staticmethod
     def _create_schema_field(

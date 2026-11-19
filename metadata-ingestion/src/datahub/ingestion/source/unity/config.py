@@ -1047,13 +1047,17 @@ class UnityCatalogSourceConfig(
         return self
 
     @model_validator(mode="after")
-    def warn_semantic_model_entities_without_metric_views(self):
+    def warn_semantic_model_entities_without_metric_views(
+        self,
+    ) -> "UnityCatalogSourceConfig":
         if self.emit_semantic_model_entities and not self.include_metric_views:
-            logger.warning(
+            msg = (
                 "emit_semantic_model_entities is set but include_metric_views is "
                 "False; no semanticModel/metric entities will be emitted. Set "
                 "include_metric_views to True."
             )
+            logger.warning(msg)
+            add_global_warning(msg)
         return self
 
     @field_validator("schema_pattern", mode="after")

@@ -3,7 +3,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, FrozenSet, List, Optional, Set, Tuple
 
 import sqlglot
 import sqlglot.errors
@@ -32,6 +32,7 @@ from datahub.metadata.schema_classes import (
     SemanticFieldTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
+    _Aspect,
 )
 from datahub.metadata.urns import MetricUrn, SchemaFieldUrn, SemanticModelUrn
 from datahub.sdk._semantic_shared import AiContextInput
@@ -79,6 +80,24 @@ _FIELDS_KEY = "fields"
 _MEASURES_KEY = "measures"
 _TIME_TYPE_PREFIXES = ("date", "timestamp")
 _DISPLAY_NAME_MAX_LEN = 255
+_SYNONYMS_MAX_COUNT = 10
+_SYNONYM_MAX_LEN = 255
+
+# Known format subkeys per type, from the agent-metadata spec
+_FORMAT_NUMERIC_SUBKEYS = frozenset(
+    {"decimal_places", "hide_group_separator", "abbreviation", "currency_code"}
+)
+_FORMAT_DATE_SUBKEYS = frozenset({"date_format", "leading_zeros"})
+_FORMAT_DATETIME_SUBKEYS = frozenset({"date_format", "time_format", "leading_zeros"})
+_FORMAT_DECIMAL_PLACES_SUBKEYS = frozenset({"type", "places"})
+_FORMAT_KNOWN_SUBKEYS: Dict[str, FrozenSet[str]] = {
+    "number": _FORMAT_NUMERIC_SUBKEYS,
+    "currency": _FORMAT_NUMERIC_SUBKEYS,
+    "percentage": frozenset({"decimal_places", "hide_group_separator"}),
+    "byte": frozenset({"decimal_places", "hide_group_separator"}),
+    "date": _FORMAT_DATE_SUBKEYS,
+    "date_time": _FORMAT_DATETIME_SUBKEYS,
+}
 _COUNT_DISTINCT = "COUNT_DISTINCT"
 _JOIN_KEY_DESCRIPTION = (
     "Join key of a metric view join; not a dimension of the metric view."
@@ -345,6 +364,226 @@ def join_custom_properties(spec: Dict[str, Any]) -> Dict[str, str]:
     return props
 
 
+@dataclass(frozen=True)
+class _BufferedWarning:
+    message: str
+    context: str
+    title: Optional[str] = None
+    exc: Optional[BaseException] = None
+
+
+class MetricViewReportBuffer:
+    """Counters and warnings raised while mapping one metric view.
+
+    Committed to the report only once the view is emitted, so a view that falls
+    back to the legacy `Metric View` dataset is not counted twice: the fallback
+    path counts its own.
+    """
+
+    def __init__(self) -> None:
+        self._counts: Dict[str, int] = {}
+        self._warnings: List[_BufferedWarning] = []
+
+    def count(self, name: str, n: int = 1) -> None:
+        if n:
+            self._counts[name] = self._counts.get(name, 0) + n
+
+    def warning(
+        self,
+        *,
+        message: str,
+        context: str,
+        title: Optional[str] = None,
+        exc: Optional[BaseException] = None,
+    ) -> None:
+        self._warnings.append(
+            _BufferedWarning(message=message, context=context, title=title, exc=exc)
+        )
+
+    def commit(self, report: UnityCatalogReport) -> None:
+        for name, n in self._counts.items():
+            current = getattr(report, name)
+            assert isinstance(current, int), name
+            setattr(report, name, current + n)
+        for w in self._warnings:
+            report.warning(
+                title=w.title, message=w.message, context=w.context, exc=w.exc
+            )
+        self._counts.clear()
+        self._warnings.clear()
+
+
+def clean_display_name(
+    raw: object, buffer: Optional[MetricViewReportBuffer] = None
+) -> Optional[str]:
+    """A field's display_name, truncated to the 255 characters Databricks allows.
+
+    Pass ``buffer`` where the value is counted; the same field is cleaned once
+    per path that reads it, and counted once.
+    """
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    if len(raw) > _DISPLAY_NAME_MAX_LEN and buffer is not None:
+        buffer.count("num_metric_view_display_name_truncated")
+    return raw[:_DISPLAY_NAME_MAX_LEN]
+
+
+def clean_synonyms(
+    raw: object, buffer: Optional[MetricViewReportBuffer] = None
+) -> List[str]:
+    """A field's synonyms: non-empty strings, each at most 255 characters, at
+    most 10 (per the Databricks v1.1 spec). ``buffer`` as for clean_display_name."""
+    if not isinstance(raw, list) or not raw:
+        return []
+    cleaned: List[str] = []
+    for synonym in raw:
+        if not isinstance(synonym, str) or not synonym.strip():
+            if buffer is not None:
+                buffer.count("num_metric_view_synonyms_dropped_invalid")
+            continue
+        if len(synonym) > _SYNONYM_MAX_LEN and buffer is not None:
+            buffer.count("num_metric_view_synonyms_truncated")
+        cleaned.append(synonym[:_SYNONYM_MAX_LEN])
+    if len(cleaned) > _SYNONYMS_MAX_COUNT:
+        if buffer is not None:
+            buffer.count("num_metric_view_synonyms_overflow")
+        cleaned = cleaned[:_SYNONYMS_MAX_COUNT]
+    return cleaned
+
+
+def entry_description(raw: Dict[str, Any]) -> Optional[str]:
+    # v1.1 uses "comment"; fall back to "description" for older YAML.
+    desc = raw.get("comment") or raw.get("description")
+    return desc if isinstance(desc, str) and desc.strip() else None
+
+
+def metric_view_description(
+    spec: Dict[str, Any], table_comment: Optional[str]
+) -> Optional[str]:
+    # YAML top-level `comment` is the metric view's own documentation; UC's
+    # table.comment may not be kept in sync. Prefer YAML when present.
+    comment = spec.get("comment")
+    if isinstance(comment, str) and comment.strip():
+        return comment
+    return table_comment
+
+
+def metric_view_custom_properties(
+    spec: Dict[str, Any], buffer: MetricViewReportBuffer
+) -> Dict[str, str]:
+    """The `metric_view.*` custom properties of a metric view spec: spec-level
+    ones (filter, version, joins, materialization) and per-field ones."""
+    props: Dict[str, str] = {}
+    filter_expr = spec.get("filter")
+    if isinstance(filter_expr, str) and filter_expr.strip():
+        props["metric_view.filter"] = filter_expr
+
+    version = spec.get("version")
+    if version is not None:
+        props["metric_view.spec_version"] = str(version)
+
+    joins = spec.get("joins")
+    if isinstance(joins, list) and joins:
+        props["metric_view.joins"] = json.dumps(
+            joins, separators=(",", ":"), default=str
+        )
+
+    props.update(join_custom_properties(spec))
+
+    mat = spec.get("materialization")
+    if isinstance(mat, dict):
+        if isinstance(mat.get("schedule"), str):
+            props["metric_view.materialization.schedule"] = mat["schedule"]
+        if isinstance(mat.get("mode"), str):
+            props["metric_view.materialization.mode"] = mat["mode"]
+        mvs = mat.get("materialized_views")
+        if isinstance(mvs, list):
+            props["metric_view.materialization.materialized_views"] = json.dumps(
+                mvs, separators=(",", ":"), default=str
+            )
+
+    props.update(_field_custom_properties(spec, buffer))
+    return props
+
+
+def _field_custom_properties(
+    spec: Dict[str, Any], buffer: MetricViewReportBuffer
+) -> Dict[str, str]:
+    """Per-field agent metadata (display_name, synonyms, format, window) keyed
+    metric_view.field.<name>.*."""
+    props: Dict[str, str] = {}
+    for section in (_DIMENSIONS_KEY, _MEASURES_KEY):
+        entries = spec.get(section)
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            name = entry.get("name")
+            if not isinstance(name, str) or not name:
+                continue
+            # Lowercase keeps prop keys consistent with tag/description keys.
+            prefix = f"{FIELD_CUSTOM_PROPERTY_PREFIX}{name.lower()}"
+            display_name = clean_display_name(entry.get("display_name"), buffer)
+            if display_name is not None:
+                props[f"{prefix}.display_name"] = display_name
+            synonyms = clean_synonyms(entry.get("synonyms"), buffer)
+            if synonyms:
+                props[f"{prefix}.synonyms"] = ",".join(synonyms)
+            _add_format_props(entry, prefix, props, buffer)
+            if section == _MEASURES_KEY:
+                _add_window_props(entry, prefix, props)
+    return props
+
+
+def _add_format_props(
+    entry: Dict[str, Any],
+    prefix: str,
+    props: Dict[str, str],
+    buffer: MetricViewReportBuffer,
+) -> None:
+    fmt = entry.get("format")
+    if not isinstance(fmt, dict):
+        return
+    fmt_type = fmt.get("type")
+    if not isinstance(fmt_type, str):
+        return
+    props[f"{prefix}.format.type"] = fmt_type
+    known = _FORMAT_KNOWN_SUBKEYS.get(fmt_type.lower(), frozenset())
+    for subkey, val in fmt.items():
+        if subkey == "type":
+            continue
+        if subkey not in known:
+            buffer.count("num_metric_view_format_unknown_subkeys")
+            continue
+        if subkey == "decimal_places" and isinstance(val, dict):
+            for dp_key, dp_val in val.items():
+                if dp_key in _FORMAT_DECIMAL_PLACES_SUBKEYS:
+                    props[f"{prefix}.format.decimal_places.{dp_key}"] = str(dp_val)
+                else:
+                    buffer.count("num_metric_view_format_unknown_subkeys")
+        else:
+            props[f"{prefix}.format.{subkey}"] = str(val)
+
+
+def _add_window_props(
+    entry: Dict[str, Any], prefix: str, props: Dict[str, str]
+) -> None:
+    window = entry.get("window")
+    if not isinstance(window, list) or not window:
+        return
+    if len(window) == 1 and isinstance(window[0], dict):
+        w = window[0]
+        for wk in ("order", "range", "semiadditive"):
+            wv = w.get(wk)
+            if wv is not None:
+                props[f"{prefix}.window.{wk}"] = str(wv)
+    else:
+        props[f"{prefix}.window"] = json.dumps(
+            window, separators=(",", ":"), default=str
+        )
+
+
 def measure_refs(expr: str) -> List[str]:
     return [m.group(1) for m in MEASURE_REF_RE.finditer(expr)]
 
@@ -424,14 +663,12 @@ class UnityMetricViewSemanticModelMapper:
     def __init__(
         self,
         *,
-        report: UnityCatalogReport,
         platform_instance: Optional[str],
         env: str,
         include_column_lineage: bool,
         gen_dataset_urn: Callable[[TableReference], str],
         resolve_source: Callable[[str, Table], Optional[TableReference]],
     ) -> None:
-        self.report = report
         self.platform_instance = platform_instance
         self.env = env
         self.include_column_lineage = include_column_lineage
@@ -439,9 +676,12 @@ class UnityMetricViewSemanticModelMapper:
         self.resolve_source = resolve_source
 
     def gen_workunits(
-        self, inp: MetricViewSemanticModelInput
+        self, inp: MetricViewSemanticModelInput, buffer: MetricViewReportBuffer
     ) -> List[MetadataWorkUnit]:
-        """Build every entity first, so a failure leaves nothing half-emitted."""
+        """Build every entity first, so a failure leaves nothing half-emitted.
+
+        Counters and warnings go to ``buffer``; the caller commits them to the
+        report only once the workunits are emitted."""
         table = inp.table
         context = table.ref.qualified_table_name
         model_urn = str(
@@ -452,7 +692,7 @@ class UnityMetricViewSemanticModelMapper:
         metric_path = f"{inp.model_path}.{table.name}"
 
         root_ref = self._resolve_root(inp)
-        joins = self._collect_joins(inp)
+        joins = self._collect_joins(inp, buffer)
         # Keyed by lowercase join path; a logical dataset's alias is its path.
         alias_refs: Dict[str, Optional[TableReference]] = {ROOT_ALIAS: root_ref}
         # Lowercase qualifier -> alias (path) it names.
@@ -472,7 +712,7 @@ class UnityMetricViewSemanticModelMapper:
         if root_ref is not None:
             alias_map[""] = root_ref
 
-        entries = self._collect_entries(inp, alias_map, alias_names)
+        entries = self._collect_entries(inp, alias_map, alias_names, buffer)
         measures_by_lower = {e.name.lower(): e for e in entries if e.is_measure}
 
         fields_by_alias: Dict[str, Dict[str, SemanticFieldInput]] = {
@@ -483,7 +723,9 @@ class UnityMetricViewSemanticModelMapper:
                 continue
             fields_by_alias[entry.home_alias][entry.name] = self._field(entry, inp)
 
-        relationships = self._relationships(joins, entries, fields_by_alias, context)
+        relationships = self._relationships(
+            joins, entries, fields_by_alias, context, buffer
+        )
 
         datasets: Dict[str, SemanticModelDataset] = {}
         for alias, fields_by_path in fields_by_alias.items():
@@ -534,8 +776,10 @@ class UnityMetricViewSemanticModelMapper:
             )
 
         if unresolved_refs:
-            self.report.num_metric_view_unresolved_measure_refs += len(unresolved_refs)
-            self.report.warning(
+            buffer.count(
+                "num_metric_view_unresolved_measure_refs", len(unresolved_refs)
+            )
+            buffer.warning(
                 title="Unresolved MEASURE() reference in metric view",
                 message=(
                     "A MEASURE() reference does not match any measure defined in "
@@ -550,7 +794,7 @@ class UnityMetricViewSemanticModelMapper:
             id=table.name,
             platform_instance=self.platform_instance,
             name=table.name,
-            description=self._description(inp),
+            description=metric_view_description(inp.spec, table.comment),
             created=table.created_at,
             last_modified=table.updated_at or table.created_at,
             native_definition=table.view_definition,
@@ -566,11 +810,11 @@ class UnityMetricViewSemanticModelMapper:
         entities: List[Entity] = [model, *datasets.values(), *metrics]
         workunits = [wu for entity in entities for wu in entity.as_workunits()]
 
-        self.report.num_metric_view_semantic_models_emitted += 1
-        self.report.num_metric_view_semantic_model_datasets_emitted += len(datasets)
-        self.report.num_metric_view_metrics_emitted += len(metrics)
-        self.report.num_metric_view_relationships_emitted += len(relationships)
-        self.report.num_metric_view_derived_metric_edges += derived_edges
+        buffer.count("num_metric_view_semantic_models_emitted", 1)
+        buffer.count("num_metric_view_semantic_model_datasets_emitted", len(datasets))
+        buffer.count("num_metric_view_metrics_emitted", len(metrics))
+        buffer.count("num_metric_view_relationships_emitted", len(relationships))
+        buffer.count("num_metric_view_derived_metric_edges", derived_edges)
         return workunits
 
     def _resolve_root(
@@ -581,7 +825,9 @@ class UnityMetricViewSemanticModelMapper:
             return None
         return self.resolve_source(raw, inp.table)
 
-    def _collect_joins(self, inp: MetricViewSemanticModelInput) -> List[_Join]:
+    def _collect_joins(
+        self, inp: MetricViewSemanticModelInput, buffer: MetricViewReportBuffer
+    ) -> List[_Join]:
         joins: List[_Join] = []
         skipped = 0
 
@@ -629,15 +875,14 @@ class UnityMetricViewSemanticModelMapper:
 
         walk(inp.spec.get("joins"), ROOT_ALIAS)
         if skipped:
-            self.report.num_metric_view_joins_skipped += skipped
-            self.report.warning(
+            buffer.count("num_metric_view_joins_skipped", skipped)
+            buffer.warning(
                 title="Metric view joins skipped",
                 message="Metric view join entries with a malformed shape or an "
                 "unparseable source have no upstream table. Lineage through them "
                 "will be absent.",
                 context=f"{inp.table.ref.qualified_table_name}: {skipped} join "
                 "entry/entries affected",
-                log=False,
             )
         return joins
 
@@ -646,6 +891,7 @@ class UnityMetricViewSemanticModelMapper:
         inp: MetricViewSemanticModelInput,
         alias_map: Dict[str, TableReference],
         alias_names: Dict[str, str],
+        buffer: MetricViewReportBuffer,
     ) -> List[_Entry]:
         context = inp.table.ref.qualified_table_name
         entries: List[_Entry] = []
@@ -670,7 +916,7 @@ class UnityMetricViewSemanticModelMapper:
                     skipped += 1
                     continue
                 if name.lower() in seen:
-                    self.report.warning(
+                    buffer.warning(
                         title="Duplicate metric view field name",
                         message="Two dimensions/measures share a name; only the "
                         "first is emitted.",
@@ -680,15 +926,14 @@ class UnityMetricViewSemanticModelMapper:
                 seen.add(name.lower())
                 parsed = parse_metric_view_expr(expr, expr_alias_map)
                 if parsed.error is not None:
-                    self.report.num_metric_views_expr_parse_failures += 1
-                    self.report.warning(
+                    buffer.count("num_metric_views_expr_parse_failures", 1)
+                    buffer.warning(
                         message="Metric view expression failed to parse",
                         context=f"{context}:{name}: expr={expr!r}",
                         exc=parsed.error,
-                        log=False,
                     )
                 if parsed.empty_tree:
-                    self.report.num_metric_view_expr_empty_tree += 1
+                    buffer.count("num_metric_view_expr_empty_tree", 1)
                 unresolved_qualifiers.update(parsed.unresolved_qualifiers)
                 refs = measure_refs(expr) if key == _MEASURES_KEY else []
                 entries.append(
@@ -703,24 +948,22 @@ class UnityMetricViewSemanticModelMapper:
                     )
                 )
         if skipped:
-            self.report.num_metric_view_skipped_dim_measure_entries += skipped
-            self.report.warning(
+            buffer.count("num_metric_view_skipped_dim_measure_entries", skipped)
+            buffer.warning(
                 message="Metric view dimension/measure entries skipped due to "
                 "malformed shape (non-mapping entry, missing or non-string "
                 "name/expr).",
                 context=f"{context}: {skipped} dimension/measure entry/entries skipped",
-                log=False,
             )
         if unresolved_qualifiers:
-            self.report.num_metric_view_unresolved_qualifiers += len(
-                unresolved_qualifiers
+            buffer.count(
+                "num_metric_view_unresolved_qualifiers", len(unresolved_qualifiers)
             )
-            self.report.warning(
+            buffer.warning(
                 message="Metric view expression references unknown qualifier not "
                 "found in source/joins. Lineage rows for affected columns were "
                 "skipped.",
                 context=f"{context}: qualifiers={sorted(unresolved_qualifiers)!r}",
-                log=False,
             )
         return entries
 
@@ -747,7 +990,7 @@ class UnityMetricViewSemanticModelMapper:
             None,
         )
         native_type = column.type_text if column is not None else ""
-        synonyms = _synonyms(entry.raw)
+        synonyms = clean_synonyms(entry.raw.get("synonyms"))
         return SemanticFieldInput(
             field_path=entry.name,
             type=native_type,
@@ -756,7 +999,7 @@ class UnityMetricViewSemanticModelMapper:
                 if entry.is_measure
                 else SemanticFieldTypeClass.DIMENSION
             ),
-            description=_entry_description(entry.raw)
+            description=entry_description(entry.raw)
             or (column.comment if column is not None else None),
             tags=inp.column_tags.get(entry.name.lower()) or None,
             expression=DialectExpressionInput(
@@ -778,6 +1021,7 @@ class UnityMetricViewSemanticModelMapper:
         entries: List[_Entry],
         fields_by_alias: Dict[str, Dict[str, SemanticFieldInput]],
         context: str,
+        buffer: MetricViewReportBuffer,
     ) -> List[SemanticModelRelationshipInput]:
         relationships: List[SemanticModelRelationshipInput] = []
         unresolved: List[str] = []
@@ -811,15 +1055,15 @@ class UnityMetricViewSemanticModelMapper:
                 )
             )
         if unknown_cardinality:
-            self.report.warning(
+            buffer.warning(
                 title="Unrecognized metric view join cardinality",
                 message="Expected `many_to_one` or `one_to_many`; the relationship "
                 "is emitted without a cardinality.",
                 context=f"{context}: {unknown_cardinality!r}",
             )
         if unresolved:
-            self.report.num_metric_view_relationships_unresolved += len(unresolved)
-            self.report.warning(
+            buffer.count("num_metric_view_relationships_unresolved", len(unresolved))
+            buffer.warning(
                 title="Metric view join has no equi-join columns",
                 message="The join's `on` predicate has no `a = b` column pair (or "
                 "it failed to parse) and it has no `using` list, so it was not "
@@ -1028,8 +1272,8 @@ class UnityMetricViewSemanticModelMapper:
             (c for c in inp.table.columns if c.name.lower() == entry.name.lower()),
             None,
         )
-        display_name = entry.raw.get("display_name")
-        synonyms = _synonyms(entry.raw)
+        display_name = clean_display_name(entry.raw.get("display_name"))
+        synonyms = clean_synonyms(entry.raw.get("synonyms"))
         upstream_datasets = [str(dataset.urn)] if dataset is not None else []
         metric = Metric(
             platform=DATABRICKS_PLATFORM,
@@ -1037,12 +1281,8 @@ class UnityMetricViewSemanticModelMapper:
             id=entry.name,
             semantic_model=model_urn,
             platform_instance=self.platform_instance,
-            name=(
-                display_name[:_DISPLAY_NAME_MAX_LEN]
-                if isinstance(display_name, str) and display_name.strip()
-                else entry.name
-            ),
-            description=_entry_description(entry.raw)
+            name=display_name or entry.name,
+            description=entry_description(entry.raw)
             or (column.comment if column is not None else None),
             created=inp.table.created_at,
             last_modified=inp.table.updated_at or inp.table.created_at,
@@ -1076,8 +1316,8 @@ class UnityMetricViewSemanticModelMapper:
         *,
         browse_path: List[BrowsePathEntryClass],
         include_tags: bool,
-    ) -> List[Any]:
-        aspects: List[Any] = []
+    ) -> List[_Aspect]:
+        aspects: List[_Aspect] = []
         if browse_path:
             aspects.append(BrowsePathsV2Class(path=browse_path))
         if inp.ownership is not None:
@@ -1087,28 +1327,6 @@ class UnityMetricViewSemanticModelMapper:
         if include_tags and inp.view_tags is not None:
             aspects.append(inp.view_tags)
         return aspects
-
-    @staticmethod
-    def _description(inp: MetricViewSemanticModelInput) -> Optional[str]:
-        # YAML top-level `comment` is the metric view's own documentation; UC's
-        # table.comment may not be kept in sync. Prefer YAML when present.
-        comment = inp.spec.get("comment")
-        if isinstance(comment, str) and comment.strip():
-            return comment
-        return inp.table.comment
-
-
-def _entry_description(raw: Dict[str, Any]) -> Optional[str]:
-    # v1.1 uses "comment"; fall back to "description" for older YAML.
-    desc = raw.get("comment") or raw.get("description")
-    return desc if isinstance(desc, str) and desc.strip() else None
-
-
-def _synonyms(raw: Dict[str, Any]) -> List[str]:
-    synonyms = raw.get("synonyms")
-    if not isinstance(synonyms, list):
-        return []
-    return [s for s in synonyms if isinstance(s, str) and s.strip()]
 
 
 def _qualifier(column: sqlglot_exp.Column) -> str:

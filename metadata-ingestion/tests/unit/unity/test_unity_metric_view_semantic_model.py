@@ -107,9 +107,15 @@ def _source(**extra: Any) -> UnityCatalogSource:
     return source
 
 
+def _gen(source: UnityCatalogSource, table: Table) -> Optional[List[Any]]:
+    spec = source._load_metric_view_spec(table)
+    assert spec is not None
+    return source._gen_metric_view_semantic_model(table, _schema(), spec)
+
+
 def _aspects(source: UnityCatalogSource, yaml_body: str) -> Dict[str, Dict[str, Any]]:
     """aspect name -> {urn: aspect} for a metric view mapped in SM mode."""
-    wus = source._gen_metric_view_semantic_model(_table(yaml_body), _schema())
+    wus = _gen(source, _table(yaml_body))
     assert wus is not None
     out: Dict[str, Dict[str, Any]] = {}
     for wu in wus:
@@ -590,7 +596,7 @@ class TestColumnMetadataMerge:
 def _aspects_for_table(
     source: UnityCatalogSource, table: Table
 ) -> Dict[str, Dict[str, Any]]:
-    wus = source._gen_metric_view_semantic_model(table, _schema())
+    wus = _gen(source, table)
     assert wus is not None
     out: Dict[str, Dict[str, Any]] = {}
     for wu in wus:
