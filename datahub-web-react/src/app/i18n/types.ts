@@ -1,4 +1,4 @@
-import { Locale } from 'antd/lib/locale-provider';
+import type { Locale } from 'antd/es/locale';
 
 import type { SupportedLanguage } from '@src/i18n/supportedLanguages';
 

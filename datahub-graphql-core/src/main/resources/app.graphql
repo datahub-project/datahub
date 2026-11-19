@@ -724,6 +724,11 @@ type FeatureFlagsConfig {
   dataContractsEnabled: Boolean!
 
   """
+  Whether the "Show Applications" toggle is shown on the Appearance settings page
+  """
+  showApplicationsFeatureToggle: Boolean!
+
+  """
   Whether dataset names are editable
   """
   editableDatasetNameEnabled: Boolean!
@@ -762,6 +767,12 @@ type FeatureFlagsConfig {
   If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   """
   showSeparateSiblings: Boolean!
+
+  """
+  Max datasets one siblingGroups request may ask for (GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS). 0 means
+  the query is off, so the UI hides features that use it.
+  """
+  maxSiblingGroupUrns: Int!
 
   """
   If turned on, show the manage structured properties tab in the govern dropdown

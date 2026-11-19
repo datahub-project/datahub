@@ -718,7 +718,8 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
                 Mockito.anyBoolean(),
                 Mockito.anyBoolean()))
         .thenCallRealMethod();
-    SiblingGraphService siblingGraphService = new SiblingGraphService(entityService, service);
+    SiblingGraphService siblingGraphService =
+        new SiblingGraphService(entityService, service, SiblingGraphService.DEFAULT_MAX_GROUP_HOPS);
 
     EntityLineageResult walked =
         siblingGraphService.getLineage(

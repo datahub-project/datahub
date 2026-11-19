@@ -10,21 +10,23 @@ import { useEntityContext } from '@src/app/entityV2/shared/EntityContext';
 import { DataProduct, EntityType } from '@types';
 
 const TransparentButton = styled(Button)`
-    color: ${(props) => props.theme.colors.textError};
-    font-size: 12px;
-    box-shadow: none;
-    border: none;
-    display: none;
-    padding: unset;
-    align-items: center;
-    &&& span {
-        font-size: 12px;
-    }
-
-    &:hover {
-        transition: 0.15s;
-        opacity: 0.9;
+    && {
         color: ${(props) => props.theme.colors.textError};
+        font-size: 12px;
+        box-shadow: none;
+        border: none;
+        display: none;
+        padding: unset;
+        align-items: center;
+        &&& span {
+            font-size: 12px;
+        }
+
+        &:hover {
+            transition: 0.15s;
+            opacity: 0.9;
+            color: ${(props) => props.theme.colors.textError};
+        }
     }
 `;
 

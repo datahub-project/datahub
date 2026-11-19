@@ -9,31 +9,33 @@ import styled from 'styled-components';
  * Supports both enabled (request) and disabled (granted) states.
  */
 export const AccessButton = styled(Button)`
-    background-color: ${(props) => props.theme.colors.buttonFillBrand};
-    color: ${(props) => props.theme.colors.textOnFillBrand};
-    min-width: 80px;
-    height: 30px;
-    border-radius: 3.5px;
-    border: none;
-    font-weight: bold;
-
-    &:hover {
-        background-color: ${(props) => props.theme.colors.buttonSurfaceBrandHover};
+    && {
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
         color: ${(props) => props.theme.colors.textOnFillBrand};
+        min-width: 80px;
+        height: 30px;
+        border-radius: 3.5px;
         border: none;
-    }
-
-    /* Disabled state when user already has access */
-    &:disabled {
-        background-color: ${(props) => props.theme.colors.bgSurface};
-        color: ${(props) => props.theme.colors.textDisabled};
-        cursor: not-allowed;
-        border: 1px solid ${(props) => props.theme.colors.border};
+        font-weight: bold;
 
         &:hover {
+            background-color: ${(props) => props.theme.colors.buttonSurfaceBrandHover};
+            color: ${(props) => props.theme.colors.textOnFillBrand};
+            border: none;
+        }
+
+        /* Disabled state when user already has access */
+        &:disabled {
             background-color: ${(props) => props.theme.colors.bgSurface};
             color: ${(props) => props.theme.colors.textDisabled};
+            cursor: not-allowed;
             border: 1px solid ${(props) => props.theme.colors.border};
+
+            &:hover {
+                background-color: ${(props) => props.theme.colors.bgSurface};
+                color: ${(props) => props.theme.colors.textDisabled};
+                border: 1px solid ${(props) => props.theme.colors.border};
+            }
         }
     }
 `;

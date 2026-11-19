@@ -60,11 +60,18 @@ bootstrap:
     # v15 matches email as analyzed text and an exact keyword. The template names email.text.
     # The multi-word AND does not cover email.
     # v16 weights that analyzed text at 2, under a name token and under the exact email keyword.
+    # v17 reranks fulltext, and light through it, with keywordRerank and adds the semantic
+    # template. Before rolling back to a release without the semantic template contract, run one
+    # system-update with DATAHUB_SEARCH_TEMPLATES_REVISION pointing at
+    # bootstrap_mcps/search-templates-revert.yaml; see docs/how/breaking-changes.md.
+    # v18 adds the similarity template and leaves semantic unchanged. The URN route on semantic
+    # ships in a later version, once every GMS pod can run similarity.
     - name: search-templates
-      version: v16
+      version: v18
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/search-templates.yaml"
+      revision_env: "DATAHUB_SEARCH_TEMPLATES_REVISION"
 
     # Ingestion Recipes
     - name: ingestion-datahub-gc

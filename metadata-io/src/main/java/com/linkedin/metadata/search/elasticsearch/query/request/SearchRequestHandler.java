@@ -541,21 +541,22 @@ public class SearchRequestHandler extends BaseRequestHandler {
     applyTemplateSearchType(searchRequest, queryPlan.template());
     searchSourceBuilder.query(
         QueryBuilders.boolQuery().must(queryPlan.query()).filter(filterQuery));
-    templateRequests.apply(
-        opContext,
-        searchSourceBuilder,
-        searchFlags,
-        sortCriteria,
-        facets,
-        queryPlan.template(),
-        scroll,
-        size,
-        input);
+    boolean templateSort =
+        templateRequests.apply(
+            opContext,
+            searchSourceBuilder,
+            searchFlags,
+            sortCriteria,
+            facets,
+            queryPlan.template(),
+            scroll,
+            size,
+            input);
     if (Boolean.TRUE.equals(searchFlags.isIncludeExplain())) {
       searchSourceBuilder.explain(true);
     }
     searchRequest.source(searchSourceBuilder);
-    return new PreparedSearchRequest(searchRequest, queryPlan.template());
+    return new PreparedSearchRequest(searchRequest, queryPlan.template(), templateSort);
   }
 
   @Nonnull
@@ -589,22 +590,23 @@ public class SearchRequestHandler extends BaseRequestHandler {
     applyTemplateSearchType(searchRequest, queryPlan.template());
     searchSourceBuilder.query(
         QueryBuilders.boolQuery().must(queryPlan.query()).filter(filterQuery));
-    templateRequests.apply(
-        opContext,
-        searchSourceBuilder,
-        searchFlags,
-        sortCriteria,
-        facets,
-        queryPlan.template(),
-        scroll,
-        size,
-        input);
+    boolean templateSort =
+        templateRequests.apply(
+            opContext,
+            searchSourceBuilder,
+            searchFlags,
+            sortCriteria,
+            facets,
+            queryPlan.template(),
+            scroll,
+            size,
+            input);
     if (Boolean.TRUE.equals(searchFlags.isIncludeExplain())) {
       searchSourceBuilder.explain(true);
     }
     searchRequest.source(searchSourceBuilder);
     searchRequest.indicesOptions(null);
-    return new PreparedSearchRequest(searchRequest, queryPlan.template());
+    return new PreparedSearchRequest(searchRequest, queryPlan.template(), templateSort);
   }
 
   private static boolean templatesActive(@Nonnull OperationContext opContext) {
@@ -681,6 +683,31 @@ public class SearchRequestHandler extends BaseRequestHandler {
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
+  }
+
+  /**
+   * A request with no hits for the facets of {@code urns} inside {@link #getFilterQuery}: the
+   * facets of a search template vector rung, which count only the hits it serves.
+   */
+  @Nonnull
+  public SearchRequest getUrnFacetRequest(
+      @Nonnull OperationContext opContext,
+      @Nullable Filter filter,
+      @Nonnull Collection<String> urns,
+      @Nonnull List<String> facets) {
+    final SearchSourceBuilder searchSourceBuilder =
+        new SearchSourceBuilder()
+            .size(0)
+            .query(
+                QueryBuilders.boolQuery()
+                    .filter(getFilterQuery(opContext, filter))
+                    .filter(QueryBuilders.termsQuery("urn", urns)));
+    if (Boolean.FALSE.equals(opContext.getSearchContext().getSearchFlags().isSkipAggregates())) {
+      aggregationQueryBuilder
+          .getAggregations(opContext, facets)
+          .forEach(searchSourceBuilder::aggregation);
+    }
+    return new SearchRequest().source(searchSourceBuilder);
   }
 
   /**
