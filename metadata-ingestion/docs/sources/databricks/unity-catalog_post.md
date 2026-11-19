@@ -101,11 +101,11 @@ Expression columns may be unqualified (the top-level source), `source.<column>`,
 
 With `include_metric_views: true`, metric views can instead be emitted as first-class [Semantic Model and Metric](../../../../docs/features/feature-guides/metrics-and-semantic-models.md) entities, the same model the Snowflake connector uses for Semantic Views. This is controlled by `emit_semantic_model_entities`, a tri-state flag with the same behavior as Snowflake's `semantic_views.emit_semantic_model_entities`:
 
-| Value            | Behavior                                                                                                                                                                                                                                                             |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Value            | Behavior                                                                                                                                                                                                                                                                |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `null` (default) | Follow the server. On DataHub Cloud 2.1.0 or later with Metrics enabled, emits Semantic Models and Metrics. Elsewhere (older Cloud, OSS/self-hosted, connectionless runs such as a file sink, or when the server check fails) metric views stay `Metric View` datasets. |
-| `true`           | Request Semantic Model and Metric emission. Honored on Cloud when the server supports it (otherwise a warning, and legacy datasets); on OSS the server must register these entities.                                                                                  |
-| `false`          | Always emit legacy `Metric View` datasets.                                                                                                                                                                                                                           |
+| `true`           | Request Semantic Model and Metric emission. Honored on Cloud when the server supports it (otherwise a warning, and legacy datasets); on OSS the server must register these entities.                                                                                    |
+| `false`          | Always emit legacy `Metric View` datasets.                                                                                                                                                                                                                              |
 
 ```yaml
 source:
