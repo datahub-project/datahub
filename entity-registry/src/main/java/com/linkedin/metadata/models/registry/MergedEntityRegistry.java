@@ -12,6 +12,7 @@ import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.ModelValidationException;
+import com.linkedin.metadata.models.PartialEntitySpec;
 import com.linkedin.metadata.models.RelationshipEdgeUniquenessValidator;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotationValidator;
@@ -149,6 +150,7 @@ public class MergedEntityRegistry implements EntityRegistry {
     if (existingEntitySpec != null) {
       // Check for searchGroup conflicts
       validateSearchGroupCompatibility(existingEntitySpec, newEntitySpec, validationResult);
+      validateKeyAspectUnchanged(existingEntitySpec, newEntitySpec, validationResult);
 
       existingEntitySpec
           .getAspectSpecMap()
@@ -183,6 +185,43 @@ public class MergedEntityRegistry implements EntityRegistry {
               });
     } else {
       validateEntitySpec(newEntitySpec, validationResult);
+    }
+  }
+
+  /**
+   * A registry that names a key aspect for an existing entity (for example a newer version of a
+   * plugin that defines the entity) must keep the same key aspect with the same schema: the key
+   * determines the entity's URNs, so even an additive change would orphan existing entities.
+   */
+  private void validateKeyAspectUnchanged(
+      EntitySpec existingEntitySpec, EntitySpec newEntitySpec, ValidationResult validationResult) {
+    String newKeyAspectName = newEntitySpec.getKeyAspectName();
+    if (newKeyAspectName == null) {
+      return;
+    }
+    String existingKeyAspectName = existingEntitySpec.getKeyAspectName();
+    if (!newKeyAspectName.equals(existingKeyAspectName)) {
+      validationResult.setValid(false);
+      validationResult
+          .getValidationFailures()
+          .add(
+              String.format(
+                  "Entity '%s' cannot change its key aspect from '%s' to '%s'",
+                  existingEntitySpec.getName(), existingKeyAspectName, newKeyAspectName));
+      return;
+    }
+    AspectSpec existingKey = existingEntitySpec.getKeyAspectSpec();
+    AspectSpec newKey = newEntitySpec.getKeyAspectSpec();
+    if (existingKey != null
+        && newKey != null
+        && !Objects.equals(existingKey.getPegasusSchema(), newKey.getPegasusSchema())) {
+      validationResult.setValid(false);
+      validationResult
+          .getValidationFailures()
+          .add(
+              String.format(
+                  "Entity '%s' cannot change the schema of its key aspect '%s'",
+                  existingEntitySpec.getName(), newKeyAspectName));
     }
   }
 
@@ -240,13 +279,17 @@ public class MergedEntityRegistry implements EntityRegistry {
           mergedSearchGroup,
           mergedViewUnrestricted);
     }
-    // For DefaultEntitySpec, create a new EntityAnnotation with the merged searchGroup
     EntityAnnotation mergedAnnotation =
         new EntityAnnotation(
             existingEntitySpec.getEntityAnnotation().getName(),
             existingEntitySpec.getEntityAnnotation().getKeyAspect(),
             mergedSearchGroup,
             mergedViewUnrestricted);
+    // An entity defined by a plugin has no snapshot schemas, so a newer version of that plugin
+    // merges into another partial spec: its aspects replace same-named ones, older ones stay.
+    if (existingEntitySpec instanceof PartialEntitySpec) {
+      return new PartialEntitySpec(aspectSpecMap.values(), mergedAnnotation);
+    }
 
     return new DefaultEntitySpec(
         aspectSpecMap.values(),
