@@ -587,10 +587,6 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
                     commit=commit_sha if commit_sha != "unknown" else None,
                     blobSha=blob_sha,
                 ),
-                attribution_source=self._okf_attribution_source,
-                ctx=self.ctx,
-                report=self.report,
-                lookup_cache=self._okf_lookup_cache,
             )
             if okf_mapping is not None:
                 text = frontmatter.body
@@ -1128,10 +1124,6 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         bundle: OkfBundleClass,
         file_path: str,
         revision: OkfRevisionClass,
-        attribution_source: Optional[str],
-        ctx: PipelineContext,
-        report: RepositoryDocumentsSourceReport,
-        lookup_cache: Optional[OkfLookupCache] = None,
     ) -> Optional[OkfMapping]:
         """Map a file's OKF frontmatter to DataHub metadata.
 
@@ -1145,10 +1137,10 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             bundle=bundle,
             file_path=file_path,
             revision=revision,
-            attribution_source=attribution_source,
-            ctx=ctx,
-            report=report,
-            lookup_cache=lookup_cache,
+            attribution_source=self._okf_attribution_source,
+            ctx=self.ctx,
+            report=self.report,
+            lookup_cache=self._okf_lookup_cache,
         )
 
     def _attach_platform_instance(self, doc: Document, owner_repo: str) -> None:

@@ -11,6 +11,6 @@ warnings.warn(
     "datahub.ingestion.source.github_documents.okf_patches has moved to "
     "datahub.ingestion.source.repository_documents.okf_patches. The old path will be "
     "removed in a future release.",
-    DeprecationWarning,
+    FutureWarning,
     stacklevel=2,
 )
