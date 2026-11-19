@@ -167,12 +167,22 @@ class WebsocketConnection:
         }
 
     @staticmethod
-    def _result(message: Dict) -> Dict:
+    def _result(message: Dict, request: Dict) -> Dict:
         if "error" in message:
             raise EngineError(message["error"])
+        if Constant.RESULT not in message:
+            # Usually a push notification, such as a session or reload event,
+            # read in place of the reply.
+            raise EngineError(
+                {
+                    "message": f"Engine reply to {request['method']} (request "
+                    f"{request['id']}) has no result: {json.dumps(message)[:300]}"
+                }
+            )
         return message[Constant.RESULT]
 
-    def _recv_matching(self, socket_connection: WebSocket, request_id: int) -> Dict:
+    def _recv_matching(self, socket_connection: WebSocket, request: Dict) -> Dict:
+        request_id = request["id"]
         # Push notifications keep each receive short of the socket timeout, so
         # the whole wait for the reply is bounded too.
         deadline = time.monotonic() + self._timeout if self._timeout else None
@@ -186,18 +196,18 @@ class WebsocketConnection:
                     f"No Engine reply to request {request_id} within {self._timeout}s"
                 )
             if message.get("id") == request_id:
-                return self._result(message)
+                return self._result(message, request)
 
     def _send_request(self, request: Dict) -> Dict:
         if not self.socket_connection:
             return {}
         self.socket_connection.send(json.dumps(request))
         if self._match_response_id:
-            return self._recv_matching(self.socket_connection, request["id"])
+            return self._recv_matching(self.socket_connection, request)
         resp = self.socket_connection.recv()
         if request["handle"] == -1:
             resp = self.socket_connection.recv()
-        return self._result(json.loads(resp))
+        return self._result(json.loads(resp), request)
 
     def websocket_send_request(
         self, method: str, params: Optional[Union[Dict, List]] = None

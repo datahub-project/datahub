@@ -114,6 +114,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     BACKTICK_QUOTED_PLATFORMS,
     LIB_PATH_RE,
     SPACE_SEPARATOR,
+    VARIABLE_REFERENCE_RE,
     DataConnectionInfo,
     ParsedScript,
     ResolvedConnection,
@@ -272,8 +273,8 @@ class PendingTableLineage(BaseModel):
     table_label: str
     dataset_urn: str
     upstream_urns: List[str]
-    # Every table-level source and the app's script and tables were read.
-    complete: bool
+    # Why a table-level source or the app's script or tables were not read.
+    incomplete_reason: Optional[str]
     script_fields: List[FineGrainedLineage]
     field_source_qris: Dict[str, List[str]]
 
@@ -1427,10 +1428,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         sql = drop_condition_variables(script_table.sql)
         if "$(" in sql:
             # orders_$(vYear) would parse as a table named orders_$.
+            variables = sorted(
+                {name.strip() for name in VARIABLE_REFERENCE_RE.findall(sql)}
+            )
             self.reporter.warning(
                 title="Qlik load script SQL uses a variable that is not set",
-                message="Upstream lineage for this script table is skipped.",
-                context=f"app={app_id}, table={script_table.label}",
+                message="Upstream lineage for this script table is skipped. "
+                "Set variables that no script sets in `script_variables` to "
+                "include it.",
+                context=f"app={app_id}, table={script_table.label}, "
+                f"variables={', '.join(variables)}",
             )
             return None
         result = self._parse_script_sql(sql, connection)
@@ -1848,6 +1855,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     ) -> FileSourceResolver:
         references = []
         unnamed = []
+        settable = False
         for load in parsed.file_loads:
             if load.uses_unknown_variable:
                 unnamed.append(load.as_written)
@@ -1877,6 +1885,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 # path can be matched against, and either spelling may be the
                 # one the last reload read.
                 unnamed.append(load.expanded)
+                # Loop and branch variables stay unknown whatever the recipe
+                # says, but a variable nothing sets can come from it.
+                settable = settable or "$(" in load.expanded
         if unnamed and self.config.on_prem is None:
             # On-prem apps have no lineage graph files to match.
             self._apps_file_paths_unknown.add(app.id)
@@ -1885,7 +1896,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 message="Files loaded through a wildcard, an unexpanded variable "
                 "or a path outside a data connection can't be matched to the "
                 "files in the app's lineage graph, so lineage to them is only "
-                "added to.",
+                "added to."
+                + (
+                    " Set variables that no script sets in `script_variables` "
+                    "to name their files."
+                    if settable
+                    else ""
+                ),
                 context=f"{app.id}: {', '.join(unnamed[:5])}",
             )
         return FileSourceResolver(references)
@@ -2093,10 +2110,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 table_label=table.label,
                 dataset_urn=dataset_urn,
                 upstream_urns=upstream_urns,
-                complete=resolved.complete
-                and not app.script_read_failed
-                and not app.tables_read_failed
-                and not table.field_lineage_failed,
+                incomplete_reason=(
+                    "the app's load script could not be read"
+                    if app.script_read_failed
+                    else "the app's tables could not be read"
+                    if app.tables_read_failed
+                    else "the table's field lineage could not be read"
+                    if table.field_lineage_failed
+                    else "an upstream source could not be resolved, see the "
+                    "app's other warnings"
+                    if not resolved.complete
+                    else None
+                ),
                 script_fields=(
                     self._script_column_lineage(dataset_urn, script_table) or []
                     if script_table
@@ -2131,7 +2156,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self, pending: "PendingTableLineage", graph_fields: List[FineGrainedLineage]
     ) -> Iterable[MetadataWorkUnit]:
         fine_grained = self._column_lineage([*pending.script_fields, *graph_fields])
-        if pending.complete and pending.dataset_urn not in self._unnamed_field_lineage:
+        reason = pending.incomplete_reason or (
+            "a source field's name was not read"
+            if pending.dataset_urn in self._unnamed_field_lineage
+            else None
+        )
+        if reason is None:
             # The app owns its tables, so the lineage is written whole, which
             # also drops upstreams the app no longer reads.
             yield MetadataChangeProposalWrapper(
@@ -2154,7 +2184,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             message="A source of the table could not be read this run, so the "
             "lineage read this run is added to the table's existing lineage "
             "instead of replacing it.",
-            context=f"app={pending.app_id}, table={pending.table_label}",
+            context=f"app={pending.app_id}, table={pending.table_label}, "
+            f"reason={reason}",
         )
         yield from self._patch_upstreams(
             pending.dataset_urn,
@@ -3248,6 +3279,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 message="Column lineage of these tables is only added to this run, "
                 "and their table lineage is still read.",
                 context=_bounded_list(self.qlik_api.field_lineage_failures),
+            )
+        if self.reporter.unresolved_file_connections:
+            self.reporter.warning(
+                title="Qlik file connections have no known storage",
+                message="Lineage to files apps read through these data connections "
+                "is only added to. Add each connection to "
+                "`file_connection_to_storage` with the URI of its storage.",
+                context=_bounded_list(
+                    sorted(self.reporter.unresolved_file_connections)
+                ),
             )
         if self.qlik_api.lineage_read_failures:
             self.reporter.warning(

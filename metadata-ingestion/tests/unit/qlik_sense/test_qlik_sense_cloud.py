@@ -24,7 +24,11 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import ReadErrors
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
-from datahub.ingestion.source.qlik_sense.script_lineage import infer_data_connection
+from datahub.ingestion.source.qlik_sense.script_lineage import (
+    ResolvedConnection,
+    ScriptTable,
+    infer_data_connection,
+)
 from datahub.ingestion.source.qlik_sense.websocket_connection import (
     EngineError,
     WebsocketConnection,
@@ -876,3 +880,35 @@ def test_engine_connection_is_retried_only_on_transient_errors(
         with pytest.raises(ssl.SSLCertVerificationError):
             WebsocketConnection.for_cloud("tenant.example.com", "key", "app-1")
         assert mock_connect.call_count == 1
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_sql_with_an_unset_variable_names_it(mock_api_cls: MagicMock) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-cloud"),
+    )
+
+    result = source._parse_script_table(
+        "app-1",
+        ScriptTable(label="Orders", sql="SELECT * FROM orders_$(vYear)"),
+        ResolvedConnection(platform="postgres", env="PROD"),
+    )
+
+    assert result is None
+    [warning] = source.reporter.warnings
+    assert "vYear" in str(warning.context)
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_engine_message_without_result_names_the_request(
+    mock_connect: MagicMock,
+) -> None:
+    mock_connect.return_value.recv.side_effect = [
+        '{"jsonrpc": "2.0", "method": "OnConnected", "params": {}}',
+        '{"jsonrpc": "2.0", "method": "OnSessionTimedOut", "params": {}}',
+    ]
+    connection = WebsocketConnection.for_cloud("tenant.example.com", "key", "app-1")
+
+    with pytest.raises(EngineError, match="OpenDoc.*OnSessionTimedOut"):
+        connection.websocket_send_request(method="OpenDoc")
