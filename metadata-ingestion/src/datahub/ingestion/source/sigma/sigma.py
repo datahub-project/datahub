@@ -555,6 +555,24 @@ class _CustomSqlTarget:
     default_schema: Optional[str]
 
 
+_DEBUG_MAX_SQL_CHARS = 2000
+_DEBUG_MAX_COLUMNS = 200
+
+
+def _describe_customsql_target(target: _CustomSqlTarget) -> str:
+    return (
+        f"target: platform={target.platform} env={target.env} "
+        f"instance={target.platform_instance} default_db={target.default_db} "
+        f"default_schema={target.default_schema}"
+    )
+
+
+def _truncate_sql(sql: str) -> str:
+    if len(sql) <= _DEBUG_MAX_SQL_CHARS:
+        return sql
+    return f"{sql[:_DEBUG_MAX_SQL_CHARS]}... ({len(sql)} chars)"
+
+
 def _cross_dm_source_url_ids(element: SigmaDataModelElement) -> Set[str]:
     """The url ids of other Data Models this element reads.
 
@@ -2230,6 +2248,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 message="No warehouse lineage is emitted for this element. Common causes: Sigma templating such as {{#identifier}} or {{#formula}} in the SQL, or a failed schema lookup in DataHub.",
                 context=f"urn={element_dataset_urn!r}, error={parsed.debug_info.table_error}",
             )
+            logger.debug(
+                "Sigma DM customSQL element %s (%r) got no lineage: parse failed: %s\n  %s\n  sql: %s",
+                element_dataset_urn,
+                element.name,
+                parsed.debug_info.table_error,
+                _describe_customsql_target(target),
+                _truncate_sql(target.definition),
+            )
             return None
         reads_sigma_element = "sigma_element(" in target.definition.lower()
         if reads_sigma_element:
@@ -2239,6 +2265,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 context=f"urn={element_dataset_urn!r}",
             )
         if not parsed.in_tables:
+            logger.debug(
+                "Sigma DM customSQL element %s (%r) got no lineage: the SQL reads no warehouse tables\n  %s\n  sql: %s",
+                element_dataset_urn,
+                element.name,
+                _describe_customsql_target(target),
+                _truncate_sql(target.definition),
+            )
             return None
         fgls = self._build_dm_customsql_fine_grained_lineages(
             element=element,
@@ -2246,6 +2279,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             parsed=parsed,
             resolver=resolver,
             reads_sigma_element=reads_sigma_element,
+            target=target,
         )
         self.reporter.dm_customsql_upstream_emitted += 1
         if fgls:
@@ -2266,6 +2300,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         parsed: SqlParsingResult,
         resolver: SchemaResolver,
         reads_sigma_element: bool,
+        target: _CustomSqlTarget,
     ) -> List[FineGrainedLineageClass]:
         """Join SQL output -> warehouse lineage with Sigma column -> SQL output formula refs.
 
@@ -2356,8 +2391,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         fgls: List[FineGrainedLineageClass] = []
         unresolved: Dict[str, List[str]] = {}
+        outcomes: List[Tuple[SigmaDataModelColumn, Set[str], Optional[str]]] = []
         for column in sorted(by_name.values(), key=lambda c: c.name):
             upstreams, reason = resolve(column, {column.name})
+            outcomes.append((column, upstreams, reason))
             if reason:
                 unresolved.setdefault(reason, []).append(column.name)
                 continue
@@ -2382,6 +2419,45 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 message="Columns of a custom SQL element got no column lineage; the context gives the reason.",
                 context=f"reason: {reason}; urn={element_dataset_urn!r}, columns={columns!r}",
             )
+        if unresolved and logger.isEnabledFor(logging.DEBUG):
+            trusted = {cll.downstream.column.lower() for cll in trusted_lineage}
+            lines = [
+                f"Sigma DM customSQL element {element_dataset_urn} ({element.name!r}) missed column lineage",
+                f"  {_describe_customsql_target(target)}",
+                f"  sql: {_truncate_sql(target.definition)}",
+                f"  parser column_error: {parsed.debug_info.column_error}",
+                "  tables:",
+                *(
+                    f"    {t}  schema={'found' if resolver.has_urn(t) else 'NOT FOUND'}"
+                    for t in sorted(parsed.in_tables)
+                ),
+                "  sql outputs (parser):",
+                *(
+                    f"    {cll.downstream.column} <- "
+                    f"{[f'{u.table}.{u.column}' for u in cll.upstreams] or '(none)'}"
+                    f"{'' if cll.downstream.column.lower() in trusted else '  dropped: a source has unknown columns'}"
+                    for cll in parsed.column_lineage or []
+                ),
+                "  sigma columns:",
+                *(
+                    f"    {column.name!r} id={column.columnId!r} formula={column.formula!r} -> "
+                    + (
+                        f"NO EDGE ({reason})"
+                        if reason
+                        else (
+                            f"{sorted(upstreams)}"
+                            if upstreams
+                            else "reads no SQL output"
+                        )
+                    )
+                    for column, upstreams, reason in outcomes[:_DEBUG_MAX_COLUMNS]
+                ),
+            ]
+            if len(outcomes) > _DEBUG_MAX_COLUMNS:
+                lines.append(
+                    f"    ... {len(outcomes) - _DEBUG_MAX_COLUMNS} more columns"
+                )
+            logger.debug("\n".join(lines))
         return fgls
 
     def _build_workbook_chart_input_fields_mcp(

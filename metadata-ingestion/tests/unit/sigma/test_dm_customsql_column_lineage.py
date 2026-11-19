@@ -6,6 +6,7 @@ as ``[Custom SQL/<output column name>]``; ``/lineage`` carries a ``customSQL``
 entry with ``connectionId`` and ``definition``.
 """
 
+import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set, Tuple
 from unittest.mock import MagicMock, patch
@@ -526,6 +527,47 @@ def test_without_upstream_schemas_unqualified_join_columns_are_reported() -> Non
     assert {u.dataset for u in lineage.upstreams} == {_ORDERS, _CUSTOMERS}
     assert not lineage.fineGrainedLineages
     assert source.reporter.dm_customsql_columns_unresolved == 2
+
+
+def test_missed_column_lineage_is_debug_logged_with_sql_tables_and_columns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    sql = (
+        "SELECT ORDER_ID, NAME FROM MY_DB.MY_SCHEMA.ORDERS O "
+        "JOIN MY_DB.MY_SCHEMA.CUSTOMERS C ON O.CUSTOMER_ID = C.CUSTOMER_ID"
+    )
+    with caplog.at_level(logging.DEBUG, logger="datahub.ingestion.source.sigma.sigma"):
+        element_urn, _ = _lineage(
+            _make_source(with_graph=False),
+            _data_model(sql, [("Order Id", "[Custom SQL/ORDER_ID]")]),
+        )
+    blocks = [
+        r.getMessage()
+        for r in caplog.records
+        if r.levelno == logging.DEBUG and element_urn in r.getMessage()
+    ]
+    assert len(blocks) == 1
+    assert sql in blocks[0]
+    assert _ORDERS in blocks[0] and _CUSTOMERS in blocks[0]
+    assert "'Order Id'" in blocks[0]
+
+
+def test_fully_resolved_element_is_not_debug_logged(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.DEBUG, logger="datahub.ingestion.source.sigma.sigma"):
+        element_urn, _ = _lineage(
+            _make_source(),
+            _data_model(
+                "SELECT ORDER_ID FROM MY_DB.MY_SCHEMA.ORDERS",
+                [("Order Id", "[Custom SQL/ORDER_ID]")],
+            ),
+        )
+    assert not [
+        r
+        for r in caplog.records
+        if r.levelno == logging.DEBUG and element_urn in r.getMessage()
+    ]
 
 
 def test_sql_reading_another_sigma_element_is_reported() -> None:
