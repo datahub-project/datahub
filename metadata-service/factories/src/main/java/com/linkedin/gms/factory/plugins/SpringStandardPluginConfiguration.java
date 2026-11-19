@@ -29,8 +29,6 @@ import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.DataPlatformInstanceWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizationValidator;
-import com.linkedin.metadata.aspect.validation.DiscoveredDataSourceAuthorizationValidator;
-import com.linkedin.metadata.aspect.validation.DiscoveredDataSourceValidator;
 import com.linkedin.metadata.aspect.validation.DomainPropertiesParentValidator;
 import com.linkedin.metadata.aspect.validation.DomainWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
@@ -973,10 +971,13 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   public AspectPayloadValidator discoveredDataSourceAuthorizationValidator() {
-    return new DiscoveredDataSourceAuthorizationValidator()
+    return new com.linkedin.metadata.aspect.validation.DiscoveredDataSourceAuthorizationValidator()
         .setConfig(
             AspectPluginConfig.builder()
-                .className(DiscoveredDataSourceAuthorizationValidator.class.getName())
+                .className(
+                    com.linkedin.metadata.aspect.validation
+                        .DiscoveredDataSourceAuthorizationValidator.class
+                        .getName())
                 .enabled(true)
                 .supportedOperations(AUTH_CHANGE_TYPE_OPERATIONS)
                 .supportedEntityAspectNames(
@@ -990,10 +991,12 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   public AspectPayloadValidator discoveredDataSourceValidator() {
-    return new DiscoveredDataSourceValidator()
+    return new com.linkedin.metadata.aspect.validation.DiscoveredDataSourceValidator()
         .setConfig(
             AspectPluginConfig.builder()
-                .className(DiscoveredDataSourceValidator.class.getName())
+                .className(
+                    com.linkedin.metadata.aspect.validation.DiscoveredDataSourceValidator.class
+                        .getName())
                 .enabled(true)
                 .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH, RESTATE))
                 .supportedEntityAspectNames(
