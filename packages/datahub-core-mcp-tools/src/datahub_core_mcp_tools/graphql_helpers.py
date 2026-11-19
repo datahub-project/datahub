@@ -17,6 +17,8 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.sdk.main_client import DataHubClient
 from loguru import logger
 
+from .gms_server_info import GmsServerInfo
+from .gql_compiler import MARKER_TEXT, compile_gql
 from .tool_context import ToolContext
 
 
@@ -70,10 +72,29 @@ def execute_graphql(
 ) -> Any:
     """Run a GraphQL operation against the caller's DataHub.
 
+    A query with ``#[since]`` markers is first compiled for the GMS the host put
+    in the request's tool context (see gql_compiler). Without one, nothing is
+    known about GMS, so every selection is kept and stripped at runtime.
+
     strip_unsupported_fields delegates schema compatibility to the SDK's
     introspection-based projection: fields the server lacks are removed before
-    sending, and the caller treats them as absent.
+    sending, and the caller treats them as absent. A schema error on a known
+    GMS version is raised as is, never retried with fewer fields.
     """
+    if MARKER_TEXT in query:
+        try:
+            info = get_mcp_context().tool_context.get(GmsServerInfo)
+        except LookupError:
+            info = None
+        compiled = compile_gql(query, info)
+        query = compiled.query
+        strip_unsupported_fields |= compiled.strip_unsupported_fields
+        if variables and compiled.dropped_variables:
+            variables = {
+                k: v
+                for k, v in variables.items()
+                if k not in compiled.dropped_variables
+            }
     try:
         return graph.execute_graphql(
             query=query,

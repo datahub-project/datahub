@@ -13,6 +13,7 @@ dependencies = [
     # A floor, not a pin: hosts install the SDK that matches their DataHub.
     "acryl-datahub[datahub-rest]>=1.7.0",
     "fastmcp>=4.0.0,<5",
+    "graphql-core>=3.2.0,<4",
     "mcp>=2.0.0,<3",
     "anyio>=4.10.0,<5",
     "loguru>=0.7.0,<1",
