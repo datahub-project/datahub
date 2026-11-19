@@ -35,6 +35,7 @@ async def test_registration_is_per_instance() -> None:
         "get_entities",
         "list_schema_fields",
         "search_documents",
+        "grep_documents",
     }
     assert await _tools(untouched) == {}
 
@@ -53,6 +54,7 @@ async def test_registering_twice_on_separate_instances_is_independent() -> None:
             "get_entities",
             "list_schema_fields",
             "search_documents",
+            "grep_documents",
         }
     )
 

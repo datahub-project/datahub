@@ -70,6 +70,9 @@ class FakeBackend:
     def search_documents(self, variables: JsonObject, *, semantic: bool) -> JsonObject:
         return {}
 
+    def document_contents(self, urns: list[str]) -> list[JsonObject | None]:
+        return []
+
 
 def _run(backend: FakeBackend, *items: object, **kwargs: Any) -> Any:
     with with_datahub_client(

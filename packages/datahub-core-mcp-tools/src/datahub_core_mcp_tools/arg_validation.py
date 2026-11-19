@@ -129,11 +129,17 @@ SIZE_ALIASES = AliasChoices(
     "pageSize",
 )
 OFFSET_ALIASES = AliasChoices("offset", "start")
+# For a character cursor within one result, unlike OFFSET_ALIASES (a result index).
+START_OFFSET_ALIASES = AliasChoices("start_offset", "offset", "start")
+DOCUMENT_URNS_ALIASES = AliasChoices(
+    "urns", "urn", "entityUrns", "documentUrns", "document_urns"
+)
 
 
 DATASET_URN_EXAMPLE = (
     "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
 )
+DOCUMENT_URN_EXAMPLE = "urn:li:document:01234567-89ab-cdef-0123-456789abcdef"
 
 
 class SkippedUrn(TypedDict):
@@ -149,12 +155,13 @@ def urn_error_message(
     tool: str,
     param: str = "urn",
     example: str = DATASET_URN_EXAMPLE,
+    resolve_with: str = "search",
 ) -> Optional[str]:
     """Why ``value`` is not a usable DataHub URN, or None when it is.
 
     An empty value, a name, and a malformed URN get different messages because the
     caller's next step differs: a name needs a lookup, so the message names the
-    tool that does it; a malformed URN gets the parser's reason.
+    tool that does it (``resolve_with``); a malformed URN gets the parser's reason.
     """
     candidate = value.strip()
     if not candidate:
@@ -173,7 +180,7 @@ def urn_error_message(
         return (
             f"{tool}: `{param}` must be a DataHub URN, got {candidate!r}. "
             f"Expected the form {example}. To turn a name into a URN, call "
-            f'search(query="{candidate}") and pass the `urn` from the result.'
+            f'{resolve_with}(query="{candidate}") and pass the `urn` from the result.'
         )
     return None
 
@@ -187,7 +194,12 @@ def require_urn(value: str, *, tool: str, param: str = "urn") -> str:
 
 
 def partition_urns(
-    values: List[str], *, tool: str, param: str = "urns"
+    values: List[str],
+    *,
+    tool: str,
+    param: str = "urns",
+    example: str = DATASET_URN_EXAMPLE,
+    resolve_with: str = "search",
 ) -> Tuple[List[str], List[SkippedUrn]]:
     """Split ``values`` into usable URNs (stripped) and rejected ones.
 
@@ -196,7 +208,13 @@ def partition_urns(
     valid: List[str] = []
     skipped: List[SkippedUrn] = []
     for index, candidate in enumerate(values):
-        problem = urn_error_message(candidate, tool=tool, param=f"{param}[{index}]")
+        problem = urn_error_message(
+            candidate,
+            tool=tool,
+            param=f"{param}[{index}]",
+            example=example,
+            resolve_with=resolve_with,
+        )
         if problem is None:
             valid.append(candidate.strip())
         else:

@@ -77,6 +77,7 @@ READ_TOOLS = {
     "get_entities",
     "list_schema_fields",
     "search_documents",
+    "grep_documents",
 }
 
 
