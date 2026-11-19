@@ -216,6 +216,10 @@ class MicroStrategyLineageExtractor:
         self._parse_cache: FileBackedDict[_ParsedSqlView] = new_spill_cache(
             config.cache_memory_entries
         )
+        # Entries added to _parse_cache this project. Counted on insert
+        # because FileBackedDict.__len__ binds one SQL variable per in-memory
+        # key and can exceed SQLite's variable limit.
+        self._parse_cache_entries = 0
         # One schema resolver per warehouse (platform, instance, env) for the
         # whole run, so each warehouse table's schema is fetched from DataHub
         # at most once instead of once per parse.
@@ -226,9 +230,10 @@ class MicroStrategyLineageExtractor:
     def reset_project_caches(self) -> None:
         """Drop the parse cache at a project boundary (keys never cross
         projects in practice), keeping its temporary file small."""
-        self.report.report_cache_entries("sql_parse", len(self._parse_cache))
+        self.report.report_cache_entries("sql_parse", self._parse_cache_entries)
         self._parse_cache.close()
         self._parse_cache = new_spill_cache(self.config.cache_memory_entries)
+        self._parse_cache_entries = 0
 
     def close(self) -> None:
         self._parse_cache.close()
@@ -437,6 +442,7 @@ class MicroStrategyLineageExtractor:
             return cached
         parsed = self._parse_sql_view(sql, context, want_field_columns, graph, label)
         self._parse_cache[cache_key] = parsed
+        self._parse_cache_entries += 1
         return parsed
 
     def _parse_sql_view(

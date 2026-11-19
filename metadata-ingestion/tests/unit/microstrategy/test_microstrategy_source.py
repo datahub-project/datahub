@@ -2205,6 +2205,32 @@ def test_every_sql_view_failing_raises_one_loud_warning(
     )
 
 
+def test_all_failed_warning_counts_reused_failed_sql_views(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # One report shared by two documents: its SQL fails once and the second
+    # document reuses the cached failure, which must still count as failed.
+    source = _source()
+    _fail_parses(monkeypatch, fail_first_n=2)
+    for _ in range(2):
+        source._attach_dataset_warehouse_upstreams(
+            [{"id": "ds-1", "sqlStatement": "select a from DB.S.T"}],
+            _warehouse_dashboard(),
+            None,
+        )
+    assert source.report.sql_views_parsed == 2
+    assert source.report.sql_parse_failure_count == 1
+    assert source.report.sql_parse_failure_cache_hits == 1
+
+    source._warn_if_every_sql_view_failed()
+
+    loud = [
+        entry for entry in source.report.warnings if entry.title == _ALL_FAILED_TITLE
+    ]
+    assert len(loud) == 1
+    assert "All 2 SQL views" in loud[0].message
+
+
 def test_all_failed_warning_is_silent_when_any_sql_view_parses(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

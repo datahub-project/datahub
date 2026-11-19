@@ -214,6 +214,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._report_sql_cache: FileBackedDict[Optional[str]] = new_spill_cache(
             self.config.cache_memory_entries, compress=True
         )
+        # Entries added to _report_sql_cache this project. Counted on insert
+        # because FileBackedDict.__len__ binds one SQL variable per in-memory
+        # key and can exceed SQLite's variable limit.
+        self._report_sql_cache_entries = 0
         # (project id, report id) -> derived metric definitions, or None once
         # every definition endpoint failed for it.
         self._report_derived_metric_cache: Dict[
@@ -361,7 +365,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _reset_project_caches(self) -> None:
         """Drop caches keyed by project once the project is done, so memory and
         temporary disk track the largest project rather than the whole run."""
-        self.report.report_cache_entries("report_sql", len(self._report_sql_cache))
+        self.report.report_cache_entries("report_sql", self._report_sql_cache_entries)
         self.report.report_cache_entries(
             "dataset_object", len(self._dataset_object_cache)
         )
@@ -374,12 +378,19 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._report_sql_cache = new_spill_cache(
             self.config.cache_memory_entries, compress=True
         )
+        self._report_sql_cache_entries = 0
         self._dataset_object_cache.clear()
         self._report_derived_metric_cache.clear()
         self._metric_model_cache.clear()
         self._report_objects.clear()
         self.lineage.reset_project_caches()
         self.report.cache_project_resets += 1
+
+    def _remember_report_sql(self, cache_key: str, sql: Optional[str]) -> None:
+        """Cache a report's SQL (None for a failed read) under a key not yet
+        in the cache, counting it for the cache telemetry."""
+        self._report_sql_cache[cache_key] = sql
+        self._report_sql_cache_entries += 1
 
     def _emit_chapter_page_structured_property_definitions(
         self,
@@ -406,7 +417,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dependency, a broken warehouse context); make that pattern obvious in
         the report instead of leaving N identical parse warnings to be read."""
         parsed = self.report.sql_views_parsed
-        failed = self.report.sql_parse_failure_count
+        # sql_views_parsed counts every dataset whose SQL was submitted, cache
+        # hits included, while a distinct failed SQL is counted once in
+        # sql_parse_failure_count and its reuses in the cache-hit counter.
+        failed = (
+            self.report.sql_parse_failure_count
+            + self.report.sql_parse_failure_cache_hits
+        )
         if parsed == 0 or failed < parsed:
             return
         first_failure = next(iter(self.report.sql_parse_failures), "")
@@ -2086,7 +2103,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                         f"dataset_id={dataset.id}"
                     ),
                 )
-                self._report_sql_cache[cache_key] = sql_statement
+                self._remember_report_sql(cache_key, sql_statement)
                 if sql_statement is None:
                     self.report.report_document_dataset_sql_view_failure()
             if not sql_statement:
@@ -2198,7 +2215,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 report_object.id,
                 context=f"project_id={project_id}, report_id={report_object.id}",
             )
-            self._report_sql_cache[cache_key] = sql_statement
+            self._remember_report_sql(cache_key, sql_statement)
         if not sql_statement:
             return
 

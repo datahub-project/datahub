@@ -21,6 +21,7 @@ from datahub.ingestion.source.microstrategy.telemetry import (
     timed_iter,
     timed_phase,
 )
+from datahub.utilities.file_backed_collections import FileBackedDict
 
 _OBJECT_ID = "975C6B213B4DBCA9E59CAB80ABBA98FE"
 _INSTANCE_ID = "5EF5353155407668866F609421112F2D"
@@ -312,6 +313,24 @@ def test_project_reset_drops_the_parse_cache_and_records_its_size() -> None:
 
     assert extractor.report.sql_parses_executed == 2
     assert extractor.report.cache_entries_peak == {"sql_parse": 1}
+
+
+def test_project_reset_counts_a_spilled_cache_without_calling_len() -> None:
+    # FileBackedDict.__len__ binds one SQL variable per in-memory key, which
+    # can exceed SQLite's limit with a large cache_memory_entries; the reset
+    # must report the cache size without it.
+    extractor = _extractor(cache_memory_entries=2)
+    for index in range(5):
+        extractor.warehouse_lineage_from_sql(
+            f"select * from fact_{index}", _CONTEXT, []
+        )
+
+    with mock.patch.object(
+        FileBackedDict, "__len__", side_effect=AssertionError("len() called")
+    ):
+        extractor.reset_project_caches()
+
+    assert extractor.report.cache_entries_peak == {"sql_parse": 5}
 
 
 def test_one_schema_resolver_is_shared_across_parses() -> None:
