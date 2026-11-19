@@ -1,0 +1,113 @@
+# Semantic search over Document entities, the embedding leg of search_documents.
+# Returns metadata plus the matched excerpts, not full content.
+#
+# A separate document from document_search.gql: some GMS versions define
+# semanticSearchAcrossEntities only where semantic search is configured, and there a
+# request carrying an operation that selects it fails validation, keyword leg included.
+
+fragment DocumentSearchInfo on Document {
+  urn
+  subType
+  platform {
+    urn
+    name
+  }
+  info {
+    title
+    source {
+      sourceType
+      externalUrl
+    }
+    # Shown as a date (see freshness.py).
+    lastModified {
+      time
+    }
+  }
+  domain {
+    domain {
+      urn
+      properties {
+        name
+      }
+    }
+  }
+  tags {
+    tags {
+      tag {
+        urn
+        properties {
+          name
+        }
+      }
+    }
+  }
+  glossaryTerms {
+    terms {
+      term {
+        urn
+        properties {
+          name
+        }
+      }
+    }
+  }
+}
+
+fragment DocumentFacetEntityInfo on Entity {
+  ... on GlossaryTerm {
+    properties {
+      name
+    }
+  }
+  ... on Domain {
+    properties {
+      name
+    }
+  }
+}
+
+query documentSemanticSearch(
+  $query: String!
+  $orFilters: [AndFilterInput!]
+  $count: Int!
+  $viewUrn: String
+  $searchFlags: SearchFlags
+) {
+  semanticSearchAcrossEntities(
+    input: {
+      query: $query
+      count: $count
+      types: [DOCUMENT]
+      orFilters: $orFilters
+      viewUrn: $viewUrn
+      searchFlags: $searchFlags
+    }
+  ) {
+    count
+    total
+    searchResults {
+      score #[since cloud=0.3.14]
+      matchedFields {
+        name
+        value
+      }
+      entity {
+        ... on Document {
+          ...DocumentSearchInfo
+        }
+      }
+    }
+    facets {
+      field
+      displayName
+      aggregations {
+        value
+        count
+        displayName
+        entity {
+          ...DocumentFacetEntityInfo
+        }
+      }
+    }
+  }
+}

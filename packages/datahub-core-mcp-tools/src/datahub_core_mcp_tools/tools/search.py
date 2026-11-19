@@ -19,7 +19,7 @@ from ..result_policy import exclude_configuration, label_search_response, trust_
 from ..search_filter_parser import FILTER_DOCS, parse_filter_string
 from ..search_filter_parser import _tokenize as _tokenize_filter
 from ..search_filter_parser import _TokenType as _FilterToken
-from ..search_flags import SearchFlagsOverride
+from ..search_flags import request_search_flags
 from ..version_requirements import read_only
 from ..view_preference import resolve_view_urn
 
@@ -156,13 +156,7 @@ def _search_flags(skip_aggregates: bool) -> JsonObject:
     flags: JsonObject = dict(DEFAULT_SEARCH_FLAGS)
     if skip_aggregates:
         flags["skipAggregates"] = True
-    try:
-        override = graphql_helpers.get_mcp_context().tool_context.get(
-            SearchFlagsOverride
-        )
-    except LookupError:
-        override = None
-    return override.apply(flags) if override is not None else flags
+    return request_search_flags(flags)
 
 
 def _search_implementation(

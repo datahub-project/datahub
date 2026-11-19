@@ -72,13 +72,21 @@ def test_resolve_tool_refs(
     assert resolved == (None if expected is None else frozenset(expected))
 
 
+READ_TOOLS = {
+    "search",
+    "get_entities",
+    "list_schema_fields",
+    "search_documents",
+}
+
+
 @pytest.mark.parametrize(
     ("groups", "expected"),
     [
-        (None, {"get_me", "search", "get_entities", "list_schema_fields"}),
+        (None, {"get_me", *READ_TOOLS}),
         ([], {"get_me"}),
         (["write_metadata"], {"get_me"}),
-        (["read_metadata"], {"get_me", "search", "get_entities", "list_schema_fields"}),
+        (["read_metadata"], {"get_me", *READ_TOOLS}),
     ],
 )
 async def test_register_tools_by_group_always_keeps_system_tools(

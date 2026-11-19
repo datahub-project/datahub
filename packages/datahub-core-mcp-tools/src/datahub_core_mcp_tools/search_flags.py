@@ -6,6 +6,8 @@ from typing import Dict, Mapping
 
 from pydantic import JsonValue
 
+from . import graphql_helpers
+
 
 @dataclass(frozen=True)
 class SearchFlagsOverride:
@@ -42,3 +44,14 @@ class SearchFlagsOverride:
     def apply(self, defaults: Mapping[str, JsonValue]) -> Dict[str, JsonValue]:
         """Return a new dict of the defaults with these flags merged over them."""
         return {**defaults, **copy.deepcopy(dict(self.flags))}
+
+
+def request_search_flags(defaults: Mapping[str, JsonValue]) -> Dict[str, JsonValue]:
+    """``defaults`` with the current request's SearchFlagsOverride, if any, merged over."""
+    try:
+        override = graphql_helpers.get_mcp_context().tool_context.get(
+            SearchFlagsOverride
+        )
+    except LookupError:
+        override = None
+    return override.apply(defaults) if override is not None else dict(defaults)
