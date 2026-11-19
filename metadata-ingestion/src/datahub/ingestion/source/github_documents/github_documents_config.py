@@ -1,5 +1,6 @@
 from pydantic import Field, SecretStr, field_validator
 
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source.github_documents.github_api import parse_repo_identifier
 from datahub.ingestion.source.repository_documents.config import (
     RepositoryDocumentsSourceConfigBase,
@@ -18,6 +19,15 @@ class GitHubDocumentsSourceConfig(RepositoryDocumentsSourceConfigBase):
         description=(
             "Repository to ingest, as 'owner/repo' or 'https://github.com/owner/repo'."
         )
+    )
+
+    # Never read by the source. Accepted with a warning so recipes that set
+    # them keep working; the config rejects unknown keys otherwise.
+    _document_mapping_removed = pydantic_removed_field(
+        "document_mapping", month="November", year=2026
+    )
+    _hierarchy_removed = pydantic_removed_field(
+        "hierarchy", month="November", year=2026
     )
 
     @field_validator("github_token")

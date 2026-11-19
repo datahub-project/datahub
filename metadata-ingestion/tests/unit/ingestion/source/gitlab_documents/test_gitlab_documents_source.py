@@ -157,7 +157,9 @@ def test_max_files_warning_names_gitlab() -> None:
         list(source.get_workunits())
 
     assert source.report.files_truncated_by_limit
-    assert {w.title for w in source.report.warnings} == {"gitlab-files-truncated"}
+    assert {w.title for w in source.report.warnings} == {
+        "Matching files truncated by max_files"
+    }
 
 
 def _source(**config: object) -> GitLabDocumentsSource:
@@ -193,7 +195,7 @@ def test_failed_file_fetch_keeps_previous_import_and_warns() -> None:
     # Registered as seen, so stale removal does not delete the earlier import.
     handler.add_entity_to_state.assert_called_once_with("document", previous_urn)
     assert source.report.files_skipped == 1
-    assert "gitlab-file-not-read" in {w.title for w in source.report.warnings}
+    assert "Repository file not read" in {w.title for w in source.report.warnings}
 
 
 def test_unresolved_branch_error_includes_the_api_cause() -> None:
@@ -278,7 +280,7 @@ def test_tree_without_pagination_headers_skips_stale_removal() -> None:
         list(source.get_workunits())
 
     assert source.report.tree_truncated is True
-    assert "gitlab-tree-truncated" in {w.title for w in source.report.warnings}
+    assert "Repository tree truncated" in {w.title for w in source.report.warnings}
     assert not source.report.failures
 
 
@@ -325,6 +327,30 @@ def test_platform_instance_separates_ids_and_sets_the_instance() -> None:
     }
 
 
-def test_platform_instance_must_not_contain_a_dot() -> None:
+@pytest.mark.parametrize("platform_instance", ["eu.prod", "eu,prod", "eu(1)", "  "])
+def test_platform_instance_rejects_separators_and_blanks(
+    platform_instance: str,
+) -> None:
     with pytest.raises(ValueError, match="platform_instance"):
-        _source(platform_instance="eu.prod")
+        _source(platform_instance=platform_instance)
+
+
+def test_platform_instance_is_stripped() -> None:
+    assert _source(platform_instance="  eu ").config.platform_instance == "eu"
+
+
+def test_tree_truncation_warning_names_the_api_error() -> None:
+    # When the follow-up request fails, the warning must say why the listing
+    # could not be confirmed complete.
+    source = _source(base_url=BASE, create_repo_root_document=False)
+    page = [{"id": f"b{i}", "type": "blob", "path": f"{i}.png"} for i in range(100)]
+    with requests_mock.Mocker() as m:
+        m.get(f"{API}/repository/branches/main", json={"commit": {"id": "abc123"}})
+        m.get(f"{API}/repository/tree", json=page)
+        m.get(f"{API}/repository/tree?page=2", status_code=403)
+        list(source.get_workunits())
+
+    [warning] = [
+        w for w in source.report.warnings if w.title == "Repository tree truncated"
+    ]
+    assert any("HTTP 403" in context for context in warning.context)

@@ -13,12 +13,6 @@ from datahub.ingestion.source.github_documents.github_api import (
 from datahub.ingestion.source.github_documents.github_documents_config import (
     GitHubDocumentsSourceConfig,
 )
-from datahub.ingestion.source.repository_documents.client import (
-    RepositoryDocumentsClient,
-)
-from datahub.ingestion.source.repository_documents.config import (
-    RepositoryDocumentsSourceConfigBase,
-)
 from datahub.ingestion.source.repository_documents.source import (
     RepositoryDocumentsSourceBase,
 )
@@ -34,7 +28,7 @@ PROP_GITHUB_DIRECTORY_PATH = "github_directory_path"
 @support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-class GitHubDocumentsSource(RepositoryDocumentsSourceBase):
+class GitHubDocumentsSource(RepositoryDocumentsSourceBase[GitHubDocumentsSourceConfig]):
     """
     Ingest markdown and text files from a GitHub repository as DataHub Document entities.
 
@@ -48,7 +42,6 @@ class GitHubDocumentsSource(RepositoryDocumentsSourceBase):
 
     platform = "github"
     platform_display_name = "GitHub"
-    config: GitHubDocumentsSourceConfig
     client: GitHubApiClient
 
     @classmethod
@@ -56,10 +49,7 @@ class GitHubDocumentsSource(RepositoryDocumentsSourceBase):
         return GitHubDocumentsSourceConfig.parse_obj(config_dict)
 
     @classmethod
-    def _make_client(
-        cls, config: RepositoryDocumentsSourceConfigBase
-    ) -> RepositoryDocumentsClient:
-        assert isinstance(config, GitHubDocumentsSourceConfig)
+    def _make_client(cls, config: GitHubDocumentsSourceConfig) -> GitHubApiClient:
         return GitHubApiClient(
             StaticTokenProvider(config.github_token.get_secret_value())
         )

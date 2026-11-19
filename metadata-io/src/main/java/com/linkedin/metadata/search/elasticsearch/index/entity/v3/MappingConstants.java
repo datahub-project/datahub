@@ -61,6 +61,13 @@ public final class MappingConstants {
    */
   public static final String SYSTEM_MODIFIED_TIME_FIELD = "_system.modified.time";
 
+  /**
+   * Actor URN of the latest write of every aspect, copied from {@code
+   * systemMetadata.aspectModified}. Entity audit stamps such as {@code lastModifiedBy} are not
+   * indexed on Search V3, so this is the modifier field on the V3 index.
+   */
+  public static final String SYSTEM_MODIFIED_ACTOR_FIELD = "_system.modified.actor";
+
   /** Root fields owned by the V3 write/mapping path; contributors must not emit these keys. */
   public static final Set<String> STRATEGY_OWNED_ROOT_FIELDS =
       Set.of(

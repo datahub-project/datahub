@@ -14,7 +14,7 @@ from datahub.ingestion.source.repository_documents.client import (
     MAX_FILE_SIZE_BYTES,
     RepositoryFileInfo,
 )
-from datahub.ingestion.source.repository_documents.paths import matches_filters
+from datahub.ingestion.source.repository_documents.paths import TreeSelection
 
 logger = logging.getLogger(__name__)
 
@@ -113,29 +113,20 @@ class GitHubApiClient:
             )
         tree_truncated = bool(tree.get("truncated"))
 
-        ext_set = {ext.lower() for ext in extensions}
-        normalized_prefix = path_prefix.strip("/")
-
-        matching: List[RepositoryFileInfo] = []
-        self._index_file_paths = set()
+        selection = TreeSelection.for_filters(path_prefix, extensions)
         for item in tree["tree"]:
             if item.get("type") != "blob":
                 continue
-            path = item.get("path", "")
-            if path == "index.md" or path.endswith("/index.md"):
-                self._index_file_paths.add(path)
-            if not matches_filters(path, normalized_prefix, ext_set):
-                continue
-            size = item.get("size")
             blob_sha = item.get("sha")
-            matching.append(
+            selection.add(
                 RepositoryFileInfo(
-                    path=path,
-                    size=size,
+                    path=item.get("path", ""),
+                    size=item.get("size"),
                     sha=blob_sha if isinstance(blob_sha, str) else None,
                 )
             )
-        return matching, tree_truncated
+        self._index_file_paths = selection.index_paths
+        return selection.files, tree_truncated
 
     def fetch_file_content(
         self, owner_repo: str, file_path: str, branch: str
@@ -171,12 +162,12 @@ class GitHubApiClient:
 
         return None
 
-    def get_latest_commit_sha(self, owner_repo: str, branch: str) -> str:
+    def get_latest_commit_sha(self, owner_repo: str, branch: str) -> Optional[str]:
         url = f"{GITHUB_API_BASE}/repos/{owner_repo}/branches/{quote(branch, safe='')}"
         node = self._get_json(url)
-        if node and "commit" in node:
-            return node["commit"].get("sha", "unknown")
-        return "unknown"
+        commit = node.get("commit") if node else None
+        sha = commit.get("sha") if isinstance(commit, dict) else None
+        return sha if isinstance(sha, str) and sha else None
 
     def _get_json(
         self, url: str, *, allow_rate_limit_retry: bool = True

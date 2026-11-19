@@ -12,12 +12,6 @@ from datahub.ingestion.source.gitlab_documents.gitlab_api import GitLabApiClient
 from datahub.ingestion.source.gitlab_documents.gitlab_documents_config import (
     GitLabDocumentsSourceConfig,
 )
-from datahub.ingestion.source.repository_documents.client import (
-    RepositoryDocumentsClient,
-)
-from datahub.ingestion.source.repository_documents.config import (
-    RepositoryDocumentsSourceConfigBase,
-)
 from datahub.ingestion.source.repository_documents.source import (
     RepositoryDocumentsSourceBase,
 )
@@ -28,7 +22,7 @@ from datahub.ingestion.source.repository_documents.source import (
 @support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-class GitLabDocumentsSource(RepositoryDocumentsSourceBase):
+class GitLabDocumentsSource(RepositoryDocumentsSourceBase[GitLabDocumentsSourceConfig]):
     """
     Ingest markdown and text files from a GitLab project as DataHub Document entities.
 
@@ -39,17 +33,13 @@ class GitLabDocumentsSource(RepositoryDocumentsSourceBase):
 
     platform = "gitlab"
     platform_display_name = "GitLab"
-    config: GitLabDocumentsSourceConfig
 
     @classmethod
     def _parse_config(cls, config_dict: dict) -> GitLabDocumentsSourceConfig:
         return GitLabDocumentsSourceConfig.parse_obj(config_dict)
 
     @classmethod
-    def _make_client(
-        cls, config: RepositoryDocumentsSourceConfigBase
-    ) -> RepositoryDocumentsClient:
-        assert isinstance(config, GitLabDocumentsSourceConfig)
+    def _make_client(cls, config: GitLabDocumentsSourceConfig) -> GitLabApiClient:
         return GitLabApiClient(
             config.gitlab_token.get_secret_value(), base_url=config.base_url
         )

@@ -62,13 +62,13 @@ source:
     platform_instance: self-managed
 ```
 
-The instance is part of every document ID, and it becomes the documents' data platform instance. Without it, the data platform instance is the project path. Instance names cannot contain `.`. Changing `platform_instance` on an existing source creates new documents; with stateful ingestion enabled, the old ones are soft-deleted.
+The instance is part of every document ID, and it becomes the documents' data platform instance. Without it, the data platform instance is the project path. Instance names cannot be blank or contain `.`, `,`, `(` or `)`; surrounding spaces are removed. Changing `platform_instance` on an existing source creates new documents; with stateful ingestion enabled, the old ones are soft-deleted.
 
 The source resolves the branch head once and reads the tree and files at that commit, so all documents in a run come from one snapshot.
 
 ### Limitations
 
-- Maximum file size is 1 MB per file. Larger files are skipped with a `gitlab-file-not-read` warning.
+- Maximum file size is 1 MB per file. Larger files are skipped with a `Repository file not read` warning.
 - Requires network access from the ingestion executor to the GitLab instance.
 - Binary formats are not parsed; use text/markdown files.
 - Imports are capped by `max_files` (default 500) per run.
@@ -81,8 +81,8 @@ The source resolves the branch head once and reads the tree and files at that co
 - **401 / 403 from GitLab**: Verify the token has not expired and has the `read_api` scope. Project and group tokens need at least the Reporter role.
 - **Wrong instance**: When `repository` is a URL and `base_url` is also set, the URL must be on that instance.
 - **No files imported**: Check `path_prefix` and `file_extensions` filters.
-- **`gitlab-file-not-read` warnings**: The file could not be downloaded, was too large, or was not text. A file that failed to download keeps its previous import, so a temporary GitLab error does not remove the document.
-- **`gitlab-tree-truncated` warning**: GitLab returned a full page of the project tree without pagination headers, and a follow-up request showed more entries exist. This usually means a proxy stripped the headers. The run imports what it listed and skips stale document removal, so nothing is deleted. Let the executor reach the GitLab API directly.
+- **`Repository file not read` warnings**: The file could not be downloaded, was too large, or was not text. A file that failed to download keeps its previous import, so a temporary GitLab error does not remove the document.
+- **`Repository tree truncated` warning**: GitLab returned a full page of the project tree without pagination headers, and a follow-up request showed more entries exist. This usually means a proxy stripped the headers. If the follow-up request failed, the warning's context includes the API error. The run imports what it listed and skips stale document removal, so nothing is deleted. Let the executor reach the GitLab API directly.
 - **Redirect errors**: The source does not follow redirects, so the token is never sent to another host. A redirect usually means a proxy or SSO login in front of the API, or a `base_url` that is not the address serving the API. Set `base_url` to that address.
 - **Non-JSON or HTML response errors**: A proxy or SSO login page answered instead of the GitLab API. Let the ingestion executor reach the API directly with the token.
 - **Documents not removed after a GitLab delete**: Ensure `stateful_ingestion.enabled: true` and the pipeline has a graph connection for checkpoint storage.

@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.mxe.TopicConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -85,6 +86,15 @@ public class UpgradeCliApplicationTestConfiguration {
   public SearchClientShim<?> searchClientShim() {
     SearchClientShim<?> shim = Mockito.mock(SearchClientShim.class);
     Mockito.when(shim.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    // V3 reads list V2 indices at startup. Nothing listed is a fresh install.
+    try {
+      Mockito.when(shim.getIndex(Mockito.any(), Mockito.any(), Mockito.any()))
+          .thenReturn(
+              new GetIndexResponse(
+                  new String[0], Map.of(), Map.of(), Map.of(), Map.of(), Map.of()));
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
     return shim;
   }
 

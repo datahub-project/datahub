@@ -3,6 +3,7 @@
 import pytest
 from pydantic import SecretStr, ValidationError
 
+from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.github_documents.github_documents_config import (
     GitHubDocumentsSourceConfig,
@@ -21,25 +22,21 @@ def test_valid_config_defaults() -> None:
     assert config.enable_okf is False
     assert config.document_import_mode == DocumentImportMode.NATIVE
     assert config.create_repo_root_document is True
-    assert config.document_mapping.source.type == "NATIVE"
 
 
-def test_external_mode_sets_mapping() -> None:
-    config = GitHubDocumentsSourceConfig(
-        github_token=SecretStr("ghp_test"),
-        repository="acme/docs",
-        document_import_mode=DocumentImportMode.EXTERNAL,
-    )
-    assert config.document_mapping.source.type == "EXTERNAL"
-
-
-def test_parent_document_sets_root_parent() -> None:
-    config = GitHubDocumentsSourceConfig(
-        github_token=SecretStr("ghp_test"),
-        repository="acme/docs",
-        parent_document_urn="urn:li:document:parent",
-    )
-    assert config.hierarchy.folder_mapping.root_parent == "urn:li:document:parent"
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("document_mapping", {"id_pattern": "{source_type}-{basename}"}),
+        ("hierarchy", {"enabled": True}),
+    ],
+)
+def test_removed_fields_are_accepted_with_a_warning(field: str, value: dict) -> None:
+    with pytest.warns(ConfigurationWarning, match=field):
+        config = GitHubDocumentsSourceConfig.model_validate(
+            {"github_token": "ghp_test", "repository": "acme/docs", field: value}
+        )
+    assert not hasattr(config, field)
 
 
 def test_missing_token_raises() -> None:

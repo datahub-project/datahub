@@ -29,9 +29,12 @@ const ReadOnlyRoot = styled.div<{
         max-width: 100%;
     }
 
-    /* :where() keeps these defaults below caller overrides that target the same
-       content class (summary padding, compact paragraph margin and line limit). */
-    :where(.${EDITOR_CONTENT_CLASS}) {
+    /* Stylis glues a nested selector that starts with ":" onto the parent, the
+       same way it does for :hover. Without the descendant combinator these rules
+       match the root and never reach the content node, so white-space stays
+       nowrap inside the properties table. :where() keeps the defaults below
+       caller overrides on the same class (summary padding, compact margin, line limit). */
+    & :where(.${EDITOR_CONTENT_CLASS}) {
         ${editorContentCss}
         ${readOnlyMarkdownCss}
     }
@@ -42,9 +45,26 @@ const Placeholder = styled.div`
 `;
 
 export function ReadOnlyEditor(props: EditorProps) {
-    const { content, className, placeholder, dataTestId, onKeyDown, onPaste, hideBorder, compact, mentionView } = props;
+    const {
+        content,
+        className,
+        placeholder,
+        dataTestId,
+        onKeyDown,
+        onPaste,
+        hideBorder,
+        compact,
+        mentionView,
+        mentionsProvider: MentionsProvider,
+    } = props;
     const html = useMemo(() => toReadOnlyHtml(content ?? ''), [content]);
-    const contentNodes = useMemo(() => readOnlyHtmlToReact(html, { mentionView }), [html, mentionView]);
+    const { nodes, mentionUrns } = useMemo(() => readOnlyHtmlToReact(html, { mentionView }), [html, mentionView]);
+    const contentNodes =
+        MentionsProvider && mentionUrns.length ? (
+            <MentionsProvider urns={mentionUrns}>{nodes}</MentionsProvider>
+        ) : (
+            nodes
+        );
     const isEmpty = !content?.trim();
     const contentClassName = `${EDITOR_CONTENT_CLASS} remirror-editor ant-typography`;
 
