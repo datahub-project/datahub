@@ -1,20 +1,6 @@
-import os
 from typing import Optional, Tuple
 
 import sqlglot
-
-if os.environ.get("DATAHUB_TEST_MODE") == "1":
-    # Patch-based urllib3 unit tests break when the process inherits HTTP(S)_PROXY.
-    for _proxy_env in (
-        "HTTP_PROXY",
-        "HTTPS_PROXY",
-        "http_proxy",
-        "https_proxy",
-        "ALL_PROXY",
-        "all_proxy",
-    ):
-        os.environ.pop(_proxy_env, None)
-    os.environ.setdefault("NO_PROXY", "*")
 
 from datahub.sql_parsing.sql_parsing_common import QueryType, QueryTypeProps
 from datahub.sql_parsing.sqlglot_utils import (
