@@ -1011,6 +1011,11 @@ type Mutation {
   ): Boolean
 
   """
+  Set or clear the parent of an Application (app-of-apps hierarchy)
+  """
+  moveApplication(input: MoveApplicationInput!): Boolean
+
+  """
   Create a Custom Ownership Type. This requires the 'Manage Ownership Types' Metadata Privilege.
   """
   createOwnershipType(
@@ -14338,6 +14343,21 @@ input BatchUnsetApplicationInput {
   The urns of the entities the given application should be removed from
   """
   resourceUrns: [String!]!
+}
+
+"""
+Input for setting or clearing the parent of an Application.
+"""
+input MoveApplicationInput {
+  """
+  The new parent application urn. If null, the application's parent is removed.
+  """
+  parentApplication: String
+
+  """
+  The urn of the application to move
+  """
+  resourceUrn: String!
 }
 
 """
