@@ -139,6 +139,7 @@ public class ElasticSearchServiceFactoryHybridTest {
                 Set.of("document"),
                 new HashMap<>(Map.of("text_embedding_3_small", model)),
                 providerConfiguration,
+                null,
                 null))
         .build();
   }

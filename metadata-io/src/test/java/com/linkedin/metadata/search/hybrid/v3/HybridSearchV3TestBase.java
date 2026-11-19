@@ -168,7 +168,7 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
     model.setVectorDimension(QUERY_VECTOR.length);
     semanticSearch =
         new SemanticSearchConfiguration(
-            true, Set.of("document"), Map.of(MODEL_KEY, model), null, null);
+            true, Set.of("document"), Map.of(MODEL_KEY, model), null, null, null);
     EntityIndexConfiguration entityIndex =
         V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.toBuilder()
             .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())

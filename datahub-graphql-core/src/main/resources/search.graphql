@@ -1822,6 +1822,23 @@ type VectorRetrievalExplanation {
   profile: String
 
   """
+  The store that served the neighbors: elasticsearch or opensearch for the DataHub index, else the
+  external store's configured name
+  """
+  store: String
+
+  """
+  Milliseconds the external store's search call took. Absent on the DataHub index
+  """
+  adapterLatencyMillis: Long
+
+  """
+  Hits an external store returned that hydration on the DataHub index dropped: deleted, hidden,
+  outside the filter there, or not viewable by the caller
+  """
+  removedByHydration: Int!
+
+  """
   Requested entity types the kNN request searched
   """
   entityTypes: [String!]
@@ -1869,7 +1886,8 @@ type VectorRetrievalExplanation {
   belowMinScore: Int!
 
   """
-  The caller's filter and the default search filters ran inside the kNN request
+  The caller's filter and the default search filters ran inside the vector search. False on an
+  external store without preFilter, where hydration applies the default search filters
   """
   filterInVectorSearch: Boolean!
 

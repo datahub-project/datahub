@@ -122,6 +122,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "spring.autoconfigure.exclude[*]",
           // Cache configuration with dynamic entity/aspect combinations
           "cache.client.entityClient.entityAspectTTLSeconds.*.*",
+          // External vector stores by operator-chosen name: limits and capabilities, not
+          // credentials. A store field that carries a secret needs its own sensitive entry.
+          "elasticsearch.entityIndex.semanticSearch.stores.*.capabilities[*]",
+          "elasticsearch.entityIndex.semanticSearch.stores.*.timeoutMillis",
+          "elasticsearch.entityIndex.semanticSearch.stores.*.maxK",
+          "elasticsearch.entityIndex.semanticSearch.stores.*.resultTtlMillis",
           // Gradle test worker properties (Java system properties)
           "org.gradle.test.worker*",
           // System update properties

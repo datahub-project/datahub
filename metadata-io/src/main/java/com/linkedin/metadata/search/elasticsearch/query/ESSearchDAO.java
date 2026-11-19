@@ -71,6 +71,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateM
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMustache;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateQueryShape;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
+import com.linkedin.metadata.search.embedding.VectorStore;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
 import com.linkedin.metadata.search.hybrid.HybridRerankPlan;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
@@ -210,6 +211,12 @@ public class ESSearchDAO {
    */
   @Nullable final HybridQueryEmbeddingService vectorQueryEmbedding;
 
+  /**
+   * Adapters for the external vector stores named in {@code semanticSearch.stores}. DataHub ships
+   * none, so a profile served by an external store fails its vector rung closed.
+   */
+  @Nonnull volatile Map<String, VectorStore> vectorStores = Map.of();
+
   private final TemplateSearchExecutor templateSearch = new TemplateSearchExecutor(this);
 
   private final AtomicInteger hybridFailures = new AtomicInteger();
@@ -217,7 +224,7 @@ public class ESSearchDAO {
   private final AtomicLong hybridLastFailureNanos = new AtomicLong(System.nanoTime());
   private volatile long hybridPauseNanos = TimeUnit.MILLISECONDS.toNanos(HYBRID_PAUSE_MILLIS);
   volatile long hybridTimeoutMillis = HYBRID_TIMEOUT_MILLIS;
-  private volatile ExecutorService hybridExecutor = HYBRID_EXECUTOR;
+  volatile ExecutorService hybridExecutor = HYBRID_EXECUTOR;
 
   public ESSearchDAO(
       boolean pointInTimeCreationEnabled,
@@ -1205,6 +1212,11 @@ public class ESSearchDAO {
   @VisibleForTesting
   void setHybridPauseMillis(long millis) {
     hybridPauseNanos = TimeUnit.MILLISECONDS.toNanos(millis);
+  }
+
+  @VisibleForTesting
+  void setVectorStores(@Nonnull Map<String, VectorStore> stores) {
+    vectorStores = Map.copyOf(stores);
   }
 
   @VisibleForTesting
