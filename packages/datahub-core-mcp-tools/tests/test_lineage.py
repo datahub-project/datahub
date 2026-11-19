@@ -80,6 +80,9 @@ class FakeBackend:
         self.sent.append(dict(variables))
         return cast(JsonObject, copy.deepcopy(self.page))
 
+    def lineage_paths(self, variables: JsonObject) -> JsonObject:
+        return {}
+
     def entity(self, urn: str, *, include_contract: bool = False) -> None:
         return None
 

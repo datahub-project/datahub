@@ -1,10 +1,10 @@
-"""Lineage: get_lineage."""
+"""Lineage: get_lineage and get_lineage_paths_between."""
 
 import copy
 import inspect
 import string
 from dataclasses import dataclass
-from typing import Annotated, List, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sdk.search_client import compile_filters
@@ -16,6 +16,7 @@ from pydantic import BeforeValidator, Field
 from .. import arg_validation, entity_cleaning, graphql_helpers
 from ..read_backend import JsonObject, ReadBackend, get_read_backend
 from ..result_policy import (
+    apply_decision,
     attach_header,
     current_decisions,
     label_entity_results,
@@ -30,6 +31,12 @@ DEFAULT_LINEAGE_SEARCH_FLAGS: JsonObject = {
     "skipHighlighting": True,
     "maxAggValues": 3,
 }
+
+# Bounds of the upstream search behind get_lineage_paths_between. When the result
+# cap cuts the search short, a "no path" answer says so instead of claiming the
+# entities are unconnected.
+PATH_SEARCH_MAX_HOPS = 10
+PATH_SEARCH_MAX_RESULTS = 100
 
 # Kept on a column-lineage node when its paths are folded into lineageColumns.
 _LINEAGE_RESULT_KEYS = ("explored", "truncatedChildren", "ignoredAsHop")
@@ -356,3 +363,368 @@ assert get_lineage.__doc__ is not None
 get_lineage.__doc__ = string.Template(inspect.cleandoc(get_lineage.__doc__)).substitute(
     FILTER_DOCS=FILTER_DOCS
 )
+
+
+def _find_result_with_target_urn(
+    search_results: List[dict], target_urn: str, is_column_level: bool
+) -> Optional[dict]:
+    """The search result that reaches ``target_urn``.
+
+    Column level: a result with a path ending at the target column. Dataset level:
+    the result whose entity is the target.
+    """
+    for result in search_results:
+        if is_column_level:
+            for path_obj in result.get("paths") or []:
+                path = (path_obj or {}).get("path") or []
+                if path and (path[-1] or {}).get("urn") == target_urn:
+                    return result
+        elif (result.get("entity") or {}).get("urn") == target_urn:
+            return result
+    return None
+
+
+def _path_trace_response(
+    *,
+    source_urn: str,
+    target_urn: str,
+    source_column: Optional[str],
+    target_column: Optional[str],
+    semantic_direction: str,
+    paths: List[dict],
+    metadata_extra: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "metadata": {
+            "queryType": "lineage-path-trace",
+            "direction": semantic_direction,
+            "pathType": "column-level" if source_column else "dataset-level",
+            **metadata_extra,
+        },
+        "source": {
+            "urn": source_urn,
+            **({"column": source_column} if source_column else {}),
+        },
+        "target": {
+            "urn": target_urn,
+            **({"column": target_column} if target_column else {}),
+        },
+        "pathCount": len(paths),
+        "paths": paths,
+    }
+
+
+def _no_path_reason(upstreams: dict, queried: str, sought: str) -> Dict[str, Any]:
+    """Why the upstream search of ``queried`` did not reach ``sought``, and whether
+    that search was complete enough to prove there is no path."""
+    searched = len(upstreams.get("searchResults") or [])
+    total = upstreams.get("total", searched)
+    # isPartial: GMS stopped the traversal early (timeout or relation limit), so
+    # `total` counts only what it reached and a miss proves nothing.
+    partial = bool(upstreams.get("isPartial"))
+    if partial:
+        reason = (
+            f"The search of the {queried}'s upstream lineage stopped early "
+            "(timeout or traversal limit), so a path may still exist."
+        )
+    elif total > searched:
+        reason = (
+            f"The search returned {searched} of {total} entities upstream of "
+            f"the {queried} and the {sought} is not among them, so a path may "
+            "still exist."
+        )
+    elif searched == 0:
+        reason = f"The {queried} has no upstream lineage."
+    else:
+        reason = (
+            f"The {sought} is not upstream of the {queried} "
+            f"within {PATH_SEARCH_MAX_HOPS} hops."
+        )
+    return {"reason": reason, "searchComplete": not partial and total <= searched}
+
+
+def _label_path_nodes(response: Dict[str, Any], cleaned_paths: List[dict]) -> None:
+    """Apply reader decisions to the path nodes already returned.
+
+    Label-only policies keep the paths-only contract: no further metadata read.
+    """
+    nodes = [
+        node
+        for path in cleaned_paths
+        if path
+        for node in (path.get("path") or [])
+        if node and node.get("urn")
+    ]
+    urns = [node["urn"] for node in nodes]
+    decisions = current_decisions(urns)
+    header = decisions.header(urns) if decisions is not None else None
+    if (
+        decisions is None
+        or not header
+        or ("reader" not in header and "reader_policy_state" not in header)
+    ):
+        return
+    for path in cleaned_paths:
+        if path and path.get("path"):
+            path["path"] = [
+                apply_decision(node, node["urn"], decisions)
+                if node and node.get("urn")
+                else node
+                for node in path["path"]
+            ]
+    attach_header(response, decisions, urns, reader_only=True)
+
+
+def _find_upstream_lineage_path(
+    backend: ReadBackend,
+    query_urn: str,
+    search_for_urn: str,
+    source_urn: str,
+    target_urn: str,
+    source_column: Optional[str],
+    target_column: Optional[str],
+    semantic_direction: Literal["upstream", "downstream"],
+) -> dict:
+    """Look for ``search_for_urn`` in the upstream lineage of ``query_urn``.
+
+    Lineage is symmetric (B downstream of A is A upstream of B), so a downstream
+    question is answered by searching the target's upstreams and reversing the
+    path. Upstream is the bounded side: tens of sources rather than thousands of
+    consumers.
+    """
+    upstreams = graphql_helpers.clean_gql_response(
+        backend.lineage_paths(
+            lineage_variables(
+                LineageQuery(
+                    urn=query_urn,
+                    max_hops=PATH_SEARCH_MAX_HOPS,
+                    max_results=PATH_SEARCH_MAX_RESULTS,
+                ),
+                upstream=True,
+            )
+        )
+    )
+    search_results = upstreams.get("searchResults") or []
+
+    # Finding no path is an answer, not a failed call: reported as a normal result
+    # so clients and tool-call metrics don't count it as an error.
+    queried, sought = (
+        ("target", "source")
+        if semantic_direction == "downstream"
+        else ("source", "target")
+    )
+    response_args: Dict[str, Any] = {
+        "source_urn": source_urn,
+        "target_urn": target_urn,
+        "source_column": source_column,
+        "target_column": target_column,
+        "semantic_direction": semantic_direction,
+    }
+
+    target_result = _find_result_with_target_urn(
+        search_results, search_for_urn, is_column_level=target_column is not None
+    )
+    if not target_result:
+        return _path_trace_response(
+            **response_args,
+            paths=[],
+            metadata_extra={"noPath": _no_path_reason(upstreams, queried, sought)},
+        )
+
+    paths = target_result.get("paths") or []
+    if not paths:
+        degree = target_result.get("degree")
+        return _path_trace_response(
+            **response_args,
+            paths=[],
+            metadata_extra={
+                "pathsUnavailable": (
+                    f"The {sought} is upstream of the {queried}"
+                    + (f" (degree {degree})" if degree else "")
+                    + ", but DataHub returned no path details for it."
+                )
+            },
+        )
+
+    has_queries = any(
+        (node or {}).get("type") == "QUERY"
+        for path_obj in paths
+        if path_obj
+        for node in (path_obj.get("path") or [])
+    )
+    paths_metadata: Dict[str, str] = {
+        "description": "Array of lineage paths showing transformation chains from source to target",
+        "structure": "Each path contains alternating entities (SCHEMA_FIELD or DATASET) and optional transformation QUERY entities",
+    }
+    if has_queries:
+        paths_metadata["queryEntities"] = (
+            "QUERY entities are returned as URNs only. "
+            "Use get_entities(query_urn) to fetch SQL statement and other query details."
+        )
+
+    response = _path_trace_response(
+        **response_args,
+        paths=paths,
+        metadata_extra={"fields": {"paths": paths_metadata}},
+    )
+    _label_path_nodes(response, paths)
+    return response
+
+
+def _find_lineage_path(
+    backend: ReadBackend,
+    query_urn: str,
+    target_full_urn: str,
+    source_urn: str,
+    target_urn: str,
+    source_column: Optional[str],
+    target_column: Optional[str],
+    direction: Literal["upstream", "downstream"],
+) -> dict:
+    """The path in one semantic direction, always found by an upstream search.
+
+    Downstream (source flows to target): search the target's upstreams for the
+    source, then reverse each path to read source to target. Upstream (source
+    depends on target): search the source's upstreams; the path already reads
+    target to source.
+    """
+    common: Dict[str, Any] = {
+        "source_urn": source_urn,
+        "target_urn": target_urn,
+        "source_column": source_column,
+        "target_column": target_column,
+        "semantic_direction": direction,
+    }
+    if direction == "upstream":
+        return _find_upstream_lineage_path(
+            backend, query_urn=query_urn, search_for_urn=target_full_urn, **common
+        )
+    result = _find_upstream_lineage_path(
+        backend, query_urn=target_full_urn, search_for_urn=query_urn, **common
+    )
+    for path_obj in result.get("paths", []):
+        if path_obj and "path" in path_obj:
+            path_obj["path"] = list(reversed(path_obj["path"]))
+    return result
+
+
+@read_only
+def get_lineage_paths_between(
+    source_urn: str,
+    target_urn: str,
+    source_column: Optional[str] = None,
+    target_column: Optional[str] = None,
+    direction: Optional[Literal["upstream", "downstream"]] = None,
+) -> dict:
+    """Get detailed lineage path(s) between two specific entities or columns.
+
+    Returns the paths array from searchAcrossLineage, showing the exact transformation
+    chain(s) including intermediate entities, columns, and transformation query URNs.
+
+    Unlike get_lineage() which returns all lineage targets with compact lineageColumns,
+    this tool focuses on ONE specific target and returns detailed path information.
+
+    Args:
+        source_urn: URN of the source dataset
+        target_urn: URN of the target dataset
+        source_column: Optional column name in source dataset
+        target_column: Optional column name in target dataset (required if source_column provided)
+        direction: Optional direction to search. If None (default), automatically discovers
+                  the path by trying downstream first, then upstream. Specify "downstream" or
+                  "upstream" explicitly for better performance if you know the direction.
+
+    Returns:
+        Dictionary with:
+        - source: Source entity/column info
+        - target: Target entity/column info
+        - paths: Array of path objects from GraphQL (with QUERY URNs)
+        - pathCount: Number of paths found. 0 with metadata.noPath means no path
+          was found; metadata.noPath.searchComplete is false when the search hit
+          its result cap or DataHub stopped it early, so a path may still exist. 0 with
+          metadata.pathsUnavailable means the entities are connected but no path
+          details came back.
+
+    Examples:
+        # Column-level paths
+        paths_result = get_lineage_paths_between(
+            source_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.base_table,PROD)",
+            target_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.final_table,PROD)",
+            source_column="user_id",
+            target_column="customer_id"
+        )
+        # Returns paths with QUERY URNs showing transformation chain
+
+        # Fetch SQL for specific query of interest
+        query_details = get_entities(paths_result["paths"][0]["path"][1]["urn"])
+
+        # Dataset-level paths (auto-discover direction)
+        get_lineage_paths_between(
+            source_urn="urn:li:dataset:(...):base_table",
+            target_urn="urn:li:dataset:(...):final_table"
+        )
+
+        # Explicit direction for better performance
+        get_lineage_paths_between(
+            source_urn="urn:li:dataset:(...):base_table",
+            target_urn="urn:li:dataset:(...):final_table",
+            direction="downstream"
+        )
+    """
+    if source_column in ("null", ""):
+        source_column = None
+    if target_column in ("null", ""):
+        target_column = None
+    if (source_column is None) != (target_column is None):
+        raise ToolError(
+            "Both source_column and target_column must be provided for column-level "
+            "lineage, or both must be None for dataset-level lineage"
+        )
+
+    tool = "get_lineage_paths_between"
+    source_urn = arg_validation.require_urn(source_urn, tool=tool, param="source_urn")
+    target_urn = arg_validation.require_urn(target_urn, tool=tool, param="target_urn")
+    backend = get_read_backend()
+    # A URN that does not exist has no lineage, which would read as "no path".
+    _require_existing(backend, source_urn)
+    _require_existing(backend, target_urn)
+
+    query_urn = arg_validation.schema_field_urn(source_urn, source_column, tool=tool)
+    target_full_urn = arg_validation.schema_field_urn(
+        target_urn, target_column, tool=tool
+    )
+    args: Dict[str, Any] = {
+        "query_urn": query_urn,
+        "target_full_urn": target_full_urn,
+        "source_urn": source_urn,
+        "target_urn": target_urn,
+        "source_column": source_column,
+        "target_column": target_column,
+    }
+    if direction is not None:
+        return _find_lineage_path(backend, direction=direction, **args)
+
+    # Downstream first: the more common question.
+    no_path: Dict[str, Dict[str, Any]] = {}
+    attempts: tuple[Literal["downstream", "upstream"], ...] = ("downstream", "upstream")
+    for attempt in attempts:
+        result = _find_lineage_path(backend, direction=attempt, **args)
+        if "noPath" in result["metadata"]:
+            no_path[attempt] = result["metadata"]["noPath"]
+            continue
+        result["metadata"]["direction"] = f"auto-discovered-{attempt}"
+        result["metadata"]["note"] = (
+            "Direction was automatically discovered. Specify direction='downstream' "
+            "or 'upstream' explicitly for better performance."
+        )
+        return result
+
+    result["metadata"]["direction"] = "searched-both"
+    result["metadata"]["noPath"] = {
+        "reason": (
+            "No lineage path found in either direction. "
+            f"Downstream: {no_path['downstream']['reason']} "
+            f"Upstream: {no_path['upstream']['reason']}"
+        ),
+        "searchComplete": all(n["searchComplete"] for n in no_path.values()),
+    }
+    return result

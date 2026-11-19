@@ -57,6 +57,9 @@ class FakeBackend:
     def document_contents(self, urns: list[str]) -> list[JsonObject | None]:
         return []
 
+    def lineage_paths(self, variables: JsonObject) -> JsonObject:
+        return {}
+
     def search_lineage(self, variables: JsonObject) -> JsonObject:
         return {}
 
