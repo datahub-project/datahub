@@ -3,7 +3,6 @@ package com.datahub.authorization;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authentication.group.GroupService;
-import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -585,22 +584,30 @@ public class PolicyEngine {
     if (resourceSpec.getEntity().isEmpty()) {
       return Set.of();
     }
-    // A resource's ownership is actor-independent. Fetch the full owner list once per resource per
-    // authorize() call (multiple ownership policies on the same resource reuse the cached fetch),
-    // then filter by ownership type in memory.
-    final List<Owner> owners =
-        context
-            .getResourceOwnersByUrn()
-            .computeIfAbsent(resourceSpec.getEntity(), urn -> fetchOwners(opContext, urn));
-
-    Stream<Owner> ownersStream = owners.stream();
-    if (ownershipTypes != null) {
-      ownersStream = ownersStream.filter(owner -> ownershipTypes.contains(owner.getTypeUrn()));
+    // A resource's ownership is actor-independent. Fetch the full owner list once per resource
+    // (cached per request when available, otherwise per authorize() call), then filter by
+    // ownership type in memory.
+    final Map<String, List<ResourceOwner>> ownersCache = context.getResourceOwnersByUrn();
+    List<ResourceOwner> owners = ownersCache.get(resourceSpec.getEntity());
+    if (owners == null) {
+      owners = fetchOwners(opContext, resourceSpec.getEntity());
+      if (owners == null) {
+        return Set.of();
+      }
+      ownersCache.putIfAbsent(resourceSpec.getEntity(), owners);
     }
-    return ownersStream.map(owner -> owner.getOwner().toString()).collect(Collectors.toSet());
+
+    Stream<ResourceOwner> ownersStream = owners.stream();
+    if (ownershipTypes != null) {
+      ownersStream =
+          ownersStream.filter(owner -> ownershipTypes.contains(owner.ownershipTypeUrn()));
+    }
+    return ownersStream.map(ResourceOwner::ownerUrn).collect(Collectors.toSet());
   }
 
-  private List<Owner> fetchOwners(
+  /** Returns the resource's owners, or null if they could not be fetched. */
+  @Nullable
+  private List<ResourceOwner> fetchOwners(
       @Nonnull OperationContext opContext, @Nonnull String resourceUrn) {
     Urn entityUrn = UrnUtils.getUrn(resourceUrn);
     try {
@@ -614,10 +621,13 @@ public class PolicyEngine {
         return Collections.emptyList();
       }
       EnvelopedAspect ownershipAspect = response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME);
-      return new Ownership(ownershipAspect.getValue().data()).getOwners();
+      return new Ownership(ownershipAspect.getValue().data())
+          .getOwners().stream()
+              .map(owner -> new ResourceOwner(owner.getOwner().toString(), owner.getTypeUrn()))
+              .toList();
     } catch (Exception e) {
       log.error("Error while retrieving ownership aspect for urn {}", entityUrn, e);
-      return Collections.emptyList();
+      return null;
     }
   }
 
@@ -736,12 +746,16 @@ public class PolicyEngine {
     private Set<Urn> roles;
     private SessionActorIdentity sessionActorIdentity;
     private OperationContext opContext;
-    // Resource owners cache, keyed by resource URN. Scoped to a single authorize() call: dedupes
-    // the ownership fetch across all ownership policies evaluated for the same resource.
-    private final Map<String, List<Owner>> resourceOwnersByUrn = new HashMap<>();
+    // Resource owners cache, keyed by resource URN. Scoped to a single authorize() call unless a
+    // request-scoped cache is supplied.
+    private Map<String, List<ResourceOwner>> resourceOwnersByUrn = new HashMap<>();
 
-    Map<String, List<Owner>> getResourceOwnersByUrn() {
+    Map<String, List<ResourceOwner>> getResourceOwnersByUrn() {
       return resourceOwnersByUrn;
+    }
+
+    void setResourceOwnersByUrn(Map<String, List<ResourceOwner>> resourceOwnersByUrn) {
+      this.resourceOwnersByUrn = resourceOwnersByUrn;
     }
 
     public void setGroups(Set<String> groups) {
