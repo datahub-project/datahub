@@ -32,6 +32,7 @@ from datahub.masking.logging_utils import (
 from datahub.masking.secret_registry import SecretRegistry
 
 logger = get_masking_safe_logger(__name__)
+_FORMATTER = logging.Formatter()
 
 
 class MaskedException(Exception):
@@ -39,8 +40,7 @@ class MaskedException(Exception):
 
 
 def _linked_exception_texts(exc: BaseException) -> Iterator[str]:
-    """Yield the traceback summary line (with notes), repr, message and detail of
-    exc and of every exception linked to it by cause, context or group membership."""
+    """Yield what formatters and Sentry print for exc and its linked exceptions."""
     seen: Set[int] = set()
     pending: List[BaseException] = [exc]
     while pending:
@@ -54,11 +54,7 @@ def _linked_exception_texts(exc: BaseException) -> Iterator[str]:
             lambda e: getattr(e, "message", ""),
             lambda e: getattr(e, "detail", ""),
         ):
-            try:
-                text = str(render(current))
-            except BaseException:
-                continue
-            yield text
+            yield str(render(current))
         members = getattr(current, "exceptions", None)
         if not isinstance(members, (list, tuple)):
             members = ()
@@ -207,11 +203,7 @@ class SecretMaskingFilter(logging.Filter):
             if exc_value is None:
                 return
             if not record.exc_text:
-                rendered = "".join(
-                    traceback.format_exception(type(exc_value), exc_value, tb)
-                )
-                if rendered[-1:] == "\n":
-                    rendered = rendered[:-1]
+                rendered = _FORMATTER.formatException((type(exc_value), exc_value, tb))
                 record.exc_text = self.mask_text(rendered)
             texts = _linked_exception_texts(exc_value)
             if all(self.mask_text(text) == text for text in texts):

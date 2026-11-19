@@ -248,6 +248,12 @@ class ApiError(Exception):
         self.message = message
 
 
+class DetailError(Exception):
+    def __init__(self, summary: str, detail: str) -> None:
+        super().__init__(summary)
+        self.detail = detail
+
+
 class UnprintableError(Exception):
     def __str__(self) -> str:
         raise RuntimeError("cannot render")
@@ -262,6 +268,10 @@ class _ExcInfoFormatter(logging.Formatter):
 
 def _raise(error: BaseException) -> NoReturn:
     raise error
+
+
+def _raise_from(cause: BaseException) -> NoReturn:
+    raise QueryError("query failed", "SELECT 1") from cause
 
 
 def _raise_chained(cause: BaseException, *, explicit: bool = True) -> NoReturn:
@@ -408,18 +418,19 @@ class TestExceptionMasking:
         registry.register_secret("SOURCE_FILE", path_part)
         exc_info = _exc_info(lambda: _raise(ValueError("query failed")))
 
-        record, _ = _log(masking_filter, exc_info)
+        record, outputs = _log(masking_filter, exc_info)
 
         assert record.exc_info is exc_info
         assert record.exc_text is not None
         assert path_part not in record.exc_text
         assert "***REDACTED:SOURCE_FILE***" in record.exc_text
+        assert path_part not in outputs[0]
 
     @pytest.mark.parametrize(
         "raise_it",
         [
             pytest.param(lambda: _raise(QueryError(SECRET, "SELECT 1")), id="message"),
-            pytest.param(lambda: _raise_chained(ConnectionError(SECRET)), id="cause"),
+            pytest.param(lambda: _raise_from(ConnectionError(SECRET)), id="cause"),
             pytest.param(
                 lambda: _raise_chained(ConnectionError(SECRET), explicit=False),
                 id="context",
@@ -431,6 +442,9 @@ class TestExceptionMasking:
                 id="oserror_filename",
             ),
             pytest.param(lambda: _raise(ApiError("failed", SECRET)), id="message_attr"),
+            pytest.param(
+                lambda: _raise(DetailError("failed", SECRET)), id="detail_attr"
+            ),
             pytest.param(lambda: _raise(UnprintableError(SECRET)), id="str_raises"),
             pytest.param(
                 _raise_group,
@@ -459,7 +473,7 @@ class TestExceptionMasking:
         assert record.exc_info[2] is None
         assert record.exc_text and type(exc_info[1]).__name__ in record.exc_text
 
-    def test_replaced_exception_keeps_masked_chain_callers_object_and_is_stable(
+    def test_replaced_exception_keeps_masked_chain_and_callers_object(
         self, registry, masking_filter
     ):
         registry.register_secret("DB_PASSWORD", SECRET)
@@ -475,16 +489,26 @@ class TestExceptionMasking:
 
         before = state()
         record, outputs = _log(masking_filter, exc_info)
-        replaced = record.exc_info
-        masking_filter.filter(record)
 
         assert state() == before
-        assert replaced is not None and replaced[0] is MaskedException
-        assert record.exc_info is replaced
+        assert record.exc_info is not None and record.exc_info[0] is MaskedException
         assert record.exc_text is not None
         assert "ConnectionError: ***REDACTED:DB_PASSWORD***" in record.exc_text
         assert "QueryError: query failed" in record.exc_text
         assert record.exc_text in outputs[0]
+
+    def test_filtering_a_replaced_record_again_changes_nothing(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("DB_PASSWORD", SECRET)
+        exc_info = _exc_info(lambda: _raise_chained(ConnectionError(SECRET)))
+        record, _ = _log(masking_filter, exc_info)
+        replaced, text = record.exc_info, record.exc_text
+
+        masking_filter.filter(record)
+
+        assert record.exc_info is replaced
+        assert record.exc_text == text
 
     def test_deferred_handler_renders_the_exception_as_logged(
         self, registry, masking_filter
@@ -534,7 +558,9 @@ class TestExceptionMasking:
         try:
             _raise(QueryError(f"login failed for {SECRET}", "SELECT 1"))
         except QueryError as error:
-            with patch.object(traceback, "format_exception", side_effect=MemoryError):
+            with patch.object(
+                filter_module._FORMATTER, "formatException", side_effect=MemoryError
+            ):
                 _log(masking_filter, (QueryError, error, error.__traceback__))
             with patch.object(
                 masking_filter, "mask_text", side_effect=RuntimeError(SECRET)
