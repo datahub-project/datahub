@@ -106,7 +106,7 @@ The DataHub OpenLineage integration can be configured using environment variable
 | `DATAHUB_OPENLINEAGE_FILE_PARTITION_REGEXP_PATTERN`    | `datahub.openlineage.file-partition-regexp-pattern`    | String  | `null`  | Regular expression pattern for file partition detection                                                           |
 | `DATAHUB_OPENLINEAGE_DOMAINS`                          | `datahub.openlineage.domains`                          | List    | `empty` | Comma-separated domain URNs (`urn:li:domain:<id>`) attached to the DataFlow and DataJob                           |
 
-> **Valid `env` values**: `PROD`, `DEV`, `TEST`, `QA`, `UAT`, `EI`, `PRE`, `STG`, `NON_PROD`, `CORP`, `RVW`, `PRD`, `TST`, `SIT`, `SBX`, `SANDBOX`, `CERT`
+> **Valid `env` values**: `PROD`, `DEV`, `TEST`, `QA`, `UAT`, `EI`, `PRE`, `STG`, `NON_PROD`, `CORP`, `RVW`, `PRD`, `TST`, `SIT`, `SBX`, `SANDBOX`, `CERT` (case-insensitive). DataHub refuses to start if `env` or `common-dataset-env` is set to any other value.
 >
 > **How `env` works**:
 >

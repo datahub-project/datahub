@@ -15,6 +15,15 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### OpenLineage endpoint rejects an unknown environment at startup
+
+If `DATAHUB_OPENLINEAGE_ENV` (or `DATAHUB_OPENLINEAGE_COMMON_DATASET_ENV`, when set) is not one of
+the supported environment values, DataHub now refuses to start and names the setting and the
+accepted values. Previously it logged a warning and recorded all OpenLineage datasets under `PROD`,
+which could place them in the wrong environment. Values are not case-sensitive, so `dev` still
+works. If DataHub fails to start after upgrading, correct the value (for example `STG`, not
+`STAGING`) or remove it to use `PROD`.
+
 ### CLI initialization from scripts
 
 When you run `datahub init` without an interactive terminal, it now stops if an existing

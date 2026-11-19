@@ -3,6 +3,10 @@ package io.datahubproject.openapi.openlineage.config;
 import com.linkedin.common.FabricType;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,23 +23,14 @@ public class OpenLineageServletConfig {
 
   @Bean
   public RunEventMapper.MappingConfig mappingConfig() {
-    // Parse FabricType from string property
-    // Use commonDatasetEnv if specified, otherwise fall back to env
-    String envValue =
-        properties.getCommonDatasetEnv() != null
-            ? properties.getCommonDatasetEnv()
-            : properties.getEnv();
-
-    FabricType fabricType = FabricType.PROD; // default
-    if (envValue != null && !envValue.isEmpty()) {
-      try {
-        fabricType = FabricType.valueOf(envValue.toUpperCase());
-      } catch (IllegalArgumentException e) {
-        log.warn(
-            "Invalid env value '{}'. Using default PROD. Valid values: PROD, DEV, TEST, QA, UAT, EI, PRE, STG, NON_PROD, CORP, RVW, PRD, TST, SIT, SBX, SANDBOX, CERT",
-            envValue);
-      }
-    }
+    // commonDatasetEnv overrides env for the Dataset fabricType
+    final boolean useCommonDatasetEnv = properties.getCommonDatasetEnv() != null;
+    final FabricType fabricType =
+        parseFabricType(
+            useCommonDatasetEnv ? properties.getCommonDatasetEnv() : properties.getEnv(),
+            useCommonDatasetEnv
+                ? "datahub.openlineage.common-dataset-env"
+                : "datahub.openlineage.env");
 
     // Use platformInstance if specified, otherwise use env as the cluster
     String platformInstance = properties.getPlatformInstance();
@@ -64,5 +59,30 @@ public class OpenLineageServletConfig {
             .build();
     log.info("Starting OpenLineage Endpoint with config: {}", datahubOpenlineageConfig);
     return RunEventMapper.MappingConfig.builder().datahubConfig(datahubOpenlineageConfig).build();
+  }
+
+  /**
+   * Fails startup on an unknown env: falling back to PROD would write every URN from this endpoint
+   * into the wrong environment.
+   */
+  private static FabricType parseFabricType(
+      @Nullable final String envValue, @Nonnull final String property) {
+    if (envValue == null || envValue.isEmpty()) {
+      return FabricType.PROD;
+    }
+    try {
+      return FabricType.valueOf(envValue.toUpperCase());
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Invalid %s '%s'. Valid values: %s",
+              property,
+              envValue,
+              Arrays.stream(FabricType.values())
+                  .filter(t -> t != FabricType.$UNKNOWN)
+                  .map(Enum::name)
+                  .collect(Collectors.joining(", "))),
+          e);
+    }
   }
 }
