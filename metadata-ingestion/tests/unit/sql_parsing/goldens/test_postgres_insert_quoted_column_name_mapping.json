@@ -1,0 +1,54 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "caeeccc4a574b929f3b4add18fa3016a40d2ab371cd0932f4e298d6c5813829f",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.orders,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.order_totals,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.order_totals,PROD)",
+                "column": "OrderId",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.orders,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"orders\".\"id\" AS \"OrderId\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.order_totals,PROD)",
+                "column": "total_amount",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.orders,PROD)",
+                    "column": "amount"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"orders\".\"amount\" AS \"total_amount\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "INSERT INTO my_schema.order_totals (\"OrderId\", total_amount) SELECT id, amount FROM my_schema.orders"
+    }
+}
