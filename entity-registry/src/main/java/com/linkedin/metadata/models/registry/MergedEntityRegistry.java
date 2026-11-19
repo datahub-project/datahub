@@ -93,7 +93,11 @@ public class MergedEntityRegistry implements EntityRegistry {
     for (Map.Entry<String, EntitySpec> e2Entry : patchEntityRegistry.getEntitySpecs().entrySet()) {
       EntitySpec candidate;
       if (entityNameToSpec.containsKey(e2Entry.getKey())) {
-        candidate = mergeEntitySpecs(entityNameToSpec.get(e2Entry.getKey()), e2Entry.getValue());
+        candidate =
+            mergeEntitySpecs(
+                entityNameToSpec.get(e2Entry.getKey()),
+                e2Entry.getValue(),
+                patchEntityRegistry instanceof PatchEntityRegistry);
       } else {
         candidate = e2Entry.getValue();
       }
@@ -217,7 +221,8 @@ public class MergedEntityRegistry implements EntityRegistry {
                 existingEntitySpec.getName(), existingSearchGroup, newSearchGroup));
   }
 
-  private EntitySpec mergeEntitySpecs(EntitySpec existingEntitySpec, EntitySpec newEntitySpec) {
+  private EntitySpec mergeEntitySpecs(
+      EntitySpec existingEntitySpec, EntitySpec newEntitySpec, boolean fromModelPlugin) {
     Map<String, AspectSpec> aspectSpecMap = new HashMap<>(existingEntitySpec.getAspectSpecMap());
     aspectSpecMap.putAll(newEntitySpec.getAspectSpecMap());
 
@@ -227,9 +232,21 @@ public class MergedEntityRegistry implements EntityRegistry {
     // 3. If both define searchGroup and they're different, this is an error (should be caught in
     // validation)
     String mergedSearchGroup = determineSearchGroup(existingEntitySpec, newEntitySpec);
-    // viewUnrestricted: true if either side marks the entity unrestricted
-    boolean mergedViewUnrestricted =
-        existingEntitySpec.isViewUnrestricted() || newEntitySpec.isViewUnrestricted();
+    // viewUnrestricted: true if either side marks the entity unrestricted. A model plugin cannot
+    // lift view-based access control from an entity it only extends; the base value wins.
+    boolean mergedViewUnrestricted;
+    if (fromModelPlugin) {
+      mergedViewUnrestricted = existingEntitySpec.isViewUnrestricted();
+      if (newEntitySpec.isViewUnrestricted() && !mergedViewUnrestricted) {
+        log.warn(
+            "Ignoring viewUnrestricted=true from a model plugin for existing entity {}; the entity"
+                + " stays view-restricted.",
+            existingEntitySpec.getName());
+      }
+    } else {
+      mergedViewUnrestricted =
+          existingEntitySpec.isViewUnrestricted() || newEntitySpec.isViewUnrestricted();
+    }
 
     // If the base is a config spec, always create another config spec.
     if (existingEntitySpec instanceof ConfigEntitySpec) {

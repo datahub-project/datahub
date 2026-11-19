@@ -136,6 +136,32 @@ public class PatchEntityRegistryTest {
   }
 
   @Test
+  public void testPluginCannotLiftViewRestrictionOnExistingEntity()
+      throws Exception, EntityRegistryException {
+    String baseYaml =
+        """
+        id: base-registry
+        entities:
+          - name: dataset
+            keyAspect: datasetKey
+            aspects:
+              - status
+        """;
+    MergedEntityRegistry merged =
+        new MergedEntityRegistry(
+            new ConfigEntityRegistry(new ByteArrayInputStream(baseYaml.getBytes())));
+
+    merged.apply(
+        loadFromCoreClasspath(
+            Paths.get("src/test/resources/test-plugin-registry-view-unrestricted.yaml")));
+
+    // The plugin asks for viewUnrestricted on an entity it only extends: the base value wins.
+    assertFalse(merged.getEntitySpec("dataset").isViewUnrestricted());
+    // A new entity that leaves the field out stays view-restricted.
+    assertFalse(merged.getEntitySpec("chart").isViewUnrestricted());
+  }
+
+  @Test
   public void testMissingPluginClassFailsLoad() {
     EntityRegistryException thrown =
         expectThrows(

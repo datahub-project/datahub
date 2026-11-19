@@ -15,6 +15,15 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Model plugins that declare a plugin class that cannot be loaded ([#21461](https://github.com/datahub-project/datahub/pull/21461))
+
+A model plugin whose `entity-registry.yaml` names a validator, mutation hook, side effect or
+observer class that cannot be loaded now fails to load, and the reason shows in the models section
+of `/config`. Previously the plugin loaded without that class, so a validator could silently stop
+being applied. Entities defined in a model plugin now also honour `searchGroup` and
+`viewUnrestricted` from its YAML; `viewUnrestricted` defaults to false, and a plugin cannot make an
+entity it only extends view-unrestricted.
+
 ### CLI initialization from scripts
 
 When you run `datahub init` without an interactive terminal, it now stops if an existing
