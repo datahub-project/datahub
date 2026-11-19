@@ -38,6 +38,7 @@ The entity registry has a few important fields to pay attention to:
 
 - id: The name of your registry. This drives naming, artifact generation, so make sure you pick a unique name that will not conflict with other names you might create for other registries.
 - entities: A list of entities with aspects attached to them that you are creating additional aspects for as well as any new entities you wish to define. In this example, we are adding the aspect `customDataQualityRules` to the `dataset` entity.
+  A new entity can also list core aspects such as `status`, `ownership` or `globalTags` next to its own aspects.
 
 ## Build your new model
 
