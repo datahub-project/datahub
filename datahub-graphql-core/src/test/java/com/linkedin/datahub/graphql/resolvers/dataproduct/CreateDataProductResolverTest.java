@@ -49,6 +49,14 @@ public class CreateDataProductResolverTest {
     EntityService<?> entityService = mock(EntityService.class);
     resolver = new CreateDataProductResolver(dataProductService, entityService);
     when(dataProductService.verifyEntityExists(any(), eq(DOMAIN_URN))).thenReturn(true);
+    when(dataProductService.createDataProduct(any(), any(), any(), any(), any()))
+        .thenReturn(DATA_PRODUCT_URN);
+    when(dataProductService.getDataProductEntityResponse(any(), eq(DATA_PRODUCT_URN)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(DATA_PRODUCT_URN)
+                .setEntityName("dataProduct")
+                .setAspects(new EnvelopedAspectMap()));
   }
 
   @Test
@@ -85,25 +93,16 @@ public class CreateDataProductResolverTest {
   }
 
   @Test
+  public void testRejectsNonDataProductParentBeforeWriting() {
+    DataFetchingEnvironment environment = environment(DOMAIN_URN.toString(), DOMAIN_URN.toString());
+
+    assertThrows(CompletionException.class, () -> resolver.get(environment).join());
+    verify(dataProductService, never()).createDataProduct(any(), any(), any(), any(), any());
+  }
+
+  @Test
   public void testCreatesWithoutDomain() throws Exception {
-    DataProductService dataProductService = mock(DataProductService.class);
-    EntityService<?> entityService = mock(EntityService.class);
-    Urn dataProductUrn = UrnUtils.getUrn("urn:li:dataProduct:product");
-    when(dataProductService.createDataProduct(any(), any(), any(), any(), any()))
-        .thenReturn(dataProductUrn);
-    when(dataProductService.getDataProductEntityResponse(any(), eq(dataProductUrn)))
-        .thenReturn(
-            new EntityResponse()
-                .setUrn(dataProductUrn)
-                .setEntityName("dataProduct")
-                .setAspects(new EnvelopedAspectMap()));
-    CreateDataProductResolver resolver =
-        new CreateDataProductResolver(dataProductService, entityService);
-
-    DataFetchingEnvironment environment =
-        mockEnvironment(createInputWithoutDomain(), getMockAllowContext());
-
-    DataProduct result = resolver.get(environment).join();
+    DataProduct result = resolver.get(environment(null, null)).join();
 
     assertNotNull(result);
     verify(dataProductService, times(1)).createDataProduct(any(), any(), any(), any(), any());
@@ -112,98 +111,42 @@ public class CreateDataProductResolverTest {
 
   @Test
   public void testRejectsWithoutDomainWhenUnauthorized() {
-    DataProductService dataProductService = mock(DataProductService.class);
-    EntityService<?> entityService = mock(EntityService.class);
-    CreateDataProductResolver resolver =
-        new CreateDataProductResolver(dataProductService, entityService);
+    DataFetchingEnvironment environment = environment(null, null, getMockDenyContext());
 
-    DataFetchingEnvironment environment =
-        mockEnvironment(createInputWithoutDomain(), getMockDenyContext());
-
-    CompletionException exception =
-        expectThrows(CompletionException.class, () -> resolver.get(environment).join());
-    Throwable cause = exception.getCause();
-    while (cause != null && !(cause instanceof AuthorizationException)) {
-      cause = cause.getCause();
-    }
-    assertNotNull(cause, "Expected an AuthorizationException in the cause chain");
+    assertHasAuthorizationCause(
+        expectThrows(CompletionException.class, () -> resolver.get(environment).join()));
     verify(dataProductService, never()).createDataProduct(any(), any(), any(), any(), any());
-  }
-
-  @Test
-  public void testRejectsNonDataProductParentBeforeWriting() {
-    DataFetchingEnvironment environment = environment(DOMAIN_URN.toString(), DOMAIN_URN.toString());
-
-    assertThrows(CompletionException.class, () -> resolver.get(environment).join());
-    verify(dataProductService, never()).createDataProduct(any(), any(), any(), any(), any());
-  }
-
-  private static DataFetchingEnvironment environment(
-      String domainUrn, @Nullable String parentDataProduct) {
-    CreateDataProductPropertiesInput properties = new CreateDataProductPropertiesInput();
-    properties.setName("Product");
-    properties.setParentDataProduct(parentDataProduct);
-    CreateDataProductInput input = new CreateDataProductInput();
-    input.setProperties(properties);
-    input.setDomainUrn(domainUrn);
-
-    QueryContext context = getMockAllowContext();
-    DataFetchingEnvironment environment = mock(DataFetchingEnvironment.class);
-    when(environment.getArgument(eq("input"))).thenReturn(input);
-    when(environment.getContext()).thenReturn(context);
-    return environment;
   }
 
   @Test
   public void testRejectsWithoutDomainWithOnlyManageDomains() {
-    DataProductService dataProductService = mock(DataProductService.class);
-    EntityService<?> entityService = mock(EntityService.class);
-    CreateDataProductResolver resolver =
-        new CreateDataProductResolver(dataProductService, entityService);
-
     DataFetchingEnvironment environment =
-        mockEnvironment(
-            createInputWithoutDomain(),
-            contextGranting(PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE.getType()));
+        environment(null, null, contextGranting(PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE.getType()));
 
-    CompletionException exception =
-        expectThrows(CompletionException.class, () -> resolver.get(environment).join());
-    Throwable cause = exception.getCause();
-    while (cause != null && !(cause instanceof AuthorizationException)) {
-      cause = cause.getCause();
-    }
-    assertNotNull(cause, "Expected an AuthorizationException in the cause chain");
+    assertHasAuthorizationCause(
+        expectThrows(CompletionException.class, () -> resolver.get(environment).join()));
     verify(dataProductService, never()).createDataProduct(any(), any(), any(), any(), any());
   }
 
   @Test
   public void testCreatesWithoutDomainWithOnlyManageAllDataProducts() throws Exception {
-    DataProductService dataProductService = mock(DataProductService.class);
-    EntityService<?> entityService = mock(EntityService.class);
-    Urn dataProductUrn = UrnUtils.getUrn("urn:li:dataProduct:product");
-    when(dataProductService.createDataProduct(any(), any(), any(), any(), any()))
-        .thenReturn(dataProductUrn);
-    CreateDataProductResolver resolver =
-        new CreateDataProductResolver(dataProductService, entityService);
+    // The mocked context cannot run the mapper's view check, so skip mapping the result.
+    when(dataProductService.getDataProductEntityResponse(any(), any())).thenReturn(null);
 
-    DataFetchingEnvironment environment =
-        mockEnvironment(
-            createInputWithoutDomain(),
-            contextGranting(PoliciesConfig.MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE.getType()));
+    resolver
+        .get(
+            environment(
+                null,
+                null,
+                contextGranting(PoliciesConfig.MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE.getType())))
+        .join();
 
-    resolver.get(environment).join();
     verify(dataProductService, times(1)).createDataProduct(any(), any(), any(), any(), any());
   }
 
   @Test
   public void testBlankDomainUrnIsTreatedAsNoDomain() throws Exception {
-    DataProductService dataProductService = mockDataProductService();
-    CreateDataProductResolver resolver =
-        new CreateDataProductResolver(dataProductService, mock(EntityService.class));
-    CreateDataProductInput input = createInputWithoutDomain();
-    input.setDomainUrn("  ");
-
-    resolver.get(mockEnvironment(input, getMockAllowContext())).join();
+    resolver.get(environment("  ", null)).join();
 
     verify(dataProductService, never()).verifyEntityExists(any(), any());
     verify(dataProductService, times(1)).createDataProduct(any(), any(), any(), any(), any());
@@ -214,31 +157,18 @@ public class CreateDataProductResolverTest {
   public void testBlankDomainUrnStillRequiresManageAllDataProducts() {
     // A blank domainUrn takes the no-Domain path, so it must not skip the privilege check.
     for (String blankDomainUrn : new String[] {"", "  "}) {
-      DataProductService dataProductService = mockDataProductService();
-      CreateDataProductResolver resolver =
-          new CreateDataProductResolver(dataProductService, mock(EntityService.class));
-      CreateDataProductInput input = createInputWithoutDomain();
-      input.setDomainUrn(blankDomainUrn);
+      DataFetchingEnvironment environment = environment(blankDomainUrn, null, getMockDenyContext());
 
-      CompletionException exception =
-          expectThrows(
-              CompletionException.class,
-              () -> resolver.get(mockEnvironment(input, getMockDenyContext())).join());
-      assertHasAuthorizationCause(exception);
-      verify(dataProductService, never()).createDataProduct(any(), any(), any(), any(), any());
-      verify(dataProductService, never()).setDomain(any(), any(), any());
+      assertHasAuthorizationCause(
+          expectThrows(CompletionException.class, () -> resolver.get(environment).join()));
     }
+    verify(dataProductService, never()).createDataProduct(any(), any(), any(), any(), any());
+    verify(dataProductService, never()).setDomain(any(), any(), any());
   }
 
   @Test
   public void testCreatesWithDomain() throws Exception {
-    DataProductService dataProductService = mockDataProductService();
-    when(dataProductService.verifyEntityExists(any(), eq(DOMAIN_URN))).thenReturn(true);
-    CreateDataProductResolver resolver =
-        new CreateDataProductResolver(dataProductService, mock(EntityService.class));
-
-    DataProduct result =
-        resolver.get(mockEnvironment(createInputWithDomain(), getMockAllowContext())).join();
+    DataProduct result = resolver.get(environment(DOMAIN_URN.toString(), null)).join();
 
     assertNotNull(result);
     verify(dataProductService, times(1)).setDomain(any(), eq(DATA_PRODUCT_URN), eq(DOMAIN_URN));
@@ -246,17 +176,14 @@ public class CreateDataProductResolverTest {
 
   @Test
   public void testCreatesWithDomainWithOnlyManageAllDataProducts() throws Exception {
-    DataProductService dataProductService = mockDataProductService();
     // The mocked context cannot run the mapper's view check, so skip mapping the result.
     when(dataProductService.getDataProductEntityResponse(any(), any())).thenReturn(null);
-    when(dataProductService.verifyEntityExists(any(), eq(DOMAIN_URN))).thenReturn(true);
-    CreateDataProductResolver resolver =
-        new CreateDataProductResolver(dataProductService, mock(EntityService.class));
 
     resolver
         .get(
-            mockEnvironment(
-                createInputWithDomain(),
+            environment(
+                DOMAIN_URN.toString(),
+                null,
                 contextGranting(PoliciesConfig.MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE.getType())))
         .join();
 
@@ -265,47 +192,22 @@ public class CreateDataProductResolverTest {
 
   @Test
   public void testRejectsMissingDomainBeforeWriting() {
-    DataProductService dataProductService = mockDataProductService();
     when(dataProductService.verifyEntityExists(any(), eq(DOMAIN_URN))).thenReturn(false);
-    CreateDataProductResolver resolver =
-        new CreateDataProductResolver(dataProductService, mock(EntityService.class));
+    DataFetchingEnvironment environment = environment(DOMAIN_URN.toString(), null);
 
-    assertThrows(
-        CompletionException.class,
-        () -> resolver.get(mockEnvironment(createInputWithDomain(), getMockAllowContext())).join());
+    assertThrows(CompletionException.class, () -> resolver.get(environment).join());
     verify(dataProductService, never()).createDataProduct(any(), any(), any(), any(), any());
     verify(dataProductService, never()).setDomain(any(), any(), any());
   }
 
   @Test
   public void testRejectsWithDomainWhenUnauthorized() {
-    DataProductService dataProductService = mockDataProductService();
-    when(dataProductService.verifyEntityExists(any(), eq(DOMAIN_URN))).thenReturn(true);
-    CreateDataProductResolver resolver =
-        new CreateDataProductResolver(dataProductService, mock(EntityService.class));
+    DataFetchingEnvironment environment =
+        environment(DOMAIN_URN.toString(), null, getMockDenyContext());
 
-    CompletionException exception =
-        expectThrows(
-            CompletionException.class,
-            () ->
-                resolver
-                    .get(mockEnvironment(createInputWithDomain(), getMockDenyContext()))
-                    .join());
-    assertHasAuthorizationCause(exception);
+    assertHasAuthorizationCause(
+        expectThrows(CompletionException.class, () -> resolver.get(environment).join()));
     verify(dataProductService, never()).createDataProduct(any(), any(), any(), any(), any());
-  }
-
-  private static DataProductService mockDataProductService() {
-    DataProductService dataProductService = mock(DataProductService.class);
-    when(dataProductService.createDataProduct(any(), any(), any(), any(), any()))
-        .thenReturn(DATA_PRODUCT_URN);
-    when(dataProductService.getDataProductEntityResponse(any(), eq(DATA_PRODUCT_URN)))
-        .thenReturn(
-            new EntityResponse()
-                .setUrn(DATA_PRODUCT_URN)
-                .setEntityName("dataProduct")
-                .setAspects(new EnvelopedAspectMap()));
-    return dataProductService;
   }
 
   private static void assertHasAuthorizationCause(Throwable exception) {
@@ -314,12 +216,6 @@ public class CreateDataProductResolverTest {
       cause = cause.getCause();
     }
     assertNotNull(cause, "Expected an AuthorizationException in the cause chain");
-  }
-
-  private static CreateDataProductInput createInputWithDomain() {
-    CreateDataProductInput input = createInputWithoutDomain();
-    input.setDomainUrn(DOMAIN_URN.toString());
-    return input;
   }
 
   private static QueryContext contextGranting(String privilege) {
@@ -334,16 +230,20 @@ public class CreateDataProductResolverTest {
     return context;
   }
 
-  private static CreateDataProductInput createInputWithoutDomain() {
-    CreateDataProductPropertiesInput properties = new CreateDataProductPropertiesInput();
-    properties.setName("Product");
-    CreateDataProductInput input = new CreateDataProductInput();
-    input.setProperties(properties);
-    return input;
+  private static DataFetchingEnvironment environment(
+      @Nullable String domainUrn, @Nullable String parentDataProduct) {
+    return environment(domainUrn, parentDataProduct, getMockAllowContext());
   }
 
-  private static DataFetchingEnvironment mockEnvironment(
-      CreateDataProductInput input, QueryContext context) {
+  private static DataFetchingEnvironment environment(
+      @Nullable String domainUrn, @Nullable String parentDataProduct, QueryContext context) {
+    CreateDataProductPropertiesInput properties = new CreateDataProductPropertiesInput();
+    properties.setName("Product");
+    properties.setParentDataProduct(parentDataProduct);
+    CreateDataProductInput input = new CreateDataProductInput();
+    input.setProperties(properties);
+    input.setDomainUrn(domainUrn);
+
     DataFetchingEnvironment environment = mock(DataFetchingEnvironment.class);
     when(environment.getArgument(eq("input"))).thenReturn(input);
     when(environment.getContext()).thenReturn(context);
