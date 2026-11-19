@@ -2584,16 +2584,20 @@ def test_exposure_metric_view_flag_flip_soft_deletes(
     assert _MV_DATASET in {m["entityUrn"] for m in legacy}
     assert not _soft_deleted(legacy)
 
-    # false -> true: the `Metric View` dataset is soft-deleted, and so are the
-    # tags only the legacy path referenced (stale removal tracks materialized
-    # tags like any other entity).
-    semantic = run("semantic", emit=True)
-    assert _soft_deleted(semantic) == {
-        _MV_DATASET,
+    # false -> true: the `Metric View` dataset is soft-deleted. The global
+    # Dimension / Measure / Window Measure tags only the legacy path references
+    # are carried forward, not soft-deleted.
+    legacy_tags = {
         "urn:li:tag:Dimension",
         "urn:li:tag:Measure",
         "urn:li:tag:Window Measure",
     }
+    assert legacy_tags <= {m["entityUrn"] for m in legacy}
+    semantic = run("semantic", emit=True)
+    assert _soft_deleted(semantic) == {_MV_DATASET}
+    # Still kept a run later, with nothing referencing them.
+    again = run("semantic_again", emit=True)
+    assert not _soft_deleted(again) & legacy_tags
     semantic_urns = {
         urn
         for urn in {m["entityUrn"] for m in semantic}

@@ -326,6 +326,13 @@ def _parse_metric_view_source(
     )
 
 
+# Tags the legacy `Metric View` dataset path puts on dimension/measure fields.
+_DIMENSION_TAG = TagUrn("Dimension")
+_MEASURE_TAG = TagUrn("Measure")
+_WINDOW_MEASURE_TAG = TagUrn("Window Measure")
+_LEGACY_METRIC_VIEW_TAGS = (_DIMENSION_TAG, _MEASURE_TAG, _WINDOW_MEASURE_TAG)
+
+
 @dataclasses.dataclass(frozen=True)
 class _LoadedMetricViewSpec:
     """A metric view spec already loaded (None: it could not be read), so the
@@ -661,6 +668,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.process_notebooks()
 
         yield from self.process_metastores()
+        if self._emit_metric_view_semantic_models:
+            self._preserve_legacy_metric_view_tags()
 
         yield from self.get_view_lineage()
 
@@ -814,6 +823,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             aspect=UpstreamLineageClass(upstreams=upstreams),
         ).as_workunit()
 
+    def _preserve_legacy_metric_view_tags(self) -> None:
+        # The legacy `Metric View` path tags fields Dimension / Measure / Window
+        # Measure. With semantic-model emission on nothing references them, and
+        # stale removal would soft-delete these shared, global tags. Keep the
+        # ones a previous run ingested.
+        legacy_tags = {tag.urn() for tag in _LEGACY_METRIC_VIEW_TAGS}
+        self._carry_forward_checkpoint_urns(lambda previous: previous in legacy_tags)
+
     def _preserve_genie_agent_urn(self, urn: str) -> None:
         # A warned space is not emitted, so stale removal would soft-delete it.
         # Copy the URN forward only when a previous run ingested it. A space
@@ -845,7 +862,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             return
         for urn in last_checkpoint.state.urns:
             if keep(urn):
-                current_state.add_checkpoint_urn(type=AiAgentUrn.ENTITY_TYPE, urn=urn)
+                current_state.add_checkpoint_urn(type=guess_entity_type(urn), urn=urn)
 
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
         metastore: Optional[Metastore] = None
@@ -3035,7 +3052,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             return {}, {}
         tag_map: Dict[str, List[TagUrn]] = {}
         desc_map: Dict[str, str] = {}
-        for key, base_tag in (("dimensions", "Dimension"), ("measures", "Measure")):
+        for key, base_tag in (
+            ("dimensions", _DIMENSION_TAG),
+            ("measures", _MEASURE_TAG),
+        ):
             entries = metric_view_spec.get(key)
             if not isinstance(entries, list):
                 continue
@@ -3046,10 +3066,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 if not isinstance(name, str) or not name:
                     continue
                 key_lower = name.lower()
-                tags: List[TagUrn] = [TagUrn(base_tag)]
+                tags: List[TagUrn] = [base_tag]
                 window = entry.get("window")
                 if key == "measures" and isinstance(window, list) and window:
-                    tags.append(TagUrn("Window Measure"))
+                    tags.append(_WINDOW_MEASURE_TAG)
                 tag_map[key_lower] = tags
 
                 raw_desc = entry_description(entry)
