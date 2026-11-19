@@ -21,6 +21,8 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptArray;
+import com.linkedin.form.FormPromptType;
+import com.linkedin.form.StructuredPropertyParams;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.PrimitivePropertyValue;
@@ -376,6 +378,83 @@ public class FormServiceTest {
             anyString(),
             eq(entityUrn),
             eq(ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testIsPromptForStructuredPropertyRequiresMatchingPromptAndAssignedForm()
+      throws Exception {
+    final Urn entityUrn = datasetUrns(1).get(0);
+    final Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:testProperty");
+    final SystemEntityClient mockClient = mockEntityClient(List.of(entityUrn), Map.of());
+    final FormInfo formInfo =
+        new FormInfo()
+            .setName("Test Form")
+            .setPrompts(
+                new FormPromptArray(
+                    ImmutableList.of(
+                        new FormPrompt()
+                            .setId(TEST_PROMPT_ID)
+                            .setTitle("Prompt")
+                            .setType(FormPromptType.STRUCTURED_PROPERTY)
+                            .setStructuredPropertyParams(
+                                new StructuredPropertyParams().setUrn(propertyUrn)))));
+    when(mockClient.getV2(
+            eq(OP_CONTEXT),
+            eq(FORM_ENTITY_NAME),
+            eq(TEST_FORM_URN),
+            eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
+        .thenReturn(entityResponse(TEST_FORM_URN, FORM_INFO_ASPECT_NAME, formInfo.data()));
+    stubEntityForms(mockClient, entityUrn, formsWithIncomplete(TEST_FORM_URN));
+    final FormService service = new FormService(mockClient);
+
+    assertTrue(
+        service.isPromptForStructuredProperty(
+            OP_CONTEXT,
+            TEST_FORM_URN,
+            entityUrn,
+            TEST_PROMPT_ID,
+            FormPromptType.STRUCTURED_PROPERTY,
+            propertyUrn));
+    assertFalse(
+        service.isPromptForStructuredProperty(
+            OP_CONTEXT,
+            TEST_FORM_URN,
+            entityUrn,
+            TEST_PROMPT_ID,
+            FormPromptType.STRUCTURED_PROPERTY,
+            UrnUtils.getUrn("urn:li:structuredProperty:otherProperty")),
+        "a response may only set the property its prompt asks for");
+    assertFalse(
+        service.isPromptForStructuredProperty(
+            OP_CONTEXT,
+            TEST_FORM_URN,
+            entityUrn,
+            TEST_PROMPT_ID,
+            FormPromptType.FIELDS_STRUCTURED_PROPERTY,
+            propertyUrn),
+        "the prompt type must match");
+
+    stubEntityForms(mockClient, entityUrn, emptyForms());
+    assertFalse(
+        service.isPromptForStructuredProperty(
+            OP_CONTEXT,
+            TEST_FORM_URN,
+            entityUrn,
+            TEST_PROMPT_ID,
+            FormPromptType.STRUCTURED_PROPERTY,
+            propertyUrn),
+        "the form must be assigned to the entity");
+  }
+
+  private static void stubEntityForms(
+      final SystemEntityClient mockClient, final Urn entityUrn, final Forms forms)
+      throws Exception {
+    when(mockClient.getV2(
+            eq(OP_CONTEXT),
+            eq(DATASET_ENTITY_NAME),
+            eq(entityUrn),
+            eq(ImmutableSet.of(FORMS_ASPECT_NAME))))
+        .thenReturn(entityResponse(entityUrn, FORMS_ASPECT_NAME, forms.data()));
   }
 
   /**

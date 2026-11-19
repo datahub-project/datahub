@@ -29,6 +29,7 @@ import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormActorAssignment;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
+import com.linkedin.form.FormPromptType;
 import com.linkedin.form.FormType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.patch.builder.StructuredPropertiesPatchBuilder;
@@ -929,6 +930,32 @@ public class FormService extends BaseService {
 
     // Update verifications for forms aspect.
     forms.setVerifications(new FormVerificationAssociationArray(newVerifications));
+  }
+
+  /**
+   * Whether {@code formPromptId} is a {@code promptType} prompt asking for {@code
+   * structuredPropertyUrn}, on a form assigned to {@code entityUrn}. Prompt responses are checked
+   * with this before anything is written, so a response can only set the property its prompt asks
+   * for, on an entity the form applies to.
+   */
+  public boolean isPromptForStructuredProperty(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn formUrn,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final String formPromptId,
+      @Nonnull final FormPromptType promptType,
+      @Nonnull final Urn structuredPropertyUrn)
+      throws Exception {
+    if (getFormWithUrn(getEntityForms(opContext, entityUrn), formUrn) == null) {
+      return false;
+    }
+    return getFormInfo(opContext, formUrn).getPrompts().stream()
+        .anyMatch(
+            prompt ->
+                prompt.getId().equals(formPromptId)
+                    && prompt.getType() == promptType
+                    && prompt.hasStructuredPropertyParams()
+                    && prompt.getStructuredPropertyParams().getUrn().equals(structuredPropertyUrn));
   }
 
   /**

@@ -779,7 +779,8 @@ the asset at all. A write is checked against a user's constraints when the user 
 Entity**, **Edit Entity Properties** (structured properties) or **Edit Entity Tags** (tags) on the
 asset. If none of those grants covers every tag or structured property being changed, the write is
 rejected. A user without any of those privileges, who is allowed to write through another privilege
-(such as **Manage Documents**) or through a form or proposal, is not limited by constraints.
+(such as **Manage Documents**) or by answering a form assigned to them, is not limited by
+constraints.
 
 Example JSON of a policy with constraints:
 

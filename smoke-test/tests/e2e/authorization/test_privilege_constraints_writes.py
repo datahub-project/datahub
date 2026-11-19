@@ -10,7 +10,8 @@ holding only the privilege named in its test:
   - Manage Users & Groups: OpenAPI v3 upsert on a group, Rest.li tag PATCH on a user
   - Create Entity: new dataset with structured properties and tags (OpenAPI v3 and Rest.li)
   - Delete Entity: OpenAPI v3 DELETE of the structuredProperties aspect
-  - Form assignee (no privileges): GraphQL submitFormPrompt
+  - Form assignee (no privileges): GraphQL submitFormPrompt. A user who is not assigned, or an
+    answer for a property the prompt does not ask for, is denied and nothing is written.
   - Edit Entity constrained to one property: that property is allowed, any other is
     denied on Rest.li and OpenAPI v3
 
@@ -86,7 +87,9 @@ CREATOR = "creator"
 DELETER = "deleter"
 CONSTRAINED = "constrained"
 ASSIGNEE = "assignee"
-ROLES = (DOCS_WRITER, GROUP_MANAGER, CREATOR, DELETER, CONSTRAINED, ASSIGNEE)
+# No policy and not assigned to the form.
+OUTSIDER = "outsider"
+ROLES = (DOCS_WRITER, GROUP_MANAGER, CREATOR, DELETER, CONSTRAINED, ASSIGNEE, OUTSIDER)
 
 
 def _email(role: str) -> str:
@@ -614,29 +617,48 @@ def test_delete_entity_openapi_delete_aspect(setup):
 # --- Forms ---
 
 
-def test_form_assignee_graphql_submit_prompt(setup):
-    _eventually_allowed(
-        lambda: _graphql(
-            setup,
-            ASSIGNEE,
-            """mutation submitFormPrompt($urn: String!, $input: SubmitFormPromptInput!) {
-                submitFormPrompt(urn: $urn, input: $input) }""",
-            {
-                "urn": DATASET_FORM,
-                "input": {
-                    "promptId": setup["prompt_id"],
-                    "formUrn": setup["form_urn"],
-                    "type": "STRUCTURED_PROPERTY",
-                    "structuredPropertyParams": {
-                        "structuredPropertyUrn": PROP_A,
-                        "values": [{"stringValue": "answered"}],
-                    },
+_SUBMIT_FORM_PROMPT = """mutation submitFormPrompt($urn: String!, $input: SubmitFormPromptInput!) {
+    submitFormPrompt(urn: $urn, input: $input) }"""
+
+
+def _submit_prompt(setup: Dict[str, Any], role: str, prop: str, value: str) -> None:
+    _graphql(
+        setup,
+        role,
+        _SUBMIT_FORM_PROMPT,
+        {
+            "urn": DATASET_FORM,
+            "input": {
+                "promptId": setup["prompt_id"],
+                "formUrn": setup["form_urn"],
+                "type": "STRUCTURED_PROPERTY",
+                "structuredPropertyParams": {
+                    "structuredPropertyUrn": prop,
+                    "values": [{"stringValue": value}],
                 },
             },
-        ),
+        },
+    )
+
+
+def test_form_assignee_graphql_submit_prompt(setup):
+    _eventually_allowed(
+        lambda: _submit_prompt(setup, ASSIGNEE, PROP_A, "answered"),
         "GraphQL submitFormPrompt by a form assignee without Edit privileges",
     )
     assert _stored_props(setup["graph"], DATASET_FORM)[PROP_A] == ["answered"]
+
+
+def test_form_prompt_denied_for_unassigned_user(setup):
+    with pytest.raises(WriteDenied, match="not assigned"):
+        _submit_prompt(setup, OUTSIDER, PROP_A, "outsider")
+    assert _stored_props(setup["graph"], DATASET_FORM).get(PROP_A) != ["outsider"]
+
+
+def test_form_prompt_denied_for_property_the_prompt_does_not_ask_for(setup):
+    with pytest.raises(WriteDenied, match="does not ask for"):
+        _submit_prompt(setup, ASSIGNEE, PROP_B, "other-property")
+    assert PROP_B not in _stored_props(setup["graph"], DATASET_FORM)
 
 
 # --- privilegeConstraints still enforced ---
