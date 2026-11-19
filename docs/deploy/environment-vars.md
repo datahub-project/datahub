@@ -1062,6 +1062,7 @@ Reference Links:
 | `NESTED_DOMAINS_ENABLED`                | `true`  | Enable nested Domains feature                                                                                   | GMS        |
 | `SCHEMA_FIELD_ENTITY_FETCH_ENABLED`     | `true`  | Enable fetching schema field entities                                                                           | GMS        |
 | `BUSINESS_ATTRIBUTE_ENTITY_ENABLED`     | `false` | Enable business attribute entity                                                                                | GMS        |
+| `SHOW_APPLICATIONS_FEATURE_TOGGLE`      | `false` | Show the "Show Applications" toggle on the Appearance settings page                                             | GMS        |
 | `DATA_CONTRACTS_ENABLED`                | `true`  | Enable Data Contracts feature                                                                                   | GMS        |
 | `DATASET_SUMMARY_PAGE_V1`               | `true`  | Enable Asset Summary pages for Datasets                                                                         | GMS        |
 | `ALTERNATE_MCP_VALIDATION`              | `false` | Enable alternate MCP validation flow                                                                            | GMS        |
