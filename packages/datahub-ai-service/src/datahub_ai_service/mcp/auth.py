@@ -31,6 +31,7 @@ from datahub_core_mcp_tools.graphql_helpers import http_status
 
 from .auth_mode import GmsAuth, GmsAuthDetector
 from .client_factory import CallerClientFactory
+from .host_guard import HostGuard
 
 _ME_QUERY = "query getMe { me { corpUser { urn } } }"
 _MAX_CACHED_TOKENS = 1024
@@ -190,12 +191,14 @@ class McpAuthMiddleware:
         app: ASGIApp,
         verifier: DataHubTokenVerifier,
         detector: GmsAuthDetector,
+        host_guard: HostGuard,
         *,
         required: bool,
     ) -> None:
         self._app = app
         self._verifier = verifier
         self._detector = detector
+        self._host_guard = host_guard
         self._required = required
         self._gms_auth: Optional[GmsAuth] = None
 
@@ -230,6 +233,13 @@ class McpAuthMiddleware:
                     "METADATA_SERVICE_AUTH_ENABLED in DataHub, or set "
                     "DATAHUB_AI_AUTH_MODE=auto.",
                 )
+                return
+            # Anyone who reaches /mcp now acts as the system user: refuse requests
+            # a rebound web page could send.
+            rejection = self._host_guard.rejection(scope)
+            if rejection is not None:
+                logger.warning(f"Refused an MCP request: {rejection}")
+                await _send_error(send, 403, "forbidden_host", rejection)
                 return
             caller = Caller(
                 token=_bearer_token(scope), actor_urn=None, gms_auth=GmsAuth.OFF

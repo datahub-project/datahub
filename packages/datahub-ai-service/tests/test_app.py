@@ -300,3 +300,34 @@ async def test_turning_gms_auth_on_drops_cached_verdicts(gms: FakeGms) -> None:
         assert await initialize("alice-token") == 200
         assert gms.me_calls == calls + 1
         assert await initialize("anything") == 401
+
+
+@pytest.mark.parametrize(
+    ("auth_enabled", "headers", "status"),
+    [
+        (False, {"Host": "attacker.example:9002"}, 403),
+        (False, {"Origin": "http://attacker.example:9002"}, 403),
+        (False, {"Origin": "http://localhost:9002"}, 200),
+        # With auth on, the PAT is the protection; any host may call.
+        (True, {"Host": "datahub.example.com"}, 200),
+    ],
+)
+async def test_rebinding_requests_are_refused_while_auth_is_off(
+    gms: FakeGms, auth_enabled: bool, headers: dict[str, str], status: int
+) -> None:
+    gms.auth_enabled = auth_enabled
+
+    async with serve(_app(gms)) as url, httpx.AsyncClient() as http:
+        response = await http.post(
+            f"{url}/mcp",
+            json=INITIALIZE,
+            headers={
+                **MCP_HEADERS,
+                "Authorization": "Bearer alice-token",
+                **headers,
+            },
+        )
+
+    assert response.status_code == status
+    if status == 403:
+        assert response.json()["error"] == "forbidden_host"

@@ -21,6 +21,9 @@ def test_overrides() -> None:
             "DATAHUB_AI_MCP_RESPONSE_MODE": "JSON",
             "DATAHUB_MCP_TOKEN_CACHE_TTL_SECONDS": "30",
             "DATAHUB_AI_TOOL_TIME_LIMIT_SECONDS": "60",
+            "DATAHUB_AI_ALLOWED_HOSTS": "datahub.example.com, localhost:9002",
+            "DATAHUB_AI_TRUSTED_PROXIES": "datahub-frontend-react",
+            "DATAHUB_AI_AUTH_MODE": "required",
         }
     )
 
@@ -30,6 +33,9 @@ def test_overrides() -> None:
     assert config.mcp_response_mode == "json"
     assert config.token_cache_ttl_seconds == 30
     assert config.tool_time_limit_seconds == 60
+    assert config.allowed_hosts == ("datahub.example.com", "localhost:9002")
+    assert config.trusted_proxies == ("datahub-frontend-react",)
+    assert config.auth_mode == "required"
 
 
 def test_refuses_a_shared_token() -> None:
@@ -46,6 +52,7 @@ def test_refuses_a_shared_token() -> None:
         {"DATAHUB_GMS_URL": "http://gms:8080", "DATAHUB_AI_MCP_RESPONSE_MODE": "xml"},
         {"DATAHUB_GMS_URL": "http://gms:8080", "DATAHUB_AI_PORT": "nine"},
         {"DATAHUB_GMS_URL": "http://gms:8080", "DATAHUB_AI_MCP_ENABLED": "maybe"},
+        {"DATAHUB_GMS_URL": "http://gms:8080", "DATAHUB_AI_AUTH_MODE": "off"},
     ],
 )
 def test_invalid(env: dict[str, str]) -> None:

@@ -32,6 +32,25 @@ class AiServiceConfig:
     """auto follows GMS: a token when GMS auth is on, none when it's off.
     required serves /mcp only while GMS auth is on."""
 
+    allowed_hosts: tuple[str, ...] = ("localhost", "127.0.0.1", "[::1]")
+    """While GMS auth is off, /mcp answers only requests addressed to these
+    hosts (``host`` for any port, ``host:port`` for one)."""
+
+    allowed_origins: tuple[str, ...] = (
+        "http://localhost",
+        "https://localhost",
+        "http://127.0.0.1",
+        "https://127.0.0.1",
+        "http://[::1]",
+        "https://[::1]",
+    )
+    """While GMS auth is off, a request with an Origin must come from one of
+    these (``scheme://host`` for any port)."""
+
+    trusted_proxies: tuple[str, ...] = ()
+    """Peers (IPs, networks or hostnames) whose X-Forwarded-Host is believed:
+    the frontend that proxies /mcp."""
+
     token_cache_ttl_seconds: float = 300.0
     """How long a verified caller token is trusted before GMS checks it again."""
 
@@ -72,6 +91,13 @@ class AiServiceConfig:
         return cls(
             gms_url=gms_url,
             auth_mode=auth_mode,  # type: ignore[arg-type]
+            allowed_hosts=_list(environ, "DATAHUB_AI_ALLOWED_HOSTS", cls.allowed_hosts),
+            allowed_origins=_list(
+                environ, "DATAHUB_AI_ALLOWED_ORIGINS", cls.allowed_origins
+            ),
+            trusted_proxies=_list(
+                environ, "DATAHUB_AI_TRUSTED_PROXIES", cls.trusted_proxies
+            ),
             host=environ.get("DATAHUB_AI_HOST", cls.host),
             port=_number(environ, "DATAHUB_AI_PORT", cls.port, int),
             mcp_enabled=_flag(environ, "DATAHUB_AI_MCP_ENABLED", default=True),
@@ -95,6 +121,14 @@ class AiServiceConfig:
                 float,
             ),
         )
+
+
+def _list(
+    environ: Mapping[str, str], name: str, default: tuple[str, ...]
+) -> tuple[str, ...]:
+    if name not in environ:
+        return default
+    return tuple(item.strip() for item in environ[name].split(",") if item.strip())
 
 
 def _flag(environ: Mapping[str, str], name: str, *, default: bool) -> bool:
