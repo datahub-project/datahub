@@ -1,6 +1,5 @@
 {
     "compilerOptions": {
-        "baseUrl": ".",
         "target": "es2017",
         "lib": ["dom", "dom.iterable", "esnext"],
         "allowJs": true,
@@ -12,7 +11,7 @@
         "forceConsistentCasingInFileNames": true,
         "noFallthroughCasesInSwitch": true,
         "module": "esnext",
-        "moduleResolution": "node",
+        "moduleResolution": "bundler",
         "resolveJsonModule": true,
         "isolatedModules": false,
         "noEmit": true,
@@ -38,7 +37,9 @@
         "src/conf/theme/styled-components.d.ts",
         "vite.config.ts",
         "vite-plugins",
+        "devtools",
         ".eslintrc.js",
+        "eslint-airbnb-typescript.js",
         "functions",
         "eslint-rules"
     ]

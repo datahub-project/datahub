@@ -85,6 +85,31 @@ def test_if_expression_over_bound_sources_yields_both_branches() -> None:
     assert sorted(s or "" for s in servers) == ["dev-host", "prod-host"]
 
 
+def test_if_branches_navigating_one_source_to_different_tables_yield_both() -> None:
+    """Both arms reference the same step; the else arm must not be mistaken
+    for a circular reference and dropped because the then arm visited it."""
+    details = _resolve(
+        'let\n Source = Sql.Database("h", "db"),\n'
+        ' picked = if UseArchive then Source{[Schema="dbo",Item="archive"]}[Data]'
+        ' else Source{[Schema="dbo",Item="live"]}[Data]\nin\n picked'
+    )
+    assert [_navigation(d) for d in details] == [
+        [{"Schema": "dbo", "Item": "archive"}],
+        [{"Schema": "dbo", "Item": "live"}],
+    ]
+
+
+def test_if_branches_reaching_the_same_table_report_it_once() -> None:
+    """The row-limit toggle `if n > 0 then t else Table.FirstN(t, 5)` reads one
+    table through both arms; it must surface as a single upstream."""
+    details = _resolve(
+        'let\n Source = Sql.Database("h", "db"),\n'
+        ' t = Source{[Schema="dbo",Item="events"]}[Data],\n'
+        " limited = if ImportData > 0 then t else Table.FirstN(t, 5)\nin\n limited"
+    )
+    assert [_navigation(d) for d in details] == [[{"Schema": "dbo", "Item": "events"}]]
+
+
 @pytest.mark.xfail(
     strict=True,
     reason=(

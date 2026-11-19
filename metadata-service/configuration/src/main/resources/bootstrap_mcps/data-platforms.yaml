@@ -1028,6 +1028,16 @@
     displayName: SAP Datasphere
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/sapdataspherelogo.svg"
+- entityUrn: urn:li:dataPlatform:s4hana
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: s4hana
+    displayName: SAP S/4HANA
+    type: OTHERS
+    logoUrl: "assets/platforms/s4hanalogo.svg"
 - entityUrn: urn:li:dataPlatform:dremio
   entityType: dataPlatform
   aspectName: dataPlatformInfo

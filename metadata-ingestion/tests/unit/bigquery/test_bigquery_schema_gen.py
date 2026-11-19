@@ -41,6 +41,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
 )
+from datahub.utilities.file_backed_collections import FileBackedDict
 from tests.unit.bigquery.conftest import (
     DATASET,
     PROJECT,
@@ -70,6 +71,15 @@ def make_column(
         cluster_column_position=kwargs.pop("cluster_column_position", None),
         **kwargs,
     )
+
+
+def _columns(
+    by_table: Dict[str, List[BigqueryColumn]],
+) -> FileBackedDict[List[BigqueryColumn]]:
+    # get_columns_for_dataset returns a FileBackedDict the caller closes.
+    columns: FileBackedDict[List[BigqueryColumn]] = FileBackedDict()
+    columns.update(by_table)
+    return columns
 
 
 def table_list_item(
@@ -157,7 +167,7 @@ class TestProjectProcessing:
         dataset = BigqueryDataset(name=DATASET, location="US")
         api = as_mock(schema_gen.schema_api)
         api.get_datasets_for_project_id.return_value = [dataset]
-        api.get_columns_for_dataset.return_value = {}
+        api.get_columns_for_dataset.side_effect = lambda *_, **__: _columns({})
         api.get_table_constraints_for_dataset.return_value = {}
         table = make_table("t1")
         profile_wu = MetadataChangeProposalWrapper(
@@ -192,7 +202,9 @@ class TestProjectProcessing:
             include_table_snapshots=False,
             include_table_constraints=False,
         )
-        as_mock(schema_gen.schema_api.get_columns_for_dataset).return_value = {}
+        as_mock(schema_gen.schema_api.get_columns_for_dataset).side_effect = (
+            lambda *_, **__: _columns({})
+        )
         broken = BigqueryDataset(name="broken")
         good = BigqueryDataset(name="good")
         denied = BigqueryDataset(name="denied_ds")
@@ -251,11 +263,13 @@ class TestProcessSchema:
             field_path="id",
         )
         api = as_mock(schema_gen.schema_api)
-        api.get_columns_for_dataset.return_value = {
-            "t1": [make_column("id", "INT64")],
-            "v1": [make_column("id", "INT64")],
-            "s1": [make_column("id", "INT64")],
-        }
+        api.get_columns_for_dataset.return_value = _columns(
+            {
+                "t1": [make_column("id", "INT64")],
+                "v1": [make_column("id", "INT64")],
+                "s1": [make_column("id", "INT64")],
+            }
+        )
         api.get_table_constraints_for_dataset.return_value = {"t1": [pk]}
         api.get_views_for_dataset.return_value = [
             BigqueryView(
@@ -339,7 +353,7 @@ class TestProcessSchema:
             include_table_snapshots=False,
         )
         api = as_mock(schema_gen.schema_api)
-        api.get_columns_for_dataset.return_value = {}
+        api.get_columns_for_dataset.side_effect = lambda *_, **__: _columns({})
         api.get_table_constraints_for_dataset.return_value = {}
         api.list_tables.return_value = []
         biglake = BigqueryDataset(name="ds-biglake", location="aws-us-east-1")

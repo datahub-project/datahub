@@ -3,6 +3,7 @@ package com.datahub.gms.servlet;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
@@ -26,9 +27,15 @@ import org.springframework.web.context.WebApplicationContext;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+// A Spring context is per test class, so V2 is enabled here rather than in
+// ConfigSearchExportDefaultTest. V2 stays a supported configuration when V3 is off.
 @SpringBootTest(
     classes = {ConfigServletTestContext.class, ConfigSearchExportV2Test.QueryFilterConfig.class},
-    properties = {"spring.main.allow-bean-definition-overriding=true"})
+    properties = {
+      "spring.main.allow-bean-definition-overriding=true",
+      "elasticsearch.entityIndex.v2.enabled=true",
+      "elasticsearch.entityIndex.v3.enabled=false"
+    })
 public class ConfigSearchExportV2Test extends AbstractTestNGSpringContextTests {
 
   @Configuration
@@ -55,7 +62,7 @@ public class ConfigSearchExportV2Test extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testCsvExportListsWordGramPhraseClauses() throws Exception {
+  public void testV2ExportListsWordGramPhraseClauses() throws Exception {
     ServletContext servletContext = mock(ServletContext.class);
     when(servletContext.getAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE))
         .thenReturn(webApplicationContext);
@@ -69,7 +76,9 @@ public class ConfigSearchExportV2Test extends AbstractTestNGSpringContextTests {
     new ConfigSearchExport().doGet(request, response);
 
     verify(response).setStatus(HttpServletResponse.SC_OK);
-    // The default query matches word gram subfields with phrase clauses
-    assertTrue(body.toString().contains("phrase_match"), body.toString());
+    String csv = body.toString();
+    // The V2 query matches word gram subfields with phrase clauses and has no V3 Stage 1 clause
+    assertTrue(csv.contains("phrase_match"), csv);
+    assertFalse(csv.contains("v3_text_search"), csv);
   }
 }

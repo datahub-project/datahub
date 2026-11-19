@@ -131,6 +131,9 @@ dependencies {
   testCompileOnly externalDependency.lombok
   testAnnotationProcessor externalDependency.lombok
 
+  // Local file-backed bootstrap uses the same driver as the GMS runtime.
+  runtimeOnly externalDependency.h2
+
   testImplementation externalDependency.h2
   testImplementation testFixtures(project(':metadata-io'))
 

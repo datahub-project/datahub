@@ -85,7 +85,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         compact,
         mentionsComponent,
         mentionsPicker: MentionsPicker,
-        mentionNodeView,
+        mentionView,
         imageUploadEnabled,
     } = props;
     const styledTheme = useTheme();
@@ -101,7 +101,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new BulletListExtension({}),
             new CodeBlockExtension({ syntaxTheme }),
             new CodeExtension(),
-            new DataHubMentionsExtension({ mentionNodeView }),
+            new DataHubMentionsExtension({ mentionView }),
             new DropCursorExtension({
                 color: styledTheme.colors.borderBrandFocused,
                 width: 2,

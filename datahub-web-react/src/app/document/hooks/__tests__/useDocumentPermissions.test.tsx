@@ -1,9 +1,9 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { DocumentSourceType } from '@types';
 

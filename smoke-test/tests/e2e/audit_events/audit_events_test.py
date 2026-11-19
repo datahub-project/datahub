@@ -5,6 +5,7 @@ from typing import Dict, List, Set
 
 import pytest
 
+from datahub.cli import cli_utils
 from tests.e2e.tokens.token_utils import (
     assert_graphql_mutation_succeeded,
     removeUser,
@@ -204,8 +205,14 @@ def test_login_events(auth_session, login_audit_user):
 def test_failed_login_events(failed_login_audit_user):
     admin_session = failed_login_audit_user
     failed_login_started_ms = audit_action_started_ms()
+    # Not login_as: a bad password comes back as HTTP 500, which login_as retries as
+    # transient (10 attempts, ~75s of backoff, and one extra failed-login event each).
     try:
-        login_as(FAILED_LOGIN_USER_EMAIL, "NOTMYPASSWORD")
+        cli_utils.get_frontend_session_login_as(
+            username=FAILED_LOGIN_USER_EMAIL,
+            password="NOTMYPASSWORD",
+            frontend_url=get_frontend_url(),
+        )
     except Exception:
         pass
 

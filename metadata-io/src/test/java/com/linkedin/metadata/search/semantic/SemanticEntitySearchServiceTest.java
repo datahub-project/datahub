@@ -12,7 +12,6 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.expectThrows;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.template.StringArray;
@@ -498,40 +497,70 @@ public class SemanticEntitySearchServiceTest {
   @Test
   public void testShouldReadSemanticV3() {
     assertFalse(SemanticEntitySearchService.shouldReadSemanticV3(null));
-    // V3 off: the flag alone never moves reads
     assertFalse(SemanticEntitySearchService.shouldReadSemanticV3(entityIndex(false, true)));
-    // Dual-write without the flag stays on the V2 semantic indices
     assertFalse(SemanticEntitySearchService.shouldReadSemanticV3(entityIndex(true, false)));
     assertTrue(SemanticEntitySearchService.shouldReadSemanticV3(entityIndex(true, true)));
+    EntityIndexConfiguration semanticOff = entityIndex(true, true);
+    semanticOff.getSemanticSearch().setEnabled(false);
+    assertFalse(SemanticEntitySearchService.shouldReadSemanticV3(semanticOff));
   }
 
   @Test
-  public void testRequireSupportedV3EngineChecksOpenSearchVersion() throws IOException {
+  public void testRequireSemanticIndexTargetNeedsV2OrV3SemanticRead() {
+    SemanticEntitySearchService.requireSemanticIndexTarget(entityIndexWithV2(true, false, false));
+    SemanticEntitySearchService.requireSemanticIndexTarget(entityIndexWithV2(false, true, false));
     assertThrows(
         IllegalStateException.class,
         () ->
-            SemanticEntitySearchService.requireSupportedV3Engine(
-                entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_2, "2.19.3")));
-    assertThrows(
-        IllegalStateException.class,
-        () ->
-            SemanticEntitySearchService.requireSupportedV3Engine(
-                entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "3.4.0")));
-    // An unreadable version refuses too, naming the version it got rather than asking for 3.5
-    IllegalStateException unknown =
-        expectThrows(
-            IllegalStateException.class,
-            () ->
-                SemanticEntitySearchService.requireSupportedV3Engine(
-                    entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "unknown")));
-    assertTrue(unknown.getMessage().contains("unknown"), unknown.getMessage());
+            SemanticEntitySearchService.requireSemanticIndexTarget(
+                entityIndexWithV2(false, false, false)));
+  }
+
+  private static EntityIndexConfiguration entityIndexWithV2(
+      boolean v2Enabled, boolean v3Enabled, boolean keywordReadEnabled) {
+    EntityIndexConfiguration config = entityIndex(v3Enabled, keywordReadEnabled);
+    config.getV2().setEnabled(v2Enabled);
+    return config;
+  }
+
+  @Test
+  public void testRequireSupportedV3EngineUsesTheSharedEngineFloor() throws IOException {
+    SemanticEntitySearchService.requireSupportedV3Engine(
+        entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_2, "2.19.3"));
+    SemanticEntitySearchService.requireSupportedV3Engine(
+        entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "3.4.0"));
+    SemanticEntitySearchService.requireSupportedV3Engine(
+        entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "unknown"));
+    SemanticEntitySearchService.requireSupportedV3Engine(
+        entityIndex(true, true), shimFor(SearchEngineType.ELASTICSEARCH_8, "unknown"));
     SemanticEntitySearchService.requireSupportedV3Engine(
         entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "3.5.0"));
     SemanticEntitySearchService.requireSupportedV3Engine(
         entityIndex(true, true), shimFor(SearchEngineType.ELASTICSEARCH_9, "9.1.5"));
-    // Without the V3 semantic read flag OpenSearch 2 keeps serving semantic search from V2
     SemanticEntitySearchService.requireSupportedV3Engine(
-        entityIndex(true, false), shimFor(SearchEngineType.OPENSEARCH_2, "2.19.3"));
+        entityIndex(true, false), shimFor(SearchEngineType.OPENSEARCH_2, "2.16.0"));
+    EntityIndexConfiguration lucene = entityIndex(true, true);
+    lucene.getSemanticSearch().getModels().values().forEach(model -> model.setKnnEngine("lucene"));
+    SemanticEntitySearchService.requireSupportedV3Engine(
+        lucene, shimFor(SearchEngineType.OPENSEARCH_2, "2.17.0"));
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            SemanticEntitySearchService.requireSupportedV3Engine(
+                entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_2, "2.17.0")));
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            SemanticEntitySearchService.requireSupportedV3Engine(
+                entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_2, "2.16.9")));
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            SemanticEntitySearchService.requireSupportedV3Engine(
+                entityIndex(true, true), shimFor(SearchEngineType.ELASTICSEARCH_8, "8.17.0")));
+    assertTrue(
+        SemanticEntitySearchService.supportsV3SemanticFilters(
+            shimFor(SearchEngineType.OPENSEARCH_2, "2.19.3")));
   }
 
   private static SearchClientShim<?> shimFor(SearchEngineType engineType, String version)
@@ -543,9 +572,8 @@ public class SemanticEntitySearchServiceTest {
   }
 
   @Test
-  public void testKeywordReadAloneKeepsSemanticSearchOnV2() throws IOException {
+  public void testKeywordReadOffKeepsSemanticSearchOnV2() throws IOException {
     EntityIndexConfiguration config = entityIndex(true, false);
-    config.getV3().setKeywordReadEnabled(true);
     SemanticEntitySearchService keywordCutOver = serviceWith(config);
     setupMockKnnResponse(
         List.of("urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)"), List.of(0.9));
@@ -747,22 +775,56 @@ public class SemanticEntitySearchServiceTest {
   }
 
   @Test
-  public void testV3SemanticReadWithoutVectorIndicesReturnsEmpty() throws IOException {
+  public void testV3SemanticReadSearchesTheSharedPrimaryIndex() throws IOException {
     SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true));
-    // A shared search-group index (the consolidated layout) is keyed by the group, which is not a
-    // semantic-enabled entity, so it carries no embeddings mapping and is not a kNN target.
+    // A shared search group carries the embeddings mapping applied to every V3 index, so semantic
+    // search queries it and limits hits to the enabled entity type.
+    stubSearchV3Cluster();
     stubEntitySpec("document", "primary");
     stubEntitySpec("dataset", null);
+    when(mockIndexConvention.getEntityIndexNameV3(mockOpContext, "primary"))
+        .thenReturn("primaryindex_v3");
+    when(v3SearchClientShim.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
+        .thenReturn(new KnnSearchResponse(List.of()));
 
-    SearchResult result =
-        v3Service.search(
-            mockOpContext, List.of("document", "dataset"), TEST_QUERY, null, null, 0, 10);
+    v3Service.search(mockOpContext, List.of("document", "dataset"), TEST_QUERY, null, null, 0, 10);
 
-    assertEquals(result.getNumEntities().intValue(), 0);
-    assertTrue(result.getEntities().isEmpty());
-    verify(mockEmbeddingProvider, never()).embed(anyString(), any(), any(EmbeddingTaskType.class));
-    verify(searchClientShim, never())
-        .searchKnn(any(OperationContext.class), any(KnnSearchRequest.class));
+    ArgumentCaptor<KnnSearchRequest> requestCaptor =
+        ArgumentCaptor.forClass(KnnSearchRequest.class);
+    verify(v3SearchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
+    KnnSearchRequest request = requestCaptor.getValue();
+    assertEquals(request.indexName(), "primaryindex_v3");
+    String filter = request.filter().orElseThrow().toString();
+    assertTrue(filter.contains("_entityType"), filter);
+    assertTrue(filter.contains("document"), filter);
+    assertFalse(filter.contains("dataset"), filter);
+  }
+
+  @Test
+  public void testV3EntityTypeFilterOnASharedIndexStaysOnTheField() throws IOException {
+    SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true));
+    stubSearchV3Cluster();
+    stubEntitySpec("document", "primary");
+    when(mockIndexConvention.getEntityIndexNameV3(mockOpContext, "primary"))
+        .thenReturn("primaryindex_v3");
+    when(v3SearchClientShim.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
+        .thenReturn(new KnnSearchResponse(List.of()));
+
+    v3Service.search(
+        mockOpContext,
+        List.of("document"),
+        TEST_QUERY,
+        createTestFilter("_entityType", "DOCUMENT"),
+        null,
+        0,
+        10);
+
+    ArgumentCaptor<KnnSearchRequest> requestCaptor =
+        ArgumentCaptor.forClass(KnnSearchRequest.class);
+    verify(v3SearchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
+    String filter = requestCaptor.getValue().filter().orElseThrow().toString();
+    assertTrue(filter.contains("_entityType=[document]"), filter);
+    assertFalse(filter.contains("_index="), filter);
   }
 
   // -------------------------------------------------------------------------
@@ -803,9 +865,9 @@ public class SemanticEntitySearchServiceTest {
     return filter;
   }
 
-  /** V3 flags on top of V2 plus semantic search enabled for documents, like the OSS defaults. */
+  /** V3 on top of V2 plus semantic search enabled for documents. */
   private static EntityIndexConfiguration entityIndex(
-      boolean v3Enabled, boolean semanticReadEnabled) {
+      boolean v3Enabled, boolean keywordReadEnabled) {
     SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
     semanticSearch.setEnabled(true);
     semanticSearch.setEnabledEntities(Set.of("document"));
@@ -815,7 +877,7 @@ public class SemanticEntitySearchServiceTest {
         .v3(
             EntityIndexVersionConfiguration.builder()
                 .enabled(v3Enabled)
-                .semanticReadEnabled(semanticReadEnabled)
+                .keywordReadEnabled(keywordReadEnabled)
                 .build())
         .semanticSearch(semanticSearch)
         .build();

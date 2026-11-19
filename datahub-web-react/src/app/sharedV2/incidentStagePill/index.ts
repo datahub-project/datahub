@@ -1,1 +1,1 @@
-export { IncidentStagePill } from './IncidentStagePill';
+export { IncidentStageIcon, IncidentStagePill } from './IncidentStagePill';

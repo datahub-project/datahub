@@ -605,7 +605,8 @@ plugins: Dict[str, Set[str]] = {
     }
     | aws_common,
     "datahub-rest": rest_common,
-    # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
+    # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility (and filelock 4.2.1+ needs Python 3.11+);
+    # Docker/constraints enforce >=4.2.1 where needed.
     "sync-file-emitter": {"filelock>=3.13.1,<5.0.0"},
     # DataHub Lite defaults to the stdlib sqlite3 engine, so this extra only
     # pulls in the `datahub lite serve` stack. The optional duckdb engine lives
@@ -702,7 +703,8 @@ plugins: Dict[str, Set[str]] = {
     "dynamodb": aws_common,
     # opensearch-py, not elasticsearch-py: the latter only supports Elasticsearch and rejects OpenSearch.
     # 3.x generated APIs are keyword-only; require >=3 so 2.x is not installed.
-    "elasticsearch": {"opensearch-py>=3.0.0,<4.0.0", *cachetools_lib},
+    # aws_common provides credential resolution for optional AWS IAM (SigV4) auth.
+    "elasticsearch": {"opensearch-py>=3.0.0,<4.0.0", *aws_common, *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5,<4.0.0",
         "pandas<3.0.0",
@@ -935,7 +937,11 @@ plugins: Dict[str, Set[str]] = {
     # path (richer metadata, run history support).
     "dlt": {"dlt>=1.0.0,<2.0.0"},
     "snaplogic": set(),
-    "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
+    # path_spec_common: QVD folder containers use the data lake sources'
+    # ContainerWUCreator, whose module imports PathSpec.
+    "qlik-sense": sqlglot_lib
+    | path_spec_common
+    | {"requests<3.0.0", "websocket-client<2.0.0"},
     "quicksight": aws_common | sqlglot_lib,
     # usage_common: sigma emits no usage itself, but SqlParsingAggregator imports
     # usage_common, which pulls sqlparse in via sql_formatter.
@@ -1273,7 +1279,7 @@ entry_points = {
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
-        "confluence = datahub.ingestion.source.confluence.confluence_source:ConfluenceSource",
+        "confluence = datahub.ingestion.source.confluence.source:ConfluenceSource",
         "google-drive = datahub.ingestion.source.google_drive.google_drive_source:GoogleDriveSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",

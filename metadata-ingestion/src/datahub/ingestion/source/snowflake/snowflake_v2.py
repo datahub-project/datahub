@@ -76,6 +76,12 @@ from datahub.ingestion.source.snowflake.snowflake_shares import SnowflakeSharesH
 from datahub.ingestion.source.snowflake.snowflake_stages import (
     SnowflakeStagesExtractor,
 )
+from datahub.ingestion.source.snowflake.snowflake_tag_entities import (
+    SnowflakeTagPlatformResourceRepository,
+)
+from datahub.ingestion.source.snowflake.snowflake_tag_resolver import (
+    SnowflakeTagResolver,
+)
 from datahub.ingestion.source.snowflake.snowflake_tasks import (
     SnowflakeTasksExtractor,
 )
@@ -641,6 +647,24 @@ class SnowflakeV2Source(
                 context=decision.reason,
             )
 
+    def _build_tag_resolver(self) -> SnowflakeTagResolver:
+        # PlatformResource records need a DataHub graph; without one every
+        # Snowflake tag is ingested as native, as before.
+        repository = (
+            SnowflakeTagPlatformResourceRepository(
+                self.ctx.graph, platform_instance=self.config.platform_instance
+            )
+            if self.ctx.graph
+            else None
+        )
+        return SnowflakeTagResolver(
+            repository=repository,
+            config=self.config,
+            report=self.report,
+            identifiers=self.identifiers,
+            platform_instance=self.config.platform_instance,
+        )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._snowflake_clear_ocsp_cache()
 
@@ -667,6 +691,7 @@ class SnowflakeV2Source(
             filters=self.filters,
             identifiers=self.identifiers,
             fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
+            tag_resolver=self._build_tag_resolver(),
         )
 
         with self.report.new_stage(f"*: {METADATA_EXTRACTION}"):

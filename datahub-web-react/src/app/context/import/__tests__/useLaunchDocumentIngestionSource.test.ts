@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it, vi } from 'vitest';
 
 import '@app/context/import/__tests__/testSetup';
@@ -7,6 +6,7 @@ import { buildGitHubDocumentsIngestionState } from '@app/context/import/buildGit
 import { buildNotionDocumentsIngestionState } from '@app/context/import/buildNotionDocumentsIngestionState';
 import { useLaunchDocumentIngestionSource } from '@app/context/import/hooks/useLaunchDocumentIngestionSource';
 import { ImportSourceType } from '@app/context/import/import.types';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const mockLaunch = vi.fn();
 

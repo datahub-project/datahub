@@ -13,8 +13,11 @@
 @gray-12: #141414;
 @gray-13: #000000;
 
+// antd compiles this into `body` and every antd component root, including overlays portaled to
+// <body> (dropdowns, submenus, modals) that sit outside the `.themeV2 *` Mulish rule. Keeping it in
+// sync with @font-family-v2 makes Mulish the default everywhere.
 @font-family:
-    'Manrope',
+    'Mulish',
     -apple-system,
     BlinkMacSystemFont,
     'Segoe UI',

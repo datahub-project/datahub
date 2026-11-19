@@ -4,13 +4,14 @@ import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react-swc';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PluginOption, defineConfig, loadEnv } from 'vite';
+import { PluginOption, ProxyOptions, UserConfig, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
 import { configDefaults } from 'vitest/config';
 
 // Vite config is evaluated by Node before `@src` aliases exist.
 /* eslint-disable import-alias/import-alias */
+import { liteModePlugin } from './devtools/vite-preview-plugin/liteMode';
 import { authShellPreloadPlugin } from './vite-plugins/authShellPreloadPlugin';
 import { i18nLocaleBundlesPlugin } from './vite-plugins/i18nLocaleBundlesPlugin';
 import { precompressAssetsPlugin } from './vite-plugins/precompressAssetsPlugin';
@@ -137,13 +138,13 @@ function substituteBasePathForDev(): PluginOption {
         name: 'substitute-base-path-dev',
         apply: 'serve',
         transformIndexHtml(html) {
-            return html.replace('@basePath', '/');
+            return html.replace('@basePath', '/').replace('@sentryConfig', 'null');
         },
     };
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(async ({ mode }) => {
+export default defineConfig(async ({ mode }): Promise<UserConfig> => {
     const { viteStaticCopy } = await import('vite-plugin-static-copy');
 
     // Via https://stackoverflow.com/a/66389044.
@@ -154,7 +155,7 @@ export default defineConfig(async ({ mode }) => {
     let antThemeConfig: any;
     if (process.env.ANT_THEME_CONFIG) {
         const themeConfigFile = `./src/conf/theme/${process.env.ANT_THEME_CONFIG}`;
-        // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
+        // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-require-imports
         antThemeConfig = require(themeConfigFile);
     }
 
@@ -181,14 +182,17 @@ export default defineConfig(async ({ mode }) => {
         configure: proxyDebugConfig,
     };
 
-    const proxyOptions = {
-        '/logIn': frontendProxy,
-        '/authenticate': frontendProxy,
-        '/api/v2/graphql': frontendProxy,
-        '/openapi/v1/tracking/track': frontendProxy,
-        '/openapi/v1/files': frontendProxy,
-        '/mfe/config': frontendProxy,
-    };
+    const proxyOptions: Record<string, ProxyOptions> =
+        process.env.PREVIEW_MODE === 'lite'
+            ? {}
+            : {
+                  '/logIn': frontendProxy,
+                  '/authenticate': frontendProxy,
+                  '/api/v2/graphql': frontendProxy,
+                  '/openapi/v1/tracking/track': frontendProxy,
+                  '/openapi/v1/files': frontendProxy,
+                  '/mfe/config': frontendProxy,
+              };
 
     const isHttps = process.env.REACT_APP_HTTPS === 'true';
     const localesDir = path.resolve(__dirname, 'src/i18n/locales');
@@ -207,6 +211,7 @@ export default defineConfig(async ({ mode }) => {
         appType: 'spa',
         base: './', // Always use root - runtime base path detection handles deployment paths
         plugins: [
+            liteModePlugin(),
             i18nLocaleBundlesPlugin(localesDir),
             substituteBasePathForDev(),
             assertLazyIconsGenerated(),
@@ -289,8 +294,6 @@ export default defineConfig(async ({ mode }) => {
             target: 'esnext',
             minify: 'esbuild',
             reportCompressedSize: false,
-            // Limit number of worker threads to reduce CPU pressure
-            workers: 3, // default is number of CPU cores
             rollupOptions: {
                 output: {
                     // Emit source maps without inlined sourcesContent. The original source text is
@@ -320,7 +323,8 @@ export default defineConfig(async ({ mode }) => {
             host: false,
             port: 3000,
             proxy: proxyOptions,
-            https: isHttps,
+            // Vite 6 types `https` as TLS options; an empty object enables HTTPS like `true` did.
+            https: isHttps ? {} : undefined,
         },
         css: {
             preprocessorOptions: {
@@ -335,7 +339,7 @@ export default defineConfig(async ({ mode }) => {
         test: {
             // scripts/*.test.mjs uses node:test and is run from the frontend-build job.
             // Vitest would otherwise collect it and fail with "No test suite found".
-            exclude: [...configDefaults.exclude, 'scripts/**'],
+            exclude: [...configDefaults.exclude, 'scripts/**', 'devtools/**'],
             globals: true,
             environment: 'jsdom',
             setupFiles: './src/setupTests.ts',
@@ -345,6 +349,13 @@ export default defineConfig(async ({ mode }) => {
             hookTimeout: 30000, // 30 seconds timeout for hooks
             teardownTimeout: 15000, // 15 seconds timeout for teardown
             ...(isCI ? {} : { maxWorkers: 2, minWorkers: 1 }),
+            server: {
+                deps: {
+                    // ESM package importing `react/jsx-runtime`, which React 17 lacks an `exports` entry for,
+                    // so Node's resolver fails. Let Vite resolve it instead. Remove once on React 18+.
+                    inline: ['react-diff-viewer-continued'],
+                },
+            },
             onConsoleLog(log) {
                 // Suppress noisy Apollo Client / GraphQL mock warnings that produce
                 // thousands of lines of output and make CI logs unreadable.
