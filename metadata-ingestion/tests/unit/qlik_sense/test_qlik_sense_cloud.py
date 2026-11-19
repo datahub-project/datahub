@@ -663,7 +663,7 @@ def test_dropped_connection_is_retried_through_the_adapter() -> None:
     assert len(sent) == 2
 
 
-def test_app_without_lineage_graph_is_not_a_read_error(
+def test_app_without_lineage_graph_is_flagged_not_a_read_error(
     requests_mock: requests_mock_module.Mocker,
 ) -> None:
     requests_mock.get("https://tenant.example.com/api/v1/api-keys", json={})
@@ -679,7 +679,36 @@ def test_app_without_lineage_graph_is_not_a_read_error(
     api._add_qri_of_tables([table], "app-1", errors)
 
     assert errors.messages == []
+    assert errors.lineage_graph_missing
     assert table.tableQri is None
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_missing_table_lineage_graph_is_checked_like_a_missing_app_graph(
+    mock_session_cls: MagicMock,
+    mock_websocket_cls: MagicMock,
+    mock_app_cls: MagicMock,
+) -> None:
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    app = _cloud_app()
+    mock_app_cls.model_validate.return_value = app
+
+    def tables_without_graph(
+        websocket: object, app_id: str, errors: ReadErrors
+    ) -> List[QlikTable]:
+        errors.lineage_graph_missing = True
+        return [_blackbox_table("SELECT order_id FROM orders")]
+
+    with (
+        patch.object(api, "_get_app_sheets", return_value=[]),
+        patch.object(api, "_get_app_used_tables", side_effect=tables_without_graph),
+    ):
+        api._get_app("app-1")
+
+    # The source then compares with the last read before trusting the tables.
+    assert app.lineage_graph_missing
 
 
 def test_table_from_a_personal_space_connection_is_kept() -> None:

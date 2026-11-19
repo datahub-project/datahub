@@ -264,6 +264,7 @@ class QlikAPI(QlikBaseAPI):
             )
             if response.status_code == 404:
                 logger.debug(f"App {app_id} has no lineage graph")
+                errors.lineage_graph_missing = True
                 return
             response.raise_for_status()
             for table_node_qri in response.json()[Constant.GRAPH][Constant.NODES]:
@@ -410,6 +411,7 @@ class QlikAPI(QlikBaseAPI):
                     errors.record(
                         f"Unable to fetch table lineage of app {app_id}. Exception: {e}"
                     )
+            app.lineage_graph_missing |= errors.lineage_graph_missing
             app.tables_read_failed = len(errors.messages) > read_errors
             if not app.tables or not all(table.tableQri for table in app.tables):
                 try:
