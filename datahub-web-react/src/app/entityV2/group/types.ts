@@ -5,4 +5,6 @@ export enum TabType {
     Assets = 'Owner Of',
     /* untranslated-text -- enum doubles as route path + deep-link target */
     Members = 'Members',
+    /* untranslated-text -- enum doubles as route path + deep-link target */
+    Policies = 'Policies',
 }

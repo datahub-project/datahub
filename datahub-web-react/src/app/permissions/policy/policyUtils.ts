@@ -1,8 +1,10 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
+import { TFunction } from 'i18next';
 
 import { ListPoliciesDocument, ListPoliciesQuery } from '@graphql/policy.generated';
 import {
     EntityType,
+    Policy,
     PolicyMatchCondition,
     PolicyMatchCriterion,
     PolicyMatchCriterionValue,
@@ -146,6 +148,20 @@ export const getFieldCondition = (
     );
 };
 
+/** Label for a criterion condition; `t` must be bound to the settings.permissions namespace. */
+export const getConditionLabel = (condition: PolicyMatchCondition, t: TFunction) => {
+    switch (condition) {
+        case PolicyMatchCondition.Equals:
+            return t('policyForm.condition.equals');
+        case PolicyMatchCondition.NotEquals:
+            return t('policyForm.condition.notEquals');
+        case PolicyMatchCondition.StartsWith:
+            return t('policyForm.condition.startsWith');
+        default:
+            return condition;
+    }
+};
+
 export const getFieldValuesOfTags = (filter: Maybe<PolicyMatchFilter> | undefined, resourceFieldType: string) => {
     return filter?.criteria?.find((criterion) => criterion.field === resourceFieldType)?.values || [];
 };
@@ -279,4 +295,25 @@ export const removeFromListPoliciesCache = (client, urn, pageSize) => {
             },
         },
     });
+};
+
+/** Maps a policy's privilege types to display names, as shown by the policy details modal. */
+export const getPrivilegeOptions = (
+    policy: Pick<Policy, 'type' | 'privileges'>,
+    platformPrivileges: Privilege[],
+    resourcePrivileges: ResourcePrivileges[],
+) => {
+    if (policy?.type === PolicyType.Platform) {
+        return platformPrivileges
+            .filter((platformPrivilege) => policy.privileges.includes(platformPrivilege.type))
+            .map((platformPrivilege) => ({ type: platformPrivilege.type, name: platformPrivilege.displayName }));
+    }
+    const allResourcePrivileges = resourcePrivileges.find(
+        (resourcePrivilege) => resourcePrivilege.resourceType === 'all',
+    );
+    return (
+        allResourcePrivileges?.privileges
+            .filter((resourcePrivilege) => policy.privileges.includes(resourcePrivilege.type))
+            .map((b) => ({ type: b.type, name: b.displayName })) || []
+    );
 };

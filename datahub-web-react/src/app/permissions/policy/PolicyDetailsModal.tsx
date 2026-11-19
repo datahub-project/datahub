@@ -14,6 +14,7 @@ import { FIELD_TYPES, RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permis
 import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 import {
     convertLegacyResourceFilter,
+    getConditionLabel,
     getFieldCondition,
     getFieldValues,
     mapResourceTypeToDisplayName,
@@ -215,19 +216,6 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges, 
         return entityRegistry.getDisplayName(entity.type, entity);
     };
 
-    const getConditionLabel = (condition: PolicyMatchCondition) => {
-        switch (condition) {
-            case PolicyMatchCondition.Equals:
-                return t('policyForm.condition.equals');
-            case PolicyMatchCondition.NotEquals:
-                return t('policyForm.condition.notEquals');
-            case PolicyMatchCondition.StartsWith:
-                return t('policyForm.condition.startsWith');
-            default:
-                return condition;
-        }
-    };
-
     const renderValueDisplay = (label: string, condition: PolicyMatchCondition, entity?: Maybe<Entity>) => {
         if (condition === PolicyMatchCondition.StartsWith) {
             return <Text size="md">{label}</Text>;
@@ -248,7 +236,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges, 
                 <Heading type="h5" size="md" weight="bold" color="text">
                     {fieldLabel}
                 </Heading>
-                <Pill label={getConditionLabel(condition)} color="primary" size="sm" clickable={false} />
+                <Pill label={getConditionLabel(condition, t)} color="primary" size="sm" clickable={false} />
             </FieldHeaderContainer>
         );
     };

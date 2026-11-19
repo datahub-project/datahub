@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
+import { getPrivilegeOptions } from '@app/permissions/policy/policyUtils';
 
 import { useCreatePolicyMutation, useDeletePolicyMutation, useUpdatePolicyMutation } from '@graphql/policy.generated';
 import {
@@ -14,7 +15,6 @@ import {
     PolicyMatchFilter,
     PolicyMatchFilterInput,
     PolicyState,
-    PolicyType,
     PolicyUpdateInput,
     ResourceFilterInput,
 } from '@types';
@@ -107,27 +107,8 @@ export function usePolicy(
         return policyInput;
     };
 
-    const getPrivilegeNames = (policy: Omit<Policy, 'urn'>) => {
-        let privileges: PrivilegeOptionType[] = [];
-        if (policy?.type === PolicyType.Platform) {
-            privileges = platformPrivileges
-                .filter((platformPrivilege) => policy.privileges.includes(platformPrivilege.type))
-                .map((platformPrivilege) => {
-                    return { type: platformPrivilege.type, name: platformPrivilege.displayName };
-                });
-        } else {
-            const allResourcePriviliges = resourcePrivileges.find(
-                (resourcePrivilege) => resourcePrivilege.resourceType === 'all',
-            );
-            privileges =
-                allResourcePriviliges?.privileges
-                    .filter((resourcePrivilege) => policy.privileges.includes(resourcePrivilege.type))
-                    .map((b) => {
-                        return { type: b.type, name: b.displayName };
-                    }) || [];
-        }
-        return privileges;
-    };
+    const getPrivilegeNames = (policy: Omit<Policy, 'urn'>): PrivilegeOptionType[] =>
+        getPrivilegeOptions(policy, platformPrivileges, resourcePrivileges);
 
     // On Delete Policy handler
     const onRemovePolicy = (policy: Policy) => {
