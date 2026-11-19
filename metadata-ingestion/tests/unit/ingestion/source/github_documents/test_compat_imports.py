@@ -1,0 +1,118 @@
+import importlib
+import sys
+import warnings
+from typing import List, Tuple
+
+import pytest
+
+_PACKAGE = "datahub.ingestion.source.github_documents"
+
+# Public names importable from github_documents before the shared code moved to
+# repository_documents. Code built on github-documents imports these, so they
+# must keep resolving until the old paths are removed.
+_OLD_IMPORTS: List[Tuple[str, List[str]]] = [
+    (
+        "github_api",
+        [
+            "GITHUB_API_BASE",
+            "REPO_URL_PATTERN",
+            "GitHubApiClient",
+            "GitHubFileInfo",
+            "GitHubTokenProvider",
+            "StaticTokenProvider",
+            "collect_intermediate_directories",
+            "make_dir_source_id",
+            "make_file_source_id",
+            "make_repo_source_id",
+            "normalize_document_id",
+            "parse_repo_identifier",
+            "resolve_parent_dir_source_id",
+        ],
+    ),
+    ("github_documents_config", ["GitHubDocumentsSourceConfig"]),
+    ("github_documents_report", ["GitHubDocumentsSourceReport"]),
+    (
+        "github_documents_source",
+        [
+            "EXTRACTION_ALGO_VERSION",
+            "GitHubDocumentsSource",
+            "LAST_EXPORTED_CONTENT_HASH_KEY",
+            "PROP_GITHUB_DIRECTORY_PATH",
+            "PROP_GITHUB_FILE_PATH",
+            "PROP_IMPORT_SOURCE_ID",
+            "compute_file_content_hash",
+            "compute_source_hash",
+        ],
+    ),
+    ("github_hierarchy", ["GitHubHierarchyExtractor"]),
+    (
+        "okf_bundles",
+        [
+            "RESERVED_FILENAMES",
+            "ROOT_PATH",
+            "bundle_index_path",
+            "concept_id",
+            "discover_bundles",
+            "enclosing_bundle",
+        ],
+    ),
+    ("okf_cleanup", ["clear_okf_metadata"]),
+    (
+        "okf_frontmatter",
+        [
+            "FRONTMATTER_DELIMITER",
+            "MAX_FRONTMATTER_BYTES",
+            "OkfFrontmatter",
+            "parse_frontmatter",
+            "parse_okf_frontmatter",
+        ],
+    ),
+    (
+        "okf_mapping",
+        [
+            "EMAIL_PATTERN",
+            "MAPPING_VERSION",
+            "NATIVE_MAPPINGS",
+            "OkfLookupCache",
+            "OkfMapping",
+            "map_okf",
+        ],
+    ),
+    (
+        "okf_metadata",
+        ["parse_stamp", "parse_status", "parse_timestamp", "parse_verified"],
+    ),
+    ("okf_patches", ["Association", "reconcile_okf_associations"]),
+]
+
+# Modules that only forward to repository_documents, and so warn on import.
+_MOVED_MODULES = [
+    "github_hierarchy",
+    "github_documents_report",
+    "okf_bundles",
+    "okf_cleanup",
+    "okf_frontmatter",
+    "okf_mapping",
+    "okf_metadata",
+    "okf_patches",
+]
+
+
+@pytest.mark.parametrize(
+    "module, name",
+    [(module, name) for module, names in _OLD_IMPORTS for name in names],
+)
+def test_old_github_documents_import_paths_resolve(module: str, name: str) -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        imported = importlib.import_module(f"{_PACKAGE}.{module}")
+    assert hasattr(imported, name)
+
+
+@pytest.mark.parametrize("module", _MOVED_MODULES)
+def test_moved_modules_warn_on_import(
+    module: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delitem(sys.modules, f"{_PACKAGE}.{module}", raising=False)
+    with pytest.warns(DeprecationWarning, match="repository_documents"):
+        importlib.import_module(f"{_PACKAGE}.{module}")

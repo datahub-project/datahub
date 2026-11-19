@@ -2843,3 +2843,36 @@ def test_already_neutral_okf_state_is_not_cleaned_again(
         getattr(wu.metadata, "changeType", None) != ChangeTypeClass.DELETE
         for wu in workunits
     )
+
+
+def test_map_okf_override_changes_emitted_metadata() -> None:
+    from datahub.ingestion.source.repository_documents.okf_mapping import OkfMapping
+
+    class RetitlingSource(GitHubDocumentsSource):
+        def _map_okf(self, frontmatter: Any, **kwargs: Any) -> Optional[OkfMapping]:
+            mapping = super()._map_okf(frontmatter, **kwargs)
+            assert mapping is not None
+            mapping.title = f"Reviewed: {mapping.title}"
+            return mapping
+
+    source = RetitlingSource(
+        GitHubDocumentsSourceConfig(
+            github_token=SecretStr("test-token"),
+            repository="example-org/analytics",
+            okf_bundle_roots=[""],
+            enable_okf=True,
+            create_repo_root_document=False,
+        ),
+        PipelineContext(run_id="test-run"),
+    )
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="mau.md", size=100, sha="blob123")],
+        file_content='---\nokfVersion: "1"\ntype: Guide\ntitle: MAU\n---\nBody.\n',
+    )
+    titles = [
+        info.title
+        for wu in source.get_workunits()
+        if (info := wu.get_aspect_of_type(DocumentInfoClass)) is not None
+    ]
+    assert titles == ["Reviewed: MAU"]

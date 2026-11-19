@@ -44,11 +44,13 @@ from datahub.ingestion.source.repository_documents.okf_bundles import (
 )
 from datahub.ingestion.source.repository_documents.okf_cleanup import clear_okf_metadata
 from datahub.ingestion.source.repository_documents.okf_frontmatter import (
+    OkfFrontmatter,
     parse_okf_frontmatter,
 )
 from datahub.ingestion.source.repository_documents.okf_mapping import (
     MAPPING_VERSION,
     OkfLookupCache,
+    OkfMapping,
     map_okf,
 )
 from datahub.ingestion.source.repository_documents.paths import (
@@ -146,6 +148,18 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
     Subclasses set ``platform`` and supply the API client and file URLs. The
     platform name also prefixes source ids and the ``<platform>_*`` custom
     properties, so documents from different hosts never share an identity.
+
+    Hooks for subclasses. Each host source must define ``platform``,
+    ``platform_display_name``, ``_parse_config``, ``_make_client``,
+    ``_repository_url`` and ``_build_external_url``. These may also be
+    overridden, and keep their signatures across releases:
+
+    - ``_create_client``: build the client from the source instance rather
+      than from the config alone.
+    - ``_map_okf``: adjust the metadata mapped from OKF frontmatter.
+    - ``_build_document``: adjust the document built for a file or folder.
+
+    Other underscore methods are internal and may change without notice.
     """
 
     platform: ClassVar[str]
@@ -548,7 +562,7 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         okf_mapping = None
         text = content
         if frontmatter is not None and bundle is not None:
-            okf_mapping = map_okf(
+            okf_mapping = self._map_okf(
                 frontmatter,
                 document_urn=document_urn,
                 bundle=bundle,
@@ -1090,6 +1104,37 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         yield MetadataChangeProposalWrapper(
             entityUrn=document_urn, aspect=StatusClass(removed=False)
         ).as_workunit()
+
+    def _map_okf(
+        self,
+        frontmatter: OkfFrontmatter,
+        *,
+        document_urn: str,
+        bundle: OkfBundleClass,
+        file_path: str,
+        revision: OkfRevisionClass,
+        attribution_source: Optional[str],
+        ctx: PipelineContext,
+        report: RepositoryDocumentsSourceReport,
+        lookup_cache: Optional[OkfLookupCache] = None,
+    ) -> Optional[OkfMapping]:
+        """Map a file's OKF frontmatter to DataHub metadata.
+
+        Override to adjust the mapping, for example to filter or add owners.
+        Wrapping the module-level ``map_okf`` does not work: this method is
+        the only call site.
+        """
+        return map_okf(
+            frontmatter,
+            document_urn=document_urn,
+            bundle=bundle,
+            file_path=file_path,
+            revision=revision,
+            attribution_source=attribution_source,
+            ctx=ctx,
+            report=report,
+            lookup_cache=lookup_cache,
+        )
 
     def _attach_platform_instance(self, doc: Document, owner_repo: str) -> None:
         doc._set_aspect(
