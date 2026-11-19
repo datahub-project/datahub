@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Dict, FrozenSet, List, Optional, Set, Tuple, Type
+from urllib.parse import unquote
 
 import sqlglot
 from sqlglot import ParseError, expressions as exp
@@ -2713,9 +2714,11 @@ class OdbcLineage(AbstractLineage):
             # Find matching override: DSN-scoped first, then global. Compare
             # case-insensitively: make_urn lowercases names by default
             # (convert_lineage_urns_to_lowercase), while users copy mixed-case
-            # names straight from the Power Query navigator.
-            urn_database_key = urn_database.casefold()
-            urn_table_key = urn_table.casefold()
+            # names straight from the Power Query navigator. URN names are
+            # percent-encoded (orders(v2) is orders%28v2%29) and config names are
+            # not, so decode first.
+            urn_database_key = unquote(urn_database).casefold()
+            urn_table_key = unquote(urn_table).casefold()
             dsn_key = fold_dsn_case(dsn)
             scoped_indexes: List[int] = []
             global_indexes: List[int] = []
