@@ -48,6 +48,7 @@ from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionRunEventClass,
     AssertionTypeClass,
+    ChangeTypeClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
@@ -2862,6 +2863,40 @@ class TestUnresolvedTargetPlatform:
             for upstream in fgl.upstreams or []
         ] == [make_schema_field_urn(external_urn, "id")]
         assert not any("dataPlatform:unknown" in str(wu.metadata) for wu in workunits)
+
+
+@pytest.mark.parametrize("incremental_lineage", [True, False])
+def test_sqlmesh_lineage_is_restated_and_warehouse_edge_patched(
+    incremental_lineage: bool,
+) -> None:
+    """As in dbt, lineage on SQLMesh's own datasets is restated each run, so
+    dependencies removed from the project drop out, while the edge onto the
+    warehouse table stays a patch. incremental_lineage doesn't change either."""
+    source = _make_source({"incremental_lineage": incremental_lineage})
+    upstream = _make_mock_model("star.base_developer")
+    model = _make_mock_model("star.dim_developer", depends_on={"star.base_developer"})
+    mock_ctx = _make_mock_context(
+        {"star.base_developer": upstream, "star.dim_developer": model},
+        {},
+        WAREHOUSE_PLATFORM,
+        None,
+    )
+    with patch(
+        "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshContext",
+        return_value=mock_ctx,
+    ):
+        workunits = list(source.get_workunits())
+
+    change_types: dict[str, set] = {"sqlmesh": set(), WAREHOUSE_PLATFORM: set()}
+    for wu in workunits:
+        if getattr(wu.metadata, "aspectName", None) != "upstreamLineage":
+            continue
+        platform = wu.get_urn().split("dataPlatform:")[1].split(",")[0]
+        change_types[platform].add(getattr(wu.metadata, "changeType", None))
+    assert change_types == {
+        "sqlmesh": {ChangeTypeClass.UPSERT},
+        WAREHOUSE_PLATFORM: {ChangeTypeClass.PATCH},
+    }
 
 
 @pytest.mark.parametrize(

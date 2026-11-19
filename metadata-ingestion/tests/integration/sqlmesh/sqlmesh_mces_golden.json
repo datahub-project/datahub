@@ -539,14 +539,12 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
-                "value": {
+        "json": {
+            "upstreams": [
+                {
                     "auditStamp": {
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
@@ -554,11 +552,11 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
                     "type": "TRANSFORMED"
                 }
-            }
-        ]
+            ]
+        }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400497,
+        "lastObserved": 1719792000346,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1042,14 +1040,12 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
-                "value": {
+        "json": {
+            "upstreams": [
+                {
                     "auditStamp": {
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
@@ -1057,11 +1053,11 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
                     "type": "TRANSFORMED"
                 }
-            }
-        ]
+            ]
+        }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400504,
+        "lastObserved": 1719792000351,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }

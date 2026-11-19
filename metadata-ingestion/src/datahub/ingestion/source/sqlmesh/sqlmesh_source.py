@@ -2,10 +2,14 @@ import contextlib
 import logging
 import re
 from typing import (
+    TYPE_CHECKING,
     Any,
     Dict,
     Iterable,
+    List,
     Optional,
+    Type,
+    Union,
 )
 
 from datahub.emitter.mce_builder import (
@@ -77,6 +81,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk import Dataset
+
+if TYPE_CHECKING:
+    from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +179,18 @@ class SqlmeshSource(
 
     def get_report(self) -> SqlmeshSourceReport:
         return self.report
+
+    def get_excluded_workunit_processors(
+        self,
+    ) -> "List[Union[str, Type[WorkunitProcessor]]]":
+        from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
+            AutoIncrementalLineageProcessor,
+        )
+
+        # As in dbt: SQLMesh is the only writer of lineage on its own datasets, so
+        # it is restated each run and dependencies removed from the project drop
+        # out. Edges onto warehouse tables are patched explicitly in siblings.py.
+        return [AutoIncrementalLineageProcessor]
 
     def _report_tobiko_local_state_fallback(self, reason: str) -> None:
         self.report.warning(

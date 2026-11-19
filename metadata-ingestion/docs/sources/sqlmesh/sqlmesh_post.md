@@ -24,6 +24,9 @@ lineage runs through SQLMesh from table to table:
   names, because SQLMesh doesn't create environment copies of them.
 - If the warehouse platform can't be resolved (no `target_platform`, and none detected
   from the gateway), the warehouse links are skipped and the run reports a warning.
+- Lineage on SQLMesh datasets is restated on each run, as with dbt, so dependencies
+  removed from the project drop out. SQLMesh dataset URNs don't include the
+  environment, so ingest each environment under its own `env` or `platform_instance`.
 
 The warehouse source plugin must also keep the SQLMesh edge. Most warehouse sources
 (Snowflake, BigQuery, Redshift and others) default to `incremental_lineage: false`,
