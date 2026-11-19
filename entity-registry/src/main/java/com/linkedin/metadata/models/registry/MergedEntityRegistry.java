@@ -150,7 +150,9 @@ public class MergedEntityRegistry implements EntityRegistry {
     if (existingEntitySpec != null) {
       // Check for searchGroup conflicts
       validateSearchGroupCompatibility(existingEntitySpec, newEntitySpec, validationResult);
-      validateKeyAspectUnchanged(existingEntitySpec, newEntitySpec, validationResult);
+      if (existingEntitySpec instanceof PartialEntitySpec) {
+        validateKeyAspectUnchanged(existingEntitySpec, newEntitySpec, validationResult);
+      }
 
       existingEntitySpec
           .getAspectSpecMap()
@@ -189,9 +191,9 @@ public class MergedEntityRegistry implements EntityRegistry {
   }
 
   /**
-   * A registry that names a key aspect for an existing entity (for example a newer version of a
-   * plugin that defines the entity) must keep the same key aspect with the same schema: the key
-   * determines the entity's URNs, so even an additive change would orphan existing entities.
+   * A newer version of a plugin that defines an entity must keep the same key aspect with the same
+   * schema: the key determines the entity's URNs, so even an additive change would orphan existing
+   * entities. Only applied to plugin-defined entities, so merges onto stock entities are unchanged.
    */
   private void validateKeyAspectUnchanged(
       EntitySpec existingEntitySpec, EntitySpec newEntitySpec, ValidationResult validationResult) {

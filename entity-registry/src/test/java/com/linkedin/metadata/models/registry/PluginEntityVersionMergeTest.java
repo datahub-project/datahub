@@ -9,6 +9,7 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.ConfigEntitySpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
@@ -135,6 +136,20 @@ public class PluginEntityVersionMergeTest {
                         thing(
                             aspect("thingKey", KEY_V1), aspect("thingInfo", INFO_INCOMPATIBLE)))));
     assertTrue(e.getMessage().contains("thingInfo schema is not compatible"), e.getMessage());
+  }
+
+  @Test
+  public void testStockEntityIsNotSubjectToKeyAspectCheck()
+      throws Exception, EntityRegistryException {
+    EntitySpec stock =
+        new ConfigEntitySpec("thing", "thingKey", List.of(aspect("thingKey", KEY_V1)), null);
+    MergedEntityRegistry merged =
+        new MergedEntityRegistry(registryOf(stock))
+            .apply(registryOf(thing(aspect("thingKey", KEY_V2))));
+
+    assertTrue(merged.getEntitySpec("thing") instanceof ConfigEntitySpec);
+    assertTrue(
+        merged.getEntitySpec("thing").getKeyAspectSpec().getPegasusSchema().contains("region"));
   }
 
   private static EntitySpec thing(AspectSpec... aspects) {
