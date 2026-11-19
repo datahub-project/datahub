@@ -62,8 +62,20 @@ ROOT_ALIAS = "source"
 # (metric_view.field.<lowercase name>.*), used to route them to the logical
 # dataset that carries the field.
 FIELD_CUSTOM_PROPERTY_PREFIX = "metric_view.field."
+JOIN_CUSTOM_PROPERTY_PREFIX = "metric_view.join."
+
+_JOIN_CARDINALITY = "cardinality"
+_JOIN_RELY = "rely"
+# YAML 1.1 join cardinality; a join with none is many-to-one.
+_JOIN_CARDINALITIES: Dict[str, str] = {
+    "many_to_one": ERModelRelationshipCardinalityClass.N_ONE,
+    "one_to_many": ERModelRelationshipCardinalityClass.ONE_N,
+}
 
 _DIMENSIONS_KEY = "dimensions"
+# The documented key for dimensions; `dimensions` is its backward-compatible
+# synonym. Folded into `dimensions` when the spec is loaded.
+_FIELDS_KEY = "fields"
 _MEASURES_KEY = "measures"
 _TIME_TYPE_PREFIXES = ("date", "timestamp")
 _DISPLAY_NAME_MAX_LEN = 255
@@ -273,6 +285,69 @@ def _normalize_format(fmt: object) -> Optional[Dict[str, Any]]:
     return None
 
 
+@dataclass
+class MetricViewDimensionKeys:
+    spec: Dict[str, Any]
+    duplicate_names: List[str] = field(default_factory=list)
+
+
+def normalize_dimension_keys(spec: Dict[str, Any]) -> MetricViewDimensionKeys:
+    """Fold `fields:` (documented) and `dimensions:` (synonym) into `dimensions`.
+
+    Every reader then only looks at `dimensions`. When both keys are present the
+    lists are merged, `fields` first; a name declared in both keeps its first
+    definition and is reported. The input spec is not modified.
+    """
+    fields = spec.get(_FIELDS_KEY)
+    if fields is None:
+        return MetricViewDimensionKeys(spec=spec)
+    normalized = dict(spec)
+    normalized.pop(_FIELDS_KEY)
+    dimensions = spec.get(_DIMENSIONS_KEY)
+    if not isinstance(fields, list):
+        # Malformed; keep it where shape checks will see it.
+        normalized.setdefault(_DIMENSIONS_KEY, fields)
+        return MetricViewDimensionKeys(spec=normalized)
+    merged: List[Any] = []
+    seen: Set[str] = set()
+    duplicates: List[str] = []
+    for entry in fields + (dimensions if isinstance(dimensions, list) else []):
+        name = entry.get("name") if isinstance(entry, dict) else None
+        if isinstance(name, str):
+            if name.lower() in seen:
+                duplicates.append(name)
+                continue
+            seen.add(name.lower())
+        merged.append(entry)
+    normalized[_DIMENSIONS_KEY] = merged
+    return MetricViewDimensionKeys(spec=normalized, duplicate_names=duplicates)
+
+
+def join_custom_properties(spec: Dict[str, Any]) -> Dict[str, str]:
+    """`metric_view.join.<path>.cardinality` / `.rely.<key>` for every join."""
+    props: Dict[str, str] = {}
+
+    def walk(raw_joins: object, parent: Optional[str]) -> None:
+        if not isinstance(raw_joins, list):
+            return
+        for raw in raw_joins:
+            if not isinstance(raw, dict) or not isinstance(raw.get("name"), str):
+                continue
+            path = raw["name"] if parent is None else f"{parent}.{raw['name']}"
+            prefix = f"{JOIN_CUSTOM_PROPERTY_PREFIX}{path}"
+            cardinality = raw.get(_JOIN_CARDINALITY)
+            if isinstance(cardinality, str):
+                props[f"{prefix}.{_JOIN_CARDINALITY}"] = cardinality
+            rely = raw.get(_JOIN_RELY)
+            if isinstance(rely, dict):
+                for key, value in rely.items():
+                    props[f"{prefix}.{_JOIN_RELY}.{key}"] = str(value).lower()
+            walk(raw.get("joins"), path)
+
+    walk(spec.get("joins"), None)
+    return props
+
+
 def measure_refs(expr: str) -> List[str]:
     return [m.group(1) for m in MEASURE_REF_RE.finditer(expr)]
 
@@ -290,6 +365,7 @@ class _Join:
     ref: Optional[TableReference]
     on: Optional[str]
     using: Optional[List[str]]
+    cardinality: Optional[str]
 
 
 @dataclass
@@ -540,6 +616,11 @@ class UnityMetricViewSemanticModelMapper:
                         source=source,
                         ref=ref,
                         on=on if isinstance(on, str) else None,
+                        cardinality=(
+                            raw[_JOIN_CARDINALITY]
+                            if isinstance(raw.get(_JOIN_CARDINALITY), str)
+                            else None
+                        ),
                         using=(
                             [u for u in using if isinstance(u, str)]
                             if isinstance(using, list)
@@ -703,6 +784,7 @@ class UnityMetricViewSemanticModelMapper:
     ) -> List[SemanticModelRelationshipInput]:
         relationships: List[SemanticModelRelationshipInput] = []
         unresolved: List[str] = []
+        unknown_cardinality: List[str] = []
         for join in joins:
             pairs = self._join_column_pairs(join)
             if not pairs:
@@ -716,6 +798,11 @@ class UnityMetricViewSemanticModelMapper:
                 self._ensure_join_field(join.path, col, entries, fields_by_alias)
                 for _, col in pairs
             ]
+            cardinality: Optional[str] = ERModelRelationshipCardinalityClass.N_ONE
+            if join.cardinality is not None:
+                cardinality = _JOIN_CARDINALITIES.get(join.cardinality.lower())
+                if cardinality is None:
+                    unknown_cardinality.append(f"{join.path}: {join.cardinality}")
             relationships.append(
                 SemanticModelRelationshipInput(
                     name=join.path,
@@ -723,9 +810,15 @@ class UnityMetricViewSemanticModelMapper:
                     from_columns=from_columns,
                     to_alias=join.path,
                     to_columns=to_columns,
-                    # Metric view joins are many-to-one (fact to dimension).
-                    cardinality=ERModelRelationshipCardinalityClass.N_ONE,
+                    cardinality=cardinality,
                 )
+            )
+        if unknown_cardinality:
+            self.report.warning(
+                title="Unrecognized metric view join cardinality",
+                message="Expected `many_to_one` or `one_to_many`; the relationship "
+                "is emitted without a cardinality.",
+                context=f"{context}: {unknown_cardinality!r}",
             )
         if unresolved:
             self.report.num_metric_view_relationships_unresolved += len(unresolved)

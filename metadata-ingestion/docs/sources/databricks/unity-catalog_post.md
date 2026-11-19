@@ -77,6 +77,7 @@ The following spec-level properties are surfaced on the metric view dataset so t
 - `metric_view.spec_version` — the spec version (e.g. `1.1`).
 - `metric_view.filter` — the top-level `filter:` expression.
 - `metric_view.joins` — the entire `joins:` hierarchy as a JSON string, preserving `on:` predicates, `using:` shorthand, and any nested joins.
+- `metric_view.join.<path>.cardinality` and `metric_view.join.<path>.rely.<key>` — a join's declared `cardinality` and its `rely:` hints (e.g. `rely.at_most_one_match`), keyed by the join's path (`instr.issuer` for a nested join).
 - `metric_view.materialization.schedule` / `metric_view.materialization.mode` / `metric_view.materialization.materialized_views` — when `materialization:` is a v1.1 object, each subkey lands as a queryable property.
 
 Per-field agent metadata (Databricks Runtime 17.3+, YAML 1.1) is exposed as dataset-level custom properties keyed `metric_view.field.<name>.*`:
@@ -91,6 +92,8 @@ If a metric view's `source` is a SQL subquery, or if it uses a 1-part identifier
 `include_metric_views` is `false` by default for backwards compatibility — when the flag is off (or when the installed `databricks-sdk` predates `TableType.METRIC_VIEW`), metric views continue to be emitted as plain `Table` entities with no view body.
 
 Unity Catalog normalizes the YAML it returns for a metric view: each field's `comment`, `display_name`, `synonyms` and `format` are removed from it and kept on the matching column instead (its comment, and the `metadata` of its type JSON, including `semantic_metadata`). DataHub reads them from there, with one extra `tables.get` call per metric view, so they appear in the custom properties above and in the Semantic Model mapping below. A value written in the YAML takes precedence. A column whose metadata is not valid JSON is counted in `num_metric_view_column_metadata_invalid`.
+
+Dimensions may be declared under `fields:` (the documented key) or `dimensions:` (its synonym); both are read, and a name declared under both keeps its `fields:` definition, with a warning.
 
 Expression columns may be unqualified (the top-level source), `source.<column>`, `<join>.<column>`, or, for a nested join, `<parent>.<join>.<column>` (for example `instr.issuer.ctry_cd`).
 
@@ -116,7 +119,7 @@ Each metric view then emits:
 
 - One **Semantic Model**, `urn:li:semanticModel:(urn:li:dataPlatform:databricks,[<platform_instance>.][<metastore>.]<catalog>.<schema>,<metric_view>)`. Its name is the metric view name, its description the YAML top-level `comment` (falling back to the Unity Catalog comment), and its definition the YAML body. Owner, domain and table tags are applied as for tables.
 - One **Semantic Model Dataset** (a dataset with subtype `Semantic Model Dataset`) per table the metric view reads: the top-level `source` (alias `source`) and every join, nested joins included (alias = the join's path, e.g. `instr.issuer`). Its URN name is `<metric view>.<alias>`, and its upstream lineage points at the physical table.
-- A **relationship** on the Semantic Model per join, from the parent alias to the join, with the equi-join columns taken from `on:` (`a = b` pairs; unqualified columns are read as `parent = join`) or `using:`. Joins are many-to-one. A join with no equi-join pair is reported and not emitted as a relationship.
+- A **relationship** on the Semantic Model per join, from the parent alias to the join, with the equi-join columns taken from `on:` (`a = b` pairs; unqualified columns are read as `parent = join`) or `using:`. Its cardinality comes from the join's `cardinality:` (`many_to_one`, the default, or `one_to_many`); an unrecognized value is reported and left unset. A join with no equi-join pair is reported and not emitted as a relationship.
 - Each dimension and measure as a field of the Semantic Model Dataset whose alias its expression reads (the `source` dataset when it reads no table or more than one), with a semantic annotation (`DIMENSION` or `MEASURE`, the expression in the `DATABRICKS` dialect, the aggregation function of a measure, time dimensions marked), its description from `comment`, and its `synonyms` in the field's AI context. Column-level lineage from the physical columns lands on the dataset's `upstreamLineage` (requires `include_column_lineage: true`). Join key columns that are not themselves a dimension are added as fields described as join keys, so relationships resolve.
 - One **Metric** per measure, `urn:li:metric:(urn:li:dataPlatform:databricks,<semantic model path>.<metric_view>,<measure>)`, named by its `display_name` when set, with its expression (a window measure's window is appended as a trailing SQL comment), `synonyms` as AI context, and lineage to its field on the Semantic Model Dataset (`metricUpstreams`).
 - **Metric-to-metric lineage** for composable measures: each `MEASURE(name)` reference becomes a `derivedFrom` edge on `metricRelationships`. A measure built only from other measures has no dataset upstream of its own.

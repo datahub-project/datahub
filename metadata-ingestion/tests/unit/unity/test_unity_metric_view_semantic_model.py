@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 from databricks.sdk.service.catalog import TableType
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.metric_view_semantic_model import (
@@ -19,6 +20,10 @@ from datahub.ingestion.source.unity.proxy_types import (
     TableReference,
 )
 from datahub.ingestion.source.unity.source import UnityCatalogSource
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    UpstreamLineageClass,
+)
 
 pytestmark = pytest.mark.skipif(
     not hasattr(TableType, "METRIC_VIEW"),
@@ -678,3 +683,118 @@ class TestMetricViewColumnsFromTablesGet:
             "Unable to fetch metric view columns" in (w.title or "")
             for w in source.report.warnings
         )
+
+
+_FIELDS_SPEC = """
+version: 1.1
+source: main.sales.orders
+joins:
+  - name: customer
+    source: main.sales.customer
+    on: source.custkey = customer.custkey
+    rely:
+      at_most_one_match: true
+  - name: line
+    source: main.sales.lineitem
+    on: source.orderkey = line.orderkey
+    cardinality: one_to_many
+  - name: odd
+    source: main.sales.odd
+    on: source.k = odd.k
+    cardinality: many_to_many
+fields:
+  - name: region
+    expr: region_cd
+    display_name: Region
+  - name: customer_name
+    expr: customer.c_name
+dimensions:
+  - name: order_date
+    expr: o_orderdate
+  - name: region
+    expr: other_region_cd
+measures:
+  - name: revenue
+    expr: SUM(amount)
+"""
+
+
+@pytest.fixture
+def _listed_columns() -> Iterator[None]:
+    with patch(
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy"
+        ".get_metric_view_columns",
+        return_value=None,
+    ):
+        yield
+
+
+@pytest.mark.usefixtures("_listed_columns")
+class TestFieldsKeyAndJoins:
+    def test_fields_and_dimensions_both_read_on_semantic_model_path(self) -> None:
+        source = _source(emit_semantic_model_entities=True)
+        aspects = _aspects(source, _FIELDS_SPEC)
+        annotations = aspects["semanticFieldAnnotation"]
+        dims = {
+            urn.rsplit(",", 1)[-1].rstrip(")")
+            for urn, a in annotations.items()
+            if a.type == "DIMENSION"
+            and a.expression.dialects[0].expression
+            in ("region_cd", "customer.c_name", "o_orderdate")
+        }
+        assert dims == {"region", "customer_name", "order_date"}
+        # `fields` wins a duplicate name; the other definition is reported.
+        region = annotations[f"urn:li:schemaField:({_smd('source')},region)"]
+        assert region.expression.dialects[0].expression == "region_cd"
+        assert any(
+            "both fields and dimensions" in (w.title or "")
+            for w in source.report.warnings
+        )
+        props = aspects["datasetProperties"][_smd("source")].customProperties
+        assert props["metric_view.field.region.display_name"] == "Region"
+
+    def test_fields_key_on_legacy_path(self) -> None:
+        source = _source(emit_semantic_model_entities=False)
+        table = _table(_FIELDS_SPEC)
+        by_name = {
+            wu.metadata.aspectName: wu.metadata.aspect
+            for wu in source.process_table(table, _schema())
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        }
+        props = by_name["datasetProperties"]
+        assert isinstance(props, DatasetPropertiesClass)
+        assert props.customProperties["metric_view.field.region.display_name"] == (
+            "Region"
+        )
+        assert (
+            props.customProperties["metric_view.join.customer.rely.at_most_one_match"]
+            == "true"
+        )
+        upstreams = by_name["upstreamLineage"]
+        assert isinstance(upstreams, UpstreamLineageClass)
+        downstream_fields = {
+            f.downstreams[0].rsplit(",", 1)[-1].rstrip(")")
+            for f in upstreams.fineGrainedLineages or []
+            if f.downstreams
+        }
+        assert {"region", "customer_name", "order_date"} <= downstream_fields
+
+    def test_join_cardinality_and_rely(self) -> None:
+        source = _source(emit_semantic_model_entities=True)
+        aspects = _aspects(source, _FIELDS_SPEC)
+        cardinality = {
+            r.to: r.cardinality
+            for r in aspects["semanticModelInfo"][_MODEL].relationships
+        }
+        assert cardinality == {
+            "customer": "N_ONE",  # default
+            "line": "ONE_N",
+            "odd": None,  # unrecognized: reported, not guessed
+        }
+        assert any(
+            "Unrecognized metric view join cardinality" in (w.title or "")
+            for w in source.report.warnings
+        )
+        props = aspects["datasetProperties"][_smd("source")].customProperties
+        assert props["metric_view.join.customer.rely.at_most_one_match"] == "true"
+        assert props["metric_view.join.line.cardinality"] == "one_to_many"

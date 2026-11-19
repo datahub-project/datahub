@@ -113,7 +113,9 @@ from datahub.ingestion.source.unity.metric_view_semantic_model import (
     ROOT_ALIAS,
     MetricViewSemanticModelInput,
     UnityMetricViewSemanticModelMapper,
+    join_custom_properties,
     merge_column_metadata,
+    normalize_dimension_keys,
     parse_metric_view_expr,
 )
 from datahub.ingestion.source.unity.platform_resource_repository import (
@@ -2463,8 +2465,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 log=False,
             )
             return None
+        dimension_keys = normalize_dimension_keys(spec)
+        if dimension_keys.duplicate_names:
+            self.report.warning(
+                title="Metric view field declared under both fields and dimensions",
+                message="A name appears under both `fields:` and `dimensions:`; "
+                "only the first definition is used.",
+                context=f"{table.ref.qualified_table_name}: "
+                f"{sorted(dimension_keys.duplicate_names)!r}",
+                log=False,
+            )
         merge = merge_column_metadata(
-            spec, table, columns=self._metric_view_columns(table)
+            dimension_keys.spec, table, columns=self._metric_view_columns(table)
         )
         if merge.invalid_columns:
             self.report.num_metric_view_column_metadata_invalid += len(
@@ -3053,6 +3065,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             props["metric_view.joins"] = json.dumps(
                 joins, separators=(",", ":"), default=str
             )
+
+        props.update(join_custom_properties(spec))
 
         mat = spec.get("materialization")
         if isinstance(mat, dict):
