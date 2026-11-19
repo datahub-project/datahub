@@ -1,6 +1,5 @@
 package com.linkedin.metadata.kafka.boot;
 
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 
@@ -17,7 +16,6 @@ import io.datahubproject.test.boot.HttpRoutes;
 import io.datahubproject.test.boot.MessagingContract;
 import io.datahubproject.test.boot.ProcessBoot;
 import io.datahubproject.test.boot.ProcessBoot.Messaging;
-import io.micrometer.core.instrument.Counter;
 import java.util.Set;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -77,21 +75,8 @@ public class MceConsumerBootTest {
       assertNull(ctx.getBeanProvider(PolicyChangeObserver.class).getIfAvailable());
       DataHubAuthorizer authorizer = ctx.getBean("dataHubAuthorizer", DataHubAuthorizer.class);
       assertFalse(authorizer.isImmediateUpdateEnabled());
-      assertEquals(policyLoadRequests(authorizer), 0.0);
+      assertFalse(authorizer.hasRunInitialLoad());
     }
-  }
-
-  /** Full policy loads requested; only immediate-update mode requests them, at startup first. */
-  private static double policyLoadRequests(DataHubAuthorizer authorizer) {
-    Counter counter =
-        authorizer
-            .getSystemOpContext()
-            .getMetricUtils()
-            .orElseThrow()
-            .getRegistry()
-            .find(DataHubAuthorizer.class.getName() + ".policyCache.load.requested")
-            .counter();
-    return counter == null ? 0 : counter.count();
   }
 
   private static void boot(Messaging messaging) {

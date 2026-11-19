@@ -178,11 +178,23 @@ public class DataHubAuthorizerImmediateUpdateTest {
     FakeLoader loader = new FakeLoader();
     loader.add(policy("p1", 1L), true);
     DataHubAuthorizer authorizer = authorizer(loader, 120);
+    assertFalse(authorizer.hasRunInitialLoad());
 
     assertTrue(authorizer.initialLoad(1, 0));
 
     assertEquals(allNames(authorizer), List.of("p1"));
     assertTrue(authorizer.isImmediateUpdateEnabled());
+    assertTrue(authorizer.hasRunInitialLoad());
+  }
+
+  @Test
+  public void testWithoutALoaderInitialLoadDoesNotRun() {
+    DataHubAuthorizer authorizer = authorizer(null, 0);
+
+    assertFalse(authorizer.initialLoad(1, 0));
+
+    assertFalse(authorizer.isImmediateUpdateEnabled());
+    assertFalse(authorizer.hasRunInitialLoad());
   }
 
   @Test
@@ -370,6 +382,7 @@ public class DataHubAuthorizerImmediateUpdateTest {
 
     assertFalse(authorizer.initialLoad(3, 0));
     assertEquals(loader.fullLoads.get(), 3);
+    assertTrue(authorizer.hasRunInitialLoad(), "a failed startup load still ran");
     assertEquals(allNames(authorizer), List.of());
 
     // Search recovers; the next requested load succeeds.
