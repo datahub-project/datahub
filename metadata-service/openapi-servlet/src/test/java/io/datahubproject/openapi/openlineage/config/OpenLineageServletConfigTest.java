@@ -3,6 +3,8 @@ package io.datahubproject.openapi.openlineage.config;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.linkedin.common.FabricType;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
@@ -15,6 +17,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /** Tests for OpenLineageServletConfig parsing and configuration */
@@ -35,19 +38,30 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
     }
   }
 
-  /** Test configuration with invalid environment (should default to PROD with warning) */
-  @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigInvalid.class})
-  @TestPropertySource(properties = {"datahub.openlineage.env=INVALID_ENV"})
-  public static class InvalidEnvTest extends AbstractTestNGSpringContextTests {
+  /**
+   * An unknown env would otherwise write every URN from this endpoint into the wrong environment,
+   * so startup must reject it and name the offending property.
+   */
+  public static class InvalidEnvTest {
 
-    @Autowired private RunEventMapper.MappingConfig mappingConfig;
+    @DataProvider(name = "invalidEnvs")
+    public static Object[][] invalidEnvs() {
+      return new Object[][] {
+        {"INVALID_ENV", null, "datahub.openlineage.env"},
+        {"PROD", "STAGING", "datahub.openlineage.common-dataset-env"},
+      };
+    }
 
-    @Test
-    public void testInvalidEnv() {
-      assertNotNull(mappingConfig);
-      assertNotNull(mappingConfig.getDatahubConfig());
-      // Should default to PROD when invalid value is provided
-      assertEquals(mappingConfig.getDatahubConfig().getFabricType(), FabricType.PROD);
+    @Test(dataProvider = "invalidEnvs")
+    public void testInvalidEnvFailsFast(String env, String commonDatasetEnv, String property) {
+      DatahubOpenlineageProperties props = new DatahubOpenlineageProperties();
+      props.setEnv(env);
+      props.setCommonDatasetEnv(commonDatasetEnv);
+      IllegalArgumentException e =
+          expectThrows(
+              IllegalArgumentException.class,
+              () -> new OpenLineageServletConfig(props).mappingConfig());
+      assertTrue(e.getMessage().contains(property), e.getMessage());
     }
   }
 
@@ -234,16 +248,6 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
     public DatahubOpenlineageProperties datahubOpenlineageProperties() {
       DatahubOpenlineageProperties props = new DatahubOpenlineageProperties();
       props.setEnv("DEV");
-      return props;
-    }
-  }
-
-  @Configuration
-  static class TestConfigInvalid {
-    @Bean
-    public DatahubOpenlineageProperties datahubOpenlineageProperties() {
-      DatahubOpenlineageProperties props = new DatahubOpenlineageProperties();
-      props.setEnv("INVALID_ENV");
       return props;
     }
   }
