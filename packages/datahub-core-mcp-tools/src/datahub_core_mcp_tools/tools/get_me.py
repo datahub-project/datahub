@@ -38,15 +38,12 @@ def get_me() -> dict[str, Any]:
     """
     client = graphql_helpers.get_datahub_client()
 
-    try:
-        result = graphql_helpers.execute_graphql(
-            client._graph,
-            query=graphql_helpers.load_gql_document("get_me.gql"),
-            variables={},
-            operation_name="getMe",
-        )
-    except Exception as e:
-        raise ToolError(f"Error retrieving user information: {e}") from e
+    result = graphql_helpers.execute_graphql(
+        client._graph,
+        query=graphql_helpers.load_gql_document("get_me.gql"),
+        variables={},
+        operation_name="getMe",
+    )
 
     me_data = result.get("me") if isinstance(result, dict) else None
     if not me_data:

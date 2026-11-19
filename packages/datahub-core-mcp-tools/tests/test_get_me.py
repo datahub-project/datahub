@@ -62,7 +62,9 @@ def test_missing_user_is_a_tool_error(response: dict[str, Any]) -> None:
 
 
 def test_graphql_failure_is_a_tool_error() -> None:
-    client = _client(error=RuntimeError("401 Unauthorized"))
+    client = _client(
+        error=RuntimeError("401 Unauthorized")
+    )  # unknown errors keep their text
 
     with with_datahub_client(client), pytest.raises(ToolError, match="401"):
         get_me()
