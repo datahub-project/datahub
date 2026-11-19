@@ -7,7 +7,7 @@ import { ViewBuilderState } from '@app/entityV2/view/types';
 import { AppConfigWithoutPolicyPrivileges, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 import { AppConfigDocument, GetEntityCountsDocument } from '@graphql/app.generated';
-import { GetBrowsePathsDocument, GetBrowseResultsDocument } from '@graphql/browse.generated';
+import { GetBrowseResultsDocument } from '@graphql/browse.generated';
 import { GetDataFlowDocument } from '@graphql/dataFlow.generated';
 import { GetDataJobDocument } from '@graphql/dataJob.generated';
 import {
@@ -1823,22 +1823,6 @@ export const mocks = [
                 corpUser: {
                     ...user1,
                 },
-            },
-        },
-    },
-    {
-        request: {
-            query: GetBrowsePathsDocument,
-            variables: {
-                input: {
-                    type: 'DATASET',
-                    urn: 'urn:li:dataset:1',
-                },
-            },
-        },
-        result: {
-            data: {
-                browsePaths: [['prod', 'hdfs', 'datasets']],
             },
         },
     },
