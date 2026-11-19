@@ -1,0 +1,7 @@
+namespace com.linkedin.common
+
+/**
+ * Name of an environment (fabric). Either a FabricType symbol, or the id of a registered
+ * customFabricType entity. Custom names are uppercase letters, digits and underscores.
+ */
+typeref FabricTypeName = string

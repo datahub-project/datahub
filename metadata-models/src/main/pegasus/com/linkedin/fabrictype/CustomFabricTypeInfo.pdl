@@ -1,0 +1,24 @@
+namespace com.linkedin.fabrictype
+
+/**
+ * Information about a custom fabric type: an environment name, beyond the built-in FabricType
+ * symbols, that entities may use as their env / origin. Creation and modification times come
+ * from systemMetadata.aspectCreated and aspectModified.
+ *
+ * Fields are deliberately not @Searchable: custom fabric types are listed by entity type, and
+ * adding fields to the shared V3 mapping would make every V3 index require a reindex.
+ */
+@Aspect = {
+  "name": "customFabricTypeInfo"
+}
+record CustomFabricTypeInfo {
+  /**
+   * Human-facing name of the environment. Defaults to the id when absent.
+   */
+  displayName: optional string
+
+  /**
+   * Description of what this environment represents.
+   */
+  description: optional string
+}

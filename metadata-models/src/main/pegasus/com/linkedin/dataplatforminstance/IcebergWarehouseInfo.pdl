@@ -1,13 +1,14 @@
 namespace com.linkedin.dataplatforminstance
 
 import com.linkedin.common.Urn
-import com.linkedin.common.FabricType
+import com.linkedin.common.FabricTypeName
 
 /**
  * An Iceberg warehouse location and credentails whose read/writes are governed by datahub catalog.
  */
 @Aspect = {
-  "name": "icebergWarehouseInfo"
+  "name": "icebergWarehouseInfo",
+  "schemaVersion": 2
 }
 record  IcebergWarehouseInfo {
 
@@ -44,5 +45,5 @@ record  IcebergWarehouseInfo {
   /*
    * Environment where all assets stored in this warehouse belong to
    */
-  env: FabricType
+  env: FabricTypeName
 }

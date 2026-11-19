@@ -1,5 +1,6 @@
 package com.linkedin.common.urn;
 
+import com.linkedin.common.FabricTypeNames;
 import com.linkedin.data.message.Message;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.NamedDataSchema;
@@ -16,6 +17,7 @@ import java.net.URISyntaxException;
 public class UrnValidator implements Validator {
   @Override
   public void validate(ValidatorContext context) {
+    FabricTypeNames.validate(context);
     if (DataSchema.Type.TYPEREF.equals(context.dataElement().getSchema().getType())
         && ((NamedDataSchema) context.dataElement().getSchema()).getName().endsWith("Urn")) {
       try {

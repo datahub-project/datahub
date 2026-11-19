@@ -1,14 +1,14 @@
 namespace com.linkedin.metadata.key
 
 import com.linkedin.common.Urn
-import com.linkedin.common.FabricType
+import com.linkedin.common.FabricTypeName
 
 /**
  * Key for an ML model group
  */
 @Aspect = {
   "name": "mlModelGroupKey",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record MLModelGroupKey {
   /**
@@ -61,5 +61,5 @@ record MLModelGroupKey {
       ]
     }
   }
-  origin: FabricType
+  origin: FabricTypeName
 }

@@ -99,7 +99,7 @@ public class DatahubJob {
   final EventFormatter eventFormatter = new EventFormatter();
 
   public static MetadataChangeProposalWrapper materializeDataset(DatasetUrn datasetUrn) {
-    DatasetKey datasetAspect = new DatasetKey().setOrigin(datasetUrn.getOriginEntity());
+    DatasetKey datasetAspect = new DatasetKey().setOrigin(datasetUrn.getOriginEntity().name());
     datasetAspect
         .setName(datasetUrn.getDatasetNameEntity())
         .setPlatform(new DataPlatformUrn(datasetUrn.getPlatformEntity().getPlatformNameEntity()));

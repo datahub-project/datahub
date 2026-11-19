@@ -54,11 +54,13 @@ sourceSets {
 }
 
 mainAvroSchemaJar.dependsOn generateAvroSchema
+apply from: '../gradle/schema/standalone-enum-avro-schemas.gradle'
+mainAvroSchemaJar.dependsOn copyStandaloneEnumAvroSchemas
 
 pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
 
 
-task generateJsonSchema(type: GenerateJsonSchemaTask, dependsOn: 'generateAvroSchema') {
+task generateJsonSchema(type: GenerateJsonSchemaTask, dependsOn: ['generateAvroSchema', 'copyStandaloneEnumAvroSchemas']) {
   it.setInputDirectory("$projectDir/src/mainGeneratedAvroSchema")
   it.setOutputDirectory("$projectDir/src/generatedJsonSchema")
   it.setEntityRegistryYaml("${project(':metadata-models').projectDir}/src/main/resources/entity-registry.yml")

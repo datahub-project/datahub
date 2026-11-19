@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Custom Fabric Type
+ */
+@Aspect = {
+  "name": "customFabricTypeKey"
+}
+record CustomFabricTypeKey {
+  /**
+   * The environment name, e.g. "PERF". Uppercase letters, digits and underscores, and never a
+   * built-in FabricType symbol. This is the value entities carry as their env / origin.
+   */
+  id: string
+}

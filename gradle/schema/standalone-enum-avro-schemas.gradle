@@ -1,0 +1,19 @@
+// Pegasus emits Avro schemas only for records, inlining each enum where a field uses it. An enum
+// that no field references any more would vanish from everything generated from Avro: Python
+// schema classes, OpenAPI models and Java Avro classes. FabricType is one, since env / origin
+// fields became the FabricTypeName typeref, yet SDK users still rely on FabricTypeClass.
+//
+// The Pegasus legacy JSON (.pdsc) form of an enum is already a valid Avro enum schema, so it is
+// copied in as .avsc next to the generated ones. Apply after the pegasus plugin, then make the
+// tasks that read src/mainGeneratedAvroSchema depend on copyStandaloneEnumAvroSchemas.
+
+def standaloneEnums = ['com/linkedin/common/FabricType']
+
+tasks.register('copyStandaloneEnumAvroSchemas', Copy) {
+  dependsOn ':li-utils:mainTranslateSchemas', 'generateAvroSchema'
+  from(project(':li-utils').layout.buildDirectory.dir('mainLegacySchemas')) {
+    standaloneEnums.each { include "${it}.pdsc" }
+  }
+  into file('src/mainGeneratedAvroSchema/avro')
+  rename '(.*)\\.pdsc', '$1.avsc'
+}

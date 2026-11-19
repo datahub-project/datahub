@@ -31,7 +31,7 @@
           }, {
             "doc" : "Fabric type where dataset belongs to or where it was generated.",
             "name" : "origin",
-            "type" : "com.linkedin.common.FabricType"
+            "type" : "com.linkedin.common.FabricTypeName"
           } ],
           "maxLength" : 284,
           "name" : "Dataset",
@@ -864,7 +864,7 @@
         }, {
           "doc" : "Fabric type where dataset belongs to or where it was generated.",
           "name" : "origin",
-          "type" : "com.linkedin.common.FabricType"
+          "type" : "com.linkedin.common.FabricTypeName"
         } ],
         "maxLength" : 284,
         "name" : "DataProcess",
@@ -959,30 +959,11 @@
     "namespace" : "com.linkedin.common",
     "ref" : "string"
   }, "com.linkedin.common.ExternalReference", {
-    "type" : "enum",
-    "name" : "FabricType",
+    "type" : "typeref",
+    "name" : "FabricTypeName",
     "namespace" : "com.linkedin.common",
-    "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "PRD", "TST", "SIT", "SBX", "SANDBOX", "CERT" ],
-    "symbolDocs" : {
-      "CERT" : "Designates certification fabrics",
-      "CORP" : "Designates corporation fabrics",
-      "DEV" : "Designates development fabrics",
-      "EI" : "Designates early-integration fabrics",
-      "NON_PROD" : "Designates non-production fabrics",
-      "PRD" : "Alternative Prod spelling",
-      "PRE" : "Designates pre-production fabrics",
-      "PROD" : "Designates production fabrics",
-      "QA" : "Designates quality assurance fabrics",
-      "RVW" : "Designates review fabrics",
-      "SANDBOX" : "Designates sandbox fabrics",
-      "SBX" : "Alternative spelling for sandbox",
-      "SIT" : "System Integration Testing",
-      "STG" : "Designates staging fabrics",
-      "TEST" : "Designates testing fabrics",
-      "TST" : "Alternative Test spelling",
-      "UAT" : "Designates user acceptance testing fabrics"
-    }
+    "doc" : "Name of an environment (fabric). Either a FabricType symbol, or the id of a registered\ncustomFabricType entity. Custom names are uppercase letters, digits and underscores.",
+    "ref" : "string"
   }, {
     "type" : "record",
     "name" : "GlobalTags",
@@ -1386,7 +1367,7 @@
         }, {
           "doc" : "Fabric type where model belongs to or where it was generated.",
           "name" : "origin",
-          "type" : "com.linkedin.common.FabricType"
+          "type" : "com.linkedin.common.FabricTypeName"
         } ],
         "maxLength" : 284,
         "name" : "MlModel",
@@ -1965,7 +1946,7 @@
       }
     }, {
       "name" : "env",
-      "type" : "com.linkedin.common.FabricType",
+      "type" : "com.linkedin.common.FabricTypeName",
       "doc" : "Environment for this flow",
       "optional" : true,
       "Searchable" : {
@@ -1976,7 +1957,8 @@
       }
     } ],
     "Aspect" : {
-      "name" : "dataFlowInfo"
+      "name" : "dataFlowInfo",
+      "schemaVersion" : 2
     }
   }, {
     "type" : "record",
@@ -2114,7 +2096,7 @@
       "deprecated" : "Use Data Process Instance model, instead"
     }, {
       "name" : "env",
-      "type" : "com.linkedin.common.FabricType",
+      "type" : "com.linkedin.common.FabricTypeName",
       "doc" : "Environment for this job",
       "optional" : true,
       "Searchable" : {
@@ -2125,7 +2107,8 @@
       }
     } ],
     "Aspect" : {
-      "name" : "dataJobInfo"
+      "name" : "dataJobInfo",
+      "schemaVersion" : 2
     }
   }, {
     "type" : "record",
@@ -3277,7 +3260,25 @@
                     "name" : "email",
                     "type" : "com.linkedin.common.EmailAddress",
                     "doc" : "email of this group",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldType" : "KEYWORD",
+                      "queryByDefault" : true,
+                      "v3" : {
+                        "copyToOther" : true,
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "queryByDefault" : false,
+                        "searchLabel" : "email"
+                      }
+                    }
                   }, {
                     "name" : "admins",
                     "type" : {
@@ -3362,7 +3363,7 @@
                   "Aspect" : {
                     "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],
                     "name" : "corpGroupInfo",
-                    "schemaVersion" : 2
+                    "schemaVersion" : 3
                   }
                 }, "com.linkedin.common.GlobalTags", "com.linkedin.common.Status" ]
               }
@@ -3475,7 +3476,18 @@
                       "fieldType" : "KEYWORD",
                       "queryByDefault" : true,
                       "v3" : {
-                        "queryByDefault" : true
+                        "copyToOther" : true,
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "queryByDefault" : false,
+                        "searchLabel" : "email"
                       }
                     }
                   }, {
@@ -4053,7 +4065,7 @@
                     }
                   }, {
                     "name" : "origin",
-                    "type" : "com.linkedin.common.FabricType",
+                    "type" : "com.linkedin.common.FabricTypeName",
                     "doc" : "Fabric type where dataset belongs to or where it was generated.",
                     "Searchable" : {
                       "addToFilters" : true,
@@ -4070,7 +4082,7 @@
                   } ],
                   "Aspect" : {
                     "name" : "datasetKey",
-                    "schemaVersion" : 2
+                    "schemaVersion" : 3
                   }
                 }, "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.EditableDatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", {
                   "type" : "record",
@@ -4884,7 +4896,7 @@
                     }
                   }, {
                     "name" : "origin",
-                    "type" : "com.linkedin.common.FabricType",
+                    "type" : "com.linkedin.common.FabricTypeName",
                     "doc" : "Fabric type where dataset belongs to or where it was generated.",
                     "Searchable" : {
                       "fieldType" : "TEXT_PARTIAL",
@@ -4899,7 +4911,8 @@
                     }
                   } ],
                   "Aspect" : {
-                    "name" : "dataProcessKey"
+                    "name" : "dataProcessKey",
+                    "schemaVersion" : 2
                   }
                 }, "com.linkedin.common.Ownership", "com.linkedin.dataprocess.DataProcessInfo", "com.linkedin.common.Status" ],
                 "deprecated" : "Use DataJob instead."
@@ -5013,7 +5026,7 @@
                     }
                   }, {
                     "name" : "origin",
-                    "type" : "com.linkedin.common.FabricType",
+                    "type" : "com.linkedin.common.FabricTypeName",
                     "doc" : "Fabric type where model belongs to or where it was generated",
                     "Searchable" : {
                       "addToFilters" : true,
@@ -5031,7 +5044,7 @@
                   } ],
                   "Aspect" : {
                     "name" : "mlModelKey",
-                    "schemaVersion" : 2
+                    "schemaVersion" : 3
                   }
                 }, "com.linkedin.common.Ownership", {
                   "type" : "record",
@@ -6143,7 +6156,7 @@
                     }
                   }, {
                     "name" : "origin",
-                    "type" : "com.linkedin.common.FabricType",
+                    "type" : "com.linkedin.common.FabricTypeName",
                     "doc" : "Fabric type where model Deployment belongs to or where it was generated",
                     "Searchable" : {
                       "addToFilters" : true,
@@ -6161,7 +6174,7 @@
                   } ],
                   "Aspect" : {
                     "name" : "mlModelDeploymentKey",
-                    "schemaVersion" : 2
+                    "schemaVersion" : 3
                   }
                 }, {
                   "type" : "record",
@@ -6303,7 +6316,7 @@
                     }
                   }, {
                     "name" : "origin",
-                    "type" : "com.linkedin.common.FabricType",
+                    "type" : "com.linkedin.common.FabricTypeName",
                     "doc" : "Fabric type where model group belongs to or where it was generated",
                     "Searchable" : {
                       "fieldType" : "TEXT_PARTIAL",
@@ -6319,7 +6332,7 @@
                   } ],
                   "Aspect" : {
                     "name" : "mlModelGroupKey",
-                    "schemaVersion" : 2
+                    "schemaVersion" : 3
                   }
                 }, {
                   "type" : "record",

@@ -774,6 +774,15 @@ entities:
     aspects:
       - lifecycleStageTypeInfo
       - status
+  - name: customFabricType
+    viewUnrestricted: true
+    doc: A custom environment (fabric) name, beyond the built-in FabricType values, that entities may use as their env / origin.
+    category: core
+    keyAspect: customFabricTypeKey
+    aspects:
+      - customFabricTypeInfo
+      - status
+      - ownership
   - name: businessAttribute
     category: core
     keyAspect: businessAttributeKey

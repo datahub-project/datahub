@@ -174,6 +174,7 @@ public class Constants {
   public static final Urn DEFAULT_OWNERSHIP_TYPE_URN =
       UrnUtils.getUrn("urn:li:ownershipType:__system__none");
   public static final String STRUCTURED_PROPERTY_ENTITY_NAME = "structuredProperty";
+  public static final String CUSTOM_FABRIC_TYPE_ENTITY_NAME = "customFabricType";
   public static final String DATA_TYPE_ENTITY_NAME = "dataType";
   public static final String ENTITY_TYPE_ENTITY_NAME = "entityType";
   public static final String FORM_ENTITY_NAME = "form";
@@ -468,6 +469,10 @@ public class Constants {
   // Ownership Types
   public static final String OWNERSHIP_TYPE_KEY_ASPECT_NAME = "ownershipTypeKey";
   public static final String OWNERSHIP_TYPE_INFO_ASPECT_NAME = "ownershipTypeInfo";
+
+  // Custom Fabric Type
+  public static final String CUSTOM_FABRIC_TYPE_KEY_ASPECT_NAME = "customFabricTypeKey";
+  public static final String CUSTOM_FABRIC_TYPE_INFO_ASPECT_NAME = "customFabricTypeInfo";
 
   // Structured Property
   public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";

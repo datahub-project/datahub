@@ -84,7 +84,7 @@ public class AspectMappingFieldPopulationTest {
         new DatasetKey()
             .setPlatform(Urn.createFromTuple("dataPlatform", "mysql"))
             .setName("my_db.my_table")
-            .setOrigin(FabricType.PROD);
+            .setOrigin(FabricType.PROD.name());
     DatasetProperties props = new DatasetProperties().setName("My Table").setDescription("desc");
 
     // Only the aspects mapped for `name`/`properties`: datasetKey + datasetProperties.

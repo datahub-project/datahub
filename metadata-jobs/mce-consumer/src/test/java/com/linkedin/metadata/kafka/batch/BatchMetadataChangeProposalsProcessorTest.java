@@ -483,7 +483,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
     MetadataChangeProposal mcp1 = new MetadataChangeProposal();
     mcp1.setSystemMetadata(new SystemMetadata());
     mcp1.setChangeType(ChangeType.UPSERT);
-    mcp1.setEntityUrn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,INVALID)"));
+    mcp1.setEntityUrn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,invalid)"));
     mcp1.setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)));
     mcp1.setEntityType("dataset");
     mcp1.setAspectName("status");

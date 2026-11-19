@@ -103,7 +103,7 @@ public class EntityKeyUtilsTest {
     expectedKey.setPlatform(Urn.createFromString("urn:li:dataPlatform:s3"));
     expectedKey.setName(
         "urn:li:dataset:%28urn:li:dataPlatform:s3%2Ctest-datalake-concepts/prog_maintenance%2CPROD%29");
-    expectedKey.setOrigin(FabricType.PROD);
+    expectedKey.setOrigin(FabricType.PROD.name());
 
     assertEquals(actualKey, expectedKey);
   }
@@ -172,7 +172,7 @@ public class EntityKeyUtilsTest {
     DatasetKey datasetKey = new DatasetKey();
     datasetKey.setPlatform(Urn.createFromString("urn:li:dataPlatform:hive"));
     datasetKey.setName("testDataset");
-    datasetKey.setOrigin(FabricType.PROD);
+    datasetKey.setOrigin(FabricType.PROD.name());
 
     // Create test URN that should be generated
     Urn expectedUrn =

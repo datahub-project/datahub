@@ -420,7 +420,7 @@ public class DataHubIcebergWarehouse {
   }
 
   private FabricType fabricType() {
-    return icebergWarehouse.getEnv();
+    return FabricType.valueOf(icebergWarehouse.getEnv());
   }
 
   @SneakyThrows

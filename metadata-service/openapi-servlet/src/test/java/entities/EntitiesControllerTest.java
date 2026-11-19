@@ -27,7 +27,6 @@ import io.datahubproject.openapi.generated.AuditStamp;
 import io.datahubproject.openapi.generated.DatasetFieldProfile;
 import io.datahubproject.openapi.generated.DatasetKey;
 import io.datahubproject.openapi.generated.DatasetProfile;
-import io.datahubproject.openapi.generated.FabricType;
 import io.datahubproject.openapi.generated.GlobalTags;
 import io.datahubproject.openapi.generated.GlossaryTermAssociation;
 import io.datahubproject.openapi.generated.GlossaryTerms;
@@ -127,7 +126,7 @@ public class EntitiesControllerTest {
                 DatasetKey.builder()
                     .name("name")
                     .platform(DATA_PLATFORM_URN)
-                    .origin(FabricType.PROD)
+                    .origin("PROD")
                     .build())
             .build();
     datasetAspects.add(subTypes);
@@ -151,7 +150,7 @@ public class EntitiesControllerTest {
                 DatasetKey.builder()
                     .name("name")
                     .platform(DATA_PLATFORM_URN)
-                    .origin(FabricType.PROD)
+                    .origin("PROD")
                     .build())
             .build();
     datasetAspects.add(datasetProfile);
@@ -202,7 +201,7 @@ public class EntitiesControllerTest {
                 DatasetKey.builder()
                     .name("name")
                     .platform(DATA_PLATFORM_URN)
-                    .origin(FabricType.PROD)
+                    .origin("PROD")
                     .build())
             .build();
     datasetAspects.add(schemaMetadata);
@@ -221,7 +220,7 @@ public class EntitiesControllerTest {
                 DatasetKey.builder()
                     .name("name")
                     .platform(DATA_PLATFORM_URN)
-                    .origin(FabricType.PROD)
+                    .origin("PROD")
                     .build())
             .build();
     datasetAspects.add(glossaryTerms);

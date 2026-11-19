@@ -24,7 +24,7 @@ namespace com.linkedin.common
     "maxLength" : 210
   }, {
     "name" : "origin",
-    "type" : "com.linkedin.common.FabricType",
+    "type" : "com.linkedin.common.FabricTypeName",
     "doc" : "Fabric type where model belongs to or where it was generated."
   } ],
   "maxLength" : 284

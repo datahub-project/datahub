@@ -758,7 +758,7 @@ public class AspectsBatchImplTest {
     MetadataChangeProposal valid = datasetStatus("valid");
     MetadataChangeProposal malformedUrn =
         datasetStatus("malformed")
-            .setEntityUrn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,INVALID)"));
+            .setEntityUrn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,invalid)"));
     MetadataChangeProposal unknownAspect = datasetStatus("unknown").setAspectName("INVALID");
 
     AspectsBatchImpl batch =

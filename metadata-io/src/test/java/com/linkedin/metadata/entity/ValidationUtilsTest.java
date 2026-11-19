@@ -87,7 +87,7 @@ public class ValidationUtilsTest {
     expectedKey.setPlatform(Urn.createFromString("urn:li:dataPlatform:s3"));
     expectedKey.setName(
         "urn:li:dataset:%28urn:li:dataPlatform:s3%2Ctest-datalake-concepts/prog_maintenance%2CPROD%29");
-    expectedKey.setOrigin(FabricType.PROD);
+    expectedKey.setOrigin(FabricType.PROD.name());
 
     assertEquals(actualKey, expectedKey);
 

@@ -20,7 +20,7 @@ public class DatahubUtils {
   }
 
   public static MetadataChangeProposalWrapper generateDatasetMcp(DatasetUrn datasetUrn) {
-    DatasetKey datasetAspect = new DatasetKey().setOrigin(FabricType.PROD);
+    DatasetKey datasetAspect = new DatasetKey().setOrigin(FabricType.PROD.name());
     datasetAspect
         .setName(datasetUrn.getDatasetNameEntity())
         .setPlatform(new DataPlatformUrn(datasetUrn.getPlatformEntity().getPlatformNameEntity()));

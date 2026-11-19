@@ -176,7 +176,7 @@ public class V3SearchDocumentProjectorTest {
         new DatasetKey()
             .setPlatform(UrnUtils.getUrn("urn:li:dataPlatform:hive"))
             .setName("sales.orders")
-            .setOrigin(FabricType.PROD);
+            .setOrigin(FabricType.PROD.name());
     when(event.getUrn())
         .thenReturn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,sales.orders,PROD)"));
     when(event.getAspectName()).thenReturn("datasetKey");
