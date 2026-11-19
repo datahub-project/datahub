@@ -1,0 +1,17 @@
+# Daily query counts for a dataset, for get_dataset_usage_history. Buckets are in
+# UTC so their dates don't depend on GMS's time zone.
+query getDatasetUsageHistory($urn: String!, $timeRange: TimeRange!) {
+  dataset(urn: $urn) {
+    usageStats(range: $timeRange, timeZone: "UTC") {
+      aggregations {
+        totalSqlQueries
+      }
+      buckets {
+        bucket
+        metrics {
+          totalSqlQueries
+        }
+      }
+    }
+  }
+}

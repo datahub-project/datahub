@@ -59,6 +59,9 @@ class CountingBackend:
     def document_contents(self, urns: list[str]) -> list[JsonObject | None]:
         return []
 
+    def dataset_usage(self, urn: str, time_range: str) -> JsonObject | None:
+        return None
+
     def list_queries(self, variables: JsonObject) -> JsonObject:
         return {}
 

@@ -61,6 +61,9 @@ class FakeBackend:
     def exists(self, urn: str) -> bool:
         return self._exists
 
+    def dataset_usage(self, urn: str, time_range: str) -> JsonObject | None:
+        return None
+
     def list_queries(self, variables: JsonObject) -> JsonObject:
         self.sent.append(dict(variables))
         return cast(JsonObject, copy.deepcopy(self.page))

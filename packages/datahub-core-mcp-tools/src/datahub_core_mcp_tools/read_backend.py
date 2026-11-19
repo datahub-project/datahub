@@ -82,6 +82,12 @@ class ReadBackend(Protocol):
         """``listQueries`` for the ``input`` of ``queries.gql``."""
         ...
 
+    def dataset_usage(self, urn: str, time_range: str) -> JsonObject | None:
+        """The dataset's ``usageStats`` over ``time_range`` (a GraphQL TimeRange)
+        as ``dataset_usage.gql`` selects them, under ``usageStats``; None when GMS
+        returns no dataset."""
+        ...
+
 
 @dataclass(frozen=True)
 class ReadBackendBinding:
@@ -243,6 +249,17 @@ class GraphQLReadBackend:
                 variables={"input": variables},
                 operation_name="listQueries",
             )["listQueries"],
+        )
+
+    def dataset_usage(self, urn: str, time_range: str) -> JsonObject | None:
+        return cast(
+            JsonObject | None,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("dataset_usage.gql"),
+                variables={"urn": urn, "timeRange": time_range},
+                operation_name="getDatasetUsageHistory",
+            )["dataset"],
         )
 
 
