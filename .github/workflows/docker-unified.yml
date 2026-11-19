@@ -719,26 +719,27 @@ jobs:
           if [[ "$eligible" == 'true' && "$PLAYWRIGHT_OPT_OUT" != 'true' && -n "$PLAYWRIGHT_MATRIX" && "$PLAYWRIGHT_MATRIX" != '{"include":[]}' ]]; then
             playwright_mode=shadow
           fi
-          # Classify when either suite uses the tags; the summary shows the mode.
-          mode=off
-          if [[ "$playwright_mode" == 'active' || "$pytest_mode" == 'active' ]]; then
-            mode=active
-          elif [[ "$playwright_mode" == 'shadow' || "$pytest_mode" == 'shadow' ]]; then
-            mode=shadow
+          # Classify when either suite uses the tags (shadow or active).
+          run_classifier=false
+          if [[ "$pytest_mode" != 'off' || "$playwright_mode" != 'off' ]]; then
+            run_classifier=true
           fi
 
-          echo "Smart testing: classify=$mode pytest=$pytest_mode playwright=$playwright_mode"
-          echo "mode=$mode" >> "$GITHUB_OUTPUT"
-          echo "playwright_mode=$playwright_mode" >> "$GITHUB_OUTPUT"
+          echo "Smart testing: run_classifier=$run_classifier pytest=$pytest_mode playwright=$playwright_mode"
+          {
+            echo "run_classifier=$run_classifier"
+            echo "pytest_mode=$pytest_mode"
+            echo "playwright_mode=$playwright_mode"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Check out the repo
-        if: ${{ steps.resolve-mode.outputs.mode != 'off' && steps.resolve-mode.outputs.mode != '' }}
+        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
         continue-on-error: true
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
       - name: Set up Python
         uses: ./.github/actions/setup-toolchain
-        if: ${{ steps.resolve-mode.outputs.mode != 'off' && steps.resolve-mode.outputs.mode != '' }}
+        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
         continue-on-error: true
         with:
           java: false
@@ -750,13 +751,13 @@ jobs:
       # classifier runs.
       - name: Fetch Claude identity token
         id: claude-identity
-        if: ${{ steps.resolve-mode.outputs.mode != 'off' && steps.resolve-mode.outputs.mode != '' }}
+        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
         continue-on-error: true
         uses: ./.github/actions/claude-identity-token
 
       - name: Smart Testing Selection
         id: smart-testing
-        if: ${{ steps.resolve-mode.outputs.mode != 'off' && steps.resolve-mode.outputs.mode != '' }}
+        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
         # No smart_tags output means each suite's fail-safe (active) or no
         # shadow comparison (shadow).
         continue-on-error: true
@@ -779,7 +780,7 @@ jobs:
           pip install --quiet -r .github/smart-testing/requirements.txt
           python .github/smart-testing/classify_pr.py 2>&1 | tee /tmp/smart-testing-log.txt
           {
-            echo "## Smart Testing Selection (mode: ${{ steps.resolve-mode.outputs.mode }})"
+            echo "## Smart Testing Selection (pytest: ${{ steps.resolve-mode.outputs.pytest_mode }}, Playwright: ${{ steps.resolve-mode.outputs.playwright_mode }})"
             echo ""
             echo '```'
             grep '^\[smart-testing\]' /tmp/smart-testing-log.txt || echo "No output"

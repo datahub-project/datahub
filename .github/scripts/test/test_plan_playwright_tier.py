@@ -49,6 +49,12 @@ def test_product_only_change_selects_only_p0_tests() -> None:
     assert decision.test_counts == {"ingest/sources.spec.ts": (1, 2)}
 
 
+def test_empty_selection_runs_the_full_suite() -> None:
+    untagged = [test for test in SUITE if "p0" not in test.tags]
+    decision = plan.decide(untagged, [], ["datahub-web-react/src/App.tsx"])
+    assert decision.mode == "full"
+
+
 def test_tests_playwright_reports_as_affected_run_in_full() -> None:
     decision = _decide(
         [f"{TESTS}/search/search.spec.ts", f"{PW}/pages/ingest.page.ts"],
@@ -161,13 +167,26 @@ def test_plan_json_separates_this_run_from_the_tiers_decision() -> None:
     )
 
 
-def test_shard_count_matches_the_suite_capped_at_spec_files() -> None:
+def test_shard_count_fills_shards_to_the_target_time() -> None:
     decision = _decide(["datahub-web-react/src/App.tsx"])
     # sources is 1 of 2 tests at 600 s -> 300 s x 1.4 = 420 s predicted.
     weights = {"ingest/sources.spec.ts": 600.0}
     assert plan.shard_count(decision, weights, 10) == (1, 420.0)
-    many = plan.Selection("p0", "x", reasons={f"s{i}.spec.ts": ["p0"] for i in range(12)})
-    assert plan.shard_count(many, {}, 10)[0] == 10
+
+    def selection(specs: int) -> plan.Selection:
+        names = [f"s{i}.spec.ts" for i in range(specs)]
+        return plan.Selection(
+            "smart",
+            "x",
+            reasons={name: ["tagged search"] for name in names},
+            test_counts={name: (1, 1) for name in names},
+        )
+
+    # 12 specs x 100 s x 1.4 = 1680 s: 4 shards of at most 480 s, not 12.
+    assert plan.shard_count(selection(12), {f"s{i}.spec.ts": 100.0 for i in range(12)}, 20)[0] == 4
+    # Capped at the suite's shard count and at one spec file per shard.
+    assert plan.shard_count(selection(12), {f"s{i}.spec.ts": 1000.0 for i in range(12)}, 10)[0] == 10
+    assert plan.shard_count(selection(2), {"s0.spec.ts": 1000.0, "s1.spec.ts": 1000.0}, 10)[0] == 2
     assert plan.shard_count(plan.Selection("full", "x"), {}, 10) == (0, 0.0)
 
 

@@ -57,6 +57,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import math
 import os
 import re
 import subprocess
@@ -106,6 +107,10 @@ FEATURE_DIMENSIONS = ("feature-user", "feature-dev", "compound")
 SMART_MODES = ("off", "shadow", "active")
 # Measured: the "Run Playwright tests" step takes ~1.4x what the weights predict.
 WEIGHT_INFLATION = 1.4
+# Predicted test time each shard should fill, as pytest's batch planner does
+# (PLAN_MAX_BATCHES in docker-unified): every shard pays for its own stack
+# bring-up, so a small selection runs on few shards instead of one per spec file.
+TARGET_SHARD_SECONDS = 8 * 60
 
 
 @dataclass(frozen=True)
@@ -227,6 +232,10 @@ def decide(
             test.file,
             "changed" if test.file in changed_specs else "affected by the change",
         )
+    # An empty selection would give playwright_test an empty matrix, which skips the
+    # job, so a PR could merge with no Playwright run at all.
+    if not reasons:
+        return Selection("full", "no @p0 test and no test affected by the change")
 
     totals: dict[str, int] = {}
     p0_lines: dict[str, list[str]] = {}
@@ -254,7 +263,10 @@ def shard_count(
         sum(scaled_spec_weights(selection.test_counts, weights).values())
         * WEIGHT_INFLATION
     )
-    return max(1, min(suite_shards, len(selection.reasons))), predicted
+    # The fewest shards that keep each near TARGET_SHARD_SECONDS, capped at the
+    # full suite's count and at one spec file per shard.
+    needed = math.ceil(predicted / TARGET_SHARD_SECONDS)
+    return max(1, min(suite_shards, len(selection.reasons), needed)), predicted
 
 
 def plan_json(
