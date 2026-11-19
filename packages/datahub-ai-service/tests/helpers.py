@@ -11,6 +11,7 @@ from datahub.configuration.common import OperationalError
 from starlette.applications import Starlette
 
 from datahub_ai_service.mcp.client_factory import CallerClientFactory
+from datahub_core_mcp_tools.gms_server_info import GmsServerInfo
 
 
 def rejected_token_error() -> Exception:
@@ -36,23 +37,37 @@ class FakeGms:
         }
     )
     down: bool = False
+    auth_enabled: Optional[bool] = True
+    """What /config reports; None is a GMS from before it reported it."""
     me_calls: int = 0
     open_clients: int = 0
     # When set, every getMe call waits here, so concurrent calls overlap.
     get_me_barrier: Optional[threading.Barrier] = None
     get_me_seconds: float = 0.0
 
-    def execute_graphql(self, token: str, operation_name: Optional[str]) -> Any:
+    def server_info(self) -> GmsServerInfo:
         if self.down:
             raise requests.ConnectionError("connection refused")
-        if token not in self.users:
+        return GmsServerInfo(
+            version="v1.7.0", server_env="core", auth_enabled=self.auth_enabled
+        )
+
+    def execute_graphql(
+        self, token: Optional[str], operation_name: Optional[str]
+    ) -> Any:
+        if self.down:
+            raise requests.ConnectionError("connection refused")
+        if self.auth_enabled is False:
+            # GMS's NoOpAuthenticator: any token, or none, is the system user.
+            token = None
+        elif token not in self.users:
             raise rejected_token_error()
         self.me_calls += 1
         if operation_name == "getMe" and self.get_me_barrier:
             self.get_me_barrier.wait()
         if operation_name == "getMe":
             time.sleep(self.get_me_seconds)
-        urn = self.users[token]
+        urn = self.users[token] if token else "urn:li:corpuser:__datahub_system"
         return {
             "me": {
                 "corpUser": {
@@ -65,7 +80,7 @@ class FakeGms:
 
 
 class _FakeGraph:
-    def __init__(self, gms: FakeGms, token: str) -> None:
+    def __init__(self, gms: FakeGms, token: Optional[str]) -> None:
         self._gms = gms
         self._token = token
 
@@ -82,7 +97,13 @@ class FakeClientFactory(CallerClientFactory):
     def __init__(self, gms: FakeGms) -> None:
         self._gms = gms
 
-    def build(self, token: str, *, time_limit_seconds: Optional[float] = None) -> Any:
+    def build(
+        self,
+        token: Optional[str],
+        *,
+        time_limit_seconds: Optional[float] = None,
+        on_rejected: Any = None,
+    ) -> Any:
         self._gms.open_clients += 1
         client = type("FakeClient", (), {})()
         client._graph = _FakeGraph(self._gms, token)

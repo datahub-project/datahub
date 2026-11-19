@@ -31,14 +31,20 @@ class GmsServerInfo:
     server_env: Optional[str]
     """``datahub.serverEnv``: "core" for DataHub Core, anything else for Cloud."""
 
+    auth_enabled: Optional[bool] = None
+    """``authentication.enabled``; None on a GMS that doesn't report it."""
+
     @classmethod
     def from_config(cls, config: Mapping[str, Any]) -> "GmsServerInfo":
         versions = config.get("versions") or {}
         datahub_version = versions.get("acryldata/datahub") or {}
         datahub = config.get("datahub") or {}
+        authentication = config.get("authentication") or {}
+        enabled = authentication.get("enabled")
         return cls(
             version=datahub_version.get("version") or None,
             server_env=datahub.get("serverEnv") or None,
+            auth_enabled=enabled if isinstance(enabled, bool) else None,
         )
 
     @property

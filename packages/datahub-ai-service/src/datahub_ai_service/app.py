@@ -18,17 +18,12 @@ from datahub_core_mcp_tools.gms_server_info import GmsServerInfo, GmsServerInfoC
 from ._version import __version__
 from .config import AiServiceConfig
 from .mcp.auth import DataHubTokenVerifier, McpAuthMiddleware
+from .mcp.auth_mode import GmsAuth, GmsAuthDetector
 from .mcp.client_factory import CallerClientFactory
 from .mcp.server import build_mcp_server
 from .mcp.telemetry import ToolCallObserver
 
 MCP_PATH = "/mcp"
-
-
-async def health(request: Request) -> JSONResponse:
-    # Unauthenticated and independent of GMS, so container runtimes can probe
-    # the process without a credential.
-    return JSONResponse({"status": "ok"})
 
 
 def create_app(
@@ -47,13 +42,41 @@ def create_app(
         def server_info() -> GmsServerInfo:
             return server_info_cache.get(config.gms_url)
 
+    detector = GmsAuthDetector(
+        config.gms_url, server_info, timeout_seconds=config.gms_timeout_seconds
+    )
+
+    async def health(request: Request) -> JSONResponse:
+        # Unauthenticated and never waits on GMS, so container runtimes can probe
+        # the process without a credential. Reports the last auth mode seen.
+        gms_auth = detector.last
+        available = config.mcp_enabled and (
+            gms_auth is GmsAuth.ON
+            or (gms_auth is GmsAuth.OFF and config.auth_mode == "auto")
+        )
+        return JSONResponse(
+            {
+                "status": "ok",
+                "mcp": {
+                    "enabled": config.mcp_enabled,
+                    "authMode": config.auth_mode,
+                    "gmsAuth": gms_auth.value,
+                    "available": available,
+                },
+            }
+        )
+
     routes: list[BaseRoute] = [Route("/health", health, methods=["GET"])]
     mcp_app = None
     if config.mcp_enabled:
+        verifier = DataHubTokenVerifier(
+            client_factory, cache_ttl_seconds=config.token_cache_ttl_seconds
+        )
         mcp = build_mcp_server(
             client_factory,
             server_info=server_info,
             tool_time_limit_seconds=config.tool_time_limit_seconds,
+            on_token_rejected=verifier.invalidate,
             observers=observers,
         )
         mcp_app = mcp.http_app(
@@ -62,10 +85,17 @@ def create_app(
             stateless_http=True,
             json_response=config.mcp_response_mode == "json",
         )
-        verifier = DataHubTokenVerifier(
-            client_factory, cache_ttl_seconds=config.token_cache_ttl_seconds
+        routes.append(
+            Mount(
+                "/",
+                app=McpAuthMiddleware(
+                    mcp_app,
+                    verifier,
+                    detector,
+                    required=config.auth_mode == "required",
+                ),
+            )
         )
-        routes.append(Mount("/", app=McpAuthMiddleware(mcp_app, verifier)))
 
     @contextlib.asynccontextmanager
     async def lifespan(app: Starlette) -> AsyncIterator[None]:

@@ -1,12 +1,17 @@
-"""Caller authentication for /mcp: each request carries its caller's DataHub token.
+"""Caller authentication for /mcp, following GMS's own auth setting.
 
-The token is checked against GMS with GraphQL ``me`` and the verdict cached
-briefly. Every request then gets its own DataHub client built from that token,
-so callers never share a client, a credential or a request context.
+When GMS requires authentication, each request carries its caller's DataHub
+token. It is checked with GraphQL ``me`` and the verdict cached briefly; a token
+GMS rejects is a 401. When GMS auth is off, no token is needed: GMS runs every
+request as its system user, as it does for direct calls, and any header the
+caller sent is passed on unchanged.
 
-A token GMS rejects is a 401. When GMS can't be reached or answers with a
-server error, the request is a 503: the service fails closed and never treats
-an unchecked token as valid.
+Every request gets its own DataHub client built from its caller's credential, so
+callers never share a client, a credential or a request context.
+
+The service fails closed: while GMS can't be reached, or its auth mode can't be
+told, requests get a 503 and an unchecked token is never treated as valid. In
+``required`` mode, /mcp is unavailable unless GMS auth is on.
 """
 
 import asyncio
@@ -24,6 +29,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from datahub_core_mcp_tools.graphql_helpers import http_status
 
+from .auth_mode import GmsAuth, GmsAuthDetector
 from .client_factory import CallerClientFactory
 
 _ME_QUERY = "query getMe { me { corpUser { urn } } }"
@@ -34,9 +40,18 @@ CALLER_STATE_KEY = "datahub_caller"
 
 
 @dataclasses.dataclass(frozen=True)
-class VerifiedCaller:
-    token: str = dataclasses.field(repr=False)
-    actor_urn: str
+class Caller:
+    token: Optional[str] = dataclasses.field(repr=False)
+    """The caller's credential, passed to GMS as is; None when none was sent."""
+
+    actor_urn: Optional[str]
+    """Who GMS said the token belongs to; None when GMS auth is off."""
+
+    gms_auth: GmsAuth
+
+    @property
+    def verified(self) -> bool:
+        return self.gms_auth is GmsAuth.ON
 
 
 class InvalidCredentialError(Exception):
@@ -61,6 +76,10 @@ def classify_gms_error(error: Exception) -> Exception:
     return GmsUnavailableError(f"Unexpected error checking the token: {error!r}")
 
 
+def _token_key(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
 class DataHubTokenVerifier:
     """Checks caller tokens with GMS and remembers the verdict for a short TTL.
 
@@ -82,8 +101,18 @@ class DataHubTokenVerifier:
         self._lock = threading.Lock()
         self._semaphore = asyncio.Semaphore(_MAX_CONCURRENT_VERIFICATIONS)
 
-    async def verify(self, token: str) -> VerifiedCaller:
-        key = hashlib.sha256(token.encode()).hexdigest()
+    def clear(self) -> None:
+        """Forget every verdict: GMS's auth mode changed."""
+        with self._lock:
+            self._verdicts.clear()
+
+    def invalidate(self, token: str) -> None:
+        """Forget one token's verdict: GMS rejected it since."""
+        with self._lock:
+            self._verdicts.pop(_token_key(token), None)
+
+    async def verify(self, token: str) -> Caller:
+        key = _token_key(token)
         actor_urn = self._cached(key)
         if actor_urn is None:
             async with self._semaphore:
@@ -92,7 +121,7 @@ class DataHubTokenVerifier:
                 if actor_urn is None:
                     actor_urn = await asyncio.to_thread(self._verify_with_gms, token)
                     self._remember(key, actor_urn)
-        return VerifiedCaller(token=token, actor_urn=actor_urn)
+        return Caller(token=token, actor_urn=actor_urn, gms_auth=GmsAuth.ON)
 
     def _verify_with_gms(self, token: str) -> str:
         client = self._client_factory.build(token)
@@ -154,17 +183,67 @@ async def _send_error(send: Send, status: int, error: str, description: str) -> 
 
 
 class McpAuthMiddleware:
-    """ASGI middleware in front of the MCP app: verifies the caller or refuses."""
+    """ASGI middleware in front of the MCP app: admits the caller or refuses."""
 
-    def __init__(self, app: ASGIApp, verifier: DataHubTokenVerifier) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        verifier: DataHubTokenVerifier,
+        detector: GmsAuthDetector,
+        *,
+        required: bool,
+    ) -> None:
         self._app = app
         self._verifier = verifier
+        self._detector = detector
+        self._required = required
+        self._gms_auth: Optional[GmsAuth] = None
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self._app(scope, receive, send)
             return
 
+        gms_auth = await asyncio.to_thread(self._detector.detect)
+        if gms_auth is not self._gms_auth:
+            # A verdict reached under one mode means nothing under another.
+            self._verifier.clear()
+            self._gms_auth = gms_auth
+
+        if gms_auth is GmsAuth.UNKNOWN:
+            await _send_error(
+                send,
+                503,
+                "datahub_unavailable",
+                "Can't tell whether DataHub requires authentication: DataHub may be "
+                "down. Try again shortly.",
+            )
+            return
+        if gms_auth is GmsAuth.OFF:
+            if self._required:
+                await _send_error(
+                    send,
+                    503,
+                    "datahub_auth_off",
+                    "DATAHUB_AI_AUTH_MODE is required, but DataHub authentication is "
+                    "off, so tokens can't be checked. Turn on "
+                    "METADATA_SERVICE_AUTH_ENABLED in DataHub, or set "
+                    "DATAHUB_AI_AUTH_MODE=auto.",
+                )
+                return
+            caller = Caller(
+                token=_bearer_token(scope), actor_urn=None, gms_auth=GmsAuth.OFF
+            )
+        else:
+            admitted = await self._verify(scope, send)
+            if admitted is None:
+                return
+            caller = admitted
+
+        scope.setdefault("state", {})[CALLER_STATE_KEY] = caller
+        await self._app(scope, receive, send)
+
+    async def _verify(self, scope: Scope, send: Send) -> Optional[Caller]:
         token = _bearer_token(scope)
         if token is None:
             await _send_error(
@@ -173,13 +252,12 @@ class McpAuthMiddleware:
                 "missing_token",
                 "Send a DataHub personal access token as 'Authorization: Bearer <token>'.",
             )
-            return
+            return None
         try:
-            caller = await self._verifier.verify(token)
+            return await self._verifier.verify(token)
         except InvalidCredentialError as e:
             logger.info(f"Rejected an MCP request: {e}")
             await _send_error(send, 401, "invalid_token", "DataHub rejected the token.")
-            return
         except GmsUnavailableError as e:
             logger.warning(f"Could not verify an MCP caller: {e}")
             await _send_error(
@@ -188,7 +266,4 @@ class McpAuthMiddleware:
                 "datahub_unavailable",
                 "DataHub could not be reached to check the token. Try again shortly.",
             )
-            return
-
-        scope.setdefault("state", {})[CALLER_STATE_KEY] = caller
-        await self._app(scope, receive, send)
+        return None

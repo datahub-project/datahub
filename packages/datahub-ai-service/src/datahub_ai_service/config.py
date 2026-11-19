@@ -6,6 +6,7 @@ from typing import Callable, Literal, Mapping, TypeVar
 _N = TypeVar("_N", int, float)
 
 ResponseMode = Literal["sse", "json"]
+AuthMode = Literal["auto", "required"]
 
 
 class ConfigError(ValueError):
@@ -26,6 +27,10 @@ class AiServiceConfig:
     mcp_response_mode: ResponseMode = "sse"
     """sse streams each response, so progress can reach the client during slow
     calls. json returns one plain body, for proxies that can't stream."""
+
+    auth_mode: AuthMode = "auto"
+    """auto follows GMS: a token when GMS auth is on, none when it's off.
+    required serves /mcp only while GMS auth is on."""
 
     token_cache_ttl_seconds: float = 300.0
     """How long a verified caller token is trusted before GMS checks it again."""
@@ -58,8 +63,15 @@ class AiServiceConfig:
                 f"DATAHUB_AI_MCP_RESPONSE_MODE must be sse or json, not {response_mode!r}"
             )
 
+        auth_mode = environ.get("DATAHUB_AI_AUTH_MODE", "auto").strip().lower()
+        if auth_mode not in ("auto", "required"):
+            raise ConfigError(
+                f"DATAHUB_AI_AUTH_MODE must be auto or required, not {auth_mode!r}"
+            )
+
         return cls(
             gms_url=gms_url,
+            auth_mode=auth_mode,  # type: ignore[arg-type]
             host=environ.get("DATAHUB_AI_HOST", cls.host),
             port=_number(environ, "DATAHUB_AI_PORT", cls.port, int),
             mcp_enabled=_flag(environ, "DATAHUB_AI_MCP_ENABLED", default=True),

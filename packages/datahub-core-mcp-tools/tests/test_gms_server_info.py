@@ -39,7 +39,17 @@ def test_from_config(
 def test_from_empty_config() -> None:
     info = GmsServerInfo.from_config({})
 
-    assert info == GmsServerInfo(version=None, server_env=None)
+    assert info == GmsServerInfo(version=None, server_env=None, auth_enabled=None)
+
+
+@pytest.mark.parametrize(
+    ("authentication", "expected"),
+    [({"enabled": True}, True), ({"enabled": False}, False), ({}, None), (None, None)],
+)
+def test_auth_enabled(authentication: object, expected: bool | None) -> None:
+    config = {**_config("v1.9.0"), "authentication": authentication}
+
+    assert GmsServerInfo.from_config(config).auth_enabled is expected
 
 
 class _FakeGms:

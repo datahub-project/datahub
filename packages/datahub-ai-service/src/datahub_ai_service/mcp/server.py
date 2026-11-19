@@ -23,6 +23,7 @@ def build_mcp_server(
     *,
     server_info: Callable[[], GmsServerInfo],
     tool_time_limit_seconds: Optional[float] = None,
+    on_token_rejected: Optional[Callable[[str], None]] = None,
     observers: Sequence[ToolCallObserver] = (),
 ) -> FastMCP:
     mcp = FastMCP[None](name="datahub", version=__version__)
@@ -35,7 +36,10 @@ def build_mcp_server(
     # place before anything else (including telemetry) runs.
     mcp.add_middleware(
         CallerClientMiddleware(
-            client_factory, server_info, time_limit_seconds=tool_time_limit_seconds
+            client_factory,
+            server_info,
+            time_limit_seconds=tool_time_limit_seconds,
+            on_token_rejected=on_token_rejected,
         )
     )
     mcp.add_middleware(VersionFilterMiddleware(server_info))
