@@ -5,6 +5,9 @@ from pydantic import Field, field_validator
 
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
+from datahub.ingestion.source.repository_documents.paths import (
+    validate_platform_instance,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -102,14 +105,10 @@ class RepositoryDocumentsSourceConfigBase(
 
     @field_validator("platform_instance")
     @classmethod
-    def _platform_instance_has_no_dot(cls, value: Optional[str]) -> Optional[str]:
-        # Source ids join path segments with "."; an instance containing one
-        # could produce the same id as another instance plus a repository path.
-        if value and "." in value:
-            raise ValueError(
-                f"platform_instance {value!r} must not contain '.'; use '-' or '_'."
-            )
-        return value
+    def _validate_platform_instance(cls, value: Optional[str]) -> Optional[str]:
+        # The instance is part of every source id and of the
+        # dataPlatformInstance URN; see validate_platform_instance.
+        return validate_platform_instance(value)
 
     @field_validator("okf_bundle_roots")
     @classmethod

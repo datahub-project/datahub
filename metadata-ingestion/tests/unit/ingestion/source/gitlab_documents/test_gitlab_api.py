@@ -5,6 +5,7 @@ import requests
 import requests_mock
 
 from datahub.ingestion.source.gitlab_documents.gitlab_api import (
+    MAX_REQUEST_ATTEMPTS,
     GitLabApiClient,
     parse_project_path,
 )
@@ -118,15 +119,19 @@ def test_fetch_file_content_stops_reading_a_file_without_a_declared_size() -> No
 
 def test_file_skipped_for_size_does_not_report_an_earlier_error() -> None:
     client = GitLabApiClient("glpat-test")
-    with requests_mock.Mocker() as m:
-        m.get(f"{API}/repository/files/docs%2Fa.md/raw?ref=main", status_code=503)
+    with requests_mock.Mocker() as m, patch("time.sleep"):
+        failing = m.get(
+            f"{API}/repository/files/docs%2Fa.md/raw?ref=main", status_code=503
+        )
         m.get(
             f"{API}/repository/files/docs%2Fbig.md/raw?ref=main",
             content=b"",
             headers={"Content-Length": str(MAX_FILE_SIZE_BYTES + 1)},
         )
         assert client.fetch_file_content("acme/data/docs", "docs/a.md", "main") is None
+        assert failing.call_count == MAX_REQUEST_ATTEMPTS
         assert client.last_api_error is not None
+        assert "503" in client.last_api_error
         assert (
             client.fetch_file_content("acme/data/docs", "docs/big.md", "main") is None
         )
@@ -341,7 +346,7 @@ def test_failure_while_reading_a_file_body_is_reported_not_raised() -> None:
         m.get(f"{API}/repository/files/a.md/raw", text="# A")
         assert client.fetch_file_content("acme/data/docs", "a.md", "main") is None
         # Retried before giving up.
-        assert m.call_count > 1
+        assert m.call_count == MAX_REQUEST_ATTEMPTS
     assert client.last_api_error is not None
 
 
@@ -381,3 +386,56 @@ def test_next_link_is_rebased_onto_an_instance_under_a_relative_path() -> None:
         files, _ = client.list_matching_files("acme/data/docs", "main", "", [".md"])
     assert [f.path for f in files] == ["a.md", "b.md"]
     assert {r.netloc for r in m.request_history} == {"host.example"}
+
+
+def test_tree_page_failing_mid_body_is_retried() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m, patch("time.sleep"):
+        tree = m.get(
+            f"{API}/repository/tree",
+            [
+                {"exc": requests.exceptions.ChunkedEncodingError("reset mid-body")},
+                {"json": [{"type": "blob", "path": "a.md", "id": "blob-a"}]},
+            ],
+        )
+        files, truncated = client.list_matching_files(
+            "acme/data/docs", "main", "", [".md"]
+        )
+    assert tree.call_count == 2
+    assert [file.path for file in files] == ["a.md"]
+    assert not truncated
+
+
+def test_json_redirect_is_reported_not_followed() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(
+            f"{API}/repository/tree",
+            status_code=302,
+            headers={"Location": "https://sso.example.com/login"},
+        )
+        sso = m.get("https://sso.example.com/login", text="<html>Sign in</html>")
+        with pytest.raises(RuntimeError, match="sso.example.com"):
+            client.list_matching_files("acme/data/docs", "main", "", [".md"])
+        assert not sso.called
+
+
+@pytest.mark.parametrize(
+    "endpoint, body",
+    [
+        ("repository/tree", {"message": "not a list"}),
+        ("repository/branches/main", {"name": "main"}),
+    ],
+    ids=["tree is not a list", "branch without commit"],
+)
+def test_unexpected_response_shape_is_reported(endpoint: str, body: dict) -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(f"{API}/{endpoint}", json=body)
+        if endpoint == "repository/tree":
+            with pytest.raises(RuntimeError, match="unexpected response shape"):
+                client.list_matching_files("acme/data/docs", "main", "", [".md"])
+        else:
+            assert client.get_latest_commit_sha("acme/data/docs", "main") is None
+    assert client.last_api_error is not None
+    assert "unexpected response shape" in client.last_api_error

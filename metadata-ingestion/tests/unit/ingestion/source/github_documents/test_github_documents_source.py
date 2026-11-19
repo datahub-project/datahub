@@ -1294,16 +1294,29 @@ def test_unsupported_search_flag_degrades_once_instead_of_failing(
     assert len(flagged) == 1
 
 
+@pytest.mark.parametrize(
+    ("platform_instance", "instance"),
+    [(None, "acme/docs"), ("ghe", "ghe")],
+)
 def test_unchanged_file_resurrects_soft_deleted_document(
-    source: GitHubDocumentsSource,
+    platform_instance: Optional[str], instance: str
 ) -> None:
     """Restoring a deleted file with identical content must un-delete its document.
 
     The unchanged-file short-circuit returns before any DocumentInfo is emitted, so
     without an explicit Status the document would stay soft-deleted forever.
     """
+    source = GitHubDocumentsSource(
+        GitHubDocumentsSourceConfig(
+            github_token=SecretStr("ghp_test"),
+            repository="acme/docs",
+            path_prefix="docs",
+            platform_instance=platform_instance,
+        ),
+        PipelineContext(run_id="test-run"),
+    )
     source_id = make_file_source_id(
-        "acme/docs", "docs/readme.md", source_prefix="github"
+        "acme/docs", "docs/readme.md", source_prefix=source._source_prefix
     )
     canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     content = "# Hello"
@@ -1318,9 +1331,11 @@ def test_unchanged_file_resurrects_soft_deleted_document(
         "source_content_hash": compute_file_content_hash(content)
     }
     source.ctx.graph.get_aspect.return_value = existing
+    soft_deleted_searches: List[Dict[str, Any]] = []
 
     def urns_by_filter(**kwargs):
         if kwargs.get("status") == RemovedStatusFilter.ONLY_SOFT_DELETED:
+            soft_deleted_searches.append(kwargs)
             return [canonical_urn]
         return []
 
@@ -1336,6 +1351,48 @@ def test_unchanged_file_resurrects_soft_deleted_document(
         if isinstance(wu, MetadataWorkUnit) and wu.get_urn() == canonical_urn
     ]
     assert any(s is not None and s.removed is False for s in statuses)
+    # One search, scoped to this instance and narrowed to this repository.
+    [search] = soft_deleted_searches
+    assert search["platform_instance"] == (
+        f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:github,{instance})"
+    )
+    assert search["extraFilters"] == [
+        {
+            "field": "customProperties",
+            "condition": "EQUAL",
+            "values": ["github_repo=acme/docs"],
+        }
+    ]
+
+
+def test_failed_soft_deleted_search_is_reported(source: GitHubDocumentsSource) -> None:
+    content = "# Hello"
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
+        file_content=content,
+    )
+    source.ctx.graph = MagicMock()
+    existing = MagicMock()
+    existing.customProperties = {
+        "source_content_hash": compute_file_content_hash(content)
+    }
+    source.ctx.graph.get_aspect.return_value = existing
+
+    def urns_by_filter(**kwargs):
+        if kwargs.get("status") == RemovedStatusFilter.ONLY_SOFT_DELETED:
+            raise RuntimeError("search unavailable")
+        return []
+
+    source.ctx.graph.get_urns_by_filter.side_effect = urns_by_filter
+
+    list(source.get_workunits_internal())
+
+    assert source.report.files_skipped_unchanged == 1
+    assert source.report.documents_resurrected == 0
+    assert "Could not list soft-deleted documents" in {
+        w.title for w in source.report.warnings
+    }
 
 
 def test_unchanged_file_not_soft_deleted_emits_nothing(
@@ -3013,6 +3070,117 @@ def test_path_fallback_reuses_only_legacy_or_same_source_documents(
     )
 
     assert found == (existing if reused else None)
+
+
+def test_path_fallback_keeps_a_match_it_cannot_read_and_warns(
+    source: GitHubDocumentsSource,
+) -> None:
+    # Minting a second document would let stale removal delete the one the
+    # path already has, so an unreadable match is reused, with a warning.
+    existing = "urn:li:document:existing"
+    source_id = "github.acme.docs.docs.guide"
+    canonical = f"urn:li:document:{normalize_document_id(source_id)}"
+    source.ctx.graph = MagicMock()
+
+    def get_aspect(urn: str, _cls: type) -> None:
+        if urn == existing:
+            raise RuntimeError("GMS unavailable")
+        return None
+
+    source.ctx.graph.get_aspect.side_effect = get_aspect
+    source.ctx.graph.get_urns_by_filter.side_effect = lambda **kwargs: (
+        []
+        if any(
+            value.startswith(f"{PROP_IMPORT_SOURCE_ID}=")
+            for rule in kwargs["extraFilters"]
+            for value in rule["values"]
+        )
+        else [existing]
+    )
+
+    found = source._find_existing_document_urn(
+        source_id, "acme/docs", "docs/guide.md", canonical, is_directory=False
+    )
+
+    assert found == existing
+    [warning] = [
+        w
+        for w in source.report.warnings
+        if w.title == "Could not check an existing document's source"
+    ]
+    assert any(existing in context for context in warning.context)
+
+
+def test_path_fallback_does_not_reuse_another_sources_folder(
+    source: GitHubDocumentsSource,
+) -> None:
+    existing = "urn:li:document:existing-folder"
+    source_id = "github.acme.docs.docs.guides._dir"
+    canonical = f"urn:li:document:{normalize_document_id(source_id)}"
+    source.ctx.graph = MagicMock()
+    existing_info = MagicMock(spec=DocumentInfoClass)
+    existing_info.customProperties = {
+        "github_repo": "acme/docs",
+        "github_directory_path": "docs/guides",
+        PROP_IMPORT_SOURCE_ID: "github-other.acme.docs.docs.guides._dir",
+    }
+    source.ctx.graph.get_aspect.side_effect = lambda urn, _cls: (
+        existing_info if urn == existing else None
+    )
+    path_searches: List[List[str]] = []
+
+    def urns_by_filter(**kwargs: Any) -> List[str]:
+        values = [value for rule in kwargs["extraFilters"] for value in rule["values"]]
+        if any(value.startswith(f"{PROP_IMPORT_SOURCE_ID}=") for value in values):
+            return []
+        path_searches.append(values)
+        return [existing]
+
+    source.ctx.graph.get_urns_by_filter.side_effect = urns_by_filter
+
+    found = source._find_existing_document_urn(
+        source_id, "acme/docs", "docs/guides", canonical, is_directory=True
+    )
+
+    assert found is None
+    assert path_searches == [
+        ["github_directory_path=docs/guides", "github_repo=acme/docs"]
+    ]
+
+
+def test_nested_hierarchy_on_a_platform_instance() -> None:
+    source = GitHubDocumentsSource(
+        GitHubDocumentsSourceConfig(
+            github_token=SecretStr("ghp_test"),
+            repository="acme/docs",
+            path_prefix="docs",
+            platform_instance="ghe",
+        ),
+        PipelineContext(run_id="test-run"),
+    )
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="docs/guides/setup.md", size=12)],
+    )
+
+    workunits = list(source.get_workunits())
+    urns = _entity_urns_by_source_id(workunits)
+    infos = _document_infos_by_source_id(workunits)
+
+    repo_id = make_repo_source_id("acme/docs", source_prefix="github-ghe")
+    folder_id = make_dir_source_id(
+        "acme/docs", "docs/guides", source_prefix="github-ghe"
+    )
+    file_id = make_file_source_id(
+        "acme/docs", "docs/guides/setup.md", source_prefix="github-ghe"
+    )
+    for source_id in (repo_id, folder_id, file_id):
+        assert urns[source_id].startswith("urn:li:document:github-ghe.")
+    file_parent = infos[file_id].parentDocument
+    folder_parent = infos[folder_id].parentDocument
+    assert file_parent is not None and file_parent.document == urns[folder_id]
+    assert folder_parent is not None and folder_parent.document == urns[repo_id]
+    assert infos[repo_id].parentDocument is None
 
 
 @pytest.mark.parametrize(

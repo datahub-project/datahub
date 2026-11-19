@@ -18,7 +18,7 @@ from datahub.ingestion.source.repository_documents.client import (
     MAX_FILE_SIZE_BYTES,
     RepositoryFileInfo,
 )
-from datahub.ingestion.source.repository_documents.paths import matches_filters
+from datahub.ingestion.source.repository_documents.paths import TreeSelection
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +32,20 @@ RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 
 @dataclass(frozen=True)
 class _RawFile:
-    # None when the file is larger than MAX_FILE_SIZE_BYTES.
-    content: Optional[bytes]
+    content: bytes
+
+
+@dataclass(frozen=True)
+class _TooLarge:
+    """The file is larger than MAX_FILE_SIZE_BYTES, so it was not read."""
+
+
+@dataclass(frozen=True)
+class _Failed:
+    """GitLab answered with an error, recorded in ``last_api_error``."""
+
+
+_RawFileResult = Union[_RawFile, _TooLarge, _Failed]
 
 
 class _RetryableResponse(Exception):
@@ -50,6 +62,25 @@ def _wait_before_retry(state: RetryCallState) -> float:
     if isinstance(error, _RetryableResponse) and error.response.status_code == 429:
         return _retry_after_seconds(error.response)
     return _exponential_wait(state)
+
+
+# One policy for every request. A body can fail after the headers arrived
+# (connection reset mid-body, broken compression), so those errors are
+# transient too.
+_retry_transient_errors = retry(
+    retry=retry_if_exception_type(
+        (
+            _RetryableResponse,
+            requests.ConnectionError,
+            requests.Timeout,
+            requests.exceptions.ChunkedEncodingError,
+            requests.exceptions.ContentDecodingError,
+        )
+    ),
+    stop=stop_after_attempt(MAX_REQUEST_ATTEMPTS),
+    wait=_wait_before_retry,
+    reraise=True,
+)
 
 
 def parse_project_path(raw: str, base_url: Optional[str]) -> Tuple[str, str]:
@@ -117,9 +148,13 @@ class GitLabApiClient:
         )
         response = self._get(url)
         node = self._json_or_none(response)
-        if isinstance(node, dict) and isinstance(node.get("commit"), dict):
-            commit_id = node["commit"].get("id")
-            return commit_id if isinstance(commit_id, str) and commit_id else None
+        if response is None or node is None:
+            return None
+        commit = node.get("commit") if isinstance(node, dict) else None
+        commit_id = commit.get("id") if isinstance(commit, dict) else None
+        if isinstance(commit_id, str) and commit_id:
+            return commit_id
+        self._record_unexpected_shape(response, "a branch with a commit id")
         return None
 
     def list_matching_files(
@@ -140,9 +175,7 @@ class GitLabApiClient:
             # trees; keyset pagination does not. Older instances ignore it.
             "pagination": "keyset",
         }
-        ext_set = {ext.lower() for ext in extensions}
-        normalized_prefix = path_prefix.strip("/")
-        matching: List[RepositoryFileInfo] = []
+        selection = TreeSelection.for_filters(path_prefix, extensions)
         self._index_file_paths = set()
 
         saw_pagination_header = False
@@ -150,6 +183,12 @@ class GitLabApiClient:
         while url:
             response = self._get(url, params=params)
             items = self._json_or_none(response)
+            if (
+                response is not None
+                and items is not None
+                and not isinstance(items, list)
+            ):
+                self._record_unexpected_shape(response, "a list of tree entries")
             if response is None or not isinstance(items, list):
                 # A partial listing would let stale removal delete the files
                 # on the pages that were not read, so fail the run instead.
@@ -158,17 +197,12 @@ class GitLabApiClient:
                     f"Could not list branch '{branch}' in project {owner_repo}: {detail}"
                 )
             for item in items:
-                if item.get("type") != "blob":
-                    continue
-                path = item.get("path", "")
-                if path == "index.md" or path.endswith("/index.md"):
-                    self._index_file_paths.add(path)
-                if not matches_filters(path, normalized_prefix, ext_set):
+                if not isinstance(item, dict) or item.get("type") != "blob":
                     continue
                 blob_id = item.get("id")
-                matching.append(
+                selection.add(
                     RepositoryFileInfo(
-                        path=path,
+                        path=item.get("path", ""),
                         size=None,
                         sha=blob_id if isinstance(blob_id, str) else None,
                     )
@@ -189,7 +223,8 @@ class GitLabApiClient:
             and not saw_pagination_header
             and self._tree_has_entries_after_first_page(owner_repo, branch)
         )
-        return matching, truncated
+        self._index_file_paths = selection.index_paths
+        return selection.files, truncated
 
     def _tree_has_entries_after_first_page(self, owner_repo: str, branch: str) -> bool:
         response = self._get(
@@ -202,6 +237,8 @@ class GitLabApiClient:
             },
         )
         items = self._json_or_none(response)
+        if response is not None and items is not None and not isinstance(items, list):
+            self._record_unexpected_shape(response, "a list of tree entries")
         if not isinstance(items, list):
             # Cannot confirm the listing is complete, so treat it as truncated
             # and keep stale removal from acting on it.
@@ -254,43 +291,28 @@ class GitLabApiClient:
             f"{self._project_url(owner_repo)}/repository/files/"
             f"{quote(file_path, safe='')}/raw"
         )
+        result: _RawFileResult
         try:
-            raw = self._get_raw_file_with_retry(url, branch)
-        except _RetryableResponse as exc:
-            self._last_api_error = _describe_http_error(exc.response)
-            raw = None
-        except requests.RequestException as exc:
+            result = self._get_raw_file_with_retry(url, branch)
+        except (_RetryableResponse, requests.RequestException) as exc:
             # Includes a connection reset or timeout while reading the body.
-            self._last_api_error = f"GitLab API request failed: {exc}"
-            raw = None
-        if raw is None:
+            self._record_error(exc)
+            result = _Failed()
+        if isinstance(result, _Failed):
             detail = self._last_api_error or "GitLab API request failed"
             logger.warning("Failed to fetch file content for %s: %s", file_path, detail)
             return None
-        if raw.content is None:
+        if isinstance(result, _TooLarge):
             logger.warning(
                 "File %s is over %s bytes, skipping", file_path, MAX_FILE_SIZE_BYTES
             )
             return None
-        return raw.content.decode("utf-8", errors="replace")
+        return result.content.decode("utf-8", errors="replace")
 
-    @retry(
-        retry=retry_if_exception_type(
-            (
-                _RetryableResponse,
-                requests.ConnectionError,
-                requests.Timeout,
-                requests.exceptions.ChunkedEncodingError,
-            )
-        ),
-        stop=stop_after_attempt(MAX_REQUEST_ATTEMPTS),
-        wait=_wait_before_retry,
-        reraise=True,
-    )
-    def _get_raw_file_with_retry(self, url: str, ref: str) -> Optional[_RawFile]:
-        """The file, or None when GitLab answered with an error. The body is read
-        here, inside the retry, because a streamed body can still fail after
-        the response headers arrived."""
+    @_retry_transient_errors
+    def _get_raw_file_with_retry(self, url: str, ref: str) -> _RawFileResult:
+        """The file, read here inside the retry because a streamed body can
+        still fail after the response headers arrived."""
         response = self._session.get(
             url,
             params={"ref": ref},
@@ -310,7 +332,7 @@ class GitLabApiClient:
             if response.status_code != 200:
                 self._last_api_error = _describe_http_error(response)
                 logger.warning("%s for %s", self._last_api_error, url)
-                return None
+                return _Failed()
             if _is_html(response):
                 # A proxy or SSO login page can answer 200 with HTML. Raw files
                 # are served as text/plain, so this is not the file.
@@ -319,11 +341,32 @@ class GitLabApiClient:
                     "SSO login page may be intercepting API requests."
                 )
                 logger.warning("%s for %s", self._last_api_error, response.url)
-                return None
+                return _Failed()
             # A skip for size is not a failed read either, so clear any earlier
             # request's error.
             self._last_api_error = None
-            return _RawFile(content=_read_up_to(response, MAX_FILE_SIZE_BYTES))
+            content = _read_up_to(response, MAX_FILE_SIZE_BYTES)
+            return _TooLarge() if content is None else _RawFile(content=content)
+
+    def _record_error(
+        self, exc: Union[_RetryableResponse, requests.RequestException]
+    ) -> None:
+        """Record a request that failed after its retries as ``last_api_error``."""
+        if isinstance(exc, _RetryableResponse):
+            self._last_api_error = _describe_http_error(exc.response)
+        else:
+            self._last_api_error = f"GitLab API request failed: {exc}"
+
+    def _record_unexpected_shape(
+        self, response: requests.Response, expected: str
+    ) -> None:
+        # A 200 cleared last_api_error, so without this the caller would only
+        # see a generic failure.
+        self._last_api_error = (
+            f"GitLab returned an unexpected response shape (expected {expected}). "
+            "A proxy may be answering for the API, or the API version differs."
+        )
+        logger.warning("%s for %s", self._last_api_error, response.url)
 
     def _json_or_none(self, response: Optional[requests.Response]) -> object:
         if response is None:
@@ -349,21 +392,12 @@ class GitLabApiClient:
     ) -> Optional[requests.Response]:
         try:
             return self._get_with_retry(url, params)
-        except _RetryableResponse as exc:
-            self._last_api_error = _describe_http_error(exc.response)
-        except requests.RequestException as exc:
-            self._last_api_error = f"GitLab API request failed: {exc}"
+        except (_RetryableResponse, requests.RequestException) as exc:
+            self._record_error(exc)
         logger.warning("%s for %s", self._last_api_error, url)
         return None
 
-    @retry(
-        retry=retry_if_exception_type(
-            (_RetryableResponse, requests.ConnectionError, requests.Timeout)
-        ),
-        stop=stop_after_attempt(MAX_REQUEST_ATTEMPTS),
-        wait=_wait_before_retry,
-        reraise=True,
-    )
+    @_retry_transient_errors
     def _get_with_retry(
         self, url: str, params: Optional[Dict[str, Union[str, int]]]
     ) -> Optional[requests.Response]:
