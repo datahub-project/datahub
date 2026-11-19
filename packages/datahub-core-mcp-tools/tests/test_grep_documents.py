@@ -73,6 +73,9 @@ class FakeBackend:
         ]
         return found + [None for urn in urns if urn in self.stubs]
 
+    def list_queries(self, variables: JsonObject) -> JsonObject:
+        return {}
+
     def lineage_paths(self, variables: JsonObject) -> JsonObject:
         return {}
 

@@ -59,6 +59,9 @@ class CountingBackend:
     def document_contents(self, urns: list[str]) -> list[JsonObject | None]:
         return []
 
+    def list_queries(self, variables: JsonObject) -> JsonObject:
+        return {}
+
     def lineage_paths(self, variables: JsonObject) -> JsonObject:
         return {}
 

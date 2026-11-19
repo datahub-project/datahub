@@ -152,6 +152,7 @@ async def test_legacy_and_modern_clients(gms: FakeGms, protocol: str) -> None:
         "get_me",
         "search",
         "get_lineage",
+        "get_dataset_queries",
         "get_entities",
         "list_schema_fields",
         "get_lineage_paths_between",

@@ -6,7 +6,6 @@ import string
 from dataclasses import dataclass
 from typing import Annotated, Any, Dict, List, Literal, Optional
 
-from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter, FilterDsl
 from fastmcp.exceptions import ToolError
@@ -14,7 +13,12 @@ from loguru import logger
 from pydantic import BeforeValidator, Field
 
 from .. import arg_validation, entity_cleaning, graphql_helpers
-from ..read_backend import JsonObject, ReadBackend, get_read_backend
+from ..read_backend import (
+    JsonObject,
+    ReadBackend,
+    get_read_backend,
+    require_existing,
+)
 from ..result_policy import (
     apply_decision,
     attach_header,
@@ -139,20 +143,6 @@ def _filter_restricts_to_non_datasets(parsed_filter: Optional[Filter]) -> bool:
     if not types:
         return False
     return not any(t.lower() == "dataset" for t in types)
-
-
-def _require_existing(backend: ReadBackend, urn: str) -> None:
-    """Raise unless ``urn`` exists.
-
-    searchAcrossLineage returns zero results for a well-formed URN that does not
-    exist, which reads as "no lineage". A schemaField has no key aspect of its own,
-    so exists() is false for real columns: its dataset is checked instead.
-    """
-    existence_urn = urn
-    if urn.startswith("urn:li:schemaField:"):
-        existence_urn = str(SchemaFieldUrn.from_string(urn).parent)
-    if not backend.exists(existence_urn):
-        raise ToolError(f"Entity {existence_urn} not found")
 
 
 def _page_direction(
@@ -302,7 +292,7 @@ def get_lineage(
 
     urn = arg_validation.require_urn(urn, tool="get_lineage")
     backend = get_read_backend()
-    _require_existing(backend, urn)
+    require_existing(backend, urn)
 
     try:
         parsed_filter = graphql_helpers.parse_filter_input(filter)
@@ -685,8 +675,8 @@ def get_lineage_paths_between(
     target_urn = arg_validation.require_urn(target_urn, tool=tool, param="target_urn")
     backend = get_read_backend()
     # A URN that does not exist has no lineage, which would read as "no path".
-    _require_existing(backend, source_urn)
-    _require_existing(backend, target_urn)
+    require_existing(backend, source_urn)
+    require_existing(backend, target_urn)
 
     query_urn = arg_validation.schema_field_urn(source_urn, source_column, tool=tool)
     target_full_urn = arg_validation.schema_field_urn(
