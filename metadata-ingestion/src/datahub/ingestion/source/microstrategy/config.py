@@ -537,8 +537,9 @@ class MicroStrategyConfig(
             "URN: with stateful ingestion the previous scheme's entities are "
             "soft-deleted as stale on the next run, so raise "
             "`stateful_ingestion.fail_safe_threshold` for that run when more "
-            "than the default percentage of entities would change. See "
-            "docs/sources/microstrategy/dataset-identity.md."
+            "than the default percentage of entities would change. The design "
+            "note is metadata-ingestion/src/datahub/ingestion/source/"
+            "microstrategy/docs/dataset-identity.md in the DataHub repository."
         ),
     )
     datasource_platform_mapping: Dict[str, ConnectionPlatformConfig] = Field(
