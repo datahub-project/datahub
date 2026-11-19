@@ -934,3 +934,43 @@ def test_odbc_query_with_no_parsed_tables_warns(driver: str, sql: str) -> None:
     assert "No upstream tables found in native SQL" in [
         w.title for w in reporter.warnings
     ]
+
+
+def test_odbc_athena_query_catalog_strip_dedupes_upstreams() -> None:
+    """A catalog-qualified and a catalog-less reference to one table become the
+    same URN once the Athena catalog is stripped; the table and each column
+    reference must be listed once."""
+    expression = (
+        'let\n    Source = Odbc.Query("driver={Simba Amazon Athena ODBC Driver};'
+        'dsn=athena_prod", "SELECT a FROM awsdatacatalog.db1.t UNION ALL '
+        'SELECT a FROM db1.t")\nin\n    Source'
+    )
+    table = powerbi_data_classes.Table(
+        columns=[], measures=[], expression=expression, name="t", full_name="t"
+    )
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {
+            "extract_column_level_lineage": True,
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "extract_lineage": True,
+            "extract_dataset_schema": True,
+        }
+    )
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    table_urn = "urn:li:dataset:(urn:li:dataPlatform:athena,db1.t,PROD)"
+    assert [u.urn for lineage in lineages for u in lineage.upstreams] == [table_urn]
+    assert [
+        [(ref.table, ref.column) for ref in column.upstreams]
+        for lineage in lineages
+        for column in lineage.column_lineage
+    ] == [[(table_urn, "a")]]

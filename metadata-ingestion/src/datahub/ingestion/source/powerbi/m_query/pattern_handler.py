@@ -2559,9 +2559,15 @@ class OdbcLineage(AbstractLineage):
                 transformed[urn] = transform_fn(urn)
             return transformed[urn]
 
+        # Distinct references can collapse to one URN (e.g. awsdatacatalog.db1.t
+        # and db1.t once the Athena catalog is stripped); keep the first.
         updated_upstreams: List[DataPlatformTable] = []
+        seen_upstream_urns: Set[str] = set()
         for upstream in lineage.upstreams:
             transformed_urn = transform_once(upstream.urn)
+            if transformed_urn in seen_upstream_urns:
+                continue
+            seen_upstream_urns.add(transformed_urn)
             platform_pair = upstream.data_platform_pair
             if transformed_urn != upstream.urn:
                 # A platform override hands the upstream to another platform; the
@@ -2586,10 +2592,11 @@ class OdbcLineage(AbstractLineage):
         for col_info in lineage.column_lineage:
             updated_col_upstreams: List[ColumnRef] = []
             for col_ref in col_info.upstreams:
-                transformed_table_urn = transform_once(col_ref.table)
-                updated_col_upstreams.append(
-                    ColumnRef(table=transformed_table_urn, column=col_ref.column)
+                transformed_ref = ColumnRef(
+                    table=transform_once(col_ref.table), column=col_ref.column
                 )
+                if transformed_ref not in updated_col_upstreams:
+                    updated_col_upstreams.append(transformed_ref)
 
             updated_column_lineage.append(
                 ColumnLineageInfo(
