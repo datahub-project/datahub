@@ -5,6 +5,7 @@ import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -51,6 +52,8 @@ import lombok.extern.slf4j.Slf4j;
 @Getter
 @Builder(toBuilder = true)
 public class PatchItemImpl implements PatchMCP {
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
   // A JSON property name (patch key) longer than this previously failed with a Jackson
   // StreamConstraintsException (default maxNameLength=50000). Such names are now accepted, but we
   // log which entity/aspect/key was oversized — the exception never included the offending name, so
@@ -105,7 +108,10 @@ public class PatchItemImpl implements PatchMCP {
       mcp.setChangeType(getChangeType());
       mcp.setEntityType(getEntitySpec().getName());
       mcp.setAspectName(getAspectName());
-      mcp.setAspect(GenericRecordUtils.serializePatch(getPatch()));
+      mcp.setAspect(
+          genericJsonPatch != null
+              ? GenericRecordUtils.serializePatch(genericJsonPatch, OBJECT_MAPPER)
+              : GenericRecordUtils.serializePatch(getPatch()));
       mcp.setSystemMetadata(getSystemMetadata());
       mcp.setEntityKeyAspect(
           GenericRecordUtils.serializeAspect(

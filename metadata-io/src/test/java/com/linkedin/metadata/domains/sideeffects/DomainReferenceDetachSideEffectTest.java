@@ -106,8 +106,7 @@ public class DomainReferenceDetachSideEffectTest {
   private List<MCPItem> run(MCLItem item) {
     DomainReferenceDetachSideEffect test = new DomainReferenceDetachSideEffect();
     test.setConfig(CONFIG);
-    return test.postMCPSideEffect(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
-        .toList();
+    return test.postApply(OperationFingerprint.EMPTY, List.of(item), retrieverContext).toList();
   }
 
   private static Domains domainsAspect(Urn domainUrn) {
