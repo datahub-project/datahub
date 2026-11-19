@@ -1,5 +1,4 @@
 import importlib
-import sys
 import warnings
 from typing import List, Tuple
 
@@ -15,6 +14,7 @@ _OLD_IMPORTS: List[Tuple[str, List[str]]] = [
         "github_api",
         [
             "GITHUB_API_BASE",
+            "MAX_FILE_SIZE_BYTES",
             "REPO_URL_PATTERN",
             "GitHubApiClient",
             "GitHubFileInfo",
@@ -104,15 +104,17 @@ _MOVED_MODULES = [
 )
 def test_old_github_documents_import_paths_resolve(module: str, name: str) -> None:
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
+        warnings.simplefilter("ignore", FutureWarning)
         imported = importlib.import_module(f"{_PACKAGE}.{module}")
     assert hasattr(imported, name)
 
 
 @pytest.mark.parametrize("module", _MOVED_MODULES)
-def test_moved_modules_warn_on_import(
-    module: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.delitem(sys.modules, f"{_PACKAGE}.{module}", raising=False)
-    with pytest.warns(DeprecationWarning, match="repository_documents"):
-        importlib.import_module(f"{_PACKAGE}.{module}")
+def test_moved_modules_warn_on_import(module: str) -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        imported = importlib.import_module(f"{_PACKAGE}.{module}")
+    # Reloading re-runs the module body in place, so the package attribute and
+    # sys.modules keep pointing at the same module object.
+    with pytest.warns(FutureWarning, match="repository_documents"):
+        importlib.reload(imported)

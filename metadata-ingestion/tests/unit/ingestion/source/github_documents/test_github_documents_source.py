@@ -29,9 +29,13 @@ from datahub.ingestion.source.github_documents.github_documents_source import (
 )
 from datahub.ingestion.source.repository_documents.client import RepositoryFileInfo
 from datahub.ingestion.source.repository_documents.okf_frontmatter import (
+    OkfFrontmatter,
     parse_okf_frontmatter,
 )
-from datahub.ingestion.source.repository_documents.okf_mapping import MAPPING_VERSION
+from datahub.ingestion.source.repository_documents.okf_mapping import (
+    MAPPING_VERSION,
+    OkfMapping,
+)
 from datahub.ingestion.source.repository_documents.report import (
     RepositoryDocumentsSourceReport,
 )
@@ -2846,10 +2850,10 @@ def test_already_neutral_okf_state_is_not_cleaned_again(
 
 
 def test_map_okf_override_changes_emitted_metadata() -> None:
-    from datahub.ingestion.source.repository_documents.okf_mapping import OkfMapping
-
     class RetitlingSource(GitHubDocumentsSource):
-        def _map_okf(self, frontmatter: Any, **kwargs: Any) -> Optional[OkfMapping]:
+        def _map_okf(
+            self, frontmatter: OkfFrontmatter, **kwargs: Any
+        ) -> Optional[OkfMapping]:
             mapping = super()._map_okf(frontmatter, **kwargs)
             assert mapping is not None
             mapping.title = f"Reviewed: {mapping.title}"

@@ -10,7 +10,7 @@ warnings.warn(
     "datahub.ingestion.source.github_documents.github_documents_report has moved to "
     "datahub.ingestion.source.repository_documents.report. The old path will be "
     "removed in a future release.",
-    DeprecationWarning,
+    FutureWarning,
     stacklevel=2,
 )
 

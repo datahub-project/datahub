@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Literal, Optional, Set
 
 from datahub.emitter.mce_builder import (
     SYSTEM_ACTOR,
@@ -39,6 +39,9 @@ from datahub.metadata.urns import Urn
 from datahub.specific.document import DocumentPatchBuilder
 
 MAPPING_VERSION = "6"
+# The frontmatter keys whose values are references to other entities.
+OkfReferenceKey = Literal["owners", "tags", "glossary_terms"]
+
 NATIVE_MAPPINGS: Dict[str, str] = {
     "title": "documentInfo.title",
     "type": "subTypes",
@@ -86,14 +89,26 @@ def _resolve_term_name(name: str, ctx: PipelineContext) -> Optional[str]:
     return next(iter(matches)) if matches else None
 
 
+def _reference_key(key: str) -> OkfReferenceKey:
+    if key == "owners":
+        return "owners"
+    if key == "tags":
+        return "tags"
+    if key == "glossary_terms":
+        return "glossary_terms"
+    raise ValueError(f"{key!r} is not an OKF reference key")
+
+
 def resolve_reference(
-    value: str, key: str, ctx: PipelineContext, cache: OkfLookupCache
+    value: str, key: OkfReferenceKey, ctx: PipelineContext, cache: OkfLookupCache
 ) -> Optional[str]:
     """The URN the OKF import writes for one ``owners``, ``tags`` or
     ``glossary_terms`` value, or None when the value is left unmapped.
 
     Owners and glossary terms are looked up in DataHub through ``ctx.graph``,
-    with the results kept in ``cache``.
+    with the results kept in ``cache``. Raises ``InvalidUrnError`` when a
+    value starting with ``urn:`` is not a valid URN, and lets a failed catalog
+    lookup raise.
     """
     if value.startswith("urn:"):
         parsed = Urn.from_string(value)
@@ -218,7 +233,9 @@ def map_okf(
             urn = None
             if isinstance(entry, str) and entry.strip():
                 try:
-                    urn = resolve_reference(entry.strip(), key, ctx, cache)
+                    urn = resolve_reference(
+                        entry.strip(), _reference_key(key), ctx, cache
+                    )
                 except Exception:
                     # A failed catalog lookup or invalid URN must not discard
                     # the concept, including its original unresolved value.
