@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from typing import Any, Dict, Iterator, List, Optional
 from unittest.mock import patch
@@ -450,3 +451,157 @@ def test_shared_expr_parser_resolves_source_alias() -> None:
     }
     assert parsed.aggregation_function is None
     assert parse_metric_view_expr("SUM(", {}).error is not None
+
+
+def _metric_view_column(
+    name: str,
+    metadata: Optional[Dict[str, Any]] = None,
+    comment: Optional[str] = None,
+    raw_type_json: Optional[str] = None,
+) -> Column:
+    type_json = raw_type_json
+    if type_json is None and metadata is not None:
+        type_json = json.dumps({"name": name, "type": "double", "metadata": metadata})
+    return Column(
+        id=f"main.sales.orders_mv.{name}",
+        name=name,
+        comment=comment,
+        type_text="double",
+        type_name=None,
+        type_precision=None,
+        type_scale=None,
+        position=None,
+        nullable=True,
+        type_json=type_json,
+    )
+
+
+_NORMALIZED = """
+version: 1.1
+source: main.sales.orders
+dimensions:
+  - name: region
+    expr: region_cd
+measures:
+  - name: revenue
+    expr: SUM(amount)
+  - name: margin
+    expr: SUM(margin)
+    display_name: From YAML
+"""
+
+
+class TestColumnMetadataMerge:
+    """Unity Catalog strips field metadata from the YAML and keeps it on columns."""
+
+    def _spec(self, source: UnityCatalogSource, table: Table) -> Dict[str, Any]:
+        spec = source._load_metric_view_spec(table)
+        assert spec is not None
+        return {e["name"]: e for e in spec["dimensions"] + spec["measures"]}
+
+    def test_column_metadata_fills_what_the_yaml_lacks(self) -> None:
+        source = _source(emit_semantic_model_entities=True)
+        table = _table(
+            _NORMALIZED,
+            columns=[
+                _metric_view_column(
+                    "region",
+                    {
+                        "metric_view.type": "dimension",
+                        "semantic_metadata": json.dumps(
+                            {"display_name": "Region", "synonyms": ["territory"]}
+                        ),
+                    },
+                    comment="Sales region.",
+                ),
+                _metric_view_column(
+                    "revenue",
+                    {
+                        "comment": "Booked revenue.",
+                        "semantic_metadata": json.dumps(
+                            {
+                                "display_name": "Revenue",
+                                "format": {"currency": {"currency_code": "EUR"}},
+                            }
+                        ),
+                        "metric_view.window": [
+                            {"order": "region", "range": "current", "offset": ""}
+                        ],
+                    },
+                ),
+                _metric_view_column(
+                    "margin",
+                    {"semantic_metadata": json.dumps({"display_name": "From column"})},
+                ),
+            ],
+        )
+        table.properties["metric_view.where"] = "amount > 0"
+        entries = self._spec(source, table)
+        assert entries["region"]["comment"] == "Sales region."
+        assert entries["region"]["display_name"] == "Region"
+        assert entries["region"]["synonyms"] == ["territory"]
+        assert entries["revenue"]["comment"] == "Booked revenue."
+        assert entries["revenue"]["format"] == {
+            "type": "currency",
+            "currency_code": "EUR",
+        }
+        assert entries["revenue"]["window"][0]["order"] == "region"
+        # A value in the YAML wins over the column.
+        assert entries["margin"]["display_name"] == "From YAML"
+        spec = source._load_metric_view_spec(table)
+        assert spec is not None and spec["filter"] == "amount > 0"
+
+        aspects = _aspects_for_table(source, table)
+        assert aspects["metricInfo"][_metric("revenue")].name == "Revenue"
+        assert aspects["aiContext"][
+            f"urn:li:schemaField:({_smd('source')},region)"
+        ].synonyms == ["territory"]
+        props = aspects["datasetProperties"][_smd("source")].customProperties
+        assert props["metric_view.field.revenue.format.currency_code"] == "EUR"
+        assert props["metric_view.filter"] == "amount > 0"
+
+    def test_bad_json_is_counted_not_raised(self) -> None:
+        source = _source(emit_semantic_model_entities=True)
+        table = _table(
+            _NORMALIZED,
+            columns=[
+                _metric_view_column("region", raw_type_json="{not json"),
+                _metric_view_column("revenue", {"semantic_metadata": "{also not json"}),
+                _metric_view_column("margin", {"semantic_metadata": "[1, 2]"}),
+            ],
+        )
+        entries = self._spec(source, table)
+        assert "display_name" not in entries["region"]
+        assert source.report.num_metric_view_column_metadata_invalid == 3
+        assert _aspects_for_table(source, table)["metricInfo"]
+
+    def test_columns_without_type_json_change_nothing(self) -> None:
+        source = _source(emit_semantic_model_entities=True)
+        table = _table(_NORMALIZED, columns=[_metric_view_column("region")])
+        assert "display_name" not in self._spec(source, table)["region"]
+        assert source.report.num_metric_view_column_metadata_invalid == 0
+
+
+def _aspects_for_table(
+    source: UnityCatalogSource, table: Table
+) -> Dict[str, Dict[str, Any]]:
+    wus = source._gen_metric_view_semantic_model(table, _schema())
+    assert wus is not None
+    out: Dict[str, Dict[str, Any]] = {}
+    for wu in wus:
+        mcp = wu.metadata
+        out.setdefault(mcp.aspectName, {})[mcp.entityUrn] = mcp.aspect  # type: ignore
+    return out
+
+
+def test_proxy_keeps_type_json_for_metric_views_only() -> None:
+    from databricks.sdk.service.catalog import ColumnInfo
+
+    from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
+
+    proxy = UnityCatalogApiProxy.__new__(UnityCatalogApiProxy)
+    info = ColumnInfo(name="c", type_text="double", type_json='{"metadata": {}}')
+    (kept,) = proxy._extract_columns([info], "t", keep_type_json=True)
+    (dropped,) = proxy._extract_columns([info], "t")
+    assert kept.type_json == '{"metadata": {}}'
+    assert dropped.type_json is None

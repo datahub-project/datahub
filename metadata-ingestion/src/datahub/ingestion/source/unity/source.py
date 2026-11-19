@@ -113,6 +113,7 @@ from datahub.ingestion.source.unity.metric_view_semantic_model import (
     ROOT_ALIAS,
     MetricViewSemanticModelInput,
     UnityMetricViewSemanticModelMapper,
+    merge_column_metadata,
     parse_metric_view_expr,
 )
 from datahub.ingestion.source.unity.platform_resource_repository import (
@@ -2460,7 +2461,21 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 log=False,
             )
             return None
-        return spec
+        merge = merge_column_metadata(spec, table)
+        if merge.invalid_columns:
+            self.report.num_metric_view_column_metadata_invalid += len(
+                merge.invalid_columns
+            )
+            self.report.warning(
+                title="Unreadable metric view column metadata",
+                message="A metric view column's type_json or semantic_metadata is "
+                "not valid JSON, so its display name, synonyms and format were "
+                "taken from the YAML only.",
+                context=f"{table.ref.qualified_table_name}: "
+                f"columns={merge.invalid_columns!r}",
+                log=False,
+            )
+        return merge.spec
 
     def _extract_metric_view_lineage(
         self,

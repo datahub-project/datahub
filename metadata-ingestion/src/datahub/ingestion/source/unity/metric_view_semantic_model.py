@@ -1,3 +1,5 @@
+import copy
+import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -150,6 +152,122 @@ def _aggregation_function(tree: sqlglot_exp.Expr) -> Optional[str]:
     ):
         return _COUNT_DISTINCT
     return tree.sql_name()
+
+
+# Keys of a metric view column's type_json `metadata` (Unity Catalog stores a
+# field's agent metadata there, not in the YAML it returns).
+_TYPE_JSON_METADATA = "metadata"
+_COLUMN_COMMENT = "comment"
+_COLUMN_SEMANTIC_METADATA = "semantic_metadata"
+_COLUMN_WINDOW = "metric_view.window"
+_TABLE_FILTER_PROPERTY = "metric_view.where"
+_FORMAT_TYPE = "type"
+
+
+@dataclass
+class MetricViewColumnMetadataMerge:
+    spec: Dict[str, Any]
+    # Columns whose type_json or semantic_metadata could not be parsed.
+    invalid_columns: List[str] = field(default_factory=list)
+
+
+def merge_column_metadata(
+    spec: Dict[str, Any], table: Table
+) -> MetricViewColumnMetadataMerge:
+    """Fill a metric view spec with the field metadata Unity Catalog keeps on columns.
+
+    Unity Catalog normalizes the YAML it returns in ``view_definition``: a field's
+    ``comment``, ``display_name``, ``synonyms`` and ``format`` are dropped from
+    it and kept on the matching column (``comment`` and ``type_json.metadata``,
+    with ``semantic_metadata`` a JSON string and ``format`` reshaped as
+    ``{<type>: {...}}``). The top-level ``filter`` is also kept as the
+    ``metric_view.where`` table property. A value in the YAML wins (older
+    workspaces, hand-written specs); the column fills in what the YAML lacks.
+    The input spec is not modified.
+    """
+    merged = copy.deepcopy(spec)
+    result = MetricViewColumnMetadataMerge(spec=merged)
+    filter_property = table.properties.get(_TABLE_FILTER_PROPERTY)
+    if "filter" not in merged and filter_property:
+        merged["filter"] = filter_property
+
+    columns = {c.name.lower(): c for c in table.columns}
+    for key in (_DIMENSIONS_KEY, _MEASURES_KEY):
+        entries = merged.get(key)
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict) or not isinstance(entry.get("name"), str):
+                continue
+            column = columns.get(entry["name"].lower())
+            if column is None:
+                continue
+            metadata, valid = _column_metadata(column.type_json)
+            semantic, semantic_valid = _semantic_metadata(
+                metadata.get(_COLUMN_SEMANTIC_METADATA)
+            )
+            if not (valid and semantic_valid):
+                result.invalid_columns.append(column.name)
+            comment = column.comment or metadata.get(_COLUMN_COMMENT)
+            if (
+                not entry.get("comment")
+                and not entry.get("description")
+                and isinstance(comment, str)
+                and comment.strip()
+            ):
+                entry["comment"] = comment
+            for attr in ("display_name", "synonyms"):
+                if attr not in entry and semantic.get(attr) is not None:
+                    entry[attr] = semantic[attr]
+            fmt = _normalize_format(semantic.get("format"))
+            if "format" not in entry and fmt is not None:
+                entry["format"] = fmt
+            window = metadata.get(_COLUMN_WINDOW)
+            if key == _MEASURES_KEY and "window" not in entry and window:
+                entry["window"] = window
+    return result
+
+
+def _column_metadata(type_json: Optional[str]) -> Tuple[Dict[str, Any], bool]:
+    if not type_json:
+        return {}, True
+    try:
+        parsed = json.loads(type_json)
+    except ValueError:
+        return {}, False
+    metadata = parsed.get(_TYPE_JSON_METADATA) if isinstance(parsed, dict) else None
+    if metadata is None:
+        return {}, True
+    return (metadata, True) if isinstance(metadata, dict) else ({}, False)
+
+
+def _semantic_metadata(raw: object) -> Tuple[Dict[str, Any], bool]:
+    if raw is None:
+        return {}, True
+    if isinstance(raw, dict):
+        return raw, True
+    if not isinstance(raw, str):
+        return {}, False
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        return {}, False
+    return (parsed, True) if isinstance(parsed, dict) else ({}, False)
+
+
+def _normalize_format(fmt: object) -> Optional[Dict[str, Any]]:
+    """`{"currency": {"currency_code": "USD"}}` -> `{"type": "currency", ...}`."""
+    if not isinstance(fmt, dict) or not fmt:
+        return None
+    if _FORMAT_TYPE in fmt:
+        return fmt
+    if len(fmt) == 1:
+        ((fmt_type, options),) = fmt.items()
+        if isinstance(options, dict):
+            return {_FORMAT_TYPE: fmt_type, **options}
+        if options is None:
+            return {_FORMAT_TYPE: fmt_type}
+    return None
 
 
 def measure_refs(expr: str) -> List[str]:

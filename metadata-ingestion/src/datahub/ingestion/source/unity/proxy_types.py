@@ -41,6 +41,10 @@ def metric_view_supported() -> bool:
     return _TABLE_TYPE_METRIC_VIEW is not None
 
 
+def is_metric_view_type(table_type: object) -> bool:
+    return _TABLE_TYPE_METRIC_VIEW is not None and table_type == _TABLE_TYPE_METRIC_VIEW
+
+
 # TODO: (maybe) Replace with standardized types in sql_types.py
 DATA_TYPE_REGISTRY: dict = {
     ColumnTypeName.BOOLEAN: BooleanTypeClass,
@@ -195,6 +199,10 @@ class Column(CommonProperty):
     nullable: Optional[bool]
     comment: Optional[str]
     partition_index: Optional[int] = None
+    # Raw type_json, kept for metric views only: Unity Catalog moves a metric
+    # view field's comment, display_name, synonyms, format and window out of the
+    # YAML it returns and into this JSON's `metadata`.
+    type_json: Optional[str] = None
 
 
 @dataclass

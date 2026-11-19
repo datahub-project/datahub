@@ -118,6 +118,8 @@ class UnityCatalogReport(SQLSourceReport):
     num_metric_view_synonyms_truncated: int = 0
     num_metric_view_synonyms_dropped_invalid: int = 0
     num_metric_view_format_unknown_subkeys: int = 0
+    # Metric view columns whose type_json / semantic_metadata was not valid JSON.
+    num_metric_view_column_metadata_invalid: int = 0
 
     # Server-aware resolution of emit_semantic_model_entities (metric views as
     # semanticModel/metric entities instead of `Metric View` datasets).
