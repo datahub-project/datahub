@@ -8,6 +8,7 @@ import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -15,6 +16,7 @@ import io.ebean.Database;
 import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.IOException;
 import java.util.Map;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -79,6 +81,15 @@ public abstract class AbstractGmsSpringContextTest extends AbstractTestNGSpringC
     public SearchClientShim<?> searchClientShim() {
       SearchClientShim<?> shim = Mockito.mock(SearchClientShim.class);
       Mockito.when(shim.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+      // V3 reads list V2 indices at startup. Nothing listed is a fresh install.
+      try {
+        Mockito.when(shim.getIndex(Mockito.any(), Mockito.any(), Mockito.any()))
+            .thenReturn(
+                new GetIndexResponse(
+                    new String[0], Map.of(), Map.of(), Map.of(), Map.of(), Map.of()));
+      } catch (IOException e) {
+        throw new IllegalStateException(e);
+      }
       return shim;
     }
 

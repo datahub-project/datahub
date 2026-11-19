@@ -55,7 +55,10 @@ export default function BooleanSearchFilter({ icon, title, option, count, initia
             trigger={['click']}
             menu={{ items: filterOptions }}
             open={isMenuOpen}
-            onOpenChange={(open) => setIsMenuOpen(open)}
+            // antd 5 asks to close on a menu click (the filter checkbox); antd 4 kept it open until Update
+            onOpenChange={(open, info) => {
+                if (info.source !== 'menu') setIsMenuOpen(open);
+            }}
             dropdownRender={(menuOption) => (
                 <BooleanSearchFilterMenu menuOption={menuOption} onUpdate={updateSelected} />
             )}

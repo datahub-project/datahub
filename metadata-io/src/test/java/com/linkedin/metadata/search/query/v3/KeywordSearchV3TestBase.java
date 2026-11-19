@@ -104,6 +104,8 @@ import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateBootstrap;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
@@ -128,6 +130,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.search.template.HighlightFieldOverrides;
+import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
@@ -1080,6 +1083,64 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             List.of());
     assertTrue(explain.isExists());
     assertTrue(explain.isMatch());
+  }
+
+  /**
+   * Keyword-surface parity on the engine. With hybrid read off, the shipped fulltext template
+   * returns exactly what the same template without its keywordRerank sections returns for the same
+   * query, filter, and viewer: the ordered URNs, the scores, the total, and the facets.
+   */
+  @Test
+  public void testShippedFulltextServesItsKeywordOnlyResult() {
+    String keywordOnlyUrn = "urn:li:searchTemplate:fulltextKeywordOnly";
+    Map<String, SearchTemplateProperties> catalog = new HashMap<>();
+    for (String urn : SearchTemplateBootstrap.urns()) {
+      catalog.put(urn, SearchTemplateBootstrap.get(urn));
+    }
+    SearchTemplateProperties keywordOnly = SearchTemplateBootstrap.get(FULLTEXT_TEMPLATE);
+    assertTrue(keywordOnly.hasRetrieval());
+    keywordOnly.removeRetrieval();
+    keywordOnly.removeKnn();
+    keywordOnly.setApiVersion(SearchTemplateCapabilities.API_VERSION);
+    catalog.put(keywordOnlyUrn, keywordOnly);
+    OperationContext searching =
+        opContext.withSearchTemplateRuntime(
+            new SearchTemplateCoordinator(
+                config,
+                null,
+                new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH, catalog),
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none()));
+    List<String> facets = List.of("platform", "_entityType", "typeNames");
+    for (Filter filter : Arrays.asList(null, QueryUtils.newFilter("platform", HIVE.toString()))) {
+      List<SearchResult> served = new ArrayList<>();
+      for (String template : List.of(FULLTEXT_TEMPLATE, keywordOnlyUrn)) {
+        served.add(
+            searchService.search(
+                searching.withSearchFlags(
+                    flags -> flags.setFulltext(true).setSearchTemplate(UrnUtils.getUrn(template))),
+                ENTITY_TYPES,
+                "orders",
+                filter,
+                null,
+                0,
+                10,
+                facets));
+      }
+      SearchResult shipped = served.get(0);
+      SearchResult expected = served.get(1);
+      assertFalse(shipped.getEntities().isEmpty(), String.valueOf(filter));
+      assertEquals(
+          shipped.getEntities().stream().map(SearchEntity::getEntity).toList(),
+          expected.getEntities().stream().map(SearchEntity::getEntity).toList());
+      assertEquals(
+          shipped.getEntities().stream().map(SearchEntity::getScore).toList(),
+          expected.getEntities().stream().map(SearchEntity::getScore).toList());
+      assertEquals(shipped.getNumEntities(), expected.getNumEntities());
+      assertEquals(
+          shipped.getMetadata().getAggregations(), expected.getMetadata().getAggregations());
+    }
   }
 
   @Test

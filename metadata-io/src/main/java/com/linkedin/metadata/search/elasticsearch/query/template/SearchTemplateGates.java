@@ -19,6 +19,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
@@ -62,9 +63,11 @@ public final class SearchTemplateGates {
 
   /**
    * Capabilities this build runs. The pull request that executes a shape advertises its name, so a
-   * build never binds a shape it cannot run.
+   * build never binds a shape it cannot run. {@code vectorRetrieval} is {@code combine: vector}
+   * only, and {@code similarity} is that combine with {@code querySource: anchorEntity}.
    */
-  public static final Set<String> ADVERTISED = Set.of(DOCUMENT_RERANK);
+  public static final Set<String> ADVERTISED =
+      Set.of(DOCUMENT_RERANK, VECTOR_RETRIEVAL, ENTITY_PARTITION, SIMILARITY);
 
   /** Entity types this build runs for each embedding profile class. */
   public static final Map<String, Set<String>> ADVERTISED_ENTITY_TYPES =
@@ -222,9 +225,10 @@ public final class SearchTemplateGates {
   /**
    * Template failure that depends on the requested entity types, or null. Over the entities that
    * join the vector leg (enabled, and run by this build for their profile class): the selection
-   * names more than one profile, even when one of them is unavailable here, or {@code
-   * minSimilarity} meets a covering profile that is not cosine. Only a vector leg this build runs
-   * for this request is checked. An entity that fails coverage is reported by {@link #entityGates}.
+   * names more than one profile, even when one of them is unavailable here, or the template's own
+   * {@code minSimilarity} meets a covering profile that is not cosine. A floor inherited from
+   * configuration is skipped on such a profile instead. Only a vector leg this build runs for this
+   * request is checked. An entity that fails coverage is reported by {@link #entityGates}.
    */
   @Nullable
   public String bindingRejection(
@@ -238,7 +242,7 @@ public final class SearchTemplateGates {
     SearchTemplateProfiles selection = selection(template);
     Set<String> selected = new LinkedHashSet<>();
     Set<String> covering = new LinkedHashSet<>();
-    for (String entityType : members(template, entityTypes)) {
+    for (String entityType : assigned(template, entityTypes)) {
       EmbeddingProfileRegistry.Resolution resolution =
           profiles.resolve(selection, entityType, system);
       if (!countsToward(resolution, entityType)) {
@@ -265,6 +269,21 @@ public final class SearchTemplateGates {
   }
 
   /**
+   * The raw cosine floor a rung applies: {@code retrieval.minSimilarity}, else, on a combine that
+   * admits vector hits, the deployment's {@code semanticSearch.minSimilarity}. Null is no floor.
+   */
+  @Nullable
+  public Float minSimilarity(@Nonnull MergedSearchTemplate template) {
+    SearchTemplateRetrieval retrieval = template.getRetrieval();
+    if (retrieval != null && retrieval.hasMinSimilarity()) {
+      return retrieval.getMinSimilarity();
+    }
+    return semanticSearch != null && SearchTemplateCapabilities.admitsVectorHits(template)
+        ? semanticSearch.getMinSimilarity()
+        : null;
+  }
+
+  /**
    * Entity-level gate for each requested type the template covers, in request order: null when the
    * entity joins the vector leg, else the bounded reason it is left out.
    */
@@ -275,7 +294,7 @@ public final class SearchTemplateGates {
       @Nullable String system) {
     SearchTemplateProfiles selection = selection(template);
     Map<String, String> gates = new LinkedHashMap<>();
-    for (String entityType : members(template, entityTypes)) {
+    for (String entityType : assigned(template, entityTypes)) {
       EmbeddingProfileRegistry.Resolution resolution =
           profiles.resolve(selection, entityType, system);
       String reason = joinGate(resolution, entityType);
@@ -293,16 +312,26 @@ public final class SearchTemplateGates {
       @Nonnull MergedSearchTemplate template,
       @Nonnull Collection<String> entityTypes,
       @Nullable String system) {
-    SearchTemplateProfiles selection = selection(template);
     Set<String> ids = new LinkedHashSet<>();
-    for (String entityType : members(template, entityTypes)) {
-      EmbeddingProfileRegistry.Resolution resolution =
-          profiles.resolve(selection, entityType, system);
-      if (joinGate(resolution, entityType) == null && resolution.failure() == null) {
-        ids.addAll(resolution.profileIds());
-      }
+    for (String entityType : assigned(template, entityTypes)) {
+      ids.addAll(profileIds(template, entityType, system));
     }
     return ids;
+  }
+
+  /**
+   * Profiles one entity type resolves when it passes the entity gates, whatever the rung's scope. A
+   * similarity anchor selects its profile this way: the scope assigns the requested types a rung
+   * searches, and the anchor is the query source, not one of them.
+   */
+  @Nonnull
+  public Set<String> profileIds(
+      @Nonnull MergedSearchTemplate template, @Nonnull String entityType, @Nullable String system) {
+    EmbeddingProfileRegistry.Resolution resolution =
+        profiles.resolve(selection(template), entityType, system);
+    return joinGate(resolution, entityType) == null && resolution.failure() == null
+        ? new LinkedHashSet<>(resolution.profileIds())
+        : Set.of();
   }
 
   /**
@@ -441,19 +470,74 @@ public final class SearchTemplateGates {
     return true;
   }
 
+  /**
+   * The entity types a rung is assigned: the requested types in its scope, in request order, each
+   * once. Unset scope assigns the whole request. Each rung is assigned on its own, so overlapping
+   * scopes share a type.
+   */
   @Nonnull
-  private static List<String> members(
+  static List<String> assigned(
       @Nonnull MergedSearchTemplate template, @Nonnull Collection<String> entityTypes) {
     if (template.getScope() == null || template.getScope().getEntityTypes() == null) {
       return List.copyOf(new LinkedHashSet<>(entityTypes));
     }
-    List<String> members = new ArrayList<>();
+    List<String> assigned = new ArrayList<>();
     for (String entityType : new LinkedHashSet<>(entityTypes)) {
       if (template.getScope().getEntityTypes().contains(entityType)) {
-        members.add(entityType);
+        assigned.add(entityType);
       }
     }
-    return members;
+    return assigned;
+  }
+
+  /**
+   * Whether the walk can run a rung for these requested types: its scope assigns it at least one.
+   * Unknown types assign every rung.
+   */
+  static boolean assigns(
+      @Nonnull MergedSearchTemplate template, @Nullable Collection<String> entityTypes) {
+    return entityTypes == null || !assigned(template, entityTypes).isEmpty();
+  }
+
+  /**
+   * Live semantic eligibility of an entity set, read from {@code semanticSearch.enabledEntities}
+   * alone, not the other entity gates: {@code all} when every type is enabled, {@code any} when at
+   * least one is. An empty set is neither.
+   */
+  public record Eligibility(boolean all, boolean any) {}
+
+  @Nonnull
+  public Eligibility eligibility(@Nonnull Collection<String> entityTypes) {
+    boolean all = !entityTypes.isEmpty();
+    boolean any = false;
+    for (String entityType : entityTypes) {
+      boolean enabled = SemanticEmbeddingMappings.isEnabledForEntity(semanticSearch, entityType);
+      all &= enabled;
+      any |= enabled;
+    }
+    return new Eligibility(all, any);
+  }
+
+  /**
+   * The semantic eligibility inputs of a request, for the result-cache identity: the requested
+   * types semantic search is enabled for, or every enabled type when the request names none.
+   */
+  @Nonnull
+  public String eligibilityIdentity(@Nullable Collection<String> entityTypes) {
+    Collection<String> candidates = entityTypes;
+    if (candidates == null) {
+      candidates =
+          semanticSearch == null || semanticSearch.getEnabledEntities() == null
+              ? List.of()
+              : semanticSearch.getEnabledEntities();
+    }
+    Set<String> enabled = new TreeSet<>();
+    for (String entityType : candidates) {
+      if (SemanticEmbeddingMappings.isEnabledForEntity(semanticSearch, entityType)) {
+        enabled.add(entityType);
+      }
+    }
+    return enabled.toString();
   }
 
   @Nonnull

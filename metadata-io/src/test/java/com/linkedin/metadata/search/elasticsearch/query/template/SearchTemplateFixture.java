@@ -41,9 +41,11 @@ import com.linkedin.metadata.aspect.validation.SearchTemplateValidator;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchTemplateConfiguration;
 import com.linkedin.metadata.config.search.SearchV3Configuration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -59,6 +61,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUt
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
+import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
@@ -75,6 +78,7 @@ import com.linkedin.search.template.SearchTemplateLadderStopArray;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRoute;
 import com.linkedin.search.template.SearchTemplateRouteArray;
+import com.linkedin.search.template.SearchTemplateScope;
 import com.linkedin.search.template.StructuredPropertyClause;
 import com.linkedin.search.template.StructuredPropertyQuery;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -91,6 +95,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -103,6 +108,17 @@ import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.testng.annotations.BeforeMethod;
 
 abstract class SearchTemplateFixture {
+  /** The requested entity types when a test does not partition them. */
+  protected static final List<String> REQUEST = List.of(DATASET_ENTITY_NAME);
+
+  /** Semantic eligibility of a set with no enabled type. */
+  protected static final SearchTemplateGates.Eligibility INELIGIBLE =
+      new SearchTemplateGates.Eligibility(false, false);
+
+  /** Route inputs for routes that set no {@code match} conditions. */
+  protected static final SearchTemplateRoutes.Inputs NO_INPUTS =
+      new SearchTemplateRoutes.Inputs(REQUEST, null, INELIGIBLE);
+
   protected static final Urn SYSTEM = UrnUtils.getUrn(SYSTEM_ACTOR);
   protected static final Urn USER = UrnUtils.getUrn("urn:li:corpuser:tester");
   protected static final String HOLE_QUERY =
@@ -268,15 +284,35 @@ abstract class SearchTemplateFixture {
       List<SortCriterion> sort,
       Integer size,
       Function<String, SearchResult> pages) {
+    return walk(
+        executor,
+        urn,
+        query,
+        sort,
+        size,
+        REQUEST,
+        (templateUrn, assigned) -> pages.apply(templateUrn));
+  }
+
+  /** Walks a request for {@code entityTypes}; each page sees the types its rung is assigned. */
+  protected SearchTemplateWalk.Served<SearchResult> walk(
+      ExecutorService executor,
+      String urn,
+      String query,
+      List<SortCriterion> sort,
+      Integer size,
+      List<String> entityTypes,
+      BiFunction<String, List<String>, SearchResult> pages) {
     return SearchTemplateWalk.walk(
         opContext,
         loader,
         executor,
         urn,
-        new SearchTemplateWalk.Request(query, null, sort, size, SearchTemplateWalk.identity()),
-        templateUrn -> {
+        new SearchTemplateWalk.Request(
+            query, null, sort, size, entityTypes, SearchTemplateWalk.identity()),
+        (templateUrn, assigned) -> {
           try {
-            SearchResult page = pages.apply(templateUrn);
+            SearchResult page = pages.apply(templateUrn, assigned);
             return SearchTemplateWalk.AttemptResult.ok(
                 page,
                 page.getNumEntities(),
@@ -356,6 +392,24 @@ abstract class SearchTemplateFixture {
         .getSearchContext()
         .getResolvedSearchTemplate()
         .getRouteChain();
+  }
+
+  /** This build's gates with semantic search on for {@code enabled} and no registered profile. */
+  protected static SearchTemplateGates semanticGates(String... enabled) {
+    SemanticSearchConfiguration semantic = new SemanticSearchConfiguration();
+    semantic.setEnabled(true);
+    semantic.setEnabledEntities(Set.of(enabled));
+    semantic.setModels(Map.of("model", new ModelEmbeddingConfig()));
+    return SearchTemplateGates.of(EmbeddingProfileRegistry.empty(), semantic, false);
+  }
+
+  /** A match-all template scoped to {@code entityTypes}. */
+  protected static SearchTemplateProperties scoped(String name, String... entityTypes) {
+    SearchTemplateProperties properties = body(name, "{ \"match_all\": {} }", null);
+    properties.setApiVersion(2);
+    properties.setScope(
+        new SearchTemplateScope().setEntityTypes(new StringArray(List.of(entityTypes))));
+    return properties;
   }
 
   protected ElasticSearchConfiguration v3Config() {

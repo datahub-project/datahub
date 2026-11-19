@@ -65,6 +65,10 @@ public class MergedSearchTemplate {
 
   @Nullable String rescore;
   @Nullable String knn;
+
+  /** True when {@code knn} comes from an ancestor rather than the template itself. */
+  boolean knnInherited;
+
   @Nullable SearchTemplateRanking ranking;
   @Nullable com.linkedin.search.template.SearchTemplateComponent component;
   @Nullable SearchTemplateRetrieval retrieval;

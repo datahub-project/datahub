@@ -1,24 +1,38 @@
 package com.linkedin.datahub.upgrade.system.bootstrapmcps;
 
+import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_FULLTEXT_URN;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.system.bootstrapmcps.model.BootstrapMCPConfigFile;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.search.template.SearchTemplateProperties;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
@@ -32,6 +46,7 @@ public class BootstrapMCPUtilTest {
       TestOperationContexts.systemContextNoSearchAuthorization();
   private static final String DATAHUB_TEST_VALUES_ENV = "DATAHUB_TEST_VALUES_ENV";
   private static final String DATAHUB_TEST_REVISION_ENV = "DATAHUB_TEST_REVISION_ENV";
+  private static final String SEARCH_TEMPLATES_REVISION_ENV = "DATAHUB_SEARCH_TEMPLATES_REVISION";
   private static final AuditStamp TEST_AUDIT_STAMP = AuditStampUtils.createDefaultAuditStamp();
 
   @SystemStub private EnvironmentVariables environmentVariables;
@@ -40,6 +55,7 @@ public class BootstrapMCPUtilTest {
   private void resetEnvironment() {
     environmentVariables.remove(DATAHUB_TEST_VALUES_ENV);
     environmentVariables.remove(DATAHUB_TEST_REVISION_ENV);
+    environmentVariables.remove(SEARCH_TEMPLATES_REVISION_ENV);
   }
 
   @Test
@@ -275,6 +291,96 @@ public class BootstrapMCPUtilTest {
     assertTrue(rendered.contains("urn:li:searchTemplate:light"));
     assertFalse(rendered.contains("lightQuery:"));
     assertEquals(mcps.get(0).get("changeType").asText(), "UPSERT");
+  }
+
+  /**
+   * The shipped search-templates step writes the keywordRerank fulltext and the semantic template.
+   * The rollback revision documented for operators runs the revert seed under its own upgrade id,
+   * which writes fulltext back without its keywordRerank sections and leaves the rest alone.
+   */
+  @Test
+  public void testSearchTemplatesRevisionRunsTheRevertSeed() throws IOException {
+    BootstrapMCPConfigFile.MCPTemplate shipped = searchTemplatesStep();
+    Map<String, SearchTemplateProperties> written = searchTemplates(shipped, "shipped");
+    assertEquals(
+        written.get(SEARCH_TEMPLATE_FULLTEXT_URN).getRetrieval().getCombine(), "keywordRerank");
+    assertEquals(
+        written.get("urn:li:searchTemplate:semantic").getRetrieval().getCombine(), "vector");
+    assertEquals(
+        written.get("urn:li:searchTemplate:similarity").getRetrieval().getQuerySource(),
+        "anchorEntity");
+
+    assertEquals(shipped.getRevision_env(), SEARCH_TEMPLATES_REVISION_ENV);
+    environmentVariables.set(
+        SEARCH_TEMPLATES_REVISION_ENV,
+        "{\"version\":\"v17-revert\","
+            + "\"mcps_location\":\"bootstrap_mcps/search-templates-revert.yaml\","
+            + "\"force\":true}");
+    BootstrapMCPConfigFile.MCPTemplate revert = searchTemplatesStep();
+    // A second revert, after a forced re-apply, runs although its upgrade id already ran
+    EntityService<?> ranBefore = mock(EntityService.class);
+    when(ranBefore.exists(any(OperationContext.class), any(Urn.class), anyString(), anyBoolean()))
+        .thenReturn(true);
+    UpgradeContext context = mock(UpgradeContext.class);
+    when(context.opContext()).thenReturn(OP_CONTEXT);
+    assertFalse(new BootstrapMCPStep(OP_CONTEXT, ranBefore, revert).skip(context));
+    assertNotEquals(
+        new BootstrapMCPStep(OP_CONTEXT, mock(EntityService.class), revert).id(),
+        new BootstrapMCPStep(OP_CONTEXT, mock(EntityService.class), shipped).id());
+
+    Map<String, SearchTemplateProperties> reverted = searchTemplates(revert, "revert");
+    assertEquals(reverted.keySet(), Set.of(SEARCH_TEMPLATE_FULLTEXT_URN));
+    SearchTemplateProperties fulltext = reverted.get(SEARCH_TEMPLATE_FULLTEXT_URN);
+    assertEquals(fulltext.getApiVersion().intValue(), 1);
+    assertFalse(fulltext.hasRetrieval());
+    assertFalse(fulltext.hasKnn());
+    // The delimiter switch is consumed, so the renderer still sees its own placeholders
+    assertTrue(fulltext.getQuery().contains("{{fuzzy}}"));
+    assertFalse(fulltext.getQuery().contains("<%"));
+  }
+
+  /**
+   * After a revert, version 17 has already run, so system update skips it. The documented forced
+   * revision runs it again and writes the shipped templates back.
+   */
+  @Test
+  public void testSearchTemplatesForcedRevisionRunsAgain() throws IOException {
+    EntityService<?> entityService = mock(EntityService.class);
+    when(entityService.exists(
+            any(OperationContext.class), any(Urn.class), anyString(), anyBoolean()))
+        .thenReturn(true);
+    UpgradeContext context = mock(UpgradeContext.class);
+    when(context.opContext()).thenReturn(OP_CONTEXT);
+    assertTrue(
+        new BootstrapMCPStep(OP_CONTEXT, entityService, searchTemplatesStep()).skip(context));
+
+    environmentVariables.set(SEARCH_TEMPLATES_REVISION_ENV, "{\"force\":true}");
+    assertFalse(
+        new BootstrapMCPStep(OP_CONTEXT, entityService, searchTemplatesStep()).skip(context));
+  }
+
+  /** The search-templates entry of the shipped bootstrap file, with its revision applied. */
+  private static BootstrapMCPConfigFile.MCPTemplate searchTemplatesStep() throws IOException {
+    return BootstrapMCPUtil.resolveYamlConf(
+            OP_CONTEXT, "bootstrap_mcps.yaml", BootstrapMCPConfigFile.class)
+        .getBootstrap()
+        .getTemplates()
+        .stream()
+        .filter(template -> "search-templates".equals(template.getName()))
+        .findFirst()
+        .orElseThrow()
+        .withOverride(OP_CONTEXT.getObjectMapper());
+  }
+
+  private static Map<String, SearchTemplateProperties> searchTemplates(
+      BootstrapMCPConfigFile.MCPTemplate template, String runId) throws IOException {
+    Map<String, SearchTemplateProperties> written = new HashMap<>();
+    for (MCPItem item :
+        BootstrapMCPUtil.generateAspectBatch(OP_CONTEXT, template, runId).getMCPItems()) {
+      assertEquals(item.getChangeType(), ChangeType.UPSERT);
+      written.put(item.getUrn().toString(), item.getAspect(SearchTemplateProperties.class));
+    }
+    return written;
   }
 
   @Test

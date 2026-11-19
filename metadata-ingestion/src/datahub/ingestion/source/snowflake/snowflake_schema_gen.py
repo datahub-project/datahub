@@ -20,7 +20,11 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_structured_properties_to_entity_wu
+from datahub.emitter.mcp_builder import (
+    StructuredPropertyValues,
+    StructuredPropertyWriteMode,
+    add_structured_properties_to_entity_wu,
+)
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import (
@@ -75,6 +79,9 @@ from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
     SnowflakeSemanticModelMapper,
 )
 from datahub.ingestion.source.snowflake.snowflake_tag import SnowflakeTagExtractor
+from datahub.ingestion.source.snowflake.snowflake_tag_resolver import (
+    SnowflakeTagResolver,
+)
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SNOWFLAKE_FIELD_TYPE_MAPPINGS,
     SnowflakeFilter,
@@ -136,6 +143,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import (
     SchemaFieldUrn,
     StructuredPropertyUrn,
+    TagUrn,
 )
 from datahub.sdk.dashboard import Dashboard
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -280,6 +288,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         aggregator: Optional[SqlParsingAggregator],
         snowsight_url_builder: Optional[SnowsightUrlBuilder],
         fetch_views_from_information_schema: bool = False,
+        tag_resolver: Optional[SnowflakeTagResolver] = None,
     ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
@@ -311,8 +320,20 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         self.domain_registry: Optional[DomainRegistry] = domain_registry
         self.classification_handler = ClassificationHandler(self.config, self.report)
+        # Without a resolver (no DataHub graph) every Snowflake tag is native.
+        self.tag_resolver: SnowflakeTagResolver = tag_resolver or SnowflakeTagResolver(
+            repository=None,
+            config=config,
+            report=report,
+            identifiers=identifiers,
+            platform_instance=None,
+        )
         self.tag_extractor = SnowflakeTagExtractor(
-            config, self.data_dictionary, self.report, identifiers
+            config,
+            self.data_dictionary,
+            self.report,
+            identifiers,
+            tag_resolver=self.tag_resolver,
         )
         self.profiler: Optional[SnowflakeProfiler] = profiler
         self.snowsight_url_builder: Optional[SnowsightUrlBuilder] = (
@@ -375,6 +396,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     self.databases.append(database)
 
         if len(self.databases) == 0:
+            # Still protect what DataHub owns from stale-entity removal.
+            yield from self.tag_resolver.platform_resource_workunits()
             return
 
         try:
@@ -406,7 +429,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 GENERIC_PERMISSION_ERROR_KEY,
                 exc=e,
             )
-            return
+
+        # On both paths: a failed run's checkpoint is still committed, so what
+        # DataHub owns must go out as non-primary even when the run stops early.
+        yield from self.tag_resolver.platform_resource_workunits()
 
     def get_databases(self) -> Optional[List[SnowflakeDatabase]]:
         try:
@@ -1522,20 +1548,67 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         self.report.report_tag_processed(identifier)
 
-        if use_sp:
+        if use_sp or not self.tag_resolver.is_native(tag):
             return
 
         yield from self.gen_tag_workunits(tag)
 
-    def _format_tags_as_structured_properties(
-        self, tags: List[SnowflakeTag]
-    ) -> Dict[StructuredPropertyUrn, str]:
-        return {
-            StructuredPropertyUrn(
-                self.snowflake_identifier(tag.structured_property_identifier())
-            ): tag.value
-            for tag in tags
-        }
+    def _column_tags(
+        self,
+        table: Union[
+            SnowflakeTable, SnowflakeView, SnowflakeSemanticView, SnowflakeStream
+        ],
+        column_name: str,
+        kept: Optional[Dict[str, GlobalTags]],
+    ) -> Optional[GlobalTags]:
+        if (
+            column_name not in table.column_tags
+            or self.config.extract_tags_as_structured_properties
+        ):
+            return None
+        if kept is not None:
+            return kept.get(self.snowflake_column_identifier(column_name))
+        return self._column_global_tags(table.column_tags[column_name])
+
+    def _column_global_tags(self, tags: List[SnowflakeTag]) -> Optional[GlobalTags]:
+        # Column tags in schemaMetadata are ingestion's own copy (the user's is in
+        # editableSchemaMetadata), so DataHub-managed tags are just left out.
+        tag_urns = [
+            tag_urn.urn()
+            for tag_urn in (self.tag_resolver.resolve_tag_urn(tag) for tag in tags)
+            if tag_urn is not None
+        ]
+        if not tag_urns:
+            return None
+        return GlobalTags([TagAssociation(tag_urn) for tag_urn in tag_urns])
+
+    def _empty_container_tags(
+        self,
+        container_urn: str,
+        tag_names: Optional[List[str]],
+        structured_properties: Optional[
+            Dict[StructuredPropertyUrn, StructuredPropertyValues]
+        ],
+    ) -> Iterable[MetadataWorkUnit]:
+        """The empty aspects gen_containers skips. Snowflake listed tags for the
+        container but all are DataHub's, so the aspect is still written whole,
+        dropping native tags or properties removed in Snowflake."""
+        if tag_names == []:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=container_urn, aspect=GlobalTagsClass(tags=[])
+            ).as_workunit()
+        if structured_properties == {}:
+            yield from add_structured_properties_to_entity_wu(
+                container_urn, {}, write_mode=StructuredPropertyWriteMode.UPSERT
+            )
+
+    def _container_tag_names(
+        self, container_urn: str, tags: List[SnowflakeTag]
+    ) -> Optional[List[str]]:
+        global_tags = self.tag_resolver.global_tags(container_urn, tags)
+        if global_tags is None:
+            return None
+        return [TagUrn.from_string(t.tag).name for t in global_tags.tags]
 
     def gen_dataset_workunits(
         self,
@@ -1608,24 +1681,25 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         if table.tags:
             if self.config.extract_tags_as_structured_properties:
-                yield from add_structured_properties_to_entity_wu(
-                    dataset_urn,
-                    self._format_tags_as_structured_properties(table.tags),
-                    write_mode=self.config.structured_properties_write_mode,
-                )
-            else:
-                tag_associations = [
-                    TagAssociation(
-                        tag=make_tag_urn(
-                            self.snowflake_identifier(tag.tag_identifier())
-                        )
+                tag_structured_properties = (
+                    self.tag_resolver.resolve_structured_properties(
+                        dataset_urn,
+                        table.tags,
+                        write_mode=self.config.structured_properties_write_mode,
                     )
-                    for tag in table.tags
-                ]
-                global_tags = GlobalTags(tag_associations)
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn, aspect=global_tags
-                ).as_workunit()
+                )
+                if tag_structured_properties is not None:
+                    yield from add_structured_properties_to_entity_wu(
+                        dataset_urn,
+                        tag_structured_properties,
+                        write_mode=self.config.structured_properties_write_mode,
+                    )
+            else:
+                global_tags = self.tag_resolver.global_tags(dataset_urn, table.tags)
+                if global_tags is not None:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn, aspect=global_tags
+                    ).as_workunit()
 
         if isinstance(table, SnowflakeView) and table.view_definition is not None:
             view_properties_aspect = ViewProperties(
@@ -1783,13 +1857,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> Iterable[MetadataWorkUnit]:
         for column_name in table.column_tags:
             schema_field_urn = SchemaFieldUrn(dataset_urn, column_name).urn()
-            yield from add_structured_properties_to_entity_wu(
+            column_properties = self.tag_resolver.resolve_structured_properties(
                 schema_field_urn,
-                self._format_tags_as_structured_properties(
-                    table.column_tags[column_name]
-                ),
+                table.column_tags[column_name],
                 write_mode=self.config.structured_properties_write_mode,
             )
+            if column_properties is not None:
+                yield from add_structured_properties_to_entity_wu(
+                    schema_field_urn,
+                    column_properties,
+                    write_mode=self.config.structured_properties_write_mode,
+                )
 
     def _build_json_props(
         self,
@@ -1846,7 +1924,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 tag_urn = make_tag_urn(subtype)
                 tag_associations.append(TagAssociationClass(tag=tag_urn))
 
-        # Return GlobalTags if we have any tags
+        # Carried-over tags may already hold the subtype tags.
+        tag_associations = list(
+            {association.tag: association for association in tag_associations}.values()
+        )
         if tag_associations:
             return GlobalTagsClass(tags=tag_associations)
         return None
@@ -1935,6 +2016,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         self._report_column_case_collisions(table, dataset_name)
 
+        # Set only when the tag records could not be loaded: then column tags
+        # are carried over from DataHub instead of resolved from Snowflake.
+        kept_column_tags = self.tag_resolver.kept_column_tags(dataset_urn)
+
         # Get column subtypes, synonyms, and primary keys for semantic views
         column_subtypes = {}
         column_synonyms = {}
@@ -1983,41 +2068,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         self._build_semantic_view_tags(
                             col.name,
                             column_subtypes,
-                            GlobalTags(
-                                [
-                                    TagAssociation(
-                                        make_tag_urn(
-                                            self.snowflake_identifier(
-                                                tag.tag_identifier()
-                                            )
-                                        )
-                                    )
-                                    for tag in table.column_tags[col.name]
-                                ]
-                            )
-                            if col.name in table.column_tags
-                            and not self.config.extract_tags_as_structured_properties
-                            else None,
+                            self._column_tags(table, col.name, kept_column_tags),
                         )
                         if isinstance(table, SnowflakeSemanticView)
                         # For regular tables, use existing Snowflake tags
-                        else (
-                            GlobalTags(
-                                [
-                                    TagAssociation(
-                                        make_tag_urn(
-                                            self.snowflake_identifier(
-                                                tag.tag_identifier()
-                                            )
-                                        )
-                                    )
-                                    for tag in table.column_tags[col.name]
-                                ]
-                            )
-                            if col.name in table.column_tags
-                            and not self.config.extract_tags_as_structured_properties
-                            else None
-                        )
+                        else self._column_tags(table, col.name, kept_column_tags)
                     ),
                     # Add column subtype and synonyms for semantic views
                     jsonProps=(
@@ -2804,6 +2859,21 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         database_container_key = self.identifiers.gen_database_key(
             database.name,
         )
+        tag_names = (
+            self._container_tag_names(database_container_key.as_urn(), database.tags)
+            if database.tags and not self.config.extract_tags_as_structured_properties
+            else None
+        )
+        structured_properties = (
+            # gen_containers always writes the aspect whole.
+            self.tag_resolver.resolve_structured_properties(
+                database_container_key.as_urn(),
+                database.tags,
+                write_mode=StructuredPropertyWriteMode.UPSERT,
+            )
+            if database.tags and self.config.extract_tags_as_structured_properties
+            else None
+        )
 
         yield from gen_database_container(
             name=database.name,
@@ -2832,20 +2902,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     else None
                 )
             ),
-            tags=(
-                [
-                    self.snowflake_identifier(tag.tag_identifier())
-                    for tag in database.tags
-                ]
-                if database.tags
-                and not self.config.extract_tags_as_structured_properties
-                else None
-            ),
-            structured_properties=(
-                self._format_tags_as_structured_properties(database.tags)
-                if database.tags and self.config.extract_tags_as_structured_properties
-                else None
-            ),
+            tags=tag_names,
+            structured_properties=structured_properties,
+        )
+        yield from self._empty_container_tags(
+            database_container_key.as_urn(), tag_names, structured_properties
         )
 
     def gen_schema_containers(
@@ -2854,6 +2915,21 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         database_container_key = self.identifiers.gen_database_key(db_name)
 
         schema_container_key = self.identifiers.gen_schema_key(db_name, schema.name)
+        tag_names = (
+            self._container_tag_names(schema_container_key.as_urn(), schema.tags)
+            if schema.tags and not self.config.extract_tags_as_structured_properties
+            else None
+        )
+        structured_properties = (
+            # gen_containers always writes the aspect whole.
+            self.tag_resolver.resolve_structured_properties(
+                schema_container_key.as_urn(),
+                schema.tags,
+                write_mode=StructuredPropertyWriteMode.UPSERT,
+            )
+            if schema.tags and self.config.extract_tags_as_structured_properties
+            else None
+        )
 
         yield from gen_schema_container(
             name=schema.name,
@@ -2882,16 +2958,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 if schema.last_altered is not None
                 else None
             ),
-            tags=(
-                [self.snowflake_identifier(tag.tag_identifier()) for tag in schema.tags]
-                if schema.tags and not self.config.extract_tags_as_structured_properties
-                else None
-            ),
-            structured_properties=(
-                self._format_tags_as_structured_properties(schema.tags)
-                if schema.tags and self.config.extract_tags_as_structured_properties
-                else None
-            ),
+            tags=tag_names,
+            structured_properties=structured_properties,
+        )
+        yield from self._empty_container_tags(
+            schema_container_key.as_urn(), tag_names, structured_properties
         )
 
     def get_tables_for_schema(

@@ -68,7 +68,7 @@ public class SearchTemplateValidationTest {
       {"functionScoreViewerDomains"},
       {"functionScoreDomainsJson"},
       {"windowSizer"},
-      {"vectorMode"},
+      {"vectorModeOnScroll"},
       {"retrievalBridge"},
       {"mergeJoin"},
       {"parentCycle"},
@@ -119,10 +119,11 @@ public class SearchTemplateValidationTest {
           SearchTemplateChecks.check(functionScore("viewerDomainsJson"), 1024);
       case "functionScoreDomainsJson" ->
           SearchTemplateChecks.check(functionScore("domainsJson"), 1024);
-      case "windowSizer" -> bind(ranking("tokenCurve"));
-      case "vectorMode" -> bind(retrieval("vector", false));
-      case "retrievalBridge" -> bind(retrieval("keyword", true));
-      case "mergeJoin" -> bind(merge());
+      case "windowSizer" -> bind(ranking("tokenCurve"), false);
+      // A search runs a vector rung; a scroll has no keyword query to continue
+      case "vectorModeOnScroll" -> bind(retrieval("vector", false), true);
+      case "retrievalBridge" -> bind(retrieval("keyword", true), false);
+      case "mergeJoin" -> bind(merge(), false);
       case "parentCycle" -> parentCycle();
       case "suffixTextOnDate" -> suffix("urn:li:structuredProperty:due.on", "text");
       case "suffixTextOnNumber" -> suffix("urn:li:structuredProperty:priority.rank", "text");
@@ -135,7 +136,7 @@ public class SearchTemplateValidationTest {
     }
   }
 
-  private void bind(SearchTemplateProperties properties) {
+  private void bind(SearchTemplateProperties properties, boolean scroll) {
     harness.store(SEARCH_TEMPLATE_FULLTEXT_URN, properties);
     new SearchTemplateCoordinator(
             harness.elastic(),
@@ -144,7 +145,7 @@ public class SearchTemplateValidationTest {
             ForkJoinPool.commonPool(),
             SearchTemplateComponentRegistry.empty(),
             SearchTemplateGates.none())
-        .bind(harness.opContext, "customer orders");
+        .bind(harness.opContext, "customer orders", scroll);
   }
 
   private void parentCycle() {
