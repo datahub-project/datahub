@@ -77,6 +77,47 @@ public class HdfsPathDatasetTest {
   }
 
   @Test
+  public void testTablePathMarkerCapturesMultiSegmentRelativePath()
+      throws InstantiationException, IllegalArgumentException, URISyntaxException {
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .pathSpecs(
+                new HashMap<String, List<PathSpec>>() {
+                  {
+                    put(
+                        "s3",
+                        Collections.singletonList(
+                            PathSpec.builder()
+                                .env(Optional.of("PROD"))
+                                .platform("s3")
+                                .platformInstance(Optional.of("warehouse-prod"))
+                                .pathSpecList(
+                                    new LinkedList<>(
+                                        Arrays.asList(
+                                            "s3://example-bucket/lake/data/{table_path}",
+                                            "s3a://example-bucket/lake/data/{table_path}")))
+                                .build()));
+                  }
+                })
+            .fabricType(FabricType.PROD)
+            .build();
+
+    SparkDataset entitiesDataset =
+        HdfsPathDataset.create(
+            new URI("s3a://example-bucket/lake/data/finance/transactions"), config);
+    Assert.assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:s3,warehouse-prod.finance/transactions,PROD)",
+        entitiesDataset.urn().toString());
+
+    SparkDataset reportsDataset =
+        HdfsPathDataset.create(
+            new URI("s3://example-bucket/lake/data/analytics/daily/transactions"), config);
+    Assert.assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:s3,warehouse-prod.analytics/daily/transactions,PROD)",
+        reportsDataset.urn().toString());
+  }
+
+  @Test
   public void testNoMatchPathSpecListWithFolder()
       throws InstantiationException, IllegalArgumentException, URISyntaxException {
     DatahubOpenlineageConfig datahubConfig =
