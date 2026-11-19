@@ -1,0 +1,588 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a38e20d266a6a32e9dafdb73fe286f4d",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "ydb",
+                "env": "PROD",
+                "database": "/local"
+            },
+            "name": "/local",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019151,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a38e20d266a6a32e9dafdb73fe286f4d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019152,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a38e20d266a6a32e9dafdb73fe286f4d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:ydb"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019152,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a38e20d266a6a32e9dafdb73fe286f4d",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019152,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a38e20d266a6a32e9dafdb73fe286f4d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019153,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a38e20d266a6a32e9dafdb73fe286f4d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019164,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019164,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "datahub_it/orders",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019165,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "/local.datahub_it/orders",
+            "platform": "urn:li:dataPlatform:ydb",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "order_id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "user_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "ordered_on",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "DATE",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019165,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019166,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a38e20d266a6a32e9dafdb73fe286f4d",
+                    "urn": "urn:li:container:a38e20d266a6a32e9dafdb73fe286f4d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019166,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a38e20d266a6a32e9dafdb73fe286f4d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019398,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019398,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "datahub_it/users",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019399,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "/local.datahub_it/users",
+            "platform": "urn:li:dataPlatform:ydb",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "name",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UTF8",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "email",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UTF8",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "created_at",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "Timestamp",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019400,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019401,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a38e20d266a6a32e9dafdb73fe286f4d",
+                    "urn": "urn:li:container:a38e20d266a6a32e9dafdb73fe286f4d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019402,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/user_emails,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a38e20d266a6a32e9dafdb73fe286f4d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019493,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/user_emails,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019493,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/user_emails,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "is_view": "True",
+                "view_definition": "CREATE VIEW `datahub_it/user_emails` WITH (security_invoker = TRUE) AS\nSELECT\n    id,\n    email\nFROM\n    `datahub_it/users`\n;\n"
+            },
+            "name": "datahub_it/user_emails",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019493,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/user_emails,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "/local.datahub_it/user_emails",
+            "platform": "urn:li:dataPlatform:ydb",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "email",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UTF8",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019494,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/user_emails,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019494,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/user_emails,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "CREATE VIEW `datahub_it/user_emails` WITH (security_invoker = TRUE) AS\nSELECT\n    id,\n    email\nFROM\n    `datahub_it/users`\n;\n",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019494,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ydb,/local.datahub_it/user_emails,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a38e20d266a6a32e9dafdb73fe286f4d",
+                    "urn": "urn:li:container:a38e20d266a6a32e9dafdb73fe286f4d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794387019494,
+        "runId": "ydb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
