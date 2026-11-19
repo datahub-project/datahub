@@ -201,9 +201,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         # lineage need a minimal Status aspect to register as existing
         # entities; otherwise ``searchAcrossLineage`` filters them out.
         self._stubbed_external_dataset_urns: Set[str] = set()
-        # Owned here rather than by the automatic processor so the source can
-        # keep entities it could not re-read, and exempt other connectors'
-        # datasets that earlier versions of this source recorded in its state.
+        # Owned so entities that could not be re-read can be kept in state.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             state_provider=self.state_provider,
             report=self.report,
@@ -279,15 +277,12 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         return self._previous_state_urns
 
     def _keep_previous_entity(self, urn: str) -> None:
-        # Only URNs from the last run: soft-deleting a URN that was never
-        # emitted would create an empty entity on the next successful run.
+        # Soft-deleting a never-emitted URN would create an empty entity.
         if urn in self._get_previous_state_urns():
             self.stale_entity_removal_handler.add_entity_to_state("", urn)
 
     def _skip_previously_tracked_datasets(self) -> None:
-        # This source never owns datasets. Earlier versions recorded the
-        # external datasets referenced by lineage in their state, and those
-        # must not be soft-deleted when a later run no longer references them.
+        # Datasets belong to other connectors, but older state may list them.
         for urn in self._get_previous_state_urns():
             if guess_entity_type(urn) == "dataset":
                 self.stale_entity_removal_handler.add_urn_to_skip(urn)
@@ -438,10 +433,8 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         """Wrap an IDMC listing call, converting enumeration failures to
         report failures. Takes a zero-arg factory so call-time failures
         (non-generator clients that HTTP-fail on invocation) are caught
-        the same as iteration-time failures.
-
-        A failure rather than a warning: the listing is incomplete, so stale
-        entity removal must not treat the unlisted objects as deleted.
+        the same as iteration-time failures. A failure, so stale removal
+        does not delete the objects that were not listed.
         """
         try:
             yield from iterable_factory()
@@ -763,8 +756,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
             taskflow_name=tf.name, taskflow_v3_guid=tf.id
         )
         if definition is None and not self.client.has_taskflow_definition(tf.id):
-            # The steps could not be read this run, so keep the orchestrate job
-            # an earlier run emitted rather than letting stale removal drop it.
+            # Export failed, so the steps are unknown rather than empty.
             self._keep_previous_entity(str(DataJobUrn(flow.urn, "orchestrate")))
             return
         if definition is None or not definition.steps:
@@ -1243,11 +1235,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         inside aspects and would otherwise remain ``exists: false``.
 
         Dedup'd per-source-run via ``_stubbed_external_dataset_urns``.
-
-        The stub is non-primary so these datasets never enter this source's
-        stale-removal state, and it is only written for datasets DataHub has
-        no ``Status`` for, so a dataset another connector soft-deleted is not
-        brought back.
+        Non-primary because other connectors own these datasets.
         """
         for ds_urn in (*input_urns, *output_urns):
             if ds_urn in self._stubbed_external_dataset_urns:
@@ -1267,8 +1255,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         try:
             status = graph.get_aspect(ds_urn, StatusClass)
         except Exception as e:
-            # Unknown state: skipping the stub can only hide an unknown input
-            # from lineage search, while stubbing could undelete a dataset.
+            # Stubbing an unknown status could undelete the dataset.
             self.report.warning(
                 title="Could not check external dataset status",
                 message="The lineage stub for this dataset was skipped.",

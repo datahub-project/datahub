@@ -934,8 +934,6 @@ class TestLineageEmission:
         # Second emission references the same URNs — dedup guard must skip
         # both Status aspects.
         assert _status_urns(second_wus) == []
-        # Other connectors own these datasets, so nothing written to them may
-        # enter this source's stale-removal state.
         assert all(
             not wu.is_primary_source
             for wu in first_wus
@@ -997,8 +995,6 @@ class TestExternalDatasetStaleSafety:
         assert len(source.report.warnings) == 1
 
     def test_datasets_from_earlier_state_are_exempt_from_removal(self):
-        # Earlier versions tracked stubbed datasets as primary, so a dataset
-        # left in last run's state must not be soft-deleted by this source.
         source = _make_source()
         job_urn = "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt,PROD),transform)"
         source._previous_state_urns = {self.DS_URN, job_urn}
@@ -1045,7 +1041,6 @@ class TestSafeListHelper:
 
         out = list(source._safe_list(gen, title="t", message="m", context="/api/test"))
         assert out == [1]
-        # A truncated listing is a failure so stale removal keeps the rest.
         assert len(source.report.failures) == 1
 
     def test_programmer_errors_propagate_from_safe_list(self):
@@ -1392,8 +1387,6 @@ class TestTaskflowStepEmission:
         add_to_state.assert_called_once_with("", orchestrate_urn)
 
     def test_stepless_definition_does_not_keep_orchestrate_job(self):
-        # The export succeeded and the Taskflow genuinely has no steps, so an
-        # earlier orchestrate job is stale and may be removed.
         source = self._prepared_source()
         flow = source._make_taskflow(self.TF_OBJ)
         source._previous_state_urns = {str(DataJob(name="orchestrate", flow=flow).urn)}
@@ -1561,8 +1554,6 @@ class TestTaskflowStepEmission:
 
 class TestSourceLifecycle:
     def test_stale_entity_removal_uses_the_source_owned_handler(self):
-        # The source keeps entities it could not re-read through its own
-        # handler, so that handler must run instead of the automatic one.
         config = InformaticaSourceConfig.model_validate(
             {
                 "username": "svc",
