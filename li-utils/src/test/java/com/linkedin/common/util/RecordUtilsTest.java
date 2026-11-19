@@ -3,6 +3,8 @@ package com.linkedin.common.util;
 import static com.datahub.utils.TestUtils.*;
 import static org.testng.Assert.*;
 
+import com.datahub.test.KeyPartEnum;
+import com.datahub.test.TestEntityKey;
 import com.datahub.test.testing.AspectBar;
 import com.datahub.test.testing.AspectBaz;
 import com.datahub.test.testing.AspectFoo;
@@ -21,6 +23,7 @@ import com.datahub.util.exception.InvalidSchemaException;
 import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.validator.ValidationUtils;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
@@ -212,6 +215,27 @@ public class RecordUtilsTest {
     // case 3: similar to case1, just that pegasus path as string is used as input
     Object o6 = RecordUtils.getFieldValue(mixedRecord1, "/value");
     assertEquals(o6, o1);
+  }
+
+  @Test(description = "Test getFieldValue() for an enum value the generated class does not define")
+  public void testGetFieldValueUnknownEnumSymbol() {
+    final DataMap data = new DataMap();
+    data.put("keyPart1", "key");
+    data.put("keyPart3", "VALUE_FROM_NEWER_SCHEMA");
+    final TestEntityKey key = new TestEntityKey(data);
+    assertEquals(key.getKeyPart3(), KeyPartEnum.$UNKNOWN);
+
+    assertEquals(
+        RecordUtils.getFieldValue(key, TestEntityKey.fields().keyPart3()).get(),
+        "VALUE_FROM_NEWER_SCHEMA");
+    assertEquals(
+        RecordUtils.getNullableFieldValue(key, TestEntityKey.fields().keyPart3()),
+        "VALUE_FROM_NEWER_SCHEMA");
+
+    key.setKeyPart3(KeyPartEnum.VALUE_1);
+    assertEquals(
+        RecordUtils.getFieldValue(key, TestEntityKey.fields().keyPart3()).get(),
+        KeyPartEnum.VALUE_1);
   }
 
   @Test(description = "Test getFieldValue() when RecordTemplate has TypeRef field")

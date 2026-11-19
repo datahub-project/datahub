@@ -38,6 +38,7 @@ public class RecordUtils {
   private static final JacksonDataTemplateCodec DATA_TEMPLATE_CODEC =
       new JacksonDataTemplateCodec();
   private static final String ARRAY_WILDCARD = "*";
+  private static final String UNKNOWN_ENUM_SYMBOL = "$UNKNOWN";
   private static final Pattern LEADING_SPACESLASH_PATTERN = Pattern.compile("^[/ ]+");
   private static final Pattern TRAILING_SPACESLASH_PATTERN = Pattern.compile("[/ ]+$");
   private static final Pattern SLASH_PATERN = Pattern.compile("/");
@@ -484,7 +485,14 @@ public class RecordUtils {
         METHOD_CACHE.computeIfAbsent(
             record.getClass(), clazz -> getMethodsFromRecordTemplate(record));
     try {
-      return methodMap.get(fieldName).invoke(record);
+      final Object value = methodMap.get(fieldName).invoke(record);
+      // A stored enum symbol this version's generated class doesn't define (e.g. written by a newer
+      // version, read after a rollback) comes back as $UNKNOWN; the data map keeps the stored
+      // symbol, which is what search and graph indexing should see.
+      if (value instanceof Enum<?> e && UNKNOWN_ENUM_SYMBOL.equals(e.name())) {
+        return record.data().get(fieldName);
+      }
+      return value;
     } catch (NullPointerException | IllegalAccessException | InvocationTargetException e) {
       throw new RuntimeException(
           String.format(

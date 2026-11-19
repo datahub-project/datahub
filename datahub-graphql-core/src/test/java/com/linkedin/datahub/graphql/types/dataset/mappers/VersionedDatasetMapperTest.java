@@ -11,12 +11,16 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.generated.VersionedDataset;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
@@ -28,6 +32,33 @@ public class VersionedDatasetMapperTest {
 
   private static final Urn TEST_DATASET_URN =
       Urn.createFromTuple(Constants.DATASET_ENTITY_NAME, "test");
+
+  @Test
+  public void testDatasetKeyWithOriginFromNewerVersion() {
+    final DataMap key = new DataMap();
+    key.put("platform", "urn:li:dataPlatform:hive");
+    key.put("name", "my_db.my_table");
+    key.put("origin", "ENV_FROM_NEWER_VERSION");
+    final EntityResponse response =
+        new EntityResponse()
+            .setEntityName(Constants.DATASET_ENTITY_NAME)
+            .setUrn(TEST_DATASET_URN)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    Map.of(
+                        Constants.DATASET_KEY_ASPECT_NAME,
+                        new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(key)))));
+
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+    try {
+      final VersionedDataset actual = VersionedDatasetMapper.map(null, response);
+
+      Assert.assertEquals(actual.getName(), "my_db.my_table");
+      Assert.assertEquals(actual.getOrigin(), FabricType.PROD);
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
+  }
 
   @Test
   public void testVersionedDatasetMapperViewPropertiesWithFormattedLogic() {
