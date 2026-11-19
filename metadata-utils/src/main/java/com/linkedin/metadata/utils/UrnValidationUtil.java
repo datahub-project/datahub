@@ -3,6 +3,7 @@ package com.linkedin.metadata.utils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.models.AspectSpec;
@@ -20,6 +21,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -149,14 +151,27 @@ public class UrnValidationUtil {
   @Nonnull
   public static <T extends BatchItem> Set<UrnValidationEntry> findUrnValidationFields(
       @Nonnull T item, @Nonnull AspectSpec aspectSpec) {
+    return findUrnValidationFields(item.getRecordTemplate(), aspectSpec);
+  }
+
+  /**
+   * Finds all fields with UrnValidation annotations in an aspect value
+   *
+   * @param aspect The aspect value to traverse, or null for none
+   * @param aspectSpec The AspectSpec containing UrnValidation field specifications
+   * @return Set of UrnValidationEntry containing field paths, values and annotations
+   */
+  @Nonnull
+  public static Set<UrnValidationEntry> findUrnValidationFields(
+      @Nullable RecordTemplate aspect, @Nonnull AspectSpec aspectSpec) {
 
     Set<UrnValidationEntry> result = new HashSet<>();
     Map<String, UrnValidationFieldSpec> urnValidationSpecs =
         aspectSpec.getUrnValidationFieldSpecMap();
 
-    if (item.getRecordTemplate() != null && item.getRecordTemplate().data() != null) {
+    if (aspect != null && aspect.data() != null) {
       // Traverse the DataMap recursively
-      traverseDataMap(item.getRecordTemplate().data(), "", urnValidationSpecs, result);
+      traverseDataMap(aspect.data(), "", urnValidationSpecs, result);
     }
 
     return result;

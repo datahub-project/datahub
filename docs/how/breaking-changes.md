@@ -15,6 +15,15 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### PATCH writes are checked against `@UrnValidation`
+
+PATCH writes are now checked against `@UrnValidation` for the URNs they add, as UPSERT writes
+already were. For example, a PATCH that adds a platform that does not exist to a structured
+property's `allowedPlatforms` is now rejected. URNs the aspect already holds are not checked again,
+so a stored reference to a deleted entity does not block unrelated edits. A PATCH sent through the
+asynchronous ingestion path that fails this check goes to the failed-MCP topic, like other
+pre-commit validation failures, rather than being rejected when it is submitted.
+
 ### CLI initialization from scripts
 
 When you run `datahub init` without an interactive terminal, it now stops if an existing

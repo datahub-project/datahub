@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.validation;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -15,6 +16,7 @@ import com.linkedin.metadata.models.annotation.UrnValidationAnnotation;
 import com.linkedin.metadata.utils.UrnValidationUtil;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -58,6 +60,47 @@ public class UrnAnnotationValidator extends AspectPayloadValidator {
                         .stream())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
+    return validateUrns(operationContext, urnValidationEntries, retrieverContext);
+  }
+
+  @Override
+  protected Stream<AspectValidationException> validatePreCommitAspects(
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
+    // A PATCH has no resulting aspect at proposal time and PATCH is not a supported operation, so
+    // the URNs it adds are checked here, once it has been applied. Only added URNs: a stored URN
+    // that is no longer valid (e.g. its entity was hard-deleted) must not block unrelated edits.
+    // Other writes were already checked as proposals. Writes that side effects add inside the
+    // transaction are not checked by this validator.
+    Map<BatchItem, Set<UrnValidationUtil.UrnValidationEntry>> addedUrns = new HashMap<>();
+    for (ChangeMCP item : changeMCPs) {
+      final AspectSpec aspectSpec = item.getAspectSpec();
+      if (item.getMetadataChangeProposal() == null
+          || !ChangeType.PATCH.equals(item.getMetadataChangeProposal().getChangeType())
+          || aspectSpec == null
+          || aspectSpec.getUrnValidationFieldSpecMap().isEmpty()) {
+        continue;
+      }
+      // Entries are compared by field path (list positions collapsed to /*), URN and annotation.
+      final Set<UrnValidationUtil.UrnValidationEntry> added =
+          UrnValidationUtil.findUrnValidationFields(item, aspectSpec);
+      added.removeAll(
+          UrnValidationUtil.findUrnValidationFields(item.getPreviousRecordTemplate(), aspectSpec));
+      if (!added.isEmpty()) {
+        addedUrns.put(item, added);
+      }
+    }
+    return addedUrns.isEmpty()
+        ? Stream.empty()
+        : validateUrns(operationContext, addedUrns, retrieverContext);
+  }
+
+  /** Checks each item's URNs against their field's annotation: format, entity type, existence. */
+  private static Stream<AspectValidationException> validateUrns(
+      OperationFingerprint operationContext,
+      @Nonnull Map<BatchItem, Set<UrnValidationUtil.UrnValidationEntry>> urnValidationEntries,
+      @Nonnull RetrieverContext retrieverContext) {
     // Values of each item's stored aspect, loaded only when an entity-type mismatch is found.
     final StoredAspectValues storedValues =
         StoredAspectValues.writtenByNewerSchema(operationContext, retrieverContext);
@@ -166,14 +209,6 @@ public class UrnAnnotationValidator extends AspectPayloadValidator {
 
     return Stream.concat(
         nonExistenceFailures.values().stream().flatMap(Set::stream), existenceFailures.stream());
-  }
-
-  @Override
-  protected Stream<AspectValidationException> validatePreCommitAspects(
-      OperationFingerprint operationContext,
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
   }
 
   @Nonnull
