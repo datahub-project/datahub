@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Protocol, cast
 
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import VersionSetKeyClass
 from datahub.metadata.urns import SchemaFieldUrn
 from fastmcp.exceptions import ToolError
 from loguru import logger
@@ -99,6 +100,23 @@ class ReadBackend(Protocol):
         value. A failed read is reported per pair in ``errors``, not raised."""
         ...
 
+    def glossary_term_version(self, urn: str) -> JsonObject | None:
+        """The term's ``versionProperties`` (``getTermVersionSetUrn`` in
+        ``glossary_versioning.gql``); None when GMS returns no entity."""
+        ...
+
+    def version_set_history(
+        self, urn: str, start: int, count: int
+    ) -> JsonObject | None:
+        """The version set's ``versionsSearch`` page (``getVersionSetHistory`` in
+        ``glossary_versioning.gql``); None when GMS returns no version set."""
+        ...
+
+    def glossary_terms(self, urns: list[str]) -> list[JsonObject | None]:
+        """Each term's definition, owners, tags, deprecation and version
+        (``getGlossaryTermsForCompare`` in ``glossary_versioning.gql``)."""
+        ...
+
 
 @dataclass(frozen=True)
 class ReadBackendBinding:
@@ -112,6 +130,11 @@ class GraphQLReadBackend:
         self.graph = graph
 
     def exists(self, urn: str) -> bool:
+        if urn.startswith("urn:li:versionSet:"):
+            # VersionSetUrn.entity_type is the type of the entities the set
+            # versions, not "versionSet", so DataHubGraph.exists would look for
+            # the wrong key aspect and report every version set missing.
+            return self.graph.get_aspect(urn, VersionSetKeyClass) is not None
         return self.graph.exists(urn)
 
     def entity(self, urn: str, *, include_contract: bool = False) -> JsonObject | None:
@@ -276,6 +299,42 @@ class GraphQLReadBackend:
     def aspect_versions(self, pairs: list[VersionedAspectPair]) -> RawVersionedBatch:
         # GraphQL serves only current values; OpenAPI v3 reads stored versions.
         return VersionedOpenApiClient(self.graph).get_entities(pairs)
+
+    def glossary_term_version(self, urn: str) -> JsonObject | None:
+        return cast(
+            JsonObject | None,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("glossary_versioning.gql"),
+                variables={"urn": urn},
+                operation_name="getTermVersionSetUrn",
+            )["entity"],
+        )
+
+    def version_set_history(
+        self, urn: str, start: int, count: int
+    ) -> JsonObject | None:
+        return cast(
+            JsonObject | None,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("glossary_versioning.gql"),
+                variables={"urn": urn, "start": start, "count": count},
+                operation_name="getVersionSetHistory",
+            )["versionSet"],
+        )
+
+    def glossary_terms(self, urns: list[str]) -> list[JsonObject | None]:
+        return cast(
+            list[JsonObject | None],
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("glossary_versioning.gql"),
+                variables={"urns": urns},
+                operation_name="getGlossaryTermsForCompare",
+            ).get("entities")
+            or [],
+        )
 
 
 def get_read_backend() -> ReadBackend:

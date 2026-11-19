@@ -1,0 +1,100 @@
+# Glossary term versioning: GlossaryTerm.versionProperties is new in OSS 1.10.0
+# (the first release cut after it merged).
+# The tools that read it carry the same @min_version, so the markers only keep the
+# documents valid on older GMS schemas.
+
+fragment TermVersionProperties on VersionProperties {
+  versionSet {
+    urn
+  }
+  version {
+    versionTag
+  }
+  isLatest
+  comment
+  created {
+    time
+  }
+}
+
+query getTermVersionSetUrn($urn: String!) {
+  entity(urn: $urn) {
+    urn
+    ... on GlossaryTerm {
+      urn
+      versionProperties { #[since oss=1.10.0 cloud=0.3.16]
+        ...TermVersionProperties
+      }
+    }
+  }
+}
+
+query getVersionSetHistory($urn: String!, $start: Int, $count: Int) {
+  versionSet(urn: $urn) {
+    urn
+    versionsSearch(input: { query: "*", start: $start, count: $count }) {
+      total
+      searchResults {
+        entity {
+          urn
+          ... on GlossaryTerm {
+            hierarchicalName
+            properties {
+              name
+              description
+              termSource
+            }
+            versionProperties { #[since oss=1.10.0 cloud=0.3.16]
+              ...TermVersionProperties
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+query getGlossaryTermsForCompare($urns: [String!]!) {
+  entities(urns: $urns) {
+    urn
+    ... on GlossaryTerm {
+      hierarchicalName
+      properties {
+        name
+        description
+        termSource
+        customProperties {
+          key
+          value
+        }
+      }
+      ownership {
+        owners {
+          owner {
+            ... on CorpUser {
+              urn
+            }
+            ... on CorpGroup {
+              urn
+            }
+          }
+          type
+        }
+      }
+      tags {
+        tags {
+          tag {
+            urn
+          }
+        }
+      }
+      deprecation {
+        deprecated
+        note
+      }
+      versionProperties { #[since oss=1.10.0 cloud=0.3.16]
+        ...TermVersionProperties
+      }
+    }
+  }
+}
