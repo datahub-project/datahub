@@ -1,4 +1,5 @@
 import contextlib
+import json
 from pathlib import Path
 from typing import Any, Callable, Dict, Type, TypeVar
 from unittest.mock import patch
@@ -9,6 +10,7 @@ from pytest import Config
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.vertexai.vertexai import VertexAISource
+from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 from datahub.testing import mce_helpers
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,
@@ -66,7 +68,7 @@ def get_pipeline_config(sink_file_path: str) -> Dict[str, Any]:
     }
 
 
-def test_vertexai_source_ingestion(pytestconfig: Config, tmp_path: Path) -> None:
+def _patch_vertexai_apis(exit_stack: contextlib.ExitStack) -> None:
     class_data: Dict[Type, Any] = {
         aiplatform.Model: gen_mock_models(),
         aiplatform.PipelineJob: [get_mock_pipeline_job()],
@@ -78,38 +80,38 @@ def test_vertexai_source_ingestion(pytestconfig: Config, tmp_path: Path) -> None
     def mock_gapic_list(cls: Type, _rl: Any, **_kw: Any) -> Any:
         return class_data.get(cls, [])
 
+    exit_stack.enter_context(patch("google.auth.default", return_value=(None, None)))
+    exit_stack.enter_context(patch("google.cloud.aiplatform.init"))
+
+    _patch_gapic_list(exit_stack, mock_gapic_list)
+
+    exit_stack.enter_context(
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.VertexAIExperimentExtractor._list_experiments_rate_limited",
+            return_value=[gen_mock_experiment()],
+        )
+    )
+    exit_stack.enter_context(
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.VertexAIExperimentExtractor._list_experiment_runs_rate_limited",
+            return_value=[gen_mock_experiment_run()],
+        )
+    )
+
+    exit_stack.enter_context(
+        patch("google.cloud.aiplatform.models.Model", return_value=gen_mock_model(1))
+    )
+    exit_stack.enter_context(
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_training_extractor.Model",
+            return_value=gen_mock_model(1),
+        )
+    )
+
+
+def test_vertexai_source_ingestion(pytestconfig: Config, tmp_path: Path) -> None:
     with contextlib.ExitStack() as exit_stack:
-        exit_stack.enter_context(
-            patch("google.auth.default", return_value=(None, None))
-        )
-        exit_stack.enter_context(patch("google.cloud.aiplatform.init"))
-
-        _patch_gapic_list(exit_stack, mock_gapic_list)
-
-        exit_stack.enter_context(
-            patch(
-                "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.VertexAIExperimentExtractor._list_experiments_rate_limited",
-                return_value=[gen_mock_experiment()],
-            )
-        )
-        exit_stack.enter_context(
-            patch(
-                "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.VertexAIExperimentExtractor._list_experiment_runs_rate_limited",
-                return_value=[gen_mock_experiment_run()],
-            )
-        )
-
-        exit_stack.enter_context(
-            patch(
-                "google.cloud.aiplatform.models.Model", return_value=gen_mock_model(1)
-            )
-        )
-        exit_stack.enter_context(
-            patch(
-                "datahub.ingestion.source.vertexai.vertexai_training_extractor.Model",
-                return_value=gen_mock_model(1),
-            )
-        )
+        _patch_vertexai_apis(exit_stack)
 
         golden_file_path = (
             pytestconfig.rootpath
@@ -133,6 +135,7 @@ def test_vertexai_platform_instance_config(
     pytestconfig: Config, tmp_path: Path
 ) -> None:
     """Test that platform_instance configuration is properly propagated"""
+    sink_path = tmp_path / "vertexai_platform_instance.json"
     config_dict = {
         "run_id": "vertexai-platform-instance-test",
         "source": {
@@ -148,31 +151,13 @@ def test_vertexai_platform_instance_config(
         "sink": {
             "type": "file",
             "config": {
-                "filename": str(tmp_path / "vertexai_platform_instance.json"),
+                "filename": str(sink_path),
             },
         },
     }
 
     with contextlib.ExitStack() as exit_stack:
-        exit_stack.enter_context(
-            patch("google.auth.default", return_value=(None, None))
-        )
-        exit_stack.enter_context(patch("google.cloud.aiplatform.init"))
-
-        _patch_gapic_list(exit_stack, lambda *_a, **_kw: [])
-
-        exit_stack.enter_context(
-            patch(
-                "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.VertexAIExperimentExtractor._list_experiments_rate_limited",
-                return_value=[],
-            )
-        )
-        exit_stack.enter_context(
-            patch(
-                "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.VertexAIExperimentExtractor._list_experiment_runs_rate_limited",
-                return_value=[],
-            )
-        )
+        _patch_vertexai_apis(exit_stack)
 
         pipeline = Pipeline.create(config_dict)
         pipeline.run()
@@ -183,3 +168,33 @@ def test_vertexai_platform_instance_config(
         assert source.config.platform_instance == "prod-vertexai-us"
         assert source.uri_parser.platform_instance == "prod-vertexai-us"
         assert source.urn_builder.platform_instance == "prod-vertexai-us"
+
+    mcps = json.loads(sink_path.read_text())
+    instances = [
+        mcp["aspect"]["json"]["instance"]
+        for mcp in mcps
+        if mcp.get("aspectName") == "dataPlatformInstance"
+    ]
+    assert instances
+    assert set(instances) == {
+        "urn:li:dataPlatformInstance:(urn:li:dataPlatform:vertexai,prod-vertexai-us)"
+    }
+
+    prefix = "prod-vertexai-us."
+    emitted_flows = {
+        mcp["entityUrn"]
+        for mcp in mcps
+        if mcp["entityType"] == "dataFlow" and mcp.get("aspectName") == "dataFlowInfo"
+    }
+    assert emitted_flows
+    for urn in emitted_flows:
+        flow_id = DataFlowUrn.from_string(urn).flow_id
+        assert flow_id.startswith(prefix)
+        assert not flow_id.startswith(prefix + prefix)
+    job_flows = {
+        str(DataJobUrn.from_string(mcp["entityUrn"]).flow)
+        for mcp in mcps
+        if mcp["entityType"] == "dataJob"
+    }
+    assert job_flows
+    assert job_flows <= emitted_flows

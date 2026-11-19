@@ -22,16 +22,22 @@ import javax.annotation.Nullable;
 /**
  * Walks a template ladder. Selection runs before the query. A shard failure or exception follows
  * {@code next}. The last rung is kept even when its total is zero, and its failure fails the
- * search.
+ * search. Each rung, a parallel member included, is assigned the requested entity types in its
+ * scope and searches only those. A rung assigned none of them is skipped, as a select miss is,
+ * before its shape is checked, so a rung that cannot run for the request cannot fail it.
  */
 public final class SearchTemplateWalk {
   private SearchTemplateWalk() {}
 
+  /**
+   * @param entityTypes the requested entity types each rung's scope is applied to
+   */
   public record Request(
       @Nonnull String query,
       @Nullable Filter filter,
       @Nullable List<SortCriterion> sort,
       @Nullable Integer size,
+      @Nonnull List<String> entityTypes,
       @Nonnull AfterStop afterStop) {}
 
   /** Runs after stop predicates have seen the raw keyword hits. */
@@ -146,8 +152,9 @@ public final class SearchTemplateWalk {
 
   @FunctionalInterface
   public interface Attempt<T> {
+    /** Runs the rung at {@code urn} over the entity types assigned to it, in request order. */
     @Nonnull
-    AttemptResult<T> run(@Nonnull String urn);
+    AttemptResult<T> run(@Nonnull String urn, @Nonnull List<String> entityTypes);
   }
 
   @FunctionalInterface
@@ -227,28 +234,26 @@ public final class SearchTemplateWalk {
     }
     try {
       MergedSearchTemplate template = loader.load(opContext, urn);
-      requireSupported(opContext, template);
       SearchTemplateLadder ladder = template.getLadder();
+      List<String> assigned = SearchTemplateGates.assigned(template, request.entityTypes());
+      if (assigned.isEmpty()) {
+        return follow(
+            opContext, loader, executor, ladder, urn, request, attempt, fuse, path, depth);
+      }
+      requireSupported(opContext, template);
+      if (!selected(opContext, ladder, assigned, request)) {
+        return follow(
+            opContext, loader, executor, ladder, urn, request, attempt, fuse, path, depth);
+      }
       if (ladder != null
           && ladder.hasParallel()
           && ladder.getParallel() != null
           && !ladder.getParallel().isEmpty()) {
-        if (!SearchTemplateLadderPredicates.selectMatches(
-            ladder, request.query(), request.filter(), request.sort(), request.size())) {
-          return follow(
-              opContext, loader, executor, ladder, urn, request, attempt, fuse, path, depth);
-        }
         return walkParallel(
             opContext, loader, executor, urn, ladder, request, attempt, fuse, path, depth);
       }
-      if (ladder != null
-          && !SearchTemplateLadderPredicates.selectMatches(
-              ladder, request.query(), request.filter(), request.sort(), request.size())) {
-        return follow(
-            opContext, loader, executor, ladder, urn, request, attempt, fuse, path, depth);
-      }
       long started = System.nanoTime();
-      AttemptResult<T> result = attempt.run(urn);
+      AttemptResult<T> result = attempt.run(urn, assigned);
       SearchTemplateMetrics.rung(opContext, depth, false, System.nanoTime() - started);
       if (result.error != null || result.shardFailed) {
         if (ladder == null || !ladder.hasNext() || ladder.getNext() == null) {
@@ -285,14 +290,14 @@ public final class SearchTemplateWalk {
       @Nonnull OperationContext opContext,
       @Nonnull SearchTemplateLoader loader,
       @Nonnull ExecutorService executor,
-      @Nonnull SearchTemplateLadder ladder,
+      @Nullable SearchTemplateLadder ladder,
       @Nonnull String urn,
       @Nonnull Request request,
       @Nonnull Attempt<T> attempt,
       @Nonnull Fuse<T> fuse,
       @Nonnull Set<String> path,
       int depth) {
-    if (!ladder.hasNext() || ladder.getNext() == null) {
+    if (ladder == null || !ladder.hasNext() || ladder.getNext() == null) {
       throw new SearchTemplateException(
           "Search template " + urn + " was not selected and has no next");
     }
@@ -343,39 +348,45 @@ public final class SearchTemplateWalk {
     List<Member<T>> finished = new ArrayList<>();
     RuntimeException lastError = null;
     boolean shard = false;
-    if (any) {
-      try {
-        for (int i = 0; i < futures.size(); i++) {
-          Member<T> member = join(Objects.requireNonNull(completion).take());
-          if (member.stopped && member.result.page != null) {
-            cancel(futures);
-            return served(opContext, request, member.urn, member.result, depth + 1);
+    // A member that fails the search closed throws out of join, so the siblings are cancelled here
+    // rather than left running on the ladder executor. Cancelling a finished member does nothing.
+    try {
+      if (any) {
+        try {
+          for (int i = 0; i < futures.size(); i++) {
+            Member<T> member = join(Objects.requireNonNull(completion).take());
+            if (member.stopped && member.result.page != null) {
+              cancel(futures);
+              return served(opContext, request, member.urn, member.result, depth + 1);
+            }
+            finished.add(member);
+            if (member.result.error != null) {
+              lastError = member.result.error;
+            }
+            shard = shard || member.result.shardFailed;
           }
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          cancel(futures);
+          throw new SearchTemplateException("Search template ladder was interrupted", e);
+        }
+      } else {
+        for (Future<Member<T>> future : futures) {
+          Member<T> member = join(future);
           finished.add(member);
           if (member.result.error != null) {
             lastError = member.result.error;
           }
           shard = shard || member.result.shardFailed;
-        }
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        cancel(futures);
-        throw new SearchTemplateException("Search template ladder was interrupted", e);
-      }
-    } else {
-      for (Future<Member<T>> future : futures) {
-        Member<T> member = join(future);
-        finished.add(member);
-        if (member.result.error != null) {
-          lastError = member.result.error;
-        }
-        shard = shard || member.result.shardFailed;
-        // A failure will not use a sibling page, so the remaining members do not need to finish.
-        if (lastError != null || shard) {
-          cancel(futures);
-          break;
+          // A failure will not use a sibling page, so the remaining members do not need to finish.
+          if (lastError != null || shard) {
+            cancel(futures);
+            break;
+          }
         }
       }
+    } finally {
+      cancel(futures);
     }
     // A member failure follows next, and fails the search when this group is the last rung. A
     // sibling page, empty or with hits, is not a substitute for that failure.
@@ -440,24 +451,33 @@ public final class SearchTemplateWalk {
       return new Member<>(urn, AttemptResult.skipped(), false);
     }
     path.add(urn);
-    final MergedSearchTemplate template;
+    MergedSearchTemplate template = null;
+    List<String> assigned;
     try {
       template = loader.load(opContext, urn);
+      assigned = SearchTemplateGates.assigned(template, request.entityTypes());
+      if (assigned.isEmpty()) {
+        return new Member<>(urn, AttemptResult.skipped(), false);
+      }
       requireSupported(opContext, template);
     } catch (RuntimeException e) {
-      // Load and capability failures are member results. The group's next is the fallback.
+      // Load and capability failures are member results, and the group's next is the fallback. A
+      // vector member that cannot run fails the search closed instead.
+      if (template != null && SearchTemplateCapabilities.admitsVectorHits(template)) {
+        throw e;
+      }
       return new Member<>(urn, AttemptResult.failed(e), false);
     }
     SearchTemplateLadder ladder = template.getLadder();
-    if (ladder != null
-        && !SearchTemplateLadderPredicates.selectMatches(
-            ladder, request.query(), request.filter(), request.sort(), request.size())) {
+    if (!selected(opContext, ladder, assigned, request)) {
       return new Member<>(urn, AttemptResult.skipped(), false);
     }
     AttemptResult<T> result;
     long started = System.nanoTime();
     try {
-      result = attempt.run(urn);
+      result = attempt.run(urn, assigned);
+    } catch (SearchTemplateFailClosedException e) {
+      throw e;
     } catch (RuntimeException e) {
       result = AttemptResult.failed(e);
     } finally {
@@ -478,14 +498,34 @@ public final class SearchTemplateWalk {
     return new Member<>(urn, result, stopped);
   }
 
+  // The semantic predicates read the rung's assignment, not the whole request
+  private static boolean selected(
+      @Nonnull OperationContext opContext,
+      @Nullable SearchTemplateLadder ladder,
+      @Nonnull List<String> assigned,
+      @Nonnull Request request) {
+    return SearchTemplateLadderPredicates.selectMatches(
+        ladder,
+        request.query(),
+        request.filter(),
+        request.sort(),
+        request.size(),
+        gates(opContext).eligibility(assigned));
+  }
+
+  @Nonnull
+  private static SearchTemplateGates gates(@Nonnull OperationContext opContext) {
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+    return coordinator == null ? SearchTemplateGates.none() : coordinator.gates();
+  }
+
   private static void requireSupported(
       @Nonnull OperationContext opContext, @Nonnull MergedSearchTemplate template) {
     ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
     SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     SearchTemplateComponentRegistry registry =
         coordinator == null ? SearchTemplateComponentRegistry.empty() : coordinator.components();
-    SearchTemplateGates gates =
-        coordinator == null ? SearchTemplateGates.none() : coordinator.gates();
+    SearchTemplateGates gates = gates(opContext);
     boolean documentRerank = resolved != null && resolved.isDocumentRerank();
     SearchTemplateCapabilities.requireSupported(
         template,
@@ -493,13 +533,15 @@ public final class SearchTemplateWalk {
         resolved != null && resolved.isCapabilityScroll(),
         registry,
         gates);
-    // Every attempted rung, not only the selected root, resolves its profiles for the request.
+    // Every attempted rung, not only the selected root, resolves its profiles for the request. The
+    // walk partitions the request, so a scope narrower than the request does not fail it.
     SearchTemplateCapabilities.requireResolvable(
         template,
         gates,
         resolved == null ? null : resolved.getEntityTypes(),
         resolved == null ? null : resolved.getSearchSystem(),
-        documentRerank);
+        documentRerank,
+        false);
   }
 
   @Nonnull

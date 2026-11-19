@@ -29,9 +29,12 @@ const ReadOnlyRoot = styled.div<{
         max-width: 100%;
     }
 
-    /* :where() keeps these defaults below caller overrides that target the same
-       content class (summary padding, compact paragraph margin and line limit). */
-    :where(.${EDITOR_CONTENT_CLASS}) {
+    /* Stylis glues a nested selector that starts with ":" onto the parent, the
+       same way it does for :hover. Without the descendant combinator these rules
+       match the root and never reach the content node, so white-space stays
+       nowrap inside the properties table. :where() keeps the defaults below
+       caller overrides on the same class (summary padding, compact margin, line limit). */
+    & :where(.${EDITOR_CONTENT_CLASS}) {
         ${editorContentCss}
         ${readOnlyMarkdownCss}
     }

@@ -246,7 +246,7 @@ echo "TEST_STRATEGY: $TEST_STRATEGY"
 
 ### Simulate batch packing without running tests
 
-CI splits pytests with `BATCH_COUNT` (3 on forks, 4 for the `p0` tier, 9 for the full suite) and `PYTEST_XDIST_WORKERS=3`. To dump the predicted pack plan for one of those counts without executing tests, load the opt-in plugin with `-p` (it is not registered in `conftest.py`):
+CI splits pytests with `BATCH_COUNT` (3 on forks, 2 for the `p0` tier, 5 for the full suite) and `PYTEST_XDIST_WORKERS=3`. To dump the predicted pack plan for one of those counts without executing tests, load the opt-in plugin with `-p` (it is not registered in `conftest.py`):
 
 ```bash
 cd smoke-test
@@ -254,13 +254,13 @@ source venv/bin/activate
 export PYTHONPATH=.
 PLUGIN="-p batch_plan_dump"
 
-# Full suite, 7 batches
-BATCH_COUNT=7 PYTEST_XDIST_WORKERS=3 \
-  pytest $PLUGIN --collect-only --dump-batch-plan /tmp/plan-7.json
+# Full suite, 5 batches
+BATCH_COUNT=5 PYTEST_XDIST_WORKERS=3 \
+  pytest $PLUGIN --collect-only --dump-batch-plan /tmp/plan-5.json
 
-# p0 gate, 4 batches
-BATCH_COUNT=4 PYTEST_XDIST_WORKERS=3 \
-  pytest $PLUGIN --collect-only -m p0 --dump-batch-plan /tmp/plan-p0-4.json
+# p0 gate, 2 batches
+BATCH_COUNT=2 PYTEST_XDIST_WORKERS=3 \
+  pytest $PLUGIN --collect-only -m p0 --dump-batch-plan /tmp/plan-p0-2.json
 
 # CI: artifact path from env (overrides --dump-batch-plan)
 SMOKE_DUMP_BATCH_PLAN=/tmp/plan-catalog-3.json BATCH_COUNT=3 PYTEST_XDIST_WORKERS=3 \

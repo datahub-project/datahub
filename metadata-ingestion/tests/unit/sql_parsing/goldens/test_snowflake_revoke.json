@@ -1,0 +1,13 @@
+{
+    "query_type": "UNKNOWN",
+    "query_type_props": {},
+    "query_fingerprint": "506f687634f4e2219401d8f1e809899e30607410f155ea93e5f56eae4e40182b",
+    "in_tables": [],
+    "out_tables": [],
+    "column_lineage": null,
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "REVOKE SELECT ON v FROM ROLE r"
+    }
+}
