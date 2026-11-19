@@ -261,8 +261,6 @@ class TestBuildWorkbookCustomsqlColMapping:
         passthrough = source._customsql_passthrough_mappings.get(_CHART_URN, {})
         assert passthrough["order_id"] == "order_id"
         assert passthrough["amount"] == "amount"
-        # _customsql_col_mappings must NOT be touched (no FGL rewrite for charts)
-        assert _CHART_URN not in source._customsql_col_mappings
 
     def test_cross_source_ref_excluded(self) -> None:
         source = _make_source()

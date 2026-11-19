@@ -475,27 +475,17 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
 
     # DM customSQL element SQL parsing counters.
-    # Elements skipped before aggregator registration (no definition, missing /
-    # unknown connection, unsupported platform, duplicate source_id).
+    # Elements skipped before parsing (no definition, missing / unknown
+    # connection, unsupported platform, more than one customSQL source).
     dm_customsql_skipped: int = 0
-    dm_customsql_aggregator_invocations: int = 0
-    dm_customsql_aggregator_invocation_errors: int = 0
     dm_customsql_parse_failed: int = 0
     dm_customsql_upstream_emitted: int = 0
+    # Elements with at least one column lineage edge.
     dm_customsql_column_lineage_emitted: int = 0
-    # FGL downstream fields dropped because the SQL column name had no matching
-    # Sigma display column (formula ref absent or element name mismatch).
-    dm_customsql_fgl_downstream_unmapped: int = 0
-    # Elements whose col mapping was populated (at least partially) via the
-    # columnId path rather than formula bracket refs alone.  Non-zero confirms
-    # the passthrough-column bridge is active.
-    dm_customsql_col_mapping_via_columnid: int = 0
-    # columnIds that could not be used as SQL column names (per-column encounter).
-    # Fired for bare non-UPPER_SNAKE identifiers, non-inode slash-shaped IDs, and
-    # inode entries with an empty native part.  Non-zero on Snowflake means the DM
-    # has composition-formula columns (expected); non-zero on other warehouses may
-    # indicate unrecognised columnId formats.  Falls back to formula-ref path.
-    dm_customsql_col_mapping_columnid_rejected: int = 0
+    # Element columns reading the SQL that did / did not get column lineage;
+    # each unresolved column is also listed in a report warning with its reason.
+    dm_customsql_columns_resolved: int = 0
+    dm_customsql_columns_unresolved: int = 0
 
     # Workbook customSQL chart SQL parsing counters (mirrors dm_customsql_* set).
     workbook_customsql_skipped: int = 0

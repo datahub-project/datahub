@@ -3092,9 +3092,9 @@ class TestPaginatorWarningTitleIncludesStatusCode:
         )
 
 
-class TestCustomSqlDuplicateNameOverwrite:
-    def test_second_definition_wins_and_warning_emitted(self) -> None:
-        """Two same-name customSQL entries: second wins; report.warnings fires."""
+class TestCustomSqlDuplicateName:
+    def test_both_definitions_dropped_and_warning_emitted(self) -> None:
+        """Two same-name customSQL entries cannot be told apart: neither is kept."""
         api = _create_sigma_api()
         dm = SigmaDataModel(
             dataModelId="dm-uuid",
@@ -3127,7 +3127,7 @@ class TestCustomSqlDuplicateNameOverwrite:
         ):
             api._assemble_data_model(dm, file_meta=None)
 
-        assert dm.custom_sql_by_name["csql-1"].definition == "SELECT B FROM DB.S.T2"
+        assert "csql-1" not in dm.custom_sql_by_name
         assert any(
             "duplicate" in (w.title or "").lower()
             or "duplicate" in (w.message or "").lower()
