@@ -85,7 +85,7 @@ def _get_entities(
     }
 
 
-def _make_source(with_graph: bool = True) -> SigmaSource:
+def _make_source(with_graph: bool = True, **config: object) -> SigmaSource:
     ctx = PipelineContext(run_id="test")
     if with_graph:
         graph = MagicMock(spec=DataHubGraph)
@@ -99,7 +99,9 @@ def _make_source(with_graph: bool = True) -> SigmaSource:
             by_id={_CONN.connection_id: _CONN}
         )
         return SigmaSource(
-            config=SigmaSourceConfig(client_id="id", client_secret="secret"),
+            config=SigmaSourceConfig.model_validate(
+                {"client_id": "id", "client_secret": "secret", **config}
+            ),
             ctx=ctx,
         )
 
@@ -152,15 +154,12 @@ def _data_model(
 def _lineage(
     source: SigmaSource, dm: SigmaDataModel
 ) -> Tuple[str, Optional[UpstreamLineageClass]]:
-    """Run element emission plus the end-of-run drain; return the element's final lineage."""
+    """Run element emission; return the element's final lineage."""
     urns = {
         el.elementId: source._gen_data_model_element_urn(dm, el) for el in dm.elements
     }
     element_urn = urns["el-1"]
-    workunits = [
-        *source._gen_data_model_workunit(dm, urns),
-        *source._drain_sql_aggregators(),
-    ]
+    workunits = list(source._gen_data_model_workunit(dm, urns))
     found: Optional[UpstreamLineageClass] = None
     for wu in workunits:
         mcp = wu.metadata
@@ -223,6 +222,46 @@ def test_unqualified_columns_in_join_resolve_through_upstream_schemas() -> None:
         "Order Id": {_col(_ORDERS, "order_id")},
         "Name": {_col(_CUSTOMERS, "name")},
     }
+
+
+def test_sigma_platform_instance_is_not_applied_to_warehouse_tables() -> None:
+    source = _make_source(platform_instance="sigma_prod")
+    element_urn, lineage = _lineage(
+        source,
+        _data_model(
+            "SELECT ORDER_ID, NAME FROM MY_DB.MY_SCHEMA.ORDERS O "
+            "JOIN MY_DB.MY_SCHEMA.CUSTOMERS C ON O.CUSTOMER_ID = C.CUSTOMER_ID",
+            [("Order Id", "[Custom SQL/ORDER_ID]"), ("Name", "[Custom SQL/NAME]")],
+        ),
+    )
+    assert _edges(element_urn, lineage) == {
+        "Order Id": {_col(_ORDERS, "order_id")},
+        "Name": {_col(_CUSTOMERS, "name")},
+    }
+
+
+def test_connection_override_sets_instance_env_and_default_namespace() -> None:
+    source = _make_source(
+        platform_instance="sigma_prod",
+        connection_to_platform_map={
+            _CONN.connection_id: {
+                "platform_instance": "wh",
+                "env": "DEV",
+                "default_database": "my_db",
+                "default_schema": "my_schema",
+            }
+        },
+    )
+    _, lineage = _lineage(
+        source,
+        _data_model(
+            "SELECT ORDER_ID FROM ORDERS", [("Order Id", "[Custom SQL/ORDER_ID]")]
+        ),
+    )
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,wh.my_db.my_schema.orders,DEV)"
+    ]
 
 
 def test_select_star_join_resolves_through_upstream_schemas() -> None:

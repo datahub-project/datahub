@@ -1,7 +1,7 @@
 """Unit tests for workbook customSQL chart SQL parsing (T4.F)."""
 
 from typing import Dict, Optional, Tuple
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -58,10 +58,11 @@ def _entry(
     )
 
 
-def _make_source() -> SigmaSource:
+def _make_source(platform_instance: Optional[str] = None) -> SigmaSource:
     config = SigmaSourceConfig(
         client_id="test_id",
         client_secret="test_secret",
+        platform_instance=platform_instance,
     )
     ctx = PipelineContext(run_id="test")
     with (
@@ -374,6 +375,53 @@ class TestProcessWorkbookCustomsqlElement:
         assert source.reporter.workbook_customsql_aggregator_invocation_errors == 1
         assert source.reporter.workbook_customsql_aggregator_invocations == 0
         assert _CHART_URN not in source._workbook_customsql_registered_urns
+
+    def test_second_customsql_source_for_a_chart_is_skipped(self) -> None:
+        source = _make_source()
+        for name in ("q1", "q2"):
+            source._process_workbook_customsql_element(
+                _CHART_URN,
+                _entry(
+                    name=name,
+                    connectionId=_SNOWFLAKE_CONN.connection_id,
+                    definition="SELECT ORDER_ID FROM TEST_DB.TEST_SCHEMA.ORDERS",
+                ),
+            )
+        assert source.reporter.workbook_customsql_aggregator_invocations == 1
+        assert source.reporter.workbook_customsql_skipped == 1
+
+    def test_drain_survives_gen_metadata_failure_and_closes_aggregator(self) -> None:
+        source = _make_source()
+        source._process_workbook_customsql_element(
+            _CHART_URN,
+            _entry(
+                name="q1",
+                connectionId=_SNOWFLAKE_CONN.connection_id,
+                definition="SELECT ORDER_ID FROM TEST_DB.TEST_SCHEMA.ORDERS",
+            ),
+        )
+        aggregator = source._sql_aggregators[("snowflake", "PROD", None)]
+        close_mock = MagicMock(wraps=aggregator.close)
+        with (
+            patch.object(aggregator, "close", close_mock),
+            patch.object(
+                aggregator, "gen_metadata", MagicMock(side_effect=RuntimeError("boom"))
+            ),
+        ):
+            list(source._drain_sql_aggregators())
+        assert source.reporter.warnings
+        close_mock.assert_called_once()
+
+    def test_chart_inputs_do_not_take_the_sigma_platform_instance(self) -> None:
+        source = _make_source(platform_instance="sigma_prod")
+        urns = source._parse_customsql_upstream_dataset_urns(
+            _entry(
+                name="q1",
+                connectionId=_SNOWFLAKE_CONN.connection_id,
+                definition="SELECT ORDER_ID FROM TEST_DB.TEST_SCHEMA.ORDERS",
+            )
+        )
+        assert urns == [_SNOWFLAKE_TABLE]
 
 
 # ---------------------------------------------------------------------------

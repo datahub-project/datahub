@@ -487,7 +487,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     dm_customsql_columns_resolved: int = 0
     dm_customsql_columns_unresolved: int = 0
 
-    # Workbook customSQL chart SQL parsing counters (mirrors dm_customsql_* set).
+    # Workbook customSQL chart SQL parsing counters.
     workbook_customsql_skipped: int = 0
     workbook_customsql_aggregator_invocations: int = 0
     workbook_customsql_aggregator_invocation_errors: int = 0

@@ -48,9 +48,9 @@ customSQL definitions match the warehouse connector's env/instance for that conn
 
 #### Data Model customSQL element lineage
 
-Data Model elements backed by a customSQL source emit warehouse `UpstreamLineage` and column-level `FineGrainedLineage` automatically — no additional configuration is required beyond a valid connection in the Sigma connection registry for most platforms. **Note:** for Redshift and other warehouses where Sigma's connection record omits `database`/`schema`, set `default_database` and `default_schema` in `connection_to_platform_map` — see [Connection record overrides](#connection-record-overrides-connection_to_platform_map) above.
+Data Model elements backed by a customSQL source emit warehouse `UpstreamLineage` and column-level `FineGrainedLineage` from a valid connection in the Sigma connection registry; some column lineage also needs upstream schemas in DataHub (below). **Note:** for Redshift and other warehouses where Sigma's connection record omits `database`/`schema`, set `default_database` and `default_schema` in `connection_to_platform_map` — see [Connection record overrides](#connection-record-overrides-connection_to_platform_map) above.
 
-Column lineage joins the parsed SQL with each element column's formula (`[Custom SQL/<output column>]`), including calculated columns built on those. Column lineage for `SELECT *` and for SQL reading more than one table needs every table's schema already in DataHub, with a recipe that can reach DataHub (a `datahub-rest` sink, or `datahub_api`); ingest the warehouse first. Columns read from another Sigma element with `sigma_element()` get no column lineage. A column whose source cannot be determined gets no column lineage and is listed in a report warning with the reason, for example an unaliased aggregate, a name the SQL outputs twice, or a missing upstream schema. SQL using Sigma templating such as `{{#identifier}}` cannot be parsed and gets no lineage.
+Column lineage joins the parsed SQL with each element column's formula (`[Custom SQL/<output column>]`), including calculated columns built on those. Column lineage for `SELECT *` and for SQL reading more than one table needs every table's schema already in DataHub, with a recipe that can reach DataHub (a `datahub-rest` sink, or `datahub_api`); ingest the warehouse first. SQL that reads another Sigma element with `sigma_element()` gets table lineage only, with no column lineage. A column whose source cannot be determined gets no column lineage and is listed in a report warning with the reason, for example an unaliased aggregate, a name the SQL outputs twice, or a missing upstream schema. SQL using Sigma templating such as `{{#identifier}}` cannot be parsed and gets no lineage.
 
 | Counter                               | Meaning                                                                                                         |
 | ------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -73,7 +73,7 @@ set `default_database` and `default_schema` in `connection_to_platform_map` — 
 The connector reads the workbook-level lineage graph (`/v2/workbooks/{id}/lineage`) to find `type=customSQL`
 entries, parses each SQL definition, and registers the results with the `SqlParsingAggregator`.
 Column-level lineage is emitted for chart columns whose formula resolves to a named SQL column
-(`[CustomSQLName/col]` pattern). Columns using `SELECT *` sources carry lower-confidence (0.1) inferred lineage.
+(`[CustomSQLName/col]` pattern).
 
 The following report counters are available for operational visibility:
 

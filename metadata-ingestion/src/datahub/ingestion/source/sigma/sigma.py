@@ -512,12 +512,12 @@ class _ResolvedRef:
 
 @dataclass
 class _CustomSqlRegistration:
-    """Carries the per-kind variant parameters for _register_customsql_with_aggregator."""
+    """Carries the parameters for _register_customsql_with_aggregator (workbook charts)."""
 
     urn: str
     registered_set: Set[str]
-    counter_prefix: str  # "dm_customsql" or "workbook_customsql"
-    label: str  # "DM element" or "workbook chart"
+    counter_prefix: str
+    label: str
 
 
 @dataclass
@@ -2043,9 +2043,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             override.default_schema if override else None
         ) or record.default_schema
         target_env = override.env if override else self.config.env
-        target_platform_instance = (
-            override.platform_instance if override else self.config.platform_instance
-        )
+        target_platform_instance = override.platform_instance if override else None
         try:
             result = create_lineage_sql_parsed_result(
                 query=definition,
@@ -2075,7 +2073,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         label: str,
         counter_prefix: Literal["dm_customsql", "workbook_customsql"],
     ) -> Optional[_CustomSqlTarget]:
-        """Resolve where a customSQL definition runs; None (counted, warned) if it cannot be parsed."""
+        """Resolve the connection a customSQL definition runs on; None (counted) if it has none usable."""
         definition = (customsql_entry.definition or "").strip()
         if not definition:
             self._inc_counter(counter_prefix, "skipped")
@@ -2106,11 +2104,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             definition=definition,
             platform=record.datahub_platform,
             env=override.env if override else self.config.env,
-            platform_instance=(
-                override.platform_instance
-                if override
-                else self.config.platform_instance
-            ),
+            # The Sigma recipe's platform_instance names Sigma, not the warehouse.
+            platform_instance=override.platform_instance if override else None,
             default_db=(override.default_database if override else None)
             or record.default_database,
             default_schema=(override.default_schema if override else None)
@@ -2292,7 +2287,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         elif unknown_sources:
             missing_reason = (
                 f"its source columns cannot be determined while the columns of "
-                f"{unknown_sources} are unknown; tables need their schemas in DataHub"
+                f"{unknown_sources} are unknown; the table schemas were not found in "
+                f"DataHub or the lookup failed"
             )
         else:
             missing_reason = "the SQL has no output column of that name"
