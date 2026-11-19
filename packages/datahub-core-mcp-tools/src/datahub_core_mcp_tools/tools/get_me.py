@@ -8,50 +8,6 @@ from loguru import logger
 from .. import graphql_helpers
 from ..version_requirements import min_version, read_only
 
-GET_ME_QUERY = """
-query getMe {
-    me {
-        corpUser {
-            type
-            urn
-            username
-            exists
-            info {
-                active
-                displayName
-                title
-                firstName
-                lastName
-                fullName
-                email
-            }
-            editableProperties {
-                displayName
-                title
-                pictureLink
-                teams
-                skills
-            }
-            groups: relationships(
-                input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 50 }
-            ) {
-                relationships {
-                    entity {
-                        ... on CorpGroup {
-                            urn
-                            name
-                            properties {
-                                displayName
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-"""
-
 # GMS answers `me` for the actor it authenticated. With metadata-service auth off it
 # accepts any token, or none, and answers for an actor that may have no user entity.
 NONEXISTENT_USER_WARNING = (
@@ -85,7 +41,7 @@ def get_me() -> dict[str, Any]:
     try:
         result = graphql_helpers.execute_graphql(
             client._graph,
-            query=GET_ME_QUERY,
+            query=graphql_helpers.load_gql_document("get_me.gql"),
             variables={},
             operation_name="getMe",
         )

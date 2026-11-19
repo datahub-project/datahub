@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import contextlib
 import contextvars
+import functools
+import pathlib
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from typing import Any, Dict, Iterator, Optional
@@ -20,6 +22,14 @@ from loguru import logger
 from .gms_server_info import GmsServerInfo
 from .gql_compiler import MARKER_TEXT, compile_gql
 from .tool_context import ToolContext
+
+GQL_DIR = pathlib.Path(__file__).parent / "gql"
+
+
+@functools.lru_cache(maxsize=None)
+def load_gql_document(name: str) -> str:
+    """A packaged GraphQL document from the gql/ directory, by file name."""
+    return (GQL_DIR / name).read_text(encoding="utf-8")
 
 
 @dataclass

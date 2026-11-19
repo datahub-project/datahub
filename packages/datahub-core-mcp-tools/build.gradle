@@ -6,3 +6,14 @@ ext {
 }
 
 apply from: "${rootProject.projectDir}/gradle/python/datahub-python-package.gradle"
+
+// GMS GraphQL schemas at each pinned version (tests/graphql_schemas.json), which
+// the snapshot tests validate every packaged .gql against.
+tasks.register('exportGraphqlSchemas', Exec) {
+  inputs.file file('tests/graphql_schemas.json')
+  inputs.dir rootProject.file('datahub-graphql-core/src/main/resources')
+  outputs.dir file('build/graphql-schemas')
+  commandLine python_executable, 'scripts/export_graphql_schemas.py'
+}
+tasks.named('testQuick') { dependsOn 'exportGraphqlSchemas' }
+tasks.named('testFull') { dependsOn 'exportGraphqlSchemas' }
