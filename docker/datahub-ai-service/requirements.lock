@@ -48,7 +48,9 @@ beartype==0.23.1
 cached-property==2.0.1
     # via acryl-datahub
 cachetools==8.0.0
-    # via py-key-value-aio
+    # via
+    #   datahub-core-mcp-tools
+    #   py-key-value-aio
 caio==0.12.10
     # via aiofile
 certifi==2026.10.23

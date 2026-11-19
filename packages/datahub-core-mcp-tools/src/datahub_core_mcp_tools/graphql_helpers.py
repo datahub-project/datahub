@@ -12,6 +12,7 @@ import contextvars
 import functools
 import os
 import pathlib
+import re
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from typing import Any, Dict, Iterator, Optional
@@ -20,11 +21,13 @@ import requests
 from datahub.configuration.common import GraphError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.sdk.main_client import DataHubClient
+from datahub.sdk.search_filters import Filter
 from fastmcp.exceptions import ToolError
 from loguru import logger
 
 from .gms_server_info import GmsServerInfo
 from .gql_compiler import MARKER_TEXT, compile_gql
+from .search_filter_parser import parse_filter_string
 from .tool_context import ToolContext
 
 GQL_DIR = pathlib.Path(__file__).parent / "gql"
@@ -111,6 +114,58 @@ def truncate_with_ellipsis(
         if space >= budget * 0.6:
             cut = cut[:space].rstrip()
     return cut + suffix
+
+
+def parse_filter_input(filter_str: Optional[str]) -> Optional[Filter]:
+    """A tool's SQL-like ``filter`` argument as a Filter; None when it is blank."""
+    stripped = (filter_str or "").strip()
+    return parse_filter_string(stripped) if stripped else None
+
+
+def parenthesized_filter(filter_str: Optional[str]) -> Optional[str]:
+    """Wrap a caller's filter so clauses can be ANDed onto all of it.
+
+    Returns None for None or blank input. A filter such as ``a) OR (b`` parses only
+    once wrapped, and the added clauses would then constrain only its last branch,
+    so the filter must parse on its own first.
+    """
+    stripped = (filter_str or "").strip()
+    if not stripped:
+        return None
+    parse_filter_string(stripped)
+    return f"({stripped})"
+
+
+_BASE64_IMAGE = re.compile(r"data:image/[^;]+;base64,[A-Za-z0-9+/=]+")
+_BASE64_MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\(data:image/[^)]+\)")
+
+
+def clean_gql_response(response: Any) -> Any:
+    """A GraphQL response without the noise a model doesn't need.
+
+    Recursively drops ``__typename``, None values, and lists and dicts that are
+    empty (after cleaning), and replaces base64-encoded images in descriptions,
+    which can run to megabytes, with ``[image removed]``.
+    """
+    if isinstance(response, dict):
+        cleaned_response = {}
+        for k, v in response.items():
+            if k == "__typename" or v is None or v == []:
+                continue
+            cleaned_v = clean_gql_response(v)
+            if (
+                k == "description"
+                and isinstance(cleaned_v, str)
+                and "base64" in cleaned_v
+            ):
+                cleaned_v = _BASE64_IMAGE.sub("[image removed]", cleaned_v)
+                cleaned_v = _BASE64_MARKDOWN_IMAGE.sub("[image removed]", cleaned_v)
+            if cleaned_v is not None and cleaned_v != {}:
+                cleaned_response[k] = cleaned_v
+        return cleaned_response
+    elif isinstance(response, list):
+        return [clean_gql_response(item) for item in response]
+    return response
 
 
 @functools.lru_cache(maxsize=None)

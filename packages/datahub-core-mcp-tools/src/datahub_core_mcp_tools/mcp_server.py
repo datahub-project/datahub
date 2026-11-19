@@ -22,6 +22,7 @@ from .progress_heartbeat import with_progress_heartbeat
 from .result_policy import trust_label_tags
 from .tool_context import BackgroundExecution
 from .tools.get_me import get_me
+from .tools.search import search, search_description
 from .version_requirements import tool_annotations
 
 _P = ParamSpec("_P")
@@ -145,12 +146,26 @@ def register_tools(
     logger.info(f"Registering DataHub MCP tools (is_oss={is_oss}, groups={groups})")
     registered: list[str] = []
 
-    def add(name: str, fn: Callable, tool_type: ToolType) -> None:
+    def add(
+        name: str,
+        fn: Callable,
+        tool_type: ToolType,
+        *,
+        description: Optional[str] = None,
+    ) -> None:
         if groups is not None and name not in SYSTEM_TOOL_IDS:
             if not set(groups_for_tags({tool_type.value})) & set(groups):
                 return
-        register_tool(mcp_instance, name, fn, tool_type=tool_type)
+        register_tool(
+            mcp_instance, name, fn, tool_type=tool_type, description=description
+        )
         registered.append(name)
 
     add("get_me", get_me, ToolType.USER)
+    add(
+        "search",
+        search,
+        ToolType.SEARCH,
+        description=search_description(is_oss=is_oss),
+    )
     return registered
