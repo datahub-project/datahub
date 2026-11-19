@@ -12,11 +12,13 @@ import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.util.Map;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -85,6 +87,15 @@ public class DisabledCustomSearchTest extends AbstractTestNGSpringContextTests {
           .thenReturn(
               com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim
                   .PARTIAL_NGRAM_CONFIG);
+      // V3 reads list V2 indices at startup. Nothing listed is a fresh install.
+      try {
+        Mockito.when(mock.getIndex(Mockito.any(), Mockito.any(), Mockito.any()))
+            .thenReturn(
+                new GetIndexResponse(
+                    new String[0], Map.of(), Map.of(), Map.of(), Map.of(), Map.of()));
+      } catch (IOException e) {
+        throw new IllegalStateException(e);
+      }
       return mock;
     }
 
@@ -100,7 +111,12 @@ public class DisabledCustomSearchTest extends AbstractTestNGSpringContextTests {
     @Bean(name = IndexConventionFactory.INDEX_CONVENTION_BEAN)
     @Primary
     public IndexConvention indexConvention() {
-      return Mockito.mock(IndexConvention.class);
+      IndexConvention convention = Mockito.mock(IndexConvention.class);
+      Mockito.when(convention.getEntityIndexName(Mockito.any(), Mockito.any()))
+          .thenReturn("index_v2");
+      Mockito.when(convention.getEntityIndexNameV3(Mockito.any(), Mockito.any()))
+          .thenReturn("index_v3");
+      return convention;
     }
   }
 

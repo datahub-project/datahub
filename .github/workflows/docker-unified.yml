@@ -705,7 +705,7 @@ jobs:
           fi
           # Workflow wiring has no feature tags, so active mode plans a canary
           # (always-run modules plus this PR's changed tests). Shadow and off
-          # would start the fixed 4- or 9-batch matrix, so the gate stays
+          # would start the fixed p0 or full matrix, so the gate stays
           # closed unless the mode is already active.
           if [[ "${{ needs.setup.outputs.pytest_workflow_change }}" == 'true' && "$mode" == 'active' ]]; then
             run_pytest=true
@@ -855,6 +855,18 @@ jobs:
           PLAN_FILE: pytest-smoke-plan/pytest-smoke-plan.json
           SMART_TAGS: ${{ steps.smart-testing.outputs.smart_tags }}
           DEFAULT_TIER: ${{ needs.setup.outputs.smoke_tier }}
+          # Fixed matrices for runs the planner does not size. Sized the way the
+          # planner sizes (shard_pack.size_batches): the fewest batches whose
+          # pytest time stays under its 8 min target, measured on CI runs from
+          # 2026-11-18. The full suite is ~27 min of pytest time and packs into
+          # 5 batches of ~5.4 min; p0 is ~10 min and packs into 2 of ~5 min (1
+          # would overshoot, and conftest adds the PR's changed test modules to
+          # p0). Each batch also pays ~5 min of fixed cost (setup, image pull,
+          # quickstart), so extra batches add runner time faster than they cut
+          # wall clock. Re-check both counts when test times change a lot
+          # (smoke-test/README.md, "Simulate batch packing").
+          P0_BATCH_COUNT: "2"
+          FULL_BATCH_COUNT: "5"
         run: |
           emit_matrix() {
             local count=$1 items=""
@@ -887,20 +899,13 @@ jobs:
             tier=p0
             selection=p0
             tags=''
-            emit_matrix 4
+            emit_matrix "$P0_BATCH_COUNT"
           elif [[ "${{ env.IS_FORK }}" == 'true' ]]; then
             emit_matrix 3
           elif [[ "$tier" == 'p0' ]]; then
-            # The p0 tier is 357 of 1209 collected tests, so 4 batches carry a
-            # lighter per-batch load than the full suite's 9 while cutting the
-            # per-batch fixed cost (caches, image pull, quickstart) that dominates
-            # a short run. Revisit once p0 batch durations have been measured.
-            emit_matrix 4
+            emit_matrix "$P0_BATCH_COUNT"
           else
-            # Tests are split simply to ensure the configured number of batches for
-            # parallelization. This may need some increase as new tests added
-            # increase the duration where an additional parallel batch helps.
-            emit_matrix 9
+            emit_matrix "$FULL_BATCH_COUNT"
           fi
 
           {
@@ -1687,7 +1692,7 @@ jobs:
 
       # The classical provider is lexical hashing, not semantic search; GMS refuses
       # it without the explicit opt-in. system-update reads the same env file,
-      # which is what adds the hash_v1_2048 field to the semantic index before
+      # which is what adds the hash_v1_2048 field to the V3 document index before
       # GMS starts.
       - name: Write GMS AI env file (classical)
         if: matrix.provider == 'classical'
@@ -1726,7 +1731,7 @@ jobs:
           DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${SIGNING_KEY} \
           DATAHUB_TOKEN_SERVICE_SALT=${SIGNING_SALT} \
           DATAHUB_SEARCH_IMAGE=opensearchproject/opensearch \
-          DATAHUB_SEARCH_TAG=2.19.3 \
+          DATAHUB_SEARCH_TAG=3.7.0 \
           XPACK_SECURITY_ENABLED=plugins.security.disabled=true \
           ELASTICSEARCH_USE_SSL=false \
           USE_AWS_ELASTICSEARCH=true \

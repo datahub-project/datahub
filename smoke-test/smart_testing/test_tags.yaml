@@ -243,6 +243,12 @@ tests:
       technical-layer: [graphql]
       entity-scope: [dataset]
 
+  - path: "tests/e2e/dataproduct/test_dataproduct_hierarchy_delete.py"
+    tags:
+      feature-user: [data-products]
+      feature-dev: [aspect-validation]
+      technical-layer: [graphql, restli]
+
   # ── delete/ ─────────────────────────────────────────────────
 
   - path: "tests/e2e/delete/delete_test.py"

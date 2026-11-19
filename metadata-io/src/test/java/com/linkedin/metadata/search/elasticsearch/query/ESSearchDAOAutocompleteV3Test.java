@@ -35,7 +35,8 @@ public class ESSearchDAOAutocompleteV3Test {
             false,
             TEST_SEARCH_SERVICE_CONFIG,
             new Sha256UrnEntityDocumentIdHasher(),
-            mock(HybridSearchResultReranker.class));
+            mock(HybridSearchResultReranker.class),
+            null);
   }
 
   @Test
@@ -45,6 +46,8 @@ public class ESSearchDAOAutocompleteV3Test {
 
     assertTrue(omitted.contains("name.lowercase"), omitted);
     assertTrue(explicitName.contains("name.lowercase"), explicitName);
+    assertTrue(omitted.contains("\"email\""), omitted);
+    assertTrue(explicitName.contains("\"email\""), explicitName);
   }
 
   @Test
@@ -52,6 +55,20 @@ public class ESSearchDAOAutocompleteV3Test {
     String query = prefixQuery("description");
 
     assertFalse(query.contains("name.lowercase"), query);
+    assertFalse(query.contains("\"email\""), query);
+  }
+
+  @Test
+  public void testEmailFieldPrefixesTheKeyword() {
+    String query =
+        dao.buildV3AutocompleteRequest(
+                opContext, Constants.CORP_USER_ENTITY_NAME, "ada", "email", null, 10)
+            .source()
+            .query()
+            .toString();
+
+    assertFalse(query.contains("name.lowercase"), query);
+    assertTrue(query.contains("\"email\""), query);
   }
 
   private String prefixQuery(String field) {

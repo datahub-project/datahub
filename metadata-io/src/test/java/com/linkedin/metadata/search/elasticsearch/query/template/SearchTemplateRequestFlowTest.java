@@ -121,7 +121,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
 
     OperationContext unset =
         opContext.withSearchFlags(flags -> new SearchFlags()).withSearchSurface(null);
@@ -153,7 +154,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty()));
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none()));
 
     SearchRequestHandler handler =
         SearchRequestHandler.getBuilder(
@@ -201,7 +203,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     useRuntime(coordinator);
     OperationContext searching =
         opContext.withSearchFlags(
@@ -439,7 +442,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty()));
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none()));
     SearchConfiguration search = new SearchConfiguration();
     search.setPartial(new PartialConfiguration());
     search.setExactMatch(new ExactMatchConfiguration());
@@ -463,7 +467,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     OperationContext first = coordinator.bind(opContext, "customer orders");
     OperationContext second = coordinator.bind(first, "*");
     assertEquals(
@@ -517,7 +522,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     OperationContext bound = coordinator.bind(opContext, "customer orders");
     String key = bound.getSearchContext().getResolvedSearchTemplate().cacheKeyComponent();
     assertTrue(key.contains("@viewer=" + opContext.getSessionActorContext().getActorUrn()));
@@ -569,7 +575,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     OperationContext bound = coordinator.bind(opContext, "customer orders");
     assertTrue(
         bound
@@ -638,7 +645,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     OperationContext financeBound = coordinator.bind(financeViewer, "customer orders");
     OperationContext otherBound = coordinator.bind(otherViewer, "customer orders");
 
@@ -704,7 +712,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             storage,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     OperationContext bound = coordinator.bind(viewer, "*");
     assertEquals(
         bound.getSearchContext().getResolvedSearchTemplate().getUrn(), SEARCH_TEMPLATE_LIST_URN);
@@ -789,7 +798,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
               null,
               classpath,
               ForkJoinPool.commonPool(),
-              SearchTemplateComponentRegistry.empty()));
+              SearchTemplateComponentRegistry.empty(),
+              SearchTemplateGates.none()));
 
       OperationContext aggregate =
           opContext.withSearchSurface(SearchTemplateSurfaces.AGGREGATE_ENTITIES);
@@ -950,7 +960,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty()));
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none()));
     OperationContext bound =
         opContext.withResolvedSearchTemplate(
             new ResolvedSearchTemplate(
@@ -993,7 +1004,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty()));
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none()));
     OperationContext searching =
         opContext
             .withSearchFlags(
@@ -1080,7 +1092,6 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     EntityIndexVersionConfiguration indexV3 = new EntityIndexVersionConfiguration();
     indexV3.setEnabled(true);
     indexV3.setKeywordReadEnabled(true);
-    indexV3.setSemanticReadEnabled(true);
     ElasticSearchConfiguration elastic = v3Config();
     elastic.getEntityIndex().setV3(indexV3);
     elastic.getSearch().getV3().setTemplates(templates);
@@ -1091,7 +1102,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     assertThrows(
         SearchTemplateException.class,
         () -> coordinator.bind(opContext, "customer orders", false, List.of("dataset")));
@@ -1132,7 +1144,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty()));
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none()));
     OperationContext searching =
         opContext.withSearchFlags(
             flags ->
@@ -1181,7 +1194,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty()));
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none()));
     try {
       ESSearchDAO dao =
           new ESSearchDAO(
@@ -1223,7 +1237,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty()));
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none()));
     ESSearchDAO dao =
         new ESSearchDAO(
             false, elastic, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG);
@@ -1690,7 +1705,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
               null,
               classpath,
               ForkJoinPool.commonPool(),
-              SearchTemplateComponentRegistry.empty()));
+              SearchTemplateComponentRegistry.empty(),
+              SearchTemplateGates.none()));
       OperationContext flags =
           opContext.withSearchFlags(flag -> flag.setFulltext(true).setSkipAggregates(true));
       assertStarCriteria(flags, elastic, false);
@@ -1808,7 +1824,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty()));
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none()));
     OperationContext searching =
         opContext
             .withSearchFlags(

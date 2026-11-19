@@ -1,4 +1,5 @@
 import logging
+from typing import Dict, List, Optional
 
 import pytest
 
@@ -179,7 +180,7 @@ def test_from_cloud_entity_captures_references() -> None:
             "type": "cube",
             "name": "orders",
             "table_references": [{"schema": "public", "table": "orders"}],
-            "cube_references": ["users"],
+            "cube_references": [{"type": "upstream", "cube": "users"}],
             "measures": [
                 {
                     "name": "count",
@@ -190,7 +191,11 @@ def test_from_cloud_entity_captures_references() -> None:
                 }
             ],
             "dimensions": [
-                {"name": "status", "type": "string", "member_references": ["base.s"]}
+                {
+                    "name": "status",
+                    "type": "string",
+                    "member_references": [{"cube": "base", "member": "s"}],
+                }
             ],
         }
     )
@@ -203,6 +208,60 @@ def test_from_cloud_entity_captures_references() -> None:
     assert normalized.measures[0].is_measure is True
     assert normalized.measures[0].column_references[0].column == "id"
     assert normalized.dimensions[0].member_references == ["base.s"]
+
+
+def test_cloud_entities_response_data_is_flat_list() -> None:
+    # /v1/entities/all returns {"data": [...]} — a flat list, not a wrapper object.
+    response = CloudEntitiesResponse.model_validate(
+        {
+            "data": [
+                {"type": "cube", "name": "orders"},
+                {"type": "view", "name": "orders_view"},
+            ],
+            "pagination": {"offset": 0, "limit": 2, "total": 2},
+        }
+    )
+    assert response.data == [
+        {"type": "cube", "name": "orders"},
+        {"type": "view", "name": "orders_view"},
+    ]
+    assert response.pagination is not None
+    assert response.pagination.total == 2
+
+
+def test_cloud_references_skip_entries_that_are_not_lineage() -> None:
+    # Documented shapes: {"type": "upstream", "cube"} and {"cube", "member"}.
+    # Entries that can't name an upstream are dropped and counted, and a null
+    # value doesn't fail validation of the whole entity.
+    entity = CloudEntity.model_validate(
+        {
+            "type": "view",
+            "name": "orders_view",
+            "cube_references": [
+                {"type": "upstream", "cube": "orders"},
+                {"cube": "users"},
+                {"type": "downstream", "cube": "reports"},
+                {"type": "upstream", "cube": None},
+            ],
+            "dimensions": [
+                {
+                    "name": "status",
+                    "type": "string",
+                    "member_references": [
+                        {"cube": "orders", "member": "status"},
+                        {"member": "status"},
+                        {"cube": "orders", "member": None},
+                    ],
+                }
+            ],
+        }
+    )
+
+    normalized = CubeEntity.from_cloud_entity(entity)
+
+    assert normalized.cube_references == ["orders", "users"]
+    assert normalized.dimensions[0].member_references == ["orders.status"]
+    assert entity.unusable_reference_count() == 4
 
 
 def test_core_cube_sql_backticks_are_stripped() -> None:
@@ -300,6 +359,24 @@ def test_core_cube_captures_structural_metadata_and_visibility() -> None:
     assert entity.dimensions[0].is_hidden is True
 
 
+# The Metadata API keys a join by "cube", not "name", and can omit "sql" when a
+# data access policy governs either cube.
+@pytest.mark.parametrize("sql", ["${CUBE}.customer_id = ${customers}.id", None])
+def test_from_cloud_entity_parses_join_keyed_by_cube(sql: Optional[str]) -> None:
+    join: Dict[str, str] = {"cube": "customers", "relationship": "many_to_one"}
+    if sql is not None:
+        join["sql"] = sql
+    entity = CloudEntity.model_validate(
+        {"type": "cube", "name": "orders", "joins": [join]}
+    )
+
+    normalized = CubeEntity.from_cloud_entity(entity)
+
+    assert [(j.name, j.relationship, j.sql) for j in normalized.joins] == [
+        ("customers", "many_to_one", sql)
+    ]
+
+
 def test_hidden_cube_flag() -> None:
     response = CoreMetaResponse.model_validate(
         {"cubes": [{"name": "secret", "type": "cube", "public": False}]}
@@ -323,6 +400,77 @@ def test_visible_members_filtering() -> None:
     entity = CubeEntity.from_core_cube(response.cubes[0])
     assert [m.name for m in entity.visible_members(include_hidden=False)] == ["status"]
     assert len(entity.visible_members(include_hidden=True)) == 2
+
+
+@pytest.mark.parametrize(
+    "include_private, expected_measures, expected_dimensions",
+    [
+        (False, [], ["status"]),
+        (True, ["revenue"], ["status", "customer_email"]),
+    ],
+)
+def test_merge_entities_keeps_private_members_only_with_include_private(
+    include_private: bool,
+    expected_measures: List[str],
+    expected_dimensions: List[str],
+) -> None:
+    # /v1/meta omits public: false members; with include_private the Metadata
+    # API returns them on the same (public) cube.
+    core = [
+        CubeEntity.from_core_cube(c)
+        for c in CoreMetaResponse.model_validate(
+            {
+                "cubes": [
+                    {
+                        "name": "orders",
+                        "type": "cube",
+                        "dimensions": [{"name": "orders.status", "type": "string"}],
+                    }
+                ]
+            }
+        ).cubes
+    ]
+    table = {"schema": "public", "table": "orders"}
+    cloud = [
+        CubeEntity.from_cloud_entity(CloudEntity.model_validate(e))
+        for e in CloudEntitiesResponse.model_validate(
+            {
+                "data": [
+                    {
+                        "type": "cube",
+                        "name": "orders",
+                        "measures": [
+                            {
+                                "name": "revenue",
+                                "public": False,
+                                "column_references": [{**table, "column": "amount"}],
+                            }
+                        ],
+                        "dimensions": [
+                            {
+                                "name": "status",
+                                "column_references": [{**table, "column": "status"}],
+                            },
+                            {
+                                "name": "customer_email",
+                                "public": False,
+                                "column_references": [{**table, "column": "email"}],
+                            },
+                        ],
+                    }
+                ]
+            }
+        ).data
+    ]
+
+    [orders] = merge_entities(core, cloud, include_private=include_private)
+
+    assert [m.name for m in orders.measures] == expected_measures
+    assert [m.name for m in orders.dimensions] == expected_dimensions
+    assert [r.column for r in orders.dimensions[0].column_references] == ["status"]
+    private = [m for m in orders.members if m.name != "status"]
+    assert all(m.is_hidden and m.column_references for m in private)
+    assert [m.name for m in orders.visible_members(include_hidden=False)] == ["status"]
 
 
 def test_merge_entities_overlays_cloud_lineage_onto_core_structural() -> None:
@@ -350,43 +498,39 @@ def test_merge_entities_overlays_cloud_lineage_onto_core_structural() -> None:
         ).cubes
     ]
     cloud = [
-        CubeEntity.from_cloud_entity(e)
+        CubeEntity.from_cloud_entity(CloudEntity.model_validate(e))
         for e in CloudEntitiesResponse.model_validate(
             {
-                "data": {
-                    "entities": [
-                        {
-                            "type": "cube",
-                            "name": "orders",
-                            "table_references": [
-                                {"schema": "public", "table": "orders"}
-                            ],
-                            "cube_references": ["users"],
-                            "measures": [
-                                {
-                                    "name": "count",
-                                    "type": "count",
-                                    "column_references": [
-                                        {
-                                            "schema": "public",
-                                            "table": "orders",
-                                            "column": "id",
-                                        }
-                                    ],
-                                }
-                            ],
-                            "dimensions": [{"name": "status", "type": "string"}],
-                        },
-                        {
-                            "type": "cube",
-                            "name": "hidden_only_in_cloud",
-                            "measures": [],
-                            "dimensions": [],
-                        },
-                    ]
-                }
+                "data": [
+                    {
+                        "type": "cube",
+                        "name": "orders",
+                        "table_references": [{"schema": "public", "table": "orders"}],
+                        "cube_references": [{"type": "upstream", "cube": "users"}],
+                        "measures": [
+                            {
+                                "name": "count",
+                                "type": "count",
+                                "column_references": [
+                                    {
+                                        "schema": "public",
+                                        "table": "orders",
+                                        "column": "id",
+                                    }
+                                ],
+                            }
+                        ],
+                        "dimensions": [{"name": "status", "type": "string"}],
+                    },
+                    {
+                        "type": "cube",
+                        "name": "hidden_only_in_cloud",
+                        "measures": [],
+                        "dimensions": [],
+                    },
+                ]
             }
-        ).data.entities
+        ).data
     ]
 
     merged = {e.name: e for e in merge_entities(core, cloud)}
