@@ -1,30 +1,40 @@
 package com.linkedin.metadata.aspect.validation;
 
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.UrnValidationFieldSpec;
 import com.linkedin.metadata.models.annotation.UrnValidationAnnotation;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import jakarta.json.Json;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.mockito.Mock;
@@ -457,5 +467,85 @@ public class UrnAnnotationValidatorTest {
             Collections.singletonList(mockBatchItem),
             mockRetrieverContext)
         .collect(Collectors.toList());
+  }
+
+  /**
+   * A PATCH carries no resulting aspect at proposal time, so the URNs it adds must be checked once
+   * the patch is applied, as for an UPSERT of the same aspect. Uses the existence check: a wrong
+   * entity type on this field is already rejected by relationship validation when the patch is
+   * applied.
+   */
+  @Test
+  public void testPatchAddingNonExistentUrnIsRejectedLikeUpsert() {
+    validator.setConfig(
+        AspectPluginConfig.builder()
+            .className(UrnAnnotationValidator.class.getName())
+            .enabled(true)
+            .supportedOperations(List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY"))
+            .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
+            .build());
+    Urn missingType = UrnUtils.getUrn("urn:li:entityType:datahub.notDeployed");
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), any()))
+        .thenAnswer(
+            inv ->
+                ((Set<Urn>) inv.getArgument(1))
+                    .stream().collect(Collectors.toMap(u -> u, u -> !u.equals(missingType))));
+
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:my_prop");
+    AuditStamp auditStamp =
+        new AuditStamp().setTime(0L).setActor(UrnUtils.getUrn("urn:li:corpuser:datahub"));
+    StructuredPropertyDefinition existing =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("my_prop")
+            .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"))
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
+
+    PatchItemImpl patchItem =
+        PatchItemImpl.builder()
+            .urn(propertyUrn)
+            .aspectName(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+            .auditStamp(auditStamp)
+            .patch(
+                Json.createPatch(
+                    Json.createArrayBuilder()
+                        .add(
+                            Json.createObjectBuilder()
+                                .add("op", "add")
+                                .add("path", "/entityTypes/" + missingType)
+                                .add("value", missingType.toString()))
+                        .build()))
+            .build(TEST_CONTEXT.getEntityRegistry());
+    ChangeItemImpl patched = patchItem.applyPatch(existing, TEST_CONTEXT.getAspectRetriever());
+
+    ChangeItemImpl upsert =
+        ChangeItemImpl.builder()
+            .urn(propertyUrn)
+            .aspectName(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+            .recordTemplate(patched.getRecordTemplate())
+            .auditStamp(auditStamp)
+            .build(TEST_CONTEXT.getAspectRetriever());
+    assertFalse(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY, List.of(upsert), mockRetrieverContext, null)
+            .collect(Collectors.toList())
+            .isEmpty(),
+        "UPSERT with a non-existent entity type is rejected");
+    assertTrue(
+        validator
+            .validatePreCommit(
+                OperationFingerprint.EMPTY, List.<ChangeMCP>of(upsert), mockRetrieverContext)
+            .collect(Collectors.toList())
+            .isEmpty(),
+        "UPSERT is not validated a second time at pre-commit");
+
+    List<AspectValidationException> patchExceptions =
+        Stream.concat(
+                validator.validateProposed(
+                    OperationFingerprint.EMPTY, List.of(patchItem), mockRetrieverContext, null),
+                validator.validatePreCommit(
+                    OperationFingerprint.EMPTY, List.<ChangeMCP>of(patched), mockRetrieverContext))
+            .collect(Collectors.toList());
+    assertEquals(patchExceptions.size(), 1, "PATCH with a non-existent entity type is rejected");
   }
 }

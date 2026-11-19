@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.validation;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -173,7 +174,19 @@ public class UrnAnnotationValidator extends AspectPayloadValidator {
       OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
+    // A PATCH has no resulting aspect at proposal time and is not in the supported operations, so
+    // its patched result is checked here. Other writes were already checked as proposals.
+    List<ChangeMCP> patched =
+        changeMCPs.stream()
+            .filter(
+                item ->
+                    item.getMetadataChangeProposal() != null
+                        && ChangeType.PATCH.equals(
+                            item.getMetadataChangeProposal().getChangeType()))
+            .collect(Collectors.toList());
+    return patched.isEmpty()
+        ? Stream.empty()
+        : validateProposedAspects(operationContext, patched, retrieverContext);
   }
 
   @Nonnull

@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
@@ -14,6 +15,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DataTemplateUtil;
@@ -685,6 +687,43 @@ public class PatchItemImplTest {
         ((DatasetProperties) result.getRecordTemplate()).getDescription(), "Test description");
     assertEquals(result.getHeader(HTTP_HEADER_IF_VERSION_MATCH), Optional.of("999"));
     assertEquals(result.getSystemMetadata().getRunId(), "conditional-patch-run");
+  }
+
+  /**
+   * Aspects without a registered template, such as ones added by a model plugin, apply plain RFC
+   * 6902 ops through the generic path instead of failing.
+   */
+  @Test
+  public void testPatchAspectWithoutTemplate() {
+    assertFalse(entityRegistry.getAspectTemplateEngine().hasTemplate(SUB_TYPES_ASPECT_NAME));
+
+    ChangeItemImpl created =
+        subTypesPatch("[{\"op\":\"add\",\"path\":\"/typeNames\",\"value\":[\"View\"]}]")
+            .applyPatch(null, aspectRetriever);
+    assertEquals(created.getRecordTemplate(), new SubTypes().setTypeNames(new StringArray("View")));
+
+    ChangeItemImpl appended =
+        subTypesPatch("[{\"op\":\"add\",\"path\":\"/typeNames/-\",\"value\":\"Table\"}]")
+            .applyPatch(created.getRecordTemplate(), aspectRetriever);
+    assertEquals(
+        appended.getRecordTemplate(),
+        new SubTypes().setTypeNames(new StringArray("View", "Table")));
+
+    ChangeItemImpl removed =
+        subTypesPatch("[{\"op\":\"remove\",\"path\":\"/typeNames/0\"}]")
+            .applyPatch(appended.getRecordTemplate(), aspectRetriever);
+    assertEquals(
+        removed.getRecordTemplate(), new SubTypes().setTypeNames(new StringArray("Table")));
+  }
+
+  private PatchItemImpl subTypesPatch(String ops) {
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(urn);
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    mcp.setAspectName(SUB_TYPES_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.PATCH);
+    mcp.setAspect(GenericRecordUtils.serializePatch(patchOf(ops)));
+    return PatchItemImpl.builder().build(mcp, auditStamp, entityRegistry);
   }
 
   private MetadataChangeProposal conditionalPatchMcp(GenericAspect patchAspect) {

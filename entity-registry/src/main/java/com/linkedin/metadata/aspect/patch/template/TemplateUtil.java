@@ -98,6 +98,10 @@ public class TemplateUtil {
               : keys.length - 1;
       // Skip first as it will always be blank due to path starting with /
       for (int i = 1; i < endIdx; i++) {
+        // Array elements are addressed by index (e.g. /tags/0); there is no key to populate.
+        if (!(parent instanceof ObjectNode)) {
+          break;
+        }
         String decodedKey = decodeValue(keys[i]);
         if (parent.get(decodedKey) == null) {
           ((ObjectNode) parent).set(decodedKey, instance.objectNode());

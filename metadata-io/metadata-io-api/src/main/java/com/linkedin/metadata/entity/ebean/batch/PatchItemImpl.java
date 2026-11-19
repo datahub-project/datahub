@@ -181,11 +181,15 @@ public class PatchItemImpl implements PatchMCP {
 
   public ChangeItemImpl applyPatch(RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
     warnOnOversizedPatchContent();
-    if (genericJsonPatch != null) {
-      if (!genericJsonPatch.getArrayPrimaryKeys().isEmpty()
-          || genericJsonPatch.isForceGenericPatch()) {
-        return applyGenericPatch(recordTemplate, aspectRetriever);
-      }
+    if (genericJsonPatch != null
+        && (!genericJsonPatch.getArrayPrimaryKeys().isEmpty()
+            || genericJsonPatch.isForceGenericPatch())) {
+      return applyGenericPatch(recordTemplate, aspectRetriever);
+    }
+    // Aspects without a registered template (e.g. ones added by a model plugin) take plain
+    // RFC 6902 ops through the generic path.
+    if (!aspectRetriever.getEntityRegistry().getAspectTemplateEngine().hasTemplate(aspectName)) {
+      return applyGenericPatch(recordTemplate, aspectRetriever);
     }
     return applyTemplatePatch(recordTemplate, aspectRetriever);
   }
@@ -322,7 +326,12 @@ public class PatchItemImpl implements PatchMCP {
       }
       GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate =
           GenericPatchTemplate.builder()
-              .genericJsonPatch(genericJsonPatch)
+              // Null when the ops cannot be modelled as a GenericJsonPatch (move/copy); there are
+              // then no array keys and the raw patch is applied.
+              .genericJsonPatch(
+                  genericJsonPatch != null
+                      ? genericJsonPatch
+                      : GenericJsonPatch.builder().patch(List.of()).build())
               .templateType(aspectSpec.getDataTemplateClass())
               .templateDefault(templateDefault)
               .build();
@@ -331,6 +340,7 @@ public class PatchItemImpl implements PatchMCP {
           aspectSpec,
           recordTemplate,
           genericPatchTemplate,
+          getPatch(),
           getMetadataChangeProposal(),
           getSystemMetadata(),
           auditStamp,

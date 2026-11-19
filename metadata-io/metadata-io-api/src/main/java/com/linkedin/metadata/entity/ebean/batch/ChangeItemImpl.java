@@ -23,6 +23,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import jakarta.json.JsonPatch;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
@@ -45,6 +46,7 @@ public class ChangeItemImpl implements ChangeMCP {
       @Nonnull AspectSpec aspectSpec,
       @Nullable RecordTemplate recordTemplate,
       GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate,
+      @Nonnull JsonPatch jsonPatch,
       @Nonnull MetadataChangeProposal metadataChangeProposal,
       @Nullable SystemMetadata systemMetadata,
       @Nonnull AuditStamp auditStamp,
@@ -63,7 +65,7 @@ public class ChangeItemImpl implements ChangeMCP {
         recordTemplate != null ? recordTemplate : genericPatchTemplate.getDefault();
 
     try {
-      builder.recordTemplate(genericPatchTemplate.applyPatch(currentValue));
+      builder.recordTemplate(genericPatchTemplate.applyPatch(currentValue, jsonPatch));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
