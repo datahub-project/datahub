@@ -15,24 +15,48 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
-### BigQuery `dataset_pattern` entries with alternatives ([#21430](https://github.com/datahub-project/datahub/pull/21430))
+### BigQuery: `dataset_pattern` entries listing several datasets with `|` ([#21430](https://github.com/datahub-project/datahub/pull/21430))
 
-When `match_fully_qualified_names` is on (the default), BigQuery `dataset_pattern` entries are matched
-against `<project_id>.<dataset_name>`. An entry without a `.` names the dataset only, so the project
-part is added for you. That now covers every alternative of an entry such as `staging|prod`. Before,
-only the first alternative was qualified: `prod` matched nothing, so an `allow` entry like that missed
-those datasets and a `deny` entry did not exclude them. If such a `deny` entry seemed to have no
-effect, it now takes effect.
+**Affected config:** a BigQuery recipe with `match_fully_qualified_names: true` (the default) and a
+`dataset_pattern` allow or deny entry that has no `.` and uses `|`:
 
-An entry that contains a `.` is matched exactly as written, as before. A dataset-name regex with a `.`,
-such as `^staging_.*`, therefore matches nothing; include the project part instead, for example
-`.*\.staging_.*`.
+```yaml
+dataset_pattern:
+  deny:
+    - "staging|tmp"
+```
 
-### Snowflake schemas whose names end in `INFORMATION_SCHEMA` ([#21430](https://github.com/datahub-project/datahub/pull/21430))
+**Before:** only the first alternative got the project prefix: `.*\.staging|tmp`. The `tmp` alternative
+was compared against `<project_id>.<dataset_name>` and matched only when the project ID itself started
+with `tmp`. So `tmp` datasets were not denied (in `allow`, they were not ingested), while every dataset
+in a project whose ID starts with `tmp` was.
 
-Snowflake ingestion now skips only the `INFORMATION_SCHEMA` schema itself. A schema such as
-`MY_INFORMATION_SCHEMA` used to be skipped silently and is now ingested like any other schema. To keep
-skipping it, add it to `schema_pattern.deny`.
+**Now:** the entry becomes `.*\.(?:staging|tmp)`, so in every project, datasets whose names start with
+`staging` or `tmp` are denied (or, in `allow`, ingested). Review such entries: datasets they used to miss
+are now filtered or ingested.
+
+**Unchanged:** an entry that contains a `.` is still matched as written against
+`<project_id>.<dataset_name>`. `^staging_.*` still matches nothing; write `.*\.staging_.*` instead.
+
+### Snowflake: schemas whose names end in `INFORMATION_SCHEMA` ([#21430](https://github.com/datahub-project/datahub/pull/21430))
+
+**Affected config:** any Snowflake recipe for an account with a schema whose name ends in
+`INFORMATION_SCHEMA` but is not `INFORMATION_SCHEMA` itself, such as `MY_INFORMATION_SCHEMA`.
+
+**Before:** every recipe got the deny rule `.*INFORMATION_SCHEMA$`, which is matched case-insensitively
+against the schema name (or `<database>.<schema>` with `match_fully_qualified_names: true`). It also
+matched `MY_INFORMATION_SCHEMA`, so that schema was skipped silently.
+
+**Now:** the rule is `^(.*\.)?INFORMATION_SCHEMA$`. It skips only `INFORMATION_SCHEMA` itself, and
+schemas such as `MY_INFORMATION_SCHEMA` are ingested. A recipe that already lists `.*INFORMATION_SCHEMA$`
+in `schema_pattern.deny` keeps that entry and still skips them. To keep skipping such a schema, add
+it to the deny list, in either matching mode:
+
+```yaml
+schema_pattern:
+  deny:
+    - ".*MY_INFORMATION_SCHEMA$"
+```
 
 ### CLI initialization from scripts
 
