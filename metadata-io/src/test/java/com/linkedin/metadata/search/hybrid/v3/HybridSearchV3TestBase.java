@@ -819,6 +819,15 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
       assertTrue(urns(owned).contains(FORECAST_SEMANTIC_MATCH), urns(owned).toString());
       assertFalse(urns(owned).contains(UNPUBLISHED_DOCUMENT), urns(owned).toString());
 
+      // Another viewer's rule does not admit the owner's document in review
+      expectThrows(
+          SearchTemplateNoAnchorException.class,
+          () ->
+              similar(
+                  IN_REVIEW_DOCUMENT,
+                  DocumentSearchFilterUtils.buildCombinedFilter(
+                      List.of(), List.of("urn:li:corpuser:not-the-owner"), true, false)));
+
       for (boolean canManageDocuments : List.of(false, true)) {
         expectThrows(
             SearchTemplateNoAnchorException.class,

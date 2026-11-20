@@ -187,7 +187,9 @@ public class DefaultEntityFiltersUtil {
    * that includes documents. Search resolvers record these on the search context for a similarity
    * anchor to pass, whatever types the request searches: a request without documents adds no
    * defaults but can still name a document as its anchor. Null when the request sets {@code
-   * includeHiddenLifecycleStages}.
+   * includeHiddenLifecycleStages}. The rule is written for documents, the only entity type that can
+   * anchor a similarity search in this build; an anchor of another type would be held to it too, so
+   * it needs a per-type branch before another type can anchor.
    */
   @Nullable
   public static Filter anchorFilter(
