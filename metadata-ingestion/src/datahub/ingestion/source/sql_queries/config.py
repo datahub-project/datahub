@@ -1,7 +1,7 @@
 import re
 from abc import abstractmethod
 from functools import cached_property
-from typing import Any, Dict, List, Literal, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 from pydantic import Field, field_validator, model_validator
 
@@ -19,6 +19,7 @@ from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.elastic_search_common import (
     ElasticsearchConnectionConfig,
 )
+from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 
@@ -160,6 +161,41 @@ class ElasticsearchQuerySourceConfig(MappedQuerySourceConfig):
         return f"elasticsearch:{self.index}"
 
 
+class SqlTableQuerySourceConfig(MappedQuerySourceConfig):
+    type: Literal["sql_table"] = Field(description="Selects the SQL table backend.")
+    connection: SQLAlchemyConnectionConfig = Field(
+        description="SQLAlchemy connection to the database holding the query records. "
+        "The `query` below is executed verbatim, so use a dedicated read-only account "
+        "scoped to just the audit table(s) — the database grants are the authorization "
+        "boundary, not this connector."
+    )
+    query: str = Field(
+        description="SQL SELECT returning one row per query record. Use it to pick the "
+        "audit table, columns and time range, and ORDER BY the timestamp column so "
+        "session temp-table lineage resolves (the aggregator assumes ascending time "
+        "order).",
+    )
+    field_mappings: QueryFieldMappings = Field(
+        default_factory=QueryFieldMappings,
+        description="Maps query-record fields to columns of the query result. "
+        "Column names are matched exactly, then case-insensitively; a mapped column "
+        "the query doesn't return fails the run.",
+    )
+    batch_size: int = Field(
+        1000, gt=0, description="Rows fetched per round-trip via a server-side cursor."
+    )
+
+    @property
+    def label(self) -> str:
+        return f"sql_table:{self.connection.scheme}"
+
+
+QuerySourceConfig = Annotated[
+    Union[ElasticsearchQuerySourceConfig, SqlTableQuerySourceConfig],
+    Field(discriminator="type"),
+]
+
+
 class SqlQueriesSourceConfig(
     PlatformInstanceConfigMixin, EnvConfigMixin, IncrementalLineageConfigMixin
 ):
@@ -169,10 +205,11 @@ class SqlQueriesSourceConfig(
         "(local path or s3:// URI). Exactly one of query_file and query_source "
         "must be set.",
     )
-    query_source: Optional[ElasticsearchQuerySourceConfig] = Field(
+    query_source: Optional[QuerySourceConfig] = Field(
         None,
-        description="A non-file backend to read query records from. Exactly one "
-        "of query_file and query_source must be set.",
+        description="A non-file backend to read query records from "
+        "(elasticsearch or sql_table). Exactly one of query_file and query_source "
+        "must be set.",
     )
 
     platform: str = Field(

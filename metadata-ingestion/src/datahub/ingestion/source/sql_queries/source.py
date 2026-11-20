@@ -22,6 +22,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql_queries.config import (
     ElasticsearchQuerySourceConfig,
     SqlQueriesSourceConfig,
+    SqlTableQuerySourceConfig,
 )
 from datahub.ingestion.source.sql_queries.query_entry import (
     QueryEntry,
@@ -32,6 +33,9 @@ from datahub.ingestion.source.sql_queries.readers.elasticsearch import (
     ElasticsearchQueryLogReader,
 )
 from datahub.ingestion.source.sql_queries.readers.file import FileQueryLogReader
+from datahub.ingestion.source.sql_queries.readers.sql_table import (
+    SqlTableQueryLogReader,
+)
 from datahub.ingestion.source.sql_queries.report import SqlQueriesSourceReport
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
@@ -129,6 +133,8 @@ class SqlQueriesSource(Source):
             return self._create_file_reader(self.config.query_file)
         if isinstance(query_source, ElasticsearchQuerySourceConfig):
             return ElasticsearchQueryLogReader(query_source, self.report)
+        if isinstance(query_source, SqlTableQuerySourceConfig):
+            return SqlTableQueryLogReader(query_source, self.report)
         assert_never(query_source)
 
     def _create_file_reader(self, query_file: str) -> FileQueryLogReader:
