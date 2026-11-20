@@ -15,16 +15,21 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
-### Pinned links removed from Settings > Home Page
+### Pinned links removed from Settings > Home Page ([#21466](https://github.com/datahub-project/datahub/pull/21466))
 
-The **Settings > Home Page** page now manages only announcements. The **Pinned Link** option
-has been removed when creating an announcement, and existing pinned link posts no longer appear
-in the table. This option had not worked reliably for some time.
+If the home page redesign is enabled (`SHOW_HOME_PAGE_REDESIGN=true`, the default), the
+**Settings > Home Page** page now manages only announcements. The **Pinned Link** option has been
+removed when creating an announcement, and existing pinned link posts no longer appear in the
+table. This option had not worked reliably for some time. With the redesign turned off, the page
+still offers pinned links.
 
 To pin links on the home page, add a **Quick Link** module (pinned link widget) to your home page
 instead. To show pinned links to everyone by default, an admin can edit the **Organization Default
 Home** and add Quick Link modules there. Users who haven't customized their home page will see
 them automatically.
+
+The upgrade reindexes existing posts in the background so the page can tell announcements from
+pinned links. Until that finishes, existing announcements may be missing from the table.
 
 ### CLI initialization from scripts
 

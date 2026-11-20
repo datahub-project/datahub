@@ -7,51 +7,63 @@ import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
 import { Modal, toast } from '@src/alchemy-components';
 
 import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';
-import { PostContentType, PostType } from '@types';
+import { MediaType, PostContentType, PostType, UpdatePostContentInput } from '@types';
 
 function getInitialFormData(editData?: PostEntry): PostFormData {
     if (editData) {
         return {
+            type: (editData.contentType as PostContentType) || PostContentType.Text,
             title: editData.title || '',
             description: (editData.description as string) || '',
+            link: editData.link || '',
+            location: editData.imageUrl || '',
         };
     }
     return {
+        type: PostContentType.Text,
         title: '',
         description: '',
+        link: '',
+        location: '',
     };
 }
 
 type Props = {
     editData: PostEntry;
+    showPinnedLinks: boolean;
     onClose: () => void;
     onCreate: () => void;
-    onEdit: (urn: string, title: string, description: string | null) => void;
+    onEdit: (urn: string, content: UpdatePostContentInput) => void;
 };
 
-export default function CreatePostModal({ onClose, onCreate, editData, onEdit }: Props) {
+export default function CreatePostModal({ onClose, onCreate, editData, onEdit, showPinnedLinks }: Props) {
     const { t } = useTranslation('settings.posts');
     const { t: tc } = useTranslation('common.actions');
     const [createPostMutation] = useCreatePostMutation();
     const [updatePostMutation] = useUpdatePostMutation();
     const [formData, setFormData] = useState<PostFormData>(() => getInitialFormData(editData));
 
-    const handleChange = useCallback((field: keyof PostFormData, value: string) => {
+    const handleChange = useCallback((field: keyof PostFormData, value: string | PostContentType) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
     }, []);
 
     const isValid = useMemo(() => formData.title.trim().length > 0, [formData.title]);
+
+    const isLink = formData.type === PostContentType.Link;
+    const content: UpdatePostContentInput = {
+        contentType: formData.type,
+        title: formData.title,
+        description: formData.description || null,
+        link: isLink ? formData.link || null : null,
+        media: isLink && formData.location ? { type: MediaType.Image, location: formData.location } : null,
+    };
 
     const onCreatePost = () => {
         createPostMutation({
             variables: {
                 input: {
                     postType: PostType.HomePageAnnouncement,
-                    content: {
-                        contentType: PostContentType.Text,
-                        title: formData.title,
-                        description: formData.description || null,
-                    },
+                    content,
                 },
             },
         })
@@ -77,18 +89,14 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
                 input: {
                     urn: editData?.urn,
                     postType: PostType.HomePageAnnouncement,
-                    content: {
-                        contentType: PostContentType.Text,
-                        title: formData.title,
-                        description: formData.description || null,
-                    },
+                    content,
                 },
             },
         })
             .then(({ errors }) => {
                 if (!errors) {
                     toast.success(t('updateSuccess'));
-                    onEdit(editData.urn, formData.title, formData.description || null);
+                    onEdit(editData.urn, content);
                 }
             })
             .catch((e) => {
@@ -121,7 +129,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
                 },
             ]}
         >
-            <CreatePostForm formData={formData} onChange={handleChange} />
+            <CreatePostForm formData={formData} onChange={handleChange} showPinnedLinks={showPinnedLinks} />
         </Modal>
     );
 }

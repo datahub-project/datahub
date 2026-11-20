@@ -1,55 +1,61 @@
-import { ListPostsDocument, ListPostsQuery, ListPostsQueryVariables } from '@graphql/post.generated';
+import { ApolloClient } from '@apollo/client';
 
-type ListPostsPost = NonNullable<ListPostsQuery['listPosts']>['posts'][number];
+import { ListPostsQuery } from '@graphql/post.generated';
+import { UpdatePostContentInput } from '@types';
+
+type ListPostsResult = NonNullable<ListPostsQuery['listPosts']>;
+type ListPostsPost = ListPostsResult['posts'][number];
 
 /**
- * Apply a change to the cached list posts result for the given variables. The variables must match the
- * active listPosts query exactly, otherwise the write lands on a different cache entry and the table won't update.
+ * Apply a change to every cached listPosts result, so other pages and searches don't show stale posts.
  */
-const modifyListPostCache = (
-    client,
-    variables: ListPostsQueryVariables,
-    modify: (posts: ListPostsPost[]) => ListPostsPost[],
-) => {
-    const currData: ListPostsQuery | null = client.readQuery({ query: ListPostsDocument, variables });
-    if (!currData?.listPosts) return;
-
-    const currPosts = currData.listPosts.posts || [];
-    const newPosts = modify(currPosts);
-    const delta = newPosts.length - currPosts.length;
-
-    client.writeQuery({
-        query: ListPostsDocument,
-        variables,
-        data: {
-            listPosts: {
-                ...currData.listPosts,
-                count: currData.listPosts.count + delta,
-                total: currData.listPosts.total + delta,
-                posts: newPosts,
+const modifyListPostsCache = (client: ApolloClient<object>, modify: (posts: ListPostsPost[]) => ListPostsPost[]) => {
+    client.cache.modify({
+        id: 'ROOT_QUERY',
+        fields: {
+            listPosts(existing: ListPostsResult) {
+                if (!existing?.posts) return existing;
+                const posts = modify(existing.posts);
+                const delta = posts.length - existing.posts.length;
+                return { ...existing, count: existing.count + delta, total: existing.total + delta, posts };
             },
         },
     });
 };
 
 /**
- * Update the title and description of an entry in the list posts cache.
+ * Update the content of a post in the list posts cache.
  */
-export const updateListPostCache = (
-    client,
-    variables: ListPostsQueryVariables,
-    urn: string,
-    title: string,
-    description: string | null,
-) => {
-    modifyListPostCache(client, variables, (posts) =>
-        posts.map((post) => (post.urn === urn ? { ...post, content: { ...post.content, title, description } } : post)),
+export const updateListPostsCache = (client: ApolloClient<object>, urn: string, content: UpdatePostContentInput) => {
+    modifyListPostsCache(client, (posts) =>
+        posts.map((post) =>
+            post.urn === urn
+                ? {
+                      ...post,
+                      content: {
+                          ...post.content,
+                          contentType: content.contentType,
+                          title: content.title,
+                          description: content.description ?? null,
+                          link: content.link ?? null,
+                          media: content.media ? { __typename: 'Media', ...content.media } : null,
+                      },
+                  }
+                : post,
+        ),
     );
 };
 
 /**
- * Remove an entry from the list posts cache.
+ * Remove a post from the list posts cache.
  */
-export const removeFromListPostCache = (client, variables: ListPostsQueryVariables, urn: string) => {
-    modifyListPostCache(client, variables, (posts) => posts.filter((post) => post.urn !== urn));
+export const removeFromListPostsCache = (client: ApolloClient<object>, urn: string) => {
+    modifyListPostsCache(client, (posts) => posts.filter((post) => post.urn !== urn));
+};
+
+/**
+ * Drop all cached listPosts results. Active queries refetch from the server.
+ */
+export const clearListPostsCache = (client: ApolloClient<object>) => {
+    client.cache.evict({ id: 'ROOT_QUERY', fieldName: 'listPosts' });
 };
