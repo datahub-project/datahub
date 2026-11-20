@@ -1465,6 +1465,7 @@ elasticsearch:
           # Off unless set: blank does not use mode or percent. active serves the template to
           # semanticSearchPercent of actors, all of them when that is unset. off and shadow keep
           # semantic search on its legacy kNN search.
+          # On OpenSearch it needs 3.5 or later; an older or unreadable version keeps the legacy search.
           semanticSearch: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH:}
           semanticSearchPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH_PERCENT:-1}
         # storage reads the aspect and fills a missing shipped template from the classpath.

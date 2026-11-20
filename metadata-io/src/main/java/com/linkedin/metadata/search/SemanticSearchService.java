@@ -3,28 +3,37 @@ package com.linkedin.metadata.search;
 import static com.linkedin.metadata.search.utils.QueryUtils.filterEntitiesForSearch;
 import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
+import java.io.IOException;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
@@ -45,6 +54,16 @@ public class SemanticSearchService {
   private final EntityDocCountCache entityDocCountCache;
   private final SearchServiceConfiguration searchServiceConfig;
   private final SemanticEntitySearch semanticEntitySearchService;
+
+  // An unreadable engine version is read again after this, as the OpenSearch shim retries one for
+  // nested expansion: each failed read is a cluster request and a logged warning
+  private static final Duration ENGINE_READ_RETRY = Duration.ofMinutes(1);
+
+  // Whether the Search V3 engine can serve the semantic search template, once a read decides it
+  @Nullable private volatile Boolean templateEngineSupported;
+  // Guarded by this
+  private long nextEngineReadMillis;
+  private final Set<String> warnedEngineReasons = new HashSet<>();
 
   public SemanticSearchService(
       EntityDocCountCache entityDocCountCache,
@@ -110,14 +129,88 @@ public class SemanticSearchService {
   /**
    * Whether semantic search serves this request through the semantic search template surface, by
    * the rule the template coordinator applies: templates execute, and that surface's rollout, which
-   * is off by default, serves this actor. A caller decides once per request, then calls either
-   * {@link #semanticSearchAcrossEntities} or {@link #semanticSearchAcrossEntitiesByTemplate}.
+   * is off by default, serves this actor. On OpenSearch before 3.5 it does not, whatever the
+   * rollout says, and while the OpenSearch version cannot be read it does not either. A caller
+   * decides once per request, then calls either {@link #semanticSearchAcrossEntities} or {@link
+   * #semanticSearchAcrossEntitiesByTemplate}.
    */
   public boolean isServedByTemplate(@Nonnull OperationContext opContext) {
     final SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
-    return coordinator != null
-        && coordinator.executes(
-            opContext.withSearchSurface(SearchTemplateSurfaces.SEMANTIC_SEARCH));
+    if (coordinator == null
+        || !coordinator.executes(
+            opContext.withSearchSurface(SearchTemplateSurfaces.SEMANTIC_SEARCH))) {
+      return false;
+    }
+    final Boolean supported = templateEngineSupported;
+    return supported != null ? supported : readTemplateEngineSupport(opContext);
+  }
+
+  /**
+   * True only on Elasticsearch or OpenSearch 3.5 or later. Before 3.5 the k-NN plugin applies a
+   * nested kNN pre-filter in the chunk scope when it names an underscore-prefixed field such as
+   * {@code _entityType}, which the template's filter always does, and there it matches nothing. The
+   * engine is read on the first request the rollout serves, so the warnings are logged only with
+   * the rollout on, once for each reason. Only a decision from Elasticsearch or a version that
+   * parses is kept. An engine type or version that cannot be read or parsed, as restricted cluster
+   * info leaves the version, keeps the request on the legacy search, which works on every engine,
+   * and the engine is read again after {@link #ENGINE_READ_RETRY}.
+   */
+  private synchronized boolean readTemplateEngineSupport(@Nonnull OperationContext opContext) {
+    if (templateEngineSupported != null) {
+      return templateEngineSupported;
+    }
+    final long now = currentTimeMillis();
+    if (now < nextEngineReadMillis) {
+      return false;
+    }
+    final SearchClientShim<?> client =
+        SearchClients.forComponent(opContext, SearchComponent.SEARCH_V3);
+    final SearchClientShim.SearchEngineType engine = client.getEngineType();
+    if (engine != null && engine.isElasticsearch()) {
+      templateEngineSupported = true;
+      return true;
+    }
+    final String version = engine != null && engine.isOpenSearch() ? engineVersion(client) : null;
+    if (OpenSearchSearchClientShim.isParseableVersion(version)) {
+      final boolean supported =
+          OpenSearchSearchClientShim.supportsUnderscoreFieldsInNestedKnnFilter(version);
+      if (!supported) {
+        log.warn(
+            "The semantic search surface's template rollout is on, but the Search V3 cluster runs"
+                + " OpenSearch {}. The semantic search template needs OpenSearch 3.5 or later, so"
+                + " semantic search stays on its own kNN search.",
+            version);
+      }
+      templateEngineSupported = supported;
+      return supported;
+    }
+    nextEngineReadMillis = now + ENGINE_READ_RETRY.toMillis();
+    final String reason =
+        engine + " version " + (version == null || version.isBlank() ? "unknown" : version);
+    if (warnedEngineReasons.add(reason)) {
+      log.warn(
+          "The semantic search surface's template rollout is on, but the Search V3 engine reads as"
+              + " {}, so GMS cannot tell whether it can serve the semantic search template, which"
+              + " needs OpenSearch 3.5 or later. Semantic search stays on its own kNN search until a"
+              + " later read, at most once a minute, succeeds. Reading the OpenSearch version needs"
+              + " the cluster:monitor/main permission.",
+          reason);
+    }
+    return false;
+  }
+
+  @VisibleForTesting
+  long currentTimeMillis() {
+    return System.currentTimeMillis();
+  }
+
+  @Nullable
+  private static String engineVersion(@Nonnull SearchClientShim<?> client) {
+    try {
+      return client.getEngineVersion();
+    } catch (IOException e) {
+      return null;
+    }
   }
 
   /**

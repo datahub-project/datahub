@@ -122,7 +122,11 @@ Semantic search (`semanticSearchAcrossEntities`) can now run `urn:li:searchTempl
 new `semanticSearch` template surface. It is off by default, and nothing changes while it is off. To
 turn it on, set `SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH=active` on GMS, and
 `SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH_PERCENT` to serve it to only some users. A blank or missing
-setting keeps it off, whatever `SEARCH_V3_TEMPLATES_ROLLOUT` says. With it on:
+setting keeps it off, whatever `SEARCH_V3_TEMPLATES_ROLLOUT` says. The switch takes effect on
+Elasticsearch 8.18 or later and OpenSearch 3.5 or later. On older OpenSearch, or when GMS cannot read
+the OpenSearch version (reading it needs the `cluster:monitor/main` permission), semantic search stays
+on its own kNN search, and GMS logs a warning. GMS reads an unreadable version again at most once a
+minute, so granting the permission needs no restart. With it on:
 
 - Documents follow the same defaults as keyword search: only published documents shown in global
   context come back, unless the request sets `includeHiddenLifecycleStages`. A user who can manage
@@ -147,8 +151,8 @@ setting keeps it off, whatever `SEARCH_V3_TEMPLATES_ROLLOUT` says. With it on:
 
 A new `minSimilarity` search flag sets a raw cosine floor on vector results. It can raise the floor a
 template or `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY` sets, and never lower it. While the switch is
-off, semantic search rejects the flag. **Action:** none. Before you turn the switch on, check that
-clients expect the document defaults and facet counts above.
+off or does not take effect, semantic search rejects the flag. **Action:** none. Before you turn the
+switch on, check that clients expect the document defaults and facet counts above.
 
 ### Parent Data Product is now checked on every API
 

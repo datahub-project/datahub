@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.cache.CacheableSearcher;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateHybrid;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
@@ -192,12 +193,23 @@ public class CachingEntitySearchService {
         throw new SearchTemplateFailClosedException(
             "Semantic search runs a search template, and no template serves this request");
       }
-      // A template that reaches no vector rung can only serve a keyword page, so it is not run
+      // A template that reaches no vector rung can only serve a keyword page, so it is not run.
+      // One the caller's searchTemplate named is a bad request. One a slot or seed selected is the
+      // deployment's misconfiguration, so it stays a server error.
       if (!resolved.isVectorReachable()) {
-        throw new SearchTemplateFailClosedException(
+        final String message =
             "Semantic search is served only by a vector rung, and search template "
                 + resolved.getUrn()
-                + " reaches none");
+                + " reaches none";
+        throw SearchTemplateMetrics.SLOT_CALLER.equals(resolved.getEngineSlot())
+            ? new SearchTemplateFailClosedException(
+                message,
+                new IllegalArgumentException(
+                    "SearchFlags.searchTemplate names "
+                        + resolved.getUrn()
+                        + ", which reaches no vector rung, and only a vector rung serves semantic"
+                        + " search"))
+            : new SearchTemplateFailClosedException(message);
       }
       return searchOnce(
           bound, resolved, entityNames, query, filters, sortCriteria, from, size, facets);

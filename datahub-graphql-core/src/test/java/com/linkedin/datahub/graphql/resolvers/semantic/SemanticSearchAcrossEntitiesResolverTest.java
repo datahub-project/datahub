@@ -1165,7 +1165,7 @@ public class SemanticSearchAcrossEntitiesResolverTest {
   }
 
   @Test
-  public void testAFailedKeywordFallbackKeepsTheEmbeddingReason() throws Exception {
+  public void testAFailedKeywordFallbackReportsItsOwnFailure() throws Exception {
     SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
     input.setTypes(Collections.singletonList(EntityType.DOCUMENT));
     input.setQuery("quarterly revenue");
@@ -1180,9 +1180,11 @@ public class SemanticSearchAcrossEntitiesResolverTest {
             any(), anyList(), anyString(), any(), anyInt(), anyInt(), any(), anyList()))
         .thenThrow(new RuntimeException("keyword search unavailable"));
 
+    // Not the embedding's exceeded deadline, which a caller may retry: the fallback's own failure.
+    // The message keeps the embedding's reason.
     DataHubGraphQLException error = typedError();
 
-    assertEquals(error.errorCode(), DataHubGraphQLErrorCode.DEADLINE_EXCEEDED);
+    assertEquals(error.errorCode(), DataHubGraphQLErrorCode.SERVER_ERROR);
     assertTrue(error.getMessage().contains(QueryEmbeddingException.TIMEOUT));
     // The fallback does not run the template the caller named again
     ArgumentCaptor<OperationContext> fallback = ArgumentCaptor.forClass(OperationContext.class);
@@ -1197,6 +1199,15 @@ public class SemanticSearchAcrossEntitiesResolverTest {
             any(),
             anyList());
     assertFalse(fallback.getValue().getSearchContext().getSearchFlags().hasSearchTemplate());
+
+    // A fallback that rejected the request is a bad request
+    doThrow(
+            new RuntimeException(
+                "Keyword search failed", new IllegalArgumentException("Unknown filter field")))
+        .when(mockEntityClient)
+        .searchAcrossEntities(
+            any(), anyList(), anyString(), any(), anyInt(), anyInt(), any(), anyList());
+    assertEquals(typedError().errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
   }
 
   @Test

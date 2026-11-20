@@ -482,10 +482,15 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
    * Semantic search through the semantic search surface, end to end on a real index. With its
    * rollout on, the shipped semantic template's vector rung serves the request through the search
    * cache, and explain names the template. With it off, the request stays on the legacy semantic
-   * search, which runs its own kNN search on the same index.
+   * search, which runs its own kNN search on the same index. On OpenSearch before 3.5 it stays
+   * there with the rollout on too: before 3.5 the k-NN plugin applies a nested kNN pre-filter in
+   * the chunk scope when it names an underscore-prefixed field such as {@code _entityType}, which
+   * the template's filter always does. Without a caller filter that pre-filter holds only the
+   * system clauses, and the search must still find documents.
    */
   @Test
-  public void testTheSemanticSurfaceServesTheSemanticTemplateOnlyWithItsSwitchOn() {
+  public void testTheSemanticSurfaceServesTheSemanticTemplateOnlyWithItsSwitchOn()
+      throws IOException {
     EmbeddingProvider fixedQuery = mock(EmbeddingProvider.class);
     when(fixedQuery.embed(anyString(), any(), any(EmbeddingTaskType.class), any(Duration.class)))
         .thenReturn(QUERY_VECTOR);
@@ -590,19 +595,58 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
     assertFalse(legacy.getMetadata().hasRouteChain());
     assertFalse(legacy.getMetadata().hasVectorRetrieval());
 
-    // On: the shipped semantic template's vector rung serves the two documents nearest the query
+    // On: the shipped semantic template's vector rung serves the two documents nearest the query,
+    // except on OpenSearch before 3.5, where the request stays on the legacy semantic search
     templates.getRollout().setSemanticSearch("active");
-    assertTrue(semantic.isServedByTemplate(searching));
-    SearchResult served =
-        semantic.semanticSearchAcrossEntitiesByTemplate(
-            searching, documents, "quarterly revenue", candidates, null, 0, 2, List.of());
+    boolean templateServes = engineCanServeTheSemanticTemplate();
+    assertEquals(semantic.isServedByTemplate(searching), templateServes);
+    SearchResult served = semanticSearch(semantic, searching, documents, candidates);
     assertEquals(Set.copyOf(urns(served)), Set.of(NEAR_DOCUMENT, FORECAST_SEMANTIC_MATCH));
-    assertEquals(served.getMetadata().getRouteChain(), List.of(semanticTemplate));
-    VectorRetrievalExplanation explanation = served.getMetadata().getVectorRetrieval();
-    assertEquals(explanation.getOutcome(), SearchTemplateVectorRetrieval.SERVED);
-    assertEquals(explanation.getProfile(), MODEL_KEY);
-    assertEquals(explanation.getEntityTypes(), documents);
-    assertTrue(explanation.isFilterInVectorSearch());
+    assertEquals(served.getMetadata().hasRouteChain(), templateServes);
+    assertEquals(served.getMetadata().hasVectorRetrieval(), templateServes);
+    if (templateServes) {
+      assertEquals(served.getMetadata().getRouteChain(), List.of(semanticTemplate));
+      VectorRetrievalExplanation explanation = served.getMetadata().getVectorRetrieval();
+      assertEquals(explanation.getOutcome(), SearchTemplateVectorRetrieval.SERVED);
+      assertEquals(explanation.getProfile(), MODEL_KEY);
+      assertEquals(explanation.getEntityTypes(), documents);
+      assertTrue(explanation.isFilterInVectorSearch());
+    }
+
+    // No caller filter: on either path the search finds documents. Approximate kNN without the
+    // candidate filter can miss the exact matches, so only the path is checked
+    SearchResult unfiltered = semanticSearch(semantic, searching, documents, null);
+    assertFalse(unfiltered.getEntities().isEmpty());
+    assertEquals(unfiltered.getMetadata().hasRouteChain(), templateServes);
+    assertEquals(unfiltered.getMetadata().hasVectorRetrieval(), templateServes);
+    if (templateServes) {
+      assertEquals(
+          unfiltered.getMetadata().getVectorRetrieval().getOutcome(),
+          SearchTemplateVectorRetrieval.SERVED);
+    }
+  }
+
+  /** Semantic search as the resolver runs it: through the template when the service says so. */
+  private static SearchResult semanticSearch(
+      SemanticSearchService semantic,
+      OperationContext searching,
+      List<String> entityTypes,
+      Filter filter) {
+    return semantic.isServedByTemplate(searching)
+        ? semantic.semanticSearchAcrossEntitiesByTemplate(
+            searching, entityTypes, "quarterly revenue", filter, null, 0, 2, List.of())
+        : semantic.semanticSearchAcrossEntities(
+            searching, entityTypes, "quarterly revenue", filter, null, 0, 2, List.of());
+  }
+
+  /** Every engine but OpenSearch before 3.5, read from the container this leg runs. */
+  private boolean engineCanServeTheSemanticTemplate() throws IOException {
+    if (!getSearchClient().getEngineType().isOpenSearch()) {
+      return true;
+    }
+    String[] version = getSearchClient().getEngineVersion().split("\\.");
+    int major = Integer.parseInt(version[0]);
+    return major > 3 || major == 3 && Integer.parseInt(version[1]) >= 5;
   }
 
   private static List<Double> scores(SearchResult result) {

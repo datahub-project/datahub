@@ -125,6 +125,34 @@ public class SearchTemplateRolloutTest {
   }
 
   @Test
+  public void testAMalformedSemanticSearchSettingKeepsItOff() {
+    String key =
+        SearchTemplateRollout.bucketKey(
+            "urn:li:corpuser:ada", SearchTemplateSurfaces.SEMANTIC_SEARCH);
+    SearchTemplateRolloutConfiguration rollout = rollout("active", 100);
+    rollout.setSemanticSearch("on");
+    rollout.setSearchEntities("on");
+
+    // Every semantic search reads it, so a typo keeps semantic search on its own kNN search
+    // instead of failing it ...
+    assertEquals(effect(true, rollout, SearchTemplateSurfaces.SEMANTIC_SEARCH, key), off());
+    // ... while the other surfaces still reject one
+    expectThrows(
+        IllegalArgumentException.class,
+        () -> effect(true, rollout, SearchTemplateSurfaces.SEARCH_ENTITIES, key));
+
+    // So does a percent outside 0 to 100 with the mode active
+    rollout.setSemanticSearch("active");
+    rollout.setSemanticSearchPercent(150);
+    rollout.setSearchEntities("active");
+    rollout.setSearchEntitiesPercent(150);
+    assertEquals(effect(true, rollout, SearchTemplateSurfaces.SEMANTIC_SEARCH, key), off());
+    expectThrows(
+        IllegalArgumentException.class,
+        () -> effect(true, rollout, SearchTemplateSurfaces.SEARCH_ENTITIES, key));
+  }
+
+  @Test
   public void testTheShippedSemanticSearchSlotBindsTheShippedSemanticTemplate() throws Exception {
     open();
     String shippedSlot =

@@ -274,11 +274,17 @@ public class SemanticSearchAcrossEntitiesResolver
                 sortCriteria,
                 facets);
       } catch (RemoteInvocationException | RuntimeException keywordFailure) {
-        // The error keeps the embedding's reason and code, and the fallback's failure as its cause
+        // The fallback's own failure sets the code: the embedding's code may invite a retry, which
+        // would fail the same way. The message and the suppressed failure keep the embedding's
+        // reason for the log.
         keywordFailure.addSuppressed(failure);
         throw new DataHubGraphQLException(
-            failure.getMessage() + ", and the keyword fallback failed",
-            errorCode(failure),
+            failure.getMessage()
+                + ", and the keyword fallback failed: "
+                + keywordFailure.getMessage(),
+            ExceptionUtils.throwableOfType(keywordFailure, IllegalArgumentException.class) != null
+                ? DataHubGraphQLErrorCode.BAD_REQUEST
+                : DataHubGraphQLErrorCode.SERVER_ERROR,
             keywordFailure);
       }
       result.getMetadata().setKeywordFallback(failure.getReason());

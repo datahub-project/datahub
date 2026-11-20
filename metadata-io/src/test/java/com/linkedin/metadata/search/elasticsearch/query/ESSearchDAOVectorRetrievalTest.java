@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atMostOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -163,6 +164,7 @@ public class ESSearchDAOVectorRetrievalTest {
   public void setUp() throws IOException {
     client = mock(SearchClientShim.class);
     when(client.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    when(client.getEngineVersion()).thenReturn("3.7.0");
     // The facet request finds no aggregation; a keyword rung gets these rows
     SearchResponse keyword = keywordResponse(3);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
@@ -498,6 +500,56 @@ public class ESSearchDAOVectorRetrievalTest {
         Set.of("urn:li:document:d0", "urn:li:document:d1"));
   }
 
+  @DataProvider
+  public Object[][] semanticSearchEngines() {
+    return new Object[][] {
+      {SearchClientShim.SearchEngineType.OPENSEARCH_2, "2.19.3", false},
+      {SearchClientShim.SearchEngineType.OPENSEARCH_3, "3.4.0", false},
+      {SearchClientShim.SearchEngineType.OPENSEARCH_3, "3.5.0", true},
+      {SearchClientShim.SearchEngineType.ELASTICSEARCH_8, "8.18.0", true},
+      // What getEngineVersion returns when cluster info is restricted, a blank version, a read
+      // that failed, and an engine type that is not known
+      {SearchClientShim.SearchEngineType.OPENSEARCH_3, "unknown", false},
+      {SearchClientShim.SearchEngineType.OPENSEARCH_3, " ", false},
+      {
+        SearchClientShim.SearchEngineType.OPENSEARCH_3,
+        new IOException("cluster info unavailable"),
+        false
+      },
+      {SearchClientShim.SearchEngineType.UNKNOWN, "3.7.0", false}
+    };
+  }
+
+  /**
+   * Before 3.5 the k-NN plugin applies a nested kNN pre-filter in the chunk scope when it names an
+   * underscore-prefixed field such as {@code _entityType}, which the template's filter always does.
+   * There, and on an OpenSearch whose version cannot be read, semantic search keeps its own kNN
+   * search with its switch on.
+   */
+  @Test(dataProvider = "semanticSearchEngines")
+  public void testSemanticSearchServesItsSurfaceSlotOnlyOnAnEngineThatCanPreFilterIt(
+      SearchClientShim.SearchEngineType engine, Object version, boolean servedByTemplate)
+      throws Exception {
+    when(client.getEngineType()).thenReturn(engine);
+    if (version instanceof IOException failure) {
+      when(client.getEngineVersion()).thenThrow(failure);
+    } else {
+      when(client.getEngineVersion()).thenReturn((String) version);
+    }
+    SemanticSearchService semantic = semanticService(cached(dao(null, embedding())));
+    OperationContext searching = unpinned(f -> {});
+
+    // Off: the engine is not read
+    assertFalse(semantic.isServedByTemplate(searching));
+    verify(client, never()).getEngineVersion();
+
+    harness.templates.getRollout().setSemanticSearch("active");
+    assertEquals(semantic.isServedByTemplate(searching), servedByTemplate);
+    assertEquals(semantic.isServedByTemplate(searching), servedByTemplate);
+    // Read on the first request the rollout serves, not on each one
+    verify(client, atMostOnce()).getEngineVersion();
+  }
+
   @Test
   public void testSemanticSearchReadsItsFulltextSlotWhateverTheCallersFulltextFlag()
       throws Exception {
@@ -552,9 +604,15 @@ public class ESSearchDAOVectorRetrievalTest {
 
     // skipInsideSearch sets the skip-template flag inside the search, after bind, as a
     // downstream build does
-    assertFailsClosed(
-        "skipInsideSearch".equals(fallThrough) ? skippingTemplatesInside(dao) : cached(dao),
-        searching);
+    SearchTemplateFailClosedException failure =
+        assertFailsClosed(
+            "skipInsideSearch".equals(fallThrough) ? skippingTemplatesInside(dao) : cached(dao),
+            searching);
+    // Only a keyword template the caller named is the caller's mistake, which GraphQL maps to a
+    // bad request. The rest are the deployment's, and stay server errors.
+    assertEquals(
+        ExceptionUtils.throwableOfType(failure, IllegalArgumentException.class) != null,
+        "callerKeywordTemplate".equals(fallThrough));
   }
 
   /** Each way a semantic search could otherwise end on a keyword page. */
@@ -2490,9 +2548,9 @@ public class ESSearchDAOVectorRetrievalTest {
     return cache.search(searching, DOCUMENT, "quarterly revenue", null, null, 0, 10, List.of());
   }
 
-  private static void assertFailsClosed(
+  private static SearchTemplateFailClosedException assertFailsClosed(
       CachingEntitySearchService cache, OperationContext searching) {
-    assertThrows(SearchTemplateFailClosedException.class, () -> searchOn(cache, searching));
+    return expectThrows(SearchTemplateFailClosedException.class, () -> searchOn(cache, searching));
   }
 
   private void store(SearchTemplateProperties template) {
