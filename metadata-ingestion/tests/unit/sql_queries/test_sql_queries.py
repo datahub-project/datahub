@@ -1,5 +1,6 @@
 import json
 import warnings
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from unittest.mock import Mock
 
@@ -10,12 +11,15 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.sql_queries import (
+from datahub.ingestion.source.sql_queries.config import SqlQueriesSourceConfig
+from datahub.ingestion.source.sql_queries.query_entry import (
     QueryEntry,
-    SqlQueriesSource,
-    SqlQueriesSourceConfig,
-    SqlQueriesSourceReport,
+    QueryEntryContext,
 )
+from datahub.ingestion.source.sql_queries.readers.base import guard_read_errors
+from datahub.ingestion.source.sql_queries.readers.file import FileQueryLogReader
+from datahub.ingestion.source.sql_queries.report import SqlQueriesSourceReport
+from datahub.ingestion.source.sql_queries.source import SqlQueriesSource
 from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
     AutoIncrementalLineageProcessor,
 )
@@ -24,8 +28,6 @@ from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
 )
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-
-# ── Shared fixtures ──────────────────────────────────────────────────────
 
 
 @pytest.fixture
@@ -69,6 +71,26 @@ def _make_source(pipeline_context, path, **config_overrides):
     return SqlQueriesSource(pipeline_context, config)
 
 
+def _entry_context(config, report=None):
+    return QueryEntryContext(
+        platform=config.platform,
+        platform_instance=config.platform_instance,
+        env=config.env,
+        report=report,
+    )
+
+
+def _file_reader(path, report):
+    return FileQueryLogReader(
+        query_file=path,
+        aws_config=None,
+        entry_context=QueryEntryContext(
+            platform="snowflake", platform_instance=None, env="PROD", report=report
+        ),
+        report=report,
+    )
+
+
 def _query_line(idx=0, **overrides):
     entry = {
         "query": f"SELECT {idx} FROM table_{idx}",
@@ -95,9 +117,6 @@ def _lineage_line(idx=0):
             "downstream_tables": [f"db.schema.out_{idx}"],
         }
     )
-
-
-# ── QueryEntry tests ─────────────────────────────────────────────────────
 
 
 class TestQueryEntry:
@@ -486,12 +505,13 @@ class TestQueryEntry:
         if should_raise:
             with pytest.raises(ValueError):
                 QueryEntry.create(
-                    entry_dict, config=entry_config, report=SqlQueriesSourceReport()
+                    entry_dict,
+                    context=_entry_context(entry_config, SqlQueriesSourceReport()),
                 )
             return
 
         query_entry = QueryEntry.create(
-            entry_dict, config=entry_config, report=SqlQueriesSourceReport()
+            entry_dict, context=_entry_context(entry_config, SqlQueriesSourceReport())
         )
 
         assert query_entry.query == expected_query_entry.query
@@ -502,7 +522,33 @@ class TestQueryEntry:
         assert query_entry.session_id == expected_query_entry.session_id
 
 
-# ── Config tests ─────────────────────────────────────────────────────────
+class TestFileQueryLogReader:
+    """The file reader is the default QueryLogReader backend."""
+
+    def test_yields_parsed_entries_from_local_file(self, query_file_with):
+        path = query_file_with([_query_line(0), _query_line(1)])
+        report = SqlQueriesSourceReport()
+        reader = _file_reader(path, report)
+
+        entries = list(reader.get_query_entries())
+
+        assert [e.query for e in entries] == [
+            "SELECT 0 FROM table_0",
+            "SELECT 1 FROM table_1",
+        ]
+        assert report.num_entries_processed == 2
+        assert report.num_entries_failed == 0
+
+    def test_malformed_line_is_counted_and_skipped(self, query_file_with):
+        path = query_file_with([_query_line(0), "not json"])
+        report = SqlQueriesSourceReport()
+        reader = _file_reader(path, report)
+
+        entries = list(reader.get_query_entries())
+
+        assert len(entries) == 1
+        assert report.num_entries_processed == 1
+        assert report.num_entries_failed == 1
 
 
 class TestSqlQueriesSourceConfig:
@@ -556,9 +602,6 @@ class TestSqlQueriesSourceConfig:
             temp_table_patterns=["^temp_.*", "^tmp_\\d+$", ".*_staging$"],
         )
         assert len(config.temp_table_patterns) == 3
-
-
-# ── Source tests ──────────────────────────────────────────────────────────
 
 
 class TestSqlQueriesSource:
@@ -647,9 +690,6 @@ class TestSqlQueriesSource:
         assert len(source.get_workunit_processors()) == 1
 
 
-# ── Error handling tests ─────────────────────────────────────────────────
-
-
 class TestErrorHandling:
     def test_malformed_lines_skipped_and_counted(
         self, pipeline_context, query_file_with
@@ -667,6 +707,20 @@ class TestErrorHandling:
 
         assert source.report.num_entries_processed == 2
         assert source.report.num_entries_failed == 2
+        assert not source.report.failures
+
+    def test_majority_malformed_reports_failure(
+        self, pipeline_context, query_file_with
+    ):
+        path = query_file_with(["not json", "{bad", _query_line(0)])
+        source = _make_source(pipeline_context, path)
+
+        list(source.get_workunits_internal())
+
+        assert source.report.num_entries_processed == 1
+        assert any(
+            f.title == "Most entries failed to parse" for f in source.report.failures
+        )
 
     def test_empty_file_warns_not_fails(self, pipeline_context, query_file_with):
         """An empty file is a warning (normal for scheduled exports), not a failure."""
@@ -775,32 +829,34 @@ class TestErrorHandling:
         assert source.report.num_entries_processed == 0
 
     def test_mid_read_error_reports_and_propagates(self, pipeline_context):
-        """_guarded_stream converts a mid-transfer read error into a failure."""
+        """A read error partway through the file is reported, then re-raised."""
         source = _make_source(pipeline_context, "dummy.jsonl")
 
         def failing_stream():
             yield _lineage_line(0) + "\n"
             raise OSError("connection reset")
 
+        source.reader._open = lambda: nullcontext(failing_stream())
+
         with pytest.raises(OSError):
-            list(source._guarded_stream(failing_stream()))
+            list(source.reader.get_query_entries())
 
         assert any(f.title == "Query file read error" for f in source.report.failures)
 
-    def test_guarded_stream_ignores_consumer_errors(self, pipeline_context):
-        """The whole point of the helper: yield sits outside the try.
+    def test_guard_read_errors_ignores_consumer_errors(self):
+        """The yield sits outside the try.
 
         An exception thrown in by the consumer belongs to the consumer, and must
         not be reported as a read failure.
         """
-        source = _make_source(pipeline_context, "dummy.jsonl")
-        gen = source._guarded_stream(iter(["a\n", "b\n"]))
+        on_error = Mock()
+        gen = guard_read_errors(iter(["a\n", "b\n"]), on_error)
         next(gen)
 
         with pytest.raises(ValueError):
             gen.throw(ValueError("consumer blew up"))
 
-        assert not source.report.failures
+        on_error.assert_not_called()
 
     def test_file_not_found_reports_failure(self, pipeline_context):
         source = _make_source(pipeline_context, "/nonexistent/path/queries.jsonl")
@@ -808,7 +864,7 @@ class TestErrorHandling:
         with pytest.raises(OSError):
             list(source.get_workunits_internal())
 
-        assert any(f.title == "Local file read error" for f in source.report.failures)
+        assert any(f.title == "Query file open error" for f in source.report.failures)
 
     def test_wrongly_typed_tables_skipped_not_crash(
         self, pipeline_context, query_file_with
@@ -894,7 +950,7 @@ class TestErrorHandling:
         config = SqlQueriesSourceConfig(platform="snowflake", query_file="dummy.json")
         report = SqlQueriesSourceReport()
 
-        entry = QueryEntry.create(entry_dict, config=config, report=report)
+        entry = QueryEntry.create(entry_dict, context=_entry_context(config, report))
 
         assert len(entry.upstream_tables) == 1
         assert entry.upstream_tables[0] == DatasetUrn.from_string(
