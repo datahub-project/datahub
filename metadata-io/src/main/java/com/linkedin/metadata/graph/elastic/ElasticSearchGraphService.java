@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
@@ -235,7 +236,8 @@ public class ElasticSearchGraphService implements GraphService, MigratableIndexe
         .setStart(offset)
         .setCount(count)
         .setTotal(lineageResponse.getTotal())
-        .setPartial(lineageResponse.isPartial());
+        .setPartial(lineageResponse.isPartial())
+        .setPartialReason(lineageResponse.getPartialReason(), SetMode.REMOVE_IF_NULL);
   }
 
   @Nonnull
@@ -264,7 +266,8 @@ public class ElasticSearchGraphService implements GraphService, MigratableIndexe
         .setStart(0)
         .setCount(lineageResponse.getLineageRelationships().size())
         .setTotal(lineageResponse.getTotal())
-        .setPartial(lineageResponse.isPartial());
+        .setPartial(lineageResponse.isPartial())
+        .setPartialReason(lineageResponse.getPartialReason(), SetMode.REMOVE_IF_NULL);
   }
 
   private static Filter createUrnFilter(@Nonnull final Urn urn) {

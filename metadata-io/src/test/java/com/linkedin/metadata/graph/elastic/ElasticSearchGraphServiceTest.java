@@ -23,6 +23,7 @@ import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService.EdgeTuple;
+import com.linkedin.metadata.graph.LineagePartialReason;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
@@ -455,7 +456,8 @@ public class ElasticSearchGraphServiceTest {
             .setType("DownstreamOf")
             .setDegree(1);
     LineageResponse mockLineageResponse =
-        new LineageResponse(1, Collections.singletonList(relationship), true); // partial=true
+        new LineageResponse(
+            1, Collections.singletonList(relationship), LineagePartialReason.INCOMPLETE_FETCH);
 
     when(mockReadDAO.getImpactLineage(eq(opContext), eq(sourceUrn), eq(filters), eq(maxHops)))
         .thenReturn(mockLineageResponse);
@@ -469,6 +471,7 @@ public class ElasticSearchGraphServiceTest {
     assertTrue(
         result.isPartial(),
         "Partial flag should be propagated from LineageResponse to EntityLineageResult");
+    assertEquals(result.getPartialReason(), LineagePartialReason.INCOMPLETE_FETCH);
     assertEquals(result.getTotal(), 1);
     assertEquals(result.getRelationships().size(), 1);
   }
@@ -492,7 +495,7 @@ public class ElasticSearchGraphServiceTest {
             .setType("DownstreamOf")
             .setDegree(1);
     LineageResponse mockLineageResponse =
-        new LineageResponse(1, Collections.singletonList(relationship), false); // partial=false
+        new LineageResponse(1, Collections.singletonList(relationship), null);
 
     when(mockReadDAO.getImpactLineage(eq(opContext), eq(sourceUrn), eq(filters), eq(maxHops)))
         .thenReturn(mockLineageResponse);
