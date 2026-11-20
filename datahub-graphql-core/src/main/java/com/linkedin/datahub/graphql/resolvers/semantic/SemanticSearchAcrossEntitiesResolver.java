@@ -253,9 +253,9 @@ public class SemanticSearchAcrossEntitiesResolver
       log.warn(
           "Semantic search could not embed the query ({}); serving keyword results, as the caller"
               + " opted in",
-          failure.getReason(),
-          failure);
-      SearchTemplateMetrics.keywordFallback(searching, failure.getReason());
+          failure.getReason());
+      log.debug("The query embedding failure behind the keyword fallback", failure);
+      SearchTemplateMetrics.keywordFallback(searching, reasonTag(failure));
       // The keyword search the same request runs, as keyword search escapes it. A template the
       // caller named is not run again: it may be the vector template that just failed.
       try {
@@ -306,6 +306,22 @@ public class SemanticSearchAcrossEntitiesResolver
           QueryEmbeddingException.BUDGET_EXHAUSTED ->
           DataHubGraphQLErrorCode.SERVICE_UNAVAILABLE;
       default -> DataHubGraphQLErrorCode.SERVER_ERROR;
+    };
+  }
+
+  /**
+   * The keyword fallback metric's reason tag. An embedding service can set any reason, so one
+   * outside the codes {@link QueryEmbeddingException} names counts as {@code failed}, which keeps
+   * the tag's values bounded.
+   */
+  private static String reasonTag(final QueryEmbeddingException failure) {
+    return switch (failure.getReason()) {
+      case QueryEmbeddingException.TIMEOUT,
+          QueryEmbeddingException.REJECTED,
+          QueryEmbeddingException.RESERVE_EXHAUSTED,
+          QueryEmbeddingException.BUDGET_EXHAUSTED ->
+          failure.getReason();
+      default -> QueryEmbeddingException.FAILED;
     };
   }
 

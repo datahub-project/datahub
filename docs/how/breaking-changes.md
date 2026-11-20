@@ -129,6 +129,10 @@ on its own kNN search, and GMS logs a warning. GMS reads an unreadable version a
 minute, so granting the permission needs no restart. GMS keeps a version it has read until it restarts,
 so after upgrading OpenSearch to 3.5 or later, restart GMS for the switch to take effect. With it on:
 
+- Only documents have an embedding profile in this release, so semantic search through the template
+  returns documents only. Other entity types in `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` return
+  nothing, and a request for only those types returns an empty page. Keep the switch off if semantic
+  search serves other entity types for you.
 - Documents follow the same defaults as keyword search: only published documents shown in global
   context come back, unless the request sets `includeHiddenLifecycleStages`. A user who can manage
   documents also gets unpublished documents that have no lifecycle stage.

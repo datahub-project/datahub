@@ -509,6 +509,28 @@ public class SemanticSearchServiceTest {
   }
 
   @Test
+  public void testTemplatePathPassesRegistryEntityNames() {
+    // The template gates match registry names, so the template path does not lowercase them
+    when(mockCachingEntitySearchService.search(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList()))
+        .thenReturn(createMockSearchResult(0, 10, 0));
+
+    semanticSearchService.semanticSearchAcrossEntitiesByTemplate(
+        opContext, List.of("glossaryterm", "DOCUMENT"), "revenue", null, null, 0, 10, List.of());
+
+    verify(mockCachingEntitySearchService)
+        .search(
+            any(),
+            eq(List.of("glossaryTerm", "document")),
+            eq("revenue"),
+            any(),
+            any(),
+            anyInt(),
+            any(),
+            anyList());
+  }
+
+  @Test
   public void testSemanticSearchNullSemanticServiceThrows() {
     // Given: Semantic service is null
     SemanticSearchService serviceWithNullSemantic =

@@ -243,7 +243,12 @@ public class SemanticSearchService {
       throw new SemanticSearchDisabledException();
     }
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
-    List<String> entitiesToSearch = getEntitiesToSearch(opContext, entityNames, size);
+    // The template gates match entity types to registry names, such as glossaryTerm, so this path
+    // takes each type's registry name instead of the lowercased one the legacy search uses
+    List<String> entitiesToSearch =
+        getEntitiesToSearch(opContext, entityNames, size).stream()
+            .map(entityName -> opContext.getEntityRegistry().getEntitySpec(entityName).getName())
+            .collect(Collectors.toList());
     if (entitiesToSearch.isEmpty()) {
       return getEmptySearchResult(from, size);
     }

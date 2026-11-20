@@ -1244,6 +1244,15 @@ public class SemanticSearchAcrossEntitiesResolverTest {
     verify(metrics)
         .incrementMicrometer(
             SearchTemplateMetrics.KEYWORD_FALLBACK, 1, "reason", QueryEmbeddingException.REJECTED);
+
+    // An embedding service can name any reason; the tag counts one outside the known codes as
+    // failed, so its values stay bounded
+    embeddingFails("tenantQuotaExceeded");
+    resolver.get(mockEnvironment).get();
+
+    verify(metrics)
+        .incrementMicrometer(
+            SearchTemplateMetrics.KEYWORD_FALLBACK, 1, "reason", QueryEmbeddingException.FAILED);
   }
 
   @Test
