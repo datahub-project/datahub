@@ -1,0 +1,27 @@
+namespace com.linkedin.search.template
+
+/**
+ * Conditions a route needs besides its pattern. A route sees the full request entity set. Every
+ * set condition must hold.
+ */
+record SearchTemplateRouteMatch {
+  /**
+   * Static. The request entity set must be a subset of this list.
+   */
+  entityTypes: optional array[string]
+
+  /**
+   * Request surfaces this route serves, such as {@code searchEntities} or {@code semanticSearch}.
+   */
+  surfaces: optional array[string]
+
+  /**
+   * Dynamic. Every entity in the request set is enabled for semantic search.
+   */
+  semanticEligible: optional boolean
+
+  /**
+   * Dynamic. At least one entity in the request set is enabled for semantic search.
+   */
+  anySemanticEligible: optional boolean
+}

@@ -45,14 +45,19 @@ const StyledTabsPrimary = styled(AntTabs)<{
     .ant-tabs-tab {
         padding: 8px 0;
         font-size: 14px;
-        color: ${(props) => props.theme.colors.textSecondary};
         ${({ $tabBorderRadius }) => $tabBorderRadius && `border-radius: ${$tabBorderRadius};`};
+    }
+
+    /* Matches the .ant-tabs .ant-tabs-tab:hover specificity so the colour holds on hover */
+    && .ant-tabs-tab {
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 
     ${({ $addPaddingLeft }) =>
         $addPaddingLeft
             ? `
-            .ant-tabs-tab {
+            .ant-tabs-tab,
+            .ant-tabs-tab + .ant-tabs-tab {
                 margin-left: 16px;
             }
             `
@@ -78,7 +83,7 @@ const StyledTabsPrimary = styled(AntTabs)<{
                 background-color: ${props.theme.colors.bg};
             }
         `}
-    .ant-tabs-tab-active .ant-tabs-tab-btn {
+    .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
         color: ${(props) => props.theme.colors.textBrand};
         font-weight: 600;
     }
@@ -138,13 +143,18 @@ const StyledTabsSecondary = styled(AntTabs)<{
         padding: 8px 8px;
         border-radius: ${({ $tabBorderRadius }) => $tabBorderRadius || '4px'};
         font-size: 14px;
+    }
+
+    /* Matches the .ant-tabs .ant-tabs-tab:hover specificity so the colour holds on hover */
+    && .ant-tabs-tab {
         color: ${(props) => props.theme.colors.textSecondary};
     }
 
     ${({ $addPaddingLeft }) =>
         $addPaddingLeft
             ? `
-            .ant-tabs-tab {
+            .ant-tabs-tab,
+            .ant-tabs-tab + .ant-tabs-tab {
                 margin-left: 8px;
             }
             `
@@ -164,7 +174,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
         background-color: ${(props) => props.theme.colors.bgSurfaceBrand}80;
     }
 
-    .ant-tabs-tab-active .ant-tabs-tab-btn {
+    .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
         color: ${(props) => props.theme.colors.textBrand};
         font-weight: 600;
     }

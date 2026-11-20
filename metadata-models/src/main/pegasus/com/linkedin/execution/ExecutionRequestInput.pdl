@@ -8,7 +8,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "dataHubExecutionRequestInput",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record ExecutionRequestInput {
   /**
@@ -41,7 +41,7 @@ record ExecutionRequestInput {
   */
   @Searchable = {
     "fieldName": "requestTimeMs",
-    "fieldType": "COUNT",
+    "fieldType": "DATETIME",
     "queryByDefault": false
   }
   requestedAt: long

@@ -55,7 +55,7 @@ def test_a_realistic_secret_is_still_masked_inside_longer_text():
     # The defence-in-depth case that matters: a credential embedded in a
     # connection string or driver error must not survive.
     out = redact(
-        {"error": "could not connect to postgresql://u:hunter2@db:5432/x"},
+        {"error": "could not connect to postgresql://u:hunter2@db.example.com:5432/x"},
         {"hunter2"},
     )
     assert "hunter2" not in str(out)
@@ -90,7 +90,9 @@ def test_a_url_encoded_password_in_a_driver_error_is_masked():
     what makes this the important direction rather than an edge case.
     """
     out = redact(
-        {"error": "could not connect to postgresql://u:p%40ssword@db:5432/x"},
+        {
+            "error": "could not connect to postgresql://u:p%40ssword@db.example.com:5432/x"
+        },
         {"p@ssword"},
     )
     rendered = str(out)
@@ -125,7 +127,9 @@ def test_a_nested_private_key_is_collected():
     """Key-pair and service-account credentials nest one level down, where the
     top-level SecretStr sweep does not reach -- so the name hints must cover
     them or an inline key reaches the transcript unmasked."""
-    key = "-----BEGIN PRIVATE KEY-----\nabc\n"
+    # Collection goes by the key name, so the value needs no PEM shape; a PEM
+    # header here would be flagged by secret scanners.
+    key = "PLANTED-private-key"
     cfg = {"credential": {"private_key": key, "project_id": "proj"}}
     values = collect_nested_secret_values(cfg, SENSITIVE_KEY_HINTS)
     assert key in values

@@ -96,6 +96,7 @@
     "searchActions.glossaryTerms.addTitle": "Lägg till termer",
     "searchActions.glossaryTerms.name": "Termer",
     "searchActions.glossaryTerms.removeTitle": "Ta bort termer",
+    "searchActions.noSelection": "Välj minst en tillgång för att använda den här åtgärden.",
     "searchActions.notSupported": "Den här åtgärden stöds inte för de valda typerna.",
     "searchActions.owners.addTitle": "Lägg till ägare",
     "searchActions.owners.removeTitle": "Ta bort ägare",

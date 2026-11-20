@@ -11,6 +11,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,7 +35,7 @@ public class V3HybridKnnRequestBuilder {
    * Documents to return, more than a rerank window holds. Nested kNN counts documents, not chunks:
    * each document comes back once, scored by its nearest chunk.
    */
-  static final int MAX_K = 1_000;
+  public static final int MAX_K = 1_000;
 
   /** Candidates each shard considers, the engines' limit. */
   static final int MAX_NUM_CANDIDATES = 10_000;
@@ -77,7 +78,7 @@ public class V3HybridKnnRequestBuilder {
 
     return Optional.of(
         KnnSearchRequest.builder()
-            .indexName(String.join(",", indices.values()))
+            .indexName(String.join(",", new LinkedHashSet<>(indices.values())))
             .vectorField(vectorField(modelEmbeddingKey))
             .queryVector(queryVector)
             .k(MAX_K)

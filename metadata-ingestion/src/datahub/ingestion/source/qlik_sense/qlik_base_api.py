@@ -64,6 +64,8 @@ class ReadErrors:
     # A sheet, or the list of sheets, could not be read, so the app's sheets
     # are not all known.
     sheets_unread: bool = False
+    # Qlik Cloud answered 404 for the app's lineage graph.
+    lineage_graph_missing: bool = False
 
     def record(self, message: str) -> None:
         log_read_error(message)

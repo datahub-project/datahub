@@ -106,7 +106,8 @@ public class SearchQueryBuilder {
           entitySpecs,
           query,
           fulltext,
-          SearchTemplateRollout.scrollSurface(opContext.getSearchContext().getSearchSurface()));
+          SearchTemplateRollout.scrollSurface(opContext.getSearchContext().getSearchSurface()),
+          true);
     }
     return buildQuery(opContext, entitySpecs, query, fulltext, false);
   }
@@ -164,7 +165,7 @@ public class SearchQueryBuilder {
     }
     if (coordinator != null
         && coordinator.effect(opContext) == SearchTemplateRollout.Effect.SHADOW) {
-      coordinator.shadow(opContext, entitySpecs, query, fulltext, scroll);
+      coordinator.shadow(opContext, entitySpecs, query, fulltext, scroll, true);
     }
     QueryBuilder queryBuilder = buildQuery(opContext, entitySpecs, query, fulltext, false);
     if (queryBuilder == null) {

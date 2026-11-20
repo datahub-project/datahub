@@ -96,6 +96,7 @@
     "searchActions.glossaryTerms.addTitle": "Lisää termejä",
     "searchActions.glossaryTerms.name": "Termit",
     "searchActions.glossaryTerms.removeTitle": "Poista termejä",
+    "searchActions.noSelection": "Valitse vähintään yksi kohde käyttääksesi tätä toimintoa.",
     "searchActions.notSupported": "Tätä toimintoa ei tueta valituille tyypeille.",
     "searchActions.owners.addTitle": "Lisää omistajia",
     "searchActions.owners.removeTitle": "Poista omistajia",

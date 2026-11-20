@@ -8,7 +8,7 @@ import DomainDropdown from '@app/entityV2/shared/components/styled/search/action
 import GlossaryTermDropdown from '@app/entityV2/shared/components/styled/search/action/GlossaryTermsDropdown';
 import OwnersDropdown from '@app/entityV2/shared/components/styled/search/action/OwnersDropdown';
 import TagsDropdown from '@app/entityV2/shared/components/styled/search/action/TagsDropdown';
-import { SelectActionGroups } from '@app/entityV2/shared/components/styled/search/types';
+import { ActionDisabledReason, SelectActionGroups } from '@app/entityV2/shared/components/styled/search/types';
 import { EntityAndType } from '@app/entityV2/shared/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -62,75 +62,65 @@ export const SearchSelectActions = ({
         );
     };
 
+    const getDisabledReason = (type: EntityCapabilityType): ActionDisabledReason | undefined => {
+        if (selectedEntityUrns.length === 0) return ActionDisabledReason.NO_SELECTION;
+        if (!isEntityCapabilitySupported(type, selectedEntityTypes)) return ActionDisabledReason.NOT_SUPPORTED;
+        return undefined;
+    };
+
+    const getDisabledProps = (type: EntityCapabilityType) => {
+        const disabledReason = getDisabledReason(type);
+        return { disabled: disabledReason !== undefined, disabledReason };
+    };
+
     return (
         <>
             {visibleActionGroups.has(SelectActionGroups.CHANGE_OWNERS) && (
                 <OwnersDropdown
                     urns={selectedEntityUrns}
-                    disabled={
-                        selectedEntityUrns.length === 0 ||
-                        !isEntityCapabilitySupported(EntityCapabilityType.OWNERS, selectedEntityTypes)
-                    }
+                    {...getDisabledProps(EntityCapabilityType.OWNERS)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_GLOSSARY_TERMS) && (
                 <GlossaryTermDropdown
                     urns={selectedEntityUrns}
-                    disabled={
-                        selectedEntityUrns.length === 0 ||
-                        !isEntityCapabilitySupported(EntityCapabilityType.GLOSSARY_TERMS, selectedEntityTypes)
-                    }
+                    {...getDisabledProps(EntityCapabilityType.GLOSSARY_TERMS)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_TAGS) && (
                 <TagsDropdown
                     urns={selectedEntityUrns}
-                    disabled={
-                        selectedEntityUrns.length === 0 ||
-                        !isEntityCapabilitySupported(EntityCapabilityType.TAGS, selectedEntityTypes)
-                    }
+                    {...getDisabledProps(EntityCapabilityType.TAGS)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_DOMAINS) && (
                 <DomainDropdown
                     urns={selectedEntityUrns}
-                    disabled={
-                        selectedEntityUrns.length === 0 ||
-                        !isEntityCapabilitySupported(EntityCapabilityType.DOMAINS, selectedEntityTypes)
-                    }
+                    {...getDisabledProps(EntityCapabilityType.DOMAINS)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_DEPRECATION) && (
                 <DeprecationDropdown
                     urns={selectedEntityUrns}
-                    disabled={
-                        selectedEntityUrns.length === 0 ||
-                        !isEntityCapabilitySupported(EntityCapabilityType.DEPRECATION, selectedEntityTypes)
-                    }
+                    {...getDisabledProps(EntityCapabilityType.DEPRECATION)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.DELETE) && (
                 <DeleteDropdown
                     urns={selectedEntityUrns}
-                    disabled={
-                        selectedEntityUrns.length === 0 ||
-                        !isEntityCapabilitySupported(EntityCapabilityType.SOFT_DELETE, selectedEntityTypes)
-                    }
+                    {...getDisabledProps(EntityCapabilityType.SOFT_DELETE)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_DATA_PRODUCTS) && (
                 <DataProductsDropdown
                     urns={selectedEntityUrns}
-                    disabled={
-                        selectedEntityUrns.length === 0 ||
-                        !isEntityCapabilitySupported(EntityCapabilityType.DATA_PRODUCTS, selectedEntityTypes)
-                    }
+                    {...getDisabledProps(EntityCapabilityType.DATA_PRODUCTS)}
                     refetch={refetch}
                 />
             )}

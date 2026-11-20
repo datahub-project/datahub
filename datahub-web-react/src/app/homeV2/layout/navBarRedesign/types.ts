@@ -12,6 +12,7 @@ interface NavBarMenuBaseElement {
     type: NavBarMenuItemTypes;
     key: string;
     description?: string;
+    isDescriptionHighlighted?: boolean;
     link?: string;
     // Additional links to detect selected menu item (for subroutes)
     additionalLinksForPathMatching?: string[];
