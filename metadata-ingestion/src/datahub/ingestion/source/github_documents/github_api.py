@@ -111,29 +111,20 @@ class GitHubApiClient:
             )
         tree_truncated = bool(tree.get("truncated"))
 
-        ext_set = {ext.lower() for ext in extensions}
-        normalized_prefix = path_prefix.strip("/")
-
-        matching: List[RepositoryFileInfo] = []
-        self._index_file_paths = set()
+        selection = paths.TreeSelection.for_filters(path_prefix, extensions)
         for item in tree["tree"]:
             if item.get("type") != "blob":
                 continue
-            path = item.get("path", "")
-            if path == "index.md" or path.endswith("/index.md"):
-                self._index_file_paths.add(path)
-            if not paths.matches_filters(path, normalized_prefix, ext_set):
-                continue
-            size = item.get("size")
             blob_sha = item.get("sha")
-            matching.append(
+            selection.add(
                 RepositoryFileInfo(
-                    path=path,
-                    size=size,
+                    path=item.get("path", ""),
+                    size=item.get("size"),
                     sha=blob_sha if isinstance(blob_sha, str) else None,
                 )
             )
-        return matching, tree_truncated
+        self._index_file_paths = selection.index_paths
+        return selection.files, tree_truncated
 
     def fetch_file_content(
         self, owner_repo: str, file_path: str, branch: str
