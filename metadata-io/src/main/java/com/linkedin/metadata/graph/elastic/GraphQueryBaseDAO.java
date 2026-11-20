@@ -227,6 +227,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     Set<Urn> viaEntities = ConcurrentHashMap.newKeySet();
     ThreadSafePathStore existingPaths = new ThreadSafePathStore();
     List<Urn> currentLevel = ImmutableList.of(entityUrn);
+    AtomicBoolean partial = new AtomicBoolean(false);
 
     try (CascadeOperationContext cascade =
         CascadeOperationContext.beginWithoutMDC(
@@ -243,6 +244,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
               entityUrn,
               lineageGraphFilters.getLineageDirection(),
               maxHops);
+          partial.set(true);
           break;
         }
 
@@ -261,15 +263,24 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                 existingPaths,
                 exploreMultiplePaths,
                 result,
-                i);
+                i,
+                partial);
         currentLevel = intermediateStream.collect(Collectors.toList());
         cascade.recordEntitiesProcessed(result.size() - sizeBefore);
         currentTime = System.currentTimeMillis();
         remainingTime = timeoutTime - currentTime;
       }
     }
+    if (partial.get()) {
+      log.warn(
+          "Lineage for {} with direction {}, maxHops {} is partial: a hop did not complete within {}s",
+          entityUrn,
+          lineageGraphFilters.getLineageDirection(),
+          maxHops,
+          config.getSearch().getGraph().getTimeoutSeconds());
+    }
     List<LineageRelationship> resultList = new ArrayList<>(result.values());
-    LineageResponse response = new LineageResponse(resultList.size(), resultList, false);
+    LineageResponse response = new LineageResponse(resultList.size(), resultList, partial.get());
 
     List<LineageRelationship> subList;
     if (offset >= response.getTotal()) {
@@ -295,7 +306,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       ThreadSafePathStore existingPaths,
       boolean exploreMultiplePaths,
       Map<Urn, LineageRelationship> result,
-      int i) {
+      int i,
+      AtomicBoolean partial) {
 
     final LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
 
@@ -313,7 +325,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             remainingHops,
             remainingTime,
             existingPaths,
-            exploreMultiplePaths);
+            exploreMultiplePaths,
+            partial);
 
     for (LineageRelationship oneHopRelnship : oneHopRelationships) {
       if (result.containsKey(oneHopRelnship.getEntity())) {
@@ -362,7 +375,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                   existingPaths,
                   exploreMultiplePaths,
                   result,
-                  i);
+                  i,
+                  partial);
           intermediateStream = Stream.concat(intermediateStream, ignoreAsHopUrns);
         }
       }
@@ -435,30 +449,61 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       long remainingTime,
       ThreadSafePathStore existingPaths,
       boolean exploreMultiplePaths) {
+    return getLineageRelationshipsInBatches(
+        opContext,
+        entityUrns,
+        graphFilters,
+        visitedEntities,
+        viaEntities,
+        numHops,
+        remainingHops,
+        remainingTime,
+        existingPaths,
+        exploreMultiplePaths,
+        new AtomicBoolean(false));
+  }
+
+  /**
+   * Sets {@code partial} when a batch misses the deadline or fails, since its relationships are
+   * then missing from the result.
+   */
+  private List<LineageRelationship> getLineageRelationshipsInBatches(
+      @Nonnull final OperationContext opContext,
+      @Nonnull List<Urn> entityUrns,
+      LineageGraphFilters graphFilters,
+      Set<Urn> visitedEntities,
+      Set<Urn> viaEntities,
+      int numHops,
+      int remainingHops,
+      long remainingTime,
+      ThreadSafePathStore existingPaths,
+      boolean exploreMultiplePaths,
+      @Nonnull AtomicBoolean partial) {
     List<List<Urn>> batches =
         Lists.partition(entityUrns, config.getSearch().getGraph().getBatchSize());
-    return ConcurrencyUtils.getAllCompleted(
-            batches.stream()
-                .map(
-                    batchUrns ->
-                        CompletableFuture.supplyAsync(
-                            () ->
-                                getLineageRelationships(
-                                    opContext,
-                                    batchUrns,
-                                    graphFilters,
-                                    visitedEntities,
-                                    viaEntities,
-                                    numHops,
-                                    remainingHops,
-                                    existingPaths,
-                                    exploreMultiplePaths)))
-                .collect(Collectors.toList()),
-            remainingTime,
-            TimeUnit.MILLISECONDS)
-        .stream()
-        .flatMap(List::stream)
-        .collect(Collectors.toList());
+    List<CompletableFuture<List<LineageRelationship>>> futures =
+        batches.stream()
+            .map(
+                batchUrns ->
+                    CompletableFuture.supplyAsync(
+                        () ->
+                            getLineageRelationships(
+                                opContext,
+                                batchUrns,
+                                graphFilters,
+                                visitedEntities,
+                                viaEntities,
+                                numHops,
+                                remainingHops,
+                                existingPaths,
+                                exploreMultiplePaths)))
+            .collect(Collectors.toList());
+    List<List<LineageRelationship>> completed =
+        ConcurrencyUtils.getAllCompleted(futures, remainingTime, TimeUnit.MILLISECONDS);
+    if (completed.size() < futures.size()) {
+      partial.set(true);
+    }
+    return completed.stream().flatMap(List::stream).collect(Collectors.toList());
   }
 
   // Get 1-hop lineage relationships
