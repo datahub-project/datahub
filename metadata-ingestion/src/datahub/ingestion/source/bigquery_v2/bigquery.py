@@ -1,7 +1,6 @@
 import logging
 from typing import Iterable, Optional
 
-from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -279,7 +278,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.config.match_fully_qualified_names is not None
             and not self.config.match_fully_qualified_names
             and self.config.schema_pattern is not None
-            and self.config.schema_pattern != AllowDenyPattern.allow_all()
+            and not self.config.schema_pattern.is_allow_all()
         ):
             self.report.warning(
                 message="Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."

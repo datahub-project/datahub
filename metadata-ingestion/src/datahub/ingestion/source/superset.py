@@ -1159,7 +1159,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     dashboard_title=dashboard_title,
                 )
 
-            if self.config.database_pattern != AllowDenyPattern.allow_all():
+            if not self.config.database_pattern.is_allow_all():
                 self._report_filtered_chart_references(
                     position_data=position_data,
                     dashboard_id=dashboard_id,
@@ -1723,7 +1723,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 return
 
             # TODO: Make helper methods for database_pattern
-            if self.config.database_pattern != AllowDenyPattern.allow_all():
+            if not self.config.database_pattern.is_allow_all():
                 datasource_id = chart_data.get("datasource_id")
 
                 if datasource_id:
@@ -1797,7 +1797,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                                     title="Incomplete Ingestion",
                                 )
 
-            if self.config.dataset_pattern != AllowDenyPattern.allow_all():
+            if not self.config.dataset_pattern.is_allow_all():
                 datasource_id = chart_data.get("datasource_id")
                 if datasource_id:
                     dataset_response = self.get_dataset_info(datasource_id)
@@ -2225,7 +2225,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     f"Dataset '{dataset_name}' filtered by dataset_pattern"
                 )
                 return
-            if self.config.database_pattern != AllowDenyPattern.allow_all():
+            if not self.config.database_pattern.is_allow_all():
                 dataset_response = self.get_dataset_info(dataset_id)
                 database_name = (
                     dataset_response.get("result", {})
