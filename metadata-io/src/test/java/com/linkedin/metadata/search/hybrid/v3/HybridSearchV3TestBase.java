@@ -7,10 +7,12 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_
 import static io.datahubproject.test.search.SearchTestUtils.V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
@@ -48,8 +50,13 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SemanticSearchService;
+import com.linkedin.metadata.search.VectorRetrievalExplanation;
+import com.linkedin.metadata.search.cache.EntityDocCountCache;
+import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -70,6 +77,8 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateF
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateKeywordRerank;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateVectorRetrieval;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
@@ -116,6 +125,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.client.RequestOptions;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -150,6 +160,8 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
   private OperationContext opContext;
   private ElasticSearchConfiguration config;
   private SemanticSearchConfiguration semanticSearch;
+  private EntityIndexConfiguration entityIndex;
+  private MappingsBuilder mappingsBuilder;
   private ESSearchDAO keywordSearch;
   private ESSearchDAO hybridSearch;
 
@@ -169,7 +181,7 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
     semanticSearch =
         new SemanticSearchConfiguration(
             true, Set.of("document"), Map.of(MODEL_KEY, model), null, null, null);
-    EntityIndexConfiguration entityIndex =
+    entityIndex =
         V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.toBuilder()
             .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
             .v3(
@@ -187,7 +199,7 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
             entityIndex);
     EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
     // Built as MappingsBuilderFactory and SettingsBuilderFactory build them for the V3 cluster
-    MappingsBuilder mappingsBuilder =
+    mappingsBuilder =
         new MultiEntityMappingsBuilder(
             entityIndex,
             null,
@@ -464,6 +476,133 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
     assertEquals(
         explained.getMetadata().getKeywordRerank().getReason(),
         SearchTemplateKeywordRerank.NO_ELIGIBLE_ROWS);
+  }
+
+  /**
+   * Semantic search through the semantic search surface, end to end on a real index. With its
+   * rollout on, the shipped semantic template's vector rung serves the request through the search
+   * cache, and explain names the template. With it off, the request stays on the legacy semantic
+   * search, which runs its own kNN search on the same index.
+   */
+  @Test
+  public void testTheSemanticSurfaceServesTheSemanticTemplateOnlyWithItsSwitchOn() {
+    EmbeddingProvider fixedQuery = mock(EmbeddingProvider.class);
+    when(fixedQuery.embed(anyString(), any(), any(EmbeddingTaskType.class), any(Duration.class)))
+        .thenReturn(QUERY_VECTOR);
+    when(fixedQuery.embed(anyString(), any(), any(EmbeddingTaskType.class)))
+        .thenReturn(QUERY_VECTOR);
+    when(fixedQuery.embed(anyString(), any())).thenReturn(QUERY_VECTOR);
+    ESSearchDAO vectorSearch =
+        new ESSearchDAO(
+            false,
+            config,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            false,
+            TEST_SEARCH_SERVICE_CONFIG,
+            new Sha256UrnEntityDocumentIdHasher(),
+            null,
+            new HybridQueryEmbeddingService(fixedQuery, null, MODEL_KEY, QUERY_VECTOR.length));
+    EntitySearchService entitySearch = mock(EntitySearchService.class);
+    when(entitySearch.getSearchServiceConfig()).thenReturn(TEST_SEARCH_SERVICE_CONFIG);
+    when(entitySearch.search(any(), any(), any(), any(), any(), anyInt(), any(), any()))
+        .thenAnswer(
+            invocation ->
+                vectorSearch.search(
+                    invocation.getArgument(0),
+                    invocation.getArgument(1),
+                    invocation.getArgument(2),
+                    invocation.getArgument(3),
+                    invocation.getArgument(4),
+                    invocation.getArgument(5),
+                    invocation.getArgument(6),
+                    invocation.getArgument(7)));
+    SemanticSearchService semantic =
+        new SemanticSearchService(
+            mock(EntityDocCountCache.class),
+            new CachingEntitySearchService(
+                new ConcurrentMapCacheManager(), entitySearch, 100, true),
+            new SemanticEntitySearchService(
+                getSearchClient(), fixedQuery, mappingsBuilder, MODEL_KEY, entityIndex),
+            TEST_SEARCH_SERVICE_CONFIG.toBuilder().semanticSearchEnabled(true).build());
+    String semanticTemplate = "urn:li:searchTemplate:semantic";
+    Map<String, SearchTemplateProperties> catalog = new HashMap<>();
+    for (String urn : SearchTemplateBootstrap.urns()) {
+      catalog.put(urn, SearchTemplateBootstrap.get(urn));
+    }
+    SearchTemplateConfiguration templates = new SearchTemplateConfiguration();
+    templates.setEnabled(true);
+    SearchTemplateFixtures.setShippedLimits(templates);
+    templates
+        .getDefaults()
+        .put("fulltext", new HashMap<>(Map.of("default", "urn:li:searchTemplate:search")));
+    templates
+        .getSurfaces()
+        .put(
+            SearchTemplateSurfaces.SEMANTIC_SEARCH,
+            Map.of("fulltext", Map.<String, Object>of("default", semanticTemplate)));
+    OperationContext searching =
+        opContext
+            .withSearchTemplateRuntime(
+                new SearchTemplateCoordinator(
+                    config.toBuilder()
+                        .search(
+                            config.getSearch().toBuilder()
+                                .v3(new SearchV3Configuration().setTemplates(templates))
+                                .build())
+                        .build(),
+                    null,
+                    new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH, catalog),
+                    ForkJoinPool.commonPool(),
+                    SearchTemplateComponentRegistry.empty(),
+                    SearchTemplateGates.of(
+                        EmbeddingProfileRegistry.fromSemanticSearch(semanticSearch, MODEL_KEY),
+                        semanticSearch,
+                        true)))
+            .withSearchFlags(flags -> flags.setIncludeExplain(true));
+    List<String> documents = List.of("document");
+    // Approximate kNN with a two-row window can miss the exact matches among the crowd's 1,100
+    // near chunks, so the filter, which both searches apply inside the kNN request, holds three
+    // documents: the two nearest the query and one far from it
+    Filter candidates =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                new Criterion()
+                                    .setField("urn")
+                                    .setCondition(Condition.EQUAL)
+                                    .setValues(
+                                        new StringArray(
+                                            List.of(
+                                                NEAR_DOCUMENT.toString(),
+                                                FORECAST_SEMANTIC_MATCH.toString(),
+                                                FAR_DOCUMENT.toString())))))));
+
+    // Off by default: the request stays on the legacy semantic search, with no template explain
+    assertFalse(semantic.isServedByTemplate(searching));
+    SearchResult legacy =
+        semantic.semanticSearchAcrossEntities(
+            searching, documents, "quarterly revenue", candidates, null, 0, 2, List.of());
+    assertEquals(Set.copyOf(urns(legacy)), Set.of(NEAR_DOCUMENT, FORECAST_SEMANTIC_MATCH));
+    assertFalse(legacy.getMetadata().hasRouteChain());
+    assertFalse(legacy.getMetadata().hasVectorRetrieval());
+
+    // On: the shipped semantic template's vector rung serves the two documents nearest the query
+    templates.getRollout().setSemanticSearch("active");
+    assertTrue(semantic.isServedByTemplate(searching));
+    SearchResult served =
+        semantic.semanticSearchAcrossEntitiesByTemplate(
+            searching, documents, "quarterly revenue", candidates, null, 0, 2, List.of());
+    assertEquals(Set.copyOf(urns(served)), Set.of(NEAR_DOCUMENT, FORECAST_SEMANTIC_MATCH));
+    assertEquals(served.getMetadata().getRouteChain(), List.of(semanticTemplate));
+    VectorRetrievalExplanation explanation = served.getMetadata().getVectorRetrieval();
+    assertEquals(explanation.getOutcome(), SearchTemplateVectorRetrieval.SERVED);
+    assertEquals(explanation.getProfile(), MODEL_KEY);
+    assertEquals(explanation.getEntityTypes(), documents);
+    assertTrue(explanation.isFilterInVectorSearch());
   }
 
   private static List<Double> scores(SearchResult result) {
