@@ -814,6 +814,60 @@ datahub container owner --container-urn "urn:li:container:3f2effd1fbe154a4d60b59
 datahub container term --container-urn "urn:li:container:3f2effd1fbe154a4d60b597263a41e41" --term-urn  "urn:li:term:PII"
 ```
 
+### edit
+
+Edit the metadata the DataHub UI shows on an entity page, on any entity: tags, glossary terms, owners, domain, description and deprecation. The commands use the same GraphQL mutations as the UI and print JSON.
+
+Each command reads the entity first and skips it if it is already in the requested state, so rerunning a command is safe. Pass `--urn` several times to edit several entities at once; every URN is checked before anything changes. `--dry-run` shows what would change without changing it.
+
+```shell
+datahub edit add-tag --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)" --tag pii
+datahub edit remove-tag --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)" --tag pii
+datahub edit add-term --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)" --term Classification.Sensitive
+datahub edit add-owner --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)" --owner jdoe --ownership-type business
+datahub edit add-owner --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)" --owner group:data-eng
+datahub edit set-domain --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)" --domain marketing
+datahub edit set-description --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)" --text "One row per order."
+datahub edit deprecate --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)" --note "Use orders_v2."
+```
+
+`--owner` takes a user name, `group:<name>` for a group, or a `corpuser` / `corpGroup` URN. `--ownership-type` is `technical` (the default), `business`, `data_steward`, `none`, or an `urn:li:ownershipType:...` URN.
+
+#### undo and redo
+
+Every `datahub edit` command that changes something is recorded in `~/.datahub/edit_history.json` (set `DATAHUB_EDIT_HISTORY_FILE` to use another file). History is kept per DataHub server, so undo only reverts edits made on the server the CLI is connected to.
+
+```shell
+datahub edit history   # edits that can be undone, oldest first
+datahub edit undo      # revert the last edit command (all entities it changed)
+datahub edit redo      # re-apply the last undone command
+```
+
+Undo writes the previous value back. If someone else changed the same field after your edit, undo overwrites their change.
+
+### tag, glossary and domain
+
+Create, list and delete tags, glossary terms and nodes, and domains. To attach them to entities, use [`datahub edit`](#edit).
+
+```shell
+datahub tag create --name pii --description "Personal data"
+datahub tag list
+datahub tag delete --tag pii
+
+datahub glossary create-node --name Classification --id Classification
+datahub glossary create-term --name Sensitive --id Classification.Sensitive --parent Classification
+datahub glossary list            # terms; add --nodes for nodes
+datahub glossary delete --urn urn:li:glossaryTerm:Classification.Sensitive
+
+datahub domain create --name Marketing --id marketing
+datahub domain list
+datahub domain delete --domain marketing
+```
+
+`delete` asks for confirmation unless you pass `--force`.
+
+When stderr is not a terminal, errors from `edit`, `tag`, `glossary` and `domain` are printed as JSON (`{"error": ..., "message": ..., "suggestion": ...}`). Exit code 3 means an entity or a referenced tag, term, owner or domain does not exist; exit code 6 means `create` found one that already exists.
+
 ### check
 
 The datahub package is composed of different plugins that allow you to connect to different metadata sources and ingest metadata from them.
@@ -913,6 +967,12 @@ $ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,
     ]
   }
 }
+```
+
+`datahub get summary` shows what the UI shows at the top of an entity page, as JSON: name, description, tags, glossary terms, owners, domain and deprecation.
+
+```shell
+datahub get summary --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
 ```
 
 ### graphql

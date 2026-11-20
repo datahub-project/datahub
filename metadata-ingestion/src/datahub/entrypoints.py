@@ -17,6 +17,7 @@ import datahub._version as datahub_version
 from datahub.cli.agent_context import (
     make_agent_aware_command as _make_agent_aware_command,
 )
+from datahub.cli.catalog_cli import domain, glossary, tag
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
     enable_auto_decorators,
@@ -38,6 +39,7 @@ from datahub.cli.container_cli import container
 from datahub.cli.datapack.datapack_cli import datapack
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
+from datahub.cli.edit_cli import edit
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.cli.exists_cli import exists
 from datahub.cli.get_cli import get
@@ -699,6 +701,10 @@ datahub.add_command(datapack)
 datahub.add_command(api)
 datahub.add_command(agent_skill)
 datahub.add_command(recipe)
+datahub.add_command(edit)
+datahub.add_command(tag)
+datahub.add_command(glossary)
+datahub.add_command(domain)
 
 try:
     from datahub.cli.iceberg_cli import iceberg
