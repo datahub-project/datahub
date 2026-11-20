@@ -352,6 +352,68 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+                    "type": "COPY"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD),id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD),id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD),customer_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD),customer_id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD),status)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD),status)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD),amount)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD),amount)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD),created_at)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD),created_at)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000358,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -616,6 +678,68 @@
     },
     "systemMetadata": {
         "lastObserved": 1719788400500,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+                    "type": "COPY"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD),order_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),order_id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD),customer_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),customer_id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD),status)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),status)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD),amount)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),amount)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD),order_date)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),order_date)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000361,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1055,6 +1179,68 @@
     },
     "systemMetadata": {
         "lastObserved": 1719788400505,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+                    "type": "COPY"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD),order_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD),order_id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD),item_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD),item_id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD),quantity)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD),quantity)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD),unit_price)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD),unit_price)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD),ds)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD),ds)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000412,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
