@@ -84,10 +84,10 @@ def test_explore_gets_label_keyed_link_and_project_is_fetched_once(
             "patch": [
                 {
                     "op": "add",
-                    "path": "/elements/View in GitHub",
+                    "path": "/elements/View in Git",
                     "value": {
                         "url": ORDERS_GITHUB_URL,
-                        "description": "View in GitHub",
+                        "description": "View in Git",
                         "createStamp": {"time": 0, "actor": "urn:li:corpuser:datahub"},
                         "settings": {"showInAssetPreview": True},
                     },
