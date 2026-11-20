@@ -62,6 +62,7 @@ public class FeatureFlags {
   private boolean showSearchBarAutocompleteRedesign = false;
   private boolean showManageTags = false;
   private boolean showIntroducePage = false;
+  private boolean viewIngestionSourcePrivilegesEnabled = false;
   private boolean showLineageExpandMore = true;
   private boolean showLineageFilterNodes = false;
   private boolean showStatsTabRedesign = false;

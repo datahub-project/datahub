@@ -170,8 +170,8 @@ export const NavSidebar = () => {
     const showDataSources =
         config.managedIngestionConfig.enabled &&
         me &&
-        me.platformPrivileges?.manageIngestion &&
-        me.platformPrivileges?.manageSecrets;
+        ((me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets) ||
+            config.featureFlags?.viewIngestionSourcePrivilegesEnabled);
 
     // Update education steps allow list
     useUpdateEducationStepsAllowList(!!showDataSources, HOME_PAGE_INGESTION_ID);

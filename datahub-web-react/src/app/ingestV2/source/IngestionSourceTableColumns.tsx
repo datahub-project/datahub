@@ -214,7 +214,8 @@ interface ActionsColumnProps {
     onEdit: (urn: string) => void;
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
-    navigateToRunHistory: (record: IngestionSourceTableData) => void;
+    /** Omitted when the Run History tab is not available to the current user. */
+    navigateToRunHistory?: (record: IngestionSourceTableData) => void;
 }
 
 export function ActionsColumn({
@@ -260,7 +261,7 @@ export function ActionsColumn({
             },
         });
     }
-    if (record.execCount)
+    if (record.execCount && navigateToRunHistory)
         items.push({
             type: 'item',
             key: 'run-history',

@@ -50,15 +50,17 @@ These privileges can be granted in two ways:
 
 For more granular control, administrators can create [Custom Policies](authorization/policies.md) that apply specifically to **Ingestion Sources**, allowing different users to have different levels of access:
 
-- **View** - View ingestion source configurations and run history
-- **Edit** - Modify ingestion source configurations (the recipe the executor will run)
+- **View Entity Page** - View ingestion source configurations; the **Run History** tab remains limited to users with `Manage Metadata Ingestion`
+- **Edit Entity** - Modify ingestion source configurations (the recipe the executor will run)
 - **Delete** - Remove ingestion sources
-- **Execute** - Run ingestion sources on-demand. Combined with **Edit**, this is the same code-execution capability as `Manage Metadata Ingestion`, scoped to those sources.
+- **Execute Entity** - Run ingestion sources on-demand. Combined with **Edit Entity**, this is the same code-execution capability as `Manage Metadata Ingestion`, scoped to those sources.
 
 **Prerequisites:**
 
-- **DataHub Core**: Enable the `VIEW_INGESTION_SOURCE_PRIVILEGES_ENABLED` feature flag
+- **DataHub Core**: Set `VIEW_INGESTION_SOURCE_PRIVILEGES_ENABLED=true` on GMS. Without it, the **Ingestion** page and the list of sources still require the `Manage Metadata Ingestion` platform privilege, and the resource-specific privileges only apply to API calls that target a specific source.
 - **DataHub Cloud**: Work with your customer success team to get the feature enabled
+
+With the flag enabled, a user without `Manage Metadata Ingestion` sees only the ingestion sources they are authorized to view. The source type filter is not offered to them, the **Create new source** button is disabled, and the **Run History** tab stays limited to users with `Manage Metadata Ingestion`.
 
 :::caution
 **Important**: Once this feature flag is enabled, any policies that apply to "All" resource types will now include Ingestion Sources, including the default read-only policies. This will make the Ingestion tab visible and potentially actionable depending on the applied privileges. Implement this with care if you have view-only policies that should not expose the Data Sources page.
