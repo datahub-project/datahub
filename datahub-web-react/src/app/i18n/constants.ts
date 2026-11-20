@@ -1,18 +1,18 @@
 import { SelectOption } from '@components';
-import deDE from 'antd/lib/locale/de_DE';
-import enUS from 'antd/lib/locale/en_US';
-import esES from 'antd/lib/locale/es_ES';
-import fiFI from 'antd/lib/locale/fi_FI';
-import frFR from 'antd/lib/locale/fr_FR';
-import huHU from 'antd/lib/locale/hu_HU';
-import itIT from 'antd/lib/locale/it_IT';
-import jaJP from 'antd/lib/locale/ja_JP';
-import nbNO from 'antd/lib/locale/nb_NO';
-import ptBR from 'antd/lib/locale/pt_BR';
-import ruRU from 'antd/lib/locale/ru_RU';
-import svSE from 'antd/lib/locale/sv_SE';
-import zhCN from 'antd/lib/locale/zh_CN';
-import zhTW from 'antd/lib/locale/zh_TW';
+import deDE from 'antd/es/locale/de_DE';
+import enUS from 'antd/es/locale/en_US';
+import esES from 'antd/es/locale/es_ES';
+import fiFI from 'antd/es/locale/fi_FI';
+import frFR from 'antd/es/locale/fr_FR';
+import huHU from 'antd/es/locale/hu_HU';
+import itIT from 'antd/es/locale/it_IT';
+import jaJP from 'antd/es/locale/ja_JP';
+import nbNO from 'antd/es/locale/nb_NO';
+import ptBR from 'antd/es/locale/pt_BR';
+import ruRU from 'antd/es/locale/ru_RU';
+import svSE from 'antd/es/locale/sv_SE';
+import zhCN from 'antd/es/locale/zh_CN';
+import zhTW from 'antd/es/locale/zh_TW';
 
 import { LocaleConfig, SupportedLanguage } from '@app/i18n/types';
 

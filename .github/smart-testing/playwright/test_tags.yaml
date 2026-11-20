@@ -1,0 +1,576 @@
+# Smart Testing — Playwright test tags
+#
+# Split from the original combined annotations (generated 2026-09-11 by Claude
+# Opus batch annotation). Tags come from ../taxonomy.yaml. Read by
+# .github/scripts/plan_playwright_tier.py: under active smart testing, the specs
+# carrying the PR's feature-user, feature-dev or compound tags replace the @p0
+# tests in the Playwright PR tier. A path's tags come from its exact entry, else
+# its longest matching glob, across this file and test_tags.overlay.yaml when
+# present.
+
+version: 1
+
+tests:
+  # ── analytics/ ──────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/analytics/*.spec.ts"
+    tags:
+      feature-user: [analytics]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── application/ ────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/application/*.spec.ts"
+    tags:
+      feature-user: []
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [application-service]
+
+  # ── auth/ ───────────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/auth/*.spec.ts"
+    tags:
+      feature-user: []
+      feature-dev: [authentication]
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── autocomplete-v2/ ────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/autocomplete-v2/*.spec.ts"
+    tags:
+      feature-user: [search]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── browse-v2/ ──────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/browse-v2/*.spec.ts"
+    tags:
+      feature-user: [search]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── business-attributes/ ────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/business-attributes/*.spec.ts"
+    tags:
+      feature-user: [business-attributes]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── change-history/ ─────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/change-history/*.spec.ts"
+    tags:
+      feature-user: [change-history]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── column-lineage-controls/ ────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/column-lineage-controls/*.spec.ts"
+    tags:
+      feature-user: [lineage]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── column-lineage-hidden/ ──────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/column-lineage-hidden/*.spec.ts"
+    tags:
+      feature-user: [lineage]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset, dashboard-chart]
+
+  # ── containers-v2/ ──────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/containers-v2/*.spec.ts"
+    tags:
+      feature-user: []
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [container]
+
+  # ── data-product-lineage/ ───────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/data-product-lineage/*.spec.ts"
+    tags:
+      feature-user: [data-products, lineage]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── documents/ ──────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/documents/*.spec.ts"
+    tags:
+      feature-user: [documentation]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── domains-v2/ ─────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/domains-v2/*.spec.ts"
+    tags:
+      feature-user: [domains]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── entity-pages/ ──────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/entity-pages/summary-tab/v2-summary-tab-about-section.spec.ts"
+    tags:
+      feature-user: [documentation, schema-metadata]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  - path: "e2e-test/ui/playwright/tests/entity-pages/summary-tab/v2-summary-tab-data-product.spec.ts"
+    tags:
+      feature-user: [data-products]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  - path: "e2e-test/ui/playwright/tests/entity-pages/summary-tab/v2-summary-tab-domain.spec.ts"
+    tags:
+      feature-user: [domains]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  - path: "e2e-test/ui/playwright/tests/entity-pages/summary-tab/v2-summary-tab-glossary-node.spec.ts"
+    tags:
+      feature-user: [glossary]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  - path: "e2e-test/ui/playwright/tests/entity-pages/summary-tab/v2-summary-tab-glossary-term.spec.ts"
+    tags:
+      feature-user: [glossary]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  - path: "e2e-test/ui/playwright/tests/entity-pages/summary-tab/v2-dataset-summary-about-section.spec.ts"
+    tags:
+      feature-user: [documentation]
+      feature-dev: [feature-flags]
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── glossary/ ───────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/glossary/*.spec.ts"
+    tags:
+      feature-user: [glossary]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── home/ and home-v2/ ──────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/home/*.spec.ts"
+    tags:
+      feature-user: [home-page]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  - path: "e2e-test/ui/playwright/tests/home-v2/*.spec.ts"
+    tags:
+      feature-user: [home-page]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── incidents-v2/ ───────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/incidents-v2/*.spec.ts"
+    tags:
+      feature-user: [incidents]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── ingestion-v3/ ──────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/ingestion-v3/*.spec.ts"
+    tags:
+      feature-user: [ingestion]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── lineage-cll/ ────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/lineage-cll/*.spec.ts"
+    tags:
+      feature-user: [lineage]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── lineage-controls/ ───────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/lineage-controls/*.spec.ts"
+    tags:
+      feature-user: [lineage]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset, dashboard-chart]
+
+  # ── lineage-v3/ ─────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/lineage-v3/*.spec.ts"
+    tags:
+      feature-user: [lineage]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── logical-models/ ───────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/logical-models/physical-children-view.spec.ts"
+    tags:
+      feature-user: [views, search, ownership]
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset, corpuser-corpgroup]
+
+  # ── login-v2/ ───────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/login-v2/*.spec.ts"
+    tags:
+      feature-user: []
+      feature-dev: [authentication]
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── manage-tags/ ────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/manage-tags/*.spec.ts"
+    tags:
+      feature-user: [tags]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── mfeframework/ ───────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/mfeframework/*.spec.ts"
+    tags:
+      feature-user: []
+      feature-dev: [feature-flags]
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── ml-entities-v2/ ─────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/ml-entities-v2/*.spec.ts"
+    tags:
+      feature-user: []
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [ml-entities]
+
+  # ── mutations/ and mutations-v2/ ────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/mutations/add-users.spec.ts"
+    tags:
+      feature-user: []
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [corpuser-corpgroup]
+
+  - path: "e2e-test/ui/playwright/tests/mutations/dataset-health.spec.ts"
+    tags:
+      feature-user: [incidents]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  - path: "e2e-test/ui/playwright/tests/mutations/dataset-ownership.spec.ts"
+    tags:
+      feature-user: [ownership]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  - path: "e2e-test/ui/playwright/tests/mutations/deprecations.spec.ts"
+    tags:
+      feature-user: [deprecation]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  - path: "e2e-test/ui/playwright/tests/mutations/edit-documentation.spec.ts"
+    tags:
+      feature-user: [documentation]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  - path: "e2e-test/ui/playwright/tests/mutations/manage-ingestion-secret-privilege.spec.ts"
+    tags:
+      feature-user: [ingestion, authorization]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  - path: "e2e-test/ui/playwright/tests/mutations-v2/v2-domains.spec.ts"
+    tags:
+      feature-user: [domains]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  - path: "e2e-test/ui/playwright/tests/mutations-v2/v2-edit-documentation.spec.ts"
+    tags:
+      feature-user: [documentation]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── navbar/ ─────────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/navbar/*.spec.ts"
+    tags:
+      feature-user: [home-page]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── nested-column-stats/ ────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/nested-column-stats/*.spec.ts"
+    tags:
+      feature-user: [schema-metadata, stats]
+      feature-dev: [timeseries-aspects]
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── onboarding/ ─────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/onboarding/*.spec.ts"
+    tags:
+      feature-user: [home-page]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── ownership-v2/ ──────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/ownership-v2/*.spec.ts"
+    tags:
+      feature-user: [ownership]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── quality/ ────────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/quality/*.spec.ts"
+    tags:
+      feature-user: [assertions]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── schema-blame/ ──────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/schema-blame/*.spec.ts"
+    tags:
+      feature-user: [schema-metadata, change-history]
+      feature-dev: [entity-versioning]
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── schema-scale/ ───────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/schema-scale/*.spec.ts"
+    tags:
+      feature-user:
+        [schema-metadata, documentation, glossary, structured-properties]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── search/ ─────────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/search/*.spec.ts"
+    tags:
+      feature-user: [search]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── settings-v2/ ────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/settings-v2/v2-home-page-posts.spec.ts"
+    tags:
+      feature-user: [home-page, settings]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  - path: "e2e-test/ui/playwright/tests/settings-v2/v2-manage-access-tokens.spec.ts"
+    tags:
+      feature-user: [settings]
+      feature-dev: [authentication]
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  - path: "e2e-test/ui/playwright/tests/settings-v2/v2-manage-policies.spec.ts"
+    tags:
+      feature-user: [authorization, settings]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  - path: "e2e-test/ui/playwright/tests/settings-v2/v2-manage-service-accounts.spec.ts"
+    tags:
+      feature-user: [settings]
+      feature-dev: [authentication]
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [corpuser-corpgroup]
+
+  - path: "e2e-test/ui/playwright/tests/settings-v2/v2-managing-groups.spec.ts"
+    tags:
+      feature-user: [settings]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [corpuser-corpgroup]
+
+  # ── siblings-v2/ ────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/siblings-v2/*.spec.ts"
+    tags:
+      feature-user: []
+      feature-dev: [siblings]
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── stats-v2/ ───────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/stats-v2/*.spec.ts"
+    tags:
+      feature-user: [stats]
+      feature-dev: [timeseries-aspects]
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── structured-properties/ ──────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/structured-properties/*.spec.ts"
+    tags:
+      feature-user: [structured-properties]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataset]
+
+  # ── structured-property-scale/ ──────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/structured-property-scale/*.spec.ts"
+    tags:
+      feature-user: [structured-properties, glossary]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── task-runs-v2/ ───────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/task-runs-v2/*.spec.ts"
+    tags:
+      feature-user: []
+      feature-dev: [executor]
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: [dataflow-datajob]
+
+  # ── upload-files/ ───────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/upload-files/*.spec.ts"
+    tags:
+      feature-user: [documentation]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []
+
+  # ── views/ ──────────────────────────────────────────────────
+
+  - path: "e2e-test/ui/playwright/tests/views/*.spec.ts"
+    tags:
+      feature-user: [views]
+      feature-dev: []
+      compound: []
+      technical-layer: [playwright-e2e, react-frontend]
+      entity-scope: []

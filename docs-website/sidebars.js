@@ -315,6 +315,12 @@ module.exports = {
                   id: "docs/features/feature-guides/context/import-github",
                   className: "saasOnly",
                 },
+                {
+                  label: "Import from GitLab",
+                  type: "doc",
+                  id: "docs/features/feature-guides/context/import-gitlab",
+                  className: "saasOnly",
+                },
               ],
             },
             {

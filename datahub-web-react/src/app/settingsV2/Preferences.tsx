@@ -85,7 +85,9 @@ export const Preferences = () => {
 
     const [updateApplicationsSettingsMutation] = useUpdateApplicationsSettingsMutation();
 
-    const canManageApplicationAppearance = userContext?.platformPrivileges?.manageFeatures;
+    const canManageApplicationAppearance =
+        appConfig.config?.featureFlags?.showApplicationsFeatureToggle &&
+        userContext?.platformPrivileges?.manageFeatures;
 
     return (
         <Page>

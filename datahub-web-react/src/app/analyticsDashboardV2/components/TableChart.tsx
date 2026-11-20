@@ -125,6 +125,6 @@ export const TableChart = ({ chartData }: Props) => {
     });
 
     return (
-        <StyledTable columns={columns as ColumnsType<object>} dataSource={tableData} pagination={false} size="small" />
+        <StyledTable columns={columns as ColumnsType<unknown>} dataSource={tableData} pagination={false} size="small" />
     );
 };

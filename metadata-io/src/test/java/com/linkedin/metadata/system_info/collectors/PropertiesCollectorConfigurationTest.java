@@ -625,6 +625,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.searchServiceDiffModeEnabled",
           "featureFlags.showAccessManagement",
           "featureFlags.showAcrylInfo",
+          "featureFlags.showApplicationsFeatureToggle",
           "featureFlags.showAutoCompleteResults",
           "featureFlags.showBrowseV2",
           "featureFlags.showHasSiblingsFilter",
