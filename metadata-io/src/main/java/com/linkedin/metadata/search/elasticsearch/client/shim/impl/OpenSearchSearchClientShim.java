@@ -967,7 +967,8 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
    * on the parent documents: 3.5 and later. Before 3.5 the k-NN plugin applies a nested kNN
    * pre-filter in the chunk scope when it names an underscore-prefixed field such as {@code
    * _entityType}, and there it matches nothing. A null or unparseable version, or a 3.5.0
-   * prerelease, is false.
+   * prerelease, is false. So is a 7.x version: OpenSearch never shipped one, and a cluster in
+   * compatibility mode reports 7.10.2 whatever it runs.
    */
   public static boolean supportsUnderscoreFieldsInNestedKnnFilter(@Nullable String version) {
     final Matcher matcher = version == null ? null : SEMANTIC_VERSION_PATTERN.matcher(version);
@@ -977,7 +978,7 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
     final int major = Integer.parseInt(matcher.group(1));
     final int minor = Integer.parseInt(matcher.group(2));
     final int patch = Integer.parseInt(matcher.group(3));
-    return (major > 3 || major == 3 && minor >= 5)
+    return (major > 3 && major < 7 || major == 3 && minor >= 5)
         && !(major == 3 && minor == 5 && patch == 0 && matcher.group(4) != null);
   }
 

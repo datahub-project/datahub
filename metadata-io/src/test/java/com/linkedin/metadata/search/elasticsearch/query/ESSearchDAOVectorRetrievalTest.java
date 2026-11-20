@@ -505,6 +505,8 @@ public class ESSearchDAOVectorRetrievalTest {
     return new Object[][] {
       {SearchClientShim.SearchEngineType.OPENSEARCH_2, "2.19.3", false},
       {SearchClientShim.SearchEngineType.OPENSEARCH_3, "3.4.0", false},
+      // A cluster in compatibility mode reports 7.10.2, whatever OpenSearch it runs
+      {SearchClientShim.SearchEngineType.OPENSEARCH_2, "7.10.2", false},
       {SearchClientShim.SearchEngineType.OPENSEARCH_3, "3.5.0", true},
       {SearchClientShim.SearchEngineType.ELASTICSEARCH_8, "8.18.0", true},
       // What getEngineVersion returns when cluster info is restricted, a blank version, a read
