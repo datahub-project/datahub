@@ -48,7 +48,6 @@ def concept_id(path: str, bundle: OkfBundleClass) -> str:
 
 def discover_bundles(
     *,
-    repo: str,
     file_paths: Iterable[str],
     index_paths: Set[str],
     explicit_roots: List[str],

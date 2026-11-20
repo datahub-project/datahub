@@ -4,15 +4,17 @@ import base64
 import logging
 import re
 import time
-import warnings
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Protocol, Set, Tuple, Union
+from typing import List, Optional, Protocol, Set, Tuple, Union
 from urllib.parse import quote
 
 import requests
 
-from datahub.ingestion.source.repository_documents import client as _client, paths
-from datahub.ingestion.source.repository_documents.client import RepositoryFileInfo
+from datahub.ingestion.source.repository_documents.client import (
+    MAX_FILE_SIZE_BYTES,
+    RepositoryFileInfo,
+)
+from datahub.ingestion.source.repository_documents.paths import TreeSelection
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +113,7 @@ class GitHubApiClient:
             )
         tree_truncated = bool(tree.get("truncated"))
 
-        selection = paths.TreeSelection.for_filters(path_prefix, extensions)
+        selection = TreeSelection.for_filters(path_prefix, extensions)
         for item in tree["tree"]:
             if item.get("type") != "blob":
                 continue
@@ -141,12 +143,12 @@ class GitHubApiClient:
             return None
 
         size = node.get("size")
-        if isinstance(size, int) and size > _client.MAX_FILE_SIZE_BYTES:
+        if isinstance(size, int) and size > MAX_FILE_SIZE_BYTES:
             logger.warning(
                 "File %s is %s bytes (max %s), skipping",
                 file_path,
                 size,
-                _client.MAX_FILE_SIZE_BYTES,
+                MAX_FILE_SIZE_BYTES,
             )
             return None
 
@@ -260,82 +262,3 @@ class GitHubApiClient:
             self._last_api_error = f"GitHub API request failed: {exc}"
             logger.warning("Failed to download raw content from %s: %s", url, exc)
             return None
-
-
-def _github_file_source_id(
-    owner_repo: str, file_path: str, *, source_prefix: str = "github"
-) -> str:
-    return paths.make_file_source_id(owner_repo, file_path, source_prefix=source_prefix)
-
-
-def _github_dir_source_id(
-    owner_repo: str, dir_path: str, *, source_prefix: str = "github"
-) -> str:
-    return paths.make_dir_source_id(owner_repo, dir_path, source_prefix=source_prefix)
-
-
-def _github_repo_source_id(owner_repo: str, *, source_prefix: str = "github") -> str:
-    return paths.make_repo_source_id(owner_repo, source_prefix=source_prefix)
-
-
-def _github_parent_dir_source_id(
-    owner_repo: str,
-    full_path: str,
-    path_prefix: str,
-    *,
-    repo_root_source_id: Optional[str] = None,
-    source_prefix: str = "github",
-) -> Optional[str]:
-    return paths.resolve_parent_dir_source_id(
-        owner_repo,
-        full_path,
-        path_prefix,
-        repo_root_source_id=repo_root_source_id,
-        source_prefix=source_prefix,
-    )
-
-
-# Deprecated names kept so code built on the github-documents modules keeps
-# importing: name -> (value, where to import it from instead).
-_DEPRECATED_ALIASES: Dict[str, Tuple[object, str]] = {
-    "GitHubFileInfo": (RepositoryFileInfo, "client.RepositoryFileInfo"),
-    "RepositoryDocumentsClient": (
-        _client.RepositoryDocumentsClient,
-        "client.RepositoryDocumentsClient",
-    ),
-    "MAX_FILE_SIZE_BYTES": (_client.MAX_FILE_SIZE_BYTES, "client.MAX_FILE_SIZE_BYTES"),
-    "collect_intermediate_directories": (
-        paths.collect_intermediate_directories,
-        "paths.collect_intermediate_directories",
-    ),
-    "normalize_document_id": (
-        paths.normalize_document_id,
-        "paths.normalize_document_id",
-    ),
-    "make_file_source_id": (_github_file_source_id, "paths.make_file_source_id"),
-    "make_dir_source_id": (_github_dir_source_id, "paths.make_dir_source_id"),
-    "make_repo_source_id": (_github_repo_source_id, "paths.make_repo_source_id"),
-    "resolve_parent_dir_source_id": (
-        _github_parent_dir_source_id,
-        "paths.resolve_parent_dir_source_id",
-    ),
-}
-
-
-def __getattr__(name: str) -> Any:
-    # Any, not object: callers of a deprecated name keep type-checking.
-    if name not in _DEPRECATED_ALIASES:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    value, replacement = _DEPRECATED_ALIASES[name]
-    warnings.warn(
-        f"{__name__}.{name} is deprecated and will be removed in a future release. "
-        f"Import datahub.ingestion.source.repository_documents.{replacement} instead"
-        + (
-            ', passing source_prefix="github".'
-            if replacement.startswith(("paths.make_", "paths.resolve_"))
-            else "."
-        ),
-        FutureWarning,
-        stacklevel=2,
-    )
-    return value
