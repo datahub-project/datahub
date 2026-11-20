@@ -178,7 +178,8 @@ public final class SearchTemplateVectorRetrieval {
    * rung both read the anchor here, as routing reads the query: a route that misses is tried again
    * without the structured prefix, so the prefix is dropped before the rest is trimmed. The GraphQL
    * search resolvers escape each {@code /} as {@code \/}, so that escape is undone, for the anchor
-   * only.
+   * only. Rest.li, OpenAPI and SDK callers do not escape, so a literal {@code \/} in their query is
+   * read as {@code /} too.
    */
   @Nullable
   public static Urn anchorUrn(@Nonnull String query) {

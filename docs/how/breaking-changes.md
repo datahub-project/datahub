@@ -15,7 +15,7 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
-### Semantic search template sends an entity URN to similarity
+### Semantic search template sends an entity URN to similarity ([#21474](https://github.com/datahub-project/datahub/pull/21474))
 
 System update now writes version 19 of the shipped search templates. `urn:li:searchTemplate:semantic`
 routes a query that is an entity URN (lowercase `urn:li:`, an entity type, a colon, and a key) to
@@ -35,7 +35,9 @@ through a release that has similarity first avoids this.
 
 **Before rolling back** to a release that ships the `semantic` template but not similarity, restore the
 previous `semantic` template, or a URN query on it fails there. A rollback to a release that has
-similarity needs no step, since that release runs the route. A rollback to a release from before the
+similarity needs no step, since that release runs the route. That release reads the anchor without
+dropping the structured `\/q ` prefix or the GraphQL `\/` escape, so there a routed `\/q <urn>` query,
+or a URN whose key contains `/`, fails as `noAnchor`. A rollback to a release from before the
 `semantic` template follows the version 17 rollback steps below instead. While this release is still
 deployed:
 
