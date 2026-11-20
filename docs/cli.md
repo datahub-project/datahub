@@ -644,7 +644,10 @@ decides what each relation shows, so point the recipe at a read-only role.
 
 Snowflake also admits its two tag table functions, which read one object's tags without the up to
 two-hour lag of `ACCOUNT_USAGE.TAG_REFERENCES`. Call them as a table function, qualified with
-`information_schema` and given string literals only:
+`information_schema` and given string literals only. The schema and function name stay unquoted;
+the database in front may be quoted, as a mixed-case one must be. `'table'` returns the table's tags,
+`'column'` one column's (`'my_db.my_schema.my_table.my_column'`), and
+`tag_references_all_columns` every column's:
 
 ```shell
 datahub recipe probe run sql --recipe my_recipe.yml \
