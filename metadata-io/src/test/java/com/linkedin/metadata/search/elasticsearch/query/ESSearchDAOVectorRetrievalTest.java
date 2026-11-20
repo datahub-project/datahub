@@ -42,6 +42,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.FloatArray;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.datahub.graphql.resolvers.knowledge.DocumentSearchFilterUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -2550,32 +2551,38 @@ public class ESSearchDAOVectorRetrievalTest {
 
   /**
    * The anchor filter is read on the same fields as the neighbors' filter: the anchor check renders
-   * the document defaults as the kNN request does, so a field path one of them reads is the one the
-   * other reads.
+   * it as the kNN request does, so a field path one of them reads is the one the other reads. Both
+   * shapes the GraphQL resolvers record: the document defaults, and the owner-based visibility rule
+   * of document search, with and without the manage-documents privilege.
    */
   @Test
-  public void testTheAnchorCheckRendersTheDocumentDefaultsAsTheKnnRequestDoes() throws Exception {
+  public void testTheAnchorCheckRendersItsFilterAsTheKnnRequestDoes() throws Exception {
     store(similarity(r -> {}));
     anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
     knnReturns(hits(0.95));
+    List<String> viewer = List.of("urn:li:corpuser:viewer", "urn:li:corpGroup:readers");
     for (boolean canManageDocuments : List.of(false, true)) {
-      Filter defaults = publishedDocumentDefault(canManageDocuments);
-      clearInvocations(client);
+      for (Filter anchorFilter :
+          List.of(
+              publishedDocumentDefault(canManageDocuments),
+              DocumentSearchFilterUtils.buildCombinedFilter(
+                  List.of(), viewer, true, canManageDocuments))) {
+        clearInvocations(client);
 
-      similarWithin(context(DOCUMENT, f -> {}).withAnchorFilter(defaults), defaults);
+        similarWithin(context(DOCUMENT, f -> {}).withAnchorFilter(anchorFilter), anchorFilter);
 
-      SearchRequest probe = anchorProbe();
-      Map<String, Object> anchorFilter =
-          ((BoolQueryBuilder) probe.source().query())
-              .filter().stream()
-                  .filter(clause -> clause.toString().contains("showInGlobalContext"))
-                  .map(ESUtils::filterMap)
-                  .findFirst()
-                  .orElseThrow();
-      assertEquals(
-          should(anchorFilter),
-          should(knnRequest().filter().orElseThrow()),
-          String.valueOf(canManageDocuments));
+        SearchRequest probe = anchorProbe();
+        Map<String, Object> rendered =
+            ((BoolQueryBuilder) probe.source().query())
+                .filter().stream()
+                    .filter(clause -> clause.toString().contains("showInGlobalContext"))
+                    .map(ESUtils::filterMap)
+                    .findFirst()
+                    .orElseThrow();
+        assertEquals(((List<?>) should(rendered)).size(), anchorFilter.getOr().size());
+        assertEquals(
+            should(rendered), should(knnRequest().filter().orElseThrow()), anchorFilter.toString());
+      }
     }
   }
 

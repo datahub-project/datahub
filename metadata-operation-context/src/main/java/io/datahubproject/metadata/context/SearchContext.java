@@ -112,12 +112,12 @@ public class SearchContext implements ContextInterface {
 
   /**
    * A filter a similarity anchor must pass besides the default search filters. GraphQL search
-   * resolvers set it to the document defaults they add, on their own and whatever types the request
-   * searches, so a viewer cannot anchor a search on a document they could not find by search. Null
-   * when the entry point sets none, as on Rest.li and OpenAPI. Not part of {@link
-   * #getCacheKeyComponent()}: bind checks the anchor before the result cache and stamps its answer
-   * into the template's cache identity, and the filter derives from the flags and the actor, which
-   * are in the key.
+   * resolvers set it to the document visibility rule they add to the request filter, on its own and
+   * whatever types the request searches, so a viewer cannot anchor a search on a document that
+   * search would not show them. Null when the entry point sets none, as on Rest.li and OpenAPI. Not
+   * part of {@link #getCacheKeyComponent()}: bind checks the anchor before the result cache and
+   * stamps its answer into the template's cache identity, and the filter derives from the flags and
+   * the actor, which are in the key.
    */
   @Nullable private final Filter anchorFilter;
 
