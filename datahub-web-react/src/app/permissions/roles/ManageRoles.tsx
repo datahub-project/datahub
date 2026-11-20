@@ -22,7 +22,7 @@ import { useBatchAssignRoleMutation } from '@graphql/mutations.generated';
 import { useListRolesQuery } from '@graphql/role.generated';
 import { DataHubRole, EntityType } from '@types';
 
-const TableScrollContainer = styled.div`
+export const TableScrollContainer = styled.div`
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -30,16 +30,16 @@ const TableScrollContainer = styled.div`
     overflow: auto;
 `;
 
-const PaginationContainer = styled.div`
+export const PaginationContainer = styled.div`
     display: flex;
     justify-content: center;
 `;
 
-const RoleName = styled.span`
+export const RoleName = styled.span`
     font-weight: 700;
 `;
 
-const PageContainer = styled.div`
+export const PageContainer = styled.div`
     width: 100%;
     flex: 1;
     min-height: 0;
@@ -55,7 +55,7 @@ const ActionsContainer = styled.div`
     justify-content: flex-end;
 `;
 
-const PillsContainer = styled.div`
+export const PillsContainer = styled.div`
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
