@@ -17,7 +17,6 @@ from typing import (
     Tuple,
     Union,
 )
-from urllib.parse import urlsplit
 
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.serialize import DeserializeError
@@ -74,11 +73,12 @@ from datahub.ingestion.source.looker.looker_common import (
     extract_project_from_imported_file_path,
     gen_model_key,
     get_urn_looker_element_id,
+    https_repo_url_from_git_remote,
 )
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
 from datahub.ingestion.source.looker.looker_constant import (
+    EXPLORE_GIT_LINK_ACTOR,
     EXPLORE_GIT_LINK_LABEL,
-    GIT_SCP_REMOTE_PATTERN,
     LOOKER_DEFAULT_GIT_BRANCH,
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
@@ -112,6 +112,7 @@ from datahub.metadata.schema_classes import (
     EmbedClass,
     InputFieldClass,
     InputFieldsClass,
+    InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
     InstitutionalMemoryMetadataSettingsClass,
     OwnerClass,
@@ -227,6 +228,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         # Git settings per Looker project for explore source links; None = no usable remote.
         self._project_git_refs: Dict[str, Optional[GitReference]] = {}
+        if config.emit_explore_git_links and ctx.graph is None:
+            self.reporter.info(
+                title="Explore Git links are add-only",
+                message="No DataHub connection to read existing links from, so an Explore's old Git link is not removed when its URL changes.",
+            )
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -972,19 +978,44 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         git_ref = self._get_project_git_ref(explore.project_name)
         if git_ref is None:
             return []
-        link = InstitutionalMemoryMetadataClass(
-            url=git_ref.get_url_for_file_path(path),
-            description=EXPLORE_GIT_LINK_LABEL,
-            # Fixed timestamp so re-runs write an identical link.
-            createStamp=AuditStampClass(time=0, actor=builder.make_user_urn("datahub")),
-            settings=InstitutionalMemoryMetadataSettingsClass(showInAssetPreview=True),
-        )
+        url = git_ref.get_url_for_file_path(path)
+        # None when there is no DataHub connection: add only, stale links stay.
+        existing_urls = self._ingestion_git_link_urls(explore_urn)
+        if existing_urls == {url}:
+            return []
         patch = HasInstitutionalMemoryPatch(explore_urn)
-        patch.set_institutional_memory_by_label(link)
+        for stale_url in sorted((existing_urls or set()) - {url}):
+            patch.remove_institutional_memory_by_url_and_label(
+                stale_url, EXPLORE_GIT_LINK_LABEL
+            )
+        if url not in (existing_urls or set()):
+            patch.add_institutional_memory_by_url_and_label(
+                InstitutionalMemoryMetadataClass(
+                    url=url,
+                    description=EXPLORE_GIT_LINK_LABEL,
+                    # The fixed stamp marks the link as ingestion-written; UI links get a real time.
+                    createStamp=AuditStampClass(time=0, actor=EXPLORE_GIT_LINK_ACTOR),
+                    settings=InstitutionalMemoryMetadataSettingsClass(
+                        showInAssetPreview=True
+                    ),
+                )
+            )
         return [
             MetadataWorkUnit(id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp)
             for mcp in patch.build()
         ]
+
+    def _ingestion_git_link_urls(self, explore_urn: str) -> Optional[Set[str]]:
+        if self.ctx.graph is None:
+            return None
+        memory = self.ctx.graph.get_aspect(explore_urn, InstitutionalMemoryClass)
+        return {
+            element.url
+            for element in (memory.elements if memory else [])
+            if element.description == EXPLORE_GIT_LINK_LABEL
+            and element.createStamp.time == 0
+            and element.createStamp.actor == EXPLORE_GIT_LINK_ACTOR
+        }
 
     def _get_project_git_ref(self, project_name: str) -> Optional[GitReference]:
         if project_name not in self._project_git_refs:
@@ -1004,32 +1035,31 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 exc=e,
             )
             return None
-        remote = project.git_remote_url
-        if not remote:
+        if not project.git_remote_url:
             self.reporter.warning(
                 title="Looker project has no Git remote",
                 message="Explores in this project get no Git link.",
                 context=project_name,
             )
             return None
-        scp_match = GIT_SCP_REMOTE_PATTERN.match(remote)
-        if "://" in remote:
-            # hostname drops user:token@ and the port, so credentials never reach the link or the report.
-            parts = urlsplit(remote)
-            repo = f"https://{parts.hostname}{parts.path}"
-        elif scp_match:
-            repo = f"https://{scp_match[1]}/{scp_match[2]}"
-        else:
-            repo = remote.rpartition("@")[2]
+        repo = https_repo_url_from_git_remote(project.git_remote_url)
+        if repo is None:
+            # The remote itself is not echoed: it may carry credentials.
+            self.reporter.warning(
+                title="Malformed Git remote for Explore links",
+                message="The project's Git remote is not a URL or user@host:path remote; explores in this project get no Git link.",
+                context=project_name,
+            )
+            return None
         try:
             return GitReference(
-                repo=repo.removesuffix(".git"),
+                repo=repo,
                 branch=project.git_production_branch_name or LOOKER_DEFAULT_GIT_BRANCH,
             )
         except ValueError as e:
             self.reporter.warning(
                 title="Unsupported Git host for Explore links",
-                message="Only GitHub and GitLab remotes are supported; explores in this project get no Git link.",
+                message="Only github.com and gitlab.com remotes are supported; explores in this project get no Git link.",
                 context=f"{project_name}: {repo}",
                 exc=e,
             )

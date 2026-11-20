@@ -21,7 +21,9 @@ Explore usage is attached only to explores that were actually ingested in the sa
 
 Set `emit_explore_git_links: true` to add a **View in Git** button to each Explore that opens the LookML file defining it. The repository and production branch come from the Explore's Looker project, so the recipe needs no Git settings. The API key must be able to read project settings. If it cannot, the report shows a warning for that project and its Explores get no link.
 
-Only GitHub and GitLab remotes are supported. Explores defined in an imported project get no link. The link is matched by its label, so a link someone added by hand with the label "View in Git" is replaced, and turning the option off does not remove links already written.
+When the file, branch or repository changes, the next run replaces the old link with the new one. This needs a DataHub connection to read the existing links. Without one, new links are added but old ones are not removed, and the report notes this. Links added by hand are never changed, even if they use the same label.
+
+Only github.com and gitlab.com remotes are supported. Explores in a project with a malformed or unsupported remote, and Explores defined in an imported project, get no link. Turning the option off does not remove links already written.
 
 #### LookML projects ingested under other platform instances
 

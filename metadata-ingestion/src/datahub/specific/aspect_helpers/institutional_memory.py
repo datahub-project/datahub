@@ -7,7 +7,7 @@ from datahub.metadata.schema_classes import (
 )
 
 _ELEMENTS_APK = {"elements": ["url"]}
-_ELEMENTS_BY_LABEL_APK = {"elements": ["description"]}
+_ELEMENTS_BY_URL_AND_LABEL_APK = {"elements": ["url", "description"]}
 
 
 class HasInstitutionalMemoryPatch(MetadataPatchProposal):
@@ -34,15 +34,28 @@ class HasInstitutionalMemoryPatch(MetadataPatchProposal):
         )
         return self
 
-    def set_institutional_memory_by_label(
+    def add_institutional_memory_by_url_and_label(
         self, element: InstitutionalMemoryMetadataClass
     ) -> Self:
-        """Adds the link, replacing any existing link with the same label (``description``) whatever its URL."""
+        """Adds the link, replacing only an existing link with the same url and label (``description``)."""
         self._add_patch(
             InstitutionalMemoryClass.ASPECT_NAME,
             "add",
-            path=("elements", element.description),
+            path=("elements", element.url, element.description),
             value=element,
-            array_primary_keys=_ELEMENTS_BY_LABEL_APK,
+            array_primary_keys=_ELEMENTS_BY_URL_AND_LABEL_APK,
+        )
+        return self
+
+    def remove_institutional_memory_by_url_and_label(
+        self, url: str, label: str
+    ) -> Self:
+        """Removes only the link with exactly this url and label (``description``)."""
+        self._add_patch(
+            InstitutionalMemoryClass.ASPECT_NAME,
+            "remove",
+            path=("elements", url, label),
+            value={},
+            array_primary_keys=_ELEMENTS_BY_URL_AND_LABEL_APK,
         )
         return self

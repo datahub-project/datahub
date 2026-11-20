@@ -20,6 +20,7 @@ VIEW_FIELD_INTERVALS_ATTRIBUTE = "intervals"
 VIEW_FIELD_TIMEFRAMES_ATTRIBUTE = "timeframes"
 
 EXPLORE_GIT_LINK_LABEL = "View in Git"
+EXPLORE_GIT_LINK_ACTOR = "urn:li:corpuser:datahub"
 # Looker's default when a project has no production branch configured.
 LOOKER_DEFAULT_GIT_BRANCH = "master"
 # SCP-style SSH remotes like git@github.com:org/repo.git

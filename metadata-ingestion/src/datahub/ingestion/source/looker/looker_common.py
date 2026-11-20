@@ -52,7 +52,10 @@ from datahub.ingestion.source.looker.looker_config import (
     NamingPatternMapping,
     ViewNamingPatternMapping,
 )
-from datahub.ingestion.source.looker.looker_constant import IMPORTED_PROJECTS_PREFIX
+from datahub.ingestion.source.looker.looker_constant import (
+    GIT_SCP_REMOTE_PATTERN,
+    IMPORTED_PROJECTS_PREFIX,
+)
 from datahub.ingestion.source.looker.looker_dataclasses import ProjectInclude
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
@@ -213,6 +216,26 @@ def lookml_file_path_from_link(lookml_link: Optional[str]) -> Optional[str]:
     if not found or not encoded_path:
         return None
     return unquote(encoded_path)
+
+
+def https_repo_url_from_git_remote(remote: str) -> Optional[str]:
+    """https URL of a scheme:// or user@host:path Git remote, without credentials or port; None if malformed."""
+    try:
+        if "://" in remote:
+            parts = urlsplit(remote)
+            host, path = parts.hostname, parts.path
+        else:
+            scp_match = GIT_SCP_REMOTE_PATTERN.match(remote)
+            if not scp_match:
+                return None
+            host, path = scp_match[1], scp_match[2]
+    except ValueError:
+        return None
+    repo_path = path.strip("/").removesuffix(".git")
+    # Needs at least owner/repo; never fall back to guessing a host.
+    if not host or "/" not in repo_path:
+        return None
+    return f"https://{host}/{repo_path}"
 
 
 @dataclass
