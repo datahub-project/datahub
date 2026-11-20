@@ -15,6 +15,10 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### sql-queries source moved into a package
+
+The `sql-queries` source is now the package `datahub.ingestion.source.sql_queries` ([PR #20345](https://github.com/datahub-project/datahub/pull/20345)). Recipes are unchanged. Python code that imports from the old module must use the new paths, for example `datahub.ingestion.source.sql_queries.source.SqlQueriesSource` and `datahub.ingestion.source.sql_queries.config.SqlQueriesSourceConfig`. The report failures `Local file read error` and `S3 read error` are now both titled `Query file open error`; update any alerting that matches the old titles.
+
 ### Show Applications setting is hidden by default
 
 Applications are being deprioritized. The **Show Applications** setting on the **Settings > Appearance**
