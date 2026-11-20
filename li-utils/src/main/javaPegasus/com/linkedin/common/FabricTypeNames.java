@@ -4,10 +4,12 @@ import com.linkedin.data.message.Message;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.NamedDataSchema;
 import com.linkedin.data.schema.validator.ValidatorContext;
+import com.linkedin.data.template.RecordTemplate;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
@@ -47,6 +49,21 @@ public final class FabricTypeNames {
     return schema != null
         && DataSchema.Type.TYPEREF.equals(schema.getType())
         && TYPEREF_FULL_NAME.equals(((NamedDataSchema) schema).getFullName());
+  }
+
+  /**
+   * The stored value of a {@code FabricTypeName} field. Generated accessors return {@code $UNKNOWN}
+   * for a custom value, so code that needs the real value reads it here.
+   */
+  @Nullable
+  public static String get(@Nonnull RecordTemplate record, @Nonnull String fieldName) {
+    return record.data().getString(fieldName);
+  }
+
+  /** Writes any value, built-in or custom, to a {@code FabricTypeName} field. */
+  public static void set(
+      @Nonnull RecordTemplate record, @Nonnull String fieldName, @Nonnull String value) {
+    record.data().put(fieldName, value);
   }
 
   /**

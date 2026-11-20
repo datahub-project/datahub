@@ -3,5 +3,9 @@ namespace com.linkedin.common
 /**
  * Name of an environment (fabric). Either a FabricType symbol, or the id of a registered
  * customFabricType entity. Custom names are uppercase letters, digits and underscores.
+ * Stored as a string; generated Java keeps the FabricType type, and a custom value reads as
+ * $UNKNOWN there (use FabricTypeNames to read the stored value).
  */
+@java.class = "com.linkedin.common.FabricType"
+@java.coercerClass = "com.linkedin.util.FabricTypeNameCoercer"
 typeref FabricTypeName = string

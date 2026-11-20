@@ -72,8 +72,8 @@ public class CreateLogicalModelResolver implements DataFetcher<CompletableFuture
             key.setName(input.getName());
             key.setOrigin(
                 input.getEnv() != null
-                    ? FabricType.valueOf(input.getEnv().toString()).name()
-                    : FabricType.PROD.name());
+                    ? FabricType.valueOf(input.getEnv().toString())
+                    : FabricType.PROD);
 
             final Urn datasetUrn = EntityKeyUtils.convertEntityKeyToUrn(key, DATASET_ENTITY_NAME);
             if (_entityClient.exists(context.getOperationContext(), datasetUrn)) {

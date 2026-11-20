@@ -962,8 +962,12 @@
     "type" : "typeref",
     "name" : "FabricTypeName",
     "namespace" : "com.linkedin.common",
-    "doc" : "Name of an environment (fabric). Either a FabricType symbol, or the id of a registered\ncustomFabricType entity. Custom names are uppercase letters, digits and underscores.",
-    "ref" : "string"
+    "doc" : "Name of an environment (fabric). Either a FabricType symbol, or the id of a registered\ncustomFabricType entity. Custom names are uppercase letters, digits and underscores.\nStored as a string; generated Java keeps the FabricType type, and a custom value reads as\n$UNKNOWN there (use FabricTypeNames to read the stored value).",
+    "ref" : "string",
+    "java" : {
+      "class" : "com.linkedin.common.FabricType",
+      "coercerClass" : "com.linkedin.util.FabricTypeNameCoercer"
+    }
   }, {
     "type" : "record",
     "name" : "GlobalTags",

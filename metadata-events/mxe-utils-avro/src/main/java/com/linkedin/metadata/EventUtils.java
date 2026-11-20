@@ -360,8 +360,11 @@ public class EventUtils {
       @Nonnull GenericRecord original, @Nonnull Schema originalSchema, @Nonnull Schema newSchema)
       throws IOException {
 
-    // Step 1: Updates to the latest original schema
-    final GenericRecord record = changeSchema(original, original.getSchema(), originalSchema);
+    // Step 1: Updates to the latest original schema. An event from a producer whose schema still
+    // has env / origin as the FabricType enum is first copied with those values as strings, which
+    // Avro schema resolution can't do by itself.
+    final GenericRecord widened = LegacyFabricTypeAvro.widen(original);
+    final GenericRecord record = changeSchema(widened, widened.getSchema(), originalSchema);
 
     // Step 2: Updates to the new renamed schema
     return changeSchema(record, newSchema, newSchema);

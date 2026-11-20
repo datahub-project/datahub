@@ -275,7 +275,7 @@ public class AspectLoadCrossDispatchCacheTest {
         new DatasetKey()
             .setPlatform(Urn.createFromTuple("dataPlatform", "mysql"))
             .setName("my_db.cross_dispatch")
-            .setOrigin(com.linkedin.common.FabricType.PROD.name());
+            .setOrigin(com.linkedin.common.FabricType.PROD);
 
     Map<String, EnvelopedAspect> aspects = new HashMap<>();
     // Key aspect is always included by DatasetType optimization.

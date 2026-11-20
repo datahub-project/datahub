@@ -37,7 +37,7 @@ public class DatasetTypeTest {
       new DatasetKey()
           .setPlatform(Urn.createFromTuple("dataPlatform", "mysql"))
           .setName("test.db")
-          .setOrigin(com.linkedin.common.FabricType.PROD.name());
+          .setOrigin(com.linkedin.common.FabricType.PROD);
   private static final DatasetProperties TEST_DATASET_PROPERTIES =
       new DatasetProperties().setDescription("test description").setName("Test Dataset");
 

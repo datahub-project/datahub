@@ -125,7 +125,7 @@ public class BrowsePathV2UtilsTest {
     DatasetKey datasetKey =
         new DatasetKey()
             .setName("Test.A.B")
-            .setOrigin(FabricType.PROD.name())
+            .setOrigin(FabricType.PROD)
             .setPlatform(Urn.createFromString("urn:li:dataPlatform:kafka"));
     Urn datasetUrn = EntityKeyUtils.convertEntityKeyToUrn(datasetKey, "dataset");
     BrowsePathsV2 browsePathsV2 =

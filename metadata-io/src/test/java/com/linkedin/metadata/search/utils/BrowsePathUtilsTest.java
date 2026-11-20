@@ -25,7 +25,7 @@ public class BrowsePathUtilsTest {
     DatasetKey datasetKey =
         new DatasetKey()
             .setName("Test.A.B")
-            .setOrigin(FabricType.PROD.name())
+            .setOrigin(FabricType.PROD)
             .setPlatform(Urn.createFromString("urn:li:dataPlatform:kafka"));
     Urn datasetUrn = EntityKeyUtils.convertEntityKeyToUrn(datasetKey, "dataset");
     String datasetPath = BrowsePathUtils.getDefaultBrowsePath(datasetUrn, this.registry, '.');
@@ -67,7 +67,7 @@ public class BrowsePathUtilsTest {
     DatasetKey datasetKey =
         new DatasetKey()
             .setName("Test.A.B")
-            .setOrigin(FabricType.PROD.name())
+            .setOrigin(FabricType.PROD)
             .setPlatform(Urn.createFromString("urn:li:dataPlatform:kafka"));
     Urn datasetUrn = EntityKeyUtils.convertEntityKeyToUrn(datasetKey, "dataset");
     Urn dataPlatformUrn1 = BrowsePathUtils.buildDataPlatformUrn(datasetUrn, this.registry);

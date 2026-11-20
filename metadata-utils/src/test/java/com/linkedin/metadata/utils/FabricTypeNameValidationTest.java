@@ -2,6 +2,7 @@ package com.linkedin.metadata.utils;
 
 import static org.testng.Assert.assertThrows;
 
+import com.linkedin.common.FabricTypeNames;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
@@ -73,11 +74,13 @@ public class FabricTypeNameValidationTest {
   }
 
   private static IcebergWarehouseInfo icebergWarehouseInfo(String env) {
-    return new IcebergWarehouseInfo()
-        .setDataRoot("s3://bucket/wh")
-        .setClientId(UrnUtils.getUrn("urn:li:dataHubSecret:id"))
-        .setClientSecret(UrnUtils.getUrn("urn:li:dataHubSecret:secret"))
-        .setRegion("us-east-1")
-        .setEnv(env);
+    IcebergWarehouseInfo info =
+        new IcebergWarehouseInfo()
+            .setDataRoot("s3://bucket/wh")
+            .setClientId(UrnUtils.getUrn("urn:li:dataHubSecret:id"))
+            .setClientSecret(UrnUtils.getUrn("urn:li:dataHubSecret:secret"))
+            .setRegion("us-east-1");
+    FabricTypeNames.set(info, "env", env);
+    return info;
   }
 }

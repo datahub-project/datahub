@@ -298,7 +298,7 @@ public class SiblingAssociationHookTest {
         createEvent(DATASET_ENTITY_NAME, DATASET_KEY_ASPECT_NAME, ChangeType.UPSERT);
     final DatasetKey datasetKey = new DatasetKey();
     datasetKey.setName("my-proj.jaffle_shop.customers");
-    datasetKey.setOrigin(FabricType.PROD.name());
+    datasetKey.setOrigin(FabricType.PROD);
     datasetKey.setPlatform(DataPlatformUrn.createFromString("urn:li:dataPlatform:bigquery"));
 
     event.setAspect(GenericRecordUtils.serializeAspect(datasetKey));

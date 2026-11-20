@@ -637,7 +637,7 @@ public class PlatformEventGeneratorHookTest {
 
     DatasetKey newDatasetKey = new DatasetKey();
     newDatasetKey.setName("TestName");
-    newDatasetKey.setOrigin(FabricType.PROD.name());
+    newDatasetKey.setOrigin(FabricType.PROD);
     newDatasetKey.setPlatform(Urn.createFromString("urn:li:dataPlatform:hive"));
 
     event.setAspect(GenericRecordUtils.serializeAspect(newDatasetKey));
@@ -671,7 +671,7 @@ public class PlatformEventGeneratorHookTest {
 
     DatasetKey newDatasetKey = new DatasetKey();
     newDatasetKey.setName("TestName");
-    newDatasetKey.setOrigin(FabricType.PROD.name());
+    newDatasetKey.setOrigin(FabricType.PROD);
     newDatasetKey.setPlatform(Urn.createFromString("urn:li:dataPlatform:hive"));
 
     event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(newDatasetKey));

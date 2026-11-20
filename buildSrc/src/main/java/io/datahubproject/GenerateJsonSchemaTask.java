@@ -179,10 +179,65 @@ public class GenerateJsonSchemaTask extends DefaultTask {
   }
 
   private final HashSet<String> filenames = new HashSet<>();
+
+  private static HashSet<String> collectEnumNames(JsonNode node, HashSet<String> names) {
+    if (node.isObject()
+        && "enum".equals(node.path("type").asText(null))
+        && node.has("name")) {
+      String ns = node.path("namespace").asText("");
+      names.add(ns.isEmpty() ? node.get("name").asText() : ns + "." + node.get("name").asText());
+    }
+    node.forEach(child -> collectEnumNames(child, names));
+    return names;
+  }
+
+  /**
+   * A field of a string typeref (e.g. FabricTypeName) bound to its built-in enum with
+   * {@code @java.class}, which Avro keeps as a "java" property on the string field. Give such a
+   * field the enum type back, so the JSON schema and the generated OpenAPI models stay as they were
+   * before the field became a string typeref. The enum's schema is the standalone .avsc that
+   * copyStandaloneEnumAvroSchemas puts in the input directory.
+   */
+  private void rewriteBoundEnums(JsonNode node, HashSet<String> definedEnums) throws IOException {
+    if (node.isObject()) {
+      ObjectNode obj = (ObjectNode) node;
+      JsonNode javaClass = obj.path("java").path("class");
+      if (javaClass.isTextual() && obj.has("type")) {
+        String enumName = javaClass.asText();
+        File enumFile =
+            Paths.get(inputDirectory, "avro", enumName.replace('.', File.separatorChar) + ".avsc")
+                .toFile();
+        if (enumFile.isFile()) {
+          JsonNode enumSchema = JsonLoader.fromFile(enumFile);
+          if ("enum".equals(enumSchema.path("type").asText(null))) {
+            JsonNode replacement =
+                definedEnums.add(enumName) ? enumSchema : NODE_FACTORY.textNode(enumName);
+            JsonNode type = obj.get("type");
+            if (type.isTextual() && "string".equals(type.asText())) {
+              obj.set("type", replacement);
+            } else if (type.isArray()) {
+              ArrayNode union = (ArrayNode) type;
+              for (int i = 0; i < union.size(); i++) {
+                if ("string".equals(union.get(i).asText(null))) {
+                  union.set(i, replacement);
+                }
+              }
+            }
+            obj.remove("java");
+          }
+        }
+      }
+    }
+    for (JsonNode child : node) {
+      rewriteBoundEnums(child, definedEnums);
+    }
+  }
+
   private void generateSchema(final File file) {
     final String fileBaseName;
     try {
       final JsonNode schema = JsonLoader.fromFile(file);
+      rewriteBoundEnums(schema, collectEnumNames(schema, new HashSet<>()));
 
       final JsonNode result = buildResult(schema.toString());
       String prettySchema = JacksonUtils.prettyPrint(result);

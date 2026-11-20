@@ -132,7 +132,7 @@ public class ValidationApiUtilsTest {
             new DatasetKey()
                 .setPlatform(UrnUtils.getUrn("urn:li:dataPlatform:mongodb"))
                 .setName("adoption.pet_profiles")
-                .setOrigin(FabricType.PROD.name())));
+                .setOrigin(FabricType.PROD)));
 
     EntityRegistry mockEntityRegistry = spy(entityRegistry);
     MetadataChangeProposal result = ValidationApiUtils.validateMCP(mockEntityRegistry, mcp);

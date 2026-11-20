@@ -139,7 +139,7 @@ public class AspectLoadBatchUnionTest {
         new DatasetKey()
             .setPlatform(Urn.createFromTuple("dataPlatform", "mysql"))
             .setName(urn.getId())
-            .setOrigin(com.linkedin.common.FabricType.PROD.name());
+            .setOrigin(com.linkedin.common.FabricType.PROD);
     return new EntityResponse()
         .setEntityName(Constants.DATASET_ENTITY_NAME)
         .setUrn(urn)

@@ -703,7 +703,7 @@ public class DataHubIcebergWarehouseTest {
     DataHubIcebergWarehouse warehouse =
         new DataHubIcebergWarehouse(
             platformInstance,
-            new IcebergWarehouseInfo().setEnv(FabricType.PROD.name()),
+            new IcebergWarehouseInfo().setEnv(FabricType.PROD),
             entityService,
             secretService,
             cacheEvictionService,
