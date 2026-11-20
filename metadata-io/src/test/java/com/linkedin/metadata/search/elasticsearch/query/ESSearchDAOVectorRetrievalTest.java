@@ -2553,36 +2553,51 @@ public class ESSearchDAOVectorRetrievalTest {
    * The anchor filter is read on the same fields as the neighbors' filter: the anchor check renders
    * it as the kNN request does, so a field path one of them reads is the one the other reads. Both
    * shapes the GraphQL resolvers record: the document defaults, and the owner-based visibility rule
-   * of document search, with and without the manage-documents privilege.
+   * of document search, with and without the manage-documents privilege. With a lifecycle stage
+   * hidden from search, the default search filters read the rule as they read the neighbors'
+   * filter, so the anchor gets the hidden-stage clause exactly when its neighbors do.
    */
   @Test
-  public void testTheAnchorCheckRendersItsFilterAsTheKnnRequestDoes() throws Exception {
+  public void testTheAnchorCheckRendersItsFiltersAsTheKnnRequestDoes() throws Exception {
     store(similarity(r -> {}));
     anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
     knnReturns(hits(0.95));
-    List<String> viewer = List.of("urn:li:corpuser:viewer", "urn:li:corpGroup:readers");
-    for (boolean canManageDocuments : List.of(false, true)) {
-      for (Filter anchorFilter :
-          List.of(
-              publishedDocumentDefault(canManageDocuments),
-              DocumentSearchFilterUtils.buildCombinedFilter(
-                  List.of(), viewer, true, canManageDocuments))) {
-        clearInvocations(client);
+    LifecycleStageTypeService stages = mock(LifecycleStageTypeService.class);
+    when(stages.getHiddenStageUrns(anySet())).thenReturn(Set.of(HIDDEN_STAGE));
+    LifecycleStageTypeService previous = ESUtils.getLifecycleStageTypeService();
+    ESUtils.setLifecycleStageTypeService(stages);
+    try {
+      List<String> viewer = List.of("urn:li:corpuser:viewer", "urn:li:corpGroup:readers");
+      for (boolean canManageDocuments : List.of(false, true)) {
+        for (Filter anchorFilter :
+            List.of(
+                publishedDocumentDefault(canManageDocuments),
+                DocumentSearchFilterUtils.buildCombinedFilter(
+                    List.of(), viewer, true, canManageDocuments))) {
+          clearInvocations(client);
 
-        similarWithin(context(DOCUMENT, f -> {}).withAnchorFilter(anchorFilter), anchorFilter);
+          similarWithin(context(DOCUMENT, f -> {}).withAnchorFilter(anchorFilter), anchorFilter);
 
-        SearchRequest probe = anchorProbe();
-        Map<String, Object> rendered =
-            ((BoolQueryBuilder) probe.source().query())
-                .filter().stream()
-                    .filter(clause -> clause.toString().contains("showInGlobalContext"))
-                    .map(ESUtils::filterMap)
-                    .findFirst()
-                    .orElseThrow();
-        assertEquals(((List<?>) should(rendered)).size(), anchorFilter.getOr().size());
-        assertEquals(
-            should(rendered), should(knnRequest().filter().orElseThrow()), anchorFilter.toString());
+          SearchRequest probe = anchorProbe();
+          Map<String, Object> rendered =
+              ((BoolQueryBuilder) probe.source().query())
+                  .filter().stream()
+                      .filter(clause -> clause.toString().contains("showInGlobalContext"))
+                      .map(ESUtils::filterMap)
+                      .findFirst()
+                      .orElseThrow();
+          Map<String, Object> neighbors = knnRequest().filter().orElseThrow();
+          assertEquals(((List<?>) clauses(rendered, "should")).size(), anchorFilter.getOr().size());
+          assertEquals(
+              clauses(rendered, "should"), clauses(neighbors, "should"), anchorFilter.toString());
+          assertEquals(
+              clauses(ESUtils.filterMap(probe.source().query()), "must_not"),
+              clauses(neighbors, "must_not"),
+              anchorFilter.toString());
+        }
       }
+    } finally {
+      ESUtils.setLifecycleStageTypeService(previous);
     }
   }
 
@@ -2852,9 +2867,9 @@ public class ESSearchDAOVectorRetrievalTest {
     return probes.get(0);
   }
 
-  /** The OR branches of a filter map. */
-  private static Object should(Map<String, Object> filter) {
-    return ((Map<?, ?>) filter.get("bool")).get("should");
+  /** One occurrence type of a filter map's top-level bool, such as its OR branches. */
+  private static Object clauses(Map<String, Object> filter, String occur) {
+    return ((Map<?, ?>) filter.get("bool")).get(occur);
   }
 
   private void chunkFinds(float[] chunk, KnnSearchResponse.Hit... found) throws IOException {

@@ -839,14 +839,19 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
    * hidden lifecycle stage unless the request opts in with {@code includeSoftDeleted} or {@code
    * includeHiddenLifecycleStages}. It must also pass the search context's anchor filter, the
    * document visibility rule a GraphQL resolver adds, so a document the viewer could not find by
-   * that search cannot anchor one. These are the filters every neighbor passes. The caller's filter
-   * selects neighbors, not the anchor, so it does not apply. The store lookup must finish by the
-   * deadline. Bind checks this before it reads the anchor and before the result cache, and the rung
-   * reuses that answer.
+   * that search cannot anchor one. The default search filters read that rule as they read the
+   * neighbors' filter, so a rule that names the lifecycle stage takes the place of the hidden-stage
+   * clause for the anchor as it does for the neighbors. These are the filters every neighbor
+   * passes. The caller's filter selects neighbors, not the anchor, so it does not apply. The store
+   * lookup must finish by the deadline. Bind checks this before it reads the anchor and before the
+   * result cache, and the rung reuses that answer.
    */
   public boolean anchorUsable(
       @Nonnull OperationContext opContext, @Nonnull Urn anchor, long deadlineNanos)
       throws IOException {
+    // With view authorization off, the anchor is not held to the READ check that the documents
+    // service applies to document search results. General search has the same exposure then, since
+    // it does not apply that check either.
     if (ESAccessControlUtil.restrictUrn(opContext, anchor)) {
       return false;
     }
@@ -869,7 +874,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
                     .timeout(TimeValue.timeValueMillis(remainingMillis))
                     .query(
                         ESUtils.applyDefaultSearchFilters(
-                            opContext, entityType, null, query, entityIndex)));
+                            opContext, entityType, anchorFilter, query, entityIndex)));
     final SearchResponse response =
         within(
             () ->
