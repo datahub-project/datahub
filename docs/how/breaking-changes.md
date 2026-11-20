@@ -17,7 +17,7 @@ the one you are on and the one you are moving to, not just the target.
 
 ### Stricter permission checks when deleting from the UI or GraphQL
 
-Delete actions in the UI and GraphQL API now check the type of the item being deleted ([PR #PR_NUMBER](https://github.com/datahub-project/datahub/pull/PR_NUMBER)). For example, **Delete Tag** can only delete tags, and **Delete Domain** can only delete domains. Normal use of these actions does not change.
+Delete actions in the UI and GraphQL API now check the type of the item being deleted ([PR #21488](https://github.com/datahub-project/datahub/pull/21488)). For example, **Delete Tag** can only delete tags, and **Delete Domain** can only delete domains. Normal use of these actions does not change.
 
 Two cases now require the **Delete Entity** privilege on the item itself:
 
