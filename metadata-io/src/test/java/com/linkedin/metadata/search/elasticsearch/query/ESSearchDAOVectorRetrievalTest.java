@@ -36,6 +36,7 @@ import com.linkedin.common.EmbeddingModelData;
 import com.linkedin.common.EmbeddingModelDataMap;
 import com.linkedin.common.SemanticContent;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.FloatArray;
 import com.linkedin.data.template.SetMode;
@@ -2477,6 +2478,36 @@ public class ESSearchDAOVectorRetrievalTest {
             eq(SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME));
     verify(client, never()).searchKnn(any(), any());
     verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+  }
+
+  /**
+   * Bind reads a routed anchor as the rung does, so a structured-prefix or escaped-slash URN that
+   * the viewer may not see is refused at bind, before the result cache, without being read.
+   */
+  @Test
+  public void testBindReadsARoutedAnchorAsTheRungDoes() throws Exception {
+    SearchTemplateFixtures.readShipped().forEach(harness::store);
+    String slashed = "urn:li:document:guides/runbook";
+    OperationContext searching = pinned(context(DOCUMENT, f -> {}), SEMANTIC_URN);
+    SearchTemplateCoordinator coordinator =
+        (SearchTemplateCoordinator) searching.getSearchContext().getSearchTemplateRuntime();
+
+    for (Map.Entry<String, String> query :
+        Map.of("\\/q " + ANCHOR, ANCHOR, slashed.replace("/", "\\/"), slashed).entrySet()) {
+      Urn anchor = UrnUtils.getUrn(query.getValue());
+      anchorHas(query.getValue(), MODEL_KEY, 1L, FIRST_CHUNK);
+      clearInvocations(harness.retriever);
+      try (MockedStatic<ESAccessControlUtil> access =
+          mockStatic(ESAccessControlUtil.class, Mockito.CALLS_REAL_METHODS)) {
+        access.when(() -> ESAccessControlUtil.restrictUrn(any(), eq(anchor))).thenReturn(true);
+        assertThrows(
+            SearchTemplateFailClosedException.class,
+            () -> coordinator.bind(searching, query.getKey(), false, DOCUMENT));
+      }
+      verify(harness.retriever, never())
+          .getLatestAspectObject(
+              any(), eq(anchor), eq(SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME));
+    }
   }
 
   /**

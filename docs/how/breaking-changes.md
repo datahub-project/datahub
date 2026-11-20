@@ -36,7 +36,8 @@ through a release that has similarity first avoids this.
 **Before rolling back** to a release that ships the `semantic` template but not similarity, restore the
 previous `semantic` template, or a URN query on it fails there. A rollback to a release that has
 similarity needs no step, since that release runs the route. A rollback to a release from before the
-`semantic` template needs the version 17 revert below instead. While this release is still deployed:
+`semantic` template follows the version 17 rollback steps below instead. While this release is still
+deployed:
 
 1. Run system update once with
    `DATAHUB_SEARCH_TEMPLATES_REVISION='{"version":"v19-revert","mcps_location":"bootstrap_mcps/search-templates-semantic-revert.yaml","force":true}'`,
