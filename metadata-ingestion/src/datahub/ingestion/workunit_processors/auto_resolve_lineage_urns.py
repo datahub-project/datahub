@@ -108,6 +108,9 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     # No schema was available for a field reference's parent, so its column casing went
     # unchecked and no verdict was stamped.
     num_columns_unchecked: int = 0
+    # Several casings of the referenced column exist and none settled it. Also counted
+    # under num_refs_unresolved.
+    num_columns_ambiguous: int = 0
     # Lineage aspect emitted as a PATCH (not UPSERT); can't be reconciled, so skipped.
     num_patch_lineage_skipped: int = 0
     num_workunits_with_lineage_aspect: int = 0
@@ -239,7 +242,7 @@ class AutoResolveLineageUrnsProcessor(
         # schema_resolver at all.
         from datahub.sql_parsing.schema_resolver import (
             SchemaResolver as _SchemaResolver,
-            match_columns_to_schema,
+            match_column_to_schema,
         )
         from datahub.sql_parsing.schema_resolver_provider import provide_schema_resolver
 
@@ -247,9 +250,7 @@ class AutoResolveLineageUrnsProcessor(
             provide_schema_resolver
         )
         self._schema_resolver_cls: Type[SchemaResolver] = _SchemaResolver
-        self._match_columns_to_schema: Callable[[SchemaInfo, List[str]], List[str]] = (
-            match_columns_to_schema
-        )
+        self._match_column_to_schema = match_column_to_schema
         # Preloaded schemas per platform, also a cache: a miss is fetched per URN.
         self._schema_resolvers: Dict[str, List["SchemaResolver"]] = {}
         # Lazily built for the per-URN fetches. See _graph_resolver_for.
@@ -762,7 +763,15 @@ class AutoResolveLineageUrnsProcessor(
             return field_urn, None
         new_field_path = field_path
         if res.schema:
-            new_field_path = self._match_columns_to_schema(res.schema, [field_path])[0]
+            match = self._match_column_to_schema(res.schema, field_path)
+            if match.ambiguous:
+                # Nothing says which casing was meant, so the reference is left whole;
+                # the table-level upstream is reconciled separately.
+                self.report.num_columns_ambiguous += 1
+                self.report.num_refs_unresolved += 1
+                self.report.unresolved_refs_sample.add(field_urn)
+                return field_urn, _UNRESOLVED
+            new_field_path = match.column
 
         if res.urn == parent and new_field_path == field_path:
             if res.match_type == _UNRESOLVED:
