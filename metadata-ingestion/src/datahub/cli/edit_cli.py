@@ -29,7 +29,7 @@ Planner = Callable[[DataHubGraph, str], Optional[EditPlan]]
 
 @click.group()
 def edit() -> None:
-    """Edit metadata on any entity: tags, terms, owners, domain, docs, deprecation.
+    """Edit tags, terms, owners, domain, docs and deprecation on data assets.
 
     \b
     Every edit reads the entity first and is skipped when it would change

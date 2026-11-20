@@ -133,58 +133,122 @@ class EntitySummary:
 
 # --- reading ---------------------------------------------------------------------
 
-# Entity types that carry the editable metadata shown on an entity page.
-_EDITABLE_TYPES = (
-    "Dataset",
-    "Dashboard",
-    "Chart",
-    "DataJob",
-    "DataFlow",
-    "Container",
-    "MLModel",
-    "MLModelGroup",
-    "MLFeatureTable",
-)
 
-_EDITABLE_FIELDS = """
-      tags { tags { tag { urn } } }
-      glossaryTerms { terms { term { urn } } }
-      ownership {
-        owners {
-          owner { ... on CorpUser { urn } ... on CorpGroup { urn } }
-          ownershipType { urn }
-        }
-      }
-      domain { domain { urn } }
-      deprecation { deprecated note }
-"""
+@dataclasses.dataclass(frozen=True)
+class SupportedType:
+    graphql_type: str
+    # Fields giving the name, platform and source description. Each fragment
+    # must expose the editable description as `editableProperties { description }`
+    # (aliased where the entity stores it elsewhere) so one parser reads them all.
+    fields: str
+    # Mutation that sets the description; `updateDescription` rejects some types.
+    description_mutation: Optional[str] = None
 
-_NAMED_TYPES = (
-    "Dashboard",
-    "Chart",
-    "DataJob",
-    "DataFlow",
-    "Container",
+
+# URN entity type -> how to read it. Only types whose tags, terms, owners,
+# domain, deprecation and description can all be read are listed: planning
+# compares against the current value, so a field that cannot be read would
+# make every edit look like a change and undo restore the wrong value.
+SUPPORTED_TYPES: Dict[str, SupportedType] = {
+    "dataset": SupportedType(
+        "Dataset",
+        "name platform { urn } properties { name description }"
+        " editableProperties { description }",
+    ),
+    "container": SupportedType(
+        "Container",
+        "platform { urn } properties { name description }"
+        " editableProperties { description }",
+    ),
+    "chart": SupportedType(
+        "Chart",
+        "platform { urn } properties { name description }"
+        " editableProperties { description }",
+        description_mutation="updateChart",
+    ),
+    "dashboard": SupportedType(
+        "Dashboard",
+        "platform { urn } properties { name description }"
+        " editableProperties { description }",
+        description_mutation="updateDashboard",
+    ),
+    "dataJob": SupportedType(
+        "DataJob",
+        # DataJob.platform is nullable while the other types' is not; GraphQL
+        # refuses to merge the two under one name, so it gets an alias.
+        "jobPlatform: platform { urn } properties { name description }"
+        " editableProperties { description }",
+        description_mutation="updateDataJob",
+    ),
+    "dataFlow": SupportedType(
+        "DataFlow",
+        "platform { urn } properties { name description }"
+        " editableProperties { description }",
+        description_mutation="updateDataFlow",
+    ),
+    "mlModel": SupportedType(
+        "MLModel",
+        "name platform { urn } properties { description }"
+        " editableProperties { description }",
+    ),
+    "mlModelGroup": SupportedType(
+        "MLModelGroup",
+        "name platform { urn } properties { description }"
+        " editableProperties { description }",
+    ),
+    "mlFeatureTable": SupportedType(
+        "MLFeatureTable",
+        "name platform { urn } properties { description }"
+        " editableProperties { description }",
+    ),
+    "mlFeature": SupportedType(
+        "MLFeature",
+        "name properties: featureProperties { description }"
+        " editableProperties { description }",
+    ),
+    "mlPrimaryKey": SupportedType(
+        "MLPrimaryKey",
+        "name properties: primaryKeyProperties { description }"
+        " editableProperties { description }",
+    ),
+    # updateDescription writes a data product's description to its properties.
+    "dataProduct": SupportedType(
+        "DataProduct",
+        "properties { name description }"
+        " editableProperties: properties { description }",
+    ),
+}
+
+_LABEL_FIELDS = (
+    "tags { tags { tag { urn } } }"
+    " glossaryTerms { terms { term { urn } } }"
+    " ownership { owners {"
+    " owner { ... on CorpUser { urn } ... on CorpGroup { urn } }"
+    " ownershipType { urn } } }"
+    " domain { domain { urn } }"
+    " deprecation { deprecated note }"
 )
 
 ENTITY_SUMMARY_QUERY = (
     "query getEntitySummary($urn: String!) {\n  entity(urn: $urn) {\n    urn\n    type\n"
-    "    ... on Dataset { name platform { urn } properties { name description }"
-    " editableProperties { description } }\n"
     + "".join(
-        f"    ... on {t} {{ properties {{ name description }}"
-        " editableProperties { description } }\n"
-        for t in _NAMED_TYPES
+        f"    ... on {t.graphql_type} {{ {t.fields} {_LABEL_FIELDS} }}\n"
+        for t in SUPPORTED_TYPES.values()
     )
-    + "    ... on MLModel { name properties { description }"
-    " editableProperties { description } }\n"
-    + "    ... on MLModelGroup { name properties { description }"
-    " editableProperties { description } }\n"
-    + "    ... on MLFeatureTable { name properties { description }"
-    " editableProperties { description } }\n"
-    + "".join(f"    ... on {t} {{{_EDITABLE_FIELDS}    }}\n" for t in _EDITABLE_TYPES)
     + "  }\n}\n"
 )
+
+
+def supported_type(urn: str) -> SupportedType:
+    entity_type = urn.split(":", 3)[2] if urn.startswith("urn:li:") else ""
+    try:
+        return SUPPORTED_TYPES[entity_type]
+    except KeyError:
+        raise EditCliError(
+            f"Editing {entity_type or 'this'} entities is not supported: {urn}",
+            error_type="unsupported_entity_type",
+            suggestion=f"Supported entity types: {', '.join(sorted(SUPPORTED_TYPES))}.",
+        ) from None
 
 
 def _nested(data: Optional[Dict[str, Any]], *path: str) -> Any:
@@ -211,6 +275,7 @@ def require_exists(graph: DataHubGraph, urn: str, create_hint: str) -> None:
 
 
 def get_entity_summary(graph: DataHubGraph, urn: str) -> EntitySummary:
+    supported_type(urn)
     if not graph.exists(urn):
         raise EditCliError(
             f"Entity not found: {urn}",
@@ -228,7 +293,7 @@ def get_entity_summary(graph: DataHubGraph, urn: str) -> EntitySummary:
         urn=raw["urn"],
         type=raw["type"],
         name=_nested(raw, "properties", "name") or raw.get("name"),
-        platform=_nested(raw, "platform", "urn"),
+        platform=_nested(raw, "platform", "urn") or _nested(raw, "jobPlatform", "urn"),
         description=_nested(raw, "editableProperties", "description")
         or _nested(raw, "properties", "description"),
         # Undoing a description writes "" back (GraphQL cannot delete the
@@ -313,6 +378,19 @@ def _mutation_for(op: EditOp) -> Dict[str, Any]:
             "variables": {"e": op.urn},
         }
     if kind == EditKind.SET_DESCRIPTION:
+        mutation = supported_type(op.urn).description_mutation
+        if mutation:
+            # The UI edits these types' descriptions through their update
+            # mutation; updateDescription rejects them.
+            input_type = mutation[len("update") :] + "UpdateInput"
+            return {
+                "query": f"mutation m($urn: String!, $input: {input_type}!) "
+                f"{{ {mutation}(urn: $urn, input: $input) {{ urn }} }}",
+                "variables": {
+                    "urn": op.urn,
+                    "input": {"editableProperties": {"description": op.description}},
+                },
+            }
         return {
             "query": "mutation m($input: DescriptionUpdateInput!) "
             "{ updateDescription(input: $input) }",
@@ -338,7 +416,7 @@ def _mutation_for(op: EditOp) -> Dict[str, Any]:
 def apply_op(graph: DataHubGraph, op: EditOp) -> None:
     mutation = _mutation_for(op)
     data = graph.execute_graphql(mutation["query"], variables=mutation["variables"])
-    # Every mutation used here returns a single Boolean.
+    # Mutations return a Boolean, or the updated entity for updateChart etc.
     if not any(data.values()):
         raise EditCliError(
             f"DataHub did not apply {op.kind.value} on {op.urn}",

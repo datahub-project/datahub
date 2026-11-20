@@ -816,7 +816,9 @@ datahub container term --container-urn "urn:li:container:3f2effd1fbe154a4d60b597
 
 ### edit
 
-Edit the metadata the DataHub UI shows on an entity page, on any entity: tags, glossary terms, owners, domain, description and deprecation. The commands use the same GraphQL mutations as the UI and print JSON.
+Edit the metadata the DataHub UI shows on an entity page: tags, glossary terms, owners, domain, description and deprecation. The commands use the same GraphQL mutations as the UI and print JSON.
+
+Supported entity types: `dataset`, `container`, `chart`, `dashboard`, `dataJob`, `dataFlow`, `mlModel`, `mlModelGroup`, `mlFeatureTable`, `mlFeature`, `mlPrimaryKey` and `dataProduct`. Other types are rejected with an `unsupported_entity_type` error before anything changes.
 
 Each command reads the entity first and skips it if it is already in the requested state, so rerunning a command is safe. Pass `--urn` several times to edit several entities at once; every URN is checked before anything changes. `--dry-run` shows what would change without changing it.
 

@@ -1,4 +1,5 @@
 import contextlib
+import dataclasses
 import json
 import re
 from dataclasses import dataclass, field
@@ -25,6 +26,7 @@ from datahub.cli.get_cli import get
 
 DS1 = "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.table_a,PROD)"
 DS2 = "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.table_b,PROD)"
+CHART = "urn:li:chart:(looker,dashboard_a.chart_a)"
 TECHNICAL = "urn:li:ownershipType:__system__technical_owner"
 
 Invoke = Callable[..., Dict]
@@ -104,6 +106,12 @@ class FakeGraph:
     def _removeTag(self, v: Dict) -> None:
         self.entities[v["input"]["resourceUrn"]].tags.discard(v["input"]["tagUrn"])
 
+    def _addTerm(self, v: Dict) -> None:
+        self.entities[v["input"]["resourceUrn"]].terms.add(v["input"]["termUrn"])
+
+    def _removeTerm(self, v: Dict) -> None:
+        self.entities[v["input"]["resourceUrn"]].terms.discard(v["input"]["termUrn"])
+
     def _addOwner(self, v: Dict) -> None:
         i = v["input"]
         self.entities[i["resourceUrn"]].owners.add(
@@ -125,6 +133,11 @@ class FakeGraph:
     def _updateDescription(self, v: Dict) -> None:
         self.entities[v["input"]["resourceUrn"]].description = v["input"]["description"]
 
+    def _updateChart(self, v: Dict) -> None:
+        self.entities[v["urn"]].description = v["input"]["editableProperties"][
+            "description"
+        ]
+
     def _updateDeprecation(self, v: Dict) -> None:
         e = self.entities[v["input"]["urn"]]
         e.deprecated = v["input"]["deprecated"]
@@ -136,12 +149,14 @@ def graph() -> FakeGraph:
     g = FakeGraph()
     g.entities[DS1] = FakeEntity()
     g.entities[DS2] = FakeEntity()
+    g.entities[CHART] = FakeEntity()
     g.references = {
         "urn:li:tag:pii",
         "urn:li:tag:a",
         "urn:li:tag:b",
         "urn:li:corpGroup:data-eng",
         "urn:li:domain:finance",
+        "urn:li:glossaryTerm:Classification.Sensitive",
     }
     return g
 
@@ -213,6 +228,47 @@ class TestPlanning:
 
 
 class TestEditCommands:
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ("add-tag", "--tag", "pii"),
+            ("remove-tag", "--tag", "existing"),
+            ("add-term", "--term", "Classification.Sensitive"),
+            ("remove-term", "--term", "Existing"),
+            ("add-owner", "--owner", "group:data-eng", "--ownership-type", "business"),
+            ("remove-owner", "--owner", "bob"),
+            ("set-domain", "--domain", "finance"),
+            ("unset-domain",),
+            ("set-description", "--text", "new"),
+            ("deprecate", "--note", "use table_b"),
+            ("undeprecate",),
+        ],
+    )
+    def test_every_edit_changes_then_undo_restores(
+        self, run: Invoke, graph: FakeGraph, args: Tuple[str, ...]
+    ) -> None:
+        start = FakeEntity(
+            tags={"urn:li:tag:existing"},
+            terms={"urn:li:glossaryTerm:Existing"},
+            owners={("urn:li:corpuser:bob", TECHNICAL)},
+            domain="urn:li:domain:old",
+            description="old",
+            deprecated=True,
+            note="old note",
+        )
+        if args[0] == "deprecate":
+            start.deprecated, start.note = False, ""
+        graph.entities[DS1] = dataclasses.replace(
+            start,
+            tags=set(start.tags),
+            terms=set(start.terms),
+            owners=set(start.owners),
+        )
+        assert run(args[0], "--urn", DS1, *args[1:])["changed"]
+        assert graph.entities[DS1] != start
+        run("undo")
+        assert graph.entities[DS1] == start
+
     def test_add_tag_to_several_entities_and_skip_noops(
         self, run: Invoke, graph: FakeGraph
     ) -> None:
@@ -243,6 +299,23 @@ class TestEditCommands:
     ) -> None:
         out = run("add-owner", "--urn", DS1, "--owner", "group:nobody", expect_ok=False)
         assert out["exit_code"] == 3
+        assert graph.mutations == []
+
+    def test_chart_description_uses_update_chart(
+        self, run: Invoke, graph: FakeGraph
+    ) -> None:
+        # updateDescription rejects charts; the UI uses updateChart.
+        run("set-description", "--urn", CHART, "--text", "Daily revenue")
+        assert graph.mutations == ["updateChart"]
+        assert graph.entities[CHART].description == "Daily revenue"
+
+    def test_unsupported_entity_type_is_rejected(
+        self, run: Invoke, graph: FakeGraph
+    ) -> None:
+        notebook = "urn:li:notebook:(querybook,1)"
+        graph.entities[notebook] = FakeEntity()
+        out = run("add-tag", "--urn", notebook, "--tag", "pii", expect_ok=False)
+        assert "unsupported_entity_type" in out["output"]
         assert graph.mutations == []
 
     def test_undo_and_redo(self, run: Invoke, graph: FakeGraph) -> None:
