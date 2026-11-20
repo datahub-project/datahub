@@ -14,9 +14,10 @@
 
 import logging
 import os
+import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 # Confluent important
 import confluent_kafka
@@ -336,6 +337,12 @@ class KafkaEventSource(EventSource):
         self._early_mcl_criteria_list: List[Dict[str, Any]] = []
         self._pipeline_name = ctx.pipeline_name
 
+        # Per-partition offsets for unroutable stores; acks arrive from other threads.
+        self._offset_lock = threading.Lock()
+        self._stored_hwm: Dict[Tuple[str, int], int] = {}
+        self._yielded_hwm: Dict[Tuple[str, int], int] = {}
+        self._deferred_skip: Dict[Tuple[str, int], Tuple[int, int]] = {}
+
         # Initialize lag monitoring (if enabled)
         if self._is_lag_monitoring_enabled():
             lag_interval = float(
@@ -585,7 +592,7 @@ class KafkaEventSource(EventSource):
         logger.debug(f"Subscribing to the following topics: {topics_to_subscribe}")
         if self._closed or self._stop_requested:
             return
-        self.consumer.subscribe(topics_to_subscribe)
+        self.consumer.subscribe(topics_to_subscribe, on_assign=self._on_assign)
 
         # Start lag monitoring after subscription
         if self._lag_monitor is not None:
@@ -623,9 +630,72 @@ class KafkaEventSource(EventSource):
                         msg
                     )  # Handle timeseries in the same way as usual MCL.
                 elif "pe" in topic_routes and msg.topic() == topic_routes["pe"]:
-                    yield from self.handle_pe(msg)
+                    yield from self._route_pe(msg)
 
         logger.info("Kafka consumer exiting main loop")
+
+    def _route_pe(self, msg: Any) -> Iterable[EventEnvelope]:
+        routed = False
+        for envelope in self.handle_pe(msg):
+            if not routed:
+                routed = True
+                self._record_yielded(msg)
+            yield envelope
+        if not routed:
+            self._ack_unroutable_message(msg)
+
+    def _on_assign(self, consumer: Any, partitions: List[TopicPartition]) -> None:
+        with self._offset_lock:
+            for tp in partitions:
+                key = (tp.topic, tp.partition)
+                self._stored_hwm.pop(key, None)
+                self._yielded_hwm.pop(key, None)
+                self._deferred_skip.pop(key, None)
+        logger.debug("Partition assignment: %s", partitions)
+
+    def _record_yielded(self, msg: Any) -> None:
+        key = (msg.topic(), msg.partition())
+        with self._offset_lock:
+            self._yielded_hwm[key] = max(self._yielded_hwm.get(key, -1), msg.offset())
+
+    def _ack_unroutable_message(self, msg: Any) -> None:
+        # No envelope means no pipeline ack; async mode never stores offsets on its own.
+        if not self.source_config.async_commit_enabled:
+            return
+        name = None
+        value = msg.value()
+        if isinstance(value, dict):
+            name = value.get("name")
+        topic, partition, offset = msg.topic(), msg.partition(), msg.offset()
+        key = (topic, partition)
+        with self._offset_lock:
+            yielded = self._yielded_hwm.get(key, -1)
+            stored = self._stored_hwm.get(key, -1)
+            if yielded >= 0 and stored < yielded + 1:
+                # Defer until earlier routable events are acked; see _store_next_offset.
+                prev_skip, _ = self._deferred_skip.get(key, (-1, -1))
+                self._deferred_skip[key] = (max(offset, prev_skip), yielded)
+                logger.debug(
+                    "Deferring offset store for unroutable message on %s [%s] "
+                    "offset %s (name=%s): routable events still in flight",
+                    topic,
+                    partition,
+                    offset,
+                    name,
+                )
+                return
+        logger.debug(
+            "Storing offset for unroutable message on %s [%s] offset %s (name=%s)",
+            topic,
+            partition,
+            offset,
+            name,
+        )
+        try:
+            self._store_next_offset(topic, partition, offset + 1)
+        except Exception as e:
+            # e.g. partition revoked; its next owner re-reads from the last commit.
+            logger.warning(f"Failed to store offset for unroutable message: {e}")
 
     def handle_mcl(self, msg: Any) -> Iterable[EventEnvelope]:
         """
@@ -754,14 +824,24 @@ class KafkaEventSource(EventSource):
         )
 
     def _store_offsets(self, event: EventEnvelope) -> None:
+        kafka = event.meta["kafka"]
+        self._store_next_offset(kafka["topic"], kafka["partition"], kafka["offset"] + 1)
+
+    def _store_next_offset(self, topic: str, partition: int, next_offset: int) -> None:
+        # Never rewinds; passing a deferral's guard stores through the deferred offset.
+        key = (topic, partition)
+        with self._offset_lock:
+            if next_offset <= self._stored_hwm.get(key, -1):
+                return
+            entry = self._deferred_skip.get(key)
+            if entry is not None:
+                skip, guard = entry
+                if next_offset > guard:
+                    del self._deferred_skip[key]
+                    next_offset = max(next_offset, skip + 1)
+            self._stored_hwm[key] = next_offset
         self.consumer.store_offsets(
-            offsets=[
-                TopicPartition(
-                    event.meta["kafka"]["topic"],
-                    event.meta["kafka"]["partition"],
-                    event.meta["kafka"]["offset"] + 1,
-                )
-            ],
+            offsets=[TopicPartition(topic, partition, next_offset)],
         )
 
     def ack(self, event: EventEnvelope, processed: bool = True) -> None:
