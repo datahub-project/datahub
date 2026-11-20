@@ -105,6 +105,19 @@ class SnowflakeV2Report(
     schemas_scanned: int = 0
     databases_scanned: int = 0
     tags_scanned: int = 0
+    # Snowflake tags that DataHub sync-back created are recognised through their
+    # PlatformResource record and never taken from Snowflake; when a whole aspect
+    # is written, the values DataHub holds for them are kept instead.
+    num_tags_skipped_datahub_managed: int = 0
+    num_structured_properties_skipped_datahub_managed: int = 0
+    num_managed_tags_preserved_from_datahub: int = 0
+    num_managed_structured_properties_preserved_from_datahub: int = 0
+    # Entities whose tags or properties were left unchanged for the run because
+    # DataHub's current aspect could not be read.
+    num_datahub_aspect_read_failures: int = 0
+    num_tag_platform_resource_lookup_failures: int = 0
+    num_tag_platform_resources_unparseable: int = 0
+    num_tag_platform_resource_invalid_urns: int = 0
     streams_scanned: int = 0
     procedures_scanned: int = 0
     streamlit_apps_scanned: int = 0

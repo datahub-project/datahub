@@ -79,6 +79,7 @@ query appConfig {
             contextDocumentsEnabled
             documentExplicitSaveEnabled
             dataContractsEnabled
+            showApplicationsFeatureToggle
             editableDatasetNameEnabled
             themeV2Enabled
             themeV2Default
@@ -119,6 +120,7 @@ query appConfig {
             i18nEnabled
             browserTracingEnabled
             browserWebVitalsEnabled
+            showGithubStarPrompt
         }
         chromeExtensionConfig {
             enabled
