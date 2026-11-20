@@ -213,19 +213,21 @@ template or `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY` sets, and never lower
 off or does not take effect, semantic search rejects the flag. **Action:** none. Before you turn the
 switch on, check that clients expect the document defaults and facet counts above.
 
-### Searches that name the semantic template report why the query could not be embedded
+### Searches through a vector template report why the query could not be embedded ([#21493](https://github.com/datahub-project/datahub/pull/21493))
 
-A GraphQL search that names `urn:li:searchTemplate:semantic` in the `searchTemplate` search flag now
-fails with the same errors as semantic search when the query cannot be embedded, instead of a generic
-server error: `DEADLINE_EXCEEDED` (`timeout`), `SERVICE_UNAVAILABLE` (`rejected`), or a server error
-(`failed`), with the reason in the message. A Vertex AI or Amazon Bedrock embedding request that is
-still throttled after the provider's own retries now fails as `rejected` instead of `failed`, also on
-semantic search through the semantic search template. `searchAcrossEntities` and `search` now honor
-the `keywordFallbackOnEmbeddingFailure` search flag: with it set, a query that cannot be embedded gets
-the keyword search results for the same request, without the named template, and the results'
-`keywordFallback` field names the reason. A search that names `urn:li:searchTemplate:similarity`
-embeds nothing, so it never falls back. **Action:** if a client retries these searches on a server
-error, retry on `SERVICE_UNAVAILABLE` and `DEADLINE_EXCEEDED` instead.
+Any GraphQL operation whose search runs a vector template, such as a search that names
+`urn:li:searchTemplate:semantic` in the `searchTemplate` search flag, now fails with the same errors as
+semantic search when the query cannot be embedded, instead of a generic server error:
+`DEADLINE_EXCEEDED` (`timeout`), `SERVICE_UNAVAILABLE` (`rejected`), or a server error (`failed`), with
+the reason in the message. A Vertex AI or Amazon Bedrock query embedding that is throttled now fails as
+`rejected` instead of `failed` or `timeout`, also on semantic search through the semantic search
+template: it makes one attempt, since a retry would outlast the search's budget.
+`searchAcrossEntities` and `search` now honor the `keywordFallbackOnEmbeddingFailure` search flag: with
+it set, a query that cannot be embedded gets the keyword search results for the same request, without
+the named template, and the results' `keywordFallback` field names the reason. A search that names
+`urn:li:searchTemplate:similarity` embeds nothing, so it never falls back. **Action:** if a client
+retries these searches on a server error, retry on `SERVICE_UNAVAILABLE` and `DEADLINE_EXCEEDED`
+instead.
 
 ### Parent Data Product is now checked on every API
 

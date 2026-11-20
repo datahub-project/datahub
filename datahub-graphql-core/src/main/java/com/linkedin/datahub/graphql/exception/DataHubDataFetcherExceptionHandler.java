@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.exception;
 
 import com.datahub.util.exception.DatabaseTransactionConflictException;
-import com.linkedin.datahub.graphql.resolvers.search.QueryEmbeddingFailures;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.graph.LineageTimeoutException;
@@ -61,10 +60,11 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     QueryEmbeddingException queryEmbeddingException =
         findFirstThrowableCauseOfClass(exception, QueryEmbeddingException.class);
     if (queryEmbeddingException != null) {
-      log.warn("Failed to execute", queryEmbeddingException);
+      // Logged at error, as the branch above logs the typed error a resolver throws for it
+      log.error("Failed to execute", queryEmbeddingException);
       return completedResult(
           extractErrorMessage(queryEmbeddingException),
-          QueryEmbeddingFailures.errorCode(queryEmbeddingException),
+          QueryEmbeddingErrorCodes.of(queryEmbeddingException),
           path,
           sourceLocation);
     }

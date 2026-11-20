@@ -12,7 +12,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.awscore.retry.AwsRetryStrategy;
 import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.SdkPlugin;
 import software.amazon.awssdk.core.exception.SdkServiceException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
@@ -40,6 +42,10 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
 
   private static final String DEFAULT_MODEL = "cohere.embed-english-v3";
   private static final int DEFAULT_MAX_CHARACTER_LENGTH = 2048; // Cohere's hard limit
+
+  // Applied per request, so a call without a deadline keeps the client's retries
+  private static final SdkPlugin SINGLE_ATTEMPT =
+      config -> config.overrideConfiguration(o -> o.retryStrategy(AwsRetryStrategy.doNotRetry()));
 
   private final BedrockRuntimeClient bedrockClient;
   private final ObjectMapper objectMapper;
@@ -128,7 +134,8 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
   }
 
   /**
-   * @param timeout bounds the whole call, SDK retries included; null keeps the client's settings
+   * @param timeout bounds the call, which then makes one attempt; null keeps the client's settings,
+   *     retries included
    */
   @Nonnull
   private float[] embedWithTimeout(
@@ -172,7 +179,10 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
               .contentType("application/json")
               .accept("application/json");
       if (timeout != null) {
-        invokeRequest.overrideConfiguration(override -> override.apiCallTimeout(timeout));
+        // A retry's backoff would outlive the caller's deadline, so a throttle would end as a
+        // timeout. One attempt reports it as a throttle, as the other providers' query paths do.
+        invokeRequest.overrideConfiguration(
+            override -> override.apiCallTimeout(timeout).addPlugin(SINGLE_ATTEMPT));
       }
 
       InvokeModelResponse response = bedrockClient.invokeModel(invokeRequest.build());
@@ -222,11 +232,14 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
     } catch (Exception e) {
       String errorMsg =
           String.format("Bedrock InvokeModel failed for model %s: %s", modelToUse, e.getMessage());
-      log.error(errorMsg, e);
-      // The SDK retries a throttled call itself, so this throttle outlasted its retries
+      // Any 429, which includes ModelNotReadyException as well as ThrottlingException: both clear
+      // on their own, so reporting them as a throttle, a 503 to GraphQL callers, is intended. With
+      // no deadline the client's retries ran first.
       if (e instanceof SdkServiceException service && service.isThrottlingException()) {
+        log.warn(errorMsg);
         throw new EmbeddingThrottledException(errorMsg, e);
       }
+      log.error(errorMsg, e);
       throw new RuntimeException(errorMsg, e);
     }
   }

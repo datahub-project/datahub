@@ -6,11 +6,10 @@ import javax.annotation.Nullable;
 /**
  * A vector rung could not embed its query, so no neighbor was retrieved. {@link #getReason()} is
  * one of the codes below, named as keywordRerank names its reasons where one exists. This build
- * raises {@link #TIMEOUT}, {@link #FAILED}, and {@link #REJECTED}, for a provider that was
- * throttled past its own retries ({@link
- * com.linkedin.metadata.search.embedding.EmbeddingThrottledException}). {@link #RESERVE_EXHAUSTED}
- * and {@link #BUDGET_EXHAUSTED} are for an embedding service that budgets query embeddings, which
- * throws this exception with that reason itself.
+ * raises {@link #TIMEOUT}, {@link #FAILED}, and {@link #REJECTED}, for a provider that throttled
+ * the query embedding ({@link com.linkedin.metadata.search.embedding.EmbeddingThrottledException}).
+ * {@link #RESERVE_EXHAUSTED} and {@link #BUDGET_EXHAUSTED} are for an embedding service that
+ * budgets query embeddings, which throws this exception with that reason itself.
  */
 public class QueryEmbeddingException extends RuntimeException {
   /** The embedding did not finish before the search's deadline. */
@@ -31,7 +30,7 @@ public class QueryEmbeddingException extends RuntimeException {
   private final String reason;
 
   public QueryEmbeddingException(@Nonnull String reason, @Nullable Throwable cause) {
-    super("Semantic search could not embed the query: " + reason, cause);
+    super("The search could not embed the query: " + reason, cause);
     this.reason = reason;
   }
 

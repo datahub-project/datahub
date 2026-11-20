@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
+import com.linkedin.datahub.graphql.exception.QueryEmbeddingErrorCodes;
 import com.linkedin.metadata.search.QueryEmbeddingException;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
@@ -49,7 +50,7 @@ public final class QueryEmbeddingFailures {
       }
       if (!Boolean.TRUE.equals(
           searching.getSearchContext().getSearchFlags().isKeywordFallbackOnEmbeddingFailure())) {
-        throw new DataHubGraphQLException(failure.getMessage(), errorCode(failure), failure);
+        throw typed(failure);
       }
       // The keyword fallback counter tracks each fallback, so this stays at debug: an embedding
       // outage would otherwise log a line per search
@@ -68,6 +69,13 @@ public final class QueryEmbeddingFailures {
                       return flags;
                     }));
       } catch (RemoteInvocationException | RuntimeException keywordFailure) {
+        // Without the caller's template the same vector rung ran again, as it does when a slot or
+        // route selected it, so the embedding's own error stands
+        if (ExceptionUtils.throwableOfType(keywordFailure, QueryEmbeddingException.class) != null) {
+          final DataHubGraphQLException typed = typed(failure);
+          typed.addSuppressed(keywordFailure);
+          throw typed;
+        }
         // The fallback's own failure sets the code: the embedding's code may invite a retry, which
         // would fail the same way. The message and the suppressed failure keep the embedding's
         // reason for the log.
@@ -86,21 +94,10 @@ public final class QueryEmbeddingFailures {
     }
   }
 
-  /**
-   * A query embedding that ran out of time is an exceeded deadline, and one the embedding service
-   * throttled or budgeted out is a transient unavailability. Any other failure stays a server
-   * error, since it may not clear on a retry.
-   */
   @Nonnull
-  public static DataHubGraphQLErrorCode errorCode(@Nonnull final QueryEmbeddingException failure) {
-    return switch (failure.getReason()) {
-      case QueryEmbeddingException.TIMEOUT -> DataHubGraphQLErrorCode.DEADLINE_EXCEEDED;
-      case QueryEmbeddingException.REJECTED,
-          QueryEmbeddingException.RESERVE_EXHAUSTED,
-          QueryEmbeddingException.BUDGET_EXHAUSTED ->
-          DataHubGraphQLErrorCode.SERVICE_UNAVAILABLE;
-      default -> DataHubGraphQLErrorCode.SERVER_ERROR;
-    };
+  private static DataHubGraphQLException typed(@Nonnull final QueryEmbeddingException failure) {
+    return new DataHubGraphQLException(
+        failure.getMessage(), QueryEmbeddingErrorCodes.of(failure), failure);
   }
 
   /**

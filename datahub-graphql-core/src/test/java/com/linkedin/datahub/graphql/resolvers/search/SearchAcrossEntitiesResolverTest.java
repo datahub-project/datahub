@@ -1023,6 +1023,41 @@ public class SearchAcrossEntitiesResolverTest {
   }
 
   @Test
+  public static void testAFallbackThatRunsTheSameVectorRungKeepsTheEmbeddingError()
+      throws Exception {
+    // No template named: a slot or route selected the vector rung, so the fallback, which only
+    // drops the caller's template, runs it again
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenThrow(embeddingFailure(QueryEmbeddingException.REJECTED))
+        .thenThrow(embeddingFailure(QueryEmbeddingException.REJECTED));
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
+    SearchFlags flags = new SearchFlags();
+    flags.setKeywordFallbackOnEmbeddingFailure(true);
+    SearchAcrossEntitiesInput input =
+        new SearchAcrossEntitiesInput(
+            ImmutableList.of(EntityType.DOCUMENT),
+            "quarterly revenue",
+            0,
+            10,
+            null,
+            null,
+            null,
+            flags,
+            null);
+
+    DataHubGraphQLException error = typedError(resolver, input);
+
+    Assert.assertEquals(error.errorCode(), DataHubGraphQLErrorCode.SERVICE_UNAVAILABLE);
+    Assert.assertTrue(error.getMessage().contains(QueryEmbeddingException.REJECTED));
+    Mockito.verify(mockClient, Mockito.times(2))
+        .searchAcrossEntities(any(), any(), any(), any(), anyInt(), anyInt(), any(), any());
+  }
+
+  @Test
   public static void testSimilarityNeverFallsBack() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(

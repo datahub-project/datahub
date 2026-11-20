@@ -954,9 +954,9 @@ final class TemplateVectorSearch {
   }
 
   /**
-   * The query's vector. A failure is typed by reason: a provider that was throttled past its own
-   * retries is rejected, one that ended at the search's deadline timed out, as keywordRerank counts
-   * it, any other failed, and one the embedding service typed keeps its reason.
+   * The query's vector. A failure is typed by reason: one the provider throttled is rejected, one
+   * that ended at the search's deadline timed out, as keywordRerank counts it, any other failed,
+   * and one the embedding service typed keeps its reason.
    */
   @Nonnull
   private static float[] queryVector(

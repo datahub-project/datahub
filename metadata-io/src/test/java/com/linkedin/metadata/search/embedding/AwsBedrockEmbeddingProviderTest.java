@@ -4,15 +4,24 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.http.AbortableInputStream;
+import software.amazon.awssdk.http.ExecutableHttpRequest;
+import software.amazon.awssdk.http.HttpExecuteRequest;
+import software.amazon.awssdk.http.HttpExecuteResponse;
+import software.amazon.awssdk.http.SdkHttpClient;
+import software.amazon.awssdk.http.SdkHttpResponse;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
@@ -220,6 +229,57 @@ public class AwsBedrockEmbeddingProviderTest {
             RuntimeException.class,
             () -> provider.embed("test", null, EmbeddingTaskType.QUERY, Duration.ofSeconds(2)));
     assertFalse(invalid instanceof EmbeddingThrottledException);
+  }
+
+  @Test
+  public void testTheQueryPathMakesOneAttemptSoAThrottleIsNotRetriedPastTheDeadline() {
+    AtomicInteger attempts = new AtomicInteger();
+    SdkHttpClient throttling =
+        new SdkHttpClient() {
+          @Override
+          public ExecutableHttpRequest prepareRequest(HttpExecuteRequest request) {
+            attempts.incrementAndGet();
+            return new ExecutableHttpRequest() {
+              @Override
+              public HttpExecuteResponse call() {
+                return HttpExecuteResponse.builder()
+                    .response(
+                        SdkHttpResponse.builder()
+                            .statusCode(429)
+                            .putHeader("x-amzn-ErrorType", "ThrottlingException")
+                            .build())
+                    .responseBody(
+                        AbortableInputStream.create(
+                            new ByteArrayInputStream(
+                                "{\"message\":\"Too many requests\"}"
+                                    .getBytes(StandardCharsets.UTF_8))))
+                    .build();
+              }
+
+              @Override
+              public void abort() {}
+            };
+          }
+
+          @Override
+          public void close() {}
+        };
+    try (BedrockRuntimeClient client =
+        BedrockRuntimeClient.builder()
+            .region(Region.US_WEST_2)
+            .credentialsProvider(
+                StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")))
+            .httpClient(throttling)
+            .build()) {
+      AwsBedrockEmbeddingProvider throttled =
+          new AwsBedrockEmbeddingProvider(client, "cohere.embed-english-v3", 2048);
+
+      // The client's retries would back off past the deadline and end the throttle as a timeout
+      expectThrows(
+          EmbeddingThrottledException.class,
+          () -> throttled.embed("test", null, EmbeddingTaskType.QUERY, Duration.ofSeconds(2)));
+      assertEquals(attempts.get(), 1);
+    }
   }
 
   @Test(expectedExceptions = NullPointerException.class)
