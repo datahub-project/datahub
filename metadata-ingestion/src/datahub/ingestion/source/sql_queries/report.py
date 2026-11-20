@@ -16,6 +16,9 @@ class SqlQueriesSourceReport(SourceReport):
     num_queries_processed: int = 0
     num_invalid_table_entries: int = 0
     num_temp_table_matches: int = 0
+    secops_searches: int = 0
+    secops_windows_truncated: int = 0
+    secops_events_without_timestamp: int = 0
 
     sql_aggregator: Optional[SqlAggregatorReport] = None
     schema_resolver_report: Optional[SchemaResolverReport] = None
