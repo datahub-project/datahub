@@ -16,6 +16,11 @@ table 'Claims By State'
 		isNameInferred
 		sourceColumn: [ClaimCount]
 
+	/// Measure-to-measure dependency across tables; 'Budget' is not a model table.
+	measure 'Paid vs Budget' = DIVIDE([Total Paid Losses], 'Budget'[Amount])
+		formatString: 0.0%
+		lineageTag: 7b623293-66fa-4240-af63-2ea28b7a6f55
+
 	partition 'Claims By State' = calculated
 		mode: import
 		source = SELECTCOLUMNS(ADDCOLUMNS(SUMMARIZE('Policies', 'Policies'[State]), "@Count", CALCULATE(COUNTROWS('Claims'))), "State", 'Policies'[State], "ClaimCount", [@Count])
