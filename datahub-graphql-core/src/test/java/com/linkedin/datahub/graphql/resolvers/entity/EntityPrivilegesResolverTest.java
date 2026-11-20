@@ -497,6 +497,35 @@ public class EntityPrivilegesResolverTest {
   }
 
   @Test
+  public void testCanEditDataContractWithEditDataContractPrivilege() throws Exception {
+    final Dataset dataset = new Dataset();
+    dataset.setUrn(datasetUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv =
+        setUpTestWithContext(dataset, contextGrantingOnly("EDIT_ENTITY_DATA_CONTRACT"));
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertTrue(result.getCanEditDataContract());
+  }
+
+  @Test
+  public void testCannotEditDataContractWithoutPrivilege() throws Exception {
+    final Dataset dataset = new Dataset();
+    dataset.setUrn(datasetUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = setUpTestWithContext(dataset, contextGrantingOnly());
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertFalse(result.getCanEditDataContract());
+  }
+
+  @Test
   public void testGetDomainCanManageDataProductsWithManageDataProductsPrivilege() throws Exception {
     Domain domain = new Domain();
     domain.setUrn(domainUrn);

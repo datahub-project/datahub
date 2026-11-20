@@ -466,6 +466,11 @@ type EntityPrivileges {
   canManageAssetSummary: Boolean
 
   """
+  Whether the user can create or edit the data contract for the entity. Only populated for Datasets.
+  """
+  canEditDataContract: Boolean
+
+  """
   Whether the user can set this entity's lifecycle stage directly, without a proposal.
   """
   canEditLifecycleStage: Boolean
