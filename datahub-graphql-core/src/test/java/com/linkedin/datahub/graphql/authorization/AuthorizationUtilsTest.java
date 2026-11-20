@@ -217,14 +217,29 @@ public class AuthorizationUtilsTest {
                         .equals(spec.getEntity())));
   }
 
+  /**
+   * An empty list names no property, so it is not a wildcard and it is not allowed without a
+   * policy. It takes the same entity-level check as {@code canEditProperties}.
+   */
   @Test
   public void testCanEditStructuredPropertiesEmptyCollectionIsNotAWildcard() {
-    QueryContext context = getMockAllowContext();
-    Mockito.clearInvocations(context.getAuthorizer());
+    QueryContext allow = getMockAllowContext();
+    Mockito.clearInvocations(allow.getAuthorizer());
     assertTrue(
         AuthorizationUtils.canEditStructuredProperties(
-            TEST_DATASET_URN, context, Collections.emptyList()));
-    Mockito.verify(context.getAuthorizer(), Mockito.never()).authorize(Mockito.any());
+            TEST_DATASET_URN, allow, Collections.emptyList()));
+    ArgumentCaptor<AuthorizationRequest> requestCaptor =
+        ArgumentCaptor.forClass(AuthorizationRequest.class);
+    Mockito.verify(allow.getAuthorizer(), Mockito.atLeastOnce()).authorize(requestCaptor.capture());
+    assertTrue(
+        requestCaptor.getAllValues().stream()
+            .allMatch(
+                request ->
+                    request.getSubResources() == null || request.getSubResources().isEmpty()));
+
+    assertFalse(
+        AuthorizationUtils.canEditStructuredProperties(
+            TEST_DATASET_URN, getMockDenyContext(), Collections.emptyList()));
   }
 
   @Test

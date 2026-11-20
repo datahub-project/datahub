@@ -87,6 +87,15 @@ public class UpsertStructuredPropertiesResolver
                   String.format("Asset with provided urn %s does not exist", assetUrn));
             }
 
+            // An empty input names no property. Return the current aspect without writing it back:
+            // a rewrite would bump the version and reindex an asset the caller did not change.
+            if (propertyUrns.isEmpty()) {
+              return StructuredPropertiesMapper.map(
+                  context,
+                  getStructuredProperties(context.getOperationContext(), assetUrn),
+                  assetUrn);
+            }
+
             // get or default the structured properties aspect
             StructuredProperties structuredProperties =
                 getStructuredProperties(context.getOperationContext(), assetUrn);

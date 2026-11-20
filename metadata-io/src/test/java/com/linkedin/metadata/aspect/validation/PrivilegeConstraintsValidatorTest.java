@@ -190,6 +190,15 @@ public class PrivilegeConstraintsValidatorTest {
     }
   }
 
+  /**
+   * Tag writes on an upsert are authorized as an update only when the entity is known to exist. An
+   * unanswered lookup fails closed, so tests exercising real tag authorization must answer it.
+   */
+  private void stubEntityExists(Urn urn) {
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), anySet()))
+        .thenReturn(Map.of(urn, true));
+  }
+
   private void stubCurrentAspect(Urn urn, String aspectName, Aspect aspect) {
     if (aspect == null) {
       Map<String, Aspect> byName = currentAspects.get(urn);
@@ -1238,6 +1247,7 @@ public class PrivilegeConstraintsValidatorTest {
               .findFirst()
               .orElseThrow();
 
+      stubEntityExists(TEST_DATASET_URN);
       stubCurrentAspect(TEST_DATASET_URN, EDITABLE_SCHEMA_METADATA_ASPECT_NAME, null);
 
       Stream<AspectValidationException> result =
@@ -1275,6 +1285,7 @@ public class PrivilegeConstraintsValidatorTest {
               .findFirst()
               .orElseThrow();
 
+      stubEntityExists(TEST_DATA_FLOW_URN);
       stubCurrentAspect(TEST_DATA_FLOW_URN, GLOBAL_TAGS_ASPECT_NAME, null);
 
       Stream<AspectValidationException> result =

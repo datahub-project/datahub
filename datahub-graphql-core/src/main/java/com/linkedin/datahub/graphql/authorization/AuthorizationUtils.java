@@ -188,14 +188,17 @@ public class AuthorizationUtils {
 
   /**
    * Structured-property value writes. Uses the shared privilege set, including the entity's update
-   * privileges, and evaluates the property URNs as sub-resources. An empty collection writes
-   * nothing and is allowed before any policy is consulted. The privilege flag passes the wildcard
-   * itself. Rename and other non-property callers keep {@link #canEditProperties}.
+   * privileges, and evaluates the property URNs as sub-resources. An empty collection names no
+   * property, so it is not a wildcard and it is not a free pass: it takes the same check as {@link
+   * #canEditProperties}. The privilege flag passes the wildcard itself.
    */
   public static boolean canEditStructuredProperties(
       @Nonnull Urn targetUrn,
       @Nonnull QueryContext context,
       @Nonnull Collection<Urn> structuredPropertyUrns) {
+    if (structuredPropertyUrns.isEmpty()) {
+      return canEditProperties(targetUrn, context, structuredPropertyUrns);
+    }
     return AuthUtil.isAuthorizedForStructuredPropertyModification(
         context.getOperationContext(), targetUrn, structuredPropertyUrns, UPDATE);
   }
