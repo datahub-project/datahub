@@ -14,6 +14,7 @@ from urllib3.response import HTTPResponse
 from urllib3.util.retry import Retry
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
@@ -709,6 +710,38 @@ def test_missing_table_lineage_graph_is_checked_like_a_missing_app_graph(
 
     # The source then compares with the last read before trusting the tables.
     assert app.lineage_graph_missing
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_data_model_app_without_lineage_graph_keeps_its_last_read(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-cloud"),
+    )
+    source.app_state = MagicMock()
+    source.stale_entity_removal_handler = MagicMock()
+    table_urn = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    source.app_state.previous.return_value = AppCheckpoint(
+        urns=["urn:li:container:app-1", table_urn],
+        table_urns_by_qri={"qri:db:orders": table_urn},
+    )
+    # Its data model has tables, but with no lineage graph none has a QRI.
+    app = _cloud_app(tables=[_blackbox_table("SELECT order_id FROM orders")])
+    app.lineage_graph_missing = True
+
+    workunits = list(source._gen_item_workunits(app, "Finance", True))
+
+    assert workunits == []
+    assert "Unable to fully read Qlik app" in [
+        warning.title for warning in source.reporter.warnings
+    ]
+    assert not list(source.reporter.failures)
+    kept = source.app_state.record.call_args.args[1]
+    assert kept.urns == ["urn:li:container:app-1", table_urn]
+    assert kept.table_urns_by_qri == {"qri:db:orders": table_urn}
+    assert kept.partial_reads == 1
 
 
 def test_table_from_a_personal_space_connection_is_kept() -> None:
