@@ -1,8 +1,82 @@
 import hashlib
 import re
-from typing import Optional, Sequence, Set
+from dataclasses import dataclass, field
+from typing import Iterable, List, Optional, Sequence, Set
 
 from datahub.ingestion.source.repository_documents.client import RepositoryFileInfo
+
+# Source ids join path segments with "." and the instance joins the platform
+# with "-". Parentheses and commas would break the dataPlatformInstance URN.
+_PLATFORM_INSTANCE_FORBIDDEN = frozenset(".,()")
+INDEX_FILENAME = "index.md"
+
+
+def validate_platform_instance(platform_instance: Optional[str]) -> Optional[str]:
+    """The instance with surrounding whitespace removed, or None when unset.
+
+    Raises ``ValueError`` for a blank instance or one containing ``.``, ``,``,
+    ``(`` or ``)``: an instance containing ``.`` could produce the same source
+    id as another instance plus a repository path.
+    """
+    if platform_instance is None:
+        return None
+    stripped = platform_instance.strip()
+    if not stripped:
+        raise ValueError("platform_instance must not be blank.")
+    forbidden = sorted(_PLATFORM_INSTANCE_FORBIDDEN.intersection(stripped))
+    if forbidden:
+        raise ValueError(
+            f"platform_instance {stripped!r} must not contain "
+            f"{', '.join(repr(char) for char in forbidden)}; use '-' or '_'."
+        )
+    return stripped
+
+
+def make_source_prefix(platform: str, platform_instance: Optional[str]) -> str:
+    """The ``source_prefix`` of every source id an import mints: the platform,
+    or ``<platform>-<platform_instance>`` when an instance is configured.
+
+    A hyphen, not a dot, joins them: ids without an instance always continue
+    ``<platform>.``, so the two can never produce the same id.
+    """
+    instance = validate_platform_instance(platform_instance)
+    return f"{platform}-{instance}" if instance else platform
+
+
+def property_key(platform: str, name: str) -> str:
+    """The custom property key an import stamps, e.g. ``github_file_path``."""
+    return f"{platform}_{name}"
+
+
+@dataclass(frozen=True)
+class RepositoryPropertyKeys:
+    """The ``<platform>_*`` custom property keys an import stamps on documents."""
+
+    platform: str
+
+    @property
+    def repo(self) -> str:
+        return property_key(self.platform, "repo")
+
+    @property
+    def branch(self) -> str:
+        return property_key(self.platform, "branch")
+
+    @property
+    def file_path(self) -> str:
+        return property_key(self.platform, "file_path")
+
+    @property
+    def directory_path(self) -> str:
+        return property_key(self.platform, "directory_path")
+
+    @property
+    def commit_sha(self) -> str:
+        return property_key(self.platform, "commit_sha")
+
+    @property
+    def blob_sha(self) -> str:
+        return property_key(self.platform, "blob_sha")
 
 
 def make_file_source_id(owner_repo: str, file_path: str, *, source_prefix: str) -> str:
@@ -52,6 +126,35 @@ def matches_filters(file_path: str, path_prefix: str, extensions: Set[str]) -> b
         return False
     ext = file_path[dot:].lower()
     return ext in extensions
+
+
+@dataclass
+class TreeSelection:
+    """The files of a repository tree listing that an import reads.
+
+    Every ``index.md`` is kept in ``index_paths`` even outside the filters,
+    because OKF bundle discovery needs indexes above ``path_prefix``.
+    """
+
+    path_prefix: str
+    extensions: Set[str]
+    files: List[RepositoryFileInfo] = field(default_factory=list)
+    index_paths: Set[str] = field(default_factory=set)
+
+    @classmethod
+    def for_filters(
+        cls, path_prefix: str, extensions: Iterable[str]
+    ) -> "TreeSelection":
+        return cls(
+            path_prefix=path_prefix.strip("/"),
+            extensions={ext.lower() for ext in extensions},
+        )
+
+    def add(self, blob: RepositoryFileInfo) -> None:
+        if blob.path == INDEX_FILENAME or blob.path.endswith(f"/{INDEX_FILENAME}"):
+            self.index_paths.add(blob.path)
+        if matches_filters(blob.path, self.path_prefix, self.extensions):
+            self.files.append(blob)
 
 
 def collect_intermediate_directories(

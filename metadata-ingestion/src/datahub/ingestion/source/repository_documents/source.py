@@ -71,7 +71,9 @@ from datahub.ingestion.source.repository_documents.paths import (
     make_dir_source_id,
     make_file_source_id,
     make_repo_source_id,
+    make_source_prefix,
     normalize_document_id,
+    property_key,
     resolve_parent_dir_source_id,
 )
 from datahub.ingestion.source.repository_documents.report import (
@@ -213,7 +215,9 @@ class RepositoryDocumentsSourceBase(
         self._repo_root_source_id: Optional[str] = (
             None
             if config.parent_document_urn or not config.create_repo_root_document
-            else make_repo_source_id(config.repository, source_prefix=self.platform)
+            else make_repo_source_id(
+                config.repository, source_prefix=self._source_prefix
+            )
         )
         # Cache of import_source_id -> existing document URN (sync-back round-trip).
         self._resolved_source_id_urns: Dict[str, Optional[str]] = {}
@@ -254,8 +258,39 @@ class RepositoryDocumentsSourceBase(
     ) -> str:
         raise NotImplementedError
 
+    @property
+    def _source_prefix(self) -> str:
+        """Prefix of every source id. A configured ``platform_instance`` is
+        part of it, so sources on different instances never share an id."""
+        return make_source_prefix(self.platform, self.config.platform_instance)
+
+    def _instance_name(self, owner_repo: str) -> str:
+        """The document's data platform instance: the configured
+        ``platform_instance``, or the repository when none is set."""
+        return self.config.platform_instance or owner_repo
+
     def _prop(self, name: str) -> str:
-        return f"{self.platform}_{name}"
+        return property_key(self.platform, name)
+
+    def _file_source_id(self, file_path: str) -> str:
+        return make_file_source_id(
+            self.config.repository, file_path, source_prefix=self._source_prefix
+        )
+
+    def _dir_source_id(self, dir_path: str) -> str:
+        return make_dir_source_id(
+            self.config.repository, dir_path, source_prefix=self._source_prefix
+        )
+
+    def _parent_source_id(self, path: str) -> Optional[str]:
+        """The source id of the folder (or repository root) holding ``path``."""
+        return resolve_parent_dir_source_id(
+            self.config.repository,
+            path,
+            self.config.path_prefix.strip("/"),
+            repo_root_source_id=self._repo_root_source_id,
+            source_prefix=self._source_prefix,
+        )
 
     def get_excluded_workunit_processors(self):
         # Manual stale-removal handler supports registering skipped unchanged files.
@@ -292,7 +327,7 @@ class RepositoryDocumentsSourceBase(
                     "ingestion sources."
                 ),
                 context=f"platform={self.platform}, repository={owner_repo}, "
-                f"branch={branch}",
+                f"branch={branch}, api_error={self.client.last_api_error}",
             )
         if not files:
             logger.info("No matching files found in %s (branch=%s)", owner_repo, branch)
@@ -356,14 +391,12 @@ class RepositoryDocumentsSourceBase(
                 owner_repo=owner_repo,
                 branch=branch,
                 dir_path=dir_path,
-                path_prefix=path_prefix,
             )
 
         for file in files:
             yield from self._emit_file_document(
                 owner_repo=owner_repo,
                 branch=branch,
-                path_prefix=path_prefix,
                 file_path=file.path,
                 commit_sha=commit_sha,
                 blob_sha=file.sha,
@@ -406,23 +439,14 @@ class RepositoryDocumentsSourceBase(
         owner_repo: str,
         branch: str,
         dir_path: str,
-        path_prefix: str,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit a metadata-only folder document for a repository directory.
 
         Folder bodies are not synced from repository files. DataHub may hold
         richer folder content than the repository (a deliberate DH ⊇ GH split).
         """
-        dir_source_id = make_dir_source_id(
-            owner_repo, dir_path, source_prefix=self.platform
-        )
-        parent_source_id = resolve_parent_dir_source_id(
-            owner_repo,
-            dir_path,
-            path_prefix,
-            repo_root_source_id=self._repo_root_source_id,
-            source_prefix=self.platform,
-        )
+        dir_source_id = self._dir_source_id(dir_path)
+        parent_source_id = self._parent_source_id(dir_path)
         parent_urn = self._resolve_parent_urn(parent_source_id)
 
         title = os.path.basename(dir_path.rstrip("/")) or dir_path
@@ -466,7 +490,6 @@ class RepositoryDocumentsSourceBase(
         self,
         owner_repo: str,
         branch: str,
-        path_prefix: str,
         file_path: str,
         commit_sha: str,
         blob_sha: Optional[str],
@@ -476,9 +499,7 @@ class RepositoryDocumentsSourceBase(
             if file_path in self._okf_index_contents
             else self.client.fetch_file_content(owner_repo, file_path, commit_sha)
         )
-        source_id = make_file_source_id(
-            owner_repo, file_path, source_prefix=self.platform
-        )
+        source_id = self._file_source_id(file_path)
         if content is None:
             self._skip_unreadable_file(owner_repo, file_path, source_id)
             return
@@ -509,20 +530,14 @@ class RepositoryDocumentsSourceBase(
             logger.info("Skipping unchanged file document: %s", file_path)
             self.report.files_skipped_unchanged += 1
             self._register_document_for_stale_removal(document_urn)
-            yield from self._resurrect_unchanged_document(document_urn, owner_repo)
+            yield from self._resurrect_unchanged_document(document_urn)
             if not is_okf_concept(frontmatter):
                 yield from clear_okf_metadata(
                     document_urn, ctx=self.ctx, report=self.report
                 )
             return
 
-        parent_source_id = resolve_parent_dir_source_id(
-            owner_repo,
-            file_path,
-            path_prefix,
-            repo_root_source_id=self._repo_root_source_id,
-            source_prefix=self.platform,
-        )
+        parent_source_id = self._parent_source_id(file_path)
         parent_urn = self._resolve_parent_urn(parent_source_id)
 
         title = os.path.basename(file_path)
@@ -879,6 +894,11 @@ class RepositoryDocumentsSourceBase(
                         _property_filter(self._prop("repo"), owner_repo),
                     ]
                 )
+                matches = [
+                    urn
+                    for urn in matches
+                    if self._is_legacy_or_same_import(urn, source_id)
+                ]
         except Exception as exc:
             # Reported as a failure, not a warning: StaleEntityRemovalHandler skips
             # soft-deletion entirely when the source has failures. Without that,
@@ -910,6 +930,37 @@ class RepositoryDocumentsSourceBase(
             )
         self._resolved_source_id_urns[source_id] = chosen
         return chosen
+
+    def _is_legacy_or_same_import(self, document_urn: str, source_id: str) -> bool:
+        """Whether a path match may be reused: a document stamped before
+        ``import_source_id`` existed, or one with this source id.
+
+        A document stamped with another source id belongs to another source,
+        such as the same repository path on another instance, or this source
+        before its ``platform_instance`` changed. Reusing it would make the two
+        overwrite each other.
+        """
+        assert self.ctx.graph is not None
+        try:
+            info = self.ctx.graph.get_aspect(document_urn, DocumentInfoClass)
+        except Exception as exc:
+            # Keep the match, as before this check: minting a second document
+            # would let stale removal delete the one the path already has.
+            self.report.warning(
+                title="Could not check an existing document's source",
+                message=(
+                    "A document matching this repository path could not be read "
+                    "to check which import created it, so it was reused. If it "
+                    "belongs to another source, the two will overwrite each other."
+                ),
+                context=f"document={document_urn}, source_id={source_id}",
+                exc=exc,
+            )
+            return True
+        stamped = (
+            (info.customProperties or {}).get(PROP_IMPORT_SOURCE_ID) if info else None
+        )
+        return stamped is None or stamped == source_id
 
     def _prefer_existing_document_urn(
         self,
@@ -1100,7 +1151,7 @@ class RepositoryDocumentsSourceBase(
         self._attach_platform_instance(doc, owner_repo)
         return doc
 
-    def _soft_deleted_urns(self, owner_repo: str) -> Set[str]:
+    def _soft_deleted_urns(self) -> Set[str]:
         """URNs this repo previously imported that are currently soft-deleted.
 
         Loaded with a single search so the unchanged-file path can resurrect a
@@ -1109,6 +1160,7 @@ class RepositoryDocumentsSourceBase(
         if self._soft_deleted_cache is not None:
             return self._soft_deleted_cache
 
+        owner_repo = self.config.repository
         urns: Set[str] = set()
         if self.ctx.graph:
             try:
@@ -1117,20 +1169,33 @@ class RepositoryDocumentsSourceBase(
                         entity_types=["document"],
                         platform=self.platform,
                         platform_instance=make_dataplatform_instance_urn(
-                            self.platform, owner_repo
+                            self.platform, self._instance_name(owner_repo)
                         ),
                         status=RemovedStatusFilter.ONLY_SOFT_DELETED,
+                        # A platform_instance is shared by every repository on
+                        # it, so narrow to this repository's documents.
+                        extraFilters=[_property_filter(self._prop("repo"), owner_repo)],
                     )
                 )
             except Exception as exc:
-                # Non-fatal: only costs us resurrection of documents whose file came
-                # back to the repository unchanged. Import itself is unaffected.
-                logger.debug("Could not list soft-deleted documents: %s", exc)
+                # Import itself is unaffected; only documents whose file came
+                # back unchanged stay soft-deleted this run.
+                self.report.warning(
+                    title="Could not list soft-deleted documents",
+                    message=(
+                        "Documents whose file was restored to the repository "
+                        "unchanged stay soft-deleted this run. They are restored "
+                        "on a later run once search is reachable, or when the "
+                        "file changes."
+                    ),
+                    context=f"repository={owner_repo}",
+                    exc=exc,
+                )
         self._soft_deleted_cache = urns
         return urns
 
     def _resurrect_unchanged_document(
-        self, document_urn: str, owner_repo: str
+        self, document_urn: str
     ) -> Iterable[MetadataWorkUnit]:
         """Clear Status.removed for an unchanged file that exists in the repository again.
 
@@ -1139,7 +1204,7 @@ class RepositoryDocumentsSourceBase(
         document soft-deleted forever, since the unchanged-file short-circuit
         returns before any Status is emitted.
         """
-        if document_urn not in self._soft_deleted_urns(owner_repo):
+        if document_urn not in self._soft_deleted_urns():
             return
         self.report.documents_resurrected += 1
         yield MetadataChangeProposalWrapper(
@@ -1177,7 +1242,9 @@ class RepositoryDocumentsSourceBase(
         doc._set_aspect(
             DataPlatformInstanceClass(
                 platform=make_data_platform_urn(self.platform),
-                instance=make_dataplatform_instance_urn(self.platform, owner_repo),
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self._instance_name(owner_repo)
+                ),
             )
         )
 

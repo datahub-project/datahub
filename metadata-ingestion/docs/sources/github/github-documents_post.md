@@ -137,6 +137,10 @@ Each imported file document stores these `customProperties` keys:
 
 Cloud sync-back may additionally write `last_exported_content_hash` to prevent re-import loops after export. The source skips a file when its new source hash matches stored `source_content_hash`, or its whole-file text hash matches `last_exported_content_hash`. Documents without `source_content_hash` are re-imported once unless the sync-back loop check matches.
 
+#### Several GitHub hosts
+
+Document IDs are built from the repository path. If two sources ingest the same `owner/repo` path from different hosts, such as github.com and GitHub Enterprise, give each a different `platform_instance` so their documents don't overwrite each other. The instance is part of every document ID and becomes the documents' data platform instance; without it, the data platform instance is the repository. Instance names cannot be blank or contain `.`, `,`, `(` or `)`; surrounding spaces are removed. Changing `platform_instance` on an existing source creates new documents; with stateful ingestion enabled, the old ones are soft-deleted.
+
 #### Server compatibility
 
 OKF import is disabled by default. Set `enable_okf: true` only when your DataHub server supports the `okfProperties` aspect. The config flag alone controls OKF import; the source does not check the server registry or silently disable OKF. Enabling OKF on a server without the aspect fails the ingestion run when the server rejects the writes.
