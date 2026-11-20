@@ -1826,6 +1826,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       long retryInterval,
       int numRetries,
       int threadCount) {
+    this.metricUtils = metricUtils;
     // Es8BulkListener requeues item and request failures. A write the completion tracker already
     // counted on a drain is not requeued: that drain fails closed and the caller redelivers.
     Function<BulkProcessorCompletionTracker, BulkIngester<?>> processorFactory =

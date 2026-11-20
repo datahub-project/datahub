@@ -2,13 +2,19 @@ package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.search.elasticsearch.update.BulkItemRequeueSupport;
+import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.search.elasticsearch.update.BulkProcessorCompletionTracker;
 import com.linkedin.metadata.search.elasticsearch.update.BulkWriteResultTracker;
 import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.time.Duration;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -23,6 +29,11 @@ import org.opensearch.action.DocWriteRequest;
  */
 @Slf4j
 public abstract class AbstractBulkProcessorShim<T> {
+
+  private static final AtomicInteger REQUEUE_THREAD_ID = new AtomicInteger();
+
+  @Nullable private ExecutorService requeueExecutor;
+  @Nullable protected MetricUtils metricUtils;
 
   protected int threadCount = 1;
   protected T[] bulkProcessors;
@@ -43,6 +54,16 @@ public abstract class AbstractBulkProcessorShim<T> {
   protected void initBulkProcessors(
       int threadCount, Function<BulkProcessorCompletionTracker, T> processorFactory) {
     this.threadCount = threadCount;
+    // Never run requeue additions on a listener callback (including saturation fallback): the
+    // callback still holds the in-flight permit, which a concurrent flush can be waiting for.
+    this.requeueExecutor =
+        Executors.newSingleThreadExecutor(
+            task -> {
+              Thread thread =
+                  new Thread(task, "bulk-requeue-" + REQUEUE_THREAD_ID.incrementAndGet());
+              thread.setDaemon(true);
+              return thread;
+            });
     this.bulkItemRequeueSupport =
         new BulkItemRequeueSupport(
             itemRequeueEnabled, itemRequeueMaxAttempts, this::requeueFailedRequest);
@@ -166,35 +187,83 @@ public abstract class AbstractBulkProcessorShim<T> {
    * Close all bulk processors. Subclasses must implement the actual processor-specific close logic.
    */
   public void closeBulkProcessor() {
-    if (completionTrackers != null) {
-      for (BulkProcessorCompletionTracker completionTracker : completionTrackers) {
-        completionTracker.shutdownFlushExecutor();
+    boolean interrupted = false;
+    try {
+      if (requeueExecutor != null) {
+        requeueExecutor.shutdown();
+        // Draining accepted requeues must happen before the native processors are closed.
+        // Later callbacks are rejected and settled as failed writes.
+        while (!requeueExecutor.isTerminated()) {
+          try {
+            requeueExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+          } catch (InterruptedException e) {
+            interrupted = true;
+          }
+        }
       }
-    }
-    if (bulkProcessors == null) {
-      return;
-    }
-    for (T processor : bulkProcessors) {
-      closeProcessor(processor);
+      if (completionTrackers != null) {
+        for (BulkProcessorCompletionTracker completionTracker : completionTrackers) {
+          completionTracker.shutdownFlushExecutor();
+        }
+      }
+      if (bulkProcessors != null) {
+        for (T processor : bulkProcessors) {
+          closeProcessor(processor);
+        }
+      }
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
     }
   }
 
   /** Requeue without {@code recordEnqueued}: the item is already pending from the original add. */
   protected void requeueFailedRequest(@Nonnull DocWriteRequest<?> writeRequest) {
-    if (bulkProcessors == null || bulkProcessors.length == 0 || completionTrackers == null) {
-      log.warn("Cannot requeue bulk item; processors not initialized");
+    if (requeueExecutor == null
+        || bulkProcessors == null
+        || bulkProcessors.length == 0
+        || completionTrackers == null) {
+      recordRequeueFailure(
+          writeRequest, new IllegalStateException("Bulk processors not initialized"));
       return;
     }
-    String routingKey =
-        writeRequest.id() != null
-            ? writeRequest.id()
-            : String.valueOf(writeRequest.index()) + ":" + System.identityHashCode(writeRequest);
-    int index = Math.floorMod(routingKey.hashCode(), threadCount);
     try {
-      trackAndSubmit(index, writeRequest);
-    } catch (RuntimeException | Error e) {
-      bulkWriteResultTracker.recordUnrecoveredTransferFailure(1);
-      throw e;
+      // Execute outside the listener callback so OpenSearch can release its in-flight permit.
+      // Retain CompletionTracker submission bookkeeping introduced by Search V3.
+      requeueExecutor.execute(
+          () -> {
+            try {
+              String routingKey =
+                  writeRequest.id() != null
+                      ? writeRequest.id()
+                      : String.valueOf(writeRequest.index())
+                          + ":"
+                          + System.identityHashCode(writeRequest);
+              int index = Math.floorMod(routingKey.hashCode(), threadCount);
+              trackAndSubmit(index, writeRequest);
+            } catch (RuntimeException e) {
+              recordRequeueFailure(writeRequest, e);
+            }
+          });
+    } catch (RejectedExecutionException e) {
+      recordRequeueFailure(writeRequest, e);
+    }
+  }
+
+  private void recordRequeueFailure(DocWriteRequest<?> writeRequest, RuntimeException failure) {
+    log.warn(
+        "Failed to requeue bulk item index [{}] id [{}]",
+        writeRequest.index(),
+        writeRequest.id(),
+        failure);
+    if (bulkItemRequeueSupport != null) {
+      bulkItemRequeueSupport.clearAttempts(writeRequest);
+    }
+    // The listener leaves accepted retries pending, so settle failures it cannot observe.
+    bulkWriteResultTracker.recordUnrecoveredTransferFailure(1);
+    if (metricUtils != null) {
+      metricUtils.increment(BulkListener.class, "bulk_item_transfer_failure", 1);
     }
   }
 
