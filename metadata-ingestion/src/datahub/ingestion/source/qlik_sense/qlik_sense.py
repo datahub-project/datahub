@@ -3283,8 +3283,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if self.reporter.unresolved_file_connections:
             self.reporter.warning(
                 title="Qlik file connections have no known storage",
-                message="Lineage to files apps read through these data connections "
-                "is only added to. Add each connection to "
+                message="Files apps read through these data connections are left "
+                "out of their tables' lineage. Add each connection to "
                 "`file_connection_to_storage` with the URI of its storage.",
                 context=_bounded_list(
                     sorted(self.reporter.unresolved_file_connections)
