@@ -180,7 +180,10 @@ class TestMLMetadataIntegration:
         )
 
         job_metadata = TrainingJobMetadata(job=mock_job)
-        mcps = list(source.training_extractor._gen_training_job_mcps(job_metadata))
+        lookup = source.training_extractor._look_up_job(mock_job)
+        mcps = list(
+            source.training_extractor._gen_training_job_mcps(job_metadata, lookup)
+        )
 
         assert len(mcps) > 0
 

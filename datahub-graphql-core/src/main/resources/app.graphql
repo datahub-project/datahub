@@ -724,6 +724,11 @@ type FeatureFlagsConfig {
   dataContractsEnabled: Boolean!
 
   """
+  Whether the "Show Applications" toggle is shown on the Appearance settings page
+  """
+  showApplicationsFeatureToggle: Boolean!
+
+  """
   Whether dataset names are editable
   """
   editableDatasetNameEnabled: Boolean!

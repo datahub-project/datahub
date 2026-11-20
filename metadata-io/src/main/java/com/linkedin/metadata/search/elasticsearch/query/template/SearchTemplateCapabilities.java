@@ -500,6 +500,17 @@ public final class SearchTemplateCapabilities {
     return COMBINE_KEYWORD_RERANK.equals(effectiveCombine(template));
   }
 
+  /**
+   * Whether the rung's scope assigns it Document from the requested types. A rung searches only its
+   * assigned types, so a request that can run document rerank reranks a rung only when this holds.
+   * Unset scope assigns the whole request.
+   */
+  public static boolean assignsDocument(
+      @Nonnull MergedSearchTemplate template, @Nonnull Collection<String> entityTypes) {
+    return SearchTemplateHybrid.includesDocument(
+        SearchTemplateGates.assigned(template, entityTypes));
+  }
+
   /** A knn section that no combine reads, such as a field-only knn: the legacy document rerank. */
   public static boolean legacyKnn(@Nonnull MergedSearchTemplate template) {
     return template.getKnn() != null && effectiveCombine(template) == null;

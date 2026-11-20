@@ -9,6 +9,7 @@ import {
 import { readOnlyHtmlToReact } from '@components/components/Editor/readOnlyContent';
 import { toReadOnlyHtml } from '@components/components/Editor/readOnlyHtml';
 import { EditorProps } from '@components/components/Editor/types';
+import useEditorTypographyClassNames from '@components/components/Editor/useEditorTypographyClassNames';
 
 const ReadOnlyRoot = styled.div<{
     $hideBorder?: boolean;
@@ -66,7 +67,8 @@ export function ReadOnlyEditor(props: EditorProps) {
             nodes
         );
     const isEmpty = !content?.trim();
-    const contentClassName = `${EDITOR_CONTENT_CLASS} remirror-editor ant-typography`;
+    const typographyClassNames = useEditorTypographyClassNames();
+    const contentClassName = [EDITOR_CONTENT_CLASS, 'remirror-editor', ...typographyClassNames].join(' ');
 
     return (
         <ReadOnlyRoot

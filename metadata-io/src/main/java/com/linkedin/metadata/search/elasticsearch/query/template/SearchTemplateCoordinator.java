@@ -1,41 +1,74 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.common.util.concurrent.UncheckedTimeoutException;
+import com.linkedin.common.SemanticContent;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SearchTemplateConfiguration;
 import com.linkedin.metadata.config.search.SearchTemplateRolloutConfiguration;
+import com.linkedin.metadata.config.search.VectorStoreConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
 import com.linkedin.metadata.search.embedding.EmbeddingProfile;
 import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
+import com.linkedin.metadata.search.utils.ESAccessControlUtil;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.search.template.SearchTemplateLadder;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.datahubproject.metadata.context.SearchTemplateRuntime;
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.search.builder.SearchSourceBuilder;
 
 /** Selects and renders templates when keyword read and {@code templates.enabled} are both on. */
 @Slf4j
 public class SearchTemplateCoordinator implements SearchTemplateRuntime {
+  // Runs a similarity anchor's check, reads, and kNN calls, so a stalled store call cannot hold a
+  // search past the vector retrieval budget. Not the ladder executor: that one runs a task on the
+  // caller when
+  // it is full, where nothing bounds the wait. This queue is bounded, and when it is full the
+  // search fails as it would on a failed check.
+  private static final ExecutorService ANCHOR_EXECUTOR = newAnchorExecutor();
+
   private final ElasticSearchConfiguration elasticSearchConfiguration;
   private final SearchTemplateLoader loader;
   private final SearchTemplateSelector selector;
@@ -45,7 +78,11 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   private final SearchTemplateComponentRegistry components;
   private final SearchTemplateGates gates;
   private final AtomicInteger shadowRenders = new AtomicInteger();
+
+  // The same budget a vector rung's embedding and kNN calls get
+  private volatile long vectorTimeoutMillis = 2_000;
   @Nullable private volatile String lastShadowDsl;
+  private volatile ExecutorService anchorExecutor = ANCHOR_EXECUTOR;
 
   public SearchTemplateCoordinator(
       @Nonnull ElasticSearchConfiguration elasticSearchConfiguration,
@@ -264,7 +301,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         entityNames,
         EmbeddingProfileRegistry.system(engineType(opContext)));
     try {
-      noteIdentity(opContext, resolved, scroll);
+      noteIdentity(opContext, resolved, query, scroll);
       SearchTemplateCapabilities.requireResolvable(
           loader.load(opContext, resolved.getUrn()),
           gates,
@@ -272,6 +309,9 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
           resolved.getSearchSystem(),
           documentRerank,
           scroll);
+    } catch (SearchTemplateFailClosedException e) {
+      // A similarity anchor this search cannot use, counted as a vector retrieval outcome
+      throw e;
     } catch (RuntimeException e) {
       SearchTemplateMetrics.renderFailure(opContext, "select");
       throw e;
@@ -456,6 +496,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   private void noteIdentity(
       @Nonnull OperationContext opContext,
       @Nonnull ResolvedSearchTemplate resolved,
+      @Nonnull String query,
       boolean scroll) {
     List<String> rungs = new ArrayList<>();
     StringBuilder bodies = new StringBuilder();
@@ -471,6 +512,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         0,
         !scroll,
         resolved,
+        query,
         scroll,
         nameAndValue,
         classpathBridge,
@@ -521,6 +563,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
       int depth,
       boolean followLadder,
       @Nonnull ResolvedSearchTemplate resolved,
+      @Nonnull String query,
       boolean scroll,
       @Nonnull boolean[] nameAndValue,
       @Nonnull boolean[] classpathBridge,
@@ -550,7 +593,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
             + template.getLastModified()
             + SearchTemplateComponents.cacheSuffix(template.getComponent())
             + rerankIdentity(template, resolved)
-            + vectorIdentity(template, resolved));
+            + vectorIdentity(opContext, template, resolved, query, depth == 0));
     append(bodies, template.getQuery());
     template.getQueryFragments().values().forEach(value -> append(bodies, value));
     append(bodies, template.getClauses());
@@ -591,6 +634,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
             depth + 1,
             true,
             resolved,
+            query,
             false,
             nameAndValue,
             classpathBridge,
@@ -607,6 +651,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
           depth + 1,
           true,
           resolved,
+          query,
           false,
           nameAndValue,
           classpathBridge,
@@ -639,27 +684,135 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   }
 
   // A vector rung's hits also depend on this build's execution, the profile it resolves on the
-  // engine serving the search, and a floor inherited from configuration. The rung's lastModified
-  // covers its own floor and cap, and the search key covers the filter, flags, page, and caller.
+  // system serving it, a floor inherited from configuration, and, on an external store, the window
+  // of that store's result TTL. The rung's lastModified covers its own floor and cap, and the
+  // search key covers the query, filter, flags, page, and caller. A similarity rung also depends
+  // on the anchor's stored vectors.
   @Nonnull
   private String vectorIdentity(
-      @Nonnull MergedSearchTemplate template, @Nonnull ResolvedSearchTemplate resolved) {
+      @Nonnull OperationContext opContext,
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull ResolvedSearchTemplate resolved,
+      @Nonnull String query,
+      boolean selected) {
     if (!SearchTemplateCapabilities.vectorRetrieval(template)) {
       return "";
     }
+    final Map<String, VectorStoreConfiguration> stores =
+        SearchTemplateVectorRetrieval.stores(
+            elasticSearchConfiguration.getEntityIndex() == null
+                ? null
+                : elasticSearchConfiguration.getEntityIndex().getSemanticSearch());
+    final String system =
+        resolved.getEntityTypes() == null
+            ? resolved.getSearchSystem()
+            : SearchTemplateVectorRetrieval.system(
+                gates, template, resolved.getEntityTypes(), resolved.getSearchSystem(), stores);
     Set<String> profiles =
         resolved.getEntityTypes() == null
             ? Set.of()
-            : gates.joinedProfileIds(
-                template, resolved.getEntityTypes(), resolved.getSearchSystem());
+            : gates.joinedProfileIds(template, resolved.getEntityTypes(), system);
     return "~vr"
         + SearchTemplateVectorRetrieval.EXECUTION_VERSION
         + ":"
         + profiles.stream().map(this::profileIdentity).collect(Collectors.joining(","))
         + ":"
-        + resolved.getSearchSystem()
+        + system
         + ":"
-        + gates.minSimilarity(template);
+        + gates.minSimilarity(template)
+        + SearchTemplateVectorRetrieval.resultWindow(system, stores)
+        + (SearchTemplateCapabilities.QUERY_SOURCE_ANCHOR_ENTITY.equals(
+                template.getRetrieval().getQuerySource())
+            ? ":anchor=" + anchorStamp(opContext, template, resolved, system, query, selected)
+            : "");
+  }
+
+  // The anchor URN with the time each of its stored embeddings was generated, so re-embedding the
+  // anchor changes the key. Bind runs before the result cache, so an anchor this viewer may not use
+  // is never read here and no cached page is served for it: the selected template fails the search
+  // as noAnchor. A similarity rung only a ladder reaches does not fail a search that stops first,
+  // so it is stamped unusable and fails if it runs. An anchor whose type has no profile on the
+  // system serving the rung is not read either, and the rung fails it. The rung reuses the answer
+  // recorded here.
+  @Nonnull
+  private String anchorStamp(
+      @Nonnull OperationContext opContext,
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull ResolvedSearchTemplate resolved,
+      @Nullable String system,
+      @Nonnull String query,
+      boolean selected) {
+    final Urn anchor;
+    try {
+      anchor = Urn.createFromString(query.trim());
+    } catch (URISyntaxException e) {
+      return "none";
+    }
+    final Set<String> profiles = gates.profileIds(template, anchor.getEntityType(), system);
+    if (profiles.size() != 1) {
+      return anchor + "@none";
+    }
+    // The selected rung runs next, so its check and retrieval share one deadline
+    final long deadlineNanos =
+        System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(vectorTimeoutMillis);
+    if (selected) {
+      resolved.setVectorDeadlineNanos(deadlineNanos);
+    }
+    final boolean usable;
+    try {
+      usable = anchorUsable(opContext, anchor, deadlineNanos);
+    } catch (RuntimeException | IOException e) {
+      return unknownAnchor(opContext, template, resolved, anchor, selected, e);
+    }
+    resolved.setAnchorCheck(anchor.toString(), usable);
+    if (!usable) {
+      if (selected) {
+        throw SearchTemplateVectorRetrieval.noAnchor(
+            opContext,
+            template,
+            anchor + " has no stored vectors for " + profiles.iterator().next());
+      }
+      return anchor + "@unusable";
+    }
+    try {
+      return anchor + "@" + generatedAt(anchorAspect(opContext, anchor, deadlineNanos));
+    } catch (RuntimeException | IOException e) {
+      return unknownAnchor(opContext, template, resolved, anchor, selected, e);
+    }
+  }
+
+  // A check or read that failed or ran out of time. The selected rung would run next, so the
+  // search fails closed. A rung only a ladder reaches is decided if it runs, and the page is not
+  // cached, since its key does not say what the anchor was.
+  @Nonnull
+  private static String unknownAnchor(
+      @Nonnull OperationContext opContext,
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull ResolvedSearchTemplate resolved,
+      @Nonnull Urn anchor,
+      boolean selected,
+      @Nonnull Exception failure) {
+    if (selected) {
+      SearchTemplateMetrics.vectorRetrieval(opContext, SearchTemplateVectorRetrieval.FAILED);
+      throw new SearchTemplateFailClosedException(
+          "Search template " + template.getUrn() + " failed to check the anchor " + anchor,
+          failure);
+    }
+    resolved.setSkipResultCache(true);
+    return anchor + "@unknown";
+  }
+
+  // When each of the anchor's stored embeddings was generated, by profile
+  @Nonnull
+  private static String generatedAt(@Nullable Aspect aspect) {
+    if (aspect == null) {
+      return "none";
+    }
+    final Map<String, Long> generated = new TreeMap<>();
+    new SemanticContent(aspect.data())
+        .getEmbeddings()
+        .forEach((profile, embeddings) -> generated.put(profile, embeddings.getGeneratedAt()));
+    return generated.toString();
   }
 
   // The metric decides whether an inherited floor applies and what an engine score means, so the
@@ -671,6 +824,140 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   private String profileIdentity(@Nonnull String id) {
     EmbeddingProfile profile = gates.profiles().profile(id);
     return profile == null ? id : id + "/" + profile.metric().trim().toLowerCase(Locale.ROOT);
+  }
+
+  /**
+   * Whether this viewer may anchor a similarity search on {@code anchor}: view authorization lets
+   * them see it, and the default search filters keep it, so it is not soft-deleted and not in a
+   * hidden lifecycle stage unless the request opts in with {@code includeSoftDeleted} or {@code
+   * includeHiddenLifecycleStages}. These are the filters every neighbor passes. The caller's filter
+   * selects neighbors, not the anchor, so it does not apply. The store lookup must finish by the
+   * deadline. Bind checks this before it reads the anchor and before the result cache, and the rung
+   * reuses that answer.
+   */
+  public boolean anchorUsable(
+      @Nonnull OperationContext opContext, @Nonnull Urn anchor, long deadlineNanos)
+      throws IOException {
+    if (ESAccessControlUtil.restrictUrn(opContext, anchor)) {
+      return false;
+    }
+    final EntityIndexConfiguration entityIndex = elasticSearchConfiguration.getEntityIndex();
+    final List<String> entityType = List.of(anchor.getEntityType());
+    // The shards stop at the deadline too, and a timed-out response fails the check below
+    final long remainingMillis =
+        Math.max(1, TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime()));
+    final SearchRequest request =
+        new SearchRequest(EntitySearchIndexResolver.indexNames(opContext, entityType, entityIndex))
+            .source(
+                new SearchSourceBuilder()
+                    .size(0)
+                    .timeout(TimeValue.timeValueMillis(remainingMillis))
+                    .query(
+                        ESUtils.applyDefaultSearchFilters(
+                            opContext,
+                            entityType,
+                            null,
+                            QueryBuilders.boolQuery()
+                                .filter(QueryBuilders.termQuery("urn", anchor.toString())),
+                            entityIndex)));
+    final SearchResponse response =
+        within(
+            () ->
+                SearchClients.forEntityIndices(opContext, request, elasticSearchConfiguration)
+                    .search(opContext, request, RequestOptions.DEFAULT),
+            deadlineNanos);
+    if (response.getFailedShards() > 0 || response.isTimedOut()) {
+      throw new IOException("The anchor check reported a timed-out or failed shard");
+    }
+    return response.getHits().getTotalHits() != null && response.getHits().getTotalHits().value > 0;
+  }
+
+  /**
+   * The anchor's {@code semanticContent}, or null when it has none, read by the deadline. Bind
+   * reads it for the cache key.
+   */
+  @Nullable
+  public Aspect anchorAspect(
+      @Nonnull OperationContext opContext, @Nonnull Urn anchor, long deadlineNanos)
+      throws IOException {
+    return within(
+        () ->
+            opContext
+                .getAspectRetriever()
+                .getLatestAspectObject(
+                    opContext, anchor, SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME),
+        deadlineNanos);
+  }
+
+  // Runs a store call on the anchor executor and stops waiting at the deadline, so a stalled
+  // lookup fails within the vector retrieval budget instead of holding the request
+  private <T> T within(@Nonnull Callable<T> call, long deadlineNanos) throws IOException {
+    if (deadlineNanos - System.nanoTime() <= 0) {
+      throw new UncheckedTimeoutException("The vector retrieval deadline passed");
+    }
+    return awaitAnchorCall(startAnchorCall(call), deadlineNanos);
+  }
+
+  /**
+   * Starts a similarity anchor's store call on the anchor executor. A full executor rejects it with
+   * a {@link java.util.concurrent.RejectedExecutionException}.
+   */
+  @Nonnull
+  public <T> Future<T> startAnchorCall(@Nonnull Callable<T> call) {
+    return anchorExecutor.submit(call);
+  }
+
+  /**
+   * Waits for a call {@link #startAnchorCall} started until the deadline. A call still running then
+   * is cancelled, but a store call is not aborted and keeps its worker until it returns.
+   */
+  public <T> T awaitAnchorCall(@Nonnull Future<T> future, long deadlineNanos) throws IOException {
+    try {
+      return future.get(Math.max(0, deadlineNanos - System.nanoTime()), TimeUnit.NANOSECONDS);
+    } catch (TimeoutException e) {
+      future.cancel(true);
+      throw new UncheckedTimeoutException("The anchor call ran past the vector retrieval deadline");
+    } catch (InterruptedException e) {
+      future.cancel(true);
+      Thread.currentThread().interrupt();
+      throw new UncheckedTimeoutException("Interrupted while waiting for the anchor call");
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof IOException io) {
+        throw io;
+      }
+      if (e.getCause() instanceof RuntimeException runtime) {
+        throw runtime;
+      }
+      throw new IllegalStateException("The anchor call failed", e.getCause());
+    }
+  }
+
+  // A test that fills the pool builds its own from this, since the shared pool keeps the workers
+  // that earlier tests started
+  @VisibleForTesting
+  public static ThreadPoolExecutor newAnchorExecutor() {
+    // Sixteen workers, so one anchor's four kNN requests hold a quarter of the pool
+    return new ThreadPoolExecutor(
+        16,
+        16,
+        0L,
+        TimeUnit.MILLISECONDS,
+        new ArrayBlockingQueue<>(32),
+        new ThreadFactoryBuilder()
+            .setNameFormat("search-template-anchor-%d")
+            .setDaemon(true)
+            .build());
+  }
+
+  @VisibleForTesting
+  public void setAnchorExecutor(@Nonnull ExecutorService executor) {
+    anchorExecutor = executor;
+  }
+
+  /** The vector retrieval budget bind gives a similarity anchor's check, read, and retrieval. */
+  @VisibleForTesting
+  public void setVectorTimeoutMillis(long millis) {
+    vectorTimeoutMillis = millis;
   }
 
   private static void append(@Nonnull StringBuilder bodies, @Nullable String section) {

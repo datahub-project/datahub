@@ -1648,3 +1648,24 @@
     retrieval:
       combine: vector
     routes: []
+- entityUrn: urn:li:searchTemplate:similarity
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Similarity
+    description: "Entities similar to the one the query names by URN. Every stored chunk vector of that entity is a query vector, and a neighbor scores its best cosine. The neighbors are retrieved inside the caller's filter and the default search filters, and the entity itself is left out. Up to 500 neighbors are retrieved, and those below a cosine of 0.8 are dropped. An entity with no stored vectors fails the search."
+    dialect: ELASTICSEARCH
+    apiVersion: 2
+    editable: false
+    # The anchor's entity type selects the embedding profile. A requested entity type outside it is
+    # left out. No next and no keyword fallback.
+    retrieval:
+      combine: vector
+      querySource: anchorEntity
+      candidateCap: 500
+      minSimilarity: 0.8
+      anchor:
+        urnParameter: raw
+        excludeSelf: true
+    routes: []

@@ -99,13 +99,12 @@ export default function GlossayRelatedTerms() {
                     onClick={(key) => {
                         onMenuClick(key);
                     }}
-                >
-                    {RELATED_TERM_MENU_KEYS.map((option) => (
-                        <Menu.Item data-testid={option} key={option}>
-                            {getRelatedTermTypeLabel(RelatedTermTypes[option])}
-                        </Menu.Item>
-                    ))}
-                </Menu>
+                    items={RELATED_TERM_MENU_KEYS.map((option) => ({
+                        key: option,
+                        'data-testid': option,
+                        label: getRelatedTermTypeLabel(RelatedTermTypes[option]),
+                    }))}
+                />
             </MenuWrapper>
             <Content>
                 {showLoader && <Loader />}

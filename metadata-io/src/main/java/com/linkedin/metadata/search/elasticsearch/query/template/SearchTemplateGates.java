@@ -64,10 +64,10 @@ public final class SearchTemplateGates {
   /**
    * Capabilities this build runs. The pull request that executes a shape advertises its name, so a
    * build never binds a shape it cannot run. {@code vectorRetrieval} is {@code combine: vector}
-   * only.
+   * only, and {@code similarity} is that combine with {@code querySource: anchorEntity}.
    */
   public static final Set<String> ADVERTISED =
-      Set.of(DOCUMENT_RERANK, VECTOR_RETRIEVAL, ENTITY_PARTITION);
+      Set.of(DOCUMENT_RERANK, VECTOR_RETRIEVAL, ENTITY_PARTITION, SIMILARITY);
 
   /** Entity types this build runs for each embedding profile class. */
   public static final Map<String, Set<String>> ADVERTISED_ENTITY_TYPES =
@@ -312,16 +312,26 @@ public final class SearchTemplateGates {
       @Nonnull MergedSearchTemplate template,
       @Nonnull Collection<String> entityTypes,
       @Nullable String system) {
-    SearchTemplateProfiles selection = selection(template);
     Set<String> ids = new LinkedHashSet<>();
     for (String entityType : assigned(template, entityTypes)) {
-      EmbeddingProfileRegistry.Resolution resolution =
-          profiles.resolve(selection, entityType, system);
-      if (joinGate(resolution, entityType) == null && resolution.failure() == null) {
-        ids.addAll(resolution.profileIds());
-      }
+      ids.addAll(profileIds(template, entityType, system));
     }
     return ids;
+  }
+
+  /**
+   * Profiles one entity type resolves when it passes the entity gates, whatever the rung's scope. A
+   * similarity anchor selects its profile this way: the scope assigns the requested types a rung
+   * searches, and the anchor is the query source, not one of them.
+   */
+  @Nonnull
+  public Set<String> profileIds(
+      @Nonnull MergedSearchTemplate template, @Nonnull String entityType, @Nullable String system) {
+    EmbeddingProfileRegistry.Resolution resolution =
+        profiles.resolve(selection(template), entityType, system);
+    return joinGate(resolution, entityType) == null && resolution.failure() == null
+        ? new LinkedHashSet<>(resolution.profileIds())
+        : Set.of();
   }
 
   /**

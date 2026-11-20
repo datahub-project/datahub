@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.search;
 
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertNotNull;
@@ -71,16 +72,9 @@ public class ElasticSearchServiceFactoryHybridTest {
   }
 
   @Test
-  public void testRequiresOpenSearch35OnTheSearchV3Cluster() throws IOException {
-    SearchClientShim<?> openSearch34 = mock(SearchClientShim.class);
-    when(openSearch34.getEngineType()).thenReturn(SearchEngineType.OPENSEARCH_3);
-    when(openSearch34.getEngineVersion()).thenReturn("3.4.0");
-
-    expectThrows(
-        IllegalStateException.class,
-        () ->
-            ElasticSearchServiceFactory.hybridSearchResultReranker(
-                entityIndex(v3 -> {}), () -> provider, () -> openSearch34, null));
+  public void testAllowsSearchV3SemanticReadsBeforeOpenSearch35() throws IOException {
+    assertNotNull(reranker(SearchEngineType.OPENSEARCH_3, "3.4.0"));
+    assertNotNull(reranker(SearchEngineType.OPENSEARCH_2, "2.19.0"));
   }
 
   @Test
@@ -100,10 +94,24 @@ public class ElasticSearchServiceFactoryHybridTest {
     assertNull(ElasticSearchServiceFactory.vectorQueryEmbedding(otherModel, () -> provider));
   }
 
+  private HybridSearchResultReranker reranker(SearchEngineType engine, String version)
+      throws IOException {
+    SearchClientShim<?> client = mock(SearchClientShim.class);
+    when(client.getEngineType()).thenReturn(engine);
+    when(client.getEngineVersion()).thenReturn(version);
+    return ElasticSearchServiceFactory.hybridSearchResultReranker(
+        entityIndex(v3 -> {}), () -> provider, () -> client, null);
+  }
+
   private static HybridSearchResultReranker build(
       EntityIndexConfiguration entityIndex, EmbeddingProvider provider) {
     SearchClientShim<?> elasticsearch = mock(SearchClientShim.class);
     when(elasticsearch.getEngineType()).thenReturn(SearchEngineType.ELASTICSEARCH_8);
+    try {
+      doReturn("8.18.0").when(elasticsearch).getEngineVersion();
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
     return ElasticSearchServiceFactory.hybridSearchResultReranker(
         entityIndex, () -> provider, () -> elasticsearch, null);
   }
@@ -131,6 +139,7 @@ public class ElasticSearchServiceFactoryHybridTest {
                 Set.of("document"),
                 new HashMap<>(Map.of("text_embedding_3_small", model)),
                 providerConfiguration,
+                null,
                 null))
         .build();
   }

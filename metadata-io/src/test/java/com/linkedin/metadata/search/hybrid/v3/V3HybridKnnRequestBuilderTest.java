@@ -119,6 +119,7 @@ public class V3HybridKnnRequestBuilderTest {
             Set.of("dataset", "chart"),
             Map.of(MODEL_KEY, new ModelEmbeddingConfig()),
             null,
+            null,
             null);
     V3HybridKnnRequestBuilder rerank = new V3HybridKnnRequestBuilder(config);
     EntityRegistry registry = TestOperationContexts.defaultEntityRegistry();
@@ -189,6 +190,11 @@ public class V3HybridKnnRequestBuilderTest {
 
   public static SemanticSearchConfiguration semanticSearch(boolean enabled) {
     return new SemanticSearchConfiguration(
-        enabled, Set.of("document"), Map.of(MODEL_KEY, new ModelEmbeddingConfig()), null, null);
+        enabled,
+        Set.of("document"),
+        Map.of(MODEL_KEY, new ModelEmbeddingConfig()),
+        null,
+        null,
+        null);
   }
 }

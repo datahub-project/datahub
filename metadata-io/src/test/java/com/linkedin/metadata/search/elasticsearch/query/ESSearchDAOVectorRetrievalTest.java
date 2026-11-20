@@ -6,11 +6,15 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -21,10 +25,17 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.common.EmbeddingChunk;
+import com.linkedin.common.EmbeddingChunkArray;
+import com.linkedin.common.EmbeddingModelData;
+import com.linkedin.common.EmbeddingModelDataMap;
+import com.linkedin.common.SemanticContent;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.FloatArray;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
@@ -57,7 +68,9 @@ import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
+import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.service.LifecycleStageTypeService;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
@@ -69,6 +82,7 @@ import com.linkedin.search.template.SearchTemplateLadderStop;
 import com.linkedin.search.template.SearchTemplateLadderStopArray;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRetrieval;
+import com.linkedin.search.template.SearchTemplateRetrievalAnchor;
 import com.linkedin.search.template.SearchTemplateScope;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
@@ -76,7 +90,9 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -85,6 +101,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -92,6 +110,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
@@ -111,6 +131,12 @@ public class ESSearchDAOVectorRetrievalTest {
   private static final String VECTOR_URN = "urn:li:searchTemplate:vector";
   private static final String KEYWORD_URN = "urn:li:searchTemplate:keyword";
   private static final String GROUP_URN = "urn:li:searchTemplate:group";
+  private static final String SEMANTIC_URN = "urn:li:searchTemplate:semantic";
+  private static final String SIMILARITY_URN = "urn:li:searchTemplate:similarity";
+  private static final String ANCHOR = "urn:li:document:anchor";
+  private static final String HIDDEN_STAGE = "urn:li:lifecycleStageType:draft";
+  private static final float[] FIRST_CHUNK = {1f, 0f};
+  private static final float[] SECOND_CHUNK = {0f, 1f};
   private static final String MODEL_KEY = "text_embedding_3_small";
   private static final List<String> DOCUMENT = List.of("document");
 
@@ -1027,6 +1053,967 @@ public class ESSearchDAOVectorRetrievalTest {
 
     assertEquals(direct.getNumEntities().intValue(), 500);
     assertEquals(throughCache.getNumEntities(), direct.getNumEntities());
+  }
+
+  @Test
+  public void testSimilarityScoresEachNeighborByItsBestChunk() throws Exception {
+    store(similarity(r -> {}));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK, SECOND_CHUNK);
+    // Each anchor chunk finds its own neighbors; d1 is nearer the second chunk
+    when(client.searchKnn(any(), argThat(request -> queries(request, FIRST_CHUNK))))
+        .thenReturn(new KnnSearchResponse(hits(0.95, 0.92)));
+    when(client.searchKnn(any(), argThat(request -> queries(request, SECOND_CHUNK))))
+        .thenReturn(
+            new KnnSearchResponse(
+                List.of(
+                    new KnnSearchResponse.Hit("d1", 0.97, Map.of("urn", "urn:li:document:d1")),
+                    new KnnSearchResponse.Hit("d2", 0.91, Map.of("urn", "urn:li:document:d2")))));
+
+    SearchResult result = similar(context(DOCUMENT, f -> {}), DOCUMENT);
+
+    // Every neighbor scores its best chunk; the anchor is not embedded and is not its own neighbor
+    assertEquals(
+        urns(result), List.of("urn:li:document:d1", "urn:li:document:d0", "urn:li:document:d2"));
+    assertEquals(result.getEntities().get(0).getScore(), 0.97);
+    verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+    // Each chunk asks for one more than the window of 500, for the anchor's own place
+    ArgumentCaptor<KnnSearchRequest> requests = ArgumentCaptor.forClass(KnnSearchRequest.class);
+    verify(client, times(2)).searchKnn(any(), requests.capture());
+    for (KnnSearchRequest request : requests.getAllValues()) {
+      assertEquals(request.k(), 501);
+    }
+    VectorRetrievalExplanation explanation = result.getMetadata().getVectorRetrieval();
+    assertEquals(explanation.getOutcome(), SearchTemplateVectorRetrieval.SERVED);
+    assertEquals(explanation.getProfile(), MODEL_KEY);
+    assertEquals(explanation.getCandidates().intValue(), 3);
+    // Bind checks the anchor once, with the budget as its search timeout, and the rung reuses it
+    verify(client, times(1))
+        .search(
+            any(OperationContext.class),
+            argThat(
+                request ->
+                    request != null
+                        && request.source().toString().contains(ANCHOR)
+                        && request.source().timeout() != null),
+            any());
+  }
+
+  @Test
+  public void testSimilarityLeavesOutTypesItCannotSearchAndStillServes() throws Exception {
+    store(similarity(r -> {}));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+
+    SearchResult result = similar(context(DOCUMENT, f -> {}), List.of("document", "dataset"));
+
+    assertEquals(urns(result), List.of("urn:li:document:d0"));
+    VectorRetrievalExplanation explanation = result.getMetadata().getVectorRetrieval();
+    assertEquals(explanation.getEntityTypes(), DOCUMENT);
+    assertEquals(
+        explanation.getExcludedEntityTypes(),
+        List.of("dataset:" + SearchTemplateGates.ENTITY_NOT_ENABLED));
+
+    // A requested type under another profile than the anchor's is left out too
+    semanticSearch.setEnabledEntities(Set.of("document", "dataset"));
+    EmbeddingProfile datasets =
+        new EmbeddingProfile(
+            "dataset_profile",
+            EmbeddingProfile.TEXT_CHUNKS,
+            null,
+            "cosine",
+            Set.of("dataset"),
+            Set.of(EmbeddingProfileRegistry.OPENSEARCH));
+    SearchTemplateCoordinator twoProfiles =
+        coordinator(
+            new SearchTemplateGates(
+                new EmbeddingProfileRegistry(
+                    List.of(cosine(), datasets),
+                    Map.of("document", MODEL_KEY, "dataset", datasets.id())),
+                semanticSearch,
+                false,
+                SearchTemplateGates.ADVERTISED,
+                Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset"))));
+    String datasetAnchor = "urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)";
+    OperationContext searching = context(DOCUMENT, f -> {}, twoProfiles);
+    clearInvocations(client, metrics);
+
+    // With no requested type left, an anchor without vectors still fails rather than empties
+    assertThrows(
+        SearchTemplateFailClosedException.class,
+        () ->
+            dao(null, embedding())
+                .search(searching, DOCUMENT, datasetAnchor, null, null, 0, 10, List.of()));
+    assertVectorOutcome(SearchTemplateVectorRetrieval.NO_ANCHOR);
+
+    anchorHas(datasetAnchor, datasets.id(), 1L, FIRST_CHUNK);
+    SearchResult other =
+        dao(null, embedding())
+            .search(searching, DOCUMENT, datasetAnchor, null, null, 0, 10, List.of());
+
+    assertTrue(other.getEntities().isEmpty());
+    VectorRetrievalExplanation leftOut = other.getMetadata().getVectorRetrieval();
+    assertEquals(leftOut.getOutcome(), SearchTemplateVectorRetrieval.NO_ELIGIBLE_ENTITIES);
+    assertEquals(
+        leftOut.getExcludedEntityTypes(),
+        List.of("document:" + SearchTemplateVectorRetrieval.NOT_ANCHOR_PROFILE));
+    verify(client, never()).searchKnn(any(), any());
+  }
+
+  @Test
+  public void testAnAnchorOutsideTheRungsScopeStillSelectsItsProfile() throws Exception {
+    // The scope assigns the requested types the rung searches. The anchor is the query source, so
+    // its type selects the profile even when the scope leaves that type out.
+    SearchTemplateProperties datasetsOnly = similarity(r -> {});
+    datasetsOnly.setScope(new SearchTemplateScope().setEntityTypes(new StringArray("dataset")));
+    store(datasetsOnly);
+    semanticSearch.setEnabledEntities(Set.of("document", "dataset"));
+    EmbeddingProfile shared =
+        new EmbeddingProfile(
+            MODEL_KEY,
+            EmbeddingProfile.TEXT_CHUNKS,
+            "text-embedding-3-small",
+            "cosine",
+            Set.of("document", "dataset"),
+            Set.of(EmbeddingProfileRegistry.OPENSEARCH));
+    SearchTemplateCoordinator bothTypes =
+        coordinator(
+            new SearchTemplateGates(
+                new EmbeddingProfileRegistry(
+                    List.of(shared), Map.of("document", MODEL_KEY, "dataset", MODEL_KEY)),
+                semanticSearch,
+                false,
+                SearchTemplateGates.ADVERTISED,
+                Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset"))));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+
+    SearchResult result =
+        similar(context(DOCUMENT, f -> {}, bothTypes), List.of("document", "dataset"));
+
+    VectorRetrievalExplanation explanation = result.getMetadata().getVectorRetrieval();
+    assertEquals(explanation.getOutcome(), SearchTemplateVectorRetrieval.SERVED);
+    assertEquals(explanation.getProfile(), MODEL_KEY);
+    // The requested document type is still outside the scope: not searched, not reported dropped
+    assertEquals(explanation.getEntityTypes(), List.of("dataset"));
+    assertTrue(explanation.getExcludedEntityTypes().isEmpty());
+    String index = knnRequest().indexName();
+    assertTrue(index.contains("dataset") && !index.contains("document"), index);
+    // Bind resolved the anchor's profile and checked the anchor once, and the rung reused it
+    verify(client, times(1))
+        .search(
+            any(OperationContext.class),
+            argThat(
+                request ->
+                    request != null
+                        && request.source().toString().contains(ANCHOR)
+                        && request.source().timeout() != null),
+            any());
+  }
+
+  @Test
+  public void testSimilarityDropsNeighborsBelowItsFloorWithoutRefilling() throws Exception {
+    // The template's floor replaces the deployment's
+    semanticSearch.setMinSimilarity(0.5f);
+    store(similarity(r -> {}));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    // Cosines 0.9, 0.8 (at the floor), and 0.7
+    knnReturns(hits(0.95, 0.9, 0.85));
+
+    SearchResult result = similar(context(DOCUMENT, f -> {}), DOCUMENT);
+
+    assertEquals(urns(result), List.of("urn:li:document:d0", "urn:li:document:d1"));
+    assertEquals(result.getNumEntities().intValue(), 2);
+    // The window of 500 and one more for the anchor's place; the floor does not refill it
+    assertEquals(knnRequest().k(), 501);
+    VectorRetrievalExplanation explanation = result.getMetadata().getVectorRetrieval();
+    assertEquals(explanation.getMinSimilarity(), 0.8f);
+    assertEquals(explanation.getBelowMinSimilarity().intValue(), 1);
+    assertVectorOutcome(SearchTemplateVectorRetrieval.FLOOR_DROPPED);
+  }
+
+  @Test
+  public void testAnAnchorWithoutVectorsFailsWithoutAKeywordFallback() throws Exception {
+    store(similarity(r -> {}));
+
+    assertThrows(
+        SearchTemplateFailClosedException.class,
+        () -> similar(context(DOCUMENT, f -> {}), DOCUMENT));
+
+    verify(client, never()).searchKnn(any(), any());
+    // The anchor check fetches no rows; no search that does ran
+    verify(client, never())
+        .search(
+            any(OperationContext.class),
+            argThat(request -> request != null && request.source().size() != 0),
+            any());
+    assertVectorOutcome(SearchTemplateVectorRetrieval.NO_ANCHOR);
+    assertNoFallback();
+  }
+
+  @Test
+  public void testAnAnchorTheViewerCannotSeeFailsAtBindWithoutBeingRead() throws Exception {
+    store(similarity(r -> {}));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+    OperationContext searching = context(DOCUMENT, f -> {});
+    SearchTemplateCoordinator coordinator =
+        (SearchTemplateCoordinator) searching.getSearchContext().getSearchTemplateRuntime();
+    clearInvocations(harness.retriever);
+
+    try (MockedStatic<ESAccessControlUtil> access =
+        mockStatic(ESAccessControlUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      access
+          .when(() -> ESAccessControlUtil.restrictUrn(any(), eq(UrnUtils.getUrn(ANCHOR))))
+          .thenReturn(true);
+
+      assertThrows(
+          SearchTemplateFailClosedException.class,
+          () -> coordinator.bind(searching, ANCHOR, false, DOCUMENT));
+    }
+
+    // Nothing about it is read, and its neighbors would reveal what it is about
+    verify(harness.retriever, never())
+        .getLatestAspectObject(
+            any(),
+            eq(UrnUtils.getUrn(ANCHOR)),
+            eq(SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME));
+    verify(client, never()).search(any(OperationContext.class), any(), any());
+    verify(client, never()).searchKnn(any(), any());
+    // An anchor the viewer may not use is a vector retrieval outcome, not a template failure
+    assertVectorOutcome(SearchTemplateVectorRetrieval.NO_ANCHOR);
+    verify(metrics, never())
+        .incrementMicrometer(
+            eq(SearchTemplateMetrics.RENDER_FAILURE), anyDouble(), any(String[].class));
+  }
+
+  @Test
+  public void testTheCacheKeyHasTheAnchorsVectorStampAndScrollFails() throws Exception {
+    store(similarity(r -> {}));
+    OperationContext searching = context(DOCUMENT, f -> {});
+    SearchTemplateCoordinator coordinator =
+        (SearchTemplateCoordinator) searching.getSearchContext().getSearchTemplateRuntime();
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    String before =
+        coordinator
+            .bind(searching, ANCHOR, false, DOCUMENT)
+            .getSearchContext()
+            .getResolvedSearchTemplate()
+            .cacheKeyComponent();
+
+    // Embedding the anchor again changes the key, so its old neighbors are not served
+    anchorHas(ANCHOR, MODEL_KEY, 2L, FIRST_CHUNK);
+    String after =
+        coordinator
+            .bind(searching, ANCHOR, false, DOCUMENT)
+            .getSearchContext()
+            .getResolvedSearchTemplate()
+            .cacheKeyComponent();
+
+    assertTrue(before.contains(ANCHOR), before);
+    assertFalse(before.equals(after), after);
+    assertThrows(
+        SearchTemplateException.class, () -> coordinator.bind(searching, ANCHOR, true, DOCUMENT));
+  }
+
+  /**
+   * The key of a similarity rung carries the profile's metric next to the anchor stamp, so the same
+   * profile id on another metric does not serve the earlier page.
+   */
+  @Test
+  public void testTheSimilarityCacheKeyMovesWithTheProfileMetric() throws Exception {
+    store(similarity(SearchTemplateRetrieval::removeMinSimilarity));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    EmbeddingProfile l2 =
+        new EmbeddingProfile(
+            MODEL_KEY,
+            EmbeddingProfile.TEXT_CHUNKS,
+            null,
+            "l2",
+            Set.of("document"),
+            Set.of(EmbeddingProfileRegistry.OPENSEARCH));
+    Set<String> keys = new HashSet<>();
+    for (EmbeddingProfile profile : List.of(cosine(), l2)) {
+      SearchTemplateCoordinator coordinator =
+          coordinator(SearchTemplateGates.of(registry(profile), semanticSearch, false));
+      keys.add(
+          coordinator
+              .bind(context(DOCUMENT, f -> {}, coordinator), ANCHOR, false, DOCUMENT)
+              .getSearchContext()
+              .getResolvedSearchTemplate()
+              .cacheKeyComponent());
+    }
+
+    assertEquals(keys.size(), 2, keys.toString());
+    assertTrue(keys.stream().allMatch(key -> key.contains(ANCHOR)), keys.toString());
+    assertTrue(keys.stream().anyMatch(key -> key.contains(MODEL_KEY + "/l2")), keys.toString());
+  }
+
+  /**
+   * Bind refuses the anchor before the result cache. A viewer who may not see it is refused even
+   * under the cache key of a viewer who can, and nothing about it is read for them. The page the
+   * other viewer cached is still served to that viewer.
+   */
+  @Test
+  public void testAViewerWhoCannotSeeTheAnchorIsRefusedBeforeTheCache() throws Exception {
+    store(similarity(r -> {}));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+    CachingEntitySearchService cached = cached(dao(null, embedding()));
+    OperationContext searching = context(DOCUMENT, f -> {});
+    assertEquals(
+        urns(cached.search(searching, DOCUMENT, ANCHOR, null, null, 0, 10, List.of())),
+        List.of("urn:li:document:d0"));
+    clearInvocations(client, harness.retriever, metrics);
+
+    try (MockedStatic<ESAccessControlUtil> access =
+        mockStatic(ESAccessControlUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      access
+          .when(() -> ESAccessControlUtil.restrictUrn(any(), eq(UrnUtils.getUrn(ANCHOR))))
+          .thenReturn(true);
+
+      assertThrows(
+          SearchTemplateFailClosedException.class,
+          () -> cached.search(searching, DOCUMENT, ANCHOR, null, null, 0, 10, List.of()));
+    }
+
+    verify(harness.retriever, never())
+        .getLatestAspectObject(
+            any(),
+            eq(UrnUtils.getUrn(ANCHOR)),
+            eq(SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME));
+    verify(client, never()).searchKnn(any(), any());
+    assertVectorOutcome(SearchTemplateVectorRetrieval.NO_ANCHOR);
+
+    clearInvocations(client);
+    assertEquals(
+        urns(cached.search(searching, DOCUMENT, ANCHOR, null, null, 0, 10, List.of())),
+        List.of("urn:li:document:d0"));
+    verify(client, never()).searchKnn(any(), any());
+  }
+
+  @Test
+  public void testAnAnchorSearchWouldLeaveOutFailsAtBindUnlessTheRequestOptsIn() throws Exception {
+    store(similarity(r -> {}));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+    LifecycleStageTypeService stages = mock(LifecycleStageTypeService.class);
+    when(stages.getHiddenStageUrns(anySet())).thenReturn(Set.of(HIDDEN_STAGE));
+    LifecycleStageTypeService previous = ESUtils.getLifecycleStageTypeService();
+    ESUtils.setLifecycleStageTypeService(stages);
+    try {
+      Map<String, Consumer<com.linkedin.metadata.query.SearchFlags>> optIns =
+          Map.of(
+              ESUtils.REMOVED,
+              f -> f.setIncludeSoftDeleted(true),
+              HIDDEN_STAGE,
+              f -> f.setIncludeHiddenLifecycleStages(true));
+      for (Map.Entry<String, Consumer<com.linkedin.metadata.query.SearchFlags>> optIn :
+          optIns.entrySet()) {
+        // The store holds the anchor soft-deleted, or in a hidden stage, so a request that leaves
+        // those out does not find it
+        doAnswer(
+                invocation ->
+                    keywordResponse(
+                        invocation
+                                .<SearchRequest>getArgument(1)
+                                .source()
+                                .toString()
+                                .contains(optIn.getKey())
+                            ? 0
+                            : 1))
+            .when(client)
+            .search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT));
+        OperationContext searching = context(DOCUMENT, f -> {});
+        SearchTemplateCoordinator coordinator =
+            (SearchTemplateCoordinator) searching.getSearchContext().getSearchTemplateRuntime();
+        clearInvocations(client, harness.retriever, metrics);
+
+        // Bind refuses it before reading it
+        assertThrows(
+            SearchTemplateFailClosedException.class,
+            () -> coordinator.bind(searching, ANCHOR, false, DOCUMENT));
+        verify(harness.retriever, never())
+            .getLatestAspectObject(
+                any(),
+                eq(UrnUtils.getUrn(ANCHOR)),
+                eq(SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME));
+        assertVectorOutcome(SearchTemplateVectorRetrieval.NO_ANCHOR);
+
+        // The flag that shows such an entity in search lets it anchor a search too
+        assertEquals(
+            urns(similar(context(DOCUMENT, optIn.getValue()), DOCUMENT)),
+            List.of("urn:li:document:d0"),
+            optIn.getKey());
+      }
+    } finally {
+      ESUtils.setLifecycleStageTypeService(previous);
+    }
+  }
+
+  /**
+   * A similarity rung only a ladder reaches does not fail at bind, since the search may stop before
+   * it. Its anchor is still not read for a viewer who may not see it, and the rung fails if it
+   * runs.
+   */
+  @Test
+  public void testASimilarityRungOnlyALadderReachesFailsOnlyIfItRuns() throws Exception {
+    harness.store(SIMILARITY_URN, similarity(r -> {}));
+    SearchTemplateProperties first = keyword();
+    first.setLadder(onMissNext(SIMILARITY_URN));
+    store(first);
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+    OperationContext searching = context(DOCUMENT, f -> {});
+    clearInvocations(harness.retriever);
+
+    try (MockedStatic<ESAccessControlUtil> access =
+        mockStatic(ESAccessControlUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      access
+          .when(() -> ESAccessControlUtil.restrictUrn(any(), eq(UrnUtils.getUrn(ANCHOR))))
+          .thenReturn(true);
+
+      // The keyword rung serves
+      assertEquals(similar(searching, DOCUMENT).getEntities().size(), 3);
+
+      // The keyword rung misses, so the similarity rung runs and fails
+      SearchResponse noRows = keywordResponse(0);
+      when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+          .thenReturn(noRows);
+      assertThrows(SearchTemplateFailClosedException.class, () -> similar(searching, DOCUMENT));
+    }
+
+    verify(harness.retriever, never())
+        .getLatestAspectObject(
+            any(),
+            eq(UrnUtils.getUrn(ANCHOR)),
+            eq(SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME));
+    verify(client, never()).searchKnn(any(), any());
+    assertVectorOutcome(SearchTemplateVectorRetrieval.NO_ANCHOR);
+  }
+
+  /**
+   * A failed anchor check for a similarity rung only a ladder reaches does not fail the search at
+   * bind, so the keyword rung serves. That page is not cached, since its key does not say what the
+   * anchor was.
+   */
+  @Test
+  public void testALadderOnlyAnchorCheckThatFailsLetsTheKeywordRungServe() throws Exception {
+    harness.store(SIMILARITY_URN, similarity(r -> {}));
+    SearchTemplateProperties first = keyword();
+    first.setLadder(onMissNext(SIMILARITY_URN));
+    store(first);
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    SearchResponse rows = keywordResponse(3);
+    doAnswer(
+            invocation -> {
+              if (isAnchorProbe(invocation.getArgument(1))) {
+                throw new IOException("anchor lookup unavailable");
+              }
+              return rows;
+            })
+        .when(client)
+        .search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT));
+    CachingEntitySearchService cached = cached(dao(null, embedding()));
+    OperationContext searching = context(DOCUMENT, f -> {});
+
+    for (int i = 0; i < 2; i++) {
+      assertEquals(
+          cached
+              .search(searching, DOCUMENT, ANCHOR, null, null, 0, 10, List.of())
+              .getEntities()
+              .size(),
+          3);
+    }
+
+    // Each search ran the keyword rung, so neither page came from the cache
+    verify(client, times(2))
+        .search(
+            any(OperationContext.class),
+            argThat(request -> request != null && !isAnchorProbe(request)),
+            any());
+  }
+
+  /**
+   * Bind's answer for a ladder-only anchor stands at the rung. An anchor the search filters left
+   * out at bind stays out when the rung runs, even if the store would now keep it, since the cache
+   * key was stamped unusable.
+   */
+  @Test
+  public void testALadderOnlyAnchorUnusableAtBindStaysUnusableAtTheRung() throws Exception {
+    harness.store(SIMILARITY_URN, similarity(r -> {}));
+    SearchTemplateProperties first = keyword();
+    first.setLadder(onMissNext(SIMILARITY_URN));
+    store(first);
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+    // The keyword rung misses. The anchor is left out at bind and kept from then on.
+    AtomicInteger probes = new AtomicInteger();
+    SearchResponse none = keywordResponse(0);
+    SearchResponse kept = keywordResponse(1);
+    doAnswer(
+            invocation ->
+                isAnchorProbe(invocation.getArgument(1)) && probes.getAndIncrement() > 0
+                    ? kept
+                    : none)
+        .when(client)
+        .search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT));
+
+    assertThrows(
+        SearchTemplateFailClosedException.class,
+        () -> similar(context(DOCUMENT, f -> {}), DOCUMENT));
+
+    assertEquals(probes.get(), 1);
+    verify(client, never()).searchKnn(any(), any());
+    assertVectorOutcome(SearchTemplateVectorRetrieval.NO_ANCHOR);
+  }
+
+  /** A stalled anchor lookup at bind fails the search within the vector retrieval budget. */
+  @Test
+  public void testAStalledAnchorLookupFailsWithinTheBudget() throws Exception {
+    store(similarity(r -> {}));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+    SearchTemplateCoordinator coordinator =
+        coordinator(SearchTemplateGates.of(registry(cosine()), semanticSearch, false));
+    coordinator.setVectorTimeoutMillis(100);
+    CountDownLatch release = new CountDownLatch(1);
+    SearchResponse kept = keywordResponse(1);
+    doAnswer(
+            invocation -> {
+              release.await(10, TimeUnit.SECONDS);
+              return kept;
+            })
+        .when(client)
+        .search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT));
+    OperationContext searching = context(DOCUMENT, f -> {}, coordinator);
+
+    long start = System.nanoTime();
+    try {
+      assertThrows(SearchTemplateFailClosedException.class, () -> similar(searching, DOCUMENT));
+    } finally {
+      release.countDown();
+    }
+
+    assertTrue(System.nanoTime() - start < TimeUnit.SECONDS.toNanos(5));
+    verify(client, never()).searchKnn(any(), any());
+    assertVectorOutcome(SearchTemplateVectorRetrieval.FAILED);
+  }
+
+  @Test
+  public void testAStalledRungReadOfTheAnchorFailsWithinTheBudget() throws Exception {
+    store(similarity(r -> {}));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+    Aspect stored =
+        harness.retriever.getLatestAspectObject(
+            null,
+            UrnUtils.getUrn(ANCHOR),
+            SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME);
+    SearchTemplateCoordinator coordinator =
+        coordinator(SearchTemplateGates.of(registry(cosine()), semanticSearch, false));
+    coordinator.setVectorTimeoutMillis(1_000);
+    // Bind reads the anchor for the cache key; the rung's read for its vectors stalls
+    AtomicInteger reads = new AtomicInteger();
+    CountDownLatch release = new CountDownLatch(1);
+    doAnswer(
+            invocation -> {
+              if (reads.incrementAndGet() > 1) {
+                release.await(10, TimeUnit.SECONDS);
+              }
+              return stored;
+            })
+        .when(harness.retriever)
+        .getLatestAspectObject(
+            any(),
+            eq(UrnUtils.getUrn(ANCHOR)),
+            eq(SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME));
+    OperationContext searching = context(DOCUMENT, f -> {}, coordinator);
+
+    long start = System.nanoTime();
+    try {
+      assertThrows(SearchTemplateFailClosedException.class, () -> similar(searching, DOCUMENT));
+    } finally {
+      release.countDown();
+    }
+
+    assertTrue(System.nanoTime() - start < TimeUnit.SECONDS.toNanos(5));
+    assertEquals(reads.get(), 2);
+    verify(client, never()).searchKnn(any(), any());
+    assertVectorOutcome(SearchTemplateVectorRetrieval.FAILED);
+  }
+
+  @Test
+  public void testAFullAnchorPoolFailsTheSearchWithoutCheckingOnTheCaller() throws Exception {
+    store(similarity(r -> {}));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+    SearchTemplateCoordinator coordinator =
+        coordinator(SearchTemplateGates.of(registry(cosine()), semanticSearch, false));
+    ThreadPoolExecutor pool = SearchTemplateCoordinator.newAnchorExecutor();
+    CountDownLatch release = new CountDownLatch(1);
+    int capacity = pool.getMaximumPoolSize() + pool.getQueue().remainingCapacity();
+    for (int i = 0; i < capacity; i++) {
+      pool.execute(
+          () -> {
+            try {
+              release.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+            }
+          });
+    }
+    coordinator.setAnchorExecutor(pool);
+    OperationContext searching = context(DOCUMENT, f -> {}, coordinator);
+
+    try {
+      assertThrows(SearchTemplateFailClosedException.class, () -> similar(searching, DOCUMENT));
+    } finally {
+      release.countDown();
+      pool.shutdownNow();
+    }
+
+    // The full pool refused the check, so it never ran on the request thread
+    verify(client, never())
+        .search(any(OperationContext.class), argThat(request -> isAnchorProbe(request)), any());
+    verify(client, never()).searchKnn(any(), any());
+    assertVectorOutcome(SearchTemplateVectorRetrieval.FAILED);
+  }
+
+  /**
+   * One search keeps four of its anchor's kNN requests on the pool at a time, a quarter of it.
+   * Three long anchors searched together hold twelve of the sixteen workers, nothing waits in the
+   * queue, and all three serve once the engine answers, as does a later search.
+   */
+  @Test
+  public void testOverlappingLongAnchorsHoldFourWorkersEachAndAllServe() throws Exception {
+    store(similarity(r -> {}));
+    float[][] pipelineMost = new float[SearchTemplateVectorRetrieval.MAX_ANCHOR_CHUNKS][];
+    Arrays.fill(pipelineMost, FIRST_CHUNK);
+    anchorHas(ANCHOR, MODEL_KEY, 1L, pipelineMost);
+    AtomicInteger started = new AtomicInteger();
+    CountDownLatch twelveStarted = new CountDownLatch(12);
+    CountDownLatch thirteenthStarted = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+    when(client.searchKnn(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              if (started.incrementAndGet() == 13) {
+                thirteenthStarted.countDown();
+              }
+              twelveStarted.countDown();
+              release.await(10, TimeUnit.SECONDS);
+              return new KnnSearchResponse(hits(0.95));
+            });
+    SearchTemplateCoordinator coordinator =
+        coordinator(SearchTemplateGates.of(registry(cosine()), semanticSearch, false));
+    coordinator.setVectorTimeoutMillis(10_000);
+    ThreadPoolExecutor pool = SearchTemplateCoordinator.newAnchorExecutor();
+    coordinator.setAnchorExecutor(pool);
+    OperationContext searching = context(DOCUMENT, f -> {}, coordinator);
+    ExecutorService callers = Executors.newFixedThreadPool(3);
+    try {
+      List<Future<SearchResult>> searches = new ArrayList<>();
+      for (int i = 0; i < 3; i++) {
+        searches.add(callers.submit(() -> similar(searching, DOCUMENT)));
+      }
+      assertTrue(twelveStarted.await(10, TimeUnit.SECONDS));
+      // No search starts a fifth request while its first four run, and the third search queues
+      // nothing, so it is neither refused nor waiting
+      assertFalse(thirteenthStarted.await(200, TimeUnit.MILLISECONDS));
+      assertTrue(pool.getQueue().isEmpty());
+
+      release.countDown();
+      for (Future<SearchResult> search : searches) {
+        assertEquals(urns(search.get(10, TimeUnit.SECONDS)).size(), 1);
+      }
+      assertEquals(urns(similar(searching, DOCUMENT)).size(), 1);
+    } finally {
+      release.countDown();
+      callers.shutdownNow();
+      pool.shutdownNow();
+    }
+    verify(client, times(4 * SearchTemplateVectorRetrieval.MAX_ANCHOR_CHUNKS))
+        .searchKnn(any(), any());
+  }
+
+  @Test
+  public void testAnAnchorWithThePipelinesMostChunksServesAndOneOverTheCapFails() throws Exception {
+    store(similarity(r -> {}));
+    knnReturns(hits(0.95));
+    // The default embedding pipeline stores up to 100 chunks for one document
+    float[][] pipelineMost = new float[100][];
+    Arrays.fill(pipelineMost, FIRST_CHUNK);
+    anchorHas(ANCHOR, MODEL_KEY, 1L, pipelineMost);
+
+    assertEquals(urns(similar(context(DOCUMENT, f -> {}), DOCUMENT)).size(), 1);
+    verify(client, times(100)).searchKnn(any(), any());
+
+    float[][] overCap = new float[SearchTemplateVectorRetrieval.MAX_ANCHOR_CHUNKS + 1][];
+    Arrays.fill(overCap, FIRST_CHUNK);
+    anchorHas(ANCHOR, MODEL_KEY, 2L, overCap);
+    clearInvocations(client);
+
+    assertThrows(
+        SearchTemplateFailClosedException.class,
+        () -> similar(context(DOCUMENT, f -> {}), DOCUMENT));
+
+    verify(client, never()).searchKnn(any(), any());
+    assertVectorOutcome(SearchTemplateVectorRetrieval.NO_ANCHOR);
+  }
+
+  @Test
+  public void testExcludeSelfDropsTheAnchorTheStoreFindsWithoutShrinkingTheWindow()
+      throws Exception {
+    store(similarity(r -> r.setCandidateCap(2)));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    // The anchor is its own nearest neighbor, and nothing in the request filters it out
+    chunkFinds(FIRST_CHUNK, neighbor("anchor", 1.0), neighbor("d1", 0.97), neighbor("d2", 0.95));
+
+    SearchResult result = similar(context(DOCUMENT, f -> {}), DOCUMENT);
+
+    // The chunk asks for one more than the window, so the anchor's place goes to d2
+    assertEquals(urns(result), List.of("urn:li:document:d1", "urn:li:document:d2"));
+    KnnSearchRequest request = knnRequest();
+    assertEquals(request.k(), 3);
+    assertFalse(request.filter().orElseThrow().toString().contains(ANCHOR));
+
+    // Without excludeSelf the anchor is a neighbor like any other
+    store(
+        similarity(
+            r ->
+                r.setCandidateCap(2)
+                    .setAnchor(
+                        new SearchTemplateRetrievalAnchor()
+                            .setUrnParameter("raw")
+                            .setExcludeSelf(false))));
+    assertEquals(
+        urns(similar(context(DOCUMENT, f -> {}), DOCUMENT)), List.of(ANCHOR, "urn:li:document:d1"));
+  }
+
+  @Test
+  public void testSimilarityKeepsTheTrueTopKWhateverTheChunkOrder() throws Exception {
+    store(similarity(r -> r.setCandidateCap(2)));
+    float[] thirdChunk = {1f, 1f};
+    // d2 and d3 are the two best; d1 leads after the first chunk, and d2's best comes last
+    chunkFinds(FIRST_CHUNK, neighbor("d1", 0.93), neighbor("d2", 0.92));
+    chunkFinds(SECOND_CHUNK, neighbor("d3", 0.97), neighbor("d1", 0.925));
+    chunkFinds(thirdChunk, neighbor("d2", 0.99), neighbor("d4", 0.95));
+    List<float[][]> orders =
+        List.of(
+            new float[][] {FIRST_CHUNK, SECOND_CHUNK, thirdChunk},
+            new float[][] {FIRST_CHUNK, thirdChunk, SECOND_CHUNK},
+            new float[][] {SECOND_CHUNK, FIRST_CHUNK, thirdChunk},
+            new float[][] {SECOND_CHUNK, thirdChunk, FIRST_CHUNK},
+            new float[][] {thirdChunk, FIRST_CHUNK, SECOND_CHUNK},
+            new float[][] {thirdChunk, SECOND_CHUNK, FIRST_CHUNK});
+
+    for (int i = 0; i < orders.size(); i++) {
+      anchorHas(ANCHOR, MODEL_KEY, i, orders.get(i));
+      SearchResult result = similar(context(DOCUMENT, f -> {}), DOCUMENT);
+
+      assertEquals(urns(result), List.of("urn:li:document:d2", "urn:li:document:d3"), "order " + i);
+      assertEquals(result.getEntities().get(0).getScore(), 0.99);
+      assertEquals(result.getEntities().get(1).getScore(), 0.97);
+    }
+  }
+
+  @Test
+  public void testAStalledChunkCallFailsWithinTheBudget() throws Exception {
+    store(similarity(r -> {}));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK, SECOND_CHUNK);
+    chunkFinds(FIRST_CHUNK, neighbor("d1", 0.95));
+    CountDownLatch reached = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+    when(client.searchKnn(any(), argThat(request -> queries(request, SECOND_CHUNK))))
+        .thenAnswer(
+            invocation -> {
+              reached.countDown();
+              release.await(10, TimeUnit.SECONDS);
+              return new KnnSearchResponse(List.of(neighbor("d2", 0.95)));
+            });
+    SearchTemplateCoordinator coordinator =
+        coordinator(SearchTemplateGates.of(registry(cosine()), semanticSearch, false));
+    coordinator.setVectorTimeoutMillis(1_000);
+    OperationContext searching = context(DOCUMENT, f -> {}, coordinator);
+
+    long start = System.nanoTime();
+    try {
+      assertThrows(SearchTemplateFailClosedException.class, () -> similar(searching, DOCUMENT));
+    } finally {
+      release.countDown();
+    }
+
+    assertTrue(System.nanoTime() - start < TimeUnit.SECONDS.toNanos(5));
+    assertEquals(reached.getCount(), 0L);
+    assertVectorOutcome(SearchTemplateVectorRetrieval.FAILED);
+  }
+
+  @Test
+  public void testSimilarityNeedsSemanticReadButNoEmbeddingProvider() throws Exception {
+    store(similarity(r -> {}));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+    OperationContext searching = context(DOCUMENT, f -> {});
+
+    // The stored vectors are the query, so a process that cannot embed still finds neighbors
+    SearchResult result =
+        dao(null, null).search(searching, DOCUMENT, ANCHOR, null, null, 0, 10, List.of());
+    assertEquals(urns(result), List.of("urn:li:document:d0"));
+    assertTrue(queries(knnRequest(), FIRST_CHUNK));
+
+    ESSearchDAO withoutSemanticRead =
+        new ESSearchDAO(
+            false,
+            harness.elastic(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            false,
+            TEST_SEARCH_SERVICE_CONFIG,
+            new Sha256UrnEntityDocumentIdHasher(),
+            null,
+            null);
+    clearInvocations(client);
+    assertThrows(
+        SearchTemplateFailClosedException.class,
+        () ->
+            withoutSemanticRead.search(searching, DOCUMENT, ANCHOR, null, null, 0, 10, List.of()));
+    verify(client, never()).searchKnn(any(), any());
+    assertVectorOutcome(SearchTemplateVectorRetrieval.UNAVAILABLE);
+  }
+
+  @Test
+  public void testNeighborsWithEqualScoresAreOrderedByUrn() throws Exception {
+    store(similarity(r -> {}));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK, SECOND_CHUNK);
+    // d2 and d1 tie inside one response, and d0 ties with both from the other chunk
+    when(client.searchKnn(any(), argThat(request -> queries(request, FIRST_CHUNK))))
+        .thenReturn(
+            new KnnSearchResponse(
+                List.of(
+                    new KnnSearchResponse.Hit("d2", 0.95, Map.of("urn", "urn:li:document:d2")),
+                    new KnnSearchResponse.Hit("d1", 0.95, Map.of("urn", "urn:li:document:d1")))));
+    when(client.searchKnn(any(), argThat(request -> queries(request, SECOND_CHUNK))))
+        .thenReturn(
+            new KnnSearchResponse(
+                List.of(
+                    new KnnSearchResponse.Hit("d0", 0.95, Map.of("urn", "urn:li:document:d0")))));
+
+    assertEquals(
+        urns(similar(context(DOCUMENT, f -> {}), DOCUMENT)),
+        List.of("urn:li:document:d0", "urn:li:document:d1", "urn:li:document:d2"));
+
+    // An anchor with one chunk orders its ties the same way
+    anchorHas(ANCHOR, MODEL_KEY, 2L, FIRST_CHUNK);
+    assertEquals(
+        urns(similar(context(DOCUMENT, f -> {}), DOCUMENT)),
+        List.of("urn:li:document:d1", "urn:li:document:d2"));
+  }
+
+  @Test
+  public void testAUrnOfAnEntityTypeWithoutAProfileFailsAsNoAnchor() throws Exception {
+    store(similarity(r -> {}));
+    OperationContext searching = context(DOCUMENT, f -> {});
+
+    // The route sends any entity URN here. A type with no embedding profile, registered or not,
+    // cannot anchor a search.
+    assertThrows(
+        SearchTemplateFailClosedException.class,
+        () ->
+            dao(null, embedding())
+                .search(searching, DOCUMENT, "urn:li:notAnEntity:x", null, null, 0, 10, List.of()));
+
+    verify(client, never()).searchKnn(any(), any());
+    assertVectorOutcome(SearchTemplateVectorRetrieval.NO_ANCHOR);
+  }
+
+  /**
+   * The build before this one runs vector retrieval but not similarity. The shipped semantic
+   * template has no route to similarity yet, so that build still embeds a URN query on it.
+   */
+  @Test
+  public void testAnEarlierBuildEmbedsAUrnOnTheShippedSemantic() throws Exception {
+    SearchTemplateFixtures.readShipped().forEach(harness::store);
+    knnReturns(hits(0.95));
+    SearchTemplateCoordinator earlier =
+        coordinator(
+            new SearchTemplateGates(
+                registry(cosine()),
+                semanticSearch,
+                false,
+                Set.of(SearchTemplateGates.DOCUMENT_RERANK, SearchTemplateGates.VECTOR_RETRIEVAL),
+                SearchTemplateGates.ADVERTISED_ENTITY_TYPES));
+    OperationContext searching = pinned(context(DOCUMENT, f -> {}, earlier), SEMANTIC_URN);
+
+    SearchResult result = similar(searching, DOCUMENT);
+
+    assertEquals(urns(result), List.of("urn:li:document:d0"));
+    verify(provider).embed(eq(ANCHOR), any(), any(), any(Duration.class));
+  }
+
+  private SearchResult similar(OperationContext searching, List<String> entities) {
+    return dao(null, embedding()).search(searching, entities, ANCHOR, null, null, 0, 10, List.of());
+  }
+
+  /** The anchor's semanticContent: one chunk per vector under the profile. */
+  private void anchorHas(String anchor, String profile, long generatedAt, float[]... chunks) {
+    EmbeddingChunkArray stored = new EmbeddingChunkArray();
+    for (int i = 0; i < chunks.length; i++) {
+      FloatArray vector = new FloatArray();
+      for (float value : chunks[i]) {
+        vector.add(value);
+      }
+      stored.add(new EmbeddingChunk().setPosition(i).setVector(vector));
+    }
+    SemanticContent content =
+        new SemanticContent()
+            .setEmbeddings(
+                new EmbeddingModelDataMap(
+                    Map.of(
+                        profile,
+                        new EmbeddingModelData()
+                            .setModelVersion("text-embedding-3-small")
+                            .setGeneratedAt(generatedAt)
+                            .setTotalChunks(chunks.length)
+                            .setChunks(stored))));
+    doReturn(new Aspect(content.data()))
+        .when(harness.retriever)
+        .getLatestAspectObject(
+            any(),
+            eq(UrnUtils.getUrn(anchor)),
+            eq(SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME));
+  }
+
+  /** The size-0 request that checks the anchor against the default search filters. */
+  private static boolean isAnchorProbe(SearchRequest request) {
+    return request != null
+        && request.source().size() == 0
+        && request.source().toString().contains(ANCHOR);
+  }
+
+  private void chunkFinds(float[] chunk, KnnSearchResponse.Hit... found) throws IOException {
+    when(client.searchKnn(any(), argThat(request -> queries(request, chunk))))
+        .thenReturn(new KnnSearchResponse(List.of(found)));
+  }
+
+  private static KnnSearchResponse.Hit neighbor(String id, double score) {
+    return new KnnSearchResponse.Hit(id, score, Map.of("urn", "urn:li:document:" + id));
+  }
+
+  private static boolean queries(KnnSearchRequest request, float[] vector) {
+    return request != null && Arrays.equals(request.queryVector(), vector);
+  }
+
+  /** The shipped similarity shape: the anchor's neighbors, 500 at most, above a cosine of 0.8. */
+  private static SearchTemplateProperties similarity(Consumer<SearchTemplateRetrieval> setup) {
+    return vector(
+        r -> {
+          r.setQuerySource("anchorEntity")
+              .setCandidateCap(500)
+              .setMinSimilarity(0.8f)
+              .setAnchor(
+                  new SearchTemplateRetrievalAnchor().setUrnParameter("raw").setExcludeSelf(true));
+          setup.accept(r);
+        });
   }
 
   private CachingEntitySearchService cached(ESSearchDAO dao) {
