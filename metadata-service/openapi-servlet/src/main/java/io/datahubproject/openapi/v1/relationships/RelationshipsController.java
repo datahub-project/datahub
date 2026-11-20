@@ -11,13 +11,13 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
-import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -28,6 +28,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -100,16 +101,19 @@ public class RelationshipsController {
         }
     }
 
-    return _graphService.findRelatedEntities(
+    return EntityAuthorizationUtils.filterAPIAuthorizedRelatedEntities(
         opContext,
-        null,
-        newFilter("urn", rawUrn),
-        null,
-        QueryUtils.EMPTY_FILTER,
-        relationshipTypes,
-        newRelationshipFilter(QueryUtils.EMPTY_FILTER, restLiDirection),
-        start,
-        count);
+        RELATIONSHIP,
+        _graphService.findRelatedEntities(
+            opContext,
+            null,
+            newFilter("urn", rawUrn),
+            null,
+            QueryUtils.EMPTY_FILTER,
+            relationshipTypes,
+            newRelationshipFilter(QueryUtils.EMPTY_FILTER, restLiDirection),
+            start,
+            count));
   }
 
   @GetMapping(
@@ -179,7 +183,8 @@ public class RelationshipsController {
             true);
 
     if (!AuthUtil.isAPIAuthorizedUrns(opContext, RELATIONSHIP, READ, List.of(entityUrn))) {
-      throw new UnauthorizedException(actorUrnStr + " is unauthorized to get relationships.");
+      return ResponseEntity.ok(
+          new RelatedEntitiesResult(start == null ? 0 : start, 0, 0, Collections.emptyList()));
     }
 
     Throwable exceptionally = null;

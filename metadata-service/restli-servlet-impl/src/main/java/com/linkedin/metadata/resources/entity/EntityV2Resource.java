@@ -16,10 +16,9 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.parseq.Task;
-import com.linkedin.restli.common.HttpStatus;
-import com.linkedin.restli.server.RestLiServiceException;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
@@ -33,6 +32,7 @@ import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -92,10 +92,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "getEntityV2", urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
 
-    if (!isAuthorizedToReadEntities(opContext, List.of(urn))) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urn);
-    }
+    final boolean canRead = isAuthorizedToReadEntities(opContext, List.of(urn));
 
       return RestliUtils.toTask(opContext,
         () -> {
@@ -104,6 +101,14 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
               aspectNames == null
                   ? opContext.getEntityAspectNames(entityName)
                   : new HashSet<>(Arrays.asList(aspectNames));
+          if (!canRead) {
+            return EntityUtils.toMissingEntityResponses(
+                    opContext.getEntityRegistry(),
+                    List.of(urn),
+                    projectedAspects,
+                    alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect)
+                .get(urn);
+          }
           try {
             EntityResponse response =
                 _entityService.getEntityV2(
@@ -150,11 +155,6 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "getEntityV2", urns.stream().map(Urn::getEntityType).collect(Collectors.toList())).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
 
-    if (!isAuthorizedToReadEntities(opContext, urns)) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entities " + urnStrs);
-    }
-
       if (urns.size() <= 0) {
       return Task.value(Collections.emptyMap());
     }
@@ -179,14 +179,22 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
               aspectNames == null
                   ? opContext.getEntityAspectNames(entityName)
                   : new HashSet<>(Arrays.asList(aspectNames));
+          final boolean includeKeyAspect = alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect;
+          final Set<Urn> readableUrns =
+              new HashSet<>(EntityAuthorizationUtils.filterAPIAuthorizedEntityUrns(opContext, READ, fetchedUrns));
           try {
-            Map<Urn, EntityResponse> response =
-                _entityService.getEntitiesV2(
-                    opContext,
-                    entityName,
-                    fetchedUrns,
-                    projectedAspects,
-                    alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
+            final Map<Urn, EntityResponse> response =
+                new HashMap<>(
+                    EntityUtils.toMissingEntityResponses(
+                        opContext.getEntityRegistry(),
+                        fetchedUrns.stream().filter(urn -> !readableUrns.contains(urn)).toList(),
+                        projectedAspects,
+                        includeKeyAspect));
+            if (!readableUrns.isEmpty()) {
+              response.putAll(
+                  _entityService.getEntitiesV2(
+                      opContext, entityName, readableUrns, projectedAspects, includeKeyAspect));
+            }
             EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(opContext, response);
             return SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, response);
           } catch (Exception e) {

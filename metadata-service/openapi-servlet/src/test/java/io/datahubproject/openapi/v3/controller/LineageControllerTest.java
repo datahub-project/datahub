@@ -36,6 +36,7 @@ import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.v3.models.ScrollLineageRequestBody;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -459,5 +460,127 @@ public class LineageControllerTest extends AbstractTestNGSpringContextTests {
           .andExpect(
               jsonPath("$.results[0].downstream").value("urn:li:restricted:redacted-dataset"));
     }
+  }
+
+  @Test
+  public void testScrollLineageWithOnlyUnreadableAnchorsAnswersLikeMissingAnchors()
+      throws Exception {
+    ScrollLineageRequestBody body =
+        ScrollLineageRequestBody.builder().urns(List.of(ANCHOR_URN)).build();
+
+    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class), any(ApiGroup.class), any(ApiOperation.class)))
+          .thenReturn(true);
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.post("/openapi/v3/lineage/scroll")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(objectMapper.writeValueAsString(body))
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().is2xxSuccessful())
+          .andExpect(jsonPath("$.results.length()").value(0))
+          .andExpect(jsonPath("$.scrollId").doesNotExist());
+    }
+    verify(mockGraphService, never())
+        .scrollRelatedEntities(any(), any(), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testScrollLineageDropsUnreadableAnchorsFromTheEdgeFilter() throws Exception {
+    String hiddenAnchorUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,hidden_anchor,PROD)";
+    stubLineageRegistry(
+        "dataset", "Consumes", RelationshipDirection.OUTGOING, RelationshipDirection.INCOMING);
+    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            graphFiltersCaptor.capture(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(new RelatedEntitiesScrollResult(0, 10, null, List.of()));
+    ScrollLineageRequestBody body =
+        ScrollLineageRequestBody.builder().urns(List.of(ANCHOR_URN, hiddenAnchorUrn)).build();
+
+    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class, CALLS_REAL_METHODS)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class), any(ApiGroup.class), any(ApiOperation.class)))
+          .thenReturn(true);
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorizedUrns(
+                      any(OperationContext.class),
+                      eq(ApiGroup.RELATIONSHIP),
+                      eq(ApiOperation.READ),
+                      any()))
+          .thenAnswer(
+              invocation ->
+                  !invocation
+                      .<Collection<Urn>>getArgument(3)
+                      .contains(Urn.createFromString(hiddenAnchorUrn)));
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.post("/openapi/v3/lineage/scroll")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(objectMapper.writeValueAsString(body))
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().is2xxSuccessful());
+    }
+
+    String edgeFilter = graphFiltersCaptor.getValue().getRelationshipFilter().toString();
+    assertTrue(edgeFilter.contains(ANCHOR_URN));
+    assertFalse(edgeFilter.contains(hiddenAnchorUrn));
+  }
+
+  @Test
+  public void testScrollLineageKeepsUnparseableAnchorsLikeMissingOnes() throws Exception {
+    stubLineageRegistry(
+        "dataset", "Consumes", RelationshipDirection.OUTGOING, RelationshipDirection.INCOMING);
+    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            graphFiltersCaptor.capture(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(new RelatedEntitiesScrollResult(0, 10, null, List.of()));
+    ScrollLineageRequestBody body =
+        ScrollLineageRequestBody.builder().urns(List.of("not-a-urn")).build();
+
+    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class, CALLS_REAL_METHODS)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class), any(ApiGroup.class), any(ApiOperation.class)))
+          .thenReturn(true);
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.post("/openapi/v3/lineage/scroll")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(objectMapper.writeValueAsString(body))
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().is2xxSuccessful())
+          .andExpect(jsonPath("$.results.length()").value(0));
+    }
+
+    assertTrue(
+        graphFiltersCaptor.getValue().getRelationshipFilter().toString().contains("not-a-urn"));
   }
 }

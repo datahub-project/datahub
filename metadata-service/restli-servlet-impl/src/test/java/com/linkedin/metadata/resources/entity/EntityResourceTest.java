@@ -5,6 +5,7 @@ import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -31,6 +32,7 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.FilterExistingUrnsRequest;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -50,6 +52,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
@@ -66,7 +69,9 @@ import com.linkedin.restli.server.RestLiServiceException;
 import java.util.Map;
 import org.testng.annotations.DataProvider;
 import java.lang.reflect.Field;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executors;
@@ -236,7 +241,7 @@ public class EntityResourceTest {
 
     assertEquals(result.length, 0);
     verify(entityService, never())
-        .exists(any(OperationContext.class), any(java.util.Collection.class), anyBoolean());
+        .exists(any(OperationContext.class), any(Collection.class), anyBoolean());
   }
 
   @Test
@@ -274,6 +279,118 @@ public class EntityResourceTest {
     assertEquals(result.length, 1);
     verify(entityService, times(1))
         .exists(any(OperationContext.class), eq(Set.of(existingUrn)), eq(false));
+  }
+
+  @Test
+  public void testExistsReturnsFalseWhenDenied() throws Exception {
+    Urn hiddenUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,hidden,PROD)");
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtils
+          .when(
+              () ->
+                  EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+                      any(OperationContext.class), eq(ApiOperation.EXISTS), argThat((Collection<Urn> urns) -> urns.contains(hiddenUrn))))
+          .thenReturn(false);
+
+      assertFalse(awaitTask(entityResource.exists(hiddenUrn.toString(), null)));
+    }
+    verify(entityService, never()).exists(any(OperationContext.class), any(Urn.class), anyBoolean());
+  }
+
+  @Test
+  public void testFilterExistingUrnsDropsDeniedUrns() throws Exception {
+    Urn visibleUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,visible,PROD)");
+    Urn hiddenUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,hidden,PROD)");
+    when(entityService.exists(any(OperationContext.class), eq(Set.of(visibleUrn)), eq(true)))
+        .thenReturn(Set.of(visibleUrn));
+
+    FilterExistingUrnsRequest request = new FilterExistingUrnsRequest();
+    request.setUrns(new StringArray(List.of(visibleUrn.toString(), hiddenUrn.toString())));
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtils
+          .when(
+              () ->
+                  EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+                      any(OperationContext.class), eq(ApiOperation.EXISTS), argThat((Collection<Urn> urns) -> urns.contains(hiddenUrn))))
+          .thenReturn(false);
+
+      String[] result = awaitTask(entityResource.filterExistingUrns(request));
+
+      assertEquals(result, new String[] {visibleUrn.toString()});
+    }
+    verify(entityService, times(1))
+        .exists(any(OperationContext.class), eq(Set.of(visibleUrn)), eq(true));
+  }
+
+  @Test
+  public void testGetAnswersReadDeniedUrnWithKeyOnlySnapshot() throws Exception {
+    Urn hiddenUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,hidden,PROD)");
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      denyRead(authUtils, hiddenUrn);
+
+      Entity entity = new Entity(awaitTask(entityResource.get(hiddenUrn.toString(), null)).data());
+
+      DatasetSnapshot snapshot = entity.getValue().getDatasetSnapshot();
+      assertEquals(snapshot.getUrn().toString(), hiddenUrn.toString());
+      assertEquals(snapshot.getAspects().size(), 1);
+      assertTrue(snapshot.getAspects().get(0).isDatasetKey());
+    }
+    verify(entityService, never()).getEntity(any(OperationContext.class), any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testBatchGetAnswersReadDeniedUrnsWithKeyOnlySnapshots() throws Exception {
+    Urn visibleUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,visible,PROD)");
+    Urn hiddenUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,hidden,PROD)");
+    when(entityService.getEntities(any(OperationContext.class), eq(Set.of(visibleUrn)), any(), eq(true)))
+        .thenReturn(Map.of(visibleUrn, new Entity(new DataMap())));
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      denyRead(authUtils, hiddenUrn);
+
+      Map<String, AnyRecord> result =
+          awaitTask(
+              entityResource.batchGet(Set.of(visibleUrn.toString(), hiddenUrn.toString()), null));
+
+      assertEquals(result.keySet(), Set.of(visibleUrn.toString(), hiddenUrn.toString()));
+      DatasetSnapshot hiddenSnapshot =
+          new Entity(result.get(hiddenUrn.toString()).data()).getValue().getDatasetSnapshot();
+      assertEquals(hiddenSnapshot.getAspects().size(), 1);
+      assertTrue(hiddenSnapshot.getAspects().get(0).isDatasetKey());
+    }
+    verify(entityService, times(1))
+        .getEntities(any(OperationContext.class), eq(Set.of(visibleUrn)), any(), eq(true));
+  }
+
+  @Test
+  public void testGetBrowsePathsAnswersReadDeniedUrnWithNoPaths() throws Exception {
+    Urn hiddenUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,hidden,PROD)");
+    EntitySearchService entitySearchService = mock(EntitySearchService.class);
+    setEntitySearchService(entityResource, entitySearchService);
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      denyRead(authUtils, hiddenUrn);
+
+      assertTrue(awaitTask(entityResource.getBrowsePaths(hiddenUrn)).isEmpty());
+    }
+    verify(entitySearchService, never()).getBrowsePaths(any(), any(), any());
+  }
+
+  private static void denyRead(MockedStatic<EntityAuthorizationUtils> authUtils, Urn urn) {
+    authUtils
+        .when(
+            () ->
+                EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+                    any(OperationContext.class), eq(ApiOperation.READ), argThat((Collection<Urn> urns) -> urns.contains(urn))))
+        .thenReturn(false);
   }
 
   @Test
@@ -625,5 +742,76 @@ public class EntityResourceTest {
     Field field = EntityResource.class.getDeclaredField("entitySearchService");
     field.setAccessible(true);
     field.set(entityResource, entitySearchService);
+  }
+
+  private SearchResult searchAcrossEntitiesHiding(Urn hiddenUrn, SearchResult backendResult)
+      throws Exception {
+    SearchService searchService = mock(SearchService.class);
+    when(searchService.getEntitiesToSearch(any(), any(), any())).thenReturn(List.of("dataset"));
+    when(searchService.searchAcrossEntities(
+            any(OperationContext.class), any(), any(), any(), any(), anyInt(), any()))
+        .thenReturn(backendResult);
+    setSearchService(entityResource, searchService);
+    when(entityService.exists(any(OperationContext.class), any(Collection.class), anyBoolean()))
+        .thenAnswer(invocation -> Set.copyOf(invocation.<Collection<Urn>>getArgument(1)));
+
+    try (MockedStatic<AuthUtil> authUtil = Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      authUtil
+          .when(() -> AuthUtil.isAPIAuthorizedEntityType(any(OperationContext.class), any(ApiOperation.class), any(Collection.class)))
+          .thenReturn(true);
+      authUtil
+          .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(OperationContext.class), any(ApiOperation.class), any(Collection.class)))
+          .thenAnswer(
+              invocation -> !invocation.<Collection<Urn>>getArgument(2).contains(hiddenUrn));
+      return awaitTask(
+          entityResource.searchAcrossEntities(
+              new String[] {"dataset"}, "*", null, null, null, 0, 10, null));
+    }
+  }
+
+  @Test
+  public void testSearchAcrossEntitiesAnswersHiddenMatchLikeMissing() throws Exception {
+    Urn hiddenUrn = new DatasetUrn(new DataPlatformUrn("platform"), "hidden", FabricType.PROD);
+    SearchResult missing =
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(0)
+            .setFrom(0)
+            .setPageSize(10)
+            .setMetadata(new SearchResultMetadata());
+    SearchResult hidden =
+        missing
+            .copy()
+            .setEntities(new SearchEntityArray(List.of(new SearchEntity().setEntity(hiddenUrn))))
+            .setNumEntities(1);
+
+    assertEquals(
+        searchAcrossEntitiesHiding(hiddenUrn, hidden),
+        searchAcrossEntitiesHiding(hiddenUrn, missing));
+  }
+
+  @Test
+  public void testSearchAcrossEntitiesKeepsReadableMatchesAlongsideHiddenOnes() throws Exception {
+    Urn hiddenUrn = new DatasetUrn(new DataPlatformUrn("platform"), "hidden", FabricType.PROD);
+    Urn visibleUrn = new DatasetUrn(new DataPlatformUrn("platform"), "visible", FabricType.PROD);
+    SearchResult backendResult =
+        new SearchResult()
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity().setEntity(visibleUrn),
+                        new SearchEntity().setEntity(hiddenUrn))))
+            .setNumEntities(2)
+            .setFrom(0)
+            .setPageSize(10)
+            .setMetadata(new SearchResultMetadata());
+
+    SearchResult result = searchAcrossEntitiesHiding(hiddenUrn, backendResult);
+
+    assertEquals(
+        result.getEntities(),
+        new SearchEntityArray(List.of(new SearchEntity().setEntity(visibleUrn))));
+    assertEquals(result.getNumEntities(), 1);
   }
 }
