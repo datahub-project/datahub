@@ -426,4 +426,68 @@ public class AspectResourceTest {
       // The pre-tolerance failure resolving the unknown entity type during authorization.
     }
   }
+
+  private static MetadataChangeProposal datasetPropertiesProposal(String urn) {
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    mcp.setEntityUrn(com.linkedin.common.urn.UrnUtils.getUrn(urn));
+    mcp.setAspect(GenericRecordUtils.serializeAspect(new DatasetProperties().setName("name")));
+    mcp.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.UPSERT);
+    return mcp;
+  }
+
+  private static final String INVALID_ORIGIN_URN =
+      "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,CLIENTZ)";
+
+  @Test
+  public void testInvalidProposalIsBadRequestNotSilentSuccess() throws URISyntaxException {
+    // An origin that is not a FabricType symbol fails item building; the proposal must not be
+    // dropped while the call reports success.
+    reset(producer, aspectDao);
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+    MetadataChangeProposal invalid = datasetPropertiesProposal(INVALID_ORIGIN_URN);
+
+    RestLiServiceException single =
+        org.testng.Assert.expectThrows(
+            RestLiServiceException.class, () -> aspectResource.ingestProposal(invalid, "true"));
+    RestLiServiceException batch =
+        org.testng.Assert.expectThrows(
+            RestLiServiceException.class,
+            () ->
+                aspectResource.ingestProposalBatch(
+                    new MetadataChangeProposal[] {invalid, invalid}, "true"));
+
+    for (RestLiServiceException error : List.of(single, batch)) {
+      assertEquals(error.getStatus(), HttpStatus.S_400_BAD_REQUEST);
+      org.testng.Assert.assertTrue(error.getMessage().contains("CLIENTZ"), error.getMessage());
+    }
+    verifyNoInteractions(producer);
+  }
+
+  @Test
+  public void testMixedBatchWritesValidProposalsAndNamesTheRejectedOnes() throws URISyntaxException {
+    reset(producer, aspectDao);
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+    MetadataChangeProposal valid =
+        datasetPropertiesProposal("urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,PROD)");
+
+    Task<String> task =
+        aspectResource.ingestProposalBatch(
+            new MetadataChangeProposal[] {valid, datasetPropertiesProposal(INVALID_ORIGIN_URN)},
+            "true");
+
+    verify(producer, times(1))
+        .produceMetadataChangeProposal(
+            any(OperationContext.class),
+            eq(valid.getEntityUrn()),
+            argThat((MCPItem arg) -> arg.getMetadataChangeProposal().equals(valid)));
+    String response = awaitTask(task);
+    org.testng.Assert.assertTrue(response.contains(INVALID_ORIGIN_URN), response);
+  }
+
 }

@@ -29,7 +29,6 @@ import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -339,11 +338,14 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtils.toTask(opContext, () -> {
       log.debug("Proposals: {}", metadataChangeProposals);
       try {
-        final AspectsBatch batch = AspectsBatchImpl.builder()
+        // A proposal that cannot be built (e.g. a malformed urn) is left out of the batch; fail the
+        // request if that leaves nothing to write, and name the left-out ones otherwise.
+        final AspectsBatchImpl batch = AspectsBatchImpl.builder()
                 .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext(),
                     opContext.getValidationContext().isAlternateValidation(),
                     opContext.isSystemAuth())
-                .build(opContext);
+                .build(opContext)
+                .throwIfAllRejected();
 
         batch.getMCPItems().forEach(item ->
             log.debug(
@@ -359,6 +361,10 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                 _entityService.ingestProposal(opContext, batch, asyncBool);
 
             // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
+            if (!batch.getRejectedProposals().isEmpty()) {
+              return String.format("%s; skipped %d invalid proposal(s): %s", RESTLI_SUCCESS,
+                  batch.getRejectedProposals().size(), batch.describeRejectedProposals());
+            }
             return RESTLI_SUCCESS;
           } catch (ValidationException e) {
             throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());

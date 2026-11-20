@@ -778,6 +778,26 @@ public class AspectsBatchImplTest {
   }
 
   @Test
+  public void mcpsRecordsTheProposalsItSkips() {
+    MetadataChangeProposal valid = datasetStatus("valid");
+    MetadataChangeProposal malformedUrn =
+        datasetStatus("malformed")
+            .setEntityUrn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,CLIENTZ)"));
+
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder()
+            .mcps(
+                List.of(valid, malformedUrn),
+                AuditStampUtils.createDefaultAuditStamp(),
+                retrieverContext)
+            .build(null);
+
+    assertEquals(batch.getItems().size(), 1);
+    assertEquals(
+        batch.getRejectedProposals().stream().map(Pair::getFirst).toList(), List.of(malformedUrn));
+  }
+
+  @Test
   public void buildSkippingRejectedRejectsFatalProposalsAndDropsFilteredOnes() {
     registerNameBasedValidator();
     MetadataChangeProposal kept = datasetStatus("kept");

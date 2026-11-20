@@ -76,6 +76,16 @@ Rest.li and the `datahub delete` CLI. A bulk delete that removes parents and chi
 reject some parents on the first pass; run it again, or delete the children first. Rolling back an
 ingestion run is not affected.
 
+### Rest.li ingest of proposals that fail validation
+
+A Rest.li `ingestProposal` call whose proposal cannot be accepted, for example a dataset urn whose
+environment is not a known value, now fails with HTTP 400 and names the proposal and the reason.
+Previously the call answered `success` and the proposal was not written. The same applies to an
+`ingestProposalBatch` call in which every proposal is rejected, and to the OpenAPI v1 `/entities`
+endpoint. A batch in which only some proposals are rejected still writes the others; its response
+now lists the rejected ones. Ingestion recipes and scripts that were losing these writes without
+notice will now report them as failures.
+
 ### Rest.li status codes for rejected writes
 
 When a validator rejects a Rest.li request that was previously answered with HTTP 500, such as

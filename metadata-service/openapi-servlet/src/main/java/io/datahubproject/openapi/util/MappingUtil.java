@@ -494,7 +494,8 @@ public class MappingUtil {
       AspectsBatch batch =
           AspectsBatchImpl.builder()
               .mcps(serviceProposals, auditStamp, opContext.getRetrieverContext())
-              .build(opContext);
+              .build(opContext)
+              .throwIfAllRejected();
 
       Map<Urn, List<IngestResult>> resultMap =
           entityService.ingestProposal(opContext, batch, async).stream()
