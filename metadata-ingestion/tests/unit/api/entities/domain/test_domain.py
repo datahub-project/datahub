@@ -278,6 +278,77 @@ def test_emit_to_a_graph_checks_the_parent(hierarchy_graph: MockDataHubGraph) ->
     assert hierarchy_graph.emitted == []
 
 
+def test_parent_name_ignores_near_matches_from_search(tmp_path: Path) -> None:
+    # EQUAL on the analyzed name field can also return "Sales Ops" for "Sales".
+    graph = MockDataHubGraph(
+        entity_graph={
+            "urn:li:domain:sales": {
+                "domainProperties": DomainPropertiesClass(name="Sales")
+            },
+            "urn:li:domain:sales-ops": {
+                "domainProperties": DomainPropertiesClass(name="Sales Ops")
+            },
+        }
+    )
+    yaml_file = _write_yaml(tmp_path, "id: child\nparent_domain: Sales\n")
+
+    with patch.object(
+        graph,
+        "get_urns_by_filter",
+        return_value=["urn:li:domain:sales-ops", "urn:li:domain:sales"],
+    ):
+        domain = Domain.from_yaml(yaml_file, graph)
+
+    assert domain.resolved_parent_domain_urn == "urn:li:domain:sales"
+
+
+@pytest.mark.parametrize(
+    "domain, upsert",
+    [
+        # Same name under the same parent.
+        (
+            Domain(id="new", display_name="Child", parent_domain="urn:li:domain:root"),
+            True,
+        ),
+        # Top-level domains are siblings too.
+        (Domain(id="new", display_name="Root"), False),
+        # Without a display_name the name falls back to the id.
+        (Domain(id="Root"), False),
+        # A full replace without a parent moves the domain to the top level.
+        (Domain(id="grandchild", display_name="Root"), False),
+    ],
+)
+def test_emit_rejects_a_sibling_with_the_same_name(
+    hierarchy_graph: MockDataHubGraph, domain: Domain, upsert: bool
+) -> None:
+    with pytest.raises(ValueError, match="already exists"):
+        domain.emit(hierarchy_graph, upsert=upsert)
+    assert hierarchy_graph.emitted == []
+
+
+@pytest.mark.parametrize(
+    "domain, upsert",
+    [
+        # Re-applying a domain's own name is not a conflict.
+        (
+            Domain(
+                id="child", display_name="Child", parent_domain="urn:li:domain:root"
+            ),
+            True,
+        ),
+        # The same name under a different parent is allowed.
+        (Domain(id="new", display_name="Child"), False),
+        # An upsert without a parent keeps the existing one.
+        (Domain(id="grandchild", display_name="Root"), True),
+    ],
+)
+def test_emit_allows_a_name_unique_under_its_parent(
+    hierarchy_graph: MockDataHubGraph, domain: Domain, upsert: bool
+) -> None:
+    domain.emit(hierarchy_graph, upsert=upsert)
+    assert hierarchy_graph.emitted
+
+
 def test_generate_mcp_rejects_self_parent_without_graph() -> None:
     domain = Domain(id="marketing", parent_domain="urn:li:domain:marketing")
     with pytest.raises(ValueError, match="own parent"):

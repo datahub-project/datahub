@@ -8,6 +8,7 @@ from ruamel.yaml import YAML
 
 from datahub.api.entities.domain.domain import (
     Domain,
+    assert_unique_sibling_name,
     find_domain_urns,
     validate_parent_domain,
 )
@@ -44,6 +45,11 @@ def _mutate(file: Path, upsert: bool) -> None:
         if upsert and not graph.exists(loaded.urn):
             logger.info(f"Domain {loaded.urn} does not exist, will create.")
             upsert = False
+        try:
+            # update keeps the existing name when the YAML sets no display_name.
+            loaded.validate_sibling_name(graph, upsert=upsert, keep_existing_name=True)
+        except ValueError as e:
+            raise click.ClickException(str(e)) from e
         existing = (
             None if upsert else graph.get_aspect(loaded.urn, DomainPropertiesClass)
         )
@@ -217,19 +223,22 @@ def set_parent(urn: str, parent: str) -> None:
     patch: DomainPatchBuilder = Domain.get_patch_builder(urn)
     with get_default_graph(ClientMode.CLI) as graph:
         _abort_if_non_existent_urn(graph, urn, "set parent")
-        if parent:
-            parent_urn = make_domain_urn(parent)
-            try:
+        current = graph.get_aspect(urn, DomainPropertiesClass)
+        parent_urn = make_domain_urn(parent) if parent else None
+        # JSON Patch rejects removing a field that isn't there.
+        if parent_urn is None and (not current or not current.parentDomain):
+            click.secho(f"Domain {urn} is already a top-level domain.")
+            return
+        try:
+            if parent_urn:
                 validate_parent_domain(graph, urn, parent_urn)
-            except ValueError as e:
-                raise click.ClickException(str(e)) from e
+            if current:
+                assert_unique_sibling_name(graph, urn, current.name, parent_urn)
+        except ValueError as e:
+            raise click.ClickException(str(e)) from e
+        if parent_urn:
             patch.set_parent_domain(parent_urn)
         else:
-            current = graph.get_aspect(urn, DomainPropertiesClass)
-            # JSON Patch rejects removing a field that isn't there.
-            if not current or not current.parentDomain:
-                click.secho(f"Domain {urn} is already a top-level domain.")
-                return
             patch.remove_parent_domain()
         for mcp in patch.build():
             graph.emit(mcp)

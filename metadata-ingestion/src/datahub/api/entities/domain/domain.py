@@ -1,6 +1,6 @@
 import time
 from pathlib import Path
-from typing import Callable, Iterable, List, Optional, Set, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set, Union
 
 from pydantic import field_validator, model_validator
 from ruamel.yaml import YAML
@@ -70,6 +70,39 @@ def find_domain_urns(
     return list(graph.get_urns_by_filter(entity_types=["domain"], extraFilters=filters))
 
 
+def _domains_named(graph: DataHubGraph, name: str) -> Dict[str, DomainPropertiesClass]:
+    # EQUAL on the analyzed ``name`` field can also return near matches, so
+    # each hit is checked against its stored name, as GMS
+    # DomainUtils.hasNameConflict does.
+    found: Dict[str, DomainPropertiesClass] = {}
+    for urn in find_domain_urns(graph, name=name):
+        properties = graph.get_aspect(urn, DomainPropertiesClass)
+        if properties is not None and properties.name == name:
+            found[urn] = properties
+    return found
+
+
+def assert_unique_sibling_name(
+    graph: DataHubGraph, urn: str, name: str, parent_urn: Optional[str]
+) -> None:
+    """Refuse a display name another Domain already uses under the same parent.
+
+    GraphQL ``createDomain``, ``moveDomain`` and ``updateName`` reject such a
+    name, and a duplicate would make name lookups of the parent ambiguous.
+    """
+    conflicts = sorted(
+        other
+        for other, properties in _domains_named(graph, name).items()
+        if other != urn and (properties.parentDomain or None) == parent_urn
+    )
+    if conflicts:
+        location = f"under {parent_urn}" if parent_urn else "at the top level"
+        raise ValueError(
+            f"A domain named {name!r} already exists {location} "
+            f"({', '.join(conflicts)}); pick a unique name."
+        )
+
+
 def _resolve_parent_domain_name(name: str, graph: DataHubGraph) -> str:
     # Same order as DomainRegistry: an existing domain id first, then a
     # display-name lookup. Unlike DomainRegistry, ids shaped like UUIDs are
@@ -79,13 +112,13 @@ def _resolve_parent_domain_name(name: str, graph: DataHubGraph) -> str:
         return candidate
     # Names only need to be unique among siblings, so a name can match several
     # domains; picking one would attach the domain to an arbitrary parent.
-    matches = find_domain_urns(graph, name=name)
+    matches = sorted(_domains_named(graph, name))
     if not matches:
         raise ValueError(f"Parent domain {name!r} was not found in DataHub.")
     if len(matches) > 1:
         raise ValueError(
             f"Parent domain name {name!r} matches several domains "
-            f"({', '.join(sorted(matches))}); use the parent's URN instead."
+            f"({', '.join(matches)}); use the parent's URN instead."
         )
     return matches[0]
 
@@ -252,6 +285,28 @@ class Domain(ConfigModel):
                 ),
             )
 
+    def validate_sibling_name(
+        self, graph: DataHubGraph, upsert: bool, keep_existing_name: bool = False
+    ) -> None:
+        """Check the name this Domain will have is unique under its parent.
+
+        ``upsert`` keeps the existing parent when the YAML sets none;
+        ``keep_existing_name`` keeps the existing name when the YAML sets no
+        ``display_name`` (an upsert always does).
+        """
+        existing = graph.get_aspect(self.urn, DomainPropertiesClass)
+        name = self.display_name
+        if name is None:
+            name = (
+                existing.name
+                if existing is not None and (upsert or keep_existing_name)
+                else self.id
+            )
+        parent = self._resolved_parent_domain_urn
+        if parent is None and upsert and existing is not None:
+            parent = existing.parentDomain
+        assert_unique_sibling_name(graph, self.urn, name, parent)
+
     def emit(
         self,
         emitter: Emitter,
@@ -259,9 +314,14 @@ class Domain(ConfigModel):
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
         """Emit this Domain. When ``emitter`` is a :class:`DataHubGraph`, the
-        parent is checked first (see :func:`validate_parent_domain`)."""
-        if isinstance(emitter, DataHubGraph) and self._resolved_parent_domain_urn:
-            validate_parent_domain(emitter, self.urn, self._resolved_parent_domain_urn)
+        parent and the name's uniqueness under it are checked first (see
+        :func:`validate_parent_domain` and :meth:`validate_sibling_name`)."""
+        if isinstance(emitter, DataHubGraph):
+            if self._resolved_parent_domain_urn:
+                validate_parent_domain(
+                    emitter, self.urn, self._resolved_parent_domain_urn
+                )
+            self.validate_sibling_name(emitter, upsert=upsert)
         for mcp in self.generate_mcp(upsert=upsert):
             emitter.emit(mcp, callback)
 

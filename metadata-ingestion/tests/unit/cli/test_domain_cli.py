@@ -135,6 +135,23 @@ def test_update_keeps_name_created_and_custom_properties(
     assert properties.customProperties == {"team": "growth"}
 
 
+@pytest.mark.parametrize(
+    "yaml_text", ["id: marketing\ndisplay_name: Growth\n", "id: marketing\n"]
+)
+def test_update_rejects_a_top_level_name_already_in_use(
+    graph: MagicMock, write_yaml: Callable[[str], str], yaml_text: str
+) -> None:
+    # Without a display_name, update keeps the existing name "Growth".
+    graph.get_aspect.return_value = DomainPropertiesClass(name="Growth")
+    graph.get_urns_by_filter.return_value = ["urn:li:domain:growth"]
+
+    result = _invoke(["update", "-f", write_yaml(yaml_text)])
+
+    assert result.exit_code != 0
+    assert "already exists at the top level" in result.output
+    graph.emit.assert_not_called()
+
+
 def test_upsert_rejects_parent_cycle(
     graph: MagicMock, write_yaml: Callable[[str], str]
 ) -> None:
@@ -276,6 +293,29 @@ def test_set_parent_moves_under_an_unrelated_domain(graph: MagicMock) -> None:
     assert _patch_ops(graph, "domainProperties") == [
         {"op": "add", "path": "/parentDomain", "value": "urn:li:domain:sales"}
     ]
+
+
+def test_set_parent_rejects_a_name_already_used_under_the_new_parent(
+    graph: MagicMock,
+) -> None:
+    def get_aspect(urn: str, aspect_type: type) -> DomainPropertiesClass:
+        if urn == "urn:li:domain:emea-marketing":
+            return DomainPropertiesClass(
+                name="Marketing", parentDomain="urn:li:domain:sales"
+            )
+        return DomainPropertiesClass(name="Marketing" if "marketing" in urn else urn)
+
+    graph.get_aspect.side_effect = get_aspect
+    graph.get_urns_by_filter.return_value = [
+        "urn:li:domain:marketing",
+        "urn:li:domain:emea-marketing",
+    ]
+
+    result = _invoke(["set_parent", "--urn", "marketing", "--parent", "sales"])
+
+    assert result.exit_code != 0
+    assert "already exists under urn:li:domain:sales" in result.output
+    graph.emit.assert_not_called()
 
 
 def test_set_parent_without_parent_makes_domain_top_level(graph: MagicMock) -> None:
