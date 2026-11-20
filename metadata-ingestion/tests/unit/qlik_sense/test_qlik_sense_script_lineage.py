@@ -804,7 +804,10 @@ FOR EACH vTable IN 'db.s.a', 'db.s.b'
   T: SQL SELECT * FROM $(vTable);
 NEXT vTable
 """
-    assert [t.sql for t in parse_load_script(script)] == ["SELECT * FROM $(vTable)"]
+    [table] = parse_load_script(script)
+    assert table.sql == "SELECT * FROM $(vTable)"
+    # So the warning doesn't send operators to script_variables for it.
+    assert table.runtime_variables == ["vTable"]
 
 
 def test_parse_load_script_stops_at_exit_script() -> None:

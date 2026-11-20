@@ -897,7 +897,45 @@ def test_sql_with_an_unset_variable_names_it(mock_api_cls: MagicMock) -> None:
 
     assert result is None
     [warning] = source.reporter.warnings
-    assert "vYear" in str(warning.context)
+    assert "settable=vYear" in str(warning.context)
+    assert "script_variables" in str(warning.message)
+
+
+@pytest.mark.parametrize(
+    "script_table",
+    [
+        pytest.param(
+            ScriptTable(
+                label="Orders",
+                sql="SELECT * FROM orders_$(vRegion)",
+                runtime_variables=["vRegion"],
+            ),
+            id="loop variable",
+        ),
+        pytest.param(
+            ScriptTable(
+                label="Orders", sql="SELECT * FROM orders WHERE d > $(=Today())"
+            ),
+            id="expression",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_sql_variable_the_recipe_cannot_set_is_not_pointed_to_it(
+    mock_api_cls: MagicMock, script_table: ScriptTable
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-cloud"),
+    )
+
+    source._parse_script_table(
+        "app-1", script_table, ResolvedConnection(platform="postgres", env="PROD")
+    )
+
+    [warning] = source.reporter.warnings
+    assert "script_variables" not in str(warning.message)
+    assert "settable=" not in str(warning.context)
 
 
 @pytest.mark.parametrize(

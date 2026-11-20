@@ -1429,19 +1429,29 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if "$(" in sql:
             # orders_$(vYear) would parse as a table named orders_$.
             references = VARIABLE_REFERENCE_RE.findall(sql)
-            variables = sorted({name.strip() for name in references})
+            variables = {name.strip() for name in references}
+            # Loop and SUB variables stay unknown whatever the recipe says.
+            settable = sorted(variables - set(script_table.runtime_variables))
             context = f"app={app_id}, table={script_table.label}"
-            if variables:
-                context += f", variables={', '.join(variables)}"
+            if settable:
+                context += f", settable={', '.join(settable)}"
+            if script_table.runtime_variables:
+                context += (
+                    f", set at run time={', '.join(script_table.runtime_variables)}"
+                )
             if sql.count("$(") > len(references):
                 # Nested references such as $(v$(x)) and expressions such as
                 # $(=Date(...)) have no single name, so show the SQL itself.
                 context += f", sql={sql[:200]}"
             self.reporter.warning(
                 title="Qlik load script SQL uses a variable that is not set",
-                message="Upstream lineage for this script table is skipped. "
-                "Set these variables in `script_variables` to include it; no "
-                "script sets them.",
+                message="Upstream lineage for this script table is skipped."
+                + (
+                    " Set the variables listed as settable in "
+                    "`script_variables` to include it; no script sets them."
+                    if settable
+                    else ""
+                ),
                 context=context,
             )
             return None
