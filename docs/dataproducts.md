@@ -241,7 +241,7 @@ mutation {
 
 The parent is saved in the same write as the product, so a failed request never leaves a product without its parent.
 
-The request is rejected, and nothing is written, if `parentDataProduct` is not a Data Product URN or the parent does not exist. The same checks apply when the parent is set through OpenAPI, Rest.li, or YAML.
+The request is rejected, and nothing is written, if `parentDataProduct` is not a Data Product URN or the parent does not exist. The same checks, and a check that the parent is not one of the product's own descendants, apply when the parent is set through OpenAPI, Rest.li, YAML, or the Python SDK.
 
 ### Creating a Data Product (YAML + git)
 
