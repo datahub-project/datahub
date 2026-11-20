@@ -2,6 +2,7 @@ import logging
 import re
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from enum import Enum
 from functools import partial
 from typing import (
     Callable,
@@ -81,7 +82,13 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import CorpUserUrn, DataJobUrn, DatasetUrn, TagUrn
+from datahub.metadata.urns import (
+    CorpUserUrn,
+    DataFlowUrn,
+    DataJobUrn,
+    DatasetUrn,
+    TagUrn,
+)
 from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
@@ -94,6 +101,11 @@ PLATFORM = "informatica"
 ORPHAN_PROJECT_SENTINEL = "__root__"
 # Shared between extraction and lineage phases so DataJob URNs match.
 MAPPING_JOB_ID = "transform"
+ORCHESTRATE_JOB_ID = "orchestrate"
+CONTAINER_ENTITY_TYPE = "container"
+DATASET_ENTITY_TYPE = "dataset"
+# URNs per batchGet call when checking external datasets' Status.
+STATUS_LOOKUP_BATCH_SIZE = 100
 
 _UNSAFE_FLOW_ID_CHARS = re.compile(r"[^\w-]+")
 
@@ -132,6 +144,21 @@ class TaskflowStepWalkResult:
     step_order: List[str]
     mt_urns_in_order: List[str]
     step_summary_parts: List[str]
+
+
+@dataclass
+class ResolvedMappingLineage:
+    mt_job_urns: List[str]
+    input_urns: List[str]
+    output_urns: List[str]
+
+
+class ExternalDatasetStatus(Enum):
+    # No Status aspect in DataHub, so a stub is needed to make it searchable.
+    MISSING = "missing"
+    PRESENT = "present"
+    REMOVED = "removed"
+    UNKNOWN = "unknown"
 
 
 class InformaticaProjectKey(ContainerKey):
@@ -201,6 +228,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         # lineage need a minimal Status aspect to register as existing
         # entities; otherwise ``searchAcrossLineage`` filters them out.
         self._stubbed_external_dataset_urns: Set[str] = set()
+        self._external_dataset_status: Dict[str, ExternalDatasetStatus] = {}
         # Owned so entities that could not be re-read can be kept in state.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             state_provider=self.state_provider,
@@ -281,10 +309,15 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         if urn in self._get_previous_state_urns():
             self.stale_entity_removal_handler.add_entity_to_state("", urn)
 
+    def _keep_previous_entities_of_type(self, entity_type: str) -> None:
+        for urn in self._get_previous_state_urns():
+            if guess_entity_type(urn) == entity_type:
+                self.stale_entity_removal_handler.add_entity_to_state("", urn)
+
     def _skip_previously_tracked_datasets(self) -> None:
         # Datasets belong to other connectors, but older state may list them.
         for urn in self._get_previous_state_urns():
-            if guess_entity_type(urn) == "dataset":
+            if guess_entity_type(urn) == DATASET_ENTITY_TYPE:
                 self.stale_entity_removal_handler.add_urn_to_skip(urn)
 
     def close(self) -> None:
@@ -415,9 +448,12 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                 ValueError,
                 KeyError,
             ) as e:
-                self.report.failure(
+                # The folder's container URN may be what failed to build, so
+                # keep every container from the previous run instead.
+                self._keep_previous_entities_of_type(CONTAINER_ENTITY_TYPE)
+                self.report.warning(
                     title="Failed to process IDMC folder",
-                    message="This folder will be skipped, and stale metadata removal is skipped for this run.",
+                    message="This folder will be skipped. Containers from the previous run are kept.",
                     context=f"id={folder.id}, name={folder.name!r}",
                     exc=e,
                 )
@@ -652,18 +688,37 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                 ValueError,
                 KeyError,
             ) as e:
-                self.report.failure(
+                self._keep_previous_taskflow(tf)
+                self.report.warning(
                     title="Failed to process IDMC taskflow",
-                    message="This taskflow will be skipped, and stale metadata removal is skipped for this run.",
+                    message="This taskflow will be skipped. Its entities from the previous run are kept.",
                     context=f"id={tf.id}, name={tf.name!r}",
                     exc=e,
                 )
+
+    @staticmethod
+    def _taskflow_flow_id(tf: IdmcObject) -> str:
+        return _safe_flow_id(tf.name, fallback=tf.id or tf.name)
+
+    def _keep_previous_taskflow(self, tf: IdmcObject) -> None:
+        flow_id = self._taskflow_flow_id(tf)
+        if not flow_id:
+            # No URN could have been emitted for it in an earlier run either.
+            return
+        flow_urn = DataFlowUrn.create_from_ids(
+            orchestrator=PLATFORM,
+            flow_id=flow_id,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+        self._keep_previous_entity(str(flow_urn))
+        self._keep_previous_entity(str(DataJobUrn(flow_urn, ORCHESTRATE_JOB_ID)))
 
     def _make_taskflow(self, tf: IdmcObject) -> DataFlow:
         display = tf.name or tf.id
         flow = DataFlow(
             platform=PLATFORM,
-            name=_safe_flow_id(tf.name, fallback=tf.id or display),
+            name=self._taskflow_flow_id(tf),
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             display_name=display,
@@ -755,9 +810,14 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         definition = self.client.get_taskflow_definition(
             taskflow_name=tf.name, taskflow_v3_guid=tf.id
         )
-        if definition is None and not self.client.has_taskflow_definition(tf.id):
-            # Export failed, so the steps are unknown rather than empty.
-            self._keep_previous_entity(str(DataJobUrn(flow.urn, "orchestrate")))
+        if (
+            definition is None
+            and tf.id
+            and not self.client.has_taskflow_definition(tf.id)
+        ):
+            # Export failed, so the steps are unknown rather than empty. With
+            # no id there is no export to retry, so the job is dropped instead.
+            self._keep_previous_entity(str(DataJobUrn(flow.urn, ORCHESTRATE_JOB_ID)))
             return
         if definition is None or not definition.steps:
             return
@@ -814,7 +874,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         if walk.step_summary_parts:
             custom_props["stepSummary"] = " | ".join(walk.step_summary_parts)
         job = DataJob(
-            name="orchestrate",
+            name=ORCHESTRATE_JOB_ID,
             flow=flow,
             display_name=f"{tf.name}.orchestrate",
             subtype="Taskflow Orchestration",
@@ -1047,10 +1107,9 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                     self.report.export_jobs_failed.append(f"batch@{batch_start}: {e}")
                     continue
                 if job_id:
-                    for lineage_info in self.client.download_and_parse_export(
-                        job_id, batch
-                    ):
-                        yield from self._emit_lineage(lineage_info)
+                    yield from self._emit_lineage_batch(
+                        self.client.download_and_parse_export(job_id, batch)
+                    )
         # Final pass: bubble each last-MT's outputs up to its Taskflow's
         # orchestrate so the Taskflow Lineage view has the full pipeline.
         yield from self._emit_orchestrate_aggregated_lineage()
@@ -1184,20 +1243,48 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
     def _emit_lineage(
         self, lineage_info: MappingLineageInfo
     ) -> Iterable[MetadataWorkUnit]:
+        yield from self._emit_lineage_batch([lineage_info])
+
+    def _emit_lineage_batch(
+        self, lineage_infos: Iterable[MappingLineageInfo]
+    ) -> Iterable[MetadataWorkUnit]:
         """Fan out ``dataJobInputOutput`` + dataset-level ``upstreamLineage``.
 
         One Mapping can be referenced by N Mapping Tasks, so a single export
         result is applied to every MT's ``transform`` DataJob that runs it.
         Dataset-level ``upstreamLineage`` on downstream tables is emitted once
         (the upstream set is the same regardless of which MT triggered it).
+        The whole export batch is resolved first so the external datasets'
+        ``Status`` is read from DataHub in a few batched calls.
         """
+        resolved: List[ResolvedMappingLineage] = []
+        for lineage_info in lineage_infos:
+            mapping_lineage = self._resolve_mapping_lineage(lineage_info)
+            if mapping_lineage is not None:
+                resolved.append(mapping_lineage)
+        self._prefetch_external_dataset_status(
+            urn
+            for mapping_lineage in resolved
+            for urn in (*mapping_lineage.input_urns, *mapping_lineage.output_urns)
+        )
+        for mapping_lineage in resolved:
+            input_urns = mapping_lineage.input_urns
+            output_urns = mapping_lineage.output_urns
+            yield from self._stub_external_datasets(input_urns, output_urns)
+            for job_urn in mapping_lineage.mt_job_urns:
+                yield from self._emit_mt_datajob_io(job_urn, input_urns, output_urns)
+            yield from self._emit_downstream_upstream_lineage(input_urns, output_urns)
+
+    def _resolve_mapping_lineage(
+        self, lineage_info: MappingLineageInfo
+    ) -> Optional[ResolvedMappingLineage]:
         if not lineage_info.mapping_id:
             self.report.warning(
                 title="IDMC lineage missing mapping id",
                 message="Could not align mapping export entry to a submitted v3 GUID; skipping lineage emission.",
                 context=f"mapping_name={lineage_info.mapping_name}",
             )
-            return
+            return None
         mt_job_urns = self._mapping_v3_to_mt_job_urns.get(lineage_info.mapping_id)
         if not mt_job_urns:
             self.report.warning(
@@ -1205,23 +1292,24 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                 message="No Mapping Task was emitted that runs this mapping; lineage will be skipped.",
                 context=f"mapping_id={lineage_info.mapping_id} name={lineage_info.mapping_name}",
             )
-            return
-        input_urns: List[str] = [
-            urn
-            for src in lineage_info.source_tables
-            if (urn := self._resolve_table_to_dataset_urn(src)) is not None
-        ]
-        output_urns: List[str] = [
-            urn
-            for tgt in lineage_info.target_tables
-            if (urn := self._resolve_table_to_dataset_urn(tgt)) is not None
-        ]
+            return None
+        input_urns = self._resolve_tables(lineage_info.source_tables)
+        output_urns = self._resolve_tables(lineage_info.target_tables)
         if not input_urns and not output_urns:
-            return
-        yield from self._stub_external_datasets(input_urns, output_urns)
-        for job_urn in mt_job_urns:
-            yield from self._emit_mt_datajob_io(job_urn, input_urns, output_urns)
-        yield from self._emit_downstream_upstream_lineage(input_urns, output_urns)
+            return None
+        return ResolvedMappingLineage(
+            mt_job_urns=list(mt_job_urns),
+            input_urns=input_urns,
+            output_urns=output_urns,
+        )
+
+    def _resolve_tables(self, tables: Iterable[LineageTable]) -> List[str]:
+        urns: List[str] = []
+        for table in tables:
+            urn = self._resolve_table_to_dataset_urn(table)
+            if urn is not None:
+                urns.append(urn)
+        return urns
 
     def _stub_external_datasets(
         self, input_urns: List[str], output_urns: List[str]
@@ -1248,24 +1336,51 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                 aspect=StatusClass(removed=False),
             ).as_workunit(is_primary_source=False)
 
-    def _dataset_needs_status_stub(self, ds_urn: str) -> bool:
+    def _prefetch_external_dataset_status(self, urns: Iterable[str]) -> None:
         graph = self.ctx.graph
         if graph is None:
+            return
+        pending = sorted(
+            {urn for urn in urns if urn not in self._external_dataset_status}
+        )
+        for start in range(0, len(pending), STATUS_LOOKUP_BATCH_SIZE):
+            chunk = pending[start : start + STATUS_LOOKUP_BATCH_SIZE]
+            try:
+                entities = graph.get_entities(
+                    entity_name=DATASET_ENTITY_TYPE,
+                    urns=chunk,
+                    aspects=[StatusClass.ASPECT_NAME],
+                )
+            except Exception as e:
+                # Stubbing an unknown status could undelete the dataset.
+                self.report.warning(
+                    title="Could not check external dataset status",
+                    message="Lineage stubs for these datasets were skipped.",
+                    context=f"{len(chunk)} datasets, first {chunk[0]}",
+                    exc=e,
+                )
+                for urn in chunk:
+                    self._external_dataset_status[urn] = ExternalDatasetStatus.UNKNOWN
+                continue
+            for urn in chunk:
+                entry = entities.get(urn, {}).get(StatusClass.ASPECT_NAME)
+                status = entry[0] if entry else None
+                if not isinstance(status, StatusClass):
+                    result = ExternalDatasetStatus.MISSING
+                elif status.removed:
+                    result = ExternalDatasetStatus.REMOVED
+                    self.report.external_datasets_soft_deleted += 1
+                else:
+                    result = ExternalDatasetStatus.PRESENT
+                self._external_dataset_status[urn] = result
+
+    def _dataset_needs_status_stub(self, ds_urn: str) -> bool:
+        if self.ctx.graph is None:
             return True
-        try:
-            status = graph.get_aspect(ds_urn, StatusClass)
-        except Exception as e:
-            # Stubbing an unknown status could undelete the dataset.
-            self.report.warning(
-                title="Could not check external dataset status",
-                message="The lineage stub for this dataset was skipped.",
-                context=ds_urn,
-                exc=e,
-            )
-            return False
-        if status is not None and status.removed:
-            self.report.external_datasets_soft_deleted += 1
-        return status is None
+        self._prefetch_external_dataset_status([ds_urn])
+        return (
+            self._external_dataset_status.get(ds_urn) == ExternalDatasetStatus.MISSING
+        )
 
     def _emit_mt_datajob_io(
         self,

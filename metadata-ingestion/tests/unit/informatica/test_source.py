@@ -25,6 +25,7 @@ from datahub.ingestion.source.informatica.models import (
     V3Guid,
 )
 from datahub.ingestion.source.informatica.source import (
+    STATUS_LOOKUP_BATCH_SIZE,
     InformaticaSource,
     OrchestrateState,
 )
@@ -40,6 +41,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     StatusClass,
 )
+from datahub.metadata.urns import DataJobUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 
@@ -972,22 +974,46 @@ class TestLineageEmission:
 class TestExternalDatasetStaleSafety:
     DS_URN = "urn:li:dataset:(urn:li:dataPlatform:oracle,oltp.apps.orders,PROD)"
 
-    def _source_with_graph(self, **get_aspect: Any) -> InformaticaSource:
+    def _source_with_graph(self, **get_entities: Any) -> InformaticaSource:
         source = _make_source()
         source.ctx.graph = MagicMock()
-        source.ctx.graph.get_aspect = MagicMock(**get_aspect)
+        source.ctx.graph.get_entities = MagicMock(**get_entities)
         return source
 
+    def _status(self, removed: bool) -> Any:
+        return {self.DS_URN: {"status": (StatusClass(removed=removed), None)}}
+
     def test_stub_written_when_datahub_has_no_status(self):
-        source = self._source_with_graph(return_value=None)
+        source = self._source_with_graph(return_value={})
         [wu] = list(source._stub_external_datasets([self.DS_URN], []))
         assert wu.get_urn() == self.DS_URN
         assert not wu.is_primary_source
 
     def test_soft_deleted_dataset_is_not_undeleted(self):
-        source = self._source_with_graph(return_value=StatusClass(removed=True))
+        source = self._source_with_graph(return_value=self._status(removed=True))
         assert list(source._stub_external_datasets([self.DS_URN], [])) == []
         assert source.report.external_datasets_soft_deleted == 1
+
+    def test_live_dataset_is_not_stubbed(self):
+        source = self._source_with_graph(return_value=self._status(removed=False))
+        assert list(source._stub_external_datasets([self.DS_URN], [])) == []
+        assert source.report.external_datasets_soft_deleted == 0
+
+    def test_status_is_read_in_batches(self):
+        get_entities = MagicMock(return_value={})
+        source = _make_source()
+        source.ctx.graph = MagicMock(get_entities=get_entities)
+        urns = [
+            f"urn:li:dataset:(urn:li:dataPlatform:oracle,t{i},PROD)"
+            for i in range(STATUS_LOOKUP_BATCH_SIZE + 1)
+        ]
+        source._prefetch_external_dataset_status([*urns, urns[0]])
+        stubs = list(source._stub_external_datasets(urns, []))
+        assert len(stubs) == len(urns)
+        assert [len(c.kwargs["urns"]) for c in get_entities.call_args_list] == [
+            STATUS_LOOKUP_BATCH_SIZE,
+            1,
+        ]
 
     def test_status_lookup_error_skips_stub(self):
         source = self._source_with_graph(side_effect=ConnectionError("gms down"))
@@ -1110,7 +1136,56 @@ class TestFilteringAndErrorHandling:
         # flow_id now uses the human-readable name, not the v3 GUID.
         assert "daily_refresh" in str(flow.urn)
         assert flow.display_name == "daily_refresh"
-        assert len(source.report.failures) > 0
+        assert not source.report.failures
+        assert [w.title for w in source.report.warnings] == [
+            "Failed to process IDMC taskflow"
+        ]
+
+    def test_bad_taskflow_keeps_its_previous_entities(self):
+        source = _make_source()
+        tf = IdmcObject(
+            id="tf-1", name="daily_refresh", path="", object_type="TASKFLOW"
+        )
+        flow_urn = str(source._make_taskflow(tf).urn)
+        orchestrate_urn = str(DataJobUrn(flow_urn, "orchestrate"))
+        other_urn = "urn:li:dataFlow:(informatica,other,PROD)"
+        source._previous_state_urns = {flow_urn, orchestrate_urn, other_urn}
+        with (
+            patch.object(source.client, "list_objects", return_value=iter([tf])),
+            patch.object(source.client, "prefetch_taskflow_definitions"),
+            patch.object(source, "_make_taskflow", side_effect=ValueError("bad")),
+            patch.object(
+                source.stale_entity_removal_handler, "add_entity_to_state"
+            ) as add_to_state,
+        ):
+            assert list(source._extract_taskflows()) == []
+        assert {c.args[1] for c in add_to_state.call_args_list} == {
+            flow_urn,
+            orchestrate_urn,
+        }
+
+    def test_bad_folder_keeps_previous_containers(self):
+        source = _make_source()
+        folder = IdmcObject(
+            id="f-1", name="Sales", path="/Explore/P/Sales", object_type="Folder"
+        )
+        container_urn = "urn:li:container:abc"
+        source._previous_state_urns = {
+            container_urn,
+            "urn:li:dataFlow:(informatica,other,PROD)",
+        }
+        with (
+            patch.object(source, "_iter_with_tags", return_value=iter([folder])),
+            patch.object(
+                source, "_resolve_parent_project", side_effect=KeyError("bad")
+            ),
+            patch.object(
+                source.stale_entity_removal_handler, "add_entity_to_state"
+            ) as add_to_state,
+        ):
+            list(source._emit_folders())
+        add_to_state.assert_called_once_with("", container_urn)
+        assert not source.report.failures
 
     def test_extract_taskflows_batches_prefetch_into_single_call(self):
         # All filtered Taskflows' v3 GUIDs should land in ONE
@@ -1385,6 +1460,20 @@ class TestTaskflowStepEmission:
         ):
             list(source._emit_taskflow_steps(self.TF_OBJ, flow))
         add_to_state.assert_called_once_with("", orchestrate_urn)
+
+    def test_taskflow_without_id_does_not_keep_orchestrate_job(self):
+        source = self._prepared_source()
+        tf = IdmcObject(id="", name="daily_refresh", path="", object_type="TASKFLOW")
+        flow = source._make_taskflow(tf)
+        source._previous_state_urns = {str(DataJob(name="orchestrate", flow=flow).urn)}
+        with (
+            patch.object(source.client, "get_taskflow_definition", return_value=None),
+            patch.object(
+                source.stale_entity_removal_handler, "add_entity_to_state"
+            ) as add_to_state,
+        ):
+            list(source._emit_taskflow_steps(tf, flow))
+        add_to_state.assert_not_called()
 
     def test_stepless_definition_does_not_keep_orchestrate_job(self):
         source = self._prepared_source()
