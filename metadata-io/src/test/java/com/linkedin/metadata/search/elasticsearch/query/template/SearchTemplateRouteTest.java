@@ -411,11 +411,14 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
       assertEquals(stayed.getUrn(), semantic, query);
       assertEquals(stayed.getRouteChain(), List.of(semantic), query);
     }
-    // A miss is retried without the structured prefix, as on every template, so this also routes.
-    // Similarity reads the whole query as the anchor and fails it as not a URN.
+    // A miss is retried without the structured prefix, as on every template, so this also routes,
+    // and similarity drops the prefix from its anchor the same way
     assertEquals(
         selector.select(named, "\\/q urn:li:document:runbook", true, null, REQUEST).getUrn(),
         similarity);
+    assertEquals(
+        SearchTemplateVectorRetrieval.anchorUrn("\\/q urn:li:document:runbook"),
+        UrnUtils.getUrn("urn:li:document:runbook"));
   }
 
   @Test

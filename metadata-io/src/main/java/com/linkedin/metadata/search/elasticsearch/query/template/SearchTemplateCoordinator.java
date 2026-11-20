@@ -30,7 +30,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.datahubproject.metadata.context.SearchTemplateRuntime;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -747,10 +746,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
       @Nullable String system,
       @Nonnull String query,
       boolean selected) {
-    final Urn anchor;
-    try {
-      anchor = Urn.createFromString(query.trim());
-    } catch (URISyntaxException e) {
+    final Urn anchor = SearchTemplateVectorRetrieval.anchorUrn(query);
+    if (anchor == null) {
       return "none";
     }
     final Set<String> profiles = gates.profileIds(template, anchor.getEntityType(), system);

@@ -2385,6 +2385,101 @@ public class ESSearchDAOVectorRetrievalTest {
   }
 
   /**
+   * Routing tries a miss again without the structured prefix, so that prefix and a URN reach
+   * similarity, which reads its anchor the same way and serves that entity's neighbors.
+   */
+  @Test
+  public void testTheStructuredPrefixBeforeARoutedUrnIsDropped() throws Exception {
+    SearchTemplateFixtures.readShipped().forEach(harness::store);
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+
+    SearchResult result =
+        dao(null, embedding())
+            .search(
+                pinned(context(DOCUMENT, f -> {}), SEMANTIC_URN),
+                DOCUMENT,
+                "\\/q " + ANCHOR,
+                null,
+                null,
+                0,
+                10,
+                List.of());
+
+    assertEquals(urns(result), List.of("urn:li:document:d0"));
+    verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+    assertEquals(
+        result.getMetadata().getVectorRetrieval().getOutcome(),
+        SearchTemplateVectorRetrieval.SERVED);
+  }
+
+  /**
+   * The GraphQL search resolvers escape each / as \/. A URN whose key holds a / still routes, and
+   * similarity reads the escape back as a /, so the search anchors on that entity.
+   */
+  @Test
+  public void testAnEscapedSlashInARoutedUrnAnchorsOnTheUnescapedUrn() throws Exception {
+    SearchTemplateFixtures.readShipped().forEach(harness::store);
+    String slashed = "urn:li:document:guides/runbook";
+    anchorHas(slashed, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+
+    SearchResult result =
+        dao(null, embedding())
+            .search(
+                pinned(context(DOCUMENT, f -> {}), SEMANTIC_URN),
+                DOCUMENT,
+                slashed.replace("/", "\\/"),
+                null,
+                null,
+                0,
+                10,
+                List.of());
+
+    assertEquals(urns(result), List.of("urn:li:document:d0"));
+    verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+  }
+
+  /**
+   * The route selects similarity at bind, so a routed anchor is checked as a named one is. One the
+   * viewer may not see, and one the default search filters leave out, fail as noAnchor before the
+   * anchor's vectors are read or a kNN request is sent.
+   */
+  @Test
+  public void testARoutedAnchorTheViewerCannotUseFailsAsNoAnchor() throws Exception {
+    SearchTemplateFixtures.readShipped().forEach(harness::store);
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+    OperationContext searching = pinned(context(DOCUMENT, f -> {}), SEMANTIC_URN);
+
+    try (MockedStatic<ESAccessControlUtil> access =
+        mockStatic(ESAccessControlUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      access
+          .when(() -> ESAccessControlUtil.restrictUrn(any(), eq(UrnUtils.getUrn(ANCHOR))))
+          .thenReturn(true);
+      assertThrows(SearchTemplateFailClosedException.class, () -> similar(searching, DOCUMENT));
+    }
+    verify(client, never()).search(any(OperationContext.class), any(), any());
+    assertVectorOutcome(SearchTemplateVectorRetrieval.NO_ANCHOR);
+
+    // The anchor check finds no row the default search filters keep
+    clearInvocations(metrics);
+    SearchResponse none = keywordResponse(0);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(none);
+    assertThrows(SearchTemplateFailClosedException.class, () -> similar(searching, DOCUMENT));
+    assertVectorOutcome(SearchTemplateVectorRetrieval.NO_ANCHOR);
+
+    verify(harness.retriever, never())
+        .getLatestAspectObject(
+            any(),
+            eq(UrnUtils.getUrn(ANCHOR)),
+            eq(SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME));
+    verify(client, never()).searchKnn(any(), any());
+    verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+  }
+
+  /**
    * The build before similarity runs vector retrieval but not similarity, so it fails the URN route
    * on the shipped semantic template before it searches or embeds. Once the semantic revert seed is
    * written, that build embeds a URN query on semantic again.

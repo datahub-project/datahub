@@ -43,6 +43,13 @@ public class SearchTemplateBootstrapTest {
   private static final String LIGHT = "urn:li:searchTemplate:light";
   private static final String SEMANTIC = "urn:li:searchTemplate:semantic";
   private static final String SIMILARITY = "urn:li:searchTemplate:similarity";
+  // The description version 18 wrote, before the URN route, which the semantic revert restores
+  private static final String VERSION_18_SEMANTIC_DESCRIPTION =
+      "Semantic search. Embeds the query and retrieves one window of nearest neighbors for the"
+          + " requested entity types that semantic search covers, inside the caller's filter and"
+          + " the default search filters. The page, the total, and the facets cover those"
+          + " neighbors. An entity type that semantic search does not cover is left out, and a"
+          + " request with no such type returns no results.";
   private static final String PROPERTY = "urn:li:structuredProperty:retention";
   private static final String PROPERTY_QUERY =
       "{\"match\": {\"name\": \"{{query}} {{urn:li:structuredProperty:retention}}\"}}";
@@ -308,7 +315,7 @@ public class SearchTemplateBootstrapTest {
     assertEquals(revert.keySet(), Set.of(SEMANTIC));
     SearchTemplateProperties unrouted = SearchTemplateFixtures.readShipped().get(SEMANTIC);
     unrouted.setRoutes(new SearchTemplateRouteArray());
-    unrouted.setDescription(revert.get(SEMANTIC).getDescription());
+    unrouted.setDescription(VERSION_18_SEMANTIC_DESCRIPTION);
     assertEquals(revert.get(SEMANTIC), unrouted);
     SearchTemplateChecks.check(revert.get(SEMANTIC), 1024);
 

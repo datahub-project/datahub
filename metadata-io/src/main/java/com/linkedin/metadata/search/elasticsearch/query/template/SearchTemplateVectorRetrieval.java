@@ -1,10 +1,13 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.search.VectorStoreConfiguration;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.hybrid.v3.V3HybridKnnRequestBuilder;
 import io.datahubproject.metadata.context.OperationContext;
+import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -168,6 +171,26 @@ public final class SearchTemplateVectorRetrieval {
    */
   public static double cosine(double engineScore) {
     return 2d * engineScore - 1d;
+  }
+
+  /**
+   * The entity a similarity query names, or null when the query is not an entity URN. Bind and the
+   * rung both read the anchor here, as routing reads the query: a route that misses is tried again
+   * without the structured prefix, so the prefix is dropped before the rest is trimmed. The GraphQL
+   * search resolvers escape each {@code /} as {@code \/}, so that escape is undone, for the anchor
+   * only.
+   */
+  @Nullable
+  public static Urn anchorUrn(@Nonnull String query) {
+    final String text =
+        query.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)
+            ? query.substring(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX.length())
+            : query;
+    try {
+      return Urn.createFromString(text.trim().replace("\\/", "/"));
+    } catch (URISyntaxException e) {
+      return null;
+    }
   }
 
   /**

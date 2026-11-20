@@ -22,18 +22,21 @@ routes a query that is an entity URN (lowercase `urn:li:`, an entity type, a col
 `urn:li:searchTemplate:similarity`. A search that names `semantic` in the `searchTemplate` search flag
 with an entity URN as the query now returns the entities nearest that entity, as a search that names
 `similarity` does, instead of embedding the URN text. Like that search, it fails when the entity cannot
-anchor it, for example when the entity has no stored embeddings. Any other query runs on `semantic` as
-before. A custom template whose parent is `semantic` inherits the route unless it sets its own `routes`.
+anchor it, for example when the entity has no stored embeddings. In OSS only Document entities have an
+embedding profile, so the URN of any other entity type now fails the search, counted as `noAnchor`,
+instead of being embedded. The route covers every entity URN on purpose. Any other query runs on
+`semantic` as before. A custom template whose parent is `semantic` inherits the route unless it sets its
+own `routes`.
 
-**Upgrade through the release that adds similarity**
-([#21391](https://github.com/datahub-project/datahub/pull/21391)) before you upgrade to this one. A
-GMS pod without similarity fails the route, so in a rolling upgrade straight from an earlier release, a
-URN query on `semantic` fails on the old pods until they are replaced.
+A GMS pod without similarity fails the route. In a rolling upgrade from a release without similarity
+([#21391](https://github.com/datahub-project/datahub/pull/21391)), a URN query on `semantic` fails on
+the old pods from the time system update writes version 19 until those pods are replaced. Upgrading
+through a release that has similarity first avoids this.
 
-**Before rolling back** to a release without this route, restore the previous `semantic` template. A
-release without similarity fails a URN query on `semantic` while the route is stored. This replaces the
-version 18 note that a rollback to a release without similarity needs no extra step. While this release
-is still deployed:
+**Before rolling back** to a release that ships the `semantic` template but not similarity, restore the
+previous `semantic` template, or a URN query on it fails there. A rollback to a release that has
+similarity needs no step, since that release runs the route. A rollback to a release from before the
+`semantic` template needs the version 17 revert below instead. While this release is still deployed:
 
 1. Run system update once with
    `DATAHUB_SEARCH_TEMPLATES_REVISION='{"version":"v19-revert","mcps_location":"bootstrap_mcps/search-templates-semantic-revert.yaml","force":true}'`,
@@ -43,9 +46,12 @@ is still deployed:
    shows an empty `routes` list. A revert the write validator rejects is only logged by system update.
    Then roll back.
 
-A rollback to a release without the semantic search template contract also needs the version 17 revert
-described below. If you later upgrade to this release again, system update keeps the restored template,
-because version 19 already ran. To write the shipped templates again, run system update once with
+If you rolled back without the revert, run system update once on the earlier release with
+`DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable. That writes the earlier
+release's own templates again, including `semantic` without the route.
+
+If you later upgrade to this release again, system update keeps the restored template, because version
+19 already ran. To write the shipped templates again, run system update once with
 `DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable.
 
 ### Show Applications setting is hidden by default
@@ -130,9 +136,9 @@ rerank. The new
 its own switch; see "Semantic search can run the semantic search template".
 Version 18 adds `urn:li:searchTemplate:similarity` and the `similarity` capability. A search that
 names `similarity` in the `searchTemplate` flag, with an entity URN as the query, returns the documents
-nearest that entity. `semantic` does not change: its URN route ships in a later release, once every GMS
-pod can run similarity. A rollback to a release without similarity needs no extra step, since that
-release fails `similarity` only when a search names it.
+nearest that entity. Version 18 does not change `semantic`; version 19 adds its URN route. With
+version 18 stored, a rollback to a release without similarity needs no extra step, since that release
+fails `similarity` only when a search names it.
 
 **Upgrade through the release that adds the semantic search template contract**
 ([#21359](https://github.com/datahub-project/datahub/pull/21359)) before you upgrade to this one. GMS
@@ -160,8 +166,8 @@ search fails on the new `fulltext`. While this release is still deployed:
 
 The `semantic` and `similarity` templates stay stored, and the earlier release does not use them.
 
-If you later upgrade to this release again, system update keeps the restored templates, because
-version 18 already ran. To write the shipped templates again, run system update once with
+If you later upgrade to this release again, system update keeps the restored templates, because the
+version this release writes already ran. To write the shipped templates again, run system update once with
 `DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable.
 
 ### Semantic search can run the semantic search template
