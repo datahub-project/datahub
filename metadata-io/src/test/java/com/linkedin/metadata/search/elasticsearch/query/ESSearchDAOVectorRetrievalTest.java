@@ -700,6 +700,20 @@ public class ESSearchDAOVectorRetrievalTest {
   }
 
   @Test
+  public void testSkipAggregatesSkipsTheFacetRequest() throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.99, 0.95));
+
+    SearchResult result =
+        search(context(DOCUMENT, f -> f.setSkipAggregates(true)), null, 0, 10, DOCUMENT);
+
+    assertEquals(result.getNumEntities().intValue(), 2);
+    // The kNN request is the only one: no facet request over the surviving URNs
+    verify(client, times(1)).searchKnn(any(), any());
+    verify(client, never()).search(any(OperationContext.class), any(), any());
+  }
+
+  @Test
   public void testMinSimilarityDropsHitsWithoutRefillingTheWindow() throws Exception {
     store(vector(r -> r.setCandidateCap(4).setMinSimilarity(0.8f)));
     // Engine scores are (1 + cosine) / 2: cosines 0.98, 0.9, 0.8 (at the floor), and 0.7

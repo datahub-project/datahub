@@ -168,7 +168,7 @@ If you later upgrade to this release again, system update keeps the restored tem
 version this release writes already ran. To write the shipped templates again, run system update once with
 `DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable.
 
-### Semantic search can run the semantic search template
+### Semantic search can run the semantic search template ([#21473](https://github.com/datahub-project/datahub/pull/21473))
 
 Semantic search (`semanticSearchAcrossEntities`) can now run `urn:li:searchTemplate:semantic` through a
 new `semanticSearch` template surface. It is off by default, and nothing changes while it is off. To
@@ -192,7 +192,9 @@ so after upgrading OpenSearch to 3.5 or later, restart GMS for the switch to tak
   unless the request sets `includeSoftDeleted` or `includeHiddenLifecycleStages`.
 - `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY`, when set, drops results below that cosine. The
   legacy semantic search applies only the `minScore` search flag.
-- The facets count the results semantic search found, not every document that matches the filter.
+- Facets come back by default, counted over the results semantic search found, which takes one more
+  search engine request per search. Set the `skipAggregates` search flag to skip that request. The
+  legacy semantic search returns no facets unless the request asks for structured property facets.
 - The query embedding and the vector search share a budget of two seconds, where the legacy semantic
   search sets no timeout. A slow embedding fails as `DEADLINE_EXCEEDED`, and a vector search that
   runs past the budget fails the search, which the keyword fallback below does not cover.

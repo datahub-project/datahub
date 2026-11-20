@@ -51,10 +51,12 @@ public final class QueryEmbeddingFailures {
           searching.getSearchContext().getSearchFlags().isKeywordFallbackOnEmbeddingFailure())) {
         throw new DataHubGraphQLException(failure.getMessage(), errorCode(failure), failure);
       }
-      log.warn(
+      // The keyword fallback counter tracks each fallback, so this stays at debug: an embedding
+      // outage would otherwise log a line per search
+      log.debug(
           "Search could not embed the query ({}); serving keyword results, as the caller opted in",
-          failure.getReason());
-      log.debug("The query embedding failure behind the keyword fallback", failure);
+          failure.getReason(),
+          failure);
       SearchTemplateMetrics.keywordFallback(searching, reasonTag(failure));
       final SearchResult result;
       try {
@@ -79,7 +81,7 @@ public final class QueryEmbeddingFailures {
                 : DataHubGraphQLErrorCode.SERVER_ERROR,
             keywordFailure);
       }
-      result.getMetadata().setKeywordFallback(failure.getReason());
+      result.getMetadata().setKeywordFallback(reasonTag(failure));
       return result;
     }
   }
@@ -102,9 +104,10 @@ public final class QueryEmbeddingFailures {
   }
 
   /**
-   * The keyword fallback metric's reason tag. An embedding service can set any reason, so one
-   * outside the codes {@link QueryEmbeddingException} names counts as {@code failed}, which keeps
-   * the tag's values bounded.
+   * The reason a keyword fallback reports, as its metric tag and as {@code
+   * SearchResultMetadata.keywordFallback}. An embedding service can set any reason, so one outside
+   * the codes {@link QueryEmbeddingException} names counts as {@code failed}, which keeps both to
+   * the documented codes.
    */
   private static String reasonTag(final QueryEmbeddingException failure) {
     return switch (failure.getReason()) {
