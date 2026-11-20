@@ -47,6 +47,25 @@ const PreviewImage = styled.img<{ size: number; imageStyles?: CSSObject | undefi
     ${({ imageStyles }) => (imageStyles ? css(imageStyles) : undefined)};
 `;
 
+/**
+ * The logo shown for a platform, in order:
+ *   1. An explicit `customLogoUrl` (caller override)
+ *   2. The platform's persisted `properties.logoUrl` (set via ingestion / admin UI)
+ *   3. Bundled fallback in PLATFORM_URN_TO_LOGO — keeps common platforms (Notion,
+ *      Confluence, GitHub, Snowflake, ...) showing the right logo even when GMS
+ *      has no logoUrl populated, instead of falling through to the default cylinder.
+ */
+export function getPlatformLogoUrl(
+    platform: DataPlatform | null | undefined,
+    customLogoUrl?: string,
+): string | undefined {
+    return (
+        customLogoUrl ??
+        platform?.properties?.logoUrl ??
+        (platform?.urn ? PLATFORM_URN_TO_LOGO[platform.urn] : undefined)
+    );
+}
+
 const PlatformIcon: React.FC<PlatformIconProps> = ({
     platform,
     size = 17,
@@ -65,16 +84,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     const imgRef = useRef<HTMLImageElement>(null);
     const entityRegistry = useEntityRegistry();
     const theme = useTheme();
-    // Logo resolution order:
-    //   1. Explicit `customLogoUrl` prop (caller override)
-    //   2. The platform's persisted `properties.logoUrl` (set via ingestion / admin UI)
-    //   3. Bundled fallback in PLATFORM_URN_TO_LOGO — keeps common platforms (Notion,
-    //      Confluence, GitHub, Snowflake, ...) showing the right logo even when GMS
-    //      has no logoUrl populated, instead of falling through to the default cylinder.
-    const logoUrl =
-        customLogoUrl ??
-        platform?.properties?.logoUrl ??
-        (platform?.urn ? PLATFORM_URN_TO_LOGO[platform.urn] : undefined);
+    const logoUrl = getPlatformLogoUrl(platform, customLogoUrl);
 
     const handleError = useCallback(() => {
         const img = imgRef.current;
