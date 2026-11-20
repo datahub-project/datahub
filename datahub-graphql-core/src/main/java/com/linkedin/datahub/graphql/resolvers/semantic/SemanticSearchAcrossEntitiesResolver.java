@@ -29,15 +29,18 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.QueryEmbeddingException;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SemanticSearchDisabledException;
 import com.linkedin.metadata.search.SemanticSearchService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -45,6 +48,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 
 /**
  * Resolver responsible for resolving 'semanticSearchAcrossEntities' field of the Query type.
@@ -177,6 +181,9 @@ public class SemanticSearchAcrossEntitiesResolver
                 "Semantic search is disabled in this environment",
                 DataHubGraphQLErrorCode.BAD_REQUEST,
                 e);
+          } catch (DataHubGraphQLException e) {
+            // Already typed, as a query embedding failure is
+            throw e;
           } catch (Exception e) {
             log.error(
                 "Failed to execute semantic search across entities: entity types {}, query {}, filters: {}, start: {}, count: {}",
@@ -201,7 +208,8 @@ public class SemanticSearchAcrossEntitiesResolver
    * Semantic search through the semantic search template. As keyword search does, it adds the
    * document defaults (the published-document default and placement) to the caller's filter,
    * records whether that filter, with its view, had a criterion of its own, and keeps the default
-   * fields out of the facets.
+   * fields out of the facets. A query it could not embed is an error naming why, or, when the
+   * caller opted in, the keyword search results for the same request, marked with that reason.
    */
   private SearchResults templateSearch(
       final QueryContext context,
@@ -213,28 +221,65 @@ public class SemanticSearchAcrossEntitiesResolver
       final List<SortCriterion> sortCriteria,
       final int start,
       final int count,
-      final List<String> facets) {
+      final List<String> facets)
+      throws RemoteInvocationException {
     final boolean callerFiltered = FilterUtils.hasCriterion(callerFilter);
     final Filter filter =
         DefaultEntityFiltersUtil.applyDefaultEntityFilters(
             callerFilter, entityNames, searchFlags, context);
-    final SearchResult result =
-        _semanticSearchService.semanticTemplateSearchAcrossEntities(
-            context
-                .getOperationContext()
-                .withSearchFlags(flags -> searchFlags)
-                .withCallerOptionalFilterFields(
-                    DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
-                .withCallerFiltered(callerFiltered),
-            entityNames,
-            query,
-            filter,
-            sortCriteria,
-            start,
-            count,
-            facets);
+    final OperationContext searching =
+        context
+            .getOperationContext()
+            .withSearchFlags(flags -> searchFlags)
+            .withCallerOptionalFilterFields(
+                DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
+            .withCallerFiltered(callerFiltered);
+    SearchResult result;
+    try {
+      result =
+          _semanticSearchService.semanticTemplateSearchAcrossEntities(
+              searching, entityNames, query, filter, sortCriteria, start, count, facets);
+    } catch (RuntimeException e) {
+      final QueryEmbeddingException failure =
+          ExceptionUtils.throwableOfType(e, QueryEmbeddingException.class);
+      if (failure == null) {
+        throw e;
+      }
+      if (searchFlags == null
+          || !Boolean.TRUE.equals(searchFlags.isKeywordFallbackOnEmbeddingFailure())) {
+        throw new DataHubGraphQLException(failure.getMessage(), errorCode(failure), failure);
+      }
+      // The keyword search the same request runs, as keyword search escapes it
+      result =
+          _entityClient.searchAcrossEntities(
+              searching,
+              entityNames,
+              ResolverUtils.escapeForwardSlash(query),
+              filter,
+              start,
+              count,
+              sortCriteria,
+              facets);
+      result.getMetadata().setKeywordFallback(failure.getReason());
+    }
     return UrnSearchResultsMapper.map(
         context, DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(result));
+  }
+
+  /**
+   * A query embedding that ran out of time is an exceeded deadline, and one the embedding service
+   * throttled or budgeted out is a transient unavailability. Any other failure stays a server
+   * error, since it may not clear on a retry.
+   */
+  private static DataHubGraphQLErrorCode errorCode(final QueryEmbeddingException failure) {
+    return switch (failure.getReason()) {
+      case QueryEmbeddingException.TIMEOUT -> DataHubGraphQLErrorCode.DEADLINE_EXCEEDED;
+      case QueryEmbeddingException.REJECTED,
+          QueryEmbeddingException.RESERVE_EXHAUSTED,
+          QueryEmbeddingException.BUDGET_EXHAUSTED ->
+          DataHubGraphQLErrorCode.SERVICE_UNAVAILABLE;
+      default -> DataHubGraphQLErrorCode.SERVER_ERROR;
+    };
   }
 
   private List<String> getStructuredPropertyFacets(

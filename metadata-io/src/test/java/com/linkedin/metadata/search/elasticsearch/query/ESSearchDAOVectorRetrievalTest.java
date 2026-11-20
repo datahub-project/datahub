@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -22,10 +23,12 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.google.common.util.concurrent.UncheckedTimeoutException;
 import com.linkedin.common.EmbeddingChunk;
 import com.linkedin.common.EmbeddingChunkArray;
 import com.linkedin.common.EmbeddingModelData;
@@ -47,6 +50,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.QueryEmbeddingException;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -113,6 +117,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -1455,6 +1460,94 @@ public class ESSearchDAOVectorRetrievalTest {
   }
 
   @Test
+  public void testAQueryEmbeddingFailureIsTypedByItsReason() throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.9));
+
+    doThrow(new RuntimeException("provider unavailable"))
+        .when(provider)
+        .embed(anyString(), any(), any(), any(Duration.class));
+    assertEquals(embeddingFailure().getReason(), QueryEmbeddingException.FAILED);
+    // A provider that gave up at the deadline
+    doThrow(new UncheckedTimeoutException("slow provider"))
+        .when(provider)
+        .embed(anyString(), any(), any(), any(Duration.class));
+    assertEquals(embeddingFailure().getReason(), QueryEmbeddingException.TIMEOUT);
+    // A reason an embedding service that budgets queries gives itself
+    doThrow(new QueryEmbeddingException(QueryEmbeddingException.BUDGET_EXHAUSTED, null))
+        .when(provider)
+        .embed(anyString(), any(), any(), any(Duration.class));
+    assertEquals(embeddingFailure().getReason(), QueryEmbeddingException.BUDGET_EXHAUSTED);
+    // A provider that answers after the deadline leaves no time for the kNN request
+    ESSearchDAO late = dao(null, embedding());
+    late.setHybridTimeoutMillis(50);
+    doAnswer(
+            invocation -> {
+              Thread.sleep(150);
+              return new float[] {0.1f, 0.2f};
+            })
+        .when(provider)
+        .embed(anyString(), any(), any(), any(Duration.class));
+    RuntimeException timedOut =
+        expectThrows(
+            RuntimeException.class,
+            () -> search(late, context(DOCUMENT, f -> {}), null, 0, 10, DOCUMENT));
+    assertEquals(
+        ExceptionUtils.throwableOfType(timedOut, QueryEmbeddingException.class).getReason(),
+        QueryEmbeddingException.TIMEOUT);
+    verify(client, never()).searchKnn(any(), any());
+  }
+
+  @Test
+  public void testOnlyAFailedQueryEmbeddingIsTyped() throws Exception {
+    // A failed kNN request
+    store(vector(r -> {}));
+    when(client.searchKnn(any(), any())).thenThrow(new IOException("kNN unavailable"));
+    SearchTemplateFailClosedException knn =
+        expectThrows(SearchTemplateFailClosedException.class, () -> search(DOCUMENT, null, 0, 10));
+    assertNull(ExceptionUtils.throwableOfType(knn, QueryEmbeddingException.class));
+
+    // Similarity embeds nothing, so its failures never are
+    store(similarity(r -> {}));
+    SearchTemplateFailClosedException noAnchor =
+        expectThrows(
+            SearchTemplateFailClosedException.class,
+            () -> similar(context(DOCUMENT, f -> {}), DOCUMENT));
+    assertNull(ExceptionUtils.throwableOfType(noAnchor, QueryEmbeddingException.class));
+  }
+
+  @Test
+  public void testOnTheSemanticSurfaceAFailedEmbeddingFailsTypedInsteadOfFollowingNext()
+      throws Exception {
+    harness.store(KEYWORD_URN, keyword());
+    SearchTemplateProperties next = vector(r -> r.setOnFailure("next"));
+    next.setLadder(nextOnMiss());
+    store(next);
+    semanticSlot(VECTOR_URN);
+    harness.templates.getRollout().setSemanticSearch("active");
+    doThrow(new RuntimeException("provider unavailable"))
+        .when(provider)
+        .embed(anyString(), any(), any(), any(Duration.class));
+    CachingEntitySearchService cache = cached(dao(null, embedding()));
+
+    // Keyword search follows the rung's next
+    assertEquals(searchOn(cache, context(DOCUMENT, f -> {})).getEntities().size(), 3);
+    // Semantic search fails with the reason instead
+    RuntimeException failure =
+        expectThrows(RuntimeException.class, () -> searchOn(cache, semanticContext(f -> {})));
+    assertEquals(
+        ExceptionUtils.throwableOfType(failure, QueryEmbeddingException.class).getReason(),
+        QueryEmbeddingException.FAILED);
+
+    // It cached nothing, so the next semantic search embeds again and serves the vector rung
+    doReturn(new float[] {0.1f, 0.2f})
+        .when(provider)
+        .embed(anyString(), any(), any(), any(Duration.class));
+    knnReturns(hits(0.9));
+    assertEquals(urns(searchOn(cache, semanticContext(f -> {}))), List.of("urn:li:document:d0"));
+  }
+
+  @Test
   public void testAnAnchorWithoutVectorsFailsWithoutAKeywordFallback() throws Exception {
     store(similarity(r -> {}));
 
@@ -2312,6 +2405,16 @@ public class ESSearchDAOVectorRetrievalTest {
   private OperationContext semanticContext(Consumer<com.linkedin.metadata.query.SearchFlags> flags)
       throws Exception {
     return unpinned(flags).withSearchSurface(SearchTemplateSurfaces.SEMANTIC_SEARCH);
+  }
+
+  /** The typed query embedding failure a search of the vector rung fails with. */
+  private QueryEmbeddingException embeddingFailure() {
+    RuntimeException failure =
+        expectThrows(RuntimeException.class, () -> search(DOCUMENT, null, 0, 10));
+    QueryEmbeddingException typed =
+        ExceptionUtils.throwableOfType(failure, QueryEmbeddingException.class);
+    assertNotNull(typed, failure.toString());
+    return typed;
   }
 
   /** A search with the caller floor {@code floor}, which keeps {@code survivors} hits. */

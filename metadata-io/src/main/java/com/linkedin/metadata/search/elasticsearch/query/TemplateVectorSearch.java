@@ -14,6 +14,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadataArray;
+import com.linkedin.metadata.search.QueryEmbeddingException;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -29,6 +30,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateF
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateVectorRetrieval;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateWalk;
 import com.linkedin.metadata.search.embedding.EmbeddingProfile;
@@ -109,10 +111,11 @@ final class TemplateVectorSearch {
   /**
    * One walk attempt for a vector rung. No eligible entity type is an empty page. A failed
    * embedding, store, hydration, or facet request follows the rung's {@code onFailure}: {@code
-   * next} returns the failure to the ladder, and anything else fails the search. A store with no
-   * adapter, or a caller filter on a store without preFilter, fails closed. Similarity checks its
-   * anchor first, so an anchor it cannot use fails the search even when no requested type is
-   * eligible.
+   * next} returns the failure to the ladder, and anything else fails the search. On the semantic
+   * search surface it always fails the search, and a failed embedding is a {@link
+   * QueryEmbeddingException} with its reason. A store with no adapter, or a caller filter on a
+   * store without preFilter, fails closed. Similarity checks its anchor first, so an anchor it
+   * cannot use fails the search even when no requested type is eligible.
    */
   @Nonnull
   SearchTemplateWalk.AttemptResult<SearchResult> attempt(
@@ -277,8 +280,10 @@ final class TemplateVectorSearch {
           e instanceof RuntimeException runtime
               ? runtime
               : new ESQueryException("Vector retrieval failed", e);
-      // Similarity has no other rung to serve its neighbors, so it always fails
+      // Similarity has no other rung to serve its neighbors, so it always fails. Semantic search
+      // serves only a vector rung, so it fails there too, and the caller decides any fallback.
       if (anchor == null
+          && !SearchTemplateSurfaces.semantic(opContext)
           && SearchTemplateCapabilities.ON_FAILURE_NEXT.equals(
               template.getRetrieval().getOnFailure())) {
         // The next rung's page must not be cached, or the next search skips this rung
@@ -358,11 +363,14 @@ final class TemplateVectorSearch {
               deadlineNanos);
       candidates = hits.size();
     } else {
-      final float[] vector = embedding.embed(input, deadlineNanos).vector();
+      final float[] vector = queryVector(embedding, input, deadlineNanos);
       final long remainingNanos = deadlineNanos - System.nanoTime();
       if (remainingNanos <= 0) {
-        throw new UncheckedTimeoutException(
-            "The vector retrieval deadline passed before the kNN call");
+        // The embedding answered after the deadline, so the query embedding timed out
+        throw new QueryEmbeddingException(
+            QueryEmbeddingException.TIMEOUT,
+            new UncheckedTimeoutException(
+                "The vector retrieval deadline passed before the kNN call"));
       }
       final VectorStore.Request request =
           new VectorStore.Request(profileId, vector, k, searched, storeFilter);
@@ -938,6 +946,27 @@ final class TemplateVectorSearch {
   private Map<String, VectorStoreConfiguration> stores() {
     return SearchTemplateVectorRetrieval.stores(
         dao.searchConfiguration.getEntityIndex().getSemanticSearch());
+  }
+
+  /**
+   * The query's vector. A failure is typed by reason: one that ended at the search's deadline timed
+   * out, as keywordRerank counts it, any other failed, and one the embedding service typed keeps
+   * its reason.
+   */
+  @Nonnull
+  private static float[] queryVector(
+      @Nonnull HybridQueryEmbeddingService embedding, @Nonnull String input, long deadlineNanos) {
+    try {
+      return embedding.embed(input, deadlineNanos).vector();
+    } catch (QueryEmbeddingException e) {
+      throw e;
+    } catch (RuntimeException e) {
+      throw new QueryEmbeddingException(
+          e instanceof UncheckedTimeoutException || System.nanoTime() - deadlineNanos >= 0
+              ? QueryEmbeddingException.TIMEOUT
+              : QueryEmbeddingException.FAILED,
+          e);
+    }
   }
 
   /**

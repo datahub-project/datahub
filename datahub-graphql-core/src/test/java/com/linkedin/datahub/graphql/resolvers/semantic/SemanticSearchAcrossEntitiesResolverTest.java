@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -39,6 +40,7 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.generated.SearchSortInput;
 import com.linkedin.datahub.graphql.generated.SortCriterion;
 import com.linkedin.datahub.graphql.generated.SortOrder;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.search.DefaultEntityFiltersUtil;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
@@ -50,6 +52,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
+import com.linkedin.metadata.search.QueryEmbeddingException;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -1097,6 +1100,105 @@ public class SemanticSearchAcrossEntitiesResolverTest {
         .semanticTemplateSearchAcrossEntities(
             searching.capture(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList());
     assertEquals(searching.getValue().getSearchContext().getSearchFlags().getMinSimilarity(), 0.8f);
+  }
+
+  @Test
+  public void testAQueryEmbeddingFailureIsATypedErrorUnlessTheCallerOptsIntoKeywordResults()
+      throws Exception {
+    SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DOCUMENT));
+    input.setQuery("path/to/revenue");
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockSemanticSearchService.servesTemplate(any())).thenReturn(true);
+    embeddingFails(QueryEmbeddingException.TIMEOUT);
+
+    // By default the error names the reason: a timeout is an exceeded deadline ...
+    DataHubGraphQLException timedOut = typedError();
+    assertEquals(timedOut.errorCode(), DataHubGraphQLErrorCode.DEADLINE_EXCEEDED);
+    assertTrue(timedOut.getMessage().contains(QueryEmbeddingException.TIMEOUT));
+    // ... any other failure of the provider stays a server error, still naming the reason ...
+    embeddingFails(QueryEmbeddingException.FAILED);
+    DataHubGraphQLException failed = typedError();
+    assertEquals(failed.errorCode(), DataHubGraphQLErrorCode.SERVER_ERROR);
+    assertTrue(failed.getMessage().contains(QueryEmbeddingException.FAILED));
+    // ... and a throttle is an unavailable service
+    embeddingFails(QueryEmbeddingException.REJECTED);
+    assertEquals(typedError().errorCode(), DataHubGraphQLErrorCode.SERVICE_UNAVAILABLE);
+    verifyNoInteractions(mockEntityClient);
+
+    // Opted in, keyword search serves the same request, marked with the reason
+    SearchFlags flags = new SearchFlags();
+    flags.setKeywordFallbackOnEmbeddingFailure(true);
+    input.setSearchFlags(flags);
+    when(mockEntityClient.searchAcrossEntities(
+            any(), anyList(), anyString(), any(), anyInt(), anyInt(), any(), anyList()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(
+                    new SearchEntityArray(
+                        new SearchEntity().setEntity(UrnUtils.getUrn("urn:li:document:revenue"))))
+                .setFrom(0)
+                .setPageSize(10)
+                .setNumEntities(1)
+                .setMetadata(new SearchResultMetadata()));
+
+    SearchResults result = resolver.get(mockEnvironment).get();
+
+    assertEquals(result.getKeywordFallback(), QueryEmbeddingException.REJECTED);
+    assertEquals(result.getTotal(), 1);
+    Filter defaults =
+        DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+            null, Collections.singletonList("document"), null, mockQueryContext);
+    verify(mockEntityClient)
+        .searchAcrossEntities(
+            any(),
+            eq(Collections.singletonList("document")),
+            eq(ResolverUtils.escapeForwardSlash("path/to/revenue")),
+            eq(defaults),
+            eq(0),
+            eq(10),
+            anyList(),
+            anyList());
+  }
+
+  @Test
+  public void testOnlyAQueryEmbeddingFailureFallsBackToKeywordResults() {
+    SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DOCUMENT));
+    input.setQuery("quarterly revenue");
+    SearchFlags flags = new SearchFlags();
+    flags.setKeywordFallbackOnEmbeddingFailure(true);
+    input.setSearchFlags(flags);
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockSemanticSearchService.servesTemplate(any())).thenReturn(true);
+    // A failed kNN request, as similarity's failures are too: nothing was left unembedded
+    when(mockSemanticSearchService.semanticTemplateSearchAcrossEntities(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList()))
+        .thenThrow(new RuntimeException("kNN unavailable"));
+
+    CompletionException failure =
+        org.testng.Assert.expectThrows(
+            CompletionException.class, () -> resolver.get(mockEnvironment).join());
+
+    assertFalse(failure.getCause() instanceof DataHubGraphQLException);
+    verifyNoInteractions(mockEntityClient);
+  }
+
+  private void embeddingFails(String reason) {
+    doThrow(
+            new RuntimeException(
+                "Vector retrieval failed", new QueryEmbeddingException(reason, null)))
+        .when(mockSemanticSearchService)
+        .semanticTemplateSearchAcrossEntities(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList());
+  }
+
+  private DataHubGraphQLException typedError() {
+    CompletionException failure =
+        org.testng.Assert.expectThrows(
+            CompletionException.class, () -> resolver.get(mockEnvironment).join());
+    assertTrue(failure.getCause() instanceof DataHubGraphQLException, failure.toString());
+    return (DataHubGraphQLException) failure.getCause();
   }
 
   private static AggregationMetadata facet(String name) {

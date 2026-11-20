@@ -7935,6 +7935,12 @@
       "doc" : "Raw cosine floor, from -1 to 1, on the hits a vector rung (retrieval.combine: vector)\nretrieves. A hit below it is dropped and a hit at it is kept; the window is not refilled.\nWith no floor in effect it sets one. With retrieval.minSimilarity, or else\nsemanticSearch.minSimilarity, in effect it can only raise it: the higher of the two applies.\nA profile whose metric is not cosine rejects it. Only a vector rung reads it, as on semantic\nsearch through the semantic search template. Semantic search on its legacy path rejects it.",
       "optional" : true
     }, {
+      "name" : "keywordFallbackOnEmbeddingFailure",
+      "type" : "boolean",
+      "doc" : "Semantic search through the semantic search template answers a query it could not embed with\nan error naming why: timeout, rejected, reserveExhausted, budgetExhausted, or failed. With this\nflag set it serves keyword search results for the same request instead, and\nSearchResultMetadata.keywordFallback marks them with that reason. Only a failed query embedding\nfalls back: a failed kNN or facet request, and similarity, still fail. Semantic search on its\nlegacy path fails as it does without the flag.",
+      "default" : false,
+      "optional" : true
+    }, {
       "name" : "searchTemplate",
       "type" : "com.linkedin.common.Urn",
       "doc" : "Caller-selected search template URN. When set, selection skips classification, sub-intent,\nand engine lookup. The resolved template is not written back onto this field.",
@@ -8586,6 +8592,11 @@
             } ]
           },
           "doc" : "How the served template's vector rung retrieved this result. Set when the caller asks for an\nexplanation and the served rung declares combine: vector.",
+          "optional" : true
+        }, {
+          "name" : "keywordFallback",
+          "type" : "string",
+          "doc" : "Set when semantic search served keyword search results because it could not embed the query\nand the caller set SearchFlags.keywordFallbackOnEmbeddingFailure: why the embedding failed\n(timeout, rejected, reserveExhausted, budgetExhausted, or failed).",
           "optional" : true
         } ]
       },

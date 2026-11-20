@@ -108,6 +108,10 @@ public class SearchFlagsInputMapper
     if (searchFlags.getMinSimilarity() != null) {
       result.setMinSimilarity(searchFlags.getMinSimilarity());
     }
+    if (searchFlags.getKeywordFallbackOnEmbeddingFailure() != null) {
+      result.setKeywordFallbackOnEmbeddingFailure(
+          searchFlags.getKeywordFallbackOnEmbeddingFailure());
+    }
     if (searchFlags.getSearchTemplate() != null && !searchFlags.getSearchTemplate().isBlank()) {
       result.setSearchTemplate(requireSearchTemplate(searchFlags.getSearchTemplate()));
     }

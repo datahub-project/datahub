@@ -75,6 +75,9 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
     if (searchResultMetadata.hasVectorRetrieval()) {
       result.setVectorRetrieval(mapVectorRetrieval(searchResultMetadata.getVectorRetrieval()));
     }
+    if (searchResultMetadata.hasKeywordFallback()) {
+      result.setKeywordFallback(searchResultMetadata.getKeywordFallback());
+    }
 
     return result;
   }
