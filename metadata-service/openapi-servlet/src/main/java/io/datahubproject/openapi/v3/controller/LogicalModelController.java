@@ -131,23 +131,25 @@ public class LogicalModelController {
         entityService.getLatestAspect(
             opContext, childDatasetUrn, Constants.SCHEMA_METADATA_ASPECT_NAME);
 
+    List<String> childFieldPaths =
+        childSchemaMetadataAspect != null
+            ? ((SchemaMetadata) childSchemaMetadataAspect)
+                .getFields().stream().map(SchemaField::getFieldPath).collect(Collectors.toList())
+            : List.of();
     if (parentSchemaMetadataAspect != null && childSchemaMetadataAspect != null) {
       SchemaMetadata parentSchema = (SchemaMetadata) parentSchemaMetadataAspect;
-      SchemaMetadata childSchema = (SchemaMetadata) childSchemaMetadataAspect;
       LogicalModelUtils.validateFieldPaths(
           parentSchema.getFields().stream()
               .map(SchemaField::getFieldPath)
               .collect(Collectors.toSet()),
-          childSchema.getFields().stream()
-              .map(SchemaField::getFieldPath)
-              .collect(Collectors.toSet()),
+          Set.copyOf(childFieldPaths),
           fieldPathMap);
     }
 
     // Create logical parent proposals
     List<MetadataChangeProposal> proposals =
         LogicalModelUtils.buildLinkProposals(
-            childDatasetUrn, parentDatasetUrn, fieldPathMap, opContext);
+            childDatasetUrn, parentDatasetUrn, fieldPathMap, childFieldPaths, opContext);
 
     AuditStamp auditStamp = AuditStampUtils.createAuditStamp(authentication.getActor().toUrnStr());
     AspectsBatch batch =
