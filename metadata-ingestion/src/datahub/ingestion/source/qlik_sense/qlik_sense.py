@@ -1428,16 +1428,21 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         sql = drop_condition_variables(script_table.sql)
         if "$(" in sql:
             # orders_$(vYear) would parse as a table named orders_$.
-            variables = sorted(
-                {name.strip() for name in VARIABLE_REFERENCE_RE.findall(sql)}
-            )
+            references = VARIABLE_REFERENCE_RE.findall(sql)
+            variables = sorted({name.strip() for name in references})
+            context = f"app={app_id}, table={script_table.label}"
+            if variables:
+                context += f", variables={', '.join(variables)}"
+            if sql.count("$(") > len(references):
+                # Nested references such as $(v$(x)) and expressions such as
+                # $(=Date(...)) have no single name, so show the SQL itself.
+                context += f", sql={sql[:200]}"
             self.reporter.warning(
                 title="Qlik load script SQL uses a variable that is not set",
                 message="Upstream lineage for this script table is skipped. "
-                "Set variables that no script sets in `script_variables` to "
-                "include it.",
-                context=f"app={app_id}, table={script_table.label}, "
-                f"variables={', '.join(variables)}",
+                "Set these variables in `script_variables` to include it; no "
+                "script sets them.",
+                context=context,
             )
             return None
         result = self._parse_script_sql(sql, connection)
@@ -1855,7 +1860,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     ) -> FileSourceResolver:
         references = []
         unnamed = []
-        settable = False
+        settable = []
         for load in parsed.file_loads:
             if load.uses_unknown_variable:
                 unnamed.append(load.as_written)
@@ -1887,7 +1892,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 unnamed.append(load.expanded)
                 # Loop and branch variables stay unknown whatever the recipe
                 # says, but a variable nothing sets can come from it.
-                settable = settable or "$(" in load.expanded
+                if "$(" in load.expanded:
+                    settable.append(load.expanded)
         if unnamed and self.config.on_prem is None:
             # On-prem apps have no lineage graph files to match.
             self._apps_file_paths_unknown.add(app.id)
@@ -1898,12 +1904,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "files in the app's lineage graph, so lineage to them is only "
                 "added to."
                 + (
-                    " Set variables that no script sets in `script_variables` "
-                    "to name their files."
+                    " Set the variables of the paths listed as settable in "
+                    "`script_variables` to name their files; no script sets "
+                    "them."
                     if settable
                     else ""
                 ),
-                context=f"{app.id}: {', '.join(unnamed[:5])}",
+                context=f"{app.id}: {', '.join(unnamed[:5])}"
+                + (f"; settable: {', '.join(settable[:5])}" if settable else ""),
             )
         return FileSourceResolver(references)
 

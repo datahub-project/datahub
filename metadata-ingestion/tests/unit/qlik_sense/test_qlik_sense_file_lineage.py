@@ -552,11 +552,19 @@ def test_load_path_variable_nothing_sets_points_to_script_variables(
         }
     )
     source._file_source_resolver(
-        app, parse_script("X: LOAD * FROM [lib://Lake/$(vYear)/a.csv] (txt);\n")
+        app,
+        parse_script(
+            "X: LOAD * FROM [lib://Lake/$(vYear)/a.csv] (txt);\n"
+            "Y: LOAD * FROM [lib://Lake/m/*.csv] (txt);\n"
+        ),
     )
 
     [warning] = source.reporter.warnings
     assert "script_variables" in str(warning.message)
+    # Only the load a variable can name is listed as settable.
+    settable = str(warning.context).split("settable: ")[1]
+    assert "$(vYear)" in settable
+    assert "*.csv" not in settable
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
