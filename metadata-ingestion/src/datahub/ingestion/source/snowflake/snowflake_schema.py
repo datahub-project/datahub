@@ -2883,7 +2883,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
             size_in_bytes=row.get("bytes", 0),
             rows_count=row.get("rows", 0),
             comment=row.get("comment"),
-            definition=row.get("text"),
+            # SHOW returns text='' (not NULL) to non-owner roles; None sends it to GET_DDL.
+            definition=row.get("text") or None,
             target_lag=row.get("target_lag"),
             type="INTERACTIVE TABLE",
         )
@@ -3053,9 +3054,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         for schema_name, table_list in tables.items():
             for table in table_list:
+                # GET_DDL of a static interactive table has only the column list, no AS SELECT,
+                # so it cannot yield lineage; static upstreams come from the query log CTAS.
                 if (
                     isinstance(table, SnowflakeInteractiveTable)
                     and table.definition is None
+                    and (table.is_dynamic or table.target_lag)
                 ):
                     self._fetch_interactive_table_ddl(db_name, schema_name, table)
 

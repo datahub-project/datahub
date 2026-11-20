@@ -35,6 +35,7 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
+    INTERACTIVE_TABLE_RE,
     SNOWFLAKE_DATABASE,
     STREAMLIT_PLATFORM,
     SnowflakeObjectDomain,
@@ -155,7 +156,6 @@ logger = logging.getLogger(__name__)
 # but its tokenizer lexes it fine, which is all the extraction below needs.
 _REFRESH_USING_RE = re.compile(r"\brefresh\s+using\s*\(", re.IGNORECASE)
 _MERGE_INTO_RE = re.compile(r"\bmerge\s+into\b", re.IGNORECASE)
-_INTERACTIVE_TABLE_RE = re.compile(r"\binteractive\s+table\b", re.IGNORECASE)
 _TARGET_LAG_RE = re.compile(r"\btarget_lag\b", re.IGNORECASE)
 
 
@@ -788,9 +788,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if aggregator is None:
             return False
         if not table.definition:
-            self.report.num_interactive_tables_without_definition += 1
+            # Static tables have no definition by design (lineage comes from the query log).
+            if table.is_dynamic or table.target_lag:
+                self.report.num_interactive_tables_without_definition += 1
             return False
-        view_definition = _INTERACTIVE_TABLE_RE.sub("TABLE", table.definition, count=1)
+        view_definition = INTERACTIVE_TABLE_RE.sub("TABLE", table.definition, count=1)
         if _interactive_table_has_target_lag(table):
             downstream_urn = self.identifiers.gen_dataset_urn(
                 self.identifiers.get_dataset_identifier(

@@ -1,3 +1,5 @@
+import re
+
 from datahub.utilities.str_enum import StrEnum
 
 
@@ -65,10 +67,19 @@ class SnowflakeObjectDomain(StrEnum):
     STREAM = "stream"
     PROCEDURE = "procedure"
     DYNAMIC_TABLE = "dynamic table"
+    INTERACTIVE_TABLE = "interactive table"
     STREAMLIT = "streamlit"
     STAGE = "stage"
     TASK = "task"
     PIPE = "pipe"
+
+
+# ACCESS_HISTORY reports interactive tables as 'Interactive Table' (both words capitalized),
+# so `.capitalize()` on the enum value would not match the case-sensitive SQL filter.
+INTERACTIVE_TABLE_ACCESS_HISTORY_DOMAIN = "Interactive Table"
+
+# sqlglot cannot parse CREATE INTERACTIVE TABLE; rewriting the keyword to TABLE makes it parse.
+INTERACTIVE_TABLE_RE = re.compile(r"\binteractive\s+table\b", re.IGNORECASE)
 
 
 # The plural keyword naming an object class in a SHOW statement, e.g. `SHOW DYNAMIC TABLES`.

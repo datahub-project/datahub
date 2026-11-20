@@ -2257,6 +2257,32 @@ class TestStreamUpstreamMultiTableInsert:
         assert isinstance(results[0], ObservedQuery)
         assert extractor.report.num_create_temp_view_queries_observed == 1
 
+    def test_interactive_table_ctas_falls_back_with_rewritten_text(self):
+        """ACCESS_HISTORY omits the CTAS target of an interactive table -> parse the text."""
+        extractor = self._create_mock_extractor()
+        row = self._audit_row(
+            query_text=(
+                "create or replace interactive table db.s.it cluster by (id) "
+                "as select id from db.s.src"
+            ),
+            direct_objects_accessed=[
+                {
+                    "objectName": "DB.S.SRC",
+                    "objectDomain": "Table",
+                    "columns": [{"columnName": "ID"}],
+                }
+            ],
+            objects_modified=[],
+        )
+        row["QUERY_TYPE"] = "CREATE_TABLE_AS_SELECT"
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert results[0].query.startswith("create or replace TABLE db.s.it")
+        assert extractor.report.num_interactive_table_ctas_observed == 1
+
     def test_single_target_clean_stream_uses_preparsed_path(self):
         """Single-target stream INSERT with clean metadata -> PreparsedQuery with CLL."""
         extractor = self._create_mock_extractor()

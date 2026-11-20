@@ -1581,14 +1581,4 @@ def default_query_results(  # noqa: C901
                 "DDL": 'CREATE SEMANTIC VIEW SALES_MODEL\n  TABLES ("Orders" AS TEST_DB.TEST_SCHEMA.TABLE_1)'
             }
         ]
-    if query == SnowflakeQuery.get_table_ddl("TEST_DB", "TEST_SCHEMA", "TABLE_5"):
-        return [
-            {
-                "DDL": (
-                    "CREATE OR REPLACE INTERACTIVE TABLE TABLE_5 CLUSTER BY (COL_1) "
-                    "AS SELECT * FROM TEST_DB.TEST_SCHEMA.TABLE_2"
-                )
-            }
-        ]
-
     raise ValueError(f"Unexpected query: {query}")

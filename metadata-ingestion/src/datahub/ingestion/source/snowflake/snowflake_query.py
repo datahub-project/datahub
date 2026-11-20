@@ -5,6 +5,7 @@ from typing import AbstractSet, List, Optional
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import (
+    INTERACTIVE_TABLE_ACCESS_HISTORY_DOMAIN,
     SNOWFLAKE_INFORMATION_SCHEMA,
     SnowflakeObjectDomain,
     SnowflakeShowKind,
@@ -305,6 +306,7 @@ class SnowflakeQuery:
         SnowflakeObjectDomain.ICEBERG_TABLE.capitalize(),
         SnowflakeObjectDomain.STREAM.capitalize(),
         SnowflakeObjectDomain.DYNAMIC_TABLE.capitalize(),
+        INTERACTIVE_TABLE_ACCESS_HISTORY_DOMAIN,
     }
 
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = "({})".format(
@@ -315,6 +317,7 @@ class SnowflakeQuery:
     DOWNSTREAM_TABLE_DOMAINS = {
         SnowflakeObjectDomain.TABLE.capitalize(),
         SnowflakeObjectDomain.DYNAMIC_TABLE.capitalize(),
+        INTERACTIVE_TABLE_ACCESS_HISTORY_DOMAIN,
     }
 
     DOWNSTREAM_TABLE_DOMAINS_FILTER = "({})".format(

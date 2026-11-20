@@ -1,7 +1,7 @@
 """Unit tests for Snowflake interactive table discovery."""
 
 from datetime import datetime, timezone
-from typing import Dict, List, cast
+from typing import Dict, List, Optional, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -267,27 +267,33 @@ def test_get_table_ddl_escapes_embedded_quotes_in_identifiers() -> None:
     )
 
 
-def test_static_interactive_table_gets_get_ddl_text() -> None:
-    ddl_query = SnowflakeQuery.get_table_ddl(DB, SCHEMA, "INT_STATIC")
+# SHOW returns text='' (not NULL) to roles that do not own the table.
+@pytest.mark.parametrize("show_text", [None, ""])
+@pytest.mark.parametrize("is_dynamic", [True, False])
+def test_get_ddl_only_for_dynamic_interactive_table(
+    show_text: Optional[str], is_dynamic: bool
+) -> None:
+    issued: List[str] = []
 
     def dispatch(sql: str) -> List[dict]:
-        if sql == ddl_query:
-            return [{"DDL": STATIC_DDL}]
+        issued.append(sql)
+        if "GET_DDL" in sql.upper():
+            return [{"DDL": GET_DDL_DYNAMIC_IT}]
         if sql.lstrip().startswith("SHOW "):
             return [
                 {
-                    "name": "INT_STATIC",
+                    "name": "INT_IT",
                     "schema_name": SCHEMA,
                     "created_on": CREATED,
                     "comment": None,
-                    "text": None,
-                    "target_lag": None,
+                    "text": show_text,
+                    "target_lag": "1 hour" if is_dynamic else None,
                     "bytes": 0,
                     "rows": 0,
                 }
             ]
         if "information_schema.tables" in sql.lower():
-            return [_table_row("INT_STATIC")]
+            return [_table_row("INT_IT", IS_DYNAMIC="YES" if is_dynamic else "NO")]
         return []
 
     tables = _make_dictionary(dispatch).get_tables_for_schema(
@@ -295,7 +301,9 @@ def test_static_interactive_table_gets_get_ddl_text() -> None:
     )
     table = tables[0]
     assert isinstance(table, SnowflakeInteractiveTable)
-    assert table.definition == STATIC_DDL
+    # Static GET_DDL has no AS SELECT, so it is never issued; static lineage comes from the query log.
+    assert any("GET_DDL" in q for q in issued) == is_dynamic
+    assert table.definition == (GET_DDL_DYNAMIC_IT if is_dynamic else None)
 
 
 def test_database_show_runs_once_on_schema_path() -> None:
@@ -366,7 +374,7 @@ def test_show_permission_error_keeps_tables() -> None:
 
 
 def test_get_ddl_error_is_warned_and_counted() -> None:
-    ddl_query = SnowflakeQuery.get_table_ddl(DB, SCHEMA, "INT_STATIC")
+    ddl_query = SnowflakeQuery.get_table_ddl(DB, SCHEMA, "INT_DYN")
 
     def dispatch(sql: str) -> List[dict]:
         if sql == ddl_query:
@@ -376,7 +384,7 @@ def test_get_ddl_error_is_warned_and_counted() -> None:
         if "SHOW INTERACTIVE TABLES" in sql.upper():
             return []
         if "information_schema.tables" in sql.lower():
-            return [_table_row("INT_STATIC")]
+            return [_table_row("INT_DYN", IS_DYNAMIC="YES")]
         return []
 
     dictionary = _make_dictionary(dispatch)
@@ -452,12 +460,17 @@ def test_register_interactive_dynamic_get_ddl_form_uses_view_definition() -> Non
     assert "INTERACTIVE TABLE" not in rewritten.upper()
 
 
-def test_register_interactive_without_definition_is_counted() -> None:
+@pytest.mark.parametrize("is_dynamic", [True, False])
+def test_register_interactive_without_definition_counts_only_dynamic(
+    is_dynamic: bool,
+) -> None:
     gen = _schema_gen_with_mocks()
-    table = _interactive_with_definition("EMPTY", definition=None)
+    table = _interactive_with_definition(
+        "EMPTY", definition=None, is_dynamic=is_dynamic
+    )
     assert not gen._register_interactive_table_upstreams(table, DB, SCHEMA)
     cast(MagicMock, gen.aggregator).add_view_definition.assert_not_called()
-    assert gen.report.num_interactive_tables_without_definition == 1
+    assert gen.report.num_interactive_tables_without_definition == int(is_dynamic)
 
 
 _COL_1 = SnowflakeColumn(
