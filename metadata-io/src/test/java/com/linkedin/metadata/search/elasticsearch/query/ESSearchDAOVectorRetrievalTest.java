@@ -51,6 +51,7 @@ import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -2547,6 +2548,62 @@ public class ESSearchDAOVectorRetrievalTest {
           List.of("urn:li:document:d0"),
           anchor.getKey());
     }
+  }
+
+  /**
+   * An anchor filter that renders no rule fails closed. With no branch, or with a branch that
+   * renders no clause, even beside a usable one, the anchor fails as noAnchor before the store is
+   * asked: the engines read an empty bool as match-all, so it would pass on the default search
+   * filters alone. The store here finds the anchor whatever the query, as it would then.
+   */
+  @Test
+  public void testAnAnchorFilterThatRendersNoRuleFailsAsNoAnchor() throws Exception {
+    store(similarity(r -> {}));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+    Filter beside = publishedDocumentDefault(false);
+    beside.getOr().add(valuelessBranch());
+    Map<String, Filter> unusable =
+        Map.of(
+            "no branch list", new Filter(),
+            "an empty branch list", new Filter().setOr(new ConjunctiveCriterionArray()),
+            "a branch with no criteria",
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            new ConjunctiveCriterion().setAnd(new CriterionArray()))),
+            "a branch whose criterion has no values",
+                new Filter().setOr(new ConjunctiveCriterionArray(valuelessBranch())),
+            "a usable branch beside one that renders no clause", beside);
+    for (Map.Entry<String, Filter> anchorFilter : unusable.entrySet()) {
+      clearInvocations(client, harness.retriever, metrics);
+      OperationContext searching =
+          context(DOCUMENT, f -> {}).withAnchorFilter(anchorFilter.getValue());
+
+      assertThrows(SearchTemplateFailClosedException.class, () -> similar(searching, DOCUMENT));
+      verify(client, never()).search(any(OperationContext.class), any(), any());
+      verify(harness.retriever, never())
+          .getLatestAspectObject(
+              any(),
+              eq(UrnUtils.getUrn(ANCHOR)),
+              eq(SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME));
+      verify(client, never()).searchKnn(any(), any());
+      assertVectorOutcome(SearchTemplateVectorRetrieval.NO_ANCHOR);
+    }
+
+    assertEquals(
+        urns(
+            similar(
+                context(DOCUMENT, f -> {}).withAnchorFilter(publishedDocumentDefault(false)),
+                DOCUMENT)),
+        List.of("urn:li:document:d0"));
+  }
+
+  /** An OR branch whose only criterion, an EQUAL with no values, the filter renderer skips. */
+  private static ConjunctiveCriterion valuelessBranch() {
+    return new ConjunctiveCriterion()
+        .setAnd(
+            new CriterionArray(new Criterion().setField("domains").setCondition(Condition.EQUAL)));
   }
 
   /**

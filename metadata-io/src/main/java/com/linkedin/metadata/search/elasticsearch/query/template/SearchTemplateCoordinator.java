@@ -861,7 +861,11 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("urn", anchor.toString()));
     final Filter anchorFilter = opContext.getSearchContext().getAnchorFilter();
     if (anchorFilter != null) {
-      query.filter(anchorFilterQuery(opContext, anchorFilter));
+      final QueryBuilder visible = anchorFilterQuery(opContext, anchorFilter);
+      if (visible == null) {
+        return false;
+      }
+      query.filter(visible);
     }
     // The shards stop at the deadline too, and a timed-out response fails the check below
     final long remainingMillis =
@@ -890,20 +894,29 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   // Each OR branch is rendered as the neighbors' filter renders it, on the same Search V3 fields,
   // so the anchor and its neighbors read the same paths. Not through buildFilterQuery, which would
   // add the latest-version clause the anchor check does not apply. Neither visibility rule names a
-  // field a filter rewriter expands.
-  @Nonnull
+  // field a filter rewriter expands. Null, so the anchor is unusable, when the filter has no branch
+  // or a branch renders no clause: the engines read an empty bool as match-all, which would let
+  // the anchor pass on the default search filters alone.
+  @Nullable
   private static QueryBuilder anchorFilterQuery(
       @Nonnull OperationContext opContext, @Nonnull Filter anchorFilter) {
+    if (anchorFilter.getOr() == null || anchorFilter.getOr().isEmpty()) {
+      return null;
+    }
     final BoolQueryBuilder query = QueryBuilders.boolQuery().minimumShouldMatch(1);
     for (ConjunctiveCriterion branch : anchorFilter.getOr()) {
-      query.should(
+      final BoolQueryBuilder rendered =
           ESUtils.buildConjunctiveFilterQuery(
               branch,
               false,
               opContext.getSearchContext().getSearchableFieldTypes(),
               opContext,
               QueryFilterRewriteChain.EMPTY,
-              V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver()));
+              V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver());
+      if (!rendered.hasClauses()) {
+        return null;
+      }
+      query.should(rendered);
     }
     return query;
   }
