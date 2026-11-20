@@ -30,7 +30,8 @@ public final class SearchTemplateMetrics {
       Set.of(
           SearchTemplateSurfaces.SEARCH_ENTITIES,
           SearchTemplateSurfaces.SCROLL_ENTITIES,
-          SearchTemplateSurfaces.AGGREGATE_ENTITIES);
+          SearchTemplateSurfaces.AGGREGATE_ENTITIES,
+          SearchTemplateSurfaces.SEMANTIC_SEARCH);
 
   private static final Set<String> SLOTS =
       Set.of(

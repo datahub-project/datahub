@@ -1461,6 +1461,12 @@ elasticsearch:
           scrollEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SCROLL_ENTITIES_PERCENT:-1}
           aggregateEntities: ${SEARCH_V3_TEMPLATES_ROLLOUT_AGGREGATE_ENTITIES:}
           aggregateEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_AGGREGATE_ENTITIES_PERCENT:-1}
+          # Semantic search (semanticSearchAcrossEntities) through the semanticSearch surface below.
+          # Off unless set: blank does not use mode or percent. active serves the template to
+          # semanticSearchPercent of actors, all of them when that is unset. off and shadow keep
+          # semantic search on its legacy kNN search.
+          semanticSearch: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH:}
+          semanticSearchPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH_PERCENT:-1}
         # storage reads the aspect and fills a missing shipped template from the classpath.
         # System update sets classpath and does not read stored templates.
         # A merged template stays cached for cache.primary.ttlSeconds, the same TTL as entity
@@ -1514,6 +1520,11 @@ elasticsearch:
           aggregateEntities:
             fulltext:
               default: urn:li:searchTemplate:search
+          # Semantic search, when its rollout above serves it. Only a vector rung may serve this
+          # surface: a slot that selects a keyword template fails the search.
+          semanticSearch:
+            fulltext:
+              default: urn:li:searchTemplate:semantic
 
 
 # TODO: Kafka topic convention

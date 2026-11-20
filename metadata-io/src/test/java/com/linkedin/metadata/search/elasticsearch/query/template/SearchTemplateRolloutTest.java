@@ -93,6 +93,36 @@ public class SearchTemplateRolloutTest {
   }
 
   @Test
+  public void testSemanticSearchIsOffUnlessItsOwnSettingIsSet() throws Exception {
+    String semantic = SearchTemplateSurfaces.SEMANTIC_SEARCH;
+    String key = SearchTemplateRollout.bucketKey("urn:li:corpuser:ada", semantic);
+    // No rollout, a bare one, and the shipped active mode for every other surface all keep it off
+    assertEquals(effect(true, null, semantic, key), off());
+    assertEquals(effect(true, new SearchTemplateRolloutConfiguration(), semantic, key), off());
+    SearchTemplateRolloutConfiguration rollout = rollout("active", 100);
+    assertEquals(effect(true, rollout, semantic, key), off());
+    assertEquals(effect(true, rollout, SearchTemplateSurfaces.SEARCH_ENTITIES, key), active());
+    assertTrue(
+        Files.readString(applicationYaml())
+            .contains("semanticSearch: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH:}"),
+        "the shipped setting is blank");
+
+    // Its own setting turns it on. An unset semanticSearchPercent serves every actor, whatever
+    // percent says.
+    rollout.setPercent(0);
+    rollout.setSemanticSearch("active");
+    assertEquals(effect(true, rollout, semantic, key), active());
+    rollout.setSemanticSearchPercent(0);
+    assertEquals(effect(true, rollout, semantic, key), off());
+    // shadow does not execute, so semantic search keeps its legacy path
+    rollout.setSemanticSearch("shadow");
+    assertEquals(effect(true, rollout, semantic, key), shadow());
+    rollout.setSemanticSearch("active");
+    rollout.setSemanticSearchPercent(-1);
+    assertEquals(effect(false, rollout, semantic, key), off());
+  }
+
+  @Test
   public void testShippedDefaultServesTemplates() throws Exception {
     SearchTemplateConfiguration configuration = new SearchTemplateConfiguration();
     assertFalse(configuration.isEnabled());

@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -14,11 +15,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -27,6 +30,7 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.FacetMetadata;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchFlags;
@@ -34,6 +38,7 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.generated.SearchSortInput;
 import com.linkedin.datahub.graphql.generated.SortCriterion;
 import com.linkedin.datahub.graphql.generated.SortOrder;
+import com.linkedin.datahub.graphql.resolvers.search.DefaultEntityFiltersUtil;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -41,6 +46,9 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.AggregationMetadata;
+import com.linkedin.metadata.search.AggregationMetadataArray;
+import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -58,6 +66,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -968,5 +977,97 @@ public class SemanticSearchAcrossEntitiesResolverTest {
             eq(5),
             eq(25),
             anyList());
+  }
+
+  @Test
+  public void testTheTemplateSwitchServesTheTemplateWithTheDocumentDefaults() throws Exception {
+    SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DOCUMENT));
+    input.setQuery("quarterly revenue");
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockSemanticSearchService.servesTemplate(any())).thenReturn(true);
+    // The template's page facets a default filter field, which the response leaves out
+    when(mockSemanticSearchService.semanticTemplateSearchAcrossEntities(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setFrom(0)
+                .setPageSize(10)
+                .setNumEntities(0)
+                .setMetadata(
+                    new SearchResultMetadata()
+                        .setAggregations(
+                            new AggregationMetadataArray(
+                                facet("showInGlobalContext"), facet("platform")))));
+
+    SearchResults result = resolver.get(mockEnvironment).get();
+
+    ArgumentCaptor<OperationContext> searching = ArgumentCaptor.forClass(OperationContext.class);
+    ArgumentCaptor<Filter> filter = ArgumentCaptor.forClass(Filter.class);
+    verify(mockSemanticSearchService)
+        .semanticTemplateSearchAcrossEntities(
+            searching.capture(),
+            eq(Collections.singletonList("document")),
+            eq("quarterly revenue"),
+            filter.capture(),
+            anyList(),
+            eq(0),
+            eq(10),
+            anyList());
+    verify(mockSemanticSearchService, never())
+        .semanticSearchAcrossEntities(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList());
+    // The document defaults keyword search adds, and no caller filter of its own
+    assertEquals(
+        filter.getValue(),
+        DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+            null, Collections.singletonList("document"), null, mockQueryContext));
+    assertFalse(searching.getValue().getSearchContext().getCallerFiltered());
+    assertEquals(
+        result.getFacets().stream().map(FacetMetadata::getField).toList(),
+        Collections.singletonList("platform"));
+  }
+
+  @Test
+  public void testWithTheSwitchOffSemanticSearchKeepsItsLegacyPath() throws Exception {
+    SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DOCUMENT));
+    input.setQuery("quarterly revenue");
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockSemanticSearchService.semanticSearchAcrossEntities(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setFrom(0)
+                .setPageSize(10)
+                .setNumEntities(0)
+                .setMetadata(new SearchResultMetadata()));
+
+    resolver.get(mockEnvironment).get();
+
+    // The caller's filter alone: the legacy search adds no document defaults
+    verify(mockSemanticSearchService)
+        .semanticSearchAcrossEntities(
+            any(),
+            anyList(),
+            eq("quarterly revenue"),
+            isNull(),
+            anyList(),
+            eq(0),
+            eq(10),
+            anyList());
+    verify(mockSemanticSearchService, never())
+        .semanticTemplateSearchAcrossEntities(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList());
+  }
+
+  private static AggregationMetadata facet(String name) {
+    return new AggregationMetadata()
+        .setName(name)
+        .setDisplayName(name)
+        .setAggregations(new LongMap())
+        .setFilterValues(new FilterValueArray());
   }
 }

@@ -300,6 +300,10 @@ final class TemplateSearchExecutor {
     if (current != null) {
       current.setHighlightFields(served.highlights());
       current.setTemplateSortApplied(served.templateSort());
+      current.setVectorServed(
+          served.urn() != null
+              && SearchTemplateCapabilities.vectorRetrieval(
+                  coordinator.loader().load(bound, served.urn())));
     }
     // Every sort records the served rung, so a keywordRerank search can report that its rerank does
     // not apply. Whether it applies is decided where the page is ranked.

@@ -12,6 +12,8 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
@@ -103,6 +105,68 @@ public class SemanticSearchService {
 
     return performSemanticSearch(
         opContext, entitiesToSearch, input, postFilters, sortCriteria, from, size, facets);
+  }
+
+  /**
+   * Whether semantic search serves this request through the semantic search template surface, by
+   * the rule the template coordinator applies: templates execute, and that surface's rollout, which
+   * is off by default, serves this actor. A caller decides once per request, then calls either
+   * {@link #semanticSearchAcrossEntities} or {@link #semanticTemplateSearchAcrossEntities}.
+   */
+  public boolean servesTemplate(@Nonnull OperationContext opContext) {
+    final SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+    return coordinator != null
+        && coordinator.executes(
+            opContext.withSearchSurface(SearchTemplateSurfaces.SEMANTIC_SEARCH));
+  }
+
+  /**
+   * Semantic search across entity types through the template the semantic search surface selects,
+   * {@code urn:li:searchTemplate:semantic} as shipped. The vector rung's page, total, and facets
+   * stand: no keyword facet request runs beside it, so the facets count only the neighbors that
+   * survived. Only a vector rung may serve the page; anything else fails the search.
+   *
+   * @param facets facets the vector rung aggregates over its surviving hits, plus the legacy
+   *     "entity" aggregate
+   */
+  @Nonnull
+  public SearchResult semanticTemplateSearchAcrossEntities(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable Filter postFilters,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size,
+      @Nonnull List<String> facets) {
+    if (!Boolean.TRUE.equals(searchServiceConfig.isSemanticSearchEnabled())) {
+      throw new SemanticSearchDisabledException();
+    }
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
+    List<String> entitiesToSearch = getEntitiesToSearch(opContext, entityNames, size);
+    if (entitiesToSearch.isEmpty()) {
+      return getEmptySearchResult(from, size);
+    }
+    // The surface's slot sits under the fulltext seed. The query only feeds the embedding, so
+    // semantic search has no structured form here either.
+    SearchResult result =
+        cachingEntitySearchService.search(
+            opContext
+                .withSearchSurface(SearchTemplateSurfaces.SEMANTIC_SEARCH)
+                .withSearchFlags(flags -> flags.setFulltext(true)),
+            entitiesToSearch,
+            input,
+            postFilters,
+            sortCriteria,
+            from,
+            size,
+            facets);
+    result
+        .getMetadata()
+        .setAggregations(
+            withAdditionalAggregates(
+                result.getEntities(), result.getMetadata().getAggregations(), facets));
+    return result;
   }
 
   /**

@@ -73,12 +73,17 @@ public final class SearchTemplateRollout {
   @Nonnull
   private static Mode modeFor(
       @Nullable SearchTemplateRolloutConfiguration rollout, @Nullable String surface) {
-    if (rollout == null) {
-      return Mode.ACTIVE;
-    }
-    String override = surfaceMode(rollout, surface);
+    String override = rollout == null ? null : surfaceMode(rollout, surface);
     if (override != null && !override.isBlank()) {
       return parseMode(override);
+    }
+    // Semantic search stays off until its own setting turns it on. It never inherits mode, so a
+    // configuration without the setting, or none at all, keeps it off.
+    if (SearchTemplateSurfaces.SEMANTIC_SEARCH.equals(surface)) {
+      return Mode.OFF;
+    }
+    if (rollout == null) {
+      return Mode.ACTIVE;
     }
     return parseMode(blankTo(rollout.getMode(), "active"));
   }
@@ -89,7 +94,13 @@ public final class SearchTemplateRollout {
       return BUCKETS;
     }
     int override = surfacePercent(rollout, surface);
-    int percent = override >= 0 ? override : rollout.getPercent();
+    // Semantic search does not inherit percent either: once set, it serves every actor by default
+    int percent =
+        override >= 0
+            ? override
+            : SearchTemplateSurfaces.SEMANTIC_SEARCH.equals(surface)
+                ? BUCKETS
+                : rollout.getPercent();
     if (percent < 0 || percent > BUCKETS) {
       throw new IllegalArgumentException(
           "Search template rollout percent must be from 0 to 100: " + percent);
@@ -107,6 +118,7 @@ public final class SearchTemplateRollout {
       case SearchTemplateSurfaces.SEARCH_ENTITIES -> rollout.getSearchEntities();
       case SearchTemplateSurfaces.SCROLL_ENTITIES -> rollout.getScrollEntities();
       case SearchTemplateSurfaces.AGGREGATE_ENTITIES -> rollout.getAggregateEntities();
+      case SearchTemplateSurfaces.SEMANTIC_SEARCH -> rollout.getSemanticSearch();
       default -> null;
     };
   }
@@ -120,6 +132,7 @@ public final class SearchTemplateRollout {
       case SearchTemplateSurfaces.SEARCH_ENTITIES -> rollout.getSearchEntitiesPercent();
       case SearchTemplateSurfaces.SCROLL_ENTITIES -> rollout.getScrollEntitiesPercent();
       case SearchTemplateSurfaces.AGGREGATE_ENTITIES -> rollout.getAggregateEntitiesPercent();
+      case SearchTemplateSurfaces.SEMANTIC_SEARCH -> rollout.getSemanticSearchPercent();
       default -> -1;
     };
   }

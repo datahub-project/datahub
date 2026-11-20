@@ -714,6 +714,12 @@ final class TemplateVectorSearch {
     final SearchResultMetadata metadata = new SearchResultMetadata().setAggregations(aggregations);
     if (Boolean.TRUE.equals(opContext.getSearchContext().getSearchFlags().isIncludeExplain())) {
       metadata.setVectorRetrieval(explanation);
+      // The templates the route walk visited, as a keyword page reports them
+      final ResolvedSearchTemplate resolved =
+          opContext.getSearchContext().getResolvedSearchTemplate();
+      if (resolved != null && !resolved.getRouteChain().isEmpty()) {
+        metadata.setRouteChain(new StringArray(resolved.getRouteChain()));
+      }
     }
     final SearchResult result =
         new SearchResult()

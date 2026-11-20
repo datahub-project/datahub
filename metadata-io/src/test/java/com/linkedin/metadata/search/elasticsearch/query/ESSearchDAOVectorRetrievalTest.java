@@ -36,6 +36,7 @@ import com.linkedin.data.template.FloatArray;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
@@ -48,7 +49,9 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SemanticSearchService;
 import com.linkedin.metadata.search.VectorRetrievalExplanation;
+import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -61,6 +64,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateF
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateVectorRetrieval;
 import com.linkedin.metadata.search.embedding.EmbeddingProfile;
 import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
@@ -124,6 +128,7 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /** A {@code combine: vector} rung served through {@link ESSearchDAO#search}. */
@@ -358,6 +363,136 @@ public class ESSearchDAOVectorRetrievalTest {
     }
     // The second search tried the vector rung again
     verify(client, times(2)).searchKnn(any(), any());
+  }
+
+  @Test
+  public void testSemanticSearchServesItsSurfaceSlotOnceItsRolloutIsSet() throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.9, 0.8));
+    semanticSlot(VECTOR_URN);
+    SemanticSearchService semantic = semanticService(cached(dao(null, embedding())));
+    OperationContext searching = unpinned(f -> {});
+
+    // Off by default, though the rollout serves every other surface
+    assertFalse(semantic.servesTemplate(searching));
+    harness.templates.getRollout().setSemanticSearch("active");
+    assertTrue(semantic.servesTemplate(searching));
+    assertFalse(semantic.servesTemplate(searching.withSkipTemplateExecution(true)));
+
+    SearchResult result =
+        semantic.semanticTemplateSearchAcrossEntities(
+            searching, DOCUMENT, "quarterly revenue", null, null, 0, 10, List.of());
+
+    assertEquals(urns(result), List.of("urn:li:document:d0", "urn:li:document:d1"));
+    assertEquals(result.getNumEntities().intValue(), 2);
+    // Explain names the template and the vector retrieval that served the page
+    assertEquals(result.getMetadata().getRouteChain(), List.of(VECTOR_URN));
+    assertVectorOutcome(SearchTemplateVectorRetrieval.SERVED);
+    // The one other request is the vector rung's facet request over its hits: no keyword facet
+    // request runs beside it
+    assertEquals(
+        urnTerms(searchRequest().source().query()),
+        Set.of("urn:li:document:d0", "urn:li:document:d1"));
+  }
+
+  @Test
+  public void testSemanticSearchReadsItsFulltextSlotWhateverTheCallersFulltextFlag()
+      throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.9));
+    semanticSlot(VECTOR_URN);
+    harness.templates.getRollout().setSemanticSearch("active");
+    SemanticSearchService semantic = semanticService(cached(dao(null, embedding())));
+
+    // Its query is only embedded, so a request without fulltext, as a GraphQL request without
+    // search flags is, or with fulltext=false, still serves the slot under the fulltext seed
+    for (Consumer<com.linkedin.metadata.query.SearchFlags> flags :
+        List.<Consumer<com.linkedin.metadata.query.SearchFlags>>of(
+            f -> f.removeFulltext(), f -> f.setFulltext(false))) {
+      assertEquals(
+          urns(
+              semantic.semanticTemplateSearchAcrossEntities(
+                  unpinned(flags), DOCUMENT, "quarterly revenue", null, null, 0, 10, List.of())),
+          List.of("urn:li:document:d0"));
+    }
+  }
+
+  @Test(dataProvider = "keywordFallThroughs")
+  public void testSemanticSearchFailsClosedRatherThanServeAKeywordPage(String fallThrough)
+      throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.9));
+    harness.store(KEYWORD_URN, keyword());
+    // The global seeds that a missing semanticSearch slot and fulltext=false fall back to
+    harness.store(Constants.SEARCH_TEMPLATE_FULLTEXT_URN, keyword());
+    harness.store("urn:li:searchTemplate:structured", keyword());
+    harness.templates.getRollout().setSemanticSearch("active");
+    if (!"missingSlot".equals(fallThrough)) {
+      semanticSlot(VECTOR_URN);
+    }
+    if ("keywordLadderRung".equals(fallThrough)) {
+      // A vector root whose ladder serves its keyword next when it finds nothing
+      SearchTemplateProperties ladder = vector(r -> {});
+      ladder.setLadder(nextOnMiss());
+      store(ladder);
+      knnReturns(List.of());
+    }
+    ESSearchDAO dao = dao(null, embedding());
+    OperationContext searching =
+        switch (fallThrough) {
+          // fulltext=false selects the structured seed
+          case "structuredSeed" -> semanticContext(f -> f.setFulltext(false));
+          case "callerKeywordTemplate" -> pinned(semanticContext(f -> {}), KEYWORD_URN);
+          case "skipBeforeBind" -> semanticContext(f -> {}).withSkipTemplateExecution(true);
+          default -> semanticContext(f -> {});
+        };
+
+    // skipInsideSearch sets the skip-template flag inside the search, after bind, as a
+    // downstream build does
+    assertFailsClosed(
+        "skipInsideSearch".equals(fallThrough) ? skippingTemplatesInside(dao) : cached(dao),
+        searching);
+  }
+
+  /** Each way a semantic search could otherwise end on a keyword page. */
+  @DataProvider
+  public Object[][] keywordFallThroughs() {
+    return new Object[][] {
+      {"missingSlot"},
+      {"structuredSeed"},
+      {"callerKeywordTemplate"},
+      {"skipBeforeBind"},
+      {"skipInsideSearch"},
+      {"keywordLadderRung"}
+    };
+  }
+
+  @Test
+  public void testASemanticSearchPageDoesNotShareACacheKeyWithAnotherSurface() throws Exception {
+    // A vector root that serves its keyword next when it finds nothing
+    harness.store(KEYWORD_URN, keyword());
+    SearchTemplateProperties ladder = vector(r -> {});
+    ladder.setLadder(nextOnMiss());
+    store(ladder);
+    knnReturns(List.of());
+    semanticSlot(VECTOR_URN);
+    harness.templates.getRollout().setSemanticSearch("active");
+    CachingEntitySearchService cache = cached(dao(null, embedding()));
+
+    // Keyword search whose surface selects the same template caches the keyword rung's page for
+    // the same query, filter, flags, types, and page
+    harness
+        .templates
+        .getSurfaces()
+        .put(
+            SearchTemplateSurfaces.SEARCH_ENTITIES,
+            Map.of("fulltext", Map.<String, Object>of("default", VECTOR_URN)));
+    OperationContext keyword =
+        unpinned(f -> {}).withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES);
+    assertEquals(searchOn(cache, keyword).getEntities().size(), 3);
+
+    // Semantic search does not reuse that page: its own walk serves no vector page, so it fails
+    assertFailsClosed(cache, semanticContext(f -> {}));
   }
 
   @Test
@@ -2033,6 +2168,72 @@ public class ESSearchDAOVectorRetrievalTest {
                     invocation.getArgument(7)));
     // One cache across a test's searches, so a page cached for one search must not serve another
     return new CachingEntitySearchService(new ConcurrentMapCacheManager(), entitySearch, 100, true);
+  }
+
+  /**
+   * A cache whose searches set the skip-template flag inside, after bind, as a downstream build
+   * does.
+   */
+  private CachingEntitySearchService skippingTemplatesInside(ESSearchDAO dao) {
+    EntitySearchService entitySearch = mock(EntitySearchService.class);
+    when(entitySearch.getSearchServiceConfig()).thenReturn(TEST_SEARCH_SERVICE_CONFIG);
+    when(entitySearch.search(any(), any(), any(), any(), any(), anyInt(), any(), any()))
+        .thenAnswer(
+            invocation ->
+                dao.search(
+                    ((OperationContext) invocation.getArgument(0)).withSkipTemplateExecution(true),
+                    invocation.getArgument(1),
+                    invocation.getArgument(2),
+                    invocation.getArgument(3),
+                    invocation.getArgument(4),
+                    invocation.getArgument(5),
+                    invocation.getArgument(6),
+                    invocation.getArgument(7)));
+    return new CachingEntitySearchService(new ConcurrentMapCacheManager(), entitySearch, 100, true);
+  }
+
+  private static SemanticSearchService semanticService(CachingEntitySearchService cache) {
+    return new SemanticSearchService(
+        mock(EntityDocCountCache.class),
+        cache,
+        mock(SemanticEntitySearch.class),
+        TEST_SEARCH_SERVICE_CONFIG.toBuilder().semanticSearchEnabled(true).build());
+  }
+
+  /** The semantic search surface's slot serves {@code urn}. */
+  private void semanticSlot(String urn) {
+    harness
+        .templates
+        .getSurfaces()
+        .put(
+            SearchTemplateSurfaces.SEMANTIC_SEARCH,
+            Map.of("fulltext", Map.<String, Object>of("default", urn)));
+  }
+
+  /** A fulltext search with explain on that names no template and sets no surface. */
+  private OperationContext unpinned(Consumer<com.linkedin.metadata.query.SearchFlags> flags)
+      throws Exception {
+    return context(DOCUMENT, flags)
+        .withSearchFlags(
+            f -> {
+              f.removeSearchTemplate();
+              return f;
+            });
+  }
+
+  private OperationContext semanticContext(Consumer<com.linkedin.metadata.query.SearchFlags> flags)
+      throws Exception {
+    return unpinned(flags).withSearchSurface(SearchTemplateSurfaces.SEMANTIC_SEARCH);
+  }
+
+  private static SearchResult searchOn(
+      CachingEntitySearchService cache, OperationContext searching) {
+    return cache.search(searching, DOCUMENT, "quarterly revenue", null, null, 0, 10, List.of());
+  }
+
+  private static void assertFailsClosed(
+      CachingEntitySearchService cache, OperationContext searching) {
+    assertThrows(SearchTemplateFailClosedException.class, () -> searchOn(cache, searching));
   }
 
   private void store(SearchTemplateProperties template) {

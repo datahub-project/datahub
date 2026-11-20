@@ -22,6 +22,7 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.resolvers.search.DefaultEntityFiltersUtil;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.metadata.query.SearchFlags;
@@ -40,6 +41,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -131,6 +133,21 @@ public class SemanticSearchAcrossEntitiesResolver
                     ? getStructuredPropertyFacets(context, finalEntities)
                     : Collections.emptyList();
 
+            // Decided once per request, by the rule the template coordinator applies
+            if (_semanticSearchService.servesTemplate(context.getOperationContext())) {
+              return templateSearch(
+                  context,
+                  finalEntities,
+                  query,
+                  baseFilter,
+                  finalFilter,
+                  searchFlags,
+                  sortCriteria,
+                  start,
+                  count,
+                  structuredPropertyFacets);
+            }
+
             return UrnSearchResultsMapper.map(
                 context,
                 _semanticSearchService.semanticSearchAcrossEntities(
@@ -165,6 +182,46 @@ public class SemanticSearchAcrossEntitiesResolver
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  /**
+   * Semantic search through the semantic search template. As keyword search does, it adds the
+   * document defaults (the published-document default and placement) to the caller's filter,
+   * records whether that filter, with its view, had a criterion of its own, and keeps the default
+   * fields out of the facets.
+   */
+  private SearchResults templateSearch(
+      final QueryContext context,
+      final List<String> entityNames,
+      final String query,
+      @Nullable final Filter baseFilter,
+      @Nullable final Filter callerFilter,
+      @Nullable final SearchFlags searchFlags,
+      final List<SortCriterion> sortCriteria,
+      final int start,
+      final int count,
+      final List<String> facets) {
+    final boolean callerFiltered = FilterUtils.hasCriterion(callerFilter);
+    final Filter filter =
+        DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+            callerFilter, entityNames, searchFlags, context);
+    final SearchResult result =
+        _semanticSearchService.semanticTemplateSearchAcrossEntities(
+            context
+                .getOperationContext()
+                .withSearchFlags(flags -> searchFlags)
+                .withCallerOptionalFilterFields(
+                    DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
+                .withCallerFiltered(callerFiltered),
+            entityNames,
+            query,
+            filter,
+            sortCriteria,
+            start,
+            count,
+            facets);
+    return UrnSearchResultsMapper.map(
+        context, DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(result));
   }
 
   private List<String> getStructuredPropertyFacets(

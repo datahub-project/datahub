@@ -551,6 +551,11 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     if (legacyKnn[0]) {
       identity += "|dr=" + resolved.isDocumentRerank();
     }
+    // A semantic search page is cached only once a vector rung served it, so it must not share a
+    // key with another surface's page from the same template, which a keyword rung may have served
+    if (SearchTemplateSurfaces.semantic(opContext)) {
+      identity += "|surface=" + SearchTemplateSurfaces.SEMANTIC_SEARCH;
+    }
     resolved.setCacheIdentity(identity);
   }
 
