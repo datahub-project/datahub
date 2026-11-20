@@ -1305,9 +1305,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     // not count. The projector diffs the surviving value against that first previous, and a
     // create coalesced with an update still sends every profile.
     final boolean semanticContentOnly = semanticContentOnly(preparedBatch);
-    // A semanticContent diff in a mixed batch is mirrored like a semantic-only merge. Otherwise a
-    // profile change that rides with other aspects is missing from the next index after the swap.
-    final boolean semanticMerge = semanticContentOnly || semanticContentDiff(preparedBatch);
+    // A next-index rebuild serves the old index until the alias swaps, and that swap does not wait
+    // for catch-up. Any batch that carries semanticContent is copied onto a document the fill has
+    // already written, including a create that rides with other aspects. A diff and a semantic-only
+    // batch are included. An in-place fill has no separate target, so this copy does not run there.
+    final boolean semanticMerge = carriesSemanticContent(preparedBatch);
     final boolean updateOnly =
         timeseriesOnlyDuringInPlaceFill(preparedBatch)
             || semanticContentDiff(preparedBatch)
@@ -1420,7 +1422,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     MCLItem surviving = null;
     boolean hadPrevious = false;
     for (MCLItem event : preparedBatch.originalEvents()) {
-      if (!Constants.SEMANTIC_CONTENT_ASPECT_NAME.equals(event.getAspectName())) {
+      if (!isSemanticContent(event)) {
         continue;
       }
       if (baseline == null) {
@@ -1445,12 +1447,21 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     return seed.toString();
   }
 
+  /** True when the batch carries a semanticContent change, alone or with other aspects. */
+  private static boolean carriesSemanticContent(@Nonnull final PreparedUrnBatch preparedBatch) {
+    return preparedBatch.originalEvents().stream()
+        .anyMatch(UpdateIndicesV3Strategy::isSemanticContent);
+  }
+
   /** True when every event in the batch is a semanticContent change. */
   private static boolean semanticContentOnly(@Nonnull final PreparedUrnBatch preparedBatch) {
     return !preparedBatch.originalEvents().isEmpty()
         && preparedBatch.originalEvents().stream()
-            .allMatch(
-                event -> Constants.SEMANTIC_CONTENT_ASPECT_NAME.equals(event.getAspectName()));
+            .allMatch(UpdateIndicesV3Strategy::isSemanticContent);
+  }
+
+  private static boolean isSemanticContent(@Nonnull final MCLItem event) {
+    return Constants.SEMANTIC_CONTENT_ASPECT_NAME.equals(event.getAspectName());
   }
 
   /** True when this alias is the index an in-place fill is creating. */
@@ -1563,10 +1574,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    * alias, while that fill is in flight: the alias still serves the old index, and catch-up
    * re-derives its window from primary storage, which holds nothing for a removed entity or aspect.
    * The fill creates only absent documents, so a delete is mirrored as a tombstone that keeps the
-   * entity deleted. A semanticContent merge is mirrored the same way, as an update of a document
-   * the fill has already written, so a profile change reaches that document and cannot create the
-   * partial one the fill would then skip. Unlike the rollback copy, a mirrored write that cannot be
-   * handed to the bulk processor fails the write as retryable: the consumer has to redeliver it.
+   * entity deleted. A batch that carries semanticContent is mirrored the same way, as an update of
+   * a document the fill has already written, so a profile create or change reaches that document
+   * and cannot create the partial one the fill would then skip. Unlike the rollback copy, a
+   * mirrored write that cannot be handed to the bulk processor fails the write as retryable: the
+   * consumer has to redeliver it.
    */
   private void writeV3Document(
       @Nonnull final OperationContext opContext,
