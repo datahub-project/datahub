@@ -34,6 +34,8 @@ KEY_VISUAL_CONTAINERS = "visualContainers"
 KEY_CONFIG = "config"
 KEY_FILTERS = "filters"
 KEY_SINGLE_VISUAL = "singleVisual"
+KEY_SINGLE_VISUAL_GROUP = "singleVisualGroup"
+KEY_VISUAL_GROUP = "visualGroup"
 KEY_PROTOTYPE_QUERY = "prototypeQuery"
 KEY_VISUAL_TYPE = "visualType"
 KEY_NAME = "name"
@@ -41,6 +43,12 @@ KEY_DISPLAY_NAME = "displayName"
 KEY_VISUAL = "visual"
 KEY_QUERY = "query"
 KEY_FILTER_CONFIG = "filterConfig"
+KEY_VISUAL_CONTAINER_OBJECTS = "visualContainerObjects"
+KEY_LEGACY_VC_OBJECTS = "vcObjects"
+KEY_TITLE = "title"
+KEY_PROPERTIES = "properties"
+KEY_TEXT = "text"
+KEY_EXPR = "expr"
 KEY_FROM = "From"
 KEY_FROM_NAME = "Name"
 KEY_ENTITY = "Entity"
@@ -83,6 +91,7 @@ FIELD_KIND_MEASURE: FieldReferenceKind = "measure"
 
 FILTER_SCOPE_REPORT: FilterScope = "report"
 FILTER_SCOPE_PAGE: FilterScope = "page"
+FILTER_SCOPE_VISUAL: FilterScope = "visual"
 
 FILTER_TYPE_RELATIVE_DATE = "RelativeDate"
 FILTER_TYPE_RELATIVE_TIME = "RelativeTime"
@@ -125,7 +134,16 @@ LITERAL_QUOTE = "'"
 class ParsedVisual:
     name: str
     visual_type: Optional[str]
+    # Every field the visual reads: its query and its visual-level filters.
     fields: List[PageFieldReference]
+    title: Optional[str] = None
+    filters: List[ReportFilter] = field(default_factory=list)
+    # True when the visual's definition (its part, or its legacy `config`
+    # string) was not valid JSON; nothing but its position is known then.
+    definition_failed: bool = False
+    # True for a visual group (a container that only arranges other visuals):
+    # it reads no fields and is not a chart of its own.
+    is_group: bool = False
 
 
 def _ordered_unique(refs: List[PageFieldReference]) -> List[PageFieldReference]:
@@ -166,6 +184,9 @@ class ParsedReportDefinition:
     # Filter blocks (a report's, a page's, or one filter in it) that could not
     # be read; the remaining filters and the page itself still parse.
     failed_filters: List[str] = field(default_factory=list)
+    # The same for visual-level filters, kept apart because they only matter
+    # to callers that emit visuals.
+    failed_visual_filters: List[str] = field(default_factory=list)
 
     def page_by_display_name(self, display_name: str) -> Optional[ParsedPage]:
         for page in self.pages.values():
@@ -245,6 +266,27 @@ def _collect_field_refs(
     elif isinstance(node, list):
         for value in node:
             _collect_field_refs(value, out, aliases)
+
+
+def _visual_title(objects: JsonNode) -> Optional[str]:
+    """The visual's title from its formatting objects (PBIR
+    ``visual.visualContainerObjects`` or legacy ``singleVisual.vcObjects``),
+    where ``title[0].properties.text.expr.Literal.Value`` holds ``'Title'``."""
+    title_entries = _dict_at(objects).get(KEY_TITLE)
+    if not isinstance(title_entries, list) or not title_entries:
+        return None
+    value = _dict_at(
+        title_entries[0], KEY_PROPERTIES, KEY_TEXT, KEY_EXPR, KEY_LITERAL
+    ).get(KEY_VALUE)
+    if not isinstance(value, str):
+        return None
+    if (
+        len(value) >= 2
+        and value.startswith(LITERAL_QUOTE)
+        and value.endswith(LITERAL_QUOTE)
+    ):
+        value = value[1:-1].replace(LITERAL_QUOTE * 2, LITERAL_QUOTE)
+    return value or None
 
 
 def _truncate(text: str, limit: int) -> str:
@@ -522,7 +564,7 @@ def _pbir_filters(
     doc: Dict[str, JsonNode],
     scope: FilterScope,
     label: str,
-    parsed: ParsedReportDefinition,
+    failed: List[str],
 ) -> List[ReportFilter]:
     """PBIR filters sit under ``filterConfig.filters`` of a report, page or
     visual document."""
@@ -530,11 +572,9 @@ def _pbir_filters(
     if filter_config is None:
         return []
     if not isinstance(filter_config, dict):
-        parsed.failed_filters.append(label)
+        failed.append(label)
         return []
-    return parse_filters(
-        filter_config.get(KEY_FILTERS), scope, label, parsed.failed_filters
-    )
+    return parse_filters(filter_config.get(KEY_FILTERS), scope, label, failed)
 
 
 def _parse_legacy(report_json: str) -> ParsedReportDefinition:
@@ -553,21 +593,36 @@ def _parse_legacy(report_json: str) -> ParsedReportDefinition:
         )
         for index, container in enumerate(section.get(KEY_VISUAL_CONTAINERS) or []):
             label = f"{LEGACY_REPORT_PATH}#{page_name}/{index}"
+            failed_before = len(parsed.failed_parts)
             config = _loads_json(
                 container.get(KEY_CONFIG), {}, label, parsed.failed_parts
             )
+            # Only the config decides whether the visual is known; a broken
+            # filters string loses just those filters.
+            definition_failed = len(parsed.failed_parts) > failed_before
             single_visual = config.get(KEY_SINGLE_VISUAL) or {}
             fields: List[PageFieldReference] = []
             _collect_field_refs(single_visual.get(KEY_PROTOTYPE_QUERY), fields)
-            _collect_field_refs(
-                _loads_json(container.get(KEY_FILTERS), [], label, parsed.failed_parts),
-                fields,
+            visual_filters = _loads_json(
+                container.get(KEY_FILTERS), [], label, parsed.failed_parts
             )
+            _collect_field_refs(visual_filters, fields)
             page.visuals.append(
                 ParsedVisual(
                     name=config.get(KEY_NAME) or "",
                     visual_type=single_visual.get(KEY_VISUAL_TYPE),
                     fields=fields,
+                    title=_visual_title(single_visual.get(KEY_LEGACY_VC_OBJECTS)),
+                    filters=parse_filters(
+                        visual_filters,
+                        FILTER_SCOPE_VISUAL,
+                        label,
+                        parsed.failed_visual_filters,
+                    ),
+                    definition_failed=definition_failed,
+                    is_group=not definition_failed
+                    and not single_visual
+                    and isinstance(config.get(KEY_SINGLE_VISUAL_GROUP), dict),
                 )
             )
         parsed.pages[page_name] = page
@@ -582,7 +637,7 @@ def _parse_pbir(parts: List[DefinitionPart]) -> ParsedReportDefinition:
             # just the report-level filters.
             report_json = _loads_json(part.text, {}, part.path, parsed.failed_filters)
             parsed.filters = _pbir_filters(
-                report_json, FILTER_SCOPE_REPORT, part.path, parsed
+                report_json, FILTER_SCOPE_REPORT, part.path, parsed.failed_filters
             )
             continue
         match = PBIR_PAGE_RE.match(part.path)
@@ -591,9 +646,13 @@ def _parse_pbir(parts: List[DefinitionPart]) -> ParsedReportDefinition:
             parsed.pages[match.group(1)] = ParsedPage(
                 name=page_json.get(KEY_NAME) or match.group(1),
                 display_name=page_json.get(KEY_DISPLAY_NAME),
-                filters=_pbir_filters(page_json, FILTER_SCOPE_PAGE, part.path, parsed),
+                filters=_pbir_filters(
+                    page_json, FILTER_SCOPE_PAGE, part.path, parsed.failed_filters
+                ),
             )
-    for part in parts:
+    # Sorted so the visuals (and so the dashboard's chart list) keep a stable
+    # order whatever order the API returned the parts in.
+    for part in sorted(parts, key=lambda p: p.path):
         match = PBIR_VISUAL_RE.match(part.path)
         if not match:
             continue
@@ -602,7 +661,9 @@ def _parse_pbir(parts: List[DefinitionPart]) -> ParsedReportDefinition:
         if page is None:
             page = ParsedPage(name=page_folder, display_name=None)
             parsed.pages[page_folder] = page
+        failed_before = len(parsed.failed_parts)
         visual_json = _loads_json(part.text, {}, part.path, parsed.failed_parts)
+        definition_failed = len(parsed.failed_parts) > failed_before
         visual = visual_json.get(KEY_VISUAL) or {}
         fields: List[PageFieldReference] = []
         _collect_field_refs(visual.get(KEY_QUERY), fields)
@@ -612,14 +673,25 @@ def _parse_pbir(parts: List[DefinitionPart]) -> ParsedReportDefinition:
                 name=visual_json.get(KEY_NAME) or match.group(2),
                 visual_type=visual.get(KEY_VISUAL_TYPE),
                 fields=fields,
+                title=_visual_title(visual.get(KEY_VISUAL_CONTAINER_OBJECTS)),
+                filters=_pbir_filters(
+                    visual_json,
+                    FILTER_SCOPE_VISUAL,
+                    part.path,
+                    parsed.failed_visual_filters,
+                ),
+                definition_failed=definition_failed,
+                is_group=not definition_failed
+                and not visual
+                and isinstance(visual_json.get(KEY_VISUAL_GROUP), dict),
             )
         )
     return parsed
 
 
 def parse_report_definition(parts: List[DefinitionPart]) -> ParsedReportDefinition:
-    """Visual field references and report/page filters from a report
-    ``getDefinition``.
+    """Visual field references, titles and report/page/visual filters from a
+    report ``getDefinition``.
 
     Handles both the folder-per-visual PBIR layout and the single
     ``report.json`` PBIR-Legacy layout.

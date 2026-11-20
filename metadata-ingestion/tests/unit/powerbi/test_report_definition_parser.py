@@ -825,3 +825,167 @@ def test_empty_json_text_is_a_failed_part() -> None:
     )
     parsed = parse_report_definition([DefinitionPart("report.json", report_json)])
     assert parsed.failed_parts == ["report.json#s/0"]
+
+
+def _title_objects(title: str) -> Dict[str, Any]:
+    return {
+        "title": [
+            {
+                "properties": {
+                    "show": {"expr": _literal("true")},
+                    "text": {"expr": _literal(title)},
+                }
+            }
+        ]
+    }
+
+
+def test_pbir_visual_title_and_visual_filters_are_parsed() -> None:
+    titled = json.dumps(
+        {
+            "name": "v1",
+            "visual": {
+                "visualType": "lineChart",
+                "query": {
+                    "queryState": {
+                        "Y": {"projections": [{"field": _column("Claims", "Paid")}]}
+                    }
+                },
+                "visualContainerObjects": _title_objects("'Paid ''Losses'' Over Time'"),
+            },
+            "filterConfig": {"filters": [_categorical_filter()]},
+        }
+    )
+    untitled = json.dumps(
+        {
+            "name": "v2",
+            "visual": {
+                "visualType": "card",
+                "visualContainerObjects": {"title": [{"properties": {}}]},
+            },
+            # A filter block of the wrong shape is reported, not fatal.
+            "filterConfig": {"filters": {"not": "a list"}},
+        }
+    )
+    group = json.dumps(
+        {"name": "g1", "visualGroup": {"displayName": "KPIs", "groupMode": "x"}}
+    )
+    parsed = parse_report_definition(
+        [
+            # Deliberately out of order: visuals are sorted by part path.
+            DefinitionPart("definition/pages/p1/visuals/v2/visual.json", untitled),
+            DefinitionPart("definition/pages/p1/visuals/v4/visual.json", group),
+            DefinitionPart("definition/pages/p1/visuals/v1/visual.json", titled),
+            DefinitionPart("definition/pages/p1/visuals/v3/visual.json", "{not json"),
+        ]
+    )
+
+    v1, v2, v3, v4 = parsed.pages["p1"].visuals
+    assert v1.title == "Paid 'Losses' Over Time"
+    assert _filter_summary(v1.filters) == [
+        {
+            "scope": "visual",
+            "name": "f_status",
+            "type": "Categorical",
+            "target": "Claims[Status]",
+            "condition": 'In ["Open", "Closed"]',
+        }
+    ]
+    # The visual's own fields include what its filter reads.
+    assert v1.fields == [
+        PageFieldReference("Claims", "Paid", "column"),
+        PageFieldReference("Claims", "Status", "column"),
+    ]
+    assert not v1.definition_failed and not v1.is_group
+    assert v2.title is None
+    assert v2.filters == []
+    assert not v2.definition_failed and not v2.is_group
+    assert v3.name == "v3"
+    assert v3.definition_failed and not v3.is_group
+    assert v4.is_group and not v4.definition_failed
+    assert v4.fields == []
+    assert parsed.failed_parts == ["definition/pages/p1/visuals/v3/visual.json"]
+    # Visual filter failures are kept apart from report/page ones.
+    assert parsed.failed_filters == []
+    assert parsed.failed_visual_filters == [
+        "definition/pages/p1/visuals/v2/visual.json"
+    ]
+
+
+def test_legacy_visual_title_filters_and_groups_are_parsed() -> None:
+    config = json.dumps(
+        {
+            "name": "visual1",
+            "singleVisual": {
+                "visualType": "pieChart",
+                "prototypeQuery": {
+                    "From": [{"Name": "c", "Entity": "Claims", "Type": 0}],
+                    "Select": [_aliased_column("c", "Status")],
+                },
+                "vcObjects": _title_objects("'Claims by Status'"),
+            },
+        }
+    )
+    filters = json.dumps([_categorical_filter(target_key="expression")])
+    group = json.dumps({"name": "group1", "singleVisualGroup": {"displayName": "G"}})
+    report_json = json.dumps(
+        {
+            "sections": [
+                {
+                    "name": "ReportSection1",
+                    "visualContainers": [
+                        {"config": config, "filters": filters},
+                        {"config": "not json"},
+                        # Valid config, broken filters: the visual stays.
+                        {"config": config, "filters": "not json"},
+                        {"config": group},
+                    ],
+                }
+            ]
+        }
+    )
+
+    parsed = parse_report_definition([DefinitionPart("report.json", report_json)])
+
+    titled, broken, bad_filters, group_visual = parsed.pages["ReportSection1"].visuals
+    assert titled.title == "Claims by Status"
+    assert [f.scope for f in titled.filters] == ["visual"]
+    assert titled.filters[0].condition == 'In ["Open", "Closed"]'
+    assert not titled.definition_failed
+    assert broken.name == ""
+    assert broken.definition_failed
+    assert bad_filters.name == "visual1"
+    assert not bad_filters.definition_failed
+    assert bad_filters.filters == []
+    assert bad_filters.fields == [PageFieldReference("Claims", "Status", "column")]
+    assert group_visual.is_group
+    assert group_visual.visual_type is None
+    assert parsed.failed_parts == [
+        "report.json#ReportSection1/1",
+        "report.json#ReportSection1/2",
+    ]
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("'Quoted'", "Quoted"),
+        ("''", None),
+        ("42", "42"),
+        ("", None),
+    ],
+)
+def test_visual_title_literal_forms(value: str, expected: Optional[str]) -> None:
+    visual = json.dumps(
+        {
+            "name": "v1",
+            "visual": {
+                "visualType": "card",
+                "visualContainerObjects": _title_objects(value),
+            },
+        }
+    )
+    parsed = parse_report_definition(
+        [DefinitionPart("definition/pages/p1/visuals/v1/visual.json", visual)]
+    )
+    assert parsed.pages["p1"].visuals[0].title == expected
