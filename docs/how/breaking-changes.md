@@ -115,6 +115,34 @@ If you later upgrade to this release again, system update keeps the restored tem
 version 18 already ran. To write the shipped templates again, run system update once with
 `DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable.
 
+### Semantic search can run the semantic search template
+
+Semantic search (`semanticSearchAcrossEntities`) can now run `urn:li:searchTemplate:semantic` through a
+new `semanticSearch` template surface. It is off by default, and nothing changes while it is off. To
+turn it on, set `SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH=active` on GMS, and
+`SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH_PERCENT` to serve it to only some users. A blank or missing
+setting keeps it off, whatever `SEARCH_V3_TEMPLATES_ROLLOUT` says. With it on:
+
+- Documents follow the same defaults as keyword search: only published documents shown in global
+  context come back, unless the request sets `includeHiddenLifecycleStages`.
+- As in keyword search, soft-deleted entities and entities in a hidden lifecycle stage are left out
+  unless the request sets `includeSoftDeleted` or `includeHiddenLifecycleStages`.
+- `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY`, when set, drops results below that cosine. The
+  legacy semantic search applies only the `minScore` search flag.
+- The facets count the results semantic search found, not every document that matches the filter.
+- A query that cannot be embedded fails with an error that names the reason, instead of a generic
+  server error: `timeout` as `DEADLINE_EXCEEDED`; `rejected`, `reserveExhausted`, or
+  `budgetExhausted` as `SERVICE_UNAVAILABLE`; and `failed` as a server error. Set the new
+  `keywordFallbackOnEmbeddingFailure` search flag to get keyword search results instead. The results'
+  `keywordFallback` field then names the reason.
+- A configuration that would answer with keyword results, such as a `semanticSearch` slot that points at
+  a keyword template, fails the search instead.
+
+A new `minSimilarity` search flag sets a raw cosine floor on vector results. It can raise the floor a
+template or `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY` sets, and never lower it. While the switch is
+off, semantic search rejects the flag. **Action:** none. Before you turn the switch on, check that
+clients expect the document defaults and facet counts above.
+
 ### Parent Data Product is now checked on every API
 
 Setting a Data Product's parent through OpenAPI, Rest.li or YAML now fails if the parent doesn't exist

@@ -81,6 +81,7 @@ import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.service.LifecycleStageTypeService;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
@@ -698,25 +699,58 @@ public class ESSearchDAOVectorRetrievalTest {
     store(vector(r -> {}));
     harness.store(KEYWORD_URN, keyword());
     knnReturns(hits(0.9));
-    // A removed filter bypasses the soft-delete clause on both legs
-    for (Filter filter :
-        java.util.Arrays.asList(
-            null, filter("domains", "urn:li:domain:sales"), filter("removed", "true"))) {
-      for (boolean includeSoftDeleted : List.of(false, true)) {
-        Consumer<com.linkedin.metadata.query.SearchFlags> flags =
-            f -> f.setIncludeSoftDeleted(includeSoftDeleted);
-        clearInvocations(client);
-        search(context(DOCUMENT, flags), filter, 0, 10, DOCUMENT);
-        Map<String, Object> vectorLeg = knnRequest().filter().orElseThrow();
-
-        clearInvocations(client);
-        search(pinned(context(DOCUMENT, flags), KEYWORD_URN), filter, 0, 10, DOCUMENT);
-        QueryBuilder keywordFilter =
-            ((BoolQueryBuilder) searchRequest().source().query()).filter().get(0);
-
-        assertEquals(
-            vectorLeg, ESUtils.filterMap(keywordFilter), filter + " " + includeSoftDeleted);
+    // A hidden lifecycle stage, so the hidden-stage clause and the filters that bypass it apply
+    LifecycleStageTypeService stages = mock(LifecycleStageTypeService.class);
+    when(stages.getHiddenStageUrns(anySet())).thenReturn(Set.of(HIDDEN_STAGE));
+    LifecycleStageTypeService previous = ESUtils.getLifecycleStageTypeService();
+    ESUtils.setLifecycleStageTypeService(stages);
+    try {
+      // Each caller filter that bypasses a default clause (removed the soft-delete clause,
+      // lifecycleStage the hidden-stage clause), and the fields the published-document default
+      // reads. Each as Rest.li and OpenAPI send it, and as the GraphQL resolvers do once they add
+      // that default, with and without the clause the manage-documents privilege lifts.
+      List<Filter> filters = new ArrayList<>();
+      for (Filter caller :
+          java.util.Arrays.asList(
+              null,
+              filter("domains", "urn:li:domain:sales"),
+              filter("removed", "true"),
+              filter("lifecycleStage", HIDDEN_STAGE),
+              filter("state", "UNPUBLISHED"),
+              filter("showInGlobalContext", "false"))) {
+        filters.add(caller);
+        filters.add(withDocumentDefaults(caller, false));
+        filters.add(withDocumentDefaults(caller, true));
       }
+      for (Filter filter : filters) {
+        for (boolean includeSoftDeleted : List.of(false, true)) {
+          for (boolean includeHiddenStages : List.of(false, true)) {
+            Consumer<com.linkedin.metadata.query.SearchFlags> flags =
+                f ->
+                    f.setIncludeSoftDeleted(includeSoftDeleted)
+                        .setIncludeHiddenLifecycleStages(includeHiddenStages);
+            clearInvocations(client);
+            search(context(DOCUMENT, flags), filter, 0, 10, DOCUMENT);
+            Map<String, Object> vectorLeg = knnRequest().filter().orElseThrow();
+
+            clearInvocations(client);
+            search(pinned(context(DOCUMENT, flags), KEYWORD_URN), filter, 0, 10, DOCUMENT);
+            QueryBuilder keywordFilter =
+                ((BoolQueryBuilder) searchRequest().source().query()).filter().get(0);
+
+            assertEquals(
+                vectorLeg,
+                ESUtils.filterMap(keywordFilter),
+                filter + " " + includeSoftDeleted + " " + includeHiddenStages);
+          }
+        }
+      }
+      // The hidden-stage clause was in play, so the opt-outs above were compared, not vacuous
+      clearInvocations(client);
+      search(context(DOCUMENT, f -> {}), null, 0, 10, DOCUMENT);
+      assertTrue(knnRequest().filter().orElseThrow().toString().contains(HIDDEN_STAGE));
+    } finally {
+      ESUtils.setLifecycleStageTypeService(previous);
     }
   }
 
@@ -2581,6 +2615,36 @@ public class ESSearchDAOVectorRetrievalTest {
                     .setAnd(
                         new CriterionArray(
                             CriterionUtils.buildCriterion(field, Condition.EQUAL, value)))));
+  }
+
+  /** The caller's filter as the GraphQL resolvers send it after adding the document defaults. */
+  private static Filter withDocumentDefaults(Filter caller, boolean canManageDocuments) {
+    Filter defaults = publishedDocumentDefault(canManageDocuments);
+    return caller == null ? defaults : FilterUtils.combineFilters(caller, defaults);
+  }
+
+  /**
+   * The published-document default the GraphQL resolvers add for documents: published, or legacy
+   * and not unpublished unless the viewer may manage documents, and shown in global context.
+   */
+  private static Filter publishedDocumentDefault(boolean canManageDocuments) {
+    CriterionArray published =
+        new CriterionArray(
+            CriterionUtils.buildCriterion(
+                "lifecycleStage", Condition.EQUAL, "urn:li:lifecycleStageType:PUBLISHED"),
+            CriterionUtils.buildCriterion("showInGlobalContext", Condition.EQUAL, true, "false"));
+    CriterionArray legacy =
+        new CriterionArray(CriterionUtils.buildIsNullCriterion("lifecycleStage"));
+    if (!canManageDocuments) {
+      legacy.add(CriterionUtils.buildCriterion("state", Condition.EQUAL, true, "UNPUBLISHED"));
+    }
+    legacy.add(
+        CriterionUtils.buildCriterion("showInGlobalContext", Condition.EQUAL, true, "false"));
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                new ConjunctiveCriterion().setAnd(published),
+                new ConjunctiveCriterion().setAnd(legacy)));
   }
 
   /** Hits d0, d1, ... with these engine scores. */
