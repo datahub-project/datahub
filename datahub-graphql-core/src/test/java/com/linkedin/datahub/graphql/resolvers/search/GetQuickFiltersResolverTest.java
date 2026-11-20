@@ -12,6 +12,8 @@ import com.linkedin.datahub.graphql.generated.GetQuickFiltersResult;
 import com.linkedin.datahub.graphql.generated.QuickFilter;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.SearchQuickFiltersConfiguration;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
@@ -23,13 +25,17 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionException;
+import java.util.function.UnaryOperator;
 import java.util.stream.IntStream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -54,7 +60,8 @@ public class GetQuickFiltersResolverTest {
                 .setPageSize(0)
                 .setMetadata(mockData));
 
-    final GetQuickFiltersResolver resolver = new GetQuickFiltersResolver(mockClient, mockService);
+    final GetQuickFiltersResolver resolver =
+        new GetQuickFiltersResolver(mockClient, mockService, null);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -85,7 +92,8 @@ public class GetQuickFiltersResolverTest {
                 .setPageSize(0)
                 .setMetadata(mockData));
 
-    final GetQuickFiltersResolver resolver = new GetQuickFiltersResolver(mockClient, mockService);
+    final GetQuickFiltersResolver resolver =
+        new GetQuickFiltersResolver(mockClient, mockService, null);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -96,6 +104,209 @@ public class GetQuickFiltersResolverTest {
 
     Assert.assertEquals(result.getQuickFilters().size(), 8);
     compareResultToExpectedData(result, getUnHappyPathResultData());
+  }
+
+  @Test
+  public static void testGetQuickFiltersConfiguredCounts() throws Exception {
+    SearchQuickFiltersConfiguration config = new SearchQuickFiltersConfiguration();
+    config.setPlatformCount(2);
+    config.setSourceEntityCount(12);
+    config.setDatahubEntityCount(5);
+
+    GetQuickFiltersResult result = getQuickFilters(getHappyPathTestData(), config);
+
+    // Top 2 platforms by count (alphabetical), then every source and DataHub entity type with hits,
+    // in priority order, since the configured counts exceed what is available.
+    GetQuickFiltersResult expected = new GetQuickFiltersResult();
+    expected.setQuickFilters(
+        List.of(
+            createQuickFilter(
+                "platform", "urn:li:dataPlatform:looker", "urn:li:dataPlatform:looker"),
+            createQuickFilter(
+                "platform", "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:snowflake"),
+            createQuickFilter("_entityType", "DATASET", null),
+            createQuickFilter("_entityType", "DASHBOARD", null),
+            createQuickFilter("_entityType", "DATA_FLOW", null),
+            createQuickFilter("_entityType", "DATA_JOB", null),
+            createQuickFilter("_entityType", "CHART", null),
+            createQuickFilter("_entityType", "DOMAIN", null),
+            createQuickFilter("_entityType", "GLOSSARY_TERM", null),
+            createQuickFilter("_entityType", "CORP_USER", null)));
+    Assert.assertEquals(result.getQuickFilters().size(), 10);
+    compareResultToExpectedData(result, expected);
+  }
+
+  @Test
+  public static void testGetQuickFiltersZeroCountHidesGroupAndUnsetCountsUseDefaults()
+      throws Exception {
+    SearchQuickFiltersConfiguration config = new SearchQuickFiltersConfiguration();
+    config.setPlatformCount(0);
+
+    GetQuickFiltersResult result = getQuickFilters(getHappyPathTestData(), config);
+
+    // No platforms; source and DataHub entity types keep their defaults (3 and 2).
+    List<QuickFilter> expectedFilters = getHappyPathResultData().getQuickFilters().subList(5, 10);
+    GetQuickFiltersResult expected = new GetQuickFiltersResult();
+    expected.setQuickFilters(expectedFilters);
+    Assert.assertEquals(
+        result.getQuickFilters().size(),
+        GetQuickFiltersResolver.DEFAULT_SOURCE_ENTITY_COUNT
+            + GetQuickFiltersResolver.DEFAULT_DATAHUB_ENTITY_COUNT);
+    compareResultToExpectedData(result, expected);
+  }
+
+  @Test
+  public static void testGetQuickFiltersNegativeCountUsesDefault() throws Exception {
+    SearchQuickFiltersConfiguration config = new SearchQuickFiltersConfiguration();
+    config.setPlatformCount(-1);
+
+    GetQuickFiltersResult result = getQuickFilters(getHappyPathTestData(), config);
+
+    // A negative count is ignored, so the result matches the all-defaults happy path.
+    Assert.assertEquals(result.getQuickFilters().size(), 10);
+    compareResultToExpectedData(result, getHappyPathResultData());
+  }
+
+  @Test
+  public static void testGetQuickFiltersTypeInBothPrioritizedListsAppearsOnce() throws Exception {
+    GetQuickFiltersResult result =
+        getQuickFilters(
+            mockClient(getHappyPathTestData()),
+            null,
+            opContext ->
+                withSearchContext(
+                    opContext,
+                    opContext.getSearchContext().toBuilder()
+                        .prioritizedSourceEntityTypes(List.of("dataset", "dashboard"))
+                        .prioritizedDatahubEntityTypes(List.of("dataset", "domain"))
+                        .build()));
+
+    // dataset is already a source entity quick filter, so the DataHub group skips it.
+    List<QuickFilter> expectedFilters =
+        new ArrayList<>(getHappyPathResultData().getQuickFilters().subList(0, 5));
+    expectedFilters.add(createQuickFilter("_entityType", "DATASET", null));
+    expectedFilters.add(createQuickFilter("_entityType", "DASHBOARD", null));
+    expectedFilters.add(createQuickFilter("_entityType", "DOMAIN", null));
+    GetQuickFiltersResult expected = new GetQuickFiltersResult();
+    expected.setQuickFilters(expectedFilters);
+    Assert.assertEquals(result.getQuickFilters().size(), 8);
+    compareResultToExpectedData(result, expected);
+  }
+
+  @Test
+  public static void testGetQuickFiltersRequestsBucketsForEverySearchedType() throws Exception {
+    int searchedTypes = parseCsv(DEFAULT_SEARCH_ENTITY_TYPES).size();
+    Assert.assertTrue(searchedTypes > 20);
+    Assert.assertEquals(requestedMaxAggValues(null, UnaryOperator.identity()), searchedTypes);
+
+    // A platform count above the number of searched types raises the bucket count to match.
+    SearchQuickFiltersConfiguration config = new SearchQuickFiltersConfiguration();
+    config.setPlatformCount(searchedTypes + 10);
+    Assert.assertEquals(
+        requestedMaxAggValues(config, UnaryOperator.identity()), searchedTypes + 10);
+  }
+
+  @Test
+  public static void testGetQuickFiltersNeverRequestsFewerBucketsThanTheDefault() throws Exception {
+    Assert.assertEquals(
+        requestedMaxAggValues(null, withDefaultSearchEntityNames(List.of("dataset", "chart"))), 20);
+  }
+
+  @Test
+  public static void testGetQuickFiltersEmptyEntityTypeListReturnsNoQuickFilters()
+      throws Exception {
+    // An empty entity type list would search every index, so no search is run at all.
+    SearchQuickFiltersConfiguration config = new SearchQuickFiltersConfiguration();
+    config.setPlatformCount(0);
+    EntityClient client = mockClient(getHappyPathTestData());
+
+    GetQuickFiltersResult result =
+        getQuickFilters(client, config, withDefaultSearchEntityNames(List.of()));
+
+    Assert.assertTrue(result.getQuickFilters().isEmpty());
+    Mockito.verifyNoInteractions(client);
+  }
+
+  /**
+   * Runs the resolver and returns the maxAggValues search flag it sent with the search, checking
+   * that only the platform and entity type facets were requested.
+   */
+  private static int requestedMaxAggValues(
+      @Nullable SearchQuickFiltersConfiguration config,
+      UnaryOperator<OperationContext> opContextOverride)
+      throws Exception {
+    EntityClient client = mockClient(getHappyPathTestData());
+    getQuickFilters(client, config, opContextOverride);
+
+    ArgumentCaptor<OperationContext> opContext = ArgumentCaptor.forClass(OperationContext.class);
+    Mockito.verify(client)
+        .searchAcrossEntities(
+            opContext.capture(),
+            Mockito.anyList(),
+            Mockito.anyString(),
+            Mockito.any(),
+            Mockito.anyInt(),
+            Mockito.anyInt(),
+            Mockito.anyList(),
+            Mockito.eq(List.of("platform", "_entityType")));
+    SearchFlags flags = opContext.getValue().getSearchContext().getSearchFlags();
+    Assert.assertFalse(flags.isIncludeDefaultFacets());
+    return flags.getMaxAggValues();
+  }
+
+  private static UnaryOperator<OperationContext> withDefaultSearchEntityNames(
+      List<String> defaultSearchEntityNames) {
+    return opContext ->
+        withSearchContext(
+            opContext,
+            opContext.getSearchContext().toBuilder()
+                .defaultSearchEntityNames(defaultSearchEntityNames)
+                .build());
+  }
+
+  private static GetQuickFiltersResult getQuickFilters(
+      SearchResultMetadata metadata, @Nullable SearchQuickFiltersConfiguration config)
+      throws Exception {
+    return getQuickFilters(mockClient(metadata), config, UnaryOperator.identity());
+  }
+
+  private static GetQuickFiltersResult getQuickFilters(
+      EntityClient client,
+      @Nullable SearchQuickFiltersConfiguration config,
+      UnaryOperator<OperationContext> opContextOverride)
+      throws Exception {
+    final GetQuickFiltersResolver resolver =
+        new GetQuickFiltersResolver(client, Mockito.mock(ViewService.class), config);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    OperationContext opContext = opContextOverride.apply(mockContext.getOperationContext());
+    Mockito.when(mockContext.getOperationContext()).thenReturn(opContext);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(new GetQuickFiltersInput());
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    return resolver.get(mockEnv).get();
+  }
+
+  private static OperationContext withSearchContext(
+      OperationContext opContext, SearchContext searchContext) {
+    return opContext.toBuilder()
+        .searchContext(searchContext)
+        .build(opContext.getSessionActorContext(), false);
+  }
+
+  private static EntityClient mockClient(SearchResultMetadata metadata) throws Exception {
+    return initMockEntityClient(
+        parseCsv(DEFAULT_SEARCH_ENTITY_TYPES),
+        "*",
+        null,
+        0,
+        0,
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(0)
+            .setFrom(0)
+            .setPageSize(0)
+            .setMetadata(metadata));
   }
 
   @Test
@@ -111,10 +322,11 @@ public class GetQuickFiltersResolverTest {
                 Mockito.anyInt(),
                 Mockito.anyInt(),
                 Mockito.eq(Collections.emptyList()),
-                Mockito.eq(null)))
+                Mockito.anyList()))
         .thenThrow(new RemoteInvocationException());
 
-    final GetQuickFiltersResolver resolver = new GetQuickFiltersResolver(mockClient, mockService);
+    final GetQuickFiltersResolver resolver =
+        new GetQuickFiltersResolver(mockClient, mockService, null);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -296,7 +508,8 @@ public class GetQuickFiltersResolverTest {
                 Mockito.eq(filter),
                 Mockito.eq(start),
                 Mockito.eq(limit),
-                Mockito.eq(Collections.emptyList())))
+                Mockito.eq(Collections.emptyList()),
+                Mockito.eq(List.of("platform", "_entityType"))))
         .thenReturn(result);
     return client;
   }
