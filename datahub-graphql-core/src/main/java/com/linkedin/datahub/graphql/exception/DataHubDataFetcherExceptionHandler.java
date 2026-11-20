@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.exception;
 
 import com.datahub.util.exception.DatabaseTransactionConflictException;
+import com.linkedin.datahub.graphql.resolvers.search.QueryEmbeddingFailures;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.graph.LineageTimeoutException;
+import com.linkedin.metadata.search.QueryEmbeddingException;
 import graphql.PublicApi;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
@@ -24,9 +26,10 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
   private static final String ERROR_SOURCE_VALIDATION = "VALIDATION";
 
   /**
-   * Priority (first match wins via cause walk): {@link DataHubGraphQLException} → metadata-io's
-   * {@code ValidationException} → {@link ValidationException} → {@link IllegalArgumentException} →
-   * {@link DatabaseTransactionConflictException} → {@link LineageTimeoutException} → {@link
+   * Priority (first match wins via cause walk): {@link DataHubGraphQLException} → {@link
+   * QueryEmbeddingException} → metadata-io's {@code ValidationException} → {@link
+   * ValidationException} → {@link IllegalArgumentException} → {@link
+   * DatabaseTransactionConflictException} → {@link LineageTimeoutException} → {@link
    * IllegalStateException} → {@link ActorAccessException} → {@link RuntimeException} → fallback.
    * Conflict must stay above {@code RuntimeException} because {@code
    * DatabaseTransactionConflictException} extends {@code RetryLimitReached} (a RuntimeException).
@@ -48,6 +51,20 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       return completedResult(
           extractErrorMessage(graphQLException),
           graphQLException.errorCode(),
+          path,
+          sourceLocation);
+    }
+
+    // A search template's vector rung failed, from any resolver that passes
+    // SearchFlags.searchTemplate. Before the IllegalArgumentException branch: a provider fault
+    // under a failed query embedding is not the caller's.
+    QueryEmbeddingException queryEmbeddingException =
+        findFirstThrowableCauseOfClass(exception, QueryEmbeddingException.class);
+    if (queryEmbeddingException != null) {
+      log.warn("Failed to execute", queryEmbeddingException);
+      return completedResult(
+          extractErrorMessage(queryEmbeddingException),
+          QueryEmbeddingFailures.errorCode(queryEmbeddingException),
           path,
           sourceLocation);
     }

@@ -13,6 +13,7 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.exception.SdkServiceException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
@@ -222,6 +223,10 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
       String errorMsg =
           String.format("Bedrock InvokeModel failed for model %s: %s", modelToUse, e.getMessage());
       log.error(errorMsg, e);
+      // The SDK retries a throttled call itself, so this throttle outlasted its retries
+      if (e instanceof SdkServiceException service && service.isThrottlingException()) {
+        throw new EmbeddingThrottledException(errorMsg, e);
+      }
       throw new RuntimeException(errorMsg, e);
     }
   }

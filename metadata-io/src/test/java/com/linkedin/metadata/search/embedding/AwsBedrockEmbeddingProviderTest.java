@@ -16,6 +16,8 @@ import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
+import software.amazon.awssdk.services.bedrockruntime.model.ThrottlingException;
+import software.amazon.awssdk.services.bedrockruntime.model.ValidationException;
 
 /** Unit tests for AwsBedrockEmbeddingProvider. */
 public class AwsBedrockEmbeddingProviderTest {
@@ -192,6 +194,32 @@ public class AwsBedrockEmbeddingProviderTest {
         .thenThrow(new RuntimeException("Bedrock service error"));
 
     provider.embed("test", null);
+  }
+
+  @Test
+  public void testAThrottleThatOutlastsTheSdkRetriesIsTyped() {
+    ThrottlingException throttled =
+        ThrottlingException.builder()
+            .message("Too many requests, please wait before trying again.")
+            .statusCode(429)
+            .build();
+    when(mockBedrockClient.invokeModel(any(InvokeModelRequest.class))).thenThrow(throttled);
+
+    EmbeddingThrottledException failure =
+        expectThrows(
+            EmbeddingThrottledException.class,
+            () -> provider.embed("test", null, EmbeddingTaskType.QUERY, Duration.ofSeconds(2)));
+    assertSame(failure.getCause(), throttled);
+
+    // Any other service error is not a throttle
+    when(mockBedrockClient.invokeModel(any(InvokeModelRequest.class)))
+        .thenThrow(
+            ValidationException.builder().message("Malformed input").statusCode(400).build());
+    RuntimeException invalid =
+        expectThrows(
+            RuntimeException.class,
+            () -> provider.embed("test", null, EmbeddingTaskType.QUERY, Duration.ofSeconds(2)));
+    assertFalse(invalid instanceof EmbeddingThrottledException);
   }
 
   @Test(expectedExceptions = NullPointerException.class)

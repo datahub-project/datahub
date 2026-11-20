@@ -34,6 +34,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateS
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateVectorRetrieval;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateWalk;
 import com.linkedin.metadata.search.embedding.EmbeddingProfile;
+import com.linkedin.metadata.search.embedding.EmbeddingThrottledException;
 import com.linkedin.metadata.search.embedding.VectorStore;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
@@ -953,9 +954,9 @@ final class TemplateVectorSearch {
   }
 
   /**
-   * The query's vector. A failure is typed by reason: one that ended at the search's deadline timed
-   * out, as keywordRerank counts it, any other failed, and one the embedding service typed keeps
-   * its reason.
+   * The query's vector. A failure is typed by reason: a provider that was throttled past its own
+   * retries is rejected, one that ended at the search's deadline timed out, as keywordRerank counts
+   * it, any other failed, and one the embedding service typed keeps its reason.
    */
   @Nonnull
   private static float[] queryVector(
@@ -964,6 +965,8 @@ final class TemplateVectorSearch {
       return embedding.embed(input, deadlineNanos).vector();
     } catch (QueryEmbeddingException e) {
       throw e;
+    } catch (EmbeddingThrottledException e) {
+      throw new QueryEmbeddingException(QueryEmbeddingException.REJECTED, e);
     } catch (RuntimeException e) {
       throw new QueryEmbeddingException(
           e instanceof UncheckedTimeoutException || System.nanoTime() - deadlineNanos >= 0

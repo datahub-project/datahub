@@ -211,6 +211,20 @@ template or `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY` sets, and never lower
 off or does not take effect, semantic search rejects the flag. **Action:** none. Before you turn the
 switch on, check that clients expect the document defaults and facet counts above.
 
+### Searches that name the semantic template report why the query could not be embedded
+
+A GraphQL search that names `urn:li:searchTemplate:semantic` in the `searchTemplate` search flag now
+fails with the same errors as semantic search when the query cannot be embedded, instead of a generic
+server error: `DEADLINE_EXCEEDED` (`timeout`), `SERVICE_UNAVAILABLE` (`rejected`), or a server error
+(`failed`), with the reason in the message. A Vertex AI or Amazon Bedrock embedding request that is
+still throttled after the provider's own retries now fails as `rejected` instead of `failed`, also on
+semantic search through the semantic search template. `searchAcrossEntities` and `search` now honor
+the `keywordFallbackOnEmbeddingFailure` search flag: with it set, a query that cannot be embedded gets
+the keyword search results for the same request, without the named template, and the results'
+`keywordFallback` field names the reason. A search that names `urn:li:searchTemplate:similarity`
+embeds nothing, so it never falls back. **Action:** if a client retries these searches on a server
+error, retry on `SERVICE_UNAVAILABLE` and `DEADLINE_EXCEEDED` instead.
+
 ### Parent Data Product is now checked on every API
 
 Setting a Data Product's parent through OpenAPI, Rest.li or YAML now fails if the parent doesn't exist

@@ -82,6 +82,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateV
 import com.linkedin.metadata.search.embedding.EmbeddingProfile;
 import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
+import com.linkedin.metadata.search.embedding.EmbeddingThrottledException;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
@@ -1583,6 +1584,11 @@ public class ESSearchDAOVectorRetrievalTest {
         .when(provider)
         .embed(anyString(), any(), any(), any(Duration.class));
     assertEquals(embeddingFailure().getReason(), QueryEmbeddingException.FAILED);
+    // A provider throttled past its own retries
+    doThrow(new EmbeddingThrottledException("Vertex AI call failed after 1 attempts: 429"))
+        .when(provider)
+        .embed(anyString(), any(), any(), any(Duration.class));
+    assertEquals(embeddingFailure().getReason(), QueryEmbeddingException.REJECTED);
     // A provider that gave up at the deadline
     doThrow(new UncheckedTimeoutException("slow provider"))
         .when(provider)
