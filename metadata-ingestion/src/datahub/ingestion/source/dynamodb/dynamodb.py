@@ -23,6 +23,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_schema_field_urn,
+    make_ts_millis,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu, add_tags_to_entity_wu
@@ -78,6 +79,7 @@ from datahub.metadata.schema_classes import (
     SchemalessClass,
     SchemaMetadataClass,
     StringTypeClass,
+    TimeStampClass,
     UnionTypeClass,
     UpstreamClass,
 )
@@ -86,6 +88,7 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
+TABLE_CREATION_DATE_TIME = "table.creationDateTime"
 PAGE_SIZE = 100
 MAX_PRIMARY_KEYS_SIZE = 100
 FIELD_DELIMITER = "."
@@ -374,6 +377,15 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 "table.totalItems": str(table_info["ItemCount"]),
             },
         )
+
+        creation_time = table_info.get("CreationDateTime")
+        if creation_time is not None:
+            dataset_properties.created = TimeStampClass(
+                time=make_ts_millis(creation_time)
+            )
+            dataset_properties.customProperties[TABLE_CREATION_DATE_TIME] = (
+                creation_time.isoformat()
+            )
 
         primary_key_dict = self.extract_primary_key_from_key_schema(table_info)
         table_schema = self.construct_schema_from_dynamodb(

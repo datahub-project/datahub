@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import List, Tuple
 from unittest.mock import MagicMock, call, patch
@@ -116,6 +117,65 @@ def _mock_orders_table_client() -> MagicMock:
         "ExportDescription": {"S3Bucket": "export-bucket", "S3Prefix": "orders"}
     }
     return mock_client
+
+
+@pytest.mark.parametrize(
+    "creation_time, expected_millis, expected_iso",
+    [
+        (
+            datetime(2023, 8, 30, 12, 0, 0, 123000, tzinfo=timezone.utc),
+            1693396800123,
+            "2023-08-30T12:00:00.123000+00:00",
+        ),
+        (
+            datetime(
+                2023, 8, 30, 21, 0, 0, 123000, tzinfo=timezone(timedelta(hours=9))
+            ),
+            1693396800123,
+            "2023-08-30T21:00:00.123000+09:00",
+        ),
+        (datetime(1970, 1, 1, tzinfo=timezone.utc), 0, "1970-01-01T00:00:00+00:00"),
+        (None, None, None),
+    ],
+)
+def test_table_creation_time(
+    mock_context: PipelineContext,
+    creation_time: datetime | None,
+    expected_millis: int | None,
+    expected_iso: str | None,
+) -> None:
+    client = _mock_orders_table_client()
+    table = client.describe_table.return_value["Table"]
+    if creation_time is not None:
+        table["CreationDateTime"] = creation_time
+    source = DynamoDBSource(
+        ctx=mock_context,
+        config=DynamoDBConfig(aws_region="us-west-2"),
+        platform="dynamodb",
+    )
+
+    workunits = list(
+        source._process_table("us-west-2", client, "orders", "us-west-2.orders")
+    )
+    properties = next(
+        aspect
+        for workunit in workunits
+        if isinstance(
+            aspect := workunit.get_aspect_of_type(DatasetPropertiesClass),
+            DatasetPropertiesClass,
+        )
+    )
+
+    assert properties.name == "orders"
+    assert properties.customProperties["table.arn"] == table["TableArn"]
+    assert properties.customProperties["table.totalItems"] == "1"
+    if expected_millis is None:
+        assert properties.created is None
+        assert "table.creationDateTime" not in properties.customProperties
+    else:
+        assert properties.created is not None
+        assert properties.created.time == expected_millis
+        assert properties.customProperties["table.creationDateTime"] == expected_iso
 
 
 class TestDynamoDBTagsIngestion:
