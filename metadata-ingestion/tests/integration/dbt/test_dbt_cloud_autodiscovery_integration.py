@@ -53,6 +53,7 @@ def mock_graphql_response() -> Dict[str, Any]:
                     "error": None,
                     "skip": False,
                     "dependsOn": [],
+                    "environmentId": 1,
                 }
             ],
             "sources": [],
@@ -60,45 +61,74 @@ def mock_graphql_response() -> Dict[str, Any]:
             "snapshots": [],
             "tests": [],
             "exposures": [],
-            "semanticModels": [
-                {
-                    "uniqueId": "semantic_model.test_project.test_metrics",
-                    "name": "test_metrics",
-                    "description": "Test semantic model",
-                    "resourceType": "semantic_model",
-                    "packageName": "test_project",
-                    "meta": {},
-                    "tags": [],
-                    "dependsOn": ["model.test_project.test_model"],
-                    "entities": [
+        },
+        "environment": {
+            "definition": {
+                "semanticModels": {
+                    "edges": [
                         {
-                            "name": "id",
-                            "type": "primary",
-                            "description": "",
-                            "expr": "id",
+                            "node": {
+                                "uniqueId": "semantic_model.test_project.test_metrics",
+                                "name": "test_metrics",
+                                "description": "Test semantic model",
+                                "packageName": "test_project",
+                                "meta": {},
+                                "tags": [],
+                                "entities": [
+                                    {
+                                        "name": "id",
+                                        "type": "primary",
+                                        "description": "",
+                                        "expr": "id",
+                                    }
+                                ],
+                                "dimensions": [
+                                    {
+                                        "name": "created_at",
+                                        "type": "time",
+                                        "description": "",
+                                        "expr": "created_at",
+                                        "typeParams": {"timeGranularity": "day"},
+                                    }
+                                ],
+                                "measures": [
+                                    {
+                                        "name": "count",
+                                        "agg": "count",
+                                        "description": "",
+                                        "expr": "*",
+                                        "createMetric": False,
+                                    }
+                                ],
+                            }
                         }
                     ],
-                    "dimensions": [
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                },
+                "metrics": {
+                    "edges": [
                         {
-                            "name": "created_at",
-                            "type": "time",
-                            "description": "",
-                            "expr": "created_at",
-                            "typeParams": {},
+                            "node": {
+                                "name": "revenue",
+                                "label": "Revenue (Booked)",
+                                "description": "Revenue",
+                                "type": "SIMPLE",
+                                "formula": "sum(revenue)",
+                                "filter": None,
+                                "tags": ["finance"],
+                                "parents": [
+                                    {
+                                        "name": "test_metrics",
+                                        "resourceType": "semantic_model",
+                                    }
+                                ],
+                            }
                         }
                     ],
-                    "measures": [
-                        {
-                            "name": "count",
-                            "agg": "count",
-                            "description": "",
-                            "expr": "*",
-                            "createMetric": False,
-                        }
-                    ],
-                }
-            ],
-        }
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                },
+            }
+        },
     }
 
 
@@ -219,25 +249,47 @@ class TestAutoDiscoveryEndToEnd:
         nodes = project.nodes
 
         # Assertions
-        # Should have called GraphQL for both jobs (models, sources, seeds, snapshots, tests, exposures, semanticModels = 7 calls per job)
-        assert mock_graphql.call_count == 14  # 2 jobs * 7 node types
+        # Job queries no longer include semanticModels (6 types x 2 jobs).
+        # Semantic models are one environment.definition query.
+        job_calls = [
+            call
+            for call in mock_graphql.call_args_list
+            if "jobId" in call[1]["variables"]
+        ]
+        assert len(job_calls) == 12
 
         # Verify both job IDs were queried
-        job_ids_queried = {
-            call[1]["variables"]["jobId"] for call in mock_graphql.call_args_list
-        }
+        job_ids_queried = {call[1]["variables"]["jobId"] for call in job_calls}
         assert job_ids_queried == {100, 200}
 
         # Verify run_id is None (always use latest in auto-discovery)
-        for call in mock_graphql.call_args_list:
+        for call in job_calls:
             assert call[1]["variables"]["runId"] is None
 
-        # Verify nodes were collected (2 models + 2 semantic models from 2 jobs)
-        assert len(nodes) == 4
+        environment_calls = [
+            call
+            for call in mock_graphql.call_args_list
+            if "environmentId" in call[1]["variables"]
+        ]
+        assert len(environment_calls) == 2
+        assert {
+            call[1]["variables"]["environmentId"] for call in environment_calls
+        } == {1}
+
+        # One model per job, plus the environment's semantic model once.
+        assert len(nodes) == 3
 
         # Verify semantic models were parsed correctly
         semantic_models = [n for n in nodes if n.node_type == "semantic_model"]
-        assert len(semantic_models) == 2
+        assert len(semantic_models) == 1
+        assert len(project.metrics.metrics) == 1
+        assert project.metrics.metrics[0].name == "revenue"
+        assert project.metrics.metrics[0].label == "Revenue (Booked)"
+        assert project.metrics.metrics[0].type == "simple"
+        assert project.metrics.metrics[0].expr == "sum(revenue)"
+        assert project.metrics.metrics[0].depends_on == [
+            "semantic_model.test_project.test_metrics"
+        ]
 
         for sm in semantic_models:
             assert len(sm.columns) > 0
@@ -274,6 +326,8 @@ class TestAutoDiscoveryEndToEnd:
 
         # Job 200 fails, others succeed
         def graphql_side_effect(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+            if "environmentId" in kwargs["variables"]:
+                return mock_graphql_response
             job_id = kwargs["variables"]["jobId"]
             if job_id == 200:
                 raise ValueError("GraphQL error for job 200")
@@ -295,8 +349,8 @@ class TestAutoDiscoveryEndToEnd:
         # Execute
         nodes = next(source.load_projects()).nodes
 
-        # Should have nodes from jobs 100 and 300 only (2 models + 2 semantic models)
-        assert len(nodes) == 4
+        # Models from jobs 100 and 300, plus the environment semantic model once.
+        assert len(nodes) == 3
 
         # Verify warning was logged for job 200 failure
         # (This is implicit - the source continues without raising)
@@ -335,13 +389,15 @@ class TestAutoDiscoveryEndToEnd:
         project = next(source.load_projects())
         nodes = project.nodes
 
-        # mock_graphql_response fixture returns 1 model + 1 semantic model per job
+        # One model from the job, plus the environment's semantic model.
         assert len(nodes) == 2
         assert {n.node_type for n in nodes} == {"model", "semantic_model"}
         assert project.artifact_props["account_id"] == "123456"
 
         job_ids_queried = {
-            call[1]["variables"]["jobId"] for call in mock_graphql.call_args_list
+            call[1]["variables"]["jobId"]
+            for call in mock_graphql.call_args_list
+            if "jobId" in call[1]["variables"]
         }
         assert 100 in job_ids_queried
 
@@ -410,8 +466,14 @@ class TestExplicitModeComparison:
         # Execute
         next(source.load_projects())
 
-        # Verify run_id=999 was used in all GraphQL calls
-        for call in mock_graphql.call_args_list:
+        # Verify run_id=999 was used in the job GraphQL calls.
+        job_calls = [
+            call
+            for call in mock_graphql.call_args_list
+            if "jobId" in call[1]["variables"]
+        ]
+        assert job_calls
+        for call in job_calls:
             assert call[1]["variables"]["runId"] == 999
 
     @mock.patch.object(DBTCloudSource, "_send_graphql_query")
@@ -448,8 +510,14 @@ class TestExplicitModeComparison:
         # Execute
         next(source.load_projects())
 
-        # Verify run_id=None was used (latest run)
-        for call in mock_graphql.call_args_list:
+        # Verify run_id=None was used on job queries (latest run).
+        job_calls = [
+            call
+            for call in mock_graphql.call_args_list
+            if "jobId" in call[1]["variables"]
+        ]
+        assert job_calls
+        for call in job_calls:
             assert call[1]["variables"]["runId"] is None
 
     @mock.patch.object(DBTCloudSource, "_send_graphql_query")
@@ -639,7 +707,9 @@ class TestAutoDiscoveryWithPatterns:
 
         # Should only query jobs 1001 and 1002
         job_ids_queried = {
-            call[1]["variables"]["jobId"] for call in mock_graphql.call_args_list
+            call[1]["variables"]["jobId"]
+            for call in mock_graphql.call_args_list
+            if "jobId" in call[1]["variables"]
         }
         assert 1001 in job_ids_queried
         assert 1002 in job_ids_queried
@@ -687,7 +757,9 @@ class TestAutoDiscoveryWithPatterns:
 
         # Should query jobs 100 and 300, but not 200
         job_ids_queried = {
-            call[1]["variables"]["jobId"] for call in mock_graphql.call_args_list
+            call[1]["variables"]["jobId"]
+            for call in mock_graphql.call_args_list
+            if "jobId" in call[1]["variables"]
         }
         assert 100 in job_ids_queried
         assert 300 in job_ids_queried
