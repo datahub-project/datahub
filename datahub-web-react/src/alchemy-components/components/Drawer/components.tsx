@@ -6,7 +6,9 @@ import styled from 'styled-components';
 // uses it instead of falling through to AntD's base @font-family (Manrope).
 const MULISH_STACK = `'Mulish', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif`;
 
-export const StyledDrawer = styled(Drawer)`
+const toCssSize = (value: number | string) => (typeof value === 'number' ? `${value}px` : value);
+
+export const StyledDrawer = styled(Drawer)<{ $bodyPadding: number | string; $hasCustomHeader: boolean }>`
     .ant-drawer-content,
     .ant-drawer-header,
     .ant-drawer-title,
@@ -19,10 +21,30 @@ export const StyledDrawer = styled(Drawer)`
         box-shadow: ${({ theme }) => theme.colors.shadowSm};
     }
 
+    ${({ $hasCustomHeader }) =>
+        $hasCustomHeader &&
+        `
+        .ant-drawer-header {
+            padding: 0;
+            border-bottom: none;
+            box-shadow: none;
+        }
+
+        .ant-drawer-title {
+            flex: 1;
+            min-width: 0;
+        }
+    `}
+
     .ant-drawer-body {
-        padding: 16px;
+        padding: ${({ $bodyPadding }) => toCssSize($bodyPadding)};
     }
-` as typeof Drawer;
+
+    .ant-drawer-footer {
+        padding: 12px 16px;
+        border-top: 1px solid ${({ theme }) => theme.colors.border};
+    }
+`;
 
 export const TitleContainer = styled.div`
     display: flex;
