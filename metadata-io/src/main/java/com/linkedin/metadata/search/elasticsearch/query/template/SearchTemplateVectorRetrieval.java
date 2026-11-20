@@ -205,7 +205,7 @@ public final class SearchTemplateVectorRetrieval {
       @Nonnull MergedSearchTemplate template,
       @Nonnull String reason) {
     SearchTemplateMetrics.vectorRetrieval(opContext, NO_ANCHOR);
-    return new SearchTemplateFailClosedException(
+    return new SearchTemplateNoAnchorException(
         "Search template " + template.getUrn() + " finds similar entities, and " + reason);
   }
 }

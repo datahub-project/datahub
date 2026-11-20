@@ -34,6 +34,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SemanticSearchDisabledException;
 import com.linkedin.metadata.search.SemanticSearchService;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
@@ -241,6 +242,14 @@ public class SemanticSearchAcrossEntitiesResolver
           _semanticSearchService.semanticSearchAcrossEntitiesByTemplate(
               searching, entityNames, query, filter, sortCriteria, start, count, facets);
     } catch (RuntimeException e) {
+      // An entity URN routes to similarity. One that cannot anchor the search is a bad request,
+      // not a server failure; the message does not say whether the entity exists.
+      final SearchTemplateNoAnchorException noAnchor =
+          ExceptionUtils.throwableOfType(e, SearchTemplateNoAnchorException.class);
+      if (noAnchor != null) {
+        throw new DataHubGraphQLException(
+            noAnchor.getMessage(), DataHubGraphQLErrorCode.BAD_REQUEST, noAnchor);
+      }
       final QueryEmbeddingException failure =
           ExceptionUtils.throwableOfType(e, QueryEmbeddingException.class);
       if (failure == null) {

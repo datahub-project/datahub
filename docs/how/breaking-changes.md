@@ -21,8 +21,11 @@ System update now writes version 19 of the shipped search templates. `urn:li:sea
 routes a query that is an entity URN (lowercase `urn:li:`, an entity type, a colon, and a key) to
 `urn:li:searchTemplate:similarity`. A search that names `semantic` in the `searchTemplate` search flag
 with an entity URN as the query now returns the entities nearest that entity, as a search that names
-`similarity` does, instead of embedding the URN text. Like that search, it fails when the entity cannot
-anchor it, for example when the entity has no stored embeddings. In OSS only Document entities have an
+`similarity` does, instead of embedding the URN text. The same holds for semantic search
+(`semanticSearchAcrossEntities`) when its template surface is on
+(`SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH=active`), since that surface selects `semantic`. Like that
+search, it fails when the entity cannot anchor it, for example when the entity has no stored
+embeddings; semantic search reports that as a bad request (`BAD_REQUEST`). In OSS only Document entities have an
 embedding profile, so the URN of any other entity type now fails the search, counted as `noAnchor`,
 instead of being embedded. The route covers every entity URN on purpose. Any other query runs on
 `semantic` as before. A custom template whose parent is `semantic` inherits the route unless it sets its

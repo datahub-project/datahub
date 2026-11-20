@@ -71,6 +71,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateF
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateVectorRetrieval;
 import com.linkedin.metadata.search.embedding.EmbeddingProfile;
@@ -2478,6 +2479,49 @@ public class ESSearchDAOVectorRetrievalTest {
             eq(SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME));
     verify(client, never()).searchKnn(any(), any());
     verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+  }
+
+  /**
+   * On the semantic search surface the shipped semantic template routes an entity URN to
+   * similarity, so semantic search serves the anchor's neighbors. A URN whose type has no embedding
+   * profile, here any type but Document, fails as noAnchor, the error callers report as a bad
+   * request.
+   */
+  @Test
+  public void testTheSemanticSearchSurfaceRoutesAnEntityUrnToSimilarity() throws Exception {
+    SearchTemplateFixtures.readShipped().forEach(harness::store);
+    semanticSlot(SEMANTIC_URN);
+    harness.templates.getRollout().setSemanticSearch("active");
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+    SemanticSearchService semantic = semanticService(cached(dao(null, embedding())));
+    OperationContext searching = unpinned(f -> {});
+
+    SearchResult result =
+        semantic.semanticSearchAcrossEntitiesByTemplate(
+            searching, DOCUMENT, ANCHOR, null, null, 0, 10, List.of());
+
+    assertEquals(urns(result), List.of("urn:li:document:d0"));
+    assertEquals(result.getMetadata().getRouteChain(), List.of(SEMANTIC_URN, SIMILARITY_URN));
+    verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+    assertEquals(knnRequest().k(), 501);
+
+    RuntimeException failure =
+        expectThrows(
+            RuntimeException.class,
+            () ->
+                semantic.semanticSearchAcrossEntitiesByTemplate(
+                    searching,
+                    DOCUMENT,
+                    "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)",
+                    null,
+                    null,
+                    0,
+                    10,
+                    List.of()));
+    assertNotNull(
+        ExceptionUtils.throwableOfType(failure, SearchTemplateNoAnchorException.class),
+        failure.toString());
   }
 
   /**

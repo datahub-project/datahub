@@ -59,7 +59,9 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SemanticSearchDisabledException;
 import com.linkedin.metadata.search.SemanticSearchService;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -1276,6 +1278,45 @@ public class SemanticSearchAcrossEntitiesResolverTest {
 
     assertFalse(failure.getCause() instanceof DataHubGraphQLException);
     verifyNoInteractions(mockEntityClient);
+  }
+
+  /**
+   * On the template path an entity URN routes to similarity. One that cannot anchor the search,
+   * such as a URN of a type with no embedding profile, is a bad request, not a server error, and no
+   * keyword fallback covers it. Another fail-closed failure is not mapped to it.
+   */
+  @Test
+  public void testAUrnThatCannotAnchorIsABadRequest() throws Exception {
+    SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DOCUMENT));
+    input.setQuery("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
+    SearchFlags flags = new SearchFlags();
+    flags.setKeywordFallbackOnEmbeddingFailure(true);
+    input.setSearchFlags(flags);
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockSemanticSearchService.isServedByTemplate(any())).thenReturn(true);
+    doThrow(
+            new RuntimeException(
+                "Search failed",
+                new SearchTemplateNoAnchorException(
+                    "Search template urn:li:searchTemplate:similarity finds similar entities")))
+        .when(mockSemanticSearchService)
+        .semanticSearchAcrossEntitiesByTemplate(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList());
+
+    assertEquals(typedError().errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
+    verifyNoInteractions(mockEntityClient);
+
+    doThrow(
+            new RuntimeException(
+                "Search failed", new SearchTemplateFailClosedException("kNN unavailable")))
+        .when(mockSemanticSearchService)
+        .semanticSearchAcrossEntitiesByTemplate(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList());
+    CompletionException other =
+        org.testng.Assert.expectThrows(
+            CompletionException.class, () -> resolver.get(mockEnvironment).join());
+    assertFalse(other.getCause() instanceof DataHubGraphQLException, other.toString());
   }
 
   private void embeddingFails(String reason) {
