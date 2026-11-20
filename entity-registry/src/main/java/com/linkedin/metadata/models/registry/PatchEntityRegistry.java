@@ -30,9 +30,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -59,6 +61,7 @@ public class PatchEntityRegistry implements EntityRegistry {
   private final Map<String, EntitySpec> entityNameToSpec;
   private final Map<String, EventSpec> eventNameToSpec;
   private final Map<String, AspectSpec> _aspectNameToSpec;
+  private final Set<String> coreAspectNames = new HashSet<>();
 
   private final String registryName;
   private final ComparableVersion registryVersion;
@@ -253,7 +256,9 @@ public class PatchEntityRegistry implements EntityRegistry {
       }
     }
     SearchableAnnotationValidator.validateSharedLabels(entityNameToSpec.values());
+    // Core aspects keep their core spec in the merged registry.
     _aspectNameToSpec = populateAspectMap(new ArrayList<>(entityNameToSpec.values()));
+    _aspectNameToSpec.keySet().removeAll(coreAspectNames);
   }
 
   @Override
@@ -320,7 +325,16 @@ public class PatchEntityRegistry implements EntityRegistry {
     Optional<DataSchema> aspectSchema = dataSchemaFactory.getAspectSchema(aspectName);
     Optional<Class> aspectClass = dataSchemaFactory.getAspectClass(aspectName);
     if (!aspectSchema.isPresent()) {
-      throw new IllegalArgumentException(String.format("Aspect %s does not exist", aspectName));
+      // A plugin's schema factory skips classes already on the core classpath, so an entity
+      // defined by a plugin finds core aspects (status, ownership, ...) in the core factory.
+      DataSchemaFactory coreSchemaFactory = DataSchemaFactory.getInstance();
+      aspectSchema = coreSchemaFactory.getAspectSchema(aspectName);
+      if (!aspectSchema.isPresent()) {
+        throw new IllegalArgumentException(String.format("Aspect %s does not exist", aspectName));
+      }
+      coreAspectNames.add(aspectName);
+      return entitySpecBuilder.buildAspectSpec(
+          aspectSchema.get(), coreSchemaFactory.getAspectClass(aspectName).get());
     }
     AspectSpec aspectSpec =
         entitySpecBuilder.buildAspectSpec(aspectSchema.get(), aspectClass.get());
