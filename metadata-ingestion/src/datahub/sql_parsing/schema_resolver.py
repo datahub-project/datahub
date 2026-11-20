@@ -473,7 +473,12 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
             # Track cache hit for extra schemas
             self._base_resolver._track_cache_hit()
             return urn, self._extra_schemas[urn]
-        return self._base_resolver.resolve_table(table)
+        # A temp table whose name matches a registered table is keyed under the
+        # URN the base resolver returned for it, which can differ in casing.
+        resolved_urn, schema_info = self._base_resolver.resolve_table(table)
+        if resolved_urn in self._extra_schemas:
+            return resolved_urn, self._extra_schemas[resolved_urn]
+        return resolved_urn, schema_info
 
     def add_temp_tables(
         self, temp_tables: Dict[str, Optional[List[SchemaFieldClass]]]

@@ -927,6 +927,29 @@ class TestCaseInsensitiveResolution:
         assert schema is None
         assert urn == resolver.get_urn_for_unresolved_table(table)
 
+    def test_temp_table_shadows_registered_table_in_another_casing(self) -> None:
+        resolver = SchemaResolver(platform="teradata", env="PROD")
+        registered = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Sales", table="Orders")
+        )
+        resolver.add_raw_schema_info(registered, {"persistent_col": "VARCHAR"})
+        session_resolver = resolver.with_temp_tables(
+            {
+                registered: [
+                    SchemaFieldClass(
+                        fieldPath="temp_col", nativeDataType="int", type=MagicMock()
+                    )
+                ]
+            }
+        )
+
+        urn, schema = session_resolver.resolve_table(
+            _TableName(database=None, db_schema="sales", table="orders")
+        )
+
+        assert urn == registered
+        assert schema is not None and "temp_col" in schema
+
     def test_index_survives_reopening_the_cache_file(
         self, tmp_path: pathlib.Path
     ) -> None:
