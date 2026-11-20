@@ -41,17 +41,19 @@ const ConfirmButtonWrapper = styled.div`
 `;
 
 const ConfirmButton = styled(Button)`
-    border-radius: 15px;
-    border: 1px solid ${(props) => props.theme.colors.text};
+    && {
+        border-radius: 15px;
+        border: 1px solid ${(props) => props.theme.colors.text};
 
-    position: absolute;
-    right: 10px;
-    bottom: 13px;
-    text-align: right;
+        position: absolute;
+        right: 10px;
+        bottom: 13px;
+        text-align: right;
 
-    :hover {
-        border-color: ${(props) => props.theme.colors.hyperlinks};
-        color: ${(props) => props.theme.colors.hyperlinks};
+        :hover {
+            border-color: ${(props) => props.theme.colors.hyperlinks};
+            color: ${(props) => props.theme.colors.hyperlinks};
+        }
     }
 `;
 
@@ -134,9 +136,10 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
                             </ConfirmButtonWrapper>
                         )}
                         format="ll"
-                        ranges={Object.fromEntries(
-                            ranges.map(([start, end]) => [getTimeRangeDescription(start, end), [start, end]]),
-                        )}
+                        presets={ranges.map(([start, end]) => ({
+                            label: getTimeRangeDescription(start, end),
+                            value: [start, end],
+                        }))}
                         onChange={handleRangeChange}
                         onOpenChange={handleOpenChange}
                         onCalendarChange={() => handleOpenChange(true)}

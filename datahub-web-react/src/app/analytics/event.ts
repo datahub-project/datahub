@@ -1352,11 +1352,11 @@ export interface DeleteDocumentEvent extends BaseEvent {
 }
 
 /**
- * Logged when a user imports documents from a source (file upload or GitHub).
+ * Logged when a user imports documents from a source (file upload, GitHub, GitLab, Notion or Confluence).
  */
 export interface ImportDocumentsEvent extends BaseEvent {
     type: EventType.ImportDocumentsEvent;
-    source: 'FILE_UPLOAD' | 'GITHUB' | 'NOTION' | 'CONFLUENCE';
+    source: 'FILE_UPLOAD' | 'GITHUB' | 'GITLAB' | 'NOTION' | 'CONFLUENCE';
     createdCount: number;
     updatedCount: number;
     failedCount: number;

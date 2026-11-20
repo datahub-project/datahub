@@ -158,7 +158,8 @@ public class SearchTemplateSeamTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     ESSearchDAO dao = mock(ESSearchDAO.class);
     ElasticSearchService elastic = elasticSearch(harness, dao);
     OperationContext page = capturePageSearch(elastic, dao, harness.opContext);

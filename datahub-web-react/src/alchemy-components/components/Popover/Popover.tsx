@@ -17,7 +17,7 @@ function resolveContent(content: PopoverProps['content']): React.ReactNode {
 }
 
 const Popover = React.forwardRef<HTMLElement, PopoverProps>(
-    ({ title, content, showArrow = false, overlayInnerStyle, ...props }, ref) => {
+    ({ title, content, showArrow = false, overlayInnerStyle, ariaLabel, ...props }, ref) => {
         const resolvedTitle = resolveContent(title);
         const resolvedContent = resolveContent(content);
         const popoverContent =
@@ -35,6 +35,7 @@ const Popover = React.forwardRef<HTMLElement, PopoverProps>(
                 ref={ref}
                 content={popoverContent}
                 role="dialog"
+                ariaLabel={ariaLabel ?? (typeof resolvedTitle === 'string' ? resolvedTitle : undefined)}
                 showArrow={showArrow}
                 overlayInnerStyle={{ fontFamily: 'Mulish', ...overlayInnerStyle }}
                 {...props}

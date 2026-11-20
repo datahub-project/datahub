@@ -6,7 +6,6 @@ import com.datahub.authorization.PolicyFetcher;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
-import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.ListPoliciesInput;
 import com.linkedin.datahub.graphql.generated.ListPoliciesResult;
 import com.linkedin.datahub.graphql.generated.Policy;
@@ -17,7 +16,6 @@ import com.linkedin.metadata.query.filter.Filter;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -51,14 +49,9 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
       final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
       final List<AndFilterInput> filters =
           input.getOrFilters() != null ? input.getOrFilters() : new ArrayList<>();
-      final List<FacetFilterInput> facetFilters =
-          filters.stream()
-              .map(AndFilterInput::getAnd)
-              .flatMap(List::stream)
-              .collect(Collectors.toList());
       log.debug("User {} listing policies with filters {}", context.getActorUrn(), filters);
 
-      final Filter filter = ResolverUtils.buildFilter(facetFilters, Collections.emptyList());
+      final Filter filter = ResolverUtils.buildFilter(null, filters);
 
       return _policyFetcher
           .fetchPolicies(context.getOperationContext(), start, query, count, filter)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Manage one detached OpenSearch 3 node shared by local GMS stacks (stdlib only)."""
+"""Manage one detached OpenSearch node per major shared by local GMS stacks (stdlib only)."""
 
 from __future__ import annotations
 
@@ -31,10 +31,66 @@ class OpenSearchHealthTimeout(RuntimeError):
     """A slow shared node must remain available for its current users and recovery."""
 
 
-def default_shared_dir() -> Path:
+def validate_major(value: str) -> str:
+    if value not in ("2", "3"):
+        raise ValueError("EMBEDDED_OPENSEARCH_VERSION / --opensearch must be 2 or 3")
+    return value
+
+
+def selected_major() -> str:
+    override = os.environ.get("EMBEDDED_OPENSEARCH_VERSION")
+    if override is not None:
+        return validate_major(override)
+    # Read the build's single default so launchers and downstream builds cannot drift.
+    for line in (REPO_ROOT / "gradle.properties").read_text().splitlines():
+        key, _, value = line.partition("=")
+        if key.strip() == "embeddedOpenSearchDefault":
+            return validate_major(value.strip())
+    raise RuntimeError("embeddedOpenSearchDefault is missing from gradle.properties")
+
+
+def default_shared_dir(major: str | None = None) -> Path:
+    major = validate_major(major) if major is not None else selected_major()
     return Path(
-        os.environ.get("GMS_LITE_OPENSEARCH_DIR", "~/.datahub/local/opensearch-3")
+        os.environ.get(
+            "GMS_LITE_OPENSEARCH_DIR", f"~/.datahub/local/opensearch-{major}"
+        )
     )
+
+
+def distribution_script(repo_root: Path, major: str) -> Path:
+    return repo_root / (
+        "metadata-service/opensearch-embedded/build/install/"
+        f"opensearch-embedded-os{validate_major(major)}/bin/opensearch-embedded"
+    )
+
+
+def check_shared_dir(directory: Path) -> Path:
+    resolved = directory.expanduser().resolve()
+    protected = (Path.home() / ".datahub/local/opensearch").resolve()
+    if resolved == protected or protected in resolved.parents:
+        raise ValueError(
+            f"refusing to access reserved OpenSearch directory {protected}"
+        )
+    return resolved
+
+
+def recorded_data_major(directory: Path) -> str | None:
+    marker = directory / "opensearch-major"
+    if marker.exists():
+        return validate_major(marker.read_text().strip())
+    # The original launcher only wrote 3.x data, including at custom paths.
+    return "3" if (directory / "data").exists() else None
+
+
+def ensure_data_major(directory: Path, major: str) -> None:
+    marker = directory / "opensearch-major"
+    previous = recorded_data_major(directory) or major
+    if previous != major:
+        raise RuntimeError(
+            f"OpenSearch {previous} data at {directory}; refusing to open it with {major}"
+        )
+    marker.write_text(major + "\n")
 
 
 def request_json(
@@ -129,8 +185,16 @@ def delete_prefixes(port: int, prefixes: list[str]) -> None:
 class SharedOpenSearchManager:
     READY_TIMEOUT_SECONDS: float = 900
 
-    def __init__(self, shared_dir: Path, repo_root: Path = REPO_ROOT) -> None:
-        self.shared_dir = shared_dir.expanduser().resolve()
+    def __init__(
+        self, shared_dir: Path, repo_root: Path = REPO_ROOT, *, major: str | None = None
+    ) -> None:
+        self.shared_dir = check_shared_dir(shared_dir)
+        self.major = validate_major(major) if major is not None else selected_major()
+        for other in ("2", "3"):
+            if self.shared_dir.name == f"opensearch-{other}" and other != self.major:
+                raise ValueError(
+                    f"OpenSearch {self.major} cannot use {self.shared_dir}"
+                )
         self.repo_root = repo_root
         self.health_timeout_seconds = float(
             os.environ.get("GMS_LITE_OPENSEARCH_HEALTH_TIMEOUT_SECONDS", "600")
@@ -200,9 +264,9 @@ class SharedOpenSearchManager:
                             f"invalid OpenSearch response on port {port}; refusing to replace it"
                         )
                     version = root.get("version", {}).get("number", "unknown")
-                    if not str(version).startswith("3."):
+                    if not str(version).startswith(f"{self.major}."):
                         raise RuntimeError(
-                            f"OpenSearch {version} on port {port}: expected major version 3; refusing to reuse or replace it"
+                            f"OpenSearch {version} on port {port}: expected major version {self.major}; refusing to reuse or replace it"
                         )
                     version_checked = True
                 remaining = deadline - time.monotonic()
@@ -253,8 +317,8 @@ class SharedOpenSearchManager:
                         if isinstance(version_info, dict)
                         else "unknown"
                     )
-                    if not str(version).startswith("3."):
-                        reason = f"expected OpenSearch 3, got {version}"
+                    if not str(version).startswith(f"{self.major}."):
+                        reason = f"expected OpenSearch {self.major}, got {version}"
                     else:
                         health = request_json(port, "/_cluster/health", timeout=1)
                         state = (
@@ -273,6 +337,7 @@ class SharedOpenSearchManager:
             "healthy": healthy,
             "reason": reason,
             "stateDir": str(self.shared_dir),
+            "major": self.major,
         }
 
     def get_or_start(self) -> int:
@@ -292,10 +357,8 @@ class SharedOpenSearchManager:
             return self._start()
 
     def _start(self) -> int:
-        script = (
-            self.repo_root
-            / "metadata-service/opensearch-embedded/build/install/opensearch-embedded/bin/opensearch-embedded"
-        )
+        ensure_data_major(self.shared_dir, self.major)
+        script = distribution_script(self.repo_root, self.major)
         if not script.exists():
             raise RuntimeError(
                 f"missing {script}; build :metadata-service:opensearch-embedded:installDist first"
@@ -378,7 +441,8 @@ class SharedOpenSearchManager:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["status", "start", "stop"])
-    parser.add_argument("--dir", type=Path, default=default_shared_dir())
+    parser.add_argument("--dir", type=Path)
+    parser.add_argument("--opensearch", choices=("2", "3"))
     args = parser.parse_args()
 
     def interrupted(signum: int, frame: object) -> None:
@@ -388,7 +452,19 @@ def main() -> None:
 
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
-    manager = SharedOpenSearchManager(args.dir)
+    try:
+        major = args.opensearch
+        if args.dir is not None:
+            args.dir = check_shared_dir(args.dir)
+            if major is None:
+                match = re.fullmatch(r"opensearch-([23])", args.dir.name)
+                major = match.group(1) if match else recorded_data_major(args.dir)
+        major = major or selected_major()
+        manager = SharedOpenSearchManager(
+            args.dir or default_shared_dir(major), major=major
+        )
+    except (RuntimeError, ValueError) as error:
+        parser.error(str(error))
     try:
         if args.command == "status":
             print(json.dumps(manager.status(), indent=2))

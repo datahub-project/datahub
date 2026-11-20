@@ -89,7 +89,7 @@ public class MembershipGraphScrollFallbackTest {
   }
 
   @Test
-  public void listRelatedReturnsEmptyForNonPositiveCount() {
+  public void listRelatedReturnsEmptyForNegativeCount() {
     opContext = contextWithGraphRetriever(mock(GraphRetriever.class));
 
     MembershipNeighborResult result =
@@ -100,10 +100,61 @@ public class MembershipGraphScrollFallbackTest {
             TraversalDirection.FORWARD,
             spec.getGroupRelationshipTypes(),
             0,
-            0);
+            -1);
 
     assertTrue(result.isHit());
     assertTrue(result.neighborsOrEmpty().isEmpty());
+  }
+
+  @Test
+  public void listRelatedCountZeroReturnsMemberTotal() {
+    GraphRetriever graphRetriever = mock(GraphRetriever.class);
+    when(graphRetriever.scrollRelatedEntities(
+            eq(Set.of(CORP_USER_ENTITY_NAME)),
+            eq(QueryUtils.EMPTY_FILTER),
+            eq(Set.of(CORP_GROUP_ENTITY_NAME)),
+            any(),
+            eq(spec.getGroupRelationshipTypes()),
+            any(),
+            eq(Edge.EDGE_SORT_CRITERION),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                2,
+                2,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME,
+                        USER.toString(),
+                        GROUP.toString(),
+                        RelationshipDirection.OUTGOING,
+                        null),
+                    new RelatedEntities(
+                        IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME,
+                        "urn:li:corpuser:bob",
+                        GROUP.toString(),
+                        RelationshipDirection.OUTGOING,
+                        null))));
+
+    opContext = contextWithGraphRetriever(graphRetriever);
+
+    MembershipNeighborResult result =
+        MembershipGraphScrollFallback.listRelated(
+            opContext,
+            spec,
+            GROUP.toString(),
+            TraversalDirection.REVERSE,
+            spec.getGroupRelationshipTypes(),
+            0,
+            0);
+
+    assertTrue(result instanceof MembershipNeighborResult.Hit);
+    assertTrue(result.neighborsOrEmpty().isEmpty());
+    assertEquals(((MembershipNeighborResult.Hit) result).total(), 2);
   }
 
   @Test
