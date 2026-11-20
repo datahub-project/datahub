@@ -784,7 +784,8 @@ public class ESSearchDAOVectorRetrievalTest {
       // Each caller filter that bypasses a default clause (removed the soft-delete clause,
       // lifecycleStage the hidden-stage clause), and the fields the published-document default
       // reads. Each as Rest.li and OpenAPI send it, and as the GraphQL resolvers do once they add
-      // that default, with and without the clause the manage-documents privilege lifts.
+      // that default, with and without the clause the manage-documents privilege lifts. A
+      // showInGlobalContext filter lifts the placement clause in its own branch only.
       List<Filter> filters = new ArrayList<>();
       for (Filter caller :
           java.util.Arrays.asList(
@@ -793,7 +794,10 @@ public class ESSearchDAOVectorRetrievalTest {
               filter("removed", "true"),
               filter("lifecycleStage", HIDDEN_STAGE),
               filter("state", "UNPUBLISHED"),
-              filter("showInGlobalContext", "false"))) {
+              filter("showInGlobalContext", "false"),
+              anyOf(
+                  filter("domains", "urn:li:domain:sales"),
+                  filter("showInGlobalContext", "false")))) {
         filters.add(caller);
         filters.add(withDocumentDefaults(caller, false));
         filters.add(withDocumentDefaults(caller, true));
@@ -3212,29 +3216,57 @@ public class ESSearchDAOVectorRetrievalTest {
                             CriterionUtils.buildCriterion(field, Condition.EQUAL, value)))));
   }
 
-  /** The caller's filter as the GraphQL resolvers send it after adding the document defaults. */
+  /** A filter that matches any branch of these filters. */
+  private static Filter anyOf(Filter... filters) {
+    ConjunctiveCriterionArray branches = new ConjunctiveCriterionArray();
+    for (Filter filter : filters) {
+      branches.addAll(filter.getOr());
+    }
+    return new Filter().setOr(branches);
+  }
+
+  /**
+   * The caller's filter as the GraphQL resolvers send it after adding the document defaults. A
+   * caller branch that filters on showInGlobalContext gets them without the placement clause.
+   */
   private static Filter withDocumentDefaults(Filter caller, boolean canManageDocuments) {
-    Filter defaults = publishedDocumentDefault(canManageDocuments);
-    return caller == null ? defaults : FilterUtils.combineFilters(caller, defaults);
+    if (caller == null) {
+      return publishedDocumentDefault(canManageDocuments, true);
+    }
+    ConjunctiveCriterionArray branches = new ConjunctiveCriterionArray();
+    for (ConjunctiveCriterion branch : caller.getOr()) {
+      boolean placement =
+          branch.getAnd().stream().noneMatch(c -> c.getField().equals("showInGlobalContext"));
+      branches.addAll(
+          FilterUtils.combineFilters(
+                  new Filter().setOr(new ConjunctiveCriterionArray(branch)),
+                  publishedDocumentDefault(canManageDocuments, placement))
+              .getOr());
+    }
+    return new Filter().setOr(branches);
   }
 
   /**
    * The published-document default the GraphQL resolvers add for documents: published, or legacy
-   * and not unpublished unless the viewer may manage documents, and shown in global context.
+   * and not unpublished unless the viewer may manage documents, and, with placement, shown in
+   * global context.
    */
-  private static Filter publishedDocumentDefault(boolean canManageDocuments) {
+  private static Filter publishedDocumentDefault(boolean canManageDocuments, boolean placement) {
     CriterionArray published =
         new CriterionArray(
             CriterionUtils.buildCriterion(
-                "lifecycleStage", Condition.EQUAL, "urn:li:lifecycleStageType:PUBLISHED"),
-            CriterionUtils.buildCriterion("showInGlobalContext", Condition.EQUAL, true, "false"));
+                "lifecycleStage", Condition.EQUAL, "urn:li:lifecycleStageType:PUBLISHED"));
     CriterionArray legacy =
         new CriterionArray(CriterionUtils.buildIsNullCriterion("lifecycleStage"));
     if (!canManageDocuments) {
       legacy.add(CriterionUtils.buildCriterion("state", Condition.EQUAL, true, "UNPUBLISHED"));
     }
-    legacy.add(
-        CriterionUtils.buildCriterion("showInGlobalContext", Condition.EQUAL, true, "false"));
+    if (placement) {
+      published.add(
+          CriterionUtils.buildCriterion("showInGlobalContext", Condition.EQUAL, true, "false"));
+      legacy.add(
+          CriterionUtils.buildCriterion("showInGlobalContext", Condition.EQUAL, true, "false"));
+    }
     return new Filter()
         .setOr(
             new ConjunctiveCriterionArray(

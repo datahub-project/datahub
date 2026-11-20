@@ -211,6 +211,20 @@ template or `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY` sets, and never lower
 off or does not take effect, semantic search rejects the flag. **Action:** none. Before you turn the
 switch on, check that clients expect the document defaults and facet counts above.
 
+### Search filters on `showInGlobalContext` find documents hidden from global context
+
+`searchAcrossEntities`, `scrollAcrossEntities`, `aggregateAcrossEntities` and `browseV2` add a
+default that hides documents not shown in global context. They also added it to a filter on
+`showInGlobalContext`, so a filter for `showInGlobalContext` set to `false` found no documents unless
+the request set `includeHiddenLifecycleStages`. Now a filter that names `showInGlobalContext` takes
+the place of that default. When the filter has several `orFilters` entries, only those that name the
+field lose the default, and a view's filter counts as part of the request's filter. The results are
+still published documents only: as before, a filter on `state` or `lifecycleStage` does not change
+that, only `includeHiddenLifecycleStages` does, and a user who can manage documents also gets
+unpublished documents that have no lifecycle stage. `semanticSearchAcrossEntities` does the same when
+it runs the semantic search template. **Action:** none, unless a client filters on
+`showInGlobalContext` and expects documents hidden from global context to stay out.
+
 ### Parent Data Product is now checked on every API
 
 Setting a Data Product's parent through OpenAPI, Rest.li or YAML now fails if the parent doesn't exist
