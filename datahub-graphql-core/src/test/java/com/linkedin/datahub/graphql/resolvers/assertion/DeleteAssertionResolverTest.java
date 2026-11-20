@@ -32,7 +32,7 @@ public class DeleteAssertionResolverTest {
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityClient.ReferencesCleanup references = Mockito.mock(EntityClient.ReferencesCleanup.class);
-    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
+    Mockito.when(mockClient.deleteReferencesThenEntity(any(), any())).thenReturn(references);
 
     EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true)))
@@ -63,7 +63,7 @@ public class DeleteAssertionResolverTest {
     assertTrue(resolver.get(mockEnv).get());
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntityThenReferences(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)));
+        .deleteReferencesThenEntity(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)));
 
     Mockito.verify(mockService, Mockito.times(1))
         .getAspect(
@@ -80,7 +80,7 @@ public class DeleteAssertionResolverTest {
   public void testGetCustomAssertionSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityClient.ReferencesCleanup references = Mockito.mock(EntityClient.ReferencesCleanup.class);
-    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
+    Mockito.when(mockClient.deleteReferencesThenEntity(any(), any())).thenReturn(references);
     EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true)))
         .thenReturn(true);
@@ -106,14 +106,14 @@ public class DeleteAssertionResolverTest {
 
     assertTrue(resolver.get(mockEnv).get());
     Mockito.verify(mockClient)
-        .deleteEntityThenReferences(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)));
+        .deleteReferencesThenEntity(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)));
   }
 
   @Test
   public void testGetSuccessNoAssertionInfoFound() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityClient.ReferencesCleanup references = Mockito.mock(EntityClient.ReferencesCleanup.class);
-    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
+    Mockito.when(mockClient.deleteReferencesThenEntity(any(), any())).thenReturn(references);
 
     EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true)))
@@ -137,7 +137,7 @@ public class DeleteAssertionResolverTest {
     assertTrue(resolver.get(mockEnv).get());
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntityThenReferences(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)));
+        .deleteReferencesThenEntity(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)));
 
     Mockito.verify(mockService, Mockito.times(1))
         .getAspect(
@@ -155,7 +155,7 @@ public class DeleteAssertionResolverTest {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityClient.ReferencesCleanup references = Mockito.mock(EntityClient.ReferencesCleanup.class);
-    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
+    Mockito.when(mockClient.deleteReferencesThenEntity(any(), any())).thenReturn(references);
 
     EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true)))
@@ -172,7 +172,7 @@ public class DeleteAssertionResolverTest {
     assertTrue(resolver.get(mockEnv).get());
 
     Mockito.verify(mockClient, Mockito.times(0))
-        .deleteEntityThenReferences(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)));
+        .deleteReferencesThenEntity(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)));
 
     Mockito.verify(mockClient, Mockito.times(0))
         .batchGetV2(
@@ -190,7 +190,7 @@ public class DeleteAssertionResolverTest {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityClient.ReferencesCleanup references = Mockito.mock(EntityClient.ReferencesCleanup.class);
-    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
+    Mockito.when(mockClient.deleteReferencesThenEntity(any(), any())).thenReturn(references);
     EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true)))
         .thenReturn(true);
@@ -218,17 +218,17 @@ public class DeleteAssertionResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).deleteEntityThenReferences(any(), Mockito.any());
+    Mockito.verify(mockClient, Mockito.times(0)).deleteReferencesThenEntity(any(), Mockito.any());
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityClient.ReferencesCleanup references = Mockito.mock(EntityClient.ReferencesCleanup.class);
-    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
+    Mockito.when(mockClient.deleteReferencesThenEntity(any(), any())).thenReturn(references);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .deleteEntityThenReferences(any(), Mockito.any());
+        .deleteReferencesThenEntity(any(), Mockito.any());
 
     EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true)))

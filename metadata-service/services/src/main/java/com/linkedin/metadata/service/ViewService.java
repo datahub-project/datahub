@@ -178,10 +178,10 @@ public class ViewService extends BaseService {
   public void deleteView(@Nonnull OperationContext opContext, @Nonnull Urn viewUrn) {
     try {
       final var references =
-          this.entityClient.deleteEntityThenReferences(
+          this.entityClient.deleteReferencesThenEntity(
               opContext, Objects.requireNonNull(viewUrn, "viewUrn must not be null"));
 
-      // Asynchronously delete all references to the entity (to return quickly)
+      // The entity is already gone. This removes the remaining references.
       CompletableFuture.runAsync(
           () -> {
             try {

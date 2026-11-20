@@ -40,7 +40,38 @@ public class DeleteOwnershipTypeResolverTest {
     assertTrue(resolver.get(mockEnv).get());
 
     Mockito.verify(mockService, Mockito.times(1))
-        .deleteOwnershipType(any(), Mockito.eq(TEST_URN), anyBoolean());
+        .deleteOwnershipType(any(), Mockito.eq(TEST_URN), eq(true));
+  }
+
+  @Test
+  public void testOmittedDeleteReferencesCleansReferences() throws Exception {
+    OwnershipTypeService mockService = initOwnershipTypeService();
+    DeleteOwnershipTypeResolver resolver = new DeleteOwnershipTypeResolver(mockService);
+    QueryContext mockContext = getMockAllowContext(TEST_UNAUTHORIZED_USER.toString());
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_URN.toString());
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertTrue(resolver.get(mockEnv).get());
+
+    Mockito.verify(mockService, Mockito.times(1))
+        .deleteOwnershipType(any(), Mockito.eq(TEST_URN), eq(true));
+  }
+
+  @Test
+  public void testDeleteReferencesFalseDeletesTheEntityOnly() throws Exception {
+    OwnershipTypeService mockService = initOwnershipTypeService();
+    DeleteOwnershipTypeResolver resolver = new DeleteOwnershipTypeResolver(mockService);
+    QueryContext mockContext = getMockAllowContext(TEST_UNAUTHORIZED_USER.toString());
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("deleteReferences"))).thenReturn(false);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertTrue(resolver.get(mockEnv).get());
+
+    Mockito.verify(mockService, Mockito.times(1))
+        .deleteOwnershipType(any(), Mockito.eq(TEST_URN), eq(false));
   }
 
   @Test

@@ -689,15 +689,34 @@ public class JavaEntityClient implements EntityClient {
 
   @Override
   @Nonnull
-  public ReferencesCleanup deleteEntityThenReferences(
+  public ReferencesCleanup deleteReferencesThenEntity(
       @Nonnull OperationContext opContext, @Nonnull Urn urn) throws RemoteInvocationException {
     if (hardDeleteService == null) {
-      return EntityClient.super.deleteEntityThenReferences(opContext, urn);
+      return EntityClient.super.deleteReferencesThenEntity(opContext, urn);
     }
-    final Runnable references =
-        hardDeleteService.deleteEntityThenReferences(
+    final HardDeleteService.ReferenceCleanup references =
+        hardDeleteService.deleteReferencesThenEntity(
             opContext, urn, this::referencesCleanupAsToday);
-    return references::run;
+    if (references == HardDeleteService.HANDED_OFF) {
+      return ReferencesCleanup.HANDED_OFF;
+    }
+    return new ReferencesCleanup() {
+      @Override
+      public void run() {
+        references.run();
+      }
+
+      @Override
+      @Nonnull
+      public Choice choice() {
+        return switch (references.choice()) {
+          case PENDING -> Choice.PENDING;
+          case REFERENCES_THEN_ENTITY -> Choice.REFERENCES_THEN_ENTITY;
+          case ENTITY_ONLY -> Choice.ENTITY_ONLY;
+          case HANDED_OFF -> Choice.HANDED_OFF;
+        };
+      }
+    };
   }
 
   /** The reference cleanup run as {@link #deleteEntityReferences} runs it without the service. */

@@ -1034,6 +1034,7 @@ type Mutation {
   deleteOwnershipType(
     "Urn of the Custom Ownership Type to remove."
     urn: String!
+    "Remove references to this ownership type before deleting it. Defaults to true when omitted."
     deleteReferences: Boolean
   ): Boolean
 
