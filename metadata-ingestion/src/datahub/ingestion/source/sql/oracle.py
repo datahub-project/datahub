@@ -2180,7 +2180,7 @@ class OracleSource(SQLAlchemySource):
                 continue
 
             if not self.recover_lost_connection(inspector, context=dataset_name):
-                self.report.objects_skipped_after_connection_loss += 1
+                self.report_skipped_after_connection_loss()
                 continue
             # _process_materialized_view reports its own errors, so one view that
             # fails (including over a dropped connection) doesn't stop the rest.

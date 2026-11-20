@@ -841,6 +841,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         )
         return True
 
+    def report_skipped_after_connection_loss(self) -> None:
+        """Count an object skipped because recover_lost_connection gave up."""
+        self.report.objects_skipped_after_connection_loss += 1
+
     def loop_tables(
         self,
         inspector: Inspector,
@@ -874,7 +878,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     if not self.recover_lost_connection(
                         inspector, context=dataset_name
                     ):
-                        self.report.objects_skipped_after_connection_loss += 1
+                        self.report_skipped_after_connection_loss()
                         continue
                     try:
                         yield from self._process_table(
@@ -1283,7 +1287,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     continue
 
                 if not self.recover_lost_connection(inspector, context=dataset_name):
-                    self.report.objects_skipped_after_connection_loss += 1
+                    self.report_skipped_after_connection_loss()
                     continue
                 try:
                     yield from self._process_view(

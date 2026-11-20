@@ -166,6 +166,7 @@ class VerticaSource(SQLAlchemySource):
         sql_config = self.config
 
         for inspector in self.get_inspectors():
+            self._sql_object_in_progress = None
             profiler = None
             profile_requests: List["ProfilerRequest"] = []
             if sql_config.is_profiling_enabled():
@@ -199,6 +200,10 @@ class VerticaSource(SQLAlchemySource):
                     profile_requests += list(
                         self.loop_profiler_requests(inspector, schema, sql_config)
                     )
+
+            # As in the base pass: a drop while reading this database's last
+            # projection or model is reported as a failure, not left a warning.
+            self.recover_lost_connection(inspector, context=db_name)
 
             if profiler and profile_requests:
                 yield from self.loop_profiler(
@@ -291,7 +296,7 @@ class VerticaSource(SQLAlchemySource):
                     continue
 
                 if not self.recover_lost_connection(inspector, context=dataset_name):
-                    self.report.objects_skipped_after_connection_loss += 1
+                    self.report_skipped_after_connection_loss()
                     continue
                 try:
                     yield from self._process_view(
@@ -302,6 +307,7 @@ class VerticaSource(SQLAlchemySource):
                         sql_config=sql_config,
                     )
                 except Exception as e:
+                    self.recover_lost_connection(inspector, context=dataset_name)
                     logger.warning(
                         f"Unable to ingest view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
                     )
@@ -434,7 +440,7 @@ class VerticaSource(SQLAlchemySource):
                     self.report.report_dropped(dataset_name)
                     continue
                 if not self.recover_lost_connection(inspector, context=dataset_name):
-                    self.report.objects_skipped_after_connection_loss += 1
+                    self.report_skipped_after_connection_loss()
                     continue
                 try:
                     yield from self._process_projections(
@@ -676,7 +682,7 @@ class VerticaSource(SQLAlchemySource):
                     self.report.report_dropped(dataset_name)
                     continue
                 if not self.recover_lost_connection(inspector, context=dataset_name):
-                    self.report.objects_skipped_after_connection_loss += 1
+                    self.report_skipped_after_connection_loss()
                     continue
                 try:
                     yield from self._process_models(
@@ -687,6 +693,7 @@ class VerticaSource(SQLAlchemySource):
                         sql_config,
                     )
                 except Exception as error:
+                    self.recover_lost_connection(inspector, context=dataset_name)
                     logger.warning(
                         f"Unable to ingest {schema}.{models} due to an exception. %s {traceback.format_exc()}"
                     )
