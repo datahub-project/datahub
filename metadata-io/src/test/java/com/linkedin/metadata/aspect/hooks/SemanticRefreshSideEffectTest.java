@@ -156,6 +156,32 @@ public class SemanticRefreshSideEffectTest {
   }
 
   @Test
+  public void testAnIncludedFieldChangeDoesNotMoveTheMarker() throws Exception {
+    ContentBinding titled =
+        new ContentBinding(
+            Map.of(DOCUMENT_INFO_ASPECT_NAME, Set.of("contents.text")),
+            Map.of(DOCUMENT_INFO_ASPECT_NAME, Set.of("title")));
+
+    List<MCPItem> titleEdit =
+        sideEffect(Map.of("documentText", titled))
+            .postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    source(
+                        DOCUMENT_INFO_ASPECT_NAME,
+                        fields("body", "heading"),
+                        fields("body", "edited"),
+                        80L)),
+                stored(content(10L)))
+            .toList();
+    assertTrue(titleEdit.isEmpty());
+
+    SemanticContent bodyEdit = movedBy(Map.of("documentText", titled), fields("edited", "heading"));
+    assertToken(bodyEdit.getRefreshMarker().getSources().get(DOCUMENT_TEXT_KEY), 80L, 1L);
+    assertNull(bodyEdit.getRefreshMarker().getSources().get(TITLE_KEY));
+  }
+
+  @Test
   public void testAnEntityWithoutProfilesEmitsNoPatch() {
     RetrieverContext context = stored(null);
 

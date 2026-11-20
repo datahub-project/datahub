@@ -11,6 +11,7 @@ import com.linkedin.common.SemanticSourceTokenMap;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SemanticBindingConfig;
 import com.linkedin.metadata.config.search.SemanticProfilesConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import java.util.List;
@@ -165,13 +166,17 @@ public class SemanticProfileRefreshTest {
         IllegalArgumentException.class, () -> SemanticProfileRefresh.checkPath("items[0,1].text"));
 
     SemanticProfilesConfiguration profiles = new SemanticProfilesConfiguration();
-    profiles.setBindings(Map.of("bad", Map.of("notes", List.of("$..text"))));
+    profiles.setBindings(
+        Map.of("bad", SemanticBindingConfig.watching(Map.of("notes", List.of("$..text")))));
     SemanticSearchConfiguration configuration = new SemanticSearchConfiguration();
     configuration.setProfiles(profiles);
     assertThrows(
         IllegalArgumentException.class, () -> new ConfiguredSemanticProfileRegistry(configuration));
 
-    profiles.setBindings(Map.of("custom", Map.of("notes", List.of("texts['my.key'].text"))));
+    profiles.setBindings(
+        Map.of(
+            "custom",
+            SemanticBindingConfig.watching(Map.of("notes", List.of("texts['my.key'].text")))));
     ModelEmbeddingConfig model = new ModelEmbeddingConfig();
     model.setBinding("custom");
     configuration.setModels(Map.of("profile", model));
@@ -202,6 +207,61 @@ public class SemanticProfileRefreshTest {
         new ConfiguredSemanticProfileRegistry(configuration);
     assertTrue(registry.bindingFor("document", "profile").isExternal());
     assertFalse(registry.bindingFor("document", "undeclared").isExternal());
+  }
+
+  @Test
+  public void testIncludedFieldsAreExposedButDoNotWatch() {
+    SemanticBindingConfig titled =
+        SemanticBindingConfig.watching(Map.of("documentInfo", List.of("contents.text")));
+    titled.setIncludes(Map.of("documentInfo", List.of("title"), "domains", List.of()));
+    ContentBinding binding = registryWith(Map.of("titled", titled)).bindingFor("document", "p");
+
+    assertEquals(binding.aspectFields(), Map.of("documentInfo", Set.of("contents.text")));
+    assertEquals(
+        binding.includedFields(), Map.of("documentInfo", Set.of("title"), "domains", Set.of()));
+    assertEquals(
+        binding.inputFields(),
+        Map.of("documentInfo", Set.of("contents.text", "title"), "domains", Set.of()));
+    assertEquals(SemanticProfileRefresh.watchKeys(binding), Set.of("documentInfo#contents.text"));
+    assertTrue(
+        SemanticProfileRefresh.changedWatchKeys(
+                binding, "documentInfo", titledBody("same", "a"), titledBody("same", "b"))
+            .isEmpty());
+  }
+
+  @Test
+  public void testInvalidBindingShapesFailStartup() {
+    // An older flat binding binds with no triggers and must not silently become external.
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> registryWith(Map.of("titled", new SemanticBindingConfig())));
+
+    SemanticBindingConfig externalWithIncludes = SemanticBindingConfig.externalBinding();
+    externalWithIncludes.setIncludes(Map.of("documentInfo", List.of("title")));
+    assertThrows(
+        IllegalArgumentException.class, () -> registryWith(Map.of("titled", externalWithIncludes)));
+
+    SemanticBindingConfig overlapping =
+        SemanticBindingConfig.watching(Map.of("documentInfo", List.of("contents.text")));
+    overlapping.setIncludes(Map.of("documentInfo", List.of("contents.text")));
+    assertThrows(IllegalArgumentException.class, () -> registryWith(Map.of("titled", overlapping)));
+
+    SemanticBindingConfig badInclude =
+        SemanticBindingConfig.watching(Map.of("documentInfo", List.of("contents.text")));
+    badInclude.setIncludes(Map.of("documentInfo", List.of("items[?(@.text)]")));
+    assertThrows(IllegalArgumentException.class, () -> registryWith(Map.of("titled", badInclude)));
+  }
+
+  private static ConfiguredSemanticProfileRegistry registryWith(
+      Map<String, SemanticBindingConfig> bindings) {
+    SemanticProfilesConfiguration profiles = new SemanticProfilesConfiguration();
+    profiles.setBindings(bindings);
+    ModelEmbeddingConfig model = new ModelEmbeddingConfig();
+    model.setBinding(bindings.keySet().iterator().next());
+    SemanticSearchConfiguration configuration = new SemanticSearchConfiguration();
+    configuration.setProfiles(profiles);
+    configuration.setModels(Map.of("p", model));
+    return new ConfiguredSemanticProfileRegistry(configuration);
   }
 
   private static SemanticSourceToken token(long createdTime, long version) {

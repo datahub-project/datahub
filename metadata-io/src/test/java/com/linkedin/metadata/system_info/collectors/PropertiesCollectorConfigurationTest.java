@@ -1384,9 +1384,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.semanticSearch.models.hash_v1_2048.serviceOwned",
           "elasticsearch.entityIndex.semanticSearch.profiles.generationEnabled",
           "elasticsearch.entityIndex.semanticSearch.profiles.defaultBinding",
-          "elasticsearch.entityIndex.semanticSearch.profiles.bindings.documentText.documentInfo[0]",
-          "elasticsearch.entityIndex.semanticSearch.profiles.bindings.documentText.semanticText[0]",
-          "elasticsearch.entityIndex.semanticSearch.profiles.bindings.external",
+          "elasticsearch.entityIndex.semanticSearch.profiles.bindings.documentText.triggers.documentInfo[0]",
+          "elasticsearch.entityIndex.semanticSearch.profiles.bindings.documentText.triggers.semanticText[0]",
+          "elasticsearch.entityIndex.semanticSearch.profiles.bindings.documentText.includes",
+          "elasticsearch.entityIndex.semanticSearch.profiles.bindings.external.external",
           // MAE consumer (shared YAML; active when MAE_CONSUMER_ENABLED=true)
           "maeConsumer.enabled",
           "maeConsumer.elasticsearch.socketTimeoutMs",

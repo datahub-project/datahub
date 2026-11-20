@@ -8,8 +8,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Which aspects and fields make each embedding profile stale. A profile key selects a named
- * binding. Bindings are reused across profile keys.
+ * Which aspects and fields make each embedding profile stale, and which further fields it reads. A
+ * profile key selects a named binding. Bindings are reused across profile keys.
  */
 @Data
 @NoArgsConstructor
@@ -22,19 +22,20 @@ public class SemanticProfilesConfiguration {
   /** Binding used for a profile key that is not declared under {@code models}. */
   private String defaultBinding = "documentText";
 
-  /**
-   * Named bindings. The map value is aspect name to dotted field paths. An empty path list means
-   * any change to that aspect. An empty aspect map is the external binding: nothing dirties it.
-   */
-  private Map<String, Map<String, List<String>>> bindings = defaultBindings();
+  /** Named bindings. */
+  private Map<String, SemanticBindingConfig> bindings = defaultBindings();
 
-  public static Map<String, Map<String, List<String>>> defaultBindings() {
-    Map<String, Map<String, List<String>>> bindings = new LinkedHashMap<>();
+  public static Map<String, SemanticBindingConfig> defaultBindings() {
+    Map<String, SemanticBindingConfig> bindings = new LinkedHashMap<>();
+    bindings.put("documentText", SemanticBindingConfig.watching(defaultDocumentTextTriggers()));
+    bindings.put("external", SemanticBindingConfig.externalBinding());
+    return bindings;
+  }
+
+  public static Map<String, List<String>> defaultDocumentTextTriggers() {
     Map<String, List<String>> documentText = new LinkedHashMap<>();
     documentText.put("documentInfo", List.of("contents.text"));
     documentText.put("semanticText", List.of("text"));
-    bindings.put("documentText", documentText);
-    bindings.put("external", Map.of());
-    return bindings;
+    return documentText;
   }
 }

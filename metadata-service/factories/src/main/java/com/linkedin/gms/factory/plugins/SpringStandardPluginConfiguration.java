@@ -64,6 +64,7 @@ import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchTemplateConfiguration;
 import com.linkedin.metadata.config.search.SearchTemplateSource;
+import com.linkedin.metadata.config.search.SemanticBindingConfig;
 import com.linkedin.metadata.config.search.SemanticProfilesConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffect;
@@ -1465,22 +1466,26 @@ public class SpringStandardPluginConfiguration {
   }
 
   /**
-   * Every aspect any binding watches, matching {@link ConfiguredSemanticProfileRegistry}, which
-   * always keeps a {@code documentText} binding. {@code semanticContent} is excluded so the side
-   * effect never reacts to its own patch.
+   * Every aspect any binding triggers on, matching {@link ConfiguredSemanticProfileRegistry}, which
+   * always keeps a {@code documentText} binding. Included-only aspects never move the marker, so
+   * they are not watched. {@code semanticContent} is excluded so the side effect never reacts to
+   * its own patch.
    */
   @Nonnull
   static Set<String> semanticSourceAspects(@Nullable SemanticSearchConfiguration semanticSearch) {
-    Map<String, Map<String, List<String>>> bindings =
+    Map<String, SemanticBindingConfig> bindings =
         semanticSearch != null
                 && semanticSearch.getProfiles() != null
                 && semanticSearch.getProfiles().getBindings() != null
             ? semanticSearch.getProfiles().getBindings()
             : SemanticProfilesConfiguration.defaultBindings();
     LinkedHashSet<String> aspects = new LinkedHashSet<>();
-    bindings.values().stream().filter(Objects::nonNull).forEach(b -> aspects.addAll(b.keySet()));
+    bindings.values().stream()
+        .filter(Objects::nonNull)
+        .filter(b -> b.getTriggers() != null)
+        .forEach(b -> aspects.addAll(b.getTriggers().keySet()));
     if (!bindings.containsKey("documentText")) {
-      aspects.addAll(SemanticProfilesConfiguration.defaultBindings().get("documentText").keySet());
+      aspects.addAll(SemanticProfilesConfiguration.defaultDocumentTextTriggers().keySet());
     }
     aspects.remove(SEMANTIC_CONTENT_ASPECT_NAME);
     return aspects;

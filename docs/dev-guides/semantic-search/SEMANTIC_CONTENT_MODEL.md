@@ -110,7 +110,23 @@ The key of the `embeddings` map is the profile key. It matches a model entry key
 
 ## Bindings and current vectors
 
-A binding lists the aspect fields that make a profile stale. Bindings are declared under `semanticSearch.profiles.bindings`. A model entry selects one with `binding`, and a key with no model entry uses `semanticSearch.profiles.defaultBinding`. A `defaultBinding` or model `binding` that names no declared binding fails startup. A path selects part of a source aspect:
+A binding lists the aspect fields that make a profile stale (`triggers`) and the further fields its embedding reads without making it stale (`includes`). Bindings are declared under `semanticSearch.profiles.bindings`. A model entry selects one with `binding`, and a key with no model entry uses `semanticSearch.profiles.defaultBinding`. A `defaultBinding` or model `binding` that names no declared binding fails startup.
+
+```yaml
+bindings:
+  documentText:
+    triggers:
+      documentInfo: [contents.text]
+      semanticText: [text]
+    includes:
+      documentInfo: [title]
+  external:
+    external: true
+```
+
+Only `triggers` move the refresh marker and clear `current`. A change to an included field does neither, so vectors that read it can lag that field until a trigger changes. Embedders read the whole input set (triggers and includes) from `SemanticProfileRegistry`; the server does not build embedding text from it, and the `datahub_documents` source does not read it. Startup fails when a non-external binding has no triggers, when an external binding declares triggers or includes, or when a path (or a whole aspect) is in both lists. A binding written in the older flat shape, with aspects directly under the binding name, has no triggers and fails startup. Move its paths under `triggers`.
+
+A path selects part of a source aspect:
 
 - `contents.text` selects a record or map field.
 - `items[0].text` selects one array element. An index past the end selects nothing.
@@ -119,14 +135,14 @@ A binding lists the aspect fields that make a profile stale. Bindings are declar
 - `texts['my.key'].text` selects a map key that contains a dot.
 - A leading `$` is ignored. `..`, filters, slices, unions, and scripts are rejected when the server loads the binding.
 
-An empty path list means any change to the aspect. A binding may list several paths of one aspect. A change to any of them marks that profile not current and moves the token of that path. A change outside the listed paths does neither. A leading `$.` is dropped when the watch key is built, so `$.contents.text` and `contents.text` are the same watch key, `documentInfo#contents.text`.
+An empty trigger path list means any change to the aspect; an empty include path list means the whole aspect is read. A binding may list several paths of one aspect. A change to any of them marks that profile not current and moves the token of that path. A change outside the listed paths does neither. A leading `$.` is dropped when the watch key is built, so `$.contents.text` and `contents.text` are the same watch key, `documentInfo#contents.text`.
 
 The source aspect's version and the token in `refreshMarker.sources` are different clocks. The version increases on every write to the aspect. The token moves only when a watched path changes, and only forward: the later of the stored token and the token of the write that changed the path. Each watched path has its own token, keyed by its watch key. An embedding records the tokens it read, one per watch key of its binding. `current` compares that snapshot with the tokens in `semanticContent`. A read can include newer content than the token it records, including a watched path whose marker update is not visible yet. The next advance of that path's token makes that snapshot older and the profile not current. This holds only when a generator reads the tokens it will represent before it reads the source text, so a generator must read them first.
 
 Profiles that watch different paths of one aspect keep separate tokens. A write that changes `title` moves only `documentInfo#title`, so a profile that watches only `contents.text` stays current. A profile that stores its own `refreshMarker` keeps only the tokens of its own watch keys.
 
-- The shipped `documentText` binding watches `documentInfo.contents.text` and `semanticText.text`.
-- The shipped `external` binding watches nothing. A model entry selects it with `binding: external`. It is declared as `external: {}` under `semanticSearch.profiles.bindings`.
+- The shipped `documentText` binding triggers on `documentInfo.contents.text` and `semanticText.text` and includes nothing else.
+- The shipped `external` binding watches nothing. A model entry selects it with `binding: external`. It is declared as `external: true` under `semanticSearch.profiles.bindings.external`.
 
 An external profile is owned by the connector that writes it. Connector-written profiles are expected to use the `external` binding. A connector that writes a profile under a watched binding gets the marker behavior described below, so a watched edit marks its vectors not current. A connector that embeds in the same run as the source, before the server has assigned the source tokens, sends no `refreshMarker`; its watched profile therefore reads as not current on the next bound edit, and a re-embed is needed to make it current again. Connectors that should own `current` use the `external` binding.
 
