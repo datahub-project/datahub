@@ -29,8 +29,9 @@ python3 metadata-service/gms-lite/bin/_opensearch_manager.py start
 Select the engine with `--opensearch 2|3` on either Python entry point,
 `EMBEDDED_OPENSEARCH_VERSION=2|3`, or `-PopensearchVersion=2|3` when building
 with Gradle (the Gradle property takes precedence over the environment).
-The single default is `embeddedOpenSearchDefault=2` in the root
-`gradle.properties`, matching Docker's OpenSearch 2.19 default. The embedded
+The single default is `embeddedOpenSearchDefault=3` in the root
+`gradle.properties`, matching the Docker compose and `head` quickstart default
+(OpenSearch 3.7). The no-version quickstart still pins v1.9.0, which runs 2.19. The embedded
 runner is 2.19.1.0 for major 2 and 3.7.0.0 for major 3. Both include their matching
 custom-codecs plugin; `-Pknn` or `OPENSEARCH_KNN_ENABLED=true` adds the matching k-NN
 plugin at build time. Plugin extraction uses `Sync` in per-major directories.

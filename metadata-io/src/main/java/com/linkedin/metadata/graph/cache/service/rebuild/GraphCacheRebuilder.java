@@ -2,6 +2,7 @@ package com.linkedin.metadata.graph.cache.service.rebuild;
 
 import static com.linkedin.metadata.graph.cache.service.freshness.SnapshotFreshnessEvaluator.staleBuildingMillis;
 import static com.linkedin.metadata.graph.cache.service.freshness.SnapshotFreshnessEvaluator.usesBackgroundRebuild;
+import static com.linkedin.metadata.graph.cache.service.freshness.SnapshotFreshnessEvaluator.usesStaleWhileRevalidate;
 import static com.linkedin.metadata.graph.cache.service.internal.GraphComponentContext.viewFromEdges;
 
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.PopulationStrategy;
@@ -21,8 +22,10 @@ import com.linkedin.metadata.graph.cache.snapshot.EntityGraphView;
 import com.linkedin.metadata.graph.cache.store.EntityGraphCacheKeys;
 import com.linkedin.metadata.graph.cache.store.EntityGraphDistributedStore;
 import com.linkedin.metadata.graph.cache.store.EntityGraphLocalViewCache;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -102,13 +105,47 @@ public class GraphCacheRebuilder {
       return;
     }
     if (usesBackgroundRebuild(definition)) {
-      enqueueBackgroundRebuild(definition, source, cacheKey, seeds, direction);
+      enqueueBackgroundRebuild(definition, source, cacheKey, seeds, direction, "background");
+      return;
+    }
+    if (usesStaleWhileRevalidate(definition) && distributedStore.hasServableSnapshot(cacheKey)) {
+      enqueueBackgroundRebuild(
+          definition, source, cacheKey, seeds, direction, "stale_while_revalidate");
       return;
     }
     executeRebuild(definition, source, seeds, cacheKey, direction);
   }
 
   public void executeRebuild(
+      @Nonnull EntityGraphDefinition definition,
+      @Nonnull GraphSnapshotSource source,
+      @Nullable Collection<String> seeds,
+      @Nullable String publishKeyHint,
+      @Nonnull TraversalDirection direction) {
+    runRebuild(definition, source, seeds, publishKeyHint, direction, "sync");
+  }
+
+  private void runRebuild(
+      @Nonnull EntityGraphDefinition definition,
+      @Nonnull GraphSnapshotSource source,
+      @Nullable Collection<String> seeds,
+      @Nullable String publishKeyHint,
+      @Nonnull TraversalDirection direction,
+      @Nonnull String execution) {
+    recordRebuild(definition, execution, "started");
+    long startedAtNanos = System.nanoTime();
+    try {
+      boolean published = rebuildAndPublish(definition, source, seeds, publishKeyHint, direction);
+      recordRebuild(definition, execution, published ? "completed" : "failed");
+      recordRebuildDuration(definition, execution, startedAtNanos);
+    } catch (RuntimeException e) {
+      recordRebuild(definition, execution, "failed");
+      recordRebuildDuration(definition, execution, startedAtNanos);
+      throw e;
+    }
+  }
+
+  private boolean rebuildAndPublish(
       @Nonnull EntityGraphDefinition definition,
       @Nonnull GraphSnapshotSource source,
       @Nullable Collection<String> seeds,
@@ -125,7 +162,7 @@ public class GraphCacheRebuilder {
       if (definition.getScope().getMode() == ScopeMode.PARTIAL) {
         if (seeds == null || seeds.isEmpty()) {
           markFailedBuild(definition, source, publishKeyHint, seeds, "partial_requires_seeds");
-          return;
+          return false;
         }
         result =
             partialRebuildStrategy.executeRebuild(
@@ -138,11 +175,12 @@ public class GraphCacheRebuilder {
 
       if (result.getStatus() != CacheStatus.ACTIVE) {
         markFailedBuild(definition, source, publishKeyHint, seeds, result.getFailureReason());
-        return;
+        return false;
       }
 
       publishActiveSnapshot(
           definition, result.getSnapshot(), seeds, rebuildClaimKey, invalidationGenAtStart);
+      return true;
     } catch (RuntimeException e) {
       if (rebuildClaimKey != null) {
         handleRebuildException(definition, source, publishKeyHint, seeds, e);
@@ -191,7 +229,7 @@ public class GraphCacheRebuilder {
       if (!distributedStore.tryClaimRebuild(key, staleBuildingMillis(definition))) {
         continue;
       }
-      executeRebuild(definition, source, null, key, TraversalDirection.FORWARD);
+      runRebuild(definition, source, null, key, TraversalDirection.FORWARD, "scheduled");
     }
   }
 
@@ -200,22 +238,13 @@ public class GraphCacheRebuilder {
       @Nonnull GraphSnapshotSource source,
       @Nonnull String cacheKey,
       @Nullable Collection<String> seeds,
-      @Nonnull TraversalDirection direction) {
-    systemOperationContext
-        .getMetricUtils()
-        .ifPresent(
-            metrics ->
-                metrics.incrementMicrometer(
-                    "entity.graph.cache.rebuild.enqueued",
-                    1,
-                    "graphId",
-                    definition.getGraphId(),
-                    "execution",
-                    "background"));
+      @Nonnull TraversalDirection direction,
+      @Nonnull String execution) {
+    recordRebuild(definition, execution, "enqueued");
     rebuildExecutor.execute(
         () -> {
           try {
-            executeRebuild(definition, source, seeds, cacheKey, direction);
+            runRebuild(definition, source, seeds, cacheKey, direction, execution);
           } catch (RuntimeException e) {
             log.warn(
                 "Background entity graph rebuild failed for graphId={} cacheKey={}",
@@ -232,14 +261,22 @@ public class GraphCacheRebuilder {
       @Nullable String publishKeyHint,
       @Nullable Collection<String> seeds,
       @Nonnull RuntimeException exception) {
-    if (GraphBuildFailure.classify(failureReasonForException(exception))
-        == GraphBuildFailure.Kind.TRANSIENT) {
+    String failureReason = failureReasonForException(exception);
+    if (GraphBuildFailure.classify(failureReason) == GraphBuildFailure.Kind.TRANSIENT) {
       markFailedBuild(definition, source, publishKeyHint, seeds, "build_exception");
       return;
     }
     String claimKey =
         PartialGraphRebuildStrategy.rebuildClaimKey(
             definition.getGraphId(), source, publishKeyHint, seeds);
+    // A config exception on a refresh that keeps the previous snapshot must suppress another
+    // rebuild. Releasing the lease alone lets the next read enqueue immediately.
+    if (claimKey != null
+        && SnapshotFreshnessEvaluator.servesPreviousSnapshot(definition)
+        && distributedStore.hasServableSnapshot(claimKey)) {
+      markFailedBuild(definition, source, publishKeyHint, seeds, failureReason);
+      return;
+    }
     if (claimKey != null) {
       distributedStore.releaseRebuildClaim(claimKey);
     }
@@ -259,31 +296,52 @@ public class GraphCacheRebuilder {
       return;
     }
     CacheStatus status = GraphBuildFailure.statusForFailedBuild(failureReason);
+    // A refresh that serves the previous snapshot must not replace it with an empty tombstone.
+    // Suppression stops the retry loop; reads still see the embedded ACTIVE snapshot.
+    if (SnapshotFreshnessEvaluator.servesPreviousSnapshot(definition)
+        && distributedStore.hasServableSnapshot(markerKey)) {
+      logFailedBuild(definition, source, markerKey, failureReason, status);
+      distributedStore.suppressRebuildKeepingSnapshot(markerKey, status);
+      return;
+    }
     switch (status) {
       case COOLDOWN -> distributedStore.markCooldown(markerKey);
       case OVER_LIMIT -> {
         distributedStore.markOverLimit(markerKey);
-        GraphBounds bounds = definition.getBounds();
-        log.warn(
-            "Entity graph cache over limit: graphId={} source={} cacheKey={} reason={} maxVertices={} maxEdges={}",
-            definition.getGraphId(),
-            source,
-            markerKey,
-            failureReason,
-            bounds == null ? "unset" : bounds.getMaxVertices(),
-            bounds == null || bounds.getMaxEdges().isEmpty()
-                ? "unset"
-                : bounds.getMaxEdges().getAsInt());
+        logFailedBuild(definition, source, markerKey, failureReason, status);
       }
       case INVALID -> {
         distributedStore.markInvalid(markerKey);
-        log.warn(
-            "Entity graph cache invalid configuration: graphId={} source={} cacheKey={} reason={}",
-            definition.getGraphId(),
-            source,
-            markerKey,
-            failureReason);
+        logFailedBuild(definition, source, markerKey, failureReason, status);
       }
+    }
+  }
+
+  private static void logFailedBuild(
+      @Nonnull EntityGraphDefinition definition,
+      @Nonnull GraphSnapshotSource source,
+      @Nonnull String cacheKey,
+      @Nullable String failureReason,
+      @Nonnull CacheStatus status) {
+    if (status == CacheStatus.OVER_LIMIT) {
+      GraphBounds bounds = definition.getBounds();
+      log.warn(
+          "Entity graph cache over limit: graphId={} source={} cacheKey={} reason={} maxVertices={} maxEdges={}",
+          definition.getGraphId(),
+          source,
+          cacheKey,
+          failureReason,
+          bounds == null ? "unset" : bounds.getMaxVertices(),
+          bounds == null || bounds.getMaxEdges().isEmpty()
+              ? "unset"
+              : bounds.getMaxEdges().getAsInt());
+    } else if (status == CacheStatus.INVALID) {
+      log.warn(
+          "Entity graph cache invalid configuration: graphId={} source={} cacheKey={} reason={}",
+          definition.getGraphId(),
+          source,
+          cacheKey,
+          failureReason);
     }
   }
 
@@ -299,17 +357,20 @@ public class GraphCacheRebuilder {
     if (distributedStore.getInvalidationGeneration(definition.getGraphId())
         != invalidationGenAtStart) {
       distributedStore.releaseRebuildClaim(claimKey);
+      distributedStore.clearRebuildSuppression(publishKey);
       recordPublishSuppressedStale(definition.getGraphId());
       return;
     }
 
     if (distributedStore.shouldSkipPublish(publishKey, snapshot)) {
       distributedStore.releaseRebuildClaim(claimKey);
+      distributedStore.clearRebuildSuppression(publishKey);
       hydrateLocalView(definition, publishKey, snapshot);
       return;
     }
 
     distributedStore.publish(snapshot, CacheStatus.ACTIVE);
+    distributedStore.clearRebuildSuppression(publishKey);
     distributedStore.releaseRebuildClaim(claimKey);
     if (definition.getScope().getMode() == ScopeMode.PARTIAL && seeds != null && !seeds.isEmpty()) {
       distributedStore.dropFailureMarkerKeysForRoots(
@@ -369,6 +430,45 @@ public class GraphCacheRebuilder {
         snapshot.getGeneration(),
         definition.getLocalEviction());
     return view;
+  }
+
+  private void recordRebuild(
+      @Nonnull EntityGraphDefinition definition, @Nonnull String execution, @Nonnull String event) {
+    if (systemOperationContext == null) {
+      return;
+    }
+    Optional<MetricUtils> metrics = systemOperationContext.getMetricUtils();
+    if (metrics == null) {
+      return;
+    }
+    String metricName =
+        "enqueued".equals(event)
+            ? "entity.graph.cache.rebuild.enqueued"
+            : "entity.graph.cache.rebuild." + event;
+    metrics.ifPresent(
+        utils ->
+            utils.incrementMicrometer(
+                metricName, 1, "graphId", definition.getGraphId(), "execution", execution));
+  }
+
+  private void recordRebuildDuration(
+      @Nonnull EntityGraphDefinition definition, @Nonnull String execution, long startedAtNanos) {
+    if (systemOperationContext == null) {
+      return;
+    }
+    Optional<MetricUtils> metrics = systemOperationContext.getMetricUtils();
+    if (metrics == null) {
+      return;
+    }
+    metrics.ifPresent(
+        utils ->
+            utils.recordTimer(
+                "entity.graph.cache.rebuild.duration",
+                System.nanoTime() - startedAtNanos,
+                "graphId",
+                definition.getGraphId(),
+                "execution",
+                execution));
   }
 
   private void recordPublishSuppressedStale(@Nonnull String graphId) {

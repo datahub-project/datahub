@@ -206,6 +206,11 @@ def _mocked_cloud_apis(test_resources_dir: Path) -> Iterator[None]:
     with (
         patch.object(CubeAPIClient, "_request", mock_request),
         patch.object(CubeAPIClient, "_platform_request", mock_platform_request),
+        # The Metadata API token is minted before the first /v1/entities/all
+        # request, outside the mocked _request.
+        patch.object(
+            CubeAPIClient, "_mint_meta_sync_token", return_value="test-meta-token"
+        ),
     ):
         yield
 

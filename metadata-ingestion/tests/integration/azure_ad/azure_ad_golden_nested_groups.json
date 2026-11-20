@@ -153,10 +153,13 @@
     "aspectName": "corpUserInfo",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "companyName": "Example Corp"
+            },
             "active": true,
             "displayName": "John Green",
             "email": "johngreen@acryl.io",
+            "departmentName": "Data Engineering",
             "firstName": "John",
             "lastName": "Green",
             "fullName": "John Green",
@@ -343,10 +346,13 @@
     "aspectName": "corpUserInfo",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "companyName": "Example Corp"
+            },
             "active": true,
             "displayName": "John Green",
             "email": "johngreen@acryl.io",
+            "departmentName": "Data Engineering",
             "firstName": "John",
             "lastName": "Green",
             "fullName": "John Green",

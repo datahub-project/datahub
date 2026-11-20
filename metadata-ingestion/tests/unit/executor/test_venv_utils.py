@@ -1,3 +1,5 @@
+import pytest
+
 from datahub.executor.execution import venv_utils
 
 
@@ -17,6 +19,17 @@ class TestVenvUtils:
 
         assert not venv_utils.should_use_bundled_venv("latest")
         assert not venv_utils.should_use_bundled_venv("v0.12.1")
+
+    def test_should_use_bundled_venv_when_resolution_disabled(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "false")
+
+        assert venv_utils.should_use_bundled_venv("bundled")
+        assert venv_utils.should_use_bundled_venv("latest")
+        assert venv_utils.should_use_bundled_venv("v0.12.1")
+        assert not venv_utils.should_use_bundled_venv("native")
+        assert venv_utils.get_venv_name("snowflake", "v0.12.1") == "snowflake-bundled"
 
     def test_get_venv_name_bundled_version(self):
         """Test venv name generation for bundled versions."""

@@ -605,7 +605,8 @@ public class Constants {
           "identity",
           "search",
           "searchLight",
-          "autocomplete");
+          "autocomplete",
+          "semantic");
 
   // Module
   public static final String DATAHUB_PAGE_MODULE_ENTITY_NAME = "dataHubPageModule";

@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.search;
 
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
@@ -25,8 +26,10 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -46,7 +49,8 @@ public class MappingsBuilderFactory {
   }
 
   @Bean("legacyMappingsBuilder")
-  @ConditionalOnProperty(name = "elasticsearch.entityIndex.v2.enabled", havingValue = "true")
+  @ConditionalOnExpression(
+      "${elasticsearch.entityIndex.v2.enabled:false} or ${elasticsearch.entityIndex.v3.enabled:false}")
   @Nonnull
   protected MappingsBuilder createLegacyMappingsBuilder(
       ConfigurationProvider configProvider, SearchClusterRegistry searchClusterRegistry) {
@@ -96,25 +100,21 @@ public class MappingsBuilderFactory {
     }
   }
 
+  // Created when semantic search is on and V2 or V3 is on, so a hold can write the V2 semantic
+  // index. Assembled below only while the live V2 flag is on.
   @Bean("semanticSearchMappingsBuilder")
-  @ConditionalOnProperty(
-      name = "elasticsearch.entityIndex.semanticSearch.enabled",
-      havingValue = "true")
+  @ConditionalOnExpression(
+      "${elasticsearch.entityIndex.semanticSearch.enabled:false} and"
+          + " (${elasticsearch.entityIndex.v2.enabled:false} or"
+          + " ${elasticsearch.entityIndex.v3.enabled:false})")
   @Nonnull
   protected MappingsBuilder createSemanticSearchMappingsBuilder(
       ConfigurationProvider configProvider,
-      @Qualifier("legacyMappingsBuilder") @Nullable MappingsBuilder v2MappingsBuilder,
       @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       SearchClusterRegistry searchClusterRegistry) {
     EntityIndexConfiguration semanticEntityIndex =
         searchClusterRegistry.configFor(SearchComponent.SEMANTIC).getEntityIndex();
     SemanticSearchConfiguration semanticConfig = semanticEntityIndex.getSemanticSearch();
-
-    if (v2MappingsBuilder == null) {
-      throw new IllegalStateException(
-          "Semantic search requires v2 entity index to be enabled. "
-              + "Please set elasticsearch.entityIndex.v2.enabled=true");
-    }
 
     SearchClientShim<?> semanticClient = searchClusterRegistry.clientFor(SearchComponent.SEMANTIC);
     MappingsBuilder semanticMappingsBase =
@@ -132,13 +132,26 @@ public class MappingsBuilderFactory {
 
   @Bean("mappingsBuilder")
   protected MappingsBuilder getInstance(
+      final ConfigurationProvider configurationProvider,
+      final ObjectProvider<ElasticSearchConfiguration> elasticSearchConfiguration,
       @Qualifier("legacyMappingsBuilder") @Nullable MappingsBuilder legacyMappingsBuilder,
       @Qualifier("multiEntityMappingsBuilder") @Nullable MappingsBuilder multiEntityMappingsBuilder,
       @Qualifier("semanticSearchMappingsBuilder") @Nullable
           MappingsBuilder semanticSearchMappingsBuilder) {
     List<MappingsBuilder> builders = new ArrayList<>();
+    // The search factory publishes the post-hold config as a bean. Tests that import this factory
+    // without that factory still have ConfigurationProvider, whose nested config is what they run.
+    ElasticSearchConfiguration liveConfig =
+        elasticSearchConfiguration.getIfAvailable(configurationProvider::getElasticSearch);
+    // Legacy exists when V2 or V3 is on; semantic also needs semantic search, so a hold can write
+    // V2. Index builds include them only while the live V2 flag is on, so a fresh V3 install does
+    // not create V2 indices.
+    boolean v2Enabled =
+        liveConfig.getEntityIndex() != null
+            && liveConfig.getEntityIndex().getV2() != null
+            && liveConfig.getEntityIndex().getV2().isEnabled();
 
-    if (legacyMappingsBuilder != null) {
+    if (v2Enabled && legacyMappingsBuilder != null) {
       builders.add(legacyMappingsBuilder);
     }
 
@@ -146,7 +159,7 @@ public class MappingsBuilderFactory {
       builders.add(multiEntityMappingsBuilder);
     }
 
-    if (semanticSearchMappingsBuilder != null) {
+    if (v2Enabled && semanticSearchMappingsBuilder != null) {
       builders.add(semanticSearchMappingsBuilder);
     }
 

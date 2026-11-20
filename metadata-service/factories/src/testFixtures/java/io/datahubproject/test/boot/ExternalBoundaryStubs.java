@@ -4,6 +4,8 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.SearchClientShims;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -147,9 +149,25 @@ public class ExternalBoundaryStubs
     for (String cluster : configuredClusters(esConfig)) {
       SearchClientShim shim = Mockito.mock(SearchClientShim.class);
       Mockito.when(shim.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+      // V3 reads list V2 indices at startup. Nothing listed is a fresh install.
+      stubEmptyIndexListing(shim);
       shims.put(cluster, shim);
     }
     return new SearchClientShims(shims);
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void stubEmptyIndexListing(SearchClientShim<?> shim) {
+    try {
+      Mockito.when(shim.getIndex(Mockito.any(), Mockito.any(), Mockito.any()))
+          .thenReturn(emptyIndexListing());
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private static GetIndexResponse emptyIndexListing() {
+    return new GetIndexResponse(new String[0], Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
   }
 
   /** Names of the clusters the production search configuration defines with a uri. */
