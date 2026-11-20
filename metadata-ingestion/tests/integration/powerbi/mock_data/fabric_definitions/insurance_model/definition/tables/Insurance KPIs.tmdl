@@ -16,10 +16,19 @@ table 'Insurance KPIs'
 			VAR Losses = [Total Paid Losses]
 			RETURN DIVIDE(Losses, [Total Premium], 0)
 		formatString: 0.0%
+		displayFolder: Ratios
 		lineageTag: 00000015-1111-4222-8333-000000000015
+
+		kpi
+			statusGraphic: Traffic Light - Single
+			targetExpression: 0.65
+			statusExpression =
+					VAR Ratio = [Loss Ratio]
+					RETURN IF(Ratio < 0.6, 1, IF(Ratio < 0.8, 0, -1))
 
 	measure 'Open Claims' = CALCULATE(COUNTROWS('Claims'), 'Claims'[Status] = "Open")
 		formatString: #,##0
+		isHidden
 		lineageTag: 00000003-1111-4222-8333-000000000003
 
 	column Value
