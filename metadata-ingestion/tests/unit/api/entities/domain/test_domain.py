@@ -9,6 +9,7 @@ from datahub.api.entities.dataproduct.dataproduct import Ownership
 from datahub.api.entities.domain.domain import Domain, find_domain_urns
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     ChangeTypeClass,
     DomainPropertiesClass,
     OwnerClass,
@@ -106,6 +107,44 @@ def test_snapshot_name_falls_back_to_id() -> None:
     # still needs one.
     emitted = _aspects(list(Domain(id="marketing").generate_mcp(upsert=False)))
     assert emitted["domainProperties"].name == "marketing"
+
+
+def test_full_replace_to_a_graph_keeps_created_and_custom_properties() -> None:
+    created = AuditStampClass(time=1, actor="urn:li:corpuser:admin")
+    graph = MockDataHubGraph(
+        entity_graph={
+            "urn:li:domain:marketing": {
+                "domainProperties": DomainPropertiesClass(
+                    name="Marketing",
+                    description="Old",
+                    created=created,
+                    customProperties={"team": "growth"},
+                )
+            }
+        }
+    )
+    # A round trip through from_datahub must not wipe what the model can't hold.
+    domain = Domain.from_datahub(graph, "urn:li:domain:marketing")
+    domain.description = "New"
+
+    domain.emit(graph, upsert=False)
+
+    properties = _aspects(graph.emitted)["domainProperties"]
+    assert properties.name == "Marketing"
+    assert properties.description == "New"
+    assert properties.created == created
+    assert properties.customProperties == {"team": "growth"}
+
+
+def test_upsert_of_a_missing_domain_writes_the_full_aspect() -> None:
+    # A patch alone would create domainProperties without the required name.
+    graph = MockDataHubGraph(entity_graph={})
+
+    Domain(id="marketing", description="Brand").emit(graph, upsert=True)
+
+    assert all(isinstance(mcp, MetadataChangeProposalWrapper) for mcp in graph.emitted)
+    properties = _aspects(graph.emitted)["domainProperties"]
+    assert (properties.name, properties.description) == ("marketing", "Brand")
 
 
 def test_upsert_patches_name_description_and_parent() -> None:

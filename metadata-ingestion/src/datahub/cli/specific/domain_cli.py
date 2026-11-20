@@ -17,7 +17,6 @@ from datahub.cli.specific.dataproduct_cli import (
     _get_owner_urn,
 )
 from datahub.emitter.mce_builder import make_domain_urn, validate_ownership_type
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import (
@@ -42,33 +41,11 @@ def _mutate(file: Path, upsert: bool) -> None:
             loaded = Domain.from_yaml(Path(file), graph)
         except ValueError as e:
             raise click.ClickException(str(e)) from e
-        if upsert and not graph.exists(loaded.urn):
-            logger.info(f"Domain {loaded.urn} does not exist, will create.")
-            upsert = False
         try:
-            # update keeps the existing name when the YAML sets no display_name.
-            loaded.validate_sibling_name(graph, upsert=upsert, keep_existing_name=True)
+            loaded.emit(graph, upsert=upsert)
+            click.secho(f"Update succeeded for urn {loaded.urn}.", fg="green")
         except ValueError as e:
             raise click.ClickException(str(e)) from e
-        existing = (
-            None if upsert else graph.get_aspect(loaded.urn, DomainPropertiesClass)
-        )
-        try:
-            for mcp in loaded.generate_mcp(upsert=upsert):
-                if (
-                    existing
-                    and isinstance(mcp, MetadataChangeProposalWrapper)
-                    and isinstance(mcp.aspect, DomainPropertiesClass)
-                ):
-                    # The YAML can't express these, so a full replace keeps them.
-                    mcp.aspect.created = existing.created
-                    mcp.aspect.customProperties = existing.customProperties
-                    # Without a display_name the snapshot would fall back to
-                    # the id, renaming the domain.
-                    if loaded.display_name is None:
-                        mcp.aspect.name = existing.name
-                graph.emit(mcp)
-            click.secho(f"Update succeeded for urn {loaded.urn}.", fg="green")
         except Exception as e:
             # Exit non-zero so CI/GitOps pipelines see a failed apply.
             raise click.ClickException(

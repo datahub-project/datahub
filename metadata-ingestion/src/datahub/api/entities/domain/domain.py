@@ -1,3 +1,4 @@
+import logging
 import time
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union
@@ -30,6 +31,8 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.specific.domain import DomainPatchBuilder
 from datahub.utilities.urns.urn import Urn
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_domain_urn(value: str, field: str) -> str:
@@ -218,15 +221,18 @@ class Domain(ConfigModel):
         )
 
     def generate_mcp(
-        self, upsert: bool
+        self, upsert: bool, existing: Optional[DomainPropertiesClass] = None
     ) -> Iterable[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
         """Emit the MCP stream that materializes this Domain in DataHub.
 
         ``upsert=True`` patches ``domainProperties`` (name, description and
         parent, when set) so server-side fields like ``created`` survive; it
         needs an existing domain or a ``display_name``, since ``name`` is
-        required. ``upsert=False`` writes the full ``domainProperties`` aspect.
+        required. ``upsert=False`` writes the full ``domainProperties`` aspect;
+        pass the stored aspect as ``existing`` to keep its ``created`` stamp,
+        custom properties and, without a ``display_name``, its name.
         Owners and links are written as whole aspects in both modes.
+        :meth:`emit` to a :class:`DataHubGraph` does both for you.
         """
         if self.parent_domain and self._resolved_parent_domain_urn is None:
             raise ValueError(
@@ -255,9 +261,12 @@ class Domain(ConfigModel):
             yield MetadataChangeProposalWrapper(
                 entityUrn=self.urn,
                 aspect=DomainPropertiesClass(
-                    name=self.display_name or self.id,
+                    name=self._effective_name(existing),
                     description=self.description,
                     parentDomain=self._resolved_parent_domain_urn,
+                    # The YAML can't express these, so a full replace keeps them.
+                    created=existing.created if existing else None,
+                    customProperties=existing.customProperties if existing else {},
                 ),
             )
 
@@ -285,27 +294,11 @@ class Domain(ConfigModel):
                 ),
             )
 
-    def validate_sibling_name(
-        self, graph: DataHubGraph, upsert: bool, keep_existing_name: bool = False
-    ) -> None:
-        """Check the name this Domain will have is unique under its parent.
-
-        ``upsert`` keeps the existing parent when the YAML sets none;
-        ``keep_existing_name`` keeps the existing name when the YAML sets no
-        ``display_name`` (an upsert always does).
-        """
-        existing = graph.get_aspect(self.urn, DomainPropertiesClass)
-        name = self.display_name
-        if name is None:
-            name = (
-                existing.name
-                if existing is not None and (upsert or keep_existing_name)
-                else self.id
-            )
-        parent = self._resolved_parent_domain_urn
-        if parent is None and upsert and existing is not None:
-            parent = existing.parentDomain
-        assert_unique_sibling_name(graph, self.urn, name, parent)
+    def _effective_name(self, existing: Optional[DomainPropertiesClass]) -> str:
+        # Without a display_name, never rename an existing domain to its raw id.
+        if self.display_name is not None:
+            return self.display_name
+        return existing.name if existing is not None else self.id
 
     def emit(
         self,
@@ -313,16 +306,29 @@ class Domain(ConfigModel):
         upsert: bool,
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
-        """Emit this Domain. When ``emitter`` is a :class:`DataHubGraph`, the
-        parent and the name's uniqueness under it are checked first (see
-        :func:`validate_parent_domain` and :meth:`validate_sibling_name`)."""
+        """Emit this Domain.
+
+        When ``emitter`` is a :class:`DataHubGraph`, the parent and the name's
+        uniqueness under it are checked first, a full replace keeps the stored
+        ``created`` stamp and custom properties, and an upsert of a domain
+        that does not exist yet writes the full aspect instead, since a patch
+        alone may leave it without the required ``name``.
+        """
+        existing: Optional[DomainPropertiesClass] = None
         if isinstance(emitter, DataHubGraph):
-            if self._resolved_parent_domain_urn:
-                validate_parent_domain(
-                    emitter, self.urn, self._resolved_parent_domain_urn
-                )
-            self.validate_sibling_name(emitter, upsert=upsert)
-        for mcp in self.generate_mcp(upsert=upsert):
+            existing = emitter.get_aspect(self.urn, DomainPropertiesClass)
+            if upsert and existing is None:
+                logger.info(f"Domain {self.urn} does not exist, will create.")
+                upsert = False
+            parent = self._resolved_parent_domain_urn
+            if parent:
+                validate_parent_domain(emitter, self.urn, parent)
+            elif upsert and existing is not None:
+                parent = existing.parentDomain
+            assert_unique_sibling_name(
+                emitter, self.urn, self._effective_name(existing), parent
+            )
+        for mcp in self.generate_mcp(upsert=upsert, existing=existing):
             emitter.emit(mcp, callback)
 
     @classmethod

@@ -8,6 +8,7 @@ from click.testing import CliRunner, Result
 
 from datahub.cli.specific.domain_cli import domain
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChangeTypeClass,
@@ -18,7 +19,8 @@ from datahub.metadata.schema_classes import (
 
 @pytest.fixture
 def graph() -> Iterator[MagicMock]:
-    graph = MagicMock()
+    # spec makes Domain.emit treat the mock as a DataHubGraph.
+    graph = MagicMock(spec=DataHubGraph)
     graph.exists.return_value = True
     graph.get_aspect.return_value = None
     graph.get_urns_by_filter.return_value = []
@@ -99,6 +101,8 @@ def test_upsert_creates_missing_domain_with_full_aspect(
 def test_upsert_patches_an_existing_domain(
     graph: MagicMock, write_yaml: Callable[[str], str]
 ) -> None:
+    graph.get_aspect.return_value = DomainPropertiesClass(name="Marketing")
+
     result = _invoke(["upsert", "-f", write_yaml("id: marketing\ndescription: New\n")])
 
     assert result.exit_code == 0, result.output
