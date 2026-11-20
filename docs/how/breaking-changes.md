@@ -126,7 +126,8 @@ setting keeps it off, whatever `SEARCH_V3_TEMPLATES_ROLLOUT` says. The switch ta
 Elasticsearch 8.18 or later and OpenSearch 3.5 or later. On older OpenSearch, or when GMS cannot read
 the OpenSearch version (reading it needs the `cluster:monitor/main` permission), semantic search stays
 on its own kNN search, and GMS logs a warning. GMS reads an unreadable version again at most once a
-minute, so granting the permission needs no restart. With it on:
+minute, so granting the permission needs no restart. GMS keeps a version it has read until it restarts,
+so after upgrading OpenSearch to 3.5 or later, restart GMS for the switch to take effect. With it on:
 
 - Documents follow the same defaults as keyword search: only published documents shown in global
   context come back, unless the request sets `includeHiddenLifecycleStages`. A user who can manage

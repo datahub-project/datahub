@@ -105,12 +105,13 @@ public final class SearchTemplateRollout {
       return BUCKETS;
     }
     int override = surfacePercent(rollout, surface);
-    // Semantic search does not inherit percent either: once set, it serves every actor by default
+    // Semantic search does not inherit percent either: once set, it serves every actor by default.
+    // Only -1 leaves its percent unset, so a lower one reaches the malformed check below
     int percent =
         override >= 0
             ? override
             : SearchTemplateSurfaces.SEMANTIC_SEARCH.equals(surface)
-                ? BUCKETS
+                ? (override == -1 ? BUCKETS : override)
                 : rollout.getPercent();
     if (percent < 0 || percent > BUCKETS) {
       // As with a malformed mode, a bad semantic search percent keeps the surface off instead of

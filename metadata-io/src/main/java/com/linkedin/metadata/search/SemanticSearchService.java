@@ -170,6 +170,13 @@ public class SemanticSearchService {
       templateEngineSupported = true;
       return true;
     }
+    // The version is read on the request thread while holding this service's lock, so a cluster
+    // info call that hangs holds up the other semantic searches the rollout serves while the
+    // engine is undecided, for up to the client's socket timeout, at most once a minute. The read
+    // could move off the lock, sending concurrent callers to the legacy search meanwhile.
+    // On a cluster that blocks the version read, the shim logs the failure with a stack trace each
+    // time it is asked, so this retry repeats those log entries on each GMS instance about once a
+    // minute until a read succeeds.
     final String version = engine != null && engine.isOpenSearch() ? engineVersion(client) : null;
     if (OpenSearchSearchClientShim.isParseableVersion(version)) {
       final boolean supported =

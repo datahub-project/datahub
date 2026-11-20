@@ -150,6 +150,13 @@ public class SearchTemplateRolloutTest {
     expectThrows(
         IllegalArgumentException.class,
         () -> effect(true, rollout, SearchTemplateSurfaces.SEARCH_ENTITIES, key));
+
+    // And a percent below -1, since only -1 leaves it unset, while another surface's still falls
+    // back to percent
+    rollout.setSemanticSearchPercent(-2);
+    rollout.setSearchEntitiesPercent(-2);
+    assertEquals(effect(true, rollout, SearchTemplateSurfaces.SEMANTIC_SEARCH, key), off());
+    assertEquals(effect(true, rollout, SearchTemplateSurfaces.SEARCH_ENTITIES, key), active());
   }
 
   @Test
