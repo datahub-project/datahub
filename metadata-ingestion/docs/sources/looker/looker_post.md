@@ -17,6 +17,12 @@ Explore usage is attached only to explores that were actually ingested in the sa
 
 :::
 
+#### Explore links to GitHub
+
+Set `emit_explore_git_links: true` to add a **View in GitHub** button to each Explore that opens the LookML file defining it. The repository and production branch come from the Explore's Looker project, so the recipe needs no Git settings. The API key must be able to read project settings. If it cannot, the report shows a warning for that project and its Explores get no link.
+
+Only GitHub and GitLab remotes are supported. Explores defined in an imported project get no link. The link is matched by its label, so a link someone added by hand with the label "View in GitHub" is replaced, and turning the option off does not remove links already written.
+
 #### LookML projects ingested under other platform instances
 
 Explores link to the LookML views they read. Those view URNs must match the ones the `lookml` recipes emit, which include each recipe's `platform_instance`. By default the `looker` recipe builds every view URN with its own `platform_instance` and `env`. When LookML projects are ingested by separate `lookml` recipes with different platform instances, for example one recipe per git repository, map each project to its recipe's instance:

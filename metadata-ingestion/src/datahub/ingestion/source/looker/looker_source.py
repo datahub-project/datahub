@@ -10,12 +10,14 @@ from typing import (
     Iterable,
     List,
     MutableMapping,
+    NamedTuple,
     Optional,
     Sequence,
     Set,
     Tuple,
     Union,
 )
+from urllib.parse import urlsplit
 
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.serialize import DeserializeError
@@ -30,6 +32,7 @@ from looker_sdk.sdk.api40.models import (
 )
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.git import GitReference
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -68,10 +71,16 @@ from datahub.ingestion.source.looker.looker_common import (
     LookerUtil,
     ViewField,
     ViewFieldType,
+    extract_project_from_imported_file_path,
     gen_model_key,
     get_urn_looker_element_id,
 )
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
+from datahub.ingestion.source.looker.looker_constant import (
+    EXPLORE_GIT_LINK_LABEL,
+    GIT_SCP_REMOTE_PATTERN,
+    LOOKER_DEFAULT_GIT_BRANCH,
+)
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     BASIC_INGEST_REQUIRED_PERMISSIONS,
     USAGE_INGEST_REQUIRED_PERMISSIONS,
@@ -98,10 +107,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     ChartTypeClass,
     EmbedClass,
     InputFieldClass,
     InputFieldsClass,
+    InstitutionalMemoryMetadataClass,
+    InstitutionalMemoryMetadataSettingsClass,
     OwnerClass,
     OwnershipTypeClass,
 )
@@ -110,10 +122,21 @@ from datahub.sdk.container import Container
 from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
+from datahub.specific.aspect_helpers.institutional_memory import (
+    HasInstitutionalMemoryPatch,
+)
 from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 from datahub.utilities.sentinels import Unset, unset
 
 logger = logging.getLogger(__name__)
+
+
+class ExploreFetchResult(NamedTuple):
+    dataset: Optional[Dataset]
+    explore_id: str
+    start_time: datetime.datetime
+    end_time: datetime.datetime
+    looker_explore: Optional[LookerExplore]
 
 
 @dataclass
@@ -201,6 +224,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         # Explores we actually emitted, so we only attach usage stats to them
         self.explores_for_usage: List[looker_usage.LookerExploreForUsage] = []
+
+        # Git settings per Looker project for explore source links; None = no usable remote.
+        self._project_git_refs: Dict[str, Optional[GitReference]] = {}
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -844,7 +870,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
     def _make_explore_containers(
         self,
-    ) -> Iterable[Union[Container, Dataset]]:
+    ) -> Iterable[Union[Container, Dataset, MetadataWorkUnit]]:
         if not self.source_config.emit_used_explores_only:
             explores_to_fetch = list(self.list_all_explores())
         else:
@@ -880,13 +906,18 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             ((model, explore) for (_project, model, explore) in explores_to_fetch),
             max_workers=self.source_config.max_threads,
         ):
-            explore_dataset_entity, explore_id, start_time, end_time = future.result()
+            result = future.result()
             self.reporter.explores_scanned += 1
-            if explore_dataset_entity:
-                yield explore_dataset_entity
-            self.reporter.report_upstream_latency(start_time, end_time)
+            if result.dataset:
+                yield result.dataset
+                # Built here, not in the worker, so the project cache needs no lock.
+                if self.source_config.emit_explore_git_links and result.looker_explore:
+                    yield from self._make_explore_git_link(
+                        result.looker_explore, str(result.dataset.urn)
+                    )
+            self.reporter.report_upstream_latency(result.start_time, result.end_time)
             logger.debug(
-                f"Running time of fetch_one_explore for {explore_id}: {(end_time - start_time).total_seconds()}"
+                f"Running time of fetch_one_explore for {result.explore_id}: {(result.end_time - result.start_time).total_seconds()}"
             )
 
     def list_all_explores(self) -> Iterable[Tuple[Optional[str], str, str]]:
@@ -900,14 +931,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     continue
                 yield (model.project_name, model.name, explore.name)
 
-    def fetch_one_explore(
-        self, model: str, explore: str
-    ) -> Tuple[
-        Optional[Dataset],
-        str,
-        datetime.datetime,
-        datetime.datetime,
-    ]:
+    def fetch_one_explore(self, model: str, explore: str) -> ExploreFetchResult:
         start_time = datetime.datetime.now()
         looker_explore = self.explore_registry.get_explore(model, explore)
         explore_dataset_entity: Optional[Dataset] = None
@@ -927,12 +951,89 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     )
                 )
 
-        return (
-            explore_dataset_entity,
-            f"{model}:{explore}",
-            start_time,
-            datetime.datetime.now(),
+        return ExploreFetchResult(
+            dataset=explore_dataset_entity,
+            explore_id=f"{model}:{explore}",
+            start_time=start_time,
+            end_time=datetime.datetime.now(),
+            looker_explore=looker_explore,
         )
+
+    def _make_explore_git_link(
+        self, explore: LookerExplore, explore_urn: str
+    ) -> List[MetadataWorkUnit]:
+        path = explore.lookml_file_path
+        if not path or not explore.project_name:
+            return []
+        # shortcut: explores defined in an imported project get no link, since their
+        # repo is the imported project's; resolve that project if users ask for it.
+        if extract_project_from_imported_file_path(path) is not None:
+            return []
+        git_ref = self._get_project_git_ref(explore.project_name)
+        if git_ref is None:
+            return []
+        link = InstitutionalMemoryMetadataClass(
+            url=git_ref.get_url_for_file_path(path),
+            description=EXPLORE_GIT_LINK_LABEL,
+            # Fixed timestamp so re-runs write an identical link.
+            createStamp=AuditStampClass(time=0, actor=builder.make_user_urn("datahub")),
+            settings=InstitutionalMemoryMetadataSettingsClass(showInAssetPreview=True),
+        )
+        patch = HasInstitutionalMemoryPatch(explore_urn)
+        patch.set_institutional_memory_by_label(link)
+        return [
+            MetadataWorkUnit(id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp)
+            for mcp in patch.build()
+        ]
+
+    def _get_project_git_ref(self, project_name: str) -> Optional[GitReference]:
+        if project_name not in self._project_git_refs:
+            self._project_git_refs[project_name] = self._fetch_project_git_ref(
+                project_name
+            )
+        return self._project_git_refs[project_name]
+
+    def _fetch_project_git_ref(self, project_name: str) -> Optional[GitReference]:
+        try:
+            project = self.looker_api.project(project_name)
+        except (SDKError, DeserializeError) as e:
+            self.reporter.warning(
+                title="Failed to fetch Looker project",
+                message="Explores in this project get no Git link. The API key may lack permission to read project settings.",
+                context=project_name,
+                exc=e,
+            )
+            return None
+        remote = project.git_remote_url
+        if not remote:
+            self.reporter.warning(
+                title="Looker project has no Git remote",
+                message="Explores in this project get no Git link.",
+                context=project_name,
+            )
+            return None
+        scp_match = GIT_SCP_REMOTE_PATTERN.match(remote)
+        if "://" in remote:
+            # hostname drops user:token@ and the port, so credentials never reach the link or the report.
+            parts = urlsplit(remote)
+            repo = f"https://{parts.hostname}{parts.path}"
+        elif scp_match:
+            repo = f"https://{scp_match[1]}/{scp_match[2]}"
+        else:
+            repo = remote.rpartition("@")[2]
+        try:
+            return GitReference(
+                repo=repo.removesuffix(".git"),
+                branch=project.git_production_branch_name or LOOKER_DEFAULT_GIT_BRANCH,
+            )
+        except ValueError as e:
+            self.reporter.warning(
+                title="Unsupported Git host for Explore links",
+                message="Only GitHub and GitLab remotes are supported; explores in this project get no Git link.",
+                context=f"{project_name}: {repo}",
+                exc=e,
+            )
+            return None
 
     def _emit_folder_as_container(self, folder: LookerFolder) -> Iterable[Container]:
         if folder.id not in self.processed_folders:

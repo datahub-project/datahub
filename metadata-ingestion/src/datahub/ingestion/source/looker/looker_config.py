@@ -358,6 +358,12 @@ class LookerDashboardSourceConfig(
         description="Produce URLs used to render Looker Explores as Previews inside of DataHub UI. Embeds must be "
         "enabled inside of Looker to use this feature.",
     )
+    emit_explore_git_links: bool = Field(
+        False,
+        description="Add a 'View in GitHub' link to each Explore, pointing at the LookML file that defines it. "
+        "The repository and production branch come from the Explore's Looker project, so no Git settings are needed "
+        "in the recipe. Only GitHub and GitLab remotes are supported.",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )

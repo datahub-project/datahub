@@ -20,6 +20,7 @@ from typing import (
     Union,
     cast,
 )
+from urllib.parse import unquote, urlsplit
 
 import lkml
 from looker_sdk.error import SDKError
@@ -202,6 +203,16 @@ def extract_project_from_imported_file_path(
     if file_path is None or not file_path.startswith(IMPORTED_PROJECTS_PREFIX):
         return None
     return file_path.split("/")[1] or None
+
+
+def lookml_file_path_from_link(lookml_link: Optional[str]) -> Optional[str]:
+    """Repo-relative path from a LookML IDE link like "/projects/p/files/views%2Fa.view.lkml?line=3"."""
+    if not lookml_link:
+        return None
+    _, found, encoded_path = urlsplit(lookml_link).path.partition("/files/")
+    if not found or not encoded_path:
+        return None
+    return unquote(encoded_path)
 
 
 @dataclass
@@ -1064,6 +1075,8 @@ class LookerExplore:
     join_definitions: Optional[List[LookerExploreJoin]] = None
     fields: Optional[List[ViewField]] = None  # the fields exposed in this explore
     source_file: Optional[str] = None
+    # Repo-relative path of the defining file; the API's source_file is only the file name.
+    lookml_file_path: Optional[str] = None
     tags: List[str] = dataclasses_field(default_factory=list)
 
     @field_validator("name", mode="after")
@@ -1409,6 +1422,7 @@ class LookerExplore:
                 ),
                 upstream_views_file_path=upstream_views_file_path,
                 source_file=explore.source_file,
+                lookml_file_path=lookml_file_path_from_link(explore.lookml_link),
                 tags=list(explore.tags) if explore.tags is not None else [],
                 join_definitions=join_definitions or None,
             )

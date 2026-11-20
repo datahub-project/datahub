@@ -7,6 +7,7 @@ from datahub.metadata.schema_classes import (
 )
 
 _ELEMENTS_APK = {"elements": ["url"]}
+_ELEMENTS_BY_LABEL_APK = {"elements": ["description"]}
 
 
 class HasInstitutionalMemoryPatch(MetadataPatchProposal):
@@ -30,5 +31,18 @@ class HasInstitutionalMemoryPatch(MetadataPatchProposal):
             path=("elements", element.url),
             value=element,
             array_primary_keys=_ELEMENTS_APK,
+        )
+        return self
+
+    def set_institutional_memory_by_label(
+        self, element: InstitutionalMemoryMetadataClass
+    ) -> Self:
+        """Adds the link, replacing any existing link with the same label (``description``) whatever its URL."""
+        self._add_patch(
+            InstitutionalMemoryClass.ASPECT_NAME,
+            "add",
+            path=("elements", element.description),
+            value=element,
+            array_primary_keys=_ELEMENTS_BY_LABEL_APK,
         )
         return self
