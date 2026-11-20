@@ -112,9 +112,10 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             final boolean callerFiltered = FilterUtils.hasCriterion(combinedFilter);
 
             // Add default entity filters (e.g. showInGlobalContext for documents).
-            combinedFilter =
-                DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+            final DefaultEntityFiltersUtil.SearchFilters defaults =
+                DefaultEntityFiltersUtil.searchFilters(
                     combinedFilter, finalEntities, searchFlags, context);
+            combinedFilter = defaults.filter();
 
             // Execute scroll and remove default filter fields from aggregations
             com.linkedin.metadata.search.ScrollResult scrollResult =
@@ -125,8 +126,7 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         .withCallerOptionalFilterFields(
                             DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
                         .withCallerFiltered(callerFiltered)
-                        .withAnchorFilter(
-                            DefaultEntityFiltersUtil.anchorFilter(searchFlags, context)),
+                        .withAnchorFilter(defaults.anchorFilter()),
                     finalEntities,
                     sanitizedQuery,
                     combinedFilter,

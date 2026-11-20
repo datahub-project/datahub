@@ -19,6 +19,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNotSame;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -891,6 +892,42 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
         new StringArray(List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_FULLTEXT_URN)));
     SearchResult withoutExplain = handler.extractResult(routed, response, null, 0, 10);
     assertFalse(withoutExplain.getMetadata().hasRouteChain());
+  }
+
+  /**
+   * An explained page reports the route chain, so with includeExplain a template a route reached
+   * and the same template named directly do not share a cached page, even through a route with no
+   * match conditions.
+   */
+  @Test
+  public void testExplainKeysTheCacheOnTheRouteChain() {
+    installShippedRoutes();
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
+    OperationContext explained = opContext.withSearchFlags(flags -> flags.setIncludeExplain(true));
+    OperationContext routed = coordinator.bind(explained, "customer orders");
+    OperationContext pinned =
+        coordinator.bind(
+            explained.withSearchFlags(
+                flags ->
+                    flags
+                        .setFulltext(true)
+                        .setSearchTemplate(UrnUtils.getUrn(SEARCH_TEMPLATE_FULLTEXT_URN))),
+            "customer orders");
+
+    assertEquals(
+        routed.getSearchContext().getResolvedSearchTemplate().getRouteChain(),
+        List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_FULLTEXT_URN));
+    assertNull(routed.getSearchContext().getResolvedSearchTemplate().getRouteMatch());
+    assertNotEquals(
+        routed.getSearchContext().getResolvedSearchTemplate().cacheKeyComponent(),
+        pinned.getSearchContext().getResolvedSearchTemplate().cacheKeyComponent());
   }
 
   @Test

@@ -227,9 +227,9 @@ public class SemanticSearchAcrossEntitiesResolver
       final List<String> facets)
       throws RemoteInvocationException {
     final boolean callerFiltered = FilterUtils.hasCriterion(callerFilter);
-    final Filter filter =
-        DefaultEntityFiltersUtil.applyDefaultEntityFilters(
-            callerFilter, entityNames, searchFlags, context);
+    final DefaultEntityFiltersUtil.SearchFilters defaults =
+        DefaultEntityFiltersUtil.searchFilters(callerFilter, entityNames, searchFlags, context);
+    final Filter filter = defaults.filter();
     final OperationContext searching =
         context
             .getOperationContext()
@@ -237,7 +237,7 @@ public class SemanticSearchAcrossEntitiesResolver
             .withCallerOptionalFilterFields(
                 DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
             .withCallerFiltered(callerFiltered)
-            .withAnchorFilter(DefaultEntityFiltersUtil.anchorFilter(searchFlags, context));
+            .withAnchorFilter(defaults.anchorFilter());
     SearchResult result;
     try {
       result =

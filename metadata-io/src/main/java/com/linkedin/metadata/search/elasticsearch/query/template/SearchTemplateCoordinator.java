@@ -547,6 +547,12 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     if (resolved.getRouteMatch() != null) {
       identity += "|route=" + resolved.getRouteMatch();
     }
+    // An explained page reports the route chain, and a route with no match conditions adds nothing
+    // above, so a template named directly and one a route reached must not share that page
+    final SearchFlags flags = opContext.getSearchContext().getSearchFlags();
+    if (flags != null && Boolean.TRUE.equals(flags.isIncludeExplain())) {
+      identity += "|chain=" + String.join(">", resolved.getRouteChain());
+    }
     if (semanticSelect[0]) {
       identity += "|eligible=" + gates.eligibilityIdentity(resolved.getEntityTypes());
     }

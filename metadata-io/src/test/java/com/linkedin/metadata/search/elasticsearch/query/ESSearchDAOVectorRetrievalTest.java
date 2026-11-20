@@ -64,6 +64,7 @@ import com.linkedin.metadata.search.VectorRetrievalExplanation;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
@@ -1534,7 +1535,12 @@ public class ESSearchDAOVectorRetrievalTest {
     assertEquals(explanation.getEntityTypes(), List.of("dataset"));
     assertTrue(explanation.getExcludedEntityTypes().isEmpty());
     String index = knnRequest().indexName();
-    assertTrue(index.contains("dataset") && !index.contains("document"), index);
+    String datasetIndex = v3IndexName("dataset");
+    assertTrue(index.contains(datasetIndex), index);
+    // A shared search-group index holds both types; there the scope leaves document out
+    if (!v3IndexName("document").equals(datasetIndex)) {
+      assertFalse(index.contains(v3IndexName("document")), index);
+    }
     // Bind resolved the anchor's profile and checked the anchor once, and the rung reused it
     verify(client, times(1))
         .search(
@@ -3261,6 +3267,17 @@ public class ESSearchDAOVectorRetrievalTest {
     when(response.getHits())
         .thenReturn(new SearchHits(hits, new TotalHits(count, TotalHits.Relation.EQUAL_TO), count));
     return response;
+  }
+
+  /** The V3 index holding an entity type's documents: its own index, or its search group's. */
+  private String v3IndexName(String entityType) {
+    return harness
+        .opContext
+        .getSearchContext()
+        .getIndexConvention()
+        .getEntityIndexNameV3(
+            harness.opContext,
+            V3IndexKeys.resolve(harness.opContext.getEntityRegistry().getEntitySpec(entityType)));
   }
 
   private KnnSearchRequest knnRequest() throws IOException {

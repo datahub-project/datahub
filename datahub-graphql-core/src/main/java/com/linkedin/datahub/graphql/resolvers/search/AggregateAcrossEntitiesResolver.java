@@ -100,9 +100,10 @@ public class AggregateAcrossEntitiesResolver
             final boolean callerFiltered = FilterUtils.hasCriterion(effectiveFilter);
 
             // Add default entity filters (e.g. showInGlobalContext for documents)
-            effectiveFilter =
-                DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+            final DefaultEntityFiltersUtil.SearchFilters defaults =
+                DefaultEntityFiltersUtil.searchFilters(
                     effectiveFilter, finalEntities, searchFlags, context);
+            effectiveFilter = defaults.filter();
 
             return mapAggregateResults(
                 context,
@@ -112,8 +113,7 @@ public class AggregateAcrossEntitiesResolver
                         .withSearchSurface(SearchTemplateSurfaces.AGGREGATE_ENTITIES)
                         .withSearchFlags(flags -> searchFlags)
                         .withCallerFiltered(callerFiltered)
-                        .withAnchorFilter(
-                            DefaultEntityFiltersUtil.anchorFilter(searchFlags, context)),
+                        .withAnchorFilter(defaults.anchorFilter()),
                     finalEntities,
                     sanitizedQuery,
                     effectiveFilter,

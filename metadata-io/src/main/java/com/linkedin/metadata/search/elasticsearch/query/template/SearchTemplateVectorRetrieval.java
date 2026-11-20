@@ -67,8 +67,10 @@ public final class SearchTemplateVectorRetrieval {
 
   /**
    * Similarity could not run: the query is not an entity URN, the viewer may not see that entity,
-   * the default search filters leave it out, or it has no embedding profile, no stored vectors, or
-   * more than {@link #MAX_ANCHOR_CHUNKS} stored chunks for it. The search fails.
+   * the default search filters or the search's document visibility rule leave it out, its type has
+   * no embedding profile, or it has no stored vectors or more than {@link #MAX_ANCHOR_CHUNKS}
+   * stored chunks for that profile. The search fails. A profile that cannot be read or selected is
+   * {@link #UNAVAILABLE} instead.
    */
   public static final String NO_ANCHOR = "noAnchor";
 

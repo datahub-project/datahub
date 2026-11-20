@@ -109,9 +109,10 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             final boolean callerFiltered = FilterUtils.hasCriterion(combinedFilter);
 
             // Add default entity filters (e.g. showInGlobalContext for documents).
-            combinedFilter =
-                DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+            final DefaultEntityFiltersUtil.SearchFilters defaults =
+                DefaultEntityFiltersUtil.searchFilters(
                     combinedFilter, finalEntities, searchFlags, context);
+            combinedFilter = defaults.filter();
 
             boolean shouldIncludeStructuredPropertyFacets =
                 input.getSearchFlags() != null
@@ -132,8 +133,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         .withCallerOptionalFilterFields(
                             DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
                         .withCallerFiltered(callerFiltered)
-                        .withAnchorFilter(
-                            DefaultEntityFiltersUtil.anchorFilter(searchFlags, context)),
+                        .withAnchorFilter(defaults.anchorFilter()),
                     finalEntities,
                     sanitizedQuery,
                     combinedFilter,
