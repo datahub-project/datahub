@@ -305,15 +305,18 @@ export default function MarketplaceSidebar({ isCollapsed, onToggleCollapsed, onE
             placement="bottom"
             showArrow={false}
         >
-            <SidebarCreateButton
-                variant="filled"
-                color="primary"
-                isCircle
-                icon={{ icon: Plus }}
-                onClick={openCreateModal}
-                disabled={!canCreateDataProduct}
-                data-testid="create-marketplace-data-product-button"
-            />
+            {/* A disabled button gets no mouse events, so the tooltip listens on this wrapper. */}
+            <span>
+                <SidebarCreateButton
+                    variant="filled"
+                    color="primary"
+                    isCircle
+                    icon={{ icon: Plus }}
+                    onClick={openCreateModal}
+                    disabled={!canCreateDataProduct}
+                    data-testid="create-marketplace-data-product-button"
+                />
+            </span>
         </Tooltip>
     );
 
