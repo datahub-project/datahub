@@ -1,7 +1,19 @@
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from logging import Logger
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Set
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Set,
+)
 from urllib.parse import urlsplit
 
 import pydantic
@@ -258,6 +270,80 @@ def _str_urn_to_dataset_urn(urns: List[str]) -> List[DatasetUrn]:
     return [DatasetUrn.create_from_string(urn) for urn in urns]
 
 
+# Dagster step keys are the node handle (e.g. `my_op`, `my_graph.my_op`) plus a
+# `[<mapping_key>]` suffix for dynamically mapped steps (`[?]` in the execution
+# plan, the concrete key in run stats and event logs).
+_MAPPING_KEY_SUFFIX = re.compile(r"\[([^\[\]]*)\]$")
+
+
+def step_key_to_node_handle(step_key: str) -> str:
+    return _MAPPING_KEY_SUFFIX.sub("", step_key)
+
+
+def step_key_mapping_key(step_key: str) -> Optional[str]:
+    match = _MAPPING_KEY_SUFFIX.search(step_key)
+    if not match or match.group(1) == "?":
+        return None
+    return match.group(1)
+
+
+def normalize_step_deps(step_deps: Mapping[str, Iterable[str]]) -> Dict[str, Set[str]]:
+    """Re-key execution plan step deps by node handle, merging mapped steps."""
+    deps: Dict[str, Set[str]] = {}
+    for step_key, upstream_keys in step_deps.items():
+        handle = step_key_to_node_handle(step_key)
+        upstreams = deps.setdefault(handle, set())
+        upstreams.update(step_key_to_node_handle(u) for u in upstream_keys)
+        upstreams.discard(handle)
+    return deps
+
+
+def normalize_step_keyed_datasets(
+    datasets: Mapping[str, Set[DatasetUrn]],
+) -> Dict[str, Set[DatasetUrn]]:
+    """Re-key per-step dataset sets by node handle, merging mapped steps."""
+    normalized: Dict[str, Set[DatasetUrn]] = {}
+    for step_key, urns in datasets.items():
+        normalized.setdefault(step_key_to_node_handle(step_key), set()).update(urns)
+    return normalized
+
+
+def resolve_node_op_def_names(
+    job_snapshot: JobSnapshot, node_handles: Iterable[str]
+) -> Dict[str, str]:
+    """Map each node handle (`a`, `outer.inner`) to the name of its op definition.
+
+    A node's name differs from its op definition's name when the op is aliased,
+    and nested nodes have to be resolved through the enclosing graph definitions.
+    Handles that can't be resolved are left out.
+    """
+    top_level = {
+        inv.node_name: inv.node_def_name
+        for inv in job_snapshot.dep_structure_snapshot.node_invocation_snaps
+    }
+    graph_children = {
+        graph_def.name: {
+            inv.node_name: inv.node_def_name
+            for inv in graph_def.dep_structure_snapshot.node_invocation_snaps
+        }
+        for graph_def in job_snapshot.node_defs_snapshot.graph_def_snaps
+    }
+
+    resolved: Dict[str, str] = {}
+    for handle in node_handles:
+        def_name: Optional[str] = None
+        invocations: Optional[Dict[str, str]] = top_level
+        for part in handle.split("."):
+            if invocations is None or part not in invocations:
+                def_name = None
+                break
+            def_name = invocations[part]
+            invocations = graph_children.get(def_name)
+        if def_name is not None:
+            resolved[handle] = def_name
+    return resolved
+
+
 @dataclass
 class DagsterEnvironment:
     repository: Optional[str]
@@ -436,7 +522,7 @@ class DagsterGenerator:
     def generate_datajob(
         self,
         job_snapshot: JobSnapshot,
-        step_deps: Dict[str, List],
+        step_deps: Mapping[str, Iterable[str]],
         op_def_snap: OpDefSnap,
         env: str,
         input_datasets: Dict[str, Set[DatasetUrn]],
@@ -444,12 +530,15 @@ class DagsterGenerator:
         platform_instance: Optional[str] = None,
         remove_double_underscores: bool = True,
         add_asset_group_tag: bool = True,
+        node_handle: Optional[str] = None,
     ) -> DataJob:
         """
         Generates a Datajob object from an Dagster op snapshot
         :param job_snapshot: JobSnapshot - Job snapshot object
-        :param step_deps: Dict[str, List] - step dependencies
+        :param step_deps: upstream node handles keyed by node handle (see normalize_step_deps)
         :param op_def_snap: OpDefSnap - Op def snapshot object
+        :param node_handle: the op's node handle in the job; differs from the op definition
+            name for aliased ops and ops nested in graphs. Defaults to the op definition name.
         :param env: str
         :param platform_instance: Optional[str]
         :param output_datasets: dict[str, Set[DatasetUrn]] - output datasets for each op
@@ -457,9 +546,10 @@ class DagsterGenerator:
         :return: DataJob - Data generated datajob
         """
         self.logger.info(f"Generating datajob for Op Def Snap: {op_def_snap}")
+        node_name = node_handle or op_def_snap.name
         if self.dagster_environment.is_cloud:
             flow_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{job_snapshot.name}"
-            job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{op_def_snap.name}"
+            job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{node_name}"
         else:
             module_name = (
                 self.dagster_environment.module
@@ -467,7 +557,7 @@ class DagsterGenerator:
                 else self.dagster_environment.branch
             )
             flow_id = f"{module_name}/{job_snapshot.name}"
-            job_id = f"{module_name}/{op_def_snap.name}"
+            job_id = f"{module_name}/{node_name}"
 
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator=Constant.ORCHESTRATOR,
@@ -476,7 +566,7 @@ class DagsterGenerator:
             platform_instance=platform_instance,
         )
 
-        job_name = op_def_snap.name
+        job_name = node_name
         if remove_double_underscores and job_name.split("__"):
             job_name = job_name.split("__")[-1]
 
@@ -487,7 +577,7 @@ class DagsterGenerator:
         )
 
         if self.config.dagster_url:
-            datajob.url = f"{job_url_generator(dagster_url=self.config.dagster_url, dagster_environment=self.dagster_environment)}/jobs/{job_snapshot.name}/{op_def_snap.name}"
+            datajob.url = f"{job_url_generator(dagster_url=self.config.dagster_url, dagster_environment=self.dagster_environment)}/jobs/{job_snapshot.name}/{node_name}"
 
         datajob.description = op_def_snap.description
         datajob.tags = set(op_def_snap.tags.keys())
@@ -501,7 +591,7 @@ class DagsterGenerator:
 
         inlets: Set[DatasetUrn] = set()
         # Add upstream dependencies for this op
-        for upstream_op_name in step_deps[op_def_snap.name]:
+        for upstream_op_name in sorted(step_deps.get(node_name, [])):
             if self.dagster_environment.is_cloud:
                 upstream_job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{upstream_op_name}"
             else:
@@ -518,17 +608,17 @@ class DagsterGenerator:
         job_property_bag: Dict[str, str] = {}
         if input_datasets:
             self.logger.info(
-                f"Input datasets for {op_def_snap.name} are {list(input_datasets.get(op_def_snap.name, []))}"
+                f"Input datasets for {node_name} are {list(input_datasets.get(node_name, []))}"
             )
-            inlets.update(input_datasets.get(op_def_snap.name, []))
+            inlets.update(input_datasets.get(node_name, []))
 
         datajob.inlets = list(inlets)
 
         if output_datasets:
             self.logger.info(
-                f"Output datasets for {op_def_snap.name} are {list(output_datasets.get(op_def_snap.name, []))}"
+                f"Output datasets for {node_name} are {list(output_datasets.get(node_name, []))}"
             )
-            datajob.outlets = list(output_datasets.get(op_def_snap.name, []))
+            datajob.outlets = list(output_datasets.get(node_name, []))
 
         # For all op inputs/outputs:
         # Add input/output details like its type, description, metadata etc in datajob properties.
@@ -648,9 +738,15 @@ class DagsterGenerator:
         :param run_step_stats: RunStepKeyStatsSnapshot - step(op) run stats
         :param emit_template: Whether to emit the parent DataJob template from the process instance
         """
+        dpi_id = f"{run_step_stats.run_id}.{datajob.id}"
+        # Each instance of a dynamically mapped op runs as its own step, so the
+        # mapping key keeps their process instances apart.
+        mapping_key = step_key_mapping_key(run_step_stats.step_key)
+        if mapping_key is not None:
+            dpi_id = f"{dpi_id}[{mapping_key}]"
         dpi = DataProcessInstance.from_datajob(
             datajob=datajob,
-            id=f"{run_step_stats.run_id}.{datajob.id}",
+            id=dpi_id,
             clone_inlets=True,
             clone_outlets=True,
         )
