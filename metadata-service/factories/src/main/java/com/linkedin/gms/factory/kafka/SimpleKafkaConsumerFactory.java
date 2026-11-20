@@ -9,6 +9,7 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -32,14 +33,18 @@ public class SimpleKafkaConsumerFactory {
       @Qualifier("configurationProvider") ConfigurationProvider provider,
       KafkaProperties properties) {
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
-    KafkaProperties.Consumer consumerProps = properties.getConsumer();
+    // Overrides go into the built map, never into the shared KafkaProperties bean: mutating it
+    // would leak these settings into every other client built from it afterwards.
+    Map<String, Object> customizedProperties = properties.buildConsumerProperties();
 
     // Specify (de)serializers for record keys and for record values.
-    consumerProps.setKeyDeserializer(StringDeserializer.class);
-    consumerProps.setValueDeserializer(StringDeserializer.class);
+    customizedProperties.put(
+        ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+    customizedProperties.put(
+        ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
     // Records will be flushed every 10 seconds.
-    consumerProps.setEnableAutoCommit(true);
-    consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));
+    customizedProperties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+    customizedProperties.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 10_000);
 
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
     String bootstrapServers =
@@ -47,7 +52,8 @@ public class SimpleKafkaConsumerFactory {
             ? kafkaConfiguration.getConsumer().getBootstrapServers()
             : kafkaConfiguration.getBootstrapServers();
     if (StringUtils.isNotBlank(bootstrapServers)) {
-      consumerProps.setBootstrapServers(Arrays.asList(bootstrapServers.split(",")));
+      customizedProperties.put(
+          ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
     String securityProtocol =
@@ -55,10 +61,12 @@ public class SimpleKafkaConsumerFactory {
             ? kafkaConfiguration.getConsumer().getSecurityProtocol()
             : null;
     if (StringUtils.isNotBlank(securityProtocol)) {
-      consumerProps.getSecurity().setProtocol(securityProtocol);
+      customizedProperties.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, securityProtocol);
     }
+    // Spring's per-client raw properties map was applied after the overrides above when they were
+    // set on KafkaProperties; keep it winning so precedence is unchanged.
+    customizedProperties.putAll(properties.getConsumer().getProperties());
 
-    Map<String, Object> customizedProperties = properties.buildConsumerProperties();
     customizedProperties.put(
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
         kafkaConfiguration.getConsumer().getMaxPartitionFetchBytes());
