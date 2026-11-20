@@ -1,4 +1,4 @@
-import { ApolloClient } from '@apollo/client';
+import { ApolloClient, isReference } from '@apollo/client';
 
 import { ListPostsQuery } from '@graphql/post.generated';
 import { UpdatePostContentInput } from '@types';
@@ -10,11 +10,11 @@ type ListPostsPost = ListPostsResult['posts'][number];
  * Apply a change to every cached listPosts result, so other pages and searches don't show stale posts.
  */
 const modifyListPostsCache = (client: ApolloClient<object>, modify: (posts: ListPostsPost[]) => ListPostsPost[]) => {
-    client.cache.modify({
+    client.cache.modify<{ listPosts: ListPostsResult }>({
         id: 'ROOT_QUERY',
         fields: {
-            listPosts(existing: ListPostsResult) {
-                if (!existing?.posts) return existing;
+            listPosts(existing) {
+                if (isReference(existing) || !existing?.posts) return existing;
                 const posts = modify(existing.posts);
                 const delta = posts.length - existing.posts.length;
                 return { ...existing, count: existing.count + delta, total: existing.total + delta, posts };
