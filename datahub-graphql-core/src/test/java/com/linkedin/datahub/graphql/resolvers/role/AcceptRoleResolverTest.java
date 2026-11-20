@@ -29,6 +29,7 @@ public class AcceptRoleResolverTest {
   private static final String ACTOR_URN_STRING = "urn:li:corpuser:user";
   private static final String INVITE_TOKEN_STRING = "inviteToken";
   private static final String ENCRYPTED_INVITE_TOKEN_STRING = "encryptedInviteToken";
+  private static final String RAW_INVITE_TOKEN = "plaintextinvitetokenvalue";
   private Urn roleUrn;
   private RoleService _roleService;
   private InviteTokenService _inviteTokenService;
@@ -286,5 +287,54 @@ public class AcceptRoleResolverTest {
 
     // Verify role assignment still succeeded
     verify(_roleService, times(1)).batchAssignRoleToActors(any(), any(), any());
+  }
+
+  @Test
+  public void testInvalidInviteTokenIsNotExposedInError() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+    when(_inviteTokenService.getVerifiedInviteToken(any(), eq(RAW_INVITE_TOKEN))).thenReturn(null);
+
+    AcceptRoleInput input = new AcceptRoleInput();
+    input.setInviteToken(RAW_INVITE_TOKEN);
+    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
+
+    RuntimeException e =
+        expectThrows(RuntimeException.class, () -> _resolver.get(_dataFetchingEnvironment).join());
+    assertInviteTokenNotExposed(e);
+  }
+
+  @Test
+  public void testVerifiedInviteTokenIsNotExposedWhenRoleAssignmentFails() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+    // The token passed verification, so leaking it here exposes a working credential.
+    when(_inviteTokenService.getVerifiedInviteToken(any(), eq(RAW_INVITE_TOKEN)))
+        .thenReturn(new InviteToken().setToken(ENCRYPTED_INVITE_TOKEN_STRING).setRole(roleUrn));
+    Actor actor = mock(Actor.class);
+    when(_authentication.getActor()).thenReturn(actor);
+    when(actor.toUrnStr()).thenReturn(ACTOR_URN_STRING);
+    doThrow(new RuntimeException("Role does not exist"))
+        .when(_roleService)
+        .batchAssignRoleToActors(any(), any(), any());
+
+    AcceptRoleInput input = new AcceptRoleInput();
+    input.setInviteToken(RAW_INVITE_TOKEN);
+    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
+
+    RuntimeException e =
+        expectThrows(RuntimeException.class, () -> _resolver.get(_dataFetchingEnvironment).join());
+    verify(_roleService, times(1)).batchAssignRoleToActors(any(), any(), any());
+    assertInviteTokenNotExposed(e);
+  }
+
+  /** DataHubDataFetcherExceptionHandler logs the message of every exception in the cause chain. */
+  private static void assertInviteTokenNotExposed(Throwable thrown) {
+    for (Throwable t = thrown; t != null; t = t.getCause()) {
+      assertFalse(
+          String.valueOf(t.getMessage()).contains(RAW_INVITE_TOKEN), "Invite token exposed: " + t);
+    }
   }
 }
