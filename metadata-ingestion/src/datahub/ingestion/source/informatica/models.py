@@ -51,6 +51,17 @@ class ExportJobState(StrEnum):
             return cls.UNKNOWN
 
 
+class ExternalDatasetStatus(StrEnum):
+    """What DataHub holds for a dataset that only appears in lineage."""
+
+    # No Status aspect, so a stub is needed to make it searchable.
+    MISSING = "missing"
+    PRESENT = "present"
+    REMOVED = "removed"
+    # The lookup failed; no stub, since it could undelete the dataset.
+    UNKNOWN = "unknown"
+
+
 # ``extra="allow"`` tolerates new IDMC fields across API upgrades without failing ingestion.
 _IDMC_MODEL_CONFIG = ConfigDict(extra="allow", arbitrary_types_allowed=True)
 

@@ -2,7 +2,6 @@ import logging
 import re
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from enum import Enum
 from functools import partial
 from typing import (
     Callable,
@@ -47,6 +46,7 @@ from datahub.ingestion.source.informatica.config import (
 )
 from datahub.ingestion.source.informatica.models import (
     ExportJobState,
+    ExternalDatasetStatus,
     IdmcConnection,
     IdmcMapping,
     IdmcMappingTask,
@@ -151,14 +151,6 @@ class ResolvedMappingLineage:
     mt_job_urns: List[str]
     input_urns: List[str]
     output_urns: List[str]
-
-
-class ExternalDatasetStatus(Enum):
-    # No Status aspect in DataHub, so a stub is needed to make it searchable.
-    MISSING = "missing"
-    PRESENT = "present"
-    REMOVED = "removed"
-    UNKNOWN = "unknown"
 
 
 class InformaticaProjectKey(ContainerKey):
