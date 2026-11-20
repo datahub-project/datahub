@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from typing import Dict, List, cast
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import snowflake.connector.errors as snowflake_connector_errors
@@ -15,6 +15,7 @@ from datahub.ingestion.source.snowflake.constants import (
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeIdentifierConfig,
+    TagOption,
 )
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakePermissionError,
@@ -25,6 +26,7 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SnowflakeColumn,
     SnowflakeDataDictionary,
     SnowflakeDynamicTable,
     SnowflakeInteractiveTable,
@@ -50,6 +52,7 @@ from tests.unit.snowflake.conftest import (
     QueryHandler,
     fake_connection,
     make_gen,
+    table,
 )
 from tests.unit.snowflake.test_snowflake_show_pagination import (
     FakeShowConnection,
@@ -430,6 +433,78 @@ def test_register_interactive_without_definition_is_counted() -> None:
     assert not gen._register_interactive_table_upstreams(table, DB, SCHEMA)
     cast(MagicMock, gen.aggregator).add_view_definition.assert_not_called()
     assert gen.report.num_interactive_tables_without_definition == 1
+
+
+_COL_1 = SnowflakeColumn(
+    name="col_1",
+    ordinal_position=1,
+    is_nullable=True,
+    data_type="NUMBER",
+    comment=None,
+    character_maximum_length=None,
+    numeric_precision=38,
+    numeric_scale=0,
+)
+
+
+def test_static_interactive_get_ddl_select_star_yields_column_lineage() -> None:
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        query_log=QueryLogSetting.STORE_ALL,
+    )
+    gen = make_gen(
+        include_technical_schema=True,
+        extract_tags=TagOption.skip,
+        include_primary_keys=False,
+        include_foreign_keys=False,
+    )
+    gen.aggregator = aggregator
+    source = table("SOURCE")
+    static = _interactive_with_definition("INT_STATIC", definition=STATIC_DDL)
+    columns_by_name = {"SOURCE": [_COL_1], "INT_STATIC": [_COL_1]}
+
+    snowflake_schema = MagicMock()
+    snowflake_schema.name = "PUBLIC"
+
+    def _pass_through_classification(
+        table_wu_generator: object, *_args: object
+    ) -> object:
+        yield from table_wu_generator  # type: ignore[misc]
+
+    with (
+        patch(
+            "datahub.ingestion.source.snowflake.snowflake_schema_gen.classification_workunit_processor",
+            side_effect=_pass_through_classification,
+        ),
+        patch.object(
+            gen,
+            "get_columns_for_table",
+            side_effect=lambda name, *_args: columns_by_name[name],
+        ),
+    ):
+        list(
+            gen._process_tables(
+                [source, static],
+                snowflake_schema=snowflake_schema,
+                db_name="TEST_DB",
+                schema_name="PUBLIC",
+            )
+        )
+
+    downstream = gen.identifiers.gen_dataset_urn(
+        gen.identifiers.get_dataset_identifier("INT_STATIC", "PUBLIC", "TEST_DB")
+    )
+    fine_grained = None
+    for mcp in aggregator.gen_metadata():
+        if getattr(mcp, "entityUrn", None) != downstream:
+            continue
+        aspect = getattr(mcp, "aspect", None)
+        if isinstance(aspect, UpstreamLineageClass):
+            fine_grained = aspect.fineGrainedLineages
+    assert fine_grained
 
 
 def test_rewritten_get_ddl_yields_upstream() -> None:

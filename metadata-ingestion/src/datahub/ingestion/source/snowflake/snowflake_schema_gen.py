@@ -771,6 +771,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         table: SnowflakeInteractiveTable,
         db_name: str,
         schema_name: str,
+        *,
+        pending_static_queries: Optional[List[ObservedQuery]] = None,
     ) -> bool:
         aggregator = self.aggregator
         if aggregator is None:
@@ -793,13 +795,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
         else:
             # Static tables: TRANSFORMED so query-log CTAS/INSERT keeps precedence over this fallback.
-            aggregator.add_observed_query(
-                ObservedQuery(
-                    query=view_definition,
-                    default_db=db_name,
-                    default_schema=schema_name,
-                )
+            observed = ObservedQuery(
+                query=view_definition,
+                default_db=db_name,
+                default_schema=schema_name,
             )
+            if pending_static_queries is not None:
+                pending_static_queries.append(observed)
+            else:
+                aggregator.add_observed_query(observed)
         return True
 
     def _process_tables(
@@ -823,6 +827,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # Register lineage outside the include_technical_schema gate (like view definitions) so a
         # lineage-only run still gets dynamic-table upstreams. Guard per table: an unhandled error
         # would abort the whole schema scan (this runs in a ThreadedIteratorExecutor worker).
+        pending_static_interactive_queries: List[ObservedQuery] = []
         if self.aggregator:
             for dynamic_table in dynamic_tables:
                 try:
@@ -838,7 +843,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             for interactive_table in interactive_tables:
                 try:
                     registered = self._register_interactive_table_upstreams(
-                        interactive_table, db_name, schema_name
+                        interactive_table,
+                        db_name,
+                        schema_name,
+                        pending_static_queries=pending_static_interactive_queries,
                     )
                     if registered and interactive_table.target_lag:
                         self.dynamic_table_identifiers.add(
@@ -865,6 +873,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     data_reader,
                     [db_name, schema_name, table.name],
                 )
+
+        if self.aggregator:
+            for observed in pending_static_interactive_queries:
+                self.aggregator.add_observed_query(observed)
 
     def _process_views(
         self,
