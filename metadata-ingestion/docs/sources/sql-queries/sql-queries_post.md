@@ -19,7 +19,52 @@ The source expects newline-delimited JSON (NDJSON), with one query object per li
 - `timestamp` (optional): query execution timestamp
 - `user` (optional): actor used for usage attribution
 - `session_id` (optional): session key used to resolve temporary tables across related queries
+- `default_db` / `default_schema` (optional): per-record defaults for resolving unqualified table names. They override the source-level `default_db` / `default_schema`, so a single run can mix records from different databases. Blank values fall back to the source-level defaults.
 - `downstream_tables` / `upstream_tables` (optional): explicit lineage hints; when both are provided, SQL parsing is bypassed and the lineage is used directly
+
+#### Reading Queries from Elasticsearch / OpenSearch
+
+Instead of a file, the source can read query records directly from an Elasticsearch or OpenSearch index via `query_source`. This is useful when executed SQL is shipped to a search cluster (for example, database audit logs forwarded to Elasticsearch) rather than kept in a file. Exactly one of `query_file` and `query_source` must be set.
+
+```yaml
+source:
+  type: sql-queries
+  config:
+    platform: mariadb
+    query_source:
+      type: elasticsearch
+      index: audit-*
+      connection:
+        host: https://es.internal:9200
+        username: "${ES_USER}"
+        password: "${ES_PASSWORD}"
+        use_ssl: true
+        verify_certs: true
+      # Map Elasticsearch document fields to query-record fields. Dotted paths
+      # are supported for nested documents.
+      field_mappings:
+        query: object
+        timestamp: "@timestamp"
+        user: username
+        session_id: connectionid
+        default_schema: database
+      email_domain: example.com # bare usernames become <user>@example.com
+      unescape_sql: true # undo backslash-escaped quotes stored by audit logs
+      # Elasticsearch query DSL added to the read. This backend has no time
+      # window of its own, so bound the range here.
+      query_filter:
+        range:
+          "@timestamp":
+            gte: "now-30d"
+```
+
+Notes:
+
+- `connection` takes the same settings as the `elasticsearch` source, so username/password, API key, mutual TLS and AWS IAM (SigV4) authentication through `connection.aws_config` are all available. `connection.aws_config` is separate from the top-level `aws_config`, which is only used to read an `s3://` `query_file`.
+- Every run reads every matching document. Use `query_filter` to limit the time range, for example to the period since the previous run.
+- Documents whose mapped `query` field is empty or absent are skipped, so an index that mixes query records with non-query events (such as connect/disconnect audit entries) can be read directly without a filter. If no document has a value there, the run fails, because that almost always means `field_mappings.query` names the wrong field. A mapped optional field that no document has is reported as a warning.
+- When a `timestamp` field is mapped, records are read in ascending timestamp order so session temporary-table lineage resolves correctly.
+- Requests time out after `request_timeout_seconds` (60 by default) and are retried `max_retries` times after a timeout or connection error.
 
 #### Incremental Lineage
 

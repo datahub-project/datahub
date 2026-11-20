@@ -212,6 +212,8 @@ sql_common = (
     | sqlglot_lib
 )
 
+opensearch_common = {"opensearch-py>=3.0.0,<4.0.0"}
+
 aws_common = {
     # AWS Python SDK
     # Minimum 1.35.0 required for S3 ListBuckets Prefix parameter support (added October 2024)
@@ -704,7 +706,7 @@ plugins: Dict[str, Set[str]] = {
     # opensearch-py, not elasticsearch-py: the latter only supports Elasticsearch and rejects OpenSearch.
     # 3.x generated APIs are keyword-only; require >=3 so 2.x is not installed.
     # aws_common provides credential resolution for optional AWS IAM (SigV4) auth.
-    "elasticsearch": {"opensearch-py>=3.0.0,<4.0.0", *aws_common, *cachetools_lib},
+    "elasticsearch": {*opensearch_common, *aws_common, *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5,<4.0.0",
         "pandas<3.0.0",
@@ -889,6 +891,9 @@ plugins: Dict[str, Set[str]] = {
     "sql-queries": usage_common
     | sqlglot_lib
     | aws_common
+    # opensearch-py backs the elasticsearch query_source backend, whose config
+    # module is imported whenever the source loads.
+    | opensearch_common
     | {"smart-open[s3]>=5.2.1,<8.0.0"},
     "slack": slack,
     "superset": superset_common,
