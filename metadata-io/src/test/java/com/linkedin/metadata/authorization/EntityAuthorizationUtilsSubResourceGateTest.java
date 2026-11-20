@@ -256,6 +256,54 @@ public class EntityAuthorizationUtilsSubResourceGateTest {
     };
   }
 
+  /**
+   * The gate's existence stub normally fills every requested URN. These answers do not: an empty
+   * map, a map that names a different entity, and a null map. Create Entity must not be granted off
+   * any of them. An explicit false is still a create.
+   */
+  @Test
+  public void testMissingExistenceAnswerDoesNotGrantCreate() {
+    MetadataChangeProposal properties =
+        proposal(DATASET, ChangeType.UPSERT, STRUCTURED_PROPERTIES_ASPECT_NAME);
+    MetadataChangeProposal tags = proposal(DATASET, ChangeType.UPSERT, GLOBAL_TAGS_ASPECT_NAME);
+    Map<String, Set<Urn>> createOnly = Map.of(CREATE_ENTITY, Set.of());
+
+    for (Map<Urn, Boolean> answer : List.<Map<Urn, Boolean>>of(Map.of(), Map.of(DOCUMENT, false))) {
+      assertEquals(
+          ingestStatus(properties, createOnly, answer),
+          HttpStatus.SC_FORBIDDEN,
+          String.valueOf(answer));
+      assertEquals(
+          ingestStatus(tags, createOnly, answer), HttpStatus.SC_FORBIDDEN, String.valueOf(answer));
+    }
+    assertEquals(ingestStatus(properties, createOnly, null), HttpStatus.SC_FORBIDDEN);
+    assertEquals(ingestStatus(tags, createOnly, null), HttpStatus.SC_FORBIDDEN);
+
+    assertEquals(ingestStatus(properties, createOnly, Map.of(DATASET, false)), HttpStatus.SC_OK);
+    assertEquals(ingestStatus(tags, createOnly, Map.of(DATASET, false)), HttpStatus.SC_OK);
+  }
+
+  private static MetadataChangeProposal proposal(
+      Urn urn, ChangeType changeType, String aspectName) {
+    return new MetadataChangeProposal()
+        .setEntityType(urn.getEntityType())
+        .setEntityUrn(urn)
+        .setChangeType(changeType)
+        .setAspectName(aspectName);
+  }
+
+  private static int ingestStatus(
+      MetadataChangeProposal proposal,
+      Map<String, Set<Urn>> privileges,
+      Map<Urn, Boolean> existence) {
+    OperationContext opContext = session(privileges, Map.of());
+    when(opContext.getAspectRetriever().entityExists(any(OperationFingerprint.class), anySet()))
+        .thenReturn(existence);
+    return EntityAuthorizationUtils.isAPIAuthorizedIngest(opContext, REGISTRY, List.of(proposal))
+        .get(0)
+        .getSecond();
+  }
+
   @Test(dataProvider = "gateCases")
   public void testIngestGate(
       Urn urn,

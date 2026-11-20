@@ -115,6 +115,7 @@ public class PrivilegeConstraintsWriteGateParityTest {
 
   private final Map<Urn, Map<String, Aspect>> stored = new HashMap<>();
   private final Map<Urn, Boolean> existing = new HashMap<>();
+  private CachingAspectRetriever aspectRetriever;
   private RetrieverContext retrieverContext;
   private boolean previousRestApiAuthorization;
 
@@ -125,7 +126,7 @@ public class PrivilegeConstraintsWriteGateParityTest {
     stored.clear();
     existing.clear();
 
-    CachingAspectRetriever aspectRetriever = Mockito.mock(CachingAspectRetriever.class);
+    aspectRetriever = Mockito.mock(CachingAspectRetriever.class);
     Mockito.when(aspectRetriever.getEntityRegistry()).thenReturn(REGISTRY);
     Mockito.doAnswer(
             invocation -> {
@@ -237,6 +238,45 @@ public class PrivilegeConstraintsWriteGateParityTest {
       {DATASET, false, Write.TAGS_UPSERT, EDIT_ENTITY_TAGS},
       {DATASET, false, Write.TAGS_PATCH, EDIT_ENTITY_TAGS},
     };
+  }
+
+  /**
+   * A null or partial existence lookup must not be read as "does not exist". Create Entity would
+   * then authorize a property or tag write on an entity that may already exist. An explicit false
+   * is still a create.
+   */
+  @Test
+  public void testMissingExistenceAnswerDoesNotAuthorizeCreate() {
+    AuthorizationSession session = grants(Map.of(CREATE_ENTITY, Set.of()));
+    BatchItem properties = prepare(DATASET, false, Write.PROPERTIES_UPSERT);
+    BatchItem tags = prepare(DATASET, false, Write.TAGS_UPSERT);
+
+    for (Map<Urn, Boolean> answer : List.<Map<Urn, Boolean>>of(Map.of(), Map.of(CHART, false))) {
+      answerExistence(answer);
+      Assert.assertEquals(
+          validate(validatorFor(Write.PROPERTIES_UPSERT), session, properties).size(),
+          1,
+          "property upsert with existence " + answer);
+      Assert.assertEquals(
+          validate(validatorFor(Write.TAGS_UPSERT), session, tags).size(),
+          1,
+          "tag upsert with existence " + answer);
+    }
+    answerExistence(null);
+    Assert.assertEquals(
+        validate(validatorFor(Write.PROPERTIES_UPSERT), session, properties).size(), 1);
+    Assert.assertEquals(validate(validatorFor(Write.TAGS_UPSERT), session, tags).size(), 1);
+
+    answerExistence(Map.of(DATASET, false));
+    Assert.assertEquals(
+        validate(validatorFor(Write.PROPERTIES_UPSERT), session, properties), List.of());
+    Assert.assertEquals(validate(validatorFor(Write.TAGS_UPSERT), session, tags), List.of());
+  }
+
+  private void answerExistence(@Nullable Map<Urn, Boolean> answer) {
+    Mockito.doReturn(answer)
+        .when(aspectRetriever)
+        .entityExists(any(OperationFingerprint.class), anySet());
   }
 
   @Test(dataProvider = "noMatchingPrivilege")

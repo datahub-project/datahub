@@ -59,11 +59,20 @@ public class StructuredPropertyPrivilegeConstraintsValidator
     Map<Urn, Boolean> entityExists = entityExists(operationContext, items, aspectRetriever);
 
     for (BatchItem item : items) {
-      if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(item.getAspectName())) {
-        failures.addAll(
-            validateStructuredProperties(
-                session, item, aspectRetriever, currentAspects.get(item.getUrn()), entityExists));
+      if (!STRUCTURED_PROPERTIES_ASPECT_NAME.equals(item.getAspectName())) {
+        continue;
       }
+      // A missing answer is not "does not exist": that would classify the write as a create and
+      // let Create Entity authorize a change to an entity that may already exist.
+      if (existenceUnknown(item, entityExists)) {
+        failures.add(
+            AspectValidationException.forAuth(
+                item, "Cannot authorize a structured property write without an existence result"));
+        continue;
+      }
+      failures.addAll(
+          validateStructuredProperties(
+              session, item, aspectRetriever, currentAspects.get(item.getUrn()), entityExists));
     }
     return failures;
   }
@@ -175,7 +184,7 @@ public class StructuredPropertyPrivilegeConstraintsValidator
                 (a, b) -> b));
   }
 
-  @Nonnull
+  @Nullable
   private static Map<Urn, Boolean> entityExists(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull List<? extends BatchItem> items,
@@ -191,8 +200,19 @@ public class StructuredPropertyPrivilegeConstraintsValidator
     if (urns.isEmpty()) {
       return Map.of();
     }
-    Map<Urn, Boolean> existing = aspectRetriever.entityExists(operationContext, urns);
-    return existing == null ? Map.of() : existing;
+    return aspectRetriever.entityExists(operationContext, urns);
+  }
+
+  /**
+   * True when the operation depends on existence and the lookup did not answer for this URN. An
+   * explicit {@code false} is an answer; a null map, a missing key, or a null value is not.
+   */
+  private static boolean existenceUnknown(
+      @Nonnull BatchItem item, @Nullable Map<Urn, Boolean> entityExists) {
+    if (!AuthUtil.subResourceWriteOperationNeedsExistence(item.getChangeType(), item.getUrn())) {
+      return false;
+    }
+    return entityExists == null || entityExists.get(item.getUrn()) == null;
   }
 
   private static ApiOperation operationFor(

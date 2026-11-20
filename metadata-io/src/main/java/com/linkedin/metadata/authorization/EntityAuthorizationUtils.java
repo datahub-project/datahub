@@ -436,8 +436,14 @@ public final class EntityAuthorizationUtils {
       @Nonnull ChangeType changeType,
       @Nonnull Urn urn,
       @Nonnull String aspectName,
-      @Nonnull Map<Urn, Boolean> entityExists) {
-    boolean exists = Boolean.TRUE.equals(entityExists.get(urn));
+      @Nullable Map<Urn, Boolean> entityExists) {
+    // A missing answer is not "does not exist". Treating it as a create would let Create Entity
+    // authorize a property or tag write on an entity that may already exist.
+    if (AuthUtil.subResourceWriteOperationNeedsExistence(changeType, urn)
+        && (entityExists == null || entityExists.get(urn) == null)) {
+      return HttpStatus.SC_FORBIDDEN;
+    }
+    boolean exists = entityExists != null && Boolean.TRUE.equals(entityExists.get(urn));
     return AuthUtil.isCoarseSubResourceWriteAuthorized(
             opContext, changeType, urn, aspectName, exists)
         ? HttpStatus.SC_OK

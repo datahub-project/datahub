@@ -72,6 +72,14 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
           currentAspects
               .getOrDefault(item.getAspectName(), Collections.emptyMap())
               .get(item.getUrn());
+      // A missing answer is not "does not exist": that would classify the write as a create and
+      // let Create Entity authorize a change to an entity that may already exist.
+      if (checksTags(item.getAspectName()) && existenceUnknown(item, entityExists)) {
+        failures.add(
+            AspectValidationException.forAuth(
+                item, "Cannot authorize a tag write without an existence result"));
+        continue;
+      }
       switch (item.getAspectName()) {
         case GLOBAL_TAGS_ASPECT_NAME:
           failures.addAll(
@@ -312,7 +320,7 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
    * One existence lookup for the batch. Schema fields, deletes, and aspect-level creates are left
    * out because their operation does not depend on existence.
    */
-  @Nonnull
+  @Nullable
   private static Map<Urn, Boolean> entityExists(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull List<? extends BatchItem> items,
@@ -328,8 +336,25 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
     if (urns.isEmpty()) {
       return Map.of();
     }
-    Map<Urn, Boolean> existing = aspectRetriever.entityExists(operationContext, urns);
-    return existing == null ? Map.of() : existing;
+    return aspectRetriever.entityExists(operationContext, urns);
+  }
+
+  private static boolean checksTags(@Nullable String aspectName) {
+    return GLOBAL_TAGS_ASPECT_NAME.equals(aspectName)
+        || SCHEMA_METADATA_ASPECT_NAME.equals(aspectName)
+        || EDITABLE_SCHEMA_METADATA_ASPECT_NAME.equals(aspectName);
+  }
+
+  /**
+   * True when the operation depends on existence and the lookup did not answer for this URN. An
+   * explicit {@code false} is an answer; a null map, a missing key, or a null value is not.
+   */
+  private static boolean existenceUnknown(
+      @Nonnull BatchItem item, @Nullable Map<Urn, Boolean> entityExists) {
+    if (!AuthUtil.subResourceWriteOperationNeedsExistence(item.getChangeType(), item.getUrn())) {
+      return false;
+    }
+    return entityExists == null || entityExists.get(item.getUrn()) == null;
   }
 
   /** Resolved only after a non-empty tag change. The existence map is already loaded. */

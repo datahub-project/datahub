@@ -266,8 +266,9 @@ public class FormService extends BaseService {
       // if this is complete, the prompt as a whole should be marked as complete
       ingestCompletedFormResponse(opContext, entityUrn, formUrn, formPromptId, forms);
     } else {
-      // regardless, ingest forms to save state of this aspect
-      ingestForms(opContext, entityUrn, forms);
+      // The field is recorded before the prompt is complete. Same system write as a finished
+      // prompt: the resolver already allowed this caller.
+      ingestFormsOrThrow(systemWriteContext(opContext), entityUrn, forms);
     }
   }
 
@@ -303,8 +304,10 @@ public class FormService extends BaseService {
     // Then, update the completed forms fields based on which prompts remain incomplete.
     updateFormCompletion(opContext, forms, formAssociation, formInfo);
 
-    // Finally, ingest the newly updated forms aspect.
-    ingestForms(opContext, entityUrn, forms);
+    // The resolver has already allowed this caller. Completion is written as the system actor, like
+    // the prompted value, so an assignee without an entity-edit privilege still closes the prompt.
+    // A failure propagates: the mutation must not report success while the form stays incomplete.
+    ingestFormsOrThrow(systemWriteContext(opContext), entityUrn, forms);
   }
 
   private void ingestSchemaFieldStructuredProperties(
@@ -374,18 +377,28 @@ public class FormService extends BaseService {
             systemAuthentication, opContext.getSessionActorContext().isEnforceExistenceEnabled());
   }
 
+  /**
+   * Assignment, unassign, and verification keep going when the forms write fails. Prompt completion
+   * does not: {@link #ingestFormsOrThrow} surfaces that failure.
+   */
   private void ingestForms(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final Forms forms) {
     try {
-      ingestChangeProposals(
-          opContext,
-          ImmutableList.of(
-              AspectUtils.buildMetadataChangeProposal(entityUrn, FORMS_ASPECT_NAME, forms)));
+      ingestFormsOrThrow(opContext, entityUrn, forms);
     } catch (Exception e) {
       log.warn(String.format("Failed to ingest forms for entity with urn %s", entityUrn), e);
     }
+  }
+
+  private void ingestFormsOrThrow(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn, @Nonnull final Forms forms)
+      throws Exception {
+    ingestChangeProposals(
+        opContext,
+        ImmutableList.of(
+            AspectUtils.buildMetadataChangeProposal(entityUrn, FORMS_ASPECT_NAME, forms)));
   }
 
   /**

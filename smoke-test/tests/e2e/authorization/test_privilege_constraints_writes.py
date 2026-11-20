@@ -11,9 +11,9 @@ A denied write is 403. Each scenario uses a user holding only the privilege name
   - Manage Users & Groups: OpenAPI v3 upsert on a group, Rest.li tag PATCH on a user
   - Create Entity: new dataset with structured properties and tags (OpenAPI v3 and Rest.li)
   - Delete Entity: OpenAPI v3 DELETE of the structuredProperties aspect
-  - Form assignee (no privileges): GraphQL submitFormPrompt stores the prompted property. A user
-    who is not assigned, or an answer for a property the prompt does not ask for, is denied and
-    nothing is written.
+  - Form assignee (no privileges): GraphQL submitFormPrompt stores the prompted property and marks
+    that prompt complete. A user who is not assigned, or an answer for a property the prompt does
+    not ask for, is denied and nothing is written.
   - Edit Entity constrained to one property: that property is allowed, any other is
     denied on Rest.li and OpenAPI v3
 
@@ -47,6 +47,7 @@ from datahub.metadata.schema_classes import (
     DocumentContentsClass,
     DocumentInfoClass,
     DocumentStatusClass,
+    FormsClass,
     GlobalTagsClass,
     PolicyMatchCriterionClass,
     PolicyMatchFilterClass,
@@ -689,12 +690,28 @@ def _submit_prompt(setup: Dict[str, Any], role: str, prop: str, value: str) -> N
     )
 
 
+def _assert_prompt_completed(setup: Dict[str, Any]) -> None:
+    forms = setup["graph"].get_aspect(DATASET_FORM, FormsClass)
+    assert forms is not None
+    completed = [
+        association
+        for association in forms.completedForms or []
+        if association.urn == setup["form_urn"]
+    ]
+    assert completed, "answered prompt left the form incomplete"
+    assert any(
+        prompt.id == setup["prompt_id"]
+        for prompt in completed[0].completedPrompts or []
+    )
+
+
 def test_form_assignee_without_edit_privilege_can_answer(setup):
     _eventually_allowed(
         lambda: _submit_prompt(setup, ASSIGNEE, PROP_A, "answered"),
         "GraphQL submitFormPrompt by an assignee who cannot otherwise edit the property",
     )
     assert _stored_props(setup["graph"], DATASET_FORM)[PROP_A] == ["answered"]
+    _assert_prompt_completed(setup)
 
 
 def test_form_prompt_allowed_for_property_editor(setup):
