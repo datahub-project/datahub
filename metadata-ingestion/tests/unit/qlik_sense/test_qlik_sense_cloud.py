@@ -9,12 +9,13 @@ import requests
 import requests_mock as requests_mock_module
 from requests.adapters import HTTPAdapter
 from urllib3.connectionpool import HTTPConnectionPool
-from urllib3.exceptions import NewConnectionError
+from urllib3.exceptions import NewConnectionError, ProtocolError
 from urllib3.response import HTTPResponse
 from urllib3.util.retry import Retry
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
+from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
+from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     QlikTable,
@@ -641,6 +642,121 @@ def test_rate_limited_requests_are_retried_through_the_adapter() -> None:
 
     assert response.status_code == 200
     assert sent == ["GET", "GET", "POST", "POST"]
+
+
+def test_dropped_connection_is_retried_through_the_adapter() -> None:
+    sent: List[str] = []
+
+    def make_request(
+        pool: HTTPConnectionPool, conn: object, method: str, url: str, **_: object
+    ) -> HTTPResponse:
+        sent.append(url)
+        if len(sent) == 1:
+            raise ProtocolError("Connection aborted.")
+        return _urllib3_response(200, method, url)
+
+    with (
+        patch.object(HTTPConnectionPool, "_make_request", make_request),
+        patch.object(Retry, "sleep"),
+    ):
+        QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+
+    assert len(sent) == 2
+
+
+def test_app_without_lineage_graph_is_flagged_not_a_read_error(
+    requests_mock: requests_mock_module.Mocker,
+) -> None:
+    requests_mock.get("https://tenant.example.com/api/v1/api-keys", json={})
+    requests_mock.get(
+        "https://tenant.example.com/api/v1/lineage-graphs/nodes/"
+        "qri%3Aapp%3Asense%3A%2F%2Fapp-1/actions/expand",
+        status_code=404,
+    )
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    table = _blackbox_table("SELECT order_id FROM orders")
+    errors = ReadErrors()
+
+    api._add_qri_of_tables([table], "app-1", errors)
+
+    assert errors.messages == []
+    assert errors.lineage_graph_missing
+    assert table.tableQri is None
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_missing_table_lineage_graph_is_checked_like_a_missing_app_graph(
+    mock_session_cls: MagicMock,
+    mock_websocket_cls: MagicMock,
+    mock_app_cls: MagicMock,
+) -> None:
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    app = _cloud_app()
+    mock_app_cls.model_validate.return_value = app
+
+    def tables_without_graph(
+        websocket: object, app_id: str, errors: ReadErrors
+    ) -> List[QlikTable]:
+        errors.lineage_graph_missing = True
+        return [_blackbox_table("SELECT order_id FROM orders")]
+
+    with (
+        patch.object(api, "_get_app_sheets", return_value=[]),
+        patch.object(api, "_get_app_used_tables", side_effect=tables_without_graph),
+    ):
+        api._get_app("app-1")
+
+    # The source then compares with the last read before trusting the tables.
+    assert app.lineage_graph_missing
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_data_model_app_without_lineage_graph_keeps_its_last_read(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-cloud"),
+    )
+    source.app_state = MagicMock()
+    source.stale_entity_removal_handler = MagicMock()
+    table_urn = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    source.app_state.previous.return_value = AppCheckpoint(
+        urns=["urn:li:container:app-1", table_urn],
+        table_urns_by_qri={"qri:db:orders": table_urn},
+    )
+    # Its data model has tables, but with no lineage graph none has a QRI.
+    app = _cloud_app(tables=[_blackbox_table("SELECT order_id FROM orders")])
+    app.lineage_graph_missing = True
+
+    workunits = list(source._gen_item_workunits(app, "Finance", True))
+
+    assert workunits == []
+    assert "Unable to fully read Qlik app" in [
+        warning.title for warning in source.reporter.warnings
+    ]
+    assert not list(source.reporter.failures)
+    kept = source.app_state.record.call_args.args[1]
+    assert kept.urns == ["urn:li:container:app-1", table_urn]
+    assert kept.table_urns_by_qri == {"qri:db:orders": table_urn}
+    assert kept.partial_reads == 1
+
+
+def test_table_from_a_personal_space_connection_is_kept() -> None:
+    table = QlikTable.model_validate(
+        {
+            "tableName": "orders",
+            "boxType": "load-file",
+            "tableAlias": "orders",
+            "dataconnectorName": "Files",
+            "connectionInfo": {"id": "conn-1", "sourceConnectorID": "File_AmazonS3"},
+            "fields": [],
+        }
+    )
+
+    assert table.spaceId == Constant.PERSONAL_SPACE_ID
 
 
 def test_unreachable_tenant_is_not_retried() -> None:
