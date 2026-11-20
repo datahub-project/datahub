@@ -106,6 +106,49 @@ Notes:
 - Column names in `field_mappings` are matched exactly, then case-insensitively, since databases differ in how they case unquoted names. A mapped column the query doesn't return fails the run and lists the columns it did return.
 - Binary columns (such as `BLOB` SQL text) are decoded as UTF-8. Timestamps without a time zone are read as UTC, so convert local-time columns to UTC in the `query`.
 
+#### Reading Queries from Google SecOps
+
+If database audit logs are already ingested into [Google SecOps](https://cloud.google.com/security/products/security-operations) (Chronicle), the source can read the statements from the parsed UDM events with `query_source.type: secops`. It calls the Chronicle API [`udmSearch`](https://docs.cloud.google.com/chronicle/docs/reference/rest/v1/projects.locations.instances/udmSearch) method.
+
+```yaml
+source:
+  type: sql-queries
+  config:
+    platform: bigquery
+    # The usage window also sets the time range of UDM events that are read.
+    usage:
+      start_time: "-7 days"
+    query_source:
+      type: secops
+      project_id: my-secops-project
+      location: us # selects https://us-chronicle.googleapis.com
+      instance_id: 11111111-2222-3333-4444-555555555555
+      credential: # omit to use Application Default Credentials
+        project_id: my-secops-project
+        private_key_id: "${SECOPS_PRIVATE_KEY_ID}"
+        private_key: "${SECOPS_PRIVATE_KEY}"
+        client_email: datahub-reader@my-secops-project.iam.gserviceaccount.com
+        client_id: "123456789012345678901"
+      # Selects the events that carry SQL. Every matching event is read.
+      udm_query: 'metadata.log_type = "MY_DB_AUDIT"'
+      # Dotted paths into each event's `udm`, in the camelCase the API returns.
+      field_mappings:
+        query: target.process.commandLine
+        timestamp: metadata.eventTimestamp
+        user: principal.user.userid
+        default_db: target.resource.name
+      email_domain: example.com
+```
+
+Notes:
+
+- The service account needs the `chronicle.events.udmSearch` permission on the SecOps instance, for example through the Chronicle API Viewer role (`roles/chronicle.viewer`).
+- Events are read between `usage.start_time` and `usage.end_time`, which default to the last full day. Relative values such as `-7 days` are accepted.
+- Which UDM field holds the SQL depends on the log type's parser, so `field_mappings.query` has no default. Open a sample event in UDM Search to find it. A path through a repeated field, such as `principal.user.emailAddresses`, takes its first element.
+- `udmSearch` returns at most 10,000 events per call and has no paging. The source reads the time range in `window_minutes` windows (60 by default) and splits any window that hits the cap in half, down to `min_window_seconds`. If a window that short still hits the cap, the extra events are skipped, a warning is reported, and the report counts it under `secops_windows_truncated`. Narrow `udm_query` if that happens.
+- Windows are read oldest first, and events in a window are sorted by the mapped `timestamp`, so session temporary-table lineage resolves correctly. Events without a usable timestamp are counted and reported.
+- Rate-limit (429) and server (5xx) responses are retried up to `max_retries` times with backoff. Any other error response fails the run, and the report includes the API's error message.
+
 #### Incremental Lineage
 
 When stateful ingestion is enabled, lineage extraction can progress incrementally over new query records while preserving historical checkpoints.
