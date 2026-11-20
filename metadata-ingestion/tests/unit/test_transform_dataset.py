@@ -97,7 +97,10 @@ from datahub.ingestion.transformer.replace_external_url import (
     ReplaceExternalUrlContainer,
     ReplaceExternalUrlDataset,
 )
-from datahub.ingestion.transformer.tags_to_terms import TagsToTermMapper
+from datahub.ingestion.transformer.tags_to_terms import (
+    TagsToTermMapper,
+    _ColumnTagsToTerms,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DatasetPropertiesClass,
@@ -4870,6 +4873,7 @@ def test_tags_to_terms_maps_column_tags_to_column_terms(mock_datahub_graph_insta
             field("email", tags=["pii.email", "owner:team_a"], terms=["existing"]),
             field("phone", tags=["pii.email"], terms=[]),
             field("country", tags=["region"], terms=[]),
+            field("id", tags=[], terms=[]),
         ],
     )
 
@@ -4905,12 +4909,64 @@ def test_tags_to_terms_maps_column_tags_to_column_terms(mock_datahub_graph_insta
     # Columns without a configured tag are untouched.
     assert tags_of("country") == {"urn:li:tag:region"}
     assert terms_of("country") == set()
+    assert fields["id"].globalTags is None
+    assert fields["id"].glossaryTerms is None
     # Column tags do not create a dataset-level glossaryTerms aspect.
     assert not any(
         isinstance(o.record, MetadataChangeProposalWrapper)
         and isinstance(o.record.aspect, models.GlossaryTermsClass)
         for o in output
     )
+
+
+def test_tags_to_terms_column_transformer_create():
+    column_transformer = _ColumnTagsToTerms.create(
+        {"tags": ["pii.email", "sensitivity:high"]},
+        PipelineContext(run_id="transformer_pipe_line"),
+    )
+    assert column_transformer.tags == {"pii.email", "sensitivity:high"}
+
+
+def test_tags_to_terms_patch_keeps_server_terms(mock_datahub_graph_instance):
+    def fake_get_tags(entity_urn: str) -> models.GlobalTagsClass:
+        return models.GlobalTagsClass(
+            tags=[TagAssociationClass(tag=builder.make_tag_urn("pii.email"))]
+        )
+
+    def fake_get_glossary_terms(entity_urn: str) -> models.GlossaryTermsClass:
+        return models.GlossaryTermsClass(
+            terms=[
+                models.GlossaryTermAssociationClass(
+                    urn=builder.make_term_urn("on_server")
+                )
+            ],
+            auditStamp=models.AuditStampClass._construct_with_defaults(),
+        )
+
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph_instance
+    pipeline_context.graph.get_tags = fake_get_tags  # type: ignore
+    pipeline_context.graph.get_glossary_terms = fake_get_glossary_terms  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=TagsToTermMapper,
+        aspect=models.GlossaryTermsClass(
+            terms=[
+                models.GlossaryTermAssociationClass(urn=builder.make_term_urn("in_run"))
+            ],
+            auditStamp=models.AuditStampClass._construct_with_defaults(),
+        ),
+        config={"tags": ["pii.email"], "semantics": "PATCH"},
+        pipeline_context=pipeline_context,
+    )
+
+    terms_aspect = output[0].record.aspect
+    assert isinstance(terms_aspect, models.GlossaryTermsClass)
+    assert {term.urn for term in terms_aspect.terms} == {
+        "urn:li:glossaryTerm:on_server",
+        "urn:li:glossaryTerm:in_run",
+        "urn:li:glossaryTerm:pii.email",
+    }
 
 
 def test_tags_to_terms_with_no_matching_terms(mock_datahub_graph_instance):
