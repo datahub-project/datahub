@@ -729,6 +729,15 @@ WHERE SCHEMA = '{schema_name}'
         return f"""SELECT GET_DDL('SEMANTIC_VIEW', '"{db_name}"."{schema_name}"."{semantic_view_name}"') AS "DDL";"""
 
     @staticmethod
+    def get_table_ddl(db_name: str, schema_name: str, table_name: str) -> str:
+        """Generate query to get the DDL definition of a table.
+
+        Note: Inputs are expected to be pre-validated Snowflake identifiers from
+        INFORMATION_SCHEMA queries. Double-quote escaping is used for identifiers.
+        """
+        return f"""SELECT GET_DDL('TABLE', '"{db_name}"."{schema_name}"."{table_name}"') AS "DDL";"""
+
+    @staticmethod
     def get_semantic_tables_for_database(db_name: str) -> str:
         """Generate query to get semantic tables (base table mappings) for all semantic views in a database."""
         return f"""\

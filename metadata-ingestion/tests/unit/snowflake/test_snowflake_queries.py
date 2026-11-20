@@ -3002,7 +3002,7 @@ class TestTablesForDatabaseQueryWithFilter:
     def test_tables_for_database_no_filter(self):
         """Test tables_for_database generates valid SQL without filter."""
         query = SnowflakeQuery.tables_for_database(
-            "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+            "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"}
         )
 
         # Should be parseable by sqlglot
@@ -3022,7 +3022,7 @@ class TestTablesForDatabaseQueryWithFilter:
         )
         query = SnowflakeQuery.tables_for_database(
             "TEST_DB",
-            table_types={"BASE TABLE", "EXTERNAL TABLE"},
+            table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"},
             table_filter=table_filter,
         )
 
@@ -3038,25 +3038,27 @@ class TestTablesForDatabaseQueryWithFilter:
 
     def test_tables_for_database_with_table_types(self):
         """Test tables_for_database correctly applies table_types filtering."""
-        # Default includes both BASE TABLE and EXTERNAL TABLE
+        # Default includes BASE TABLE, EXTERNAL TABLE, and INTERACTIVE TABLE
         query_default = SnowflakeQuery.tables_for_database(
-            "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+            "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"}
         )
         assert "'BASE TABLE'" in query_default
         assert "'EXTERNAL TABLE'" in query_default
+        assert "'INTERACTIVE TABLE'" in query_default
         assert "COALESCE(is_dynamic" not in query_default
 
-        # Only BASE TABLE (excludes external tables)
+        # Only BASE TABLE (excludes external and interactive tables)
         query_base_only = SnowflakeQuery.tables_for_database(
             "TEST_DB", table_types={"BASE TABLE"}
         )
         assert "'BASE TABLE'" in query_base_only
         assert "'EXTERNAL TABLE'" not in query_base_only
+        assert "'INTERACTIVE TABLE'" not in query_base_only
 
         # Exclude dynamic tables (uses COALESCE to handle NULL values)
         query_no_dynamic = SnowflakeQuery.tables_for_database(
             "TEST_DB",
-            table_types={"BASE TABLE", "EXTERNAL TABLE"},
+            table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"},
             exclude_dynamic_tables=True,
         )
         assert "COALESCE(is_dynamic, 'NO') = 'NO'" in query_no_dynamic

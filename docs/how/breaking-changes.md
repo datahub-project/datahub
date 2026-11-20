@@ -15,6 +15,10 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Snowflake default `table_types` includes interactive tables
+
+- **(Ingestion / Snowflake)** The Snowflake source now includes `'INTERACTIVE TABLE'` in the default `table_types` set, so interactive tables are discovered and ingested as datasets with subtype `Interactive Table` on a default recipe. Recipes that set `table_types` explicitly are unchanged. **Action:** none required. To keep interactive tables out of ingestion, set `table_types` to a set that omits `'INTERACTIVE TABLE'` (for example `BASE TABLE` and `EXTERNAL TABLE` only).
+
 ### CLI initialization from scripts
 
 When you run `datahub init` without an interactive terminal, it now stops if an existing
