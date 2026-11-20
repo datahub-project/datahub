@@ -1,0 +1,20 @@
+query getGroupRoleUrns($urn: String!) {
+    corpGroup(urn: $urn) {
+        urn
+        roles: relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0, count: 100 }) {
+            relationships {
+                entity {
+                    urn
+                }
+            }
+        }
+    }
+}
+
+query getUserPolicyAccess($urn: String!) {
+    debugAccess(userUrn: $urn) {
+        policies
+        groups
+        allRoles
+    }
+}

@@ -21,6 +21,8 @@ import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sideb
 import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarCollapsibleHeader';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
+import GroupPoliciesTab from '@app/permissions/policy/actorPolicies/GroupPoliciesTab';
+import useActorPoliciesVisibility from '@app/permissions/policy/actorPolicies/useActorPoliciesVisibility';
 import CompactContext from '@app/sharedV2/CompactContext';
 import { EntityHead } from '@app/sharedV2/EntityHead';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
@@ -35,7 +37,7 @@ import { EntityRelationshipsResult, EntityType, OriginType, Ownership } from '@t
 
 const messageStyle = { marginTop: '10%' };
 
-const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members];
+const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members, TabType.Policies];
 
 const MEMBER_PAGE_SIZE = 15;
 
@@ -84,6 +86,7 @@ export default function GroupProfile({ urn }: Props) {
     const location = useLocation();
     const isCompact = React.useContext(CompactContext);
     const isInSearch = matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
+    const { showGroupPolicies } = useActorPoliciesVisibility();
     const { loading, error, data, refetch } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
 
     const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
@@ -136,6 +139,19 @@ export default function GroupProfile({ urn }: Props) {
                     enabled: () => true,
                 },
             },
+            // Left out of the list, not disabled: RoutedTabs only greys out disabled tabs.
+            ...(showGroupPolicies
+                ? [
+                      {
+                          name: t('group.tab.policies'),
+                          path: TabType.Policies.toLocaleLowerCase(),
+                          content: <GroupPoliciesTab urn={urn} />,
+                          display: {
+                              enabled: () => true,
+                          },
+                      },
+                  ]
+                : []),
         ].filter((tab) => ENABLED_TAB_TYPES.some((tabType) => tabType.toLocaleLowerCase() === tab.path));
     };
 
