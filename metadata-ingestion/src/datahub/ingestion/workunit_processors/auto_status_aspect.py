@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Iterable, Optional, Set
+from typing import Iterable, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import entity_supports_aspect
@@ -15,6 +15,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 from datahub.specific.status import StatusPatchBuilder
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.server_config_util import RestServiceConfig, get_gms_config
 from datahub.utilities.urns.urn import guess_entity_type
 
@@ -65,55 +66,63 @@ class AutoStatusAspectProcessor(WorkunitProcessor[AutoStatusAspectProcessorRepor
         """
         For all entities that don't have a status aspect, add one with removed set to false.
         """
-        all_urns: Set[str] = set()
-        status_urns: Set[str] = set()
-        for wu in stream:
-            urn = wu.get_urn()
-            all_urns.add(urn)
-            if not wu.is_primary_source:
-                # If this is a non-primary source, we pretend like we've seen the status
-                # aspect so that we don't try to emit a removal for it.
-                status_urns.add(urn)
-            elif isinstance(wu.metadata, MetadataChangeEventClass):
-                if any(
-                    isinstance(aspect, StatusClass)
-                    for aspect in wu.metadata.proposedSnapshot.aspects
-                ):
-                    status_urns.add(urn)
-            elif isinstance(wu.metadata, MetadataChangeProposalWrapper):
-                if isinstance(wu.metadata.aspect, StatusClass):
-                    status_urns.add(urn)
-            elif isinstance(wu.metadata, MetadataChangeProposalClass):
-                if wu.metadata.aspectName == StatusClass.ASPECT_NAME:
-                    status_urns.add(urn)
-            else:
-                self.report.num_errors += 1
-                raise ValueError(f"Unexpected type {type(wu.metadata)}")
+        # Status may arrive after other aspects, so retain one flag per URN until
+        # the source ends. Spill the flags instead of retaining the entire catalog.
+        with FileBackedDict[bool](serializer=int, deserializer=bool) as urn_status:
+            for wu in stream:
+                urn = wu.get_urn()
+                has_status = False
+                if not wu.is_primary_source:
+                    # If this is a non-primary source, we pretend like we've seen the status
+                    # aspect so that we don't try to emit a removal for it.
+                    has_status = True
+                elif isinstance(wu.metadata, MetadataChangeEventClass):
+                    if any(
+                        isinstance(aspect, StatusClass)
+                        for aspect in wu.metadata.proposedSnapshot.aspects
+                    ):
+                        has_status = True
+                elif isinstance(wu.metadata, MetadataChangeProposalWrapper):
+                    if isinstance(wu.metadata.aspect, StatusClass):
+                        has_status = True
+                elif isinstance(wu.metadata, MetadataChangeProposalClass):
+                    if wu.metadata.aspectName == StatusClass.ASPECT_NAME:
+                        has_status = True
+                else:
+                    self.report.num_errors += 1
+                    raise ValueError(f"Unexpected type {type(wu.metadata)}")
 
-            yield wu
+                if has_status or urn not in urn_status:
+                    urn_status[urn] = has_status
+                yield wu
 
-        use_patch = _gms_supports_status_patch()
-        self.report.status_patch_mode = use_patch
+            use_patch = _gms_supports_status_patch()
+            self.report.status_patch_mode = use_patch
 
-        for urn in sorted(all_urns - status_urns):
-            entity_type = guess_entity_type(urn)
-            if not entity_supports_aspect(entity_type, StatusClass):
-                # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
-                # Example like dataProcessInstance doesn't suppport status aspect.
-                # If not skipped gives error: java.lang.RuntimeException: Unknown aspect status for entity dataProcessInstance
-                continue
-            self.report.num_status_aspects_emitted += 1
-            if use_patch:
-                # PATCH only sets removed=false without overwriting other
-                # fields (lifecycleStage, lifecycleState, lifecycleLastUpdated).
-                patch_builder = StatusPatchBuilder(urn).set_removed(False)
-                for mcp in patch_builder.build():
-                    yield MetadataWorkUnit(
-                        id=f"{urn}-auto-status",
-                        mcp_raw=mcp,
-                    )
-            else:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=urn,
-                    aspect=StatusClass(removed=False),
-                ).as_workunit()
+            # Flush pending flags, then stream keys in the same order as sorted(URNs).
+            # The unique key index supplies the ordering without a Python set/list copy.
+            for row in urn_status.sql_query_iterator(
+                f"SELECT key FROM {urn_status.tablename} WHERE value = 0 ORDER BY key"
+            ):
+                urn = row[0]
+                entity_type = guess_entity_type(urn)
+                if not entity_supports_aspect(entity_type, StatusClass):
+                    # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
+                    # Example like dataProcessInstance doesn't suppport status aspect.
+                    # If not skipped gives error: java.lang.RuntimeException: Unknown aspect status for entity dataProcessInstance
+                    continue
+                self.report.num_status_aspects_emitted += 1
+                if use_patch:
+                    # PATCH only sets removed=false without overwriting other
+                    # fields (lifecycleStage, lifecycleState, lifecycleLastUpdated).
+                    patch_builder = StatusPatchBuilder(urn).set_removed(False)
+                    for mcp in patch_builder.build():
+                        yield MetadataWorkUnit(
+                            id=f"{urn}-auto-status",
+                            mcp_raw=mcp,
+                        )
+                else:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=urn,
+                        aspect=StatusClass(removed=False),
+                    ).as_workunit()
