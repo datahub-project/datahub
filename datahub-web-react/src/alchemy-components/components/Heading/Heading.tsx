@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 
 import { H1, H2, H3, H4, H5, H6 } from '@components/components/Heading/components';
 import { HeadingProps, HeadingPropsDefaults } from '@components/components/Heading/types';
@@ -10,30 +10,31 @@ export const headingDefaults: HeadingPropsDefaults = {
     weight: 'medium',
 };
 
-export const Heading = ({
-    type = headingDefaults.type,
-    size = headingDefaults.size,
-    color = headingDefaults.color,
-    weight = headingDefaults.weight,
-    colorLevel,
-    children,
-}: HeadingProps) => {
-    const sharedProps = { size, color, colorLevel, weight };
+const HEADING_ELEMENTS = { h1: H1, h2: H2, h3: H3, h4: H4, h5: H5, h6: H6 };
 
-    switch (type) {
-        case 'h1':
-            return <H1 {...sharedProps}>{children}</H1>;
-        case 'h2':
-            return <H2 {...sharedProps}>{children}</H2>;
-        case 'h3':
-            return <H3 {...sharedProps}>{children}</H3>;
-        case 'h4':
-            return <H4 {...sharedProps}>{children}</H4>;
-        case 'h5':
-            return <H5 {...sharedProps}>{children}</H5>;
-        case 'h6':
-            return <H6 {...sharedProps}>{children}</H6>;
-        default:
-            return <H1 {...sharedProps}>{children}</H1>;
-    }
-};
+// Passes through HTML attributes (className, style, data-testid, ...) so styled(Heading) works,
+// and forwards its ref so Heading can be a Tooltip/Popover child.
+export const Heading = forwardRef<HTMLHeadingElement, HeadingProps>(
+    (
+        {
+            type = headingDefaults.type,
+            size = headingDefaults.size,
+            color = headingDefaults.color,
+            weight = headingDefaults.weight,
+            colorLevel,
+            children,
+            ...props
+        },
+        ref,
+    ) => {
+        const Element = HEADING_ELEMENTS[type] || H1;
+
+        return (
+            <Element ref={ref} size={size} color={color} colorLevel={colorLevel} weight={weight} {...props}>
+                {children}
+            </Element>
+        );
+    },
+);
+
+Heading.displayName = 'Heading';
