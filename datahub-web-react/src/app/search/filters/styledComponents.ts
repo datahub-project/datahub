@@ -2,21 +2,23 @@ import { Button, Typography } from 'antd';
 import styled from 'styled-components';
 
 export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
-    font-size: 14px;
-    font-weight: 700;
-    margin-right: 12px;
-    border: 1px solid ${(props) => props.theme.colors.border};
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    box-shadow: none;
-    ${(props) =>
-        props.$isActive &&
-        `
-        background-color: ${props.theme.colors.buttonFillBrand};
-        border: 1px solid ${props.theme.colors.borderBrand};
-        color: ${props.theme.colors.textOnFillBrand};
-    `}
+    && {
+        font-size: 14px;
+        font-weight: 700;
+        margin-right: 12px;
+        border: 1px solid ${(props) => props.theme.colors.border};
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        box-shadow: none;
+        ${(props) =>
+            props.$isActive &&
+            `
+            background-color: ${props.theme.colors.buttonFillBrand};
+            border: 1px solid ${props.theme.colors.borderBrand};
+            color: ${props.theme.colors.textOnFillBrand};
+        `}
+    }
 `;
 
 export const MoreFilterOptionLabel = styled.div<{ $isActive: boolean; isOpen: boolean }>`
