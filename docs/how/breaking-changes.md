@@ -211,7 +211,7 @@ template or `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY` sets, and never lower
 off or does not take effect, semantic search rejects the flag. **Action:** none. Before you turn the
 switch on, check that clients expect the document defaults and facet counts above.
 
-### Search filters on `showInGlobalContext` find documents hidden from global context
+### Search filters on `showInGlobalContext` find documents hidden from global context ([#21490](https://github.com/datahub-project/datahub/pull/21490))
 
 `searchAcrossEntities`, `scrollAcrossEntities`, `aggregateAcrossEntities` and `browseV2` add a
 default that hides documents not shown in global context. They also added it to a filter on

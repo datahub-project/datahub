@@ -41,7 +41,8 @@ Example - Document hidden from global context::
 
     # Search and sidebar navigation leave this document out by default, and its
     # related assets still lead to it - useful for AI agent context. This is not
-    # access control: a search that filters on showInGlobalContext still returns it.
+    # access control: a cross-entity search such as searchAcrossEntities that
+    # filters on showInGlobalContext still returns it.
     doc = Document.create_document(
         id="dataset-context-doc",
         title="Dataset Context for AI",
@@ -974,8 +975,9 @@ class Document(
 
         When False, the document is left out of search results and the sidebar
         navigation by default, and its related assets still lead to it. This is
-        not access control: a search that filters on showInGlobalContext still
-        returns it. This is useful for documents intended only for AI agent context.
+        not access control: a cross-entity search such as searchAcrossEntities
+        that filters on showInGlobalContext still returns it. This is useful for
+        documents intended only for AI agent context.
 
         Args:
             show: True to show in global context, False to hide
@@ -991,7 +993,8 @@ class Document(
         """Hide document from global search and sidebar by default.
 
         This is not access control: related assets still lead to the document,
-        and a search that filters on showInGlobalContext still returns it.
+        and a cross-entity search such as searchAcrossEntities that filters on
+        showInGlobalContext still returns it.
         Useful for AI-only context documents.
 
         Returns:
