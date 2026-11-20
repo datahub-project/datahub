@@ -51,8 +51,8 @@ const PaginationContainer = styled.div`
 `;
 
 const DEFAULT_PAGE_SIZE = 10;
-// Search indexing lags behind the write, so wait before reloading the list after a create.
-const CREATE_REFRESH_DELAY_MS = 3000;
+// Search indexing lags behind the write, so wait before reloading the list after a create or delete.
+const REFRESH_AFTER_WRITE_DELAY_MS = 3000;
 
 type PostListProps = {
     isCreatingPost: boolean;
@@ -106,6 +106,8 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
 
     const handleDelete = (urn: string) => {
         removeFromListPostsCache(client, urn);
+        // Pages are server slices, so reload them to backfill this page and fix totals on the others.
+        setTimeout(() => clearListPostsCache(client), REFRESH_AFTER_WRITE_DELAY_MS);
     };
 
     const handleEdit = (post: PostEntry) => {
@@ -229,7 +231,7 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
                         showPinnedLinks={showPinnedLinks}
                         onClose={handleClose}
                         onEdit={(urn, content) => updateListPostsCache(client, urn, content)}
-                        onCreate={() => setTimeout(() => clearListPostsCache(client), CREATE_REFRESH_DELAY_MS)}
+                        onCreate={() => setTimeout(() => clearListPostsCache(client), REFRESH_AFTER_WRITE_DELAY_MS)}
                     />
                 )}
             </PostsContainer>
