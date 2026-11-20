@@ -89,7 +89,8 @@ public final class SearchTemplateVectorRetrieval {
       Set.of(EmbeddingProfileRegistry.ELASTICSEARCH, EmbeddingProfileRegistry.OPENSEARCH);
 
   public static final String MIN_SCORE_DEPRECATION =
-      "SearchFlags.minScore is deprecated as a vector leg floor; use retrieval.minSimilarity";
+      "SearchFlags.minScore is deprecated as a vector leg floor; use SearchFlags.minSimilarity,"
+          + " or retrieval.minSimilarity in a template";
 
   private SearchTemplateVectorRetrieval() {}
 

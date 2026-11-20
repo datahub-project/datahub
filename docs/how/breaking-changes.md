@@ -77,8 +77,9 @@ other rows keep their places. With hybrid read off, keyword results do not chang
 whose parent is `fulltext` inherits the rerank, unless it sets its own `knn` that names a `field`:
 that `knn` keeps the reading it had before, so one with only `field` is still the earlier document
 rerank. The new
-`urn:li:searchTemplate:semantic` retrieves by vector. A search uses it only when it names it in the
-`searchTemplate` search flag; semantic search (`semanticSearchAcrossEntities`) does not change.
+`urn:li:searchTemplate:semantic` retrieves by vector. A search uses it when it names it in the
+`searchTemplate` search flag. Semantic search (`semanticSearchAcrossEntities`) uses it only behind
+its own switch; see "Semantic search can run the semantic search template".
 Version 18 adds `urn:li:searchTemplate:similarity` and the `similarity` capability. A search that
 names `similarity` in the `searchTemplate` flag, with an entity URN as the query, returns the documents
 nearest that entity. `semantic` does not change: its URN route ships in a later release, once every GMS
@@ -124,7 +125,8 @@ turn it on, set `SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH=active` on GMS, and
 setting keeps it off, whatever `SEARCH_V3_TEMPLATES_ROLLOUT` says. With it on:
 
 - Documents follow the same defaults as keyword search: only published documents shown in global
-  context come back, unless the request sets `includeHiddenLifecycleStages`.
+  context come back, unless the request sets `includeHiddenLifecycleStages`. A user who can manage
+  documents also gets unpublished documents that have no lifecycle stage.
 - As in keyword search, soft-deleted entities and entities in a hidden lifecycle stage are left out
   unless the request sets `includeSoftDeleted` or `includeHiddenLifecycleStages`.
 - `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY`, when set, drops results below that cosine. The
