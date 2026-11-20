@@ -17,6 +17,7 @@ from typing import (
     Tuple,
     Union,
 )
+from urllib.parse import quote
 
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.serialize import DeserializeError
@@ -77,7 +78,6 @@ from datahub.ingestion.source.looker.looker_common import (
 )
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
 from datahub.ingestion.source.looker.looker_constant import (
-    EXPLORE_GIT_LINK_ACTOR,
     EXPLORE_GIT_LINK_LABEL,
     LOOKER_DEFAULT_GIT_BRANCH,
 )
@@ -118,6 +118,7 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipTypeClass,
 )
+from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.chart import Chart
 from datahub.sdk.container import Container
 from datahub.sdk.dashboard import Dashboard
@@ -226,9 +227,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         # Explores we actually emitted, so we only attach usage stats to them
         self.explores_for_usage: List[looker_usage.LookerExploreForUsage] = []
 
-        # Git settings per Looker project for explore source links; None = no usable remote.
         self._project_git_refs: Dict[str, Optional[GitReference]] = {}
-        if config.emit_explore_git_links and ctx.graph is None:
+        if config.extract_explore_git_links and ctx.graph is None:
             self.reporter.info(
                 title="Explore Git links are add-only",
                 message="No DataHub connection to read existing links from, so an Explore's old Git link is not removed when its URL changes.",
@@ -917,7 +917,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             if result.dataset:
                 yield result.dataset
                 # Built here, not in the worker, so the project cache needs no lock.
-                if self.source_config.emit_explore_git_links and result.looker_explore:
+                if (
+                    self.source_config.extract_explore_git_links
+                    and result.looker_explore
+                ):
                     yield from self._make_explore_git_link(
                         result.looker_explore, str(result.dataset.urn)
                     )
@@ -978,23 +981,29 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         git_ref = self._get_project_git_ref(explore.project_name)
         if git_ref is None:
             return []
-        url = git_ref.get_url_for_file_path(path)
-        # None when there is no DataHub connection: add only, stale links stay.
-        existing_urls = self._ingestion_git_link_urls(explore_urn)
-        if existing_urls == {url}:
-            return []
+        url = git_ref.get_url_for_file_path(quote(path, safe="/"))
+        # Empty without a DataHub connection: add only, stale links stay.
+        existing = self._existing_git_links(explore_urn)
+        # The fixed stamp marks a link as ingestion-written; links added by hand get a real time.
+        stale_urls = {
+            link.url
+            for link in existing
+            if link.createStamp.time == 0
+            and link.createStamp.actor == DEFAULT_ACTOR_URN
+            and link.url != url
+        }
         patch = HasInstitutionalMemoryPatch(explore_urn)
-        for stale_url in sorted((existing_urls or set()) - {url}):
+        for stale_url in sorted(stale_urls):
             patch.remove_institutional_memory_by_url_and_label(
                 stale_url, EXPLORE_GIT_LINK_LABEL
             )
-        if url not in (existing_urls or set()):
+        # Any link already at this url and label is left as is, including one added by hand.
+        if all(link.url != url for link in existing):
             patch.add_institutional_memory_by_url_and_label(
                 InstitutionalMemoryMetadataClass(
                     url=url,
                     description=EXPLORE_GIT_LINK_LABEL,
-                    # The fixed stamp marks the link as ingestion-written; UI links get a real time.
-                    createStamp=AuditStampClass(time=0, actor=EXPLORE_GIT_LINK_ACTOR),
+                    createStamp=AuditStampClass(time=0, actor=DEFAULT_ACTOR_URN),
                     settings=InstitutionalMemoryMetadataSettingsClass(
                         showInAssetPreview=True
                     ),
@@ -1005,19 +1014,20 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             for mcp in patch.build()
         ]
 
-    def _ingestion_git_link_urls(self, explore_urn: str) -> Optional[Set[str]]:
+    def _existing_git_links(
+        self, explore_urn: str
+    ) -> List[InstitutionalMemoryMetadataClass]:
         if self.ctx.graph is None:
-            return None
+            return []
         memory = self.ctx.graph.get_aspect(explore_urn, InstitutionalMemoryClass)
-        return {
-            element.url
-            for element in (memory.elements if memory else [])
-            if element.description == EXPLORE_GIT_LINK_LABEL
-            and element.createStamp.time == 0
-            and element.createStamp.actor == EXPLORE_GIT_LINK_ACTOR
-        }
+        return [
+            link
+            for link in (memory.elements if memory else [])
+            if link.description == EXPLORE_GIT_LINK_LABEL
+        ]
 
     def _get_project_git_ref(self, project_name: str) -> Optional[GitReference]:
+        # Failures (None) are cached too, so each project is fetched and warned about once.
         if project_name not in self._project_git_refs:
             self._project_git_refs[project_name] = self._fetch_project_git_ref(
                 project_name

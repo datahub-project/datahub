@@ -27,7 +27,7 @@ REPO = "https://github.com/example-org/lookml"
 ORDERS_URL = f"{REPO}/blob/main/views/sales/orders.view.lkml"
 OLD_URL = f"{REPO}/blob/main/views/old/orders.view.lkml"
 LABEL = "View in Git"
-INGESTION_STAMP = AuditStampClass(time=0, actor="urn:li:corpuser:datahub")
+INGESTION_STAMP = AuditStampClass(time=0, actor="urn:li:corpuser:__ingestion")
 USER_STAMP = AuditStampClass(time=1700000000000, actor="urn:li:corpuser:jdoe")
 
 
@@ -113,6 +113,7 @@ def test_lookml_file_path_from_link(
     [
         ("git@github.com:example-org/lookml.git", REPO),
         ("org-123@github.com:example-org/lookml.git", REPO),
+        ("git@GitHub.com:example-org/lookml.git", REPO),
         ("ssh://git@github.com:22/example-org/lookml.git", REPO),
         ("https://user:secret-token@github.com/example-org/lookml.git", REPO),
         (
@@ -133,7 +134,7 @@ def test_https_repo_url_from_git_remote(remote: str, expected: Optional[str]) ->
 
 def test_first_add(looker_source_factory: SourceFactory) -> None:
     source = with_graph(
-        looker_source_factory(client_with(ORDERS_LINK), emit_explore_git_links=True)
+        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True)
     )
     patches = link_patches(source)
     # Both explores of the fake model ("orders" and "unused") get the link.
@@ -142,14 +143,14 @@ def test_first_add(looker_source_factory: SourceFactory) -> None:
     assert patches[0]["patch"][0]["value"] == {
         "url": ORDERS_URL,
         "description": LABEL,
-        "createStamp": {"time": 0, "actor": "urn:li:corpuser:datahub"},
+        "createStamp": {"time": 0, "actor": "urn:li:corpuser:__ingestion"},
         "settings": {"showInAssetPreview": True},
     }
 
 
 def test_same_url_writes_nothing(looker_source_factory: SourceFactory) -> None:
     source = with_graph(
-        looker_source_factory(client_with(ORDERS_LINK), emit_explore_git_links=True),
+        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True),
         link(ORDERS_URL, INGESTION_STAMP),
     )
     assert link_patches(source) == []
@@ -159,7 +160,7 @@ def test_changed_url_removes_old_and_adds_new_in_one_patch(
     looker_source_factory: SourceFactory,
 ) -> None:
     source = with_graph(
-        looker_source_factory(client_with(ORDERS_LINK), emit_explore_git_links=True),
+        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True),
         link(OLD_URL, INGESTION_STAMP),
     )
     patch = link_patches(source)[0]
@@ -169,11 +170,55 @@ def test_changed_url_removes_old_and_adds_new_in_one_patch(
     ]
 
 
+def test_current_and_stale_ingestion_links_give_remove_only(
+    looker_source_factory: SourceFactory,
+) -> None:
+    source = with_graph(
+        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True),
+        link(ORDERS_URL, INGESTION_STAMP),
+        link(OLD_URL, INGESTION_STAMP),
+    )
+    patch = link_patches(source)[0]
+    assert ops(patch) == [("remove", path_for(OLD_URL))]
+
+
+def test_hand_made_link_at_same_url_and_label_is_not_overwritten(
+    looker_source_factory: SourceFactory,
+) -> None:
+    source = with_graph(
+        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True),
+        link(ORDERS_URL, USER_STAMP),
+    )
+    assert link_patches(source) == []
+
+
+def test_missing_production_branch_falls_back_to_master(
+    looker_source_factory: SourceFactory,
+) -> None:
+    client = client_with(
+        ORDERS_LINK, Project(git_remote_url="git@github.com:example-org/lookml.git")
+    )
+    source = with_graph(looker_source_factory(client, extract_explore_git_links=True))
+    patch = link_patches(source)[0]
+    assert patch["patch"][0]["value"]["url"] == (
+        f"{REPO}/blob/master/views/sales/orders.view.lkml"
+    )
+
+
+def test_file_path_is_url_encoded_in_link(looker_source_factory: SourceFactory) -> None:
+    client = client_with("/projects/proj/files/views%2Fmy%20orders%23v2.view.lkml")
+    source = with_graph(looker_source_factory(client, extract_explore_git_links=True))
+    patch = link_patches(source)[0]
+    assert patch["patch"][0]["value"]["url"] == (
+        f"{REPO}/blob/main/views/my%20orders%23v2.view.lkml"
+    )
+
+
 def test_hand_made_link_with_same_label_is_left_untouched(
     looker_source_factory: SourceFactory,
 ) -> None:
     source = with_graph(
-        looker_source_factory(client_with(ORDERS_LINK), emit_explore_git_links=True),
+        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True),
         link(OLD_URL, USER_STAMP),
     )
     patch = link_patches(source)[0]
@@ -184,7 +229,7 @@ def test_no_datahub_connection_adds_only_and_notes_it_once(
     looker_source_factory: SourceFactory,
 ) -> None:
     source = looker_source_factory(
-        client_with(ORDERS_LINK), emit_explore_git_links=True
+        client_with(ORDERS_LINK), extract_explore_git_links=True
     )
     assert source.ctx.graph is None
     patches = link_patches(source)
@@ -225,7 +270,7 @@ def test_project_without_usable_remote_gets_no_link(
         client.project.side_effect = project_response
     else:
         client.project.return_value = project_response
-    source = with_graph(looker_source_factory(client, emit_explore_git_links=True))
+    source = with_graph(looker_source_factory(client, extract_explore_git_links=True))
 
     assert link_patches(source) == []
     assert any(w.title == warning_title for w in source.reporter.warnings)
@@ -247,6 +292,6 @@ def test_no_link_for_explore_from_imported_project(
     client = client_with(
         "/projects/proj/files/imported_projects%2Fother%2Forders.view.lkml"
     )
-    source = looker_source_factory(client, emit_explore_git_links=True)
+    source = looker_source_factory(client, extract_explore_git_links=True)
     assert link_patches(source) == []
     client.project.assert_not_called()

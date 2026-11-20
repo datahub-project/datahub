@@ -228,7 +228,7 @@ def https_repo_url_from_git_remote(remote: str) -> Optional[str]:
             scp_match = GIT_SCP_REMOTE_PATTERN.match(remote)
             if not scp_match:
                 return None
-            host, path = scp_match[1], scp_match[2]
+            host, path = scp_match[1].lower(), scp_match[2]
     except ValueError:
         return None
     repo_path = path.strip("/").removesuffix(".git")
