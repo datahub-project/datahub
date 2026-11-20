@@ -1,9 +1,8 @@
-import { Avatar, Pagination, Pill, SearchBar, Table, Text, Tooltip, toast } from '@components';
+import { Avatar, EmptyState, Pagination, Pill, SearchBar, Table, Tooltip, toast } from '@components';
 import * as QueryString from 'query-string';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
-import styled from 'styled-components';
 
 import { AvatarItemProps } from '@components/components/AvatarStack/types';
 
@@ -13,53 +12,19 @@ import {
     getDataAccessRoleGroupAvatars,
     getDataAccessRoleUserAvatars,
 } from '@app/permissions/dataAccessRoles/dataAccessRoles.utils';
+import {
+    PageContainer,
+    PaginationContainer,
+    PillsContainer,
+    RoleName,
+    TableScrollContainer,
+} from '@app/permissions/roles/ManageRoles';
 import AvatarStackWithHover from '@app/sharedV2/avatar/AvatarStackWithHover';
 import { DEBOUNCE_SEARCH_MS } from '@app/sharedV2/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListDataAccessRolesQuery } from '@graphql/dataAccessRole.generated';
 import { EntityType } from '@types';
-
-const TableScrollContainer = styled.div`
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    overflow: auto;
-`;
-
-const PaginationContainer = styled.div`
-    display: flex;
-    justify-content: center;
-`;
-
-const RoleName = styled.span`
-    font-weight: 700;
-`;
-
-const PageContainer = styled.div`
-    width: 100%;
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding-top: 16px;
-    overflow: hidden;
-`;
-
-const PillsContainer = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-`;
-
-const EmptyContainer = styled.div`
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 40px;
-`;
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -201,11 +166,7 @@ export const ManageDataAccessRoles = () => {
             />
             <TableScrollContainer>
                 {!loading && !error && tableData.length === 0 ? (
-                    <EmptyContainer>
-                        <Text size="md" color="gray">
-                            {t('dataAccessRoles.empty')}
-                        </Text>
-                    </EmptyContainer>
+                    <EmptyState title={t('dataAccessRoles.empty')} size="sm" />
                 ) : (
                     <Table
                         columns={tableColumns}
