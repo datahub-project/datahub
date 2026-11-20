@@ -989,9 +989,9 @@ public class SemanticSearchAcrossEntitiesResolverTest {
     input.setTypes(Collections.singletonList(EntityType.DOCUMENT));
     input.setQuery("quarterly revenue");
     when(mockEnvironment.getArgument("input")).thenReturn(input);
-    when(mockSemanticSearchService.servesTemplate(any())).thenReturn(true);
+    when(mockSemanticSearchService.isServedByTemplate(any())).thenReturn(true);
     // The template's page facets a default filter field, which the response leaves out
-    when(mockSemanticSearchService.semanticTemplateSearchAcrossEntities(
+    when(mockSemanticSearchService.semanticSearchAcrossEntitiesByTemplate(
             any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList()))
         .thenReturn(
             new SearchResult()
@@ -1010,7 +1010,7 @@ public class SemanticSearchAcrossEntitiesResolverTest {
     ArgumentCaptor<OperationContext> searching = ArgumentCaptor.forClass(OperationContext.class);
     ArgumentCaptor<Filter> filter = ArgumentCaptor.forClass(Filter.class);
     verify(mockSemanticSearchService)
-        .semanticTemplateSearchAcrossEntities(
+        .semanticSearchAcrossEntitiesByTemplate(
             searching.capture(),
             eq(Collections.singletonList("document")),
             eq("quarterly revenue"),
@@ -1063,7 +1063,7 @@ public class SemanticSearchAcrossEntitiesResolverTest {
             eq(10),
             anyList());
     verify(mockSemanticSearchService, never())
-        .semanticTemplateSearchAcrossEntities(
+        .semanticSearchAcrossEntitiesByTemplate(
             any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList());
   }
 
@@ -1084,8 +1084,8 @@ public class SemanticSearchAcrossEntitiesResolverTest {
             any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList());
 
     // The template's vector rung reads it
-    when(mockSemanticSearchService.servesTemplate(any())).thenReturn(true);
-    when(mockSemanticSearchService.semanticTemplateSearchAcrossEntities(
+    when(mockSemanticSearchService.isServedByTemplate(any())).thenReturn(true);
+    when(mockSemanticSearchService.semanticSearchAcrossEntitiesByTemplate(
             any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList()))
         .thenReturn(
             new SearchResult()
@@ -1097,7 +1097,7 @@ public class SemanticSearchAcrossEntitiesResolverTest {
     resolver.get(mockEnvironment).get();
     ArgumentCaptor<OperationContext> searching = ArgumentCaptor.forClass(OperationContext.class);
     verify(mockSemanticSearchService)
-        .semanticTemplateSearchAcrossEntities(
+        .semanticSearchAcrossEntitiesByTemplate(
             searching.capture(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList());
     assertEquals(searching.getValue().getSearchContext().getSearchFlags().getMinSimilarity(), 0.8f);
   }
@@ -1109,7 +1109,7 @@ public class SemanticSearchAcrossEntitiesResolverTest {
     input.setTypes(Collections.singletonList(EntityType.DOCUMENT));
     input.setQuery("path/to/revenue");
     when(mockEnvironment.getArgument("input")).thenReturn(input);
-    when(mockSemanticSearchService.servesTemplate(any())).thenReturn(true);
+    when(mockSemanticSearchService.isServedByTemplate(any())).thenReturn(true);
     embeddingFails(QueryEmbeddingException.TIMEOUT);
 
     // By default the error names the reason: a timeout is an exceeded deadline ...
@@ -1170,9 +1170,9 @@ public class SemanticSearchAcrossEntitiesResolverTest {
     flags.setKeywordFallbackOnEmbeddingFailure(true);
     input.setSearchFlags(flags);
     when(mockEnvironment.getArgument("input")).thenReturn(input);
-    when(mockSemanticSearchService.servesTemplate(any())).thenReturn(true);
+    when(mockSemanticSearchService.isServedByTemplate(any())).thenReturn(true);
     // A failed kNN request, as similarity's failures are too: nothing was left unembedded
-    when(mockSemanticSearchService.semanticTemplateSearchAcrossEntities(
+    when(mockSemanticSearchService.semanticSearchAcrossEntitiesByTemplate(
             any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList()))
         .thenThrow(new RuntimeException("kNN unavailable"));
 
@@ -1189,7 +1189,7 @@ public class SemanticSearchAcrossEntitiesResolverTest {
             new RuntimeException(
                 "Vector retrieval failed", new QueryEmbeddingException(reason, null)))
         .when(mockSemanticSearchService)
-        .semanticTemplateSearchAcrossEntities(
+        .semanticSearchAcrossEntitiesByTemplate(
             any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList());
   }
 

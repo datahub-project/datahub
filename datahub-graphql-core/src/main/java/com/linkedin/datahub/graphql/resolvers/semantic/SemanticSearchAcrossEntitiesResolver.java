@@ -93,9 +93,9 @@ public class SemanticSearchAcrossEntitiesResolver
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
     // Decided once per request, by the rule the template coordinator applies
-    final boolean servesTemplate =
-        _semanticSearchService.servesTemplate(context.getOperationContext());
-    if (!servesTemplate
+    final boolean servedByTemplate =
+        _semanticSearchService.isServedByTemplate(context.getOperationContext());
+    if (!servedByTemplate
         && input.getSearchFlags() != null
         && input.getSearchFlags().getMinSimilarity() != null) {
       throw new ValidationException(LEGACY_MIN_SIMILARITY);
@@ -151,7 +151,7 @@ public class SemanticSearchAcrossEntitiesResolver
                     ? getStructuredPropertyFacets(context, finalEntities)
                     : Collections.emptyList();
 
-            if (servesTemplate) {
+            if (servedByTemplate) {
               return templateSearch(
                   context,
                   finalEntities,
@@ -237,7 +237,7 @@ public class SemanticSearchAcrossEntitiesResolver
     SearchResult result;
     try {
       result =
-          _semanticSearchService.semanticTemplateSearchAcrossEntities(
+          _semanticSearchService.semanticSearchAcrossEntitiesByTemplate(
               searching, entityNames, query, filter, sortCriteria, start, count, facets);
     } catch (RuntimeException e) {
       final QueryEmbeddingException failure =

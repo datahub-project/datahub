@@ -111,9 +111,9 @@ public class SemanticSearchService {
    * Whether semantic search serves this request through the semantic search template surface, by
    * the rule the template coordinator applies: templates execute, and that surface's rollout, which
    * is off by default, serves this actor. A caller decides once per request, then calls either
-   * {@link #semanticSearchAcrossEntities} or {@link #semanticTemplateSearchAcrossEntities}.
+   * {@link #semanticSearchAcrossEntities} or {@link #semanticSearchAcrossEntitiesByTemplate}.
    */
-  public boolean servesTemplate(@Nonnull OperationContext opContext) {
+  public boolean isServedByTemplate(@Nonnull OperationContext opContext) {
     final SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     return coordinator != null
         && coordinator.executes(
@@ -130,7 +130,7 @@ public class SemanticSearchService {
    *     "entity" aggregate
    */
   @Nonnull
-  public SearchResult semanticTemplateSearchAcrossEntities(
+  public SearchResult semanticSearchAcrossEntitiesByTemplate(
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String input,

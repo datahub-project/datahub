@@ -468,13 +468,13 @@ public class ESSearchDAOVectorRetrievalTest {
     OperationContext searching = unpinned(f -> {});
 
     // Off by default, though the rollout serves every other surface
-    assertFalse(semantic.servesTemplate(searching));
+    assertFalse(semantic.isServedByTemplate(searching));
     harness.templates.getRollout().setSemanticSearch("active");
-    assertTrue(semantic.servesTemplate(searching));
-    assertFalse(semantic.servesTemplate(searching.withSkipTemplateExecution(true)));
+    assertTrue(semantic.isServedByTemplate(searching));
+    assertFalse(semantic.isServedByTemplate(searching.withSkipTemplateExecution(true)));
 
     SearchResult result =
-        semantic.semanticTemplateSearchAcrossEntities(
+        semantic.semanticSearchAcrossEntitiesByTemplate(
             searching, DOCUMENT, "quarterly revenue", null, null, 0, 10, List.of());
 
     assertEquals(urns(result), List.of("urn:li:document:d0", "urn:li:document:d1"));
@@ -505,7 +505,7 @@ public class ESSearchDAOVectorRetrievalTest {
             f -> f.removeFulltext(), f -> f.setFulltext(false))) {
       assertEquals(
           urns(
-              semantic.semanticTemplateSearchAcrossEntities(
+              semantic.semanticSearchAcrossEntitiesByTemplate(
                   unpinned(flags), DOCUMENT, "quarterly revenue", null, null, 0, 10, List.of())),
           List.of("urn:li:document:d0"));
     }
