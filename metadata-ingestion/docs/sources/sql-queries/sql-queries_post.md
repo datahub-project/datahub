@@ -66,6 +66,46 @@ Notes:
 - When a `timestamp` field is mapped, records are read in ascending timestamp order so session temporary-table lineage resolves correctly.
 - Requests time out after `request_timeout_seconds` (60 by default) and are retried `max_retries` times after a timeout or connection error.
 
+#### Reading Queries from a SQL Table
+
+If query records are kept in a database table, such as a MySQL/MariaDB audit log or a query history table, the source can read them with `query_source.type: sql_table`. It runs one SELECT through SQLAlchemy and maps the result columns onto query-record fields.
+
+```yaml
+source:
+  type: sql-queries
+  config:
+    platform: mysql
+    query_source:
+      type: sql_table
+      connection:
+        scheme: mysql+pymysql
+        host_port: audit-db.internal:3306
+        database: audit
+        username: "${AUDIT_DB_USER}"
+        password: "${AUDIT_DB_PASSWORD}"
+      # One row per query record, oldest first. Bound the time range here.
+      query: >-
+        SELECT event_time, user_host, thread_id, argument
+        FROM mysql.general_log
+        WHERE command_type = 'Query'
+          AND event_time >= NOW() - INTERVAL 1 DAY
+        ORDER BY event_time
+      field_mappings:
+        query: argument
+        timestamp: event_time
+        user: user_host
+        session_id: thread_id
+      email_domain: example.com
+```
+
+Notes:
+
+- The `query` is executed as written. Connect with a dedicated read-only account that can only read the audit table; the database grants are the authorization boundary, not this connector.
+- `connection` accepts either the individual fields shown above or a full `sqlalchemy_uri`. Install the driver for your database alongside the `sql-queries` extra.
+- Every run executes the same `query`, so put the time range in its `WHERE` clause. `ORDER BY` the timestamp column so session temporary-table lineage resolves correctly.
+- Column names in `field_mappings` are matched exactly, then case-insensitively, since databases differ in how they case unquoted names. A mapped column the query doesn't return fails the run and lists the columns it did return.
+- Binary columns (such as `BLOB` SQL text) are decoded as UTF-8. Timestamps without a time zone are read as UTC, so convert local-time columns to UTC in the `query`.
+
 #### Incremental Lineage
 
 When stateful ingestion is enabled, lineage extraction can progress incrementally over new query records while preserving historical checkpoints.
