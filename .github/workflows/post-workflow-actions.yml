@@ -38,6 +38,7 @@ on:
       - "Quickstart Test"
       - "Release Tests"
       - "Release Validation"
+      - "Smart Testing Replay"
       - "spark smoke test"
       - "Vercel Preview Cleanup"
       - "Verify Quickstart Compose"

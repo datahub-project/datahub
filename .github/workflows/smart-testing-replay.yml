@@ -1,0 +1,58 @@
+name: Smart Testing Replay
+
+# Replays the golden PRs in .github/smart-testing/ through the PR's smart-testing
+# classifier, three times per PR, and fails when most runs of a past PR are
+# coverage-risk: it would now run less than expected. pull_request only: the
+# Workload Identity Federation rule matches the PR token's claims, the same as
+# the classifier in docker-unified.yml.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - ".github/smart-testing/**"
+      - "!.github/smart-testing/**.md"
+      - ".github/workflows/smart-testing-replay.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    name: Replay golden PRs
+    # Fork PRs get neither the secrets nor an OIDC token.
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: depot-ubuntu-24.04-small
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python
+        uses: ./.github/actions/setup-toolchain
+        with:
+          java: false
+          gradle: false
+
+      # One token is enough: the SDK exchanges it once and renews only when the
+      # Anthropic access token nears expiry, which a replay of a few minutes
+      # never reaches. A much longer replay would need to fetch it again.
+      - name: Fetch Claude identity token
+        id: claude-identity
+        uses: ./.github/actions/claude-identity-token
+
+      - name: Replay golden PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # ANTHROPIC_API_KEY must stay unset: it outranks federation in the SDK.
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-identity.outputs.token_file }}
+        run: .github/smart-testing/ci_replay.sh
