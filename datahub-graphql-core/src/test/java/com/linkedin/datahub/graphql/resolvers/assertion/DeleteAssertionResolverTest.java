@@ -174,8 +174,9 @@ public class DeleteAssertionResolverTest {
 
     DeleteAssertionResolver resolver = new DeleteAssertionResolver(mockClient, mockService);
 
-    // Execute resolver
-    QueryContext mockContext = getMockAllowContext();
+    QueryContext mockContext =
+        getMockAllowContextForResource(
+            "urn:li:corpuser:test", "DELETE_ENTITY", Urn.createFromString(TEST_ASSERTION_URN));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(eq("urn"))).thenReturn(TEST_ASSERTION_URN);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
@@ -194,6 +195,64 @@ public class DeleteAssertionResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true));
+  }
+
+  @Test
+  public void testGetUnauthorizedWhenAssertionInfoHasNoAssertee() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityService<?> mockService = getMockEntityService();
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                eq(Urn.createFromString(TEST_ASSERTION_URN)),
+                eq(Constants.ASSERTION_INFO_ASPECT_NAME),
+                eq(0L)))
+        .thenReturn(new AssertionInfo().setType(AssertionType.DATASET));
+
+    DeleteAssertionResolver resolver = new DeleteAssertionResolver(mockClient, mockService);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(eq("urn"))).thenReturn(TEST_ASSERTION_URN);
+    // Edit Assertions on the dataset does not apply when the assertion names no assertee.
+    QueryContext mockContext =
+        getMockAllowContextForResource(
+            "urn:li:corpuser:test",
+            "EDIT_ENTITY_ASSERTIONS",
+            Urn.createFromString(TEST_DATASET_URN));
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verify(mockClient, Mockito.never()).deleteEntityThenReferences(any(), any());
+  }
+
+  @Test
+  public void testGetSuccessWhenAssertionInfoHasNoAsserteeWithDeletePrivilege() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityClient.ReferencesCleanup references = Mockito.mock(EntityClient.ReferencesCleanup.class);
+    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
+    EntityService<?> mockService = getMockEntityService();
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                eq(Urn.createFromString(TEST_ASSERTION_URN)),
+                eq(Constants.ASSERTION_INFO_ASPECT_NAME),
+                eq(0L)))
+        .thenReturn(new AssertionInfo().setType(AssertionType.DATASET));
+
+    DeleteAssertionResolver resolver = new DeleteAssertionResolver(mockClient, mockService);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(eq("urn"))).thenReturn(TEST_ASSERTION_URN);
+    QueryContext mockContext =
+        getMockAllowContextForResource(
+            "urn:li:corpuser:test", "DELETE_ENTITY", Urn.createFromString(TEST_ASSERTION_URN));
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertTrue(resolver.get(mockEnv).get());
+    Mockito.verify(mockClient)
+        .deleteEntityThenReferences(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)));
   }
 
   @Test

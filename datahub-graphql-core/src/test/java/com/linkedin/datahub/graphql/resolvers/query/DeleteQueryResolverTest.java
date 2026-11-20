@@ -114,7 +114,8 @@ public class DeleteQueryResolverTest {
     QueryService mockService = Mockito.mock(QueryService.class);
     DeleteQueryResolver resolver = new DeleteQueryResolver(mockService);
 
-    QueryContext mockContext = getMockAllowContext();
+    QueryContext mockContext =
+        getMockAllowContextForResource(TEST_ACTOR_URN.toString(), "DELETE_ENTITY", TEST_QUERY_URN);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_QUERY_URN.toString());
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

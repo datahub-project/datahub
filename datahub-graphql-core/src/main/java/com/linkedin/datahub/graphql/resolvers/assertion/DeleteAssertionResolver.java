@@ -97,10 +97,12 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
 
     if (info != null) {
       final Urn asserteeUrn = getEntityFromAssertionInfo(info);
-      return AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn);
+      if (asserteeUrn != null) {
+        return AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn);
+      }
     }
 
-    // Without assertion info there is no assertee to authorize against.
+    // Without an assertee there is nothing else to authorize against.
     return AuthorizationUtils.canDeleteEntity(assertionUrn, context);
   }
 }
