@@ -194,6 +194,45 @@ public class DataProductPropertiesParentValidatorTest {
             .isEmpty());
   }
 
+  @Test
+  public void walksPastRejectedItemToItsStoredParent() {
+    // Stored: d -> b -> a. b's move to a missing parent is rejected, so b stays under a and
+    // moving a under d would close the loop a -> d -> b -> a.
+    Urn a = UrnUtils.getUrn("urn:li:dataProduct:a");
+    Urn b = UrnUtils.getUrn("urn:li:dataProduct:b");
+    Urn d = UrnUtils.getUrn("urn:li:dataProduct:d");
+    Urn missing = UrnUtils.getUrn("urn:li:dataProduct:missing");
+    when(aspectRetriever.entityExists(any(), eq(Set.of(d, missing))))
+        .thenReturn(Map.of(d, true, missing, false));
+    mockStoredParents(Map.of(d, b, b, a));
+    ChangeMCP moveA = item(a, properties(d), new DataProductProperties().setName("a"));
+    ChangeMCP moveB = item(b, properties(missing), properties(a));
+
+    assertEquals(rejectedUrns(moveA, moveB), Set.of(a, b));
+  }
+
+  @Test
+  public void rewalksAfterACycleRejection() {
+    // Stored: c -> b -> a. b's move under c is a cycle, so b stays under a. The first walk for a
+    // saw b's proposed parent; only the second sees that a -> c -> b -> a closes a loop.
+    Urn a = UrnUtils.getUrn("urn:li:dataProduct:a");
+    Urn b = UrnUtils.getUrn("urn:li:dataProduct:b");
+    Urn c = UrnUtils.getUrn("urn:li:dataProduct:c");
+    when(aspectRetriever.entityExists(any(), eq(Set.of(c)))).thenReturn(Map.of(c, true));
+    mockStoredParents(Map.of(c, b, b, a));
+    ChangeMCP moveB = item(b, properties(c), properties(a));
+    ChangeMCP moveA = item(a, properties(c), new DataProductProperties().setName("a"));
+
+    assertEquals(rejectedUrns(moveB, moveA), Set.of(a, b));
+  }
+
+  private Set<Urn> rejectedUrns(ChangeMCP... items) {
+    return validator
+        .validatePreCommitAspects(OperationFingerprint.EMPTY, List.of(items), retrieverContext)
+        .map(AspectValidationException::getEntityUrn)
+        .collect(Collectors.toSet());
+  }
+
   private List<AspectValidationException> validate(ChangeMCP item) {
     return validator
         .validatePreCommitAspects(OperationFingerprint.EMPTY, List.of(item), retrieverContext)

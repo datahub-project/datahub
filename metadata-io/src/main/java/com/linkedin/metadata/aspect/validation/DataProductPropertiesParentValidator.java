@@ -105,12 +105,36 @@ public class DataProductPropertiesParentValidator extends AspectPayloadValidator
           }
         });
 
-    rejectCycles(
-        operationContext, changeMCPs, changedParents, rejected, exceptions, retrieverContext);
+    // A rejected item is not written, so its children must be rejected too, and walks must see its
+    // stored parent rather than the proposed one. Either can reject more items, so repeat until
+    // nothing changes.
+    Map<Urn, Optional<Urn>> storedParents = new HashMap<>();
+    int rejectedCount;
+    do {
+      rejectedCount = rejected.size();
+      rejectChildrenOfRejected(changedParents, rejected, exceptions);
+      rejectCycles(
+          operationContext,
+          changeMCPs,
+          changedParents,
+          rejected,
+          storedParents,
+          exceptions,
+          retrieverContext);
+    } while (rejected.size() > rejectedCount);
 
-    // The MCE consumer commits the rest of a batch when some items fail, so a child whose
-    // same-batch parent is rejected here must be rejected too, down the whole chain.
-    boolean changed = !rejected.isEmpty();
+    return exceptions.streamAllExceptions();
+  }
+
+  /**
+   * The MCE consumer commits the rest of a batch when some items fail, so a child whose same-batch
+   * parent is rejected must be rejected too, down the whole chain.
+   */
+  private static void rejectChildrenOfRejected(
+      @Nonnull Map<ChangeMCP, Urn> changedParents,
+      @Nonnull Set<Urn> rejected,
+      @Nonnull ValidationExceptionCollection exceptions) {
+    boolean changed = true;
     while (changed) {
       changed = false;
       for (Map.Entry<ChangeMCP, Urn> entry : changedParents.entrySet()) {
@@ -123,29 +147,31 @@ public class DataProductPropertiesParentValidator extends AspectPayloadValidator
         }
       }
     }
-
-    return exceptions.streamAllExceptions();
   }
 
   /**
-   * Rejects a new parent that has the product among its ancestors. The walk reads parents written
-   * in the same batch before stored ones, so a batch can both create and break a cycle. Ancestors
-   * are read one level at a time for all items together, and a walk stops at an ancestor it has
-   * already visited, so a cycle already stored that does not include the product does not loop.
+   * Rejects a new parent that has the product among its ancestors. For a batch item, the walk reads
+   * the parent the item will leave behind: the proposed one, or the previous one if the item is
+   * rejected. So a batch can both create and break a cycle. Other ancestors are read one level at a
+   * time for all items together and cached in {@code storedParents} across calls. A walk stops at
+   * an ancestor it has already visited, so a stored cycle that excludes the product does not loop.
    */
   private static void rejectCycles(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull Map<ChangeMCP, Urn> changedParents,
       @Nonnull Set<Urn> rejected,
+      @Nonnull Map<Urn, Optional<Urn>> storedParents,
       @Nonnull ValidationExceptionCollection exceptions,
       @Nonnull RetrieverContext retrieverContext) {
-    Map<Urn, Optional<Urn>> knownParents = new HashMap<>();
-    changeMCPs.forEach(
-        item ->
-            knownParents.put(
-                item.getUrn(),
-                Optional.ofNullable(parentOf(item.getAspect(DataProductProperties.class)))));
+    Map<Urn, Optional<Urn>> batchParents = new HashMap<>();
+    for (ChangeMCP item : changeMCPs) {
+      DataProductProperties written =
+          rejected.contains(item.getUrn())
+              ? previousProperties(item)
+              : item.getAspect(DataProductProperties.class);
+      batchParents.put(item.getUrn(), Optional.ofNullable(parentOf(written)));
+    }
 
     Map<ChangeMCP, Urn> cursors = new HashMap<>();
     Map<ChangeMCP, Set<Urn>> visited = new HashMap<>();
@@ -160,9 +186,9 @@ public class DataProductPropertiesParentValidator extends AspectPayloadValidator
     while (!cursors.isEmpty()) {
       Set<Urn> toFetch =
           cursors.values().stream()
-              .filter(urn -> !knownParents.containsKey(urn))
+              .filter(urn -> !batchParents.containsKey(urn) && !storedParents.containsKey(urn))
               .collect(Collectors.toSet());
-      knownParents.putAll(fetchStoredParents(operationContext, toFetch, retrieverContext));
+      storedParents.putAll(fetchStoredParents(operationContext, toFetch, retrieverContext));
 
       Iterator<Map.Entry<ChangeMCP, Urn>> it = cursors.entrySet().iterator();
       while (it.hasNext()) {
@@ -180,7 +206,10 @@ public class DataProductPropertiesParentValidator extends AspectPayloadValidator
           it.remove();
           continue;
         }
-        Optional<Urn> next = knownParents.getOrDefault(ancestor, Optional.empty());
+        Optional<Urn> next =
+            batchParents.containsKey(ancestor)
+                ? batchParents.get(ancestor)
+                : storedParents.getOrDefault(ancestor, Optional.empty());
         if (!visited.get(item).add(ancestor) || next.isEmpty()) {
           it.remove();
         } else {
