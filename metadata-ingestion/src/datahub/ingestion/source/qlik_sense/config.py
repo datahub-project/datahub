@@ -154,8 +154,9 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
     file_sources_resolved: int = 0
     # File data connections whose files an app reads but whose storage is not
-    # known: add them to file_connection_to_storage.
-    unresolved_file_connections: LossyList[str] = field(default_factory=LossyList)
+    # known: add them to file_connection_to_storage. Kept whole, since there are
+    # only as many as the tenant has connections and each needs mapping.
+    unresolved_file_connections: List[str] = field(default_factory=list)
     apps_read: int = 0
     apps_skipped_unchanged: int = 0
     # Apps read again because checking whether they changed failed.
