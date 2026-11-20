@@ -15,6 +15,14 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Data Contracts are off by default
+
+The Data Contracts feature is now turned off by default ([PR #21425](https://github.com/datahub-project/datahub/pull/21425)).
+The **Data Contract** tab on datasets, the contract actions on assertions, and the contract badge
+in the assertions list no longer appear unless you turn the feature on. Existing contracts are
+not deleted, and the GraphQL and SDK APIs for contracts keep working. To keep using Data Contracts
+in the UI, set `DATA_CONTRACTS_ENABLED=true` on GMS.
+
 ### Show Applications setting is hidden by default
 
 Applications are being deprioritized. The **Show Applications** setting on the **Settings > Appearance**
