@@ -32,6 +32,10 @@ INFORMATION_SCHEMA = "information_schema"
 # withholding them changes nothing.
 SESSION_TEXT_RELATIONS: FrozenSet[str] = frozenset({"processlist", "innodb_trx"})
 
+# Prefixed to a name that must match no scope entry (a quoted part of a table
+# function's name, or a non-ASCII part): entries never hold a quote.
+_OTHER_CASE_MARK = '"'
+
 
 @dataclass(frozen=True)
 class CatalogScope:
@@ -117,11 +121,12 @@ class CatalogScope:
 
 def _matches_an_entry(entries: FrozenSet[str], parts: List[str]) -> bool:
     """Whether a dotted entry of two or more parts matches the path's suffix."""
-    if not all(part.isascii() for part in parts):
-        # Every catalog name is ASCII, and Python's case mapping is wider than
-        # SQL's: the Kelvin sign lower-cases to an ASCII "k".
-        return False
-    lowered = [part.lower() for part in parts]
+    # Every catalog name is ASCII, and Python's case mapping is wider than SQL's
+    # (the Kelvin sign lower-cases to an ASCII "k"), so a non-ASCII part matches
+    # no entry. It can still be the database in front of a matched suffix.
+    lowered = [
+        part.lower() if part.isascii() else _OTHER_CASE_MARK + part for part in parts
+    ]
     for entry in entries:
         entry_parts = entry.lower().split(".")
         if len(entry_parts) < 2 or len(entry_parts) > len(lowered):
@@ -395,9 +400,11 @@ def _admitted_table_function(func: exp.Anonymous, scope: CatalogScope) -> bool:
 
     Each condition closes a way the same name could run something else.
     Unqualified, the name resolves through the session's search path, where a
-    user function can come first; a quoted qualifier is case-sensitive on
-    Snowflake and can name a schema other than the system one; a column or
-    subquery argument feeds it another relation's values.
+    user function can come first; a quoted schema or function name is
+    case-sensitive on Snowflake and can name a schema other than the system one;
+    a column or subquery argument feeds it another relation's values. A quoted
+    database in front of the schema is still that database's catalog, and a
+    database whose name has lower-case letters can only be written quoted.
     """
     if not scope.table_functions:
         return False
@@ -411,15 +418,25 @@ def _admitted_table_function(func: exp.Anonymous, scope: CatalogScope) -> bool:
     ):
         return False
     qualifier = _qualifier_identifiers(qualified.this)
-    if qualifier is None or any(identifier.quoted for identifier in qualifier):
+    if qualifier is None:
         return False
     if not all(
         isinstance(argument, exp.Literal) and argument.is_string
         for argument in func.expressions
     ):
         return False
+    name = (
+        func.this
+        if isinstance(func.this, exp.Identifier)
+        else exp.to_identifier(func.name)
+    )
+    # A quoted part matches no entry, so only a part ahead of the matched
+    # suffix (the database) may be quoted.
     return scope.permits_table_function(
-        [identifier.name for identifier in qualifier] + [func.name]
+        [
+            _OTHER_CASE_MARK + identifier.name if identifier.quoted else identifier.name
+            for identifier in qualifier + [name]
+        ]
     )
 
 

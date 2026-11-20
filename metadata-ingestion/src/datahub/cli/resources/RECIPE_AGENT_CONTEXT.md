@@ -155,7 +155,7 @@ Refusals you should expect, and not try to work around: user tables, unqualified
 multiple statements, non-SELECT statements, vendor-specific functions (`pg_read_file`,
 `dblink`, `load_file`; Snowflake's
 `TABLE(information_schema.tag_references(...))` and `tag_references_all_columns(...)` are the
-exception, with string-literal arguments only), and **any comment or optimizer hint** (`--`, `/* */`, `/*+ */`), since
+exception, with string-literal arguments and an unquoted `information_schema`), and **any comment or optimizer hint** (`--`, `/* */`, `/*+ */`), since
 some engines run text inside comments. A query the database itself rejects as wrong
 (SQLSTATE class 42: a misspelled column, a missing relation, no grant) also exits 2: fix the
 query. **A write hidden inside a query** is refused too, however read-only the

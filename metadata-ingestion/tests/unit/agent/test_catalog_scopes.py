@@ -64,6 +64,21 @@ PERMITTED: List[Tuple[str, str, str]] = [
         "SELECT tag_name, column_name FROM TABLE("
         "information_schema.tag_references_all_columns('my_db.my_schema.events', 'table'))",
     ),
+    # One column's tags, and a mixed-case database, which can only be written
+    # quoted: the quoted database is still in front of the system schema. Names
+    # inside the string argument are quoted as Snowflake expects them there.
+    (
+        "snowflake",
+        "snowflake",
+        "SELECT tag_name, tag_value FROM TABLE(my_db.information_schema.tag_references("
+        "'my_db.my_schema.events.col_a', 'column'))",
+    ),
+    (
+        "snowflake",
+        "snowflake",
+        'SELECT tag_name, column_name FROM TABLE("My_Db".information_schema.'
+        'tag_references_all_columns(\'"My_Db"."My_Schema"."Events"\', \'table\'))',
+    ),
     # Emptiness here is how an agent tells Standard edition from Enterprise:
     # the view is never populated on Standard, so lineage and usage come back
     # silently empty while every privilege is present. Verified against both
@@ -797,6 +812,11 @@ REFUSED_TABLE_FUNCTION_SHAPE: List[Tuple[str, str]] = [
         "quoted qualifier",
         "SELECT * FROM TABLE(my_db.\"information_schema\".tag_references('t', 'table'))",
     ),
+    # A quoted function name is case-sensitive too.
+    (
+        "quoted function name",
+        "SELECT * FROM TABLE(my_db.information_schema.\"tag_references\"('t', 'table'))",
+    ),
     # Arguments must be literals: a column or a subquery feeds it what another
     # relation holds.
     (
@@ -826,6 +846,15 @@ REFUSED_TABLE_FUNCTION_SHAPE: List[Tuple[str, str]] = [
     ),
     # Listed by name: the schema's other table functions stay refused.
     ("unlisted function", "SELECT * FROM TABLE(information_schema.query_history())"),
+    (
+        "unlisted function with arguments",
+        "SELECT * FROM TABLE(my_db.information_schema.query_history_by_user('u'))",
+    ),
+    (
+        "unlisted function joined to a listed one",
+        "SELECT * FROM TABLE(my_db.information_schema.tag_references('t', 'table')) "
+        "AS a JOIN TABLE(my_db.information_schema.query_history()) AS b ON TRUE",
+    ),
 ]
 
 
@@ -869,3 +898,5 @@ def test_a_non_ascii_name_never_matches_a_listed_function() -> None:
     scope = CatalogScope(table_functions=frozenset({"information_schema.key_fn"}))
     assert scope.permits_table_function([INFORMATION_SCHEMA, "key_fn"])
     assert not scope.permits_table_function([INFORMATION_SCHEMA, "\u212aey_fn"])
+    # A non-ASCII database in front of the listed suffix is not matched itself.
+    assert scope.permits_table_function(["caf\u00e9", INFORMATION_SCHEMA, "key_fn"])
