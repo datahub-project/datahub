@@ -10,9 +10,11 @@ import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atMostOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -22,9 +24,12 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
+import com.google.common.util.concurrent.UncheckedTimeoutException;
 import com.linkedin.common.EmbeddingChunk;
 import com.linkedin.common.EmbeddingChunkArray;
 import com.linkedin.common.EmbeddingModelData;
@@ -36,6 +41,7 @@ import com.linkedin.data.template.FloatArray;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
@@ -45,10 +51,13 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.QueryEmbeddingException;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SemanticSearchService;
 import com.linkedin.metadata.search.VectorRetrievalExplanation;
+import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -61,6 +70,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateF
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateVectorRetrieval;
 import com.linkedin.metadata.search.embedding.EmbeddingProfile;
 import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
@@ -72,6 +82,7 @@ import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.service.LifecycleStageTypeService;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
@@ -108,6 +119,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -124,6 +136,7 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /** A {@code combine: vector} rung served through {@link ESSearchDAO#search}. */
@@ -151,6 +164,7 @@ public class ESSearchDAOVectorRetrievalTest {
   public void setUp() throws IOException {
     client = mock(SearchClientShim.class);
     when(client.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    when(client.getEngineVersion()).thenReturn("3.7.0");
     // The facet request finds no aggregation; a keyword rung gets these rows
     SearchResponse keyword = keywordResponse(3);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
@@ -213,6 +227,102 @@ public class ESSearchDAOVectorRetrievalTest {
         search(context(DOCUMENT, flags -> flags.setMinScore(0.85f)), null, 0, 10, DOCUMENT);
 
     assertEquals(urns(result), List.of("urn:li:document:d0"));
+  }
+
+  @Test
+  public void testTheCallerFloorRaisesTheFloorInEffectAndNeverLowersIt() throws Exception {
+    // Cosines 0.98, 0.9, 0.8, and 0.6
+    knnReturns(hits(0.99, 0.95, 0.9, 0.8));
+
+    // No floor in effect: the caller's sets one
+    store(vector(r -> {}));
+    VectorRetrievalExplanation set = floored(0.85f, 2);
+    assertEquals(set.getMinSimilarity(), 0.85f);
+    assertEquals(set.getCallerMinSimilarity(), 0.85f);
+    assertEquals(set.getBelowMinSimilarity().intValue(), 2);
+    assertEquals(set.getBelowCallerMinSimilarity().intValue(), 2);
+
+    // A template floor in effect: the caller raises it, and explain counts the hits only the raise
+    // dropped
+    store(vector(r -> r.setMinSimilarity(0.7f)));
+    VectorRetrievalExplanation raised = floored(0.85f, 2);
+    assertEquals(raised.getMinSimilarity(), 0.85f);
+    assertEquals(raised.getBelowMinSimilarity().intValue(), 2);
+    assertEquals(raised.getBelowCallerMinSimilarity().intValue(), 1);
+
+    // ... and cannot lower it
+    VectorRetrievalExplanation lowered = floored(0.5f, 3);
+    assertEquals(lowered.getMinSimilarity(), 0.7f);
+    // Explain still shows the floor the caller asked for
+    assertEquals(lowered.getCallerMinSimilarity(), 0.5f);
+    assertEquals(lowered.getBelowCallerMinSimilarity().intValue(), 0);
+
+    // The deployment's floor is in effect the same way
+    semanticSearch.setMinSimilarity(0.7f);
+    store(vector(r -> {}));
+    assertEquals(floored(0.5f, 3).getMinSimilarity(), 0.7f);
+    assertEquals(floored(0.85f, 2).getBelowCallerMinSimilarity().intValue(), 1);
+  }
+
+  @Test
+  public void testACallerFloorOnAProfileThatIsNotCosineFailsAsABadRequest() throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.99));
+    EmbeddingProfile l2 =
+        new EmbeddingProfile(
+            MODEL_KEY,
+            EmbeddingProfile.TEXT_CHUNKS,
+            null,
+            "l2",
+            Set.of("document"),
+            Set.of(EmbeddingProfileRegistry.OPENSEARCH));
+    SearchTemplateCoordinator coordinator =
+        coordinator(SearchTemplateGates.of(registry(l2), semanticSearch, false));
+
+    SearchTemplateFailClosedException notCosine =
+        expectThrows(
+            SearchTemplateFailClosedException.class,
+            () ->
+                search(
+                    context(DOCUMENT, f -> f.setMinSimilarity(0.5f), coordinator),
+                    null,
+                    0,
+                    10,
+                    DOCUMENT));
+    assertTrue(notCosine.getCause() instanceof IllegalArgumentException);
+    // A raw cosine is from -1 to 1
+    SearchTemplateFailClosedException outOfRange =
+        expectThrows(
+            SearchTemplateFailClosedException.class,
+            () -> search(context(DOCUMENT, f -> f.setMinSimilarity(1.5f)), null, 0, 10, DOCUMENT));
+    assertTrue(outOfRange.getCause() instanceof IllegalArgumentException);
+    // Also when no requested type is eligible, which is otherwise an empty page
+    List<String> ineligible = List.of("dataset");
+    SearchTemplateFailClosedException noEligibleType =
+        expectThrows(
+            SearchTemplateFailClosedException.class,
+            () ->
+                search(
+                    context(ineligible, f -> f.setMinSimilarity(1.5f)), null, 0, 10, ineligible));
+    assertTrue(noEligibleType.getCause() instanceof IllegalArgumentException);
+    verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+    verify(client, never()).searchKnn(any(), any());
+  }
+
+  @Test
+  public void testTheSearchCacheKeysOnTheCallerFloor() throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.99, 0.95, 0.9, 0.8));
+    CachingEntitySearchService cache = cached(dao(null, embedding()));
+
+    assertEquals(searchOn(cache, context(DOCUMENT, f -> {})).getNumEntities().intValue(), 4);
+    // The same search with a floor is not served the unfloored page
+    assertEquals(
+        searchOn(cache, context(DOCUMENT, f -> f.setMinSimilarity(0.85f)))
+            .getNumEntities()
+            .intValue(),
+        2);
+    verify(client, times(2)).searchKnn(any(), any());
   }
 
   @Test
@@ -361,6 +471,194 @@ public class ESSearchDAOVectorRetrievalTest {
   }
 
   @Test
+  public void testSemanticSearchServesItsSurfaceSlotOnceItsRolloutIsSet() throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.9, 0.8));
+    semanticSlot(VECTOR_URN);
+    SemanticSearchService semantic = semanticService(cached(dao(null, embedding())));
+    OperationContext searching = unpinned(f -> {});
+
+    // Off by default, though the rollout serves every other surface
+    assertFalse(semantic.isServedByTemplate(searching));
+    harness.templates.getRollout().setSemanticSearch("active");
+    assertTrue(semantic.isServedByTemplate(searching));
+    assertFalse(semantic.isServedByTemplate(searching.withSkipTemplateExecution(true)));
+
+    SearchResult result =
+        semantic.semanticSearchAcrossEntitiesByTemplate(
+            searching, DOCUMENT, "quarterly revenue", null, null, 0, 10, List.of());
+
+    assertEquals(urns(result), List.of("urn:li:document:d0", "urn:li:document:d1"));
+    assertEquals(result.getNumEntities().intValue(), 2);
+    // Explain names the template and the vector retrieval that served the page
+    assertEquals(result.getMetadata().getRouteChain(), List.of(VECTOR_URN));
+    assertVectorOutcome(SearchTemplateVectorRetrieval.SERVED);
+    // The one other request is the vector rung's facet request over its hits: no keyword facet
+    // request runs beside it
+    assertEquals(
+        urnTerms(searchRequest().source().query()),
+        Set.of("urn:li:document:d0", "urn:li:document:d1"));
+  }
+
+  @DataProvider
+  public Object[][] semanticSearchEngines() {
+    return new Object[][] {
+      {SearchClientShim.SearchEngineType.OPENSEARCH_2, "2.19.3", false},
+      {SearchClientShim.SearchEngineType.OPENSEARCH_3, "3.4.0", false},
+      // A cluster in compatibility mode reports 7.10.2, whatever OpenSearch it runs
+      {SearchClientShim.SearchEngineType.OPENSEARCH_2, "7.10.2", false},
+      {SearchClientShim.SearchEngineType.OPENSEARCH_3, "3.5.0", true},
+      {SearchClientShim.SearchEngineType.ELASTICSEARCH_8, "8.18.0", true},
+      // What getEngineVersion returns when cluster info is restricted, a blank version, a read
+      // that failed, and an engine type that is not known
+      {SearchClientShim.SearchEngineType.OPENSEARCH_3, "unknown", false},
+      {SearchClientShim.SearchEngineType.OPENSEARCH_3, " ", false},
+      {
+        SearchClientShim.SearchEngineType.OPENSEARCH_3,
+        new IOException("cluster info unavailable"),
+        false
+      },
+      {SearchClientShim.SearchEngineType.UNKNOWN, "3.7.0", false}
+    };
+  }
+
+  /**
+   * Before 3.5 the k-NN plugin applies a nested kNN pre-filter in the chunk scope when it names an
+   * underscore-prefixed field such as {@code _entityType}, which the template's filter always does.
+   * There, and on an OpenSearch whose version cannot be read, semantic search keeps its own kNN
+   * search with its switch on.
+   */
+  @Test(dataProvider = "semanticSearchEngines")
+  public void testSemanticSearchServesItsSurfaceSlotOnlyOnAnEngineThatCanPreFilterIt(
+      SearchClientShim.SearchEngineType engine, Object version, boolean servedByTemplate)
+      throws Exception {
+    when(client.getEngineType()).thenReturn(engine);
+    if (version instanceof IOException failure) {
+      when(client.getEngineVersion()).thenThrow(failure);
+    } else {
+      when(client.getEngineVersion()).thenReturn((String) version);
+    }
+    SemanticSearchService semantic = semanticService(cached(dao(null, embedding())));
+    OperationContext searching = unpinned(f -> {});
+
+    // Off: the engine is not read
+    assertFalse(semantic.isServedByTemplate(searching));
+    verify(client, never()).getEngineVersion();
+
+    harness.templates.getRollout().setSemanticSearch("active");
+    assertEquals(semantic.isServedByTemplate(searching), servedByTemplate);
+    assertEquals(semantic.isServedByTemplate(searching), servedByTemplate);
+    // Read on the first request the rollout serves, not on each one
+    verify(client, atMostOnce()).getEngineVersion();
+  }
+
+  @Test
+  public void testSemanticSearchReadsItsFulltextSlotWhateverTheCallersFulltextFlag()
+      throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.9));
+    semanticSlot(VECTOR_URN);
+    harness.templates.getRollout().setSemanticSearch("active");
+    SemanticSearchService semantic = semanticService(cached(dao(null, embedding())));
+
+    // Its query is only embedded, so a request without fulltext, as a GraphQL request without
+    // search flags is, or with fulltext=false, still serves the slot under the fulltext seed
+    for (Consumer<com.linkedin.metadata.query.SearchFlags> flags :
+        List.<Consumer<com.linkedin.metadata.query.SearchFlags>>of(
+            f -> f.removeFulltext(), f -> f.setFulltext(false))) {
+      assertEquals(
+          urns(
+              semantic.semanticSearchAcrossEntitiesByTemplate(
+                  unpinned(flags), DOCUMENT, "quarterly revenue", null, null, 0, 10, List.of())),
+          List.of("urn:li:document:d0"));
+    }
+  }
+
+  @Test(dataProvider = "keywordFallThroughs")
+  public void testSemanticSearchFailsClosedRatherThanServeAKeywordPage(String fallThrough)
+      throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.9));
+    harness.store(KEYWORD_URN, keyword());
+    // The global seeds that a missing semanticSearch slot and fulltext=false fall back to
+    harness.store(Constants.SEARCH_TEMPLATE_FULLTEXT_URN, keyword());
+    harness.store("urn:li:searchTemplate:structured", keyword());
+    harness.templates.getRollout().setSemanticSearch("active");
+    if (!"missingSlot".equals(fallThrough)) {
+      semanticSlot(VECTOR_URN);
+    }
+    if ("keywordLadderRung".equals(fallThrough)) {
+      // A vector root whose ladder serves its keyword next when it finds nothing
+      SearchTemplateProperties ladder = vector(r -> {});
+      ladder.setLadder(nextOnMiss());
+      store(ladder);
+      knnReturns(List.of());
+    }
+    ESSearchDAO dao = dao(null, embedding());
+    OperationContext searching =
+        switch (fallThrough) {
+          // fulltext=false selects the structured seed
+          case "structuredSeed" -> semanticContext(f -> f.setFulltext(false));
+          case "callerKeywordTemplate" -> pinned(semanticContext(f -> {}), KEYWORD_URN);
+          case "skipBeforeBind" -> semanticContext(f -> {}).withSkipTemplateExecution(true);
+          default -> semanticContext(f -> {});
+        };
+
+    // skipInsideSearch sets the skip-template flag inside the search, after bind, as a
+    // downstream build does
+    SearchTemplateFailClosedException failure =
+        assertFailsClosed(
+            "skipInsideSearch".equals(fallThrough) ? skippingTemplatesInside(dao) : cached(dao),
+            searching);
+    // Only a keyword template the caller named is the caller's mistake, which GraphQL maps to a
+    // bad request. The rest are the deployment's, and stay server errors.
+    assertEquals(
+        ExceptionUtils.throwableOfType(failure, IllegalArgumentException.class) != null,
+        "callerKeywordTemplate".equals(fallThrough));
+  }
+
+  /** Each way a semantic search could otherwise end on a keyword page. */
+  @DataProvider
+  public Object[][] keywordFallThroughs() {
+    return new Object[][] {
+      {"missingSlot"},
+      {"structuredSeed"},
+      {"callerKeywordTemplate"},
+      {"skipBeforeBind"},
+      {"skipInsideSearch"},
+      {"keywordLadderRung"}
+    };
+  }
+
+  @Test
+  public void testASemanticSearchPageDoesNotShareACacheKeyWithAnotherSurface() throws Exception {
+    // A vector root that serves its keyword next when it finds nothing
+    harness.store(KEYWORD_URN, keyword());
+    SearchTemplateProperties ladder = vector(r -> {});
+    ladder.setLadder(nextOnMiss());
+    store(ladder);
+    knnReturns(List.of());
+    semanticSlot(VECTOR_URN);
+    harness.templates.getRollout().setSemanticSearch("active");
+    CachingEntitySearchService cache = cached(dao(null, embedding()));
+
+    // Keyword search whose surface selects the same template caches the keyword rung's page for
+    // the same query, filter, flags, types, and page
+    harness
+        .templates
+        .getSurfaces()
+        .put(
+            SearchTemplateSurfaces.SEARCH_ENTITIES,
+            Map.of("fulltext", Map.<String, Object>of("default", VECTOR_URN)));
+    OperationContext keyword =
+        unpinned(f -> {}).withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES);
+    assertEquals(searchOn(cache, keyword).getEntities().size(), 3);
+
+    // Semantic search does not reuse that page: its own walk serves no vector page, so it fails
+    assertFailsClosed(cache, semanticContext(f -> {}));
+  }
+
+  @Test
   public void testPageTotalAndFacetsCountTheSurvivors() throws Exception {
     store(vector(r -> r.setMinSimilarity(0.5f)));
     // Cosines 0.98, 0.9, 0.8, 0.0, and 0.6: the fourth is below the floor
@@ -470,25 +768,58 @@ public class ESSearchDAOVectorRetrievalTest {
     store(vector(r -> {}));
     harness.store(KEYWORD_URN, keyword());
     knnReturns(hits(0.9));
-    // A removed filter bypasses the soft-delete clause on both legs
-    for (Filter filter :
-        java.util.Arrays.asList(
-            null, filter("domains", "urn:li:domain:sales"), filter("removed", "true"))) {
-      for (boolean includeSoftDeleted : List.of(false, true)) {
-        Consumer<com.linkedin.metadata.query.SearchFlags> flags =
-            f -> f.setIncludeSoftDeleted(includeSoftDeleted);
-        clearInvocations(client);
-        search(context(DOCUMENT, flags), filter, 0, 10, DOCUMENT);
-        Map<String, Object> vectorLeg = knnRequest().filter().orElseThrow();
-
-        clearInvocations(client);
-        search(pinned(context(DOCUMENT, flags), KEYWORD_URN), filter, 0, 10, DOCUMENT);
-        QueryBuilder keywordFilter =
-            ((BoolQueryBuilder) searchRequest().source().query()).filter().get(0);
-
-        assertEquals(
-            vectorLeg, ESUtils.filterMap(keywordFilter), filter + " " + includeSoftDeleted);
+    // A hidden lifecycle stage, so the hidden-stage clause and the filters that bypass it apply
+    LifecycleStageTypeService stages = mock(LifecycleStageTypeService.class);
+    when(stages.getHiddenStageUrns(anySet())).thenReturn(Set.of(HIDDEN_STAGE));
+    LifecycleStageTypeService previous = ESUtils.getLifecycleStageTypeService();
+    ESUtils.setLifecycleStageTypeService(stages);
+    try {
+      // Each caller filter that bypasses a default clause (removed the soft-delete clause,
+      // lifecycleStage the hidden-stage clause), and the fields the published-document default
+      // reads. Each as Rest.li and OpenAPI send it, and as the GraphQL resolvers do once they add
+      // that default, with and without the clause the manage-documents privilege lifts.
+      List<Filter> filters = new ArrayList<>();
+      for (Filter caller :
+          java.util.Arrays.asList(
+              null,
+              filter("domains", "urn:li:domain:sales"),
+              filter("removed", "true"),
+              filter("lifecycleStage", HIDDEN_STAGE),
+              filter("state", "UNPUBLISHED"),
+              filter("showInGlobalContext", "false"))) {
+        filters.add(caller);
+        filters.add(withDocumentDefaults(caller, false));
+        filters.add(withDocumentDefaults(caller, true));
       }
+      for (Filter filter : filters) {
+        for (boolean includeSoftDeleted : List.of(false, true)) {
+          for (boolean includeHiddenStages : List.of(false, true)) {
+            Consumer<com.linkedin.metadata.query.SearchFlags> flags =
+                f ->
+                    f.setIncludeSoftDeleted(includeSoftDeleted)
+                        .setIncludeHiddenLifecycleStages(includeHiddenStages);
+            clearInvocations(client);
+            search(context(DOCUMENT, flags), filter, 0, 10, DOCUMENT);
+            Map<String, Object> vectorLeg = knnRequest().filter().orElseThrow();
+
+            clearInvocations(client);
+            search(pinned(context(DOCUMENT, flags), KEYWORD_URN), filter, 0, 10, DOCUMENT);
+            QueryBuilder keywordFilter =
+                ((BoolQueryBuilder) searchRequest().source().query()).filter().get(0);
+
+            assertEquals(
+                vectorLeg,
+                ESUtils.filterMap(keywordFilter),
+                filter + " " + includeSoftDeleted + " " + includeHiddenStages);
+          }
+        }
+      }
+      // The hidden-stage clause was in play, so the opt-outs above were compared, not vacuous
+      clearInvocations(client);
+      search(context(DOCUMENT, f -> {}), null, 0, 10, DOCUMENT);
+      assertTrue(knnRequest().filter().orElseThrow().toString().contains(HIDDEN_STAGE));
+    } finally {
+      ESUtils.setLifecycleStageTypeService(previous);
     }
   }
 
@@ -1229,6 +1560,111 @@ public class ESSearchDAOVectorRetrievalTest {
     assertEquals(explanation.getMinSimilarity(), 0.8f);
     assertEquals(explanation.getBelowMinSimilarity().intValue(), 1);
     assertVectorOutcome(SearchTemplateVectorRetrieval.FLOOR_DROPPED);
+  }
+
+  @Test
+  public void testAQueryEmbeddingFailureIsTypedByItsReason() throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.9));
+
+    doThrow(new RuntimeException("provider unavailable"))
+        .when(provider)
+        .embed(anyString(), any(), any(), any(Duration.class));
+    assertEquals(embeddingFailure().getReason(), QueryEmbeddingException.FAILED);
+    // A provider that gave up at the deadline
+    doThrow(new UncheckedTimeoutException("slow provider"))
+        .when(provider)
+        .embed(anyString(), any(), any(), any(Duration.class));
+    assertEquals(embeddingFailure().getReason(), QueryEmbeddingException.TIMEOUT);
+    // A reason an embedding service that budgets queries gives itself
+    doThrow(new QueryEmbeddingException(QueryEmbeddingException.BUDGET_EXHAUSTED, null))
+        .when(provider)
+        .embed(anyString(), any(), any(), any(Duration.class));
+    assertEquals(embeddingFailure().getReason(), QueryEmbeddingException.BUDGET_EXHAUSTED);
+    // A provider that answers after the deadline leaves no time for the kNN request
+    ESSearchDAO late = dao(null, embedding());
+    late.setHybridTimeoutMillis(50);
+    doAnswer(
+            invocation -> {
+              Thread.sleep(150);
+              return new float[] {0.1f, 0.2f};
+            })
+        .when(provider)
+        .embed(anyString(), any(), any(), any(Duration.class));
+    RuntimeException timedOut =
+        expectThrows(
+            RuntimeException.class,
+            () -> search(late, context(DOCUMENT, f -> {}), null, 0, 10, DOCUMENT));
+    assertEquals(
+        ExceptionUtils.throwableOfType(timedOut, QueryEmbeddingException.class).getReason(),
+        QueryEmbeddingException.TIMEOUT);
+    verify(client, never()).searchKnn(any(), any());
+  }
+
+  @Test
+  public void testOnlyAFailedQueryEmbeddingIsTyped() throws Exception {
+    // A failed kNN request
+    store(vector(r -> {}));
+    when(client.searchKnn(any(), any())).thenThrow(new IOException("kNN unavailable"));
+    SearchTemplateFailClosedException knn =
+        expectThrows(SearchTemplateFailClosedException.class, () -> search(DOCUMENT, null, 0, 10));
+    assertNull(ExceptionUtils.throwableOfType(knn, QueryEmbeddingException.class));
+
+    // Similarity embeds nothing, so its failures never are
+    store(similarity(r -> {}));
+    SearchTemplateFailClosedException noAnchor =
+        expectThrows(
+            SearchTemplateFailClosedException.class,
+            () -> similar(context(DOCUMENT, f -> {}), DOCUMENT));
+    assertNull(ExceptionUtils.throwableOfType(noAnchor, QueryEmbeddingException.class));
+  }
+
+  @Test
+  public void testOnTheSemanticSurfaceAKnnTimeoutFailsClosedWithNoFallback() throws Exception {
+    store(vector(r -> r.setOnFailure("next")));
+    semanticSlot(VECTOR_URN);
+    harness.templates.getRollout().setSemanticSearch("active");
+    when(client.searchKnn(any(), any()))
+        .thenThrow(new UncheckedTimeoutException("the kNN request ran out of time"));
+
+    SearchTemplateFailClosedException failure =
+        expectThrows(
+            SearchTemplateFailClosedException.class,
+            () -> searchOn(cached(dao(null, embedding())), semanticContext(f -> {})));
+
+    // Not a query embedding failure, so the caller's keyword fallback does not apply
+    assertNull(ExceptionUtils.throwableOfType(failure, QueryEmbeddingException.class));
+  }
+
+  @Test
+  public void testOnTheSemanticSurfaceAFailedEmbeddingFailsTypedInsteadOfFollowingNext()
+      throws Exception {
+    harness.store(KEYWORD_URN, keyword());
+    SearchTemplateProperties next = vector(r -> r.setOnFailure("next"));
+    next.setLadder(nextOnMiss());
+    store(next);
+    semanticSlot(VECTOR_URN);
+    harness.templates.getRollout().setSemanticSearch("active");
+    doThrow(new RuntimeException("provider unavailable"))
+        .when(provider)
+        .embed(anyString(), any(), any(), any(Duration.class));
+    CachingEntitySearchService cache = cached(dao(null, embedding()));
+
+    // Keyword search follows the rung's next
+    assertEquals(searchOn(cache, context(DOCUMENT, f -> {})).getEntities().size(), 3);
+    // Semantic search fails with the reason instead
+    RuntimeException failure =
+        expectThrows(RuntimeException.class, () -> searchOn(cache, semanticContext(f -> {})));
+    assertEquals(
+        ExceptionUtils.throwableOfType(failure, QueryEmbeddingException.class).getReason(),
+        QueryEmbeddingException.FAILED);
+
+    // It cached nothing, so the next semantic search embeds again and serves the vector rung
+    doReturn(new float[] {0.1f, 0.2f})
+        .when(provider)
+        .embed(anyString(), any(), any(), any(Duration.class));
+    knnReturns(hits(0.9));
+    assertEquals(urns(searchOn(cache, semanticContext(f -> {}))), List.of("urn:li:document:d0"));
   }
 
   @Test
@@ -2035,6 +2471,90 @@ public class ESSearchDAOVectorRetrievalTest {
     return new CachingEntitySearchService(new ConcurrentMapCacheManager(), entitySearch, 100, true);
   }
 
+  /**
+   * A cache whose searches set the skip-template flag inside, after bind, as a downstream build
+   * does.
+   */
+  private CachingEntitySearchService skippingTemplatesInside(ESSearchDAO dao) {
+    EntitySearchService entitySearch = mock(EntitySearchService.class);
+    when(entitySearch.getSearchServiceConfig()).thenReturn(TEST_SEARCH_SERVICE_CONFIG);
+    when(entitySearch.search(any(), any(), any(), any(), any(), anyInt(), any(), any()))
+        .thenAnswer(
+            invocation ->
+                dao.search(
+                    ((OperationContext) invocation.getArgument(0)).withSkipTemplateExecution(true),
+                    invocation.getArgument(1),
+                    invocation.getArgument(2),
+                    invocation.getArgument(3),
+                    invocation.getArgument(4),
+                    invocation.getArgument(5),
+                    invocation.getArgument(6),
+                    invocation.getArgument(7)));
+    return new CachingEntitySearchService(new ConcurrentMapCacheManager(), entitySearch, 100, true);
+  }
+
+  private static SemanticSearchService semanticService(CachingEntitySearchService cache) {
+    return new SemanticSearchService(
+        mock(EntityDocCountCache.class),
+        cache,
+        mock(SemanticEntitySearch.class),
+        TEST_SEARCH_SERVICE_CONFIG.toBuilder().semanticSearchEnabled(true).build());
+  }
+
+  /** The semantic search surface's slot serves {@code urn}. */
+  private void semanticSlot(String urn) {
+    harness
+        .templates
+        .getSurfaces()
+        .put(
+            SearchTemplateSurfaces.SEMANTIC_SEARCH,
+            Map.of("fulltext", Map.<String, Object>of("default", urn)));
+  }
+
+  /** A fulltext search with explain on that names no template and sets no surface. */
+  private OperationContext unpinned(Consumer<com.linkedin.metadata.query.SearchFlags> flags)
+      throws Exception {
+    return context(DOCUMENT, flags)
+        .withSearchFlags(
+            f -> {
+              f.removeSearchTemplate();
+              return f;
+            });
+  }
+
+  private OperationContext semanticContext(Consumer<com.linkedin.metadata.query.SearchFlags> flags)
+      throws Exception {
+    return unpinned(flags).withSearchSurface(SearchTemplateSurfaces.SEMANTIC_SEARCH);
+  }
+
+  /** The typed query embedding failure a search of the vector rung fails with. */
+  private QueryEmbeddingException embeddingFailure() {
+    RuntimeException failure =
+        expectThrows(RuntimeException.class, () -> search(DOCUMENT, null, 0, 10));
+    QueryEmbeddingException typed =
+        ExceptionUtils.throwableOfType(failure, QueryEmbeddingException.class);
+    assertNotNull(typed, failure.toString());
+    return typed;
+  }
+
+  /** A search with the caller floor {@code floor}, which keeps {@code survivors} hits. */
+  private VectorRetrievalExplanation floored(float floor, int survivors) throws Exception {
+    SearchResult result =
+        search(context(DOCUMENT, f -> f.setMinSimilarity(floor)), null, 0, 10, DOCUMENT);
+    assertEquals(result.getNumEntities().intValue(), survivors, "floor " + floor);
+    return result.getMetadata().getVectorRetrieval();
+  }
+
+  private static SearchResult searchOn(
+      CachingEntitySearchService cache, OperationContext searching) {
+    return cache.search(searching, DOCUMENT, "quarterly revenue", null, null, 0, 10, List.of());
+  }
+
+  private static SearchTemplateFailClosedException assertFailsClosed(
+      CachingEntitySearchService cache, OperationContext searching) {
+    return expectThrows(SearchTemplateFailClosedException.class, () -> searchOn(cache, searching));
+  }
+
   private void store(SearchTemplateProperties template) {
     harness.store(VECTOR_URN, template);
   }
@@ -2181,6 +2701,36 @@ public class ESSearchDAOVectorRetrievalTest {
                     .setAnd(
                         new CriterionArray(
                             CriterionUtils.buildCriterion(field, Condition.EQUAL, value)))));
+  }
+
+  /** The caller's filter as the GraphQL resolvers send it after adding the document defaults. */
+  private static Filter withDocumentDefaults(Filter caller, boolean canManageDocuments) {
+    Filter defaults = publishedDocumentDefault(canManageDocuments);
+    return caller == null ? defaults : FilterUtils.combineFilters(caller, defaults);
+  }
+
+  /**
+   * The published-document default the GraphQL resolvers add for documents: published, or legacy
+   * and not unpublished unless the viewer may manage documents, and shown in global context.
+   */
+  private static Filter publishedDocumentDefault(boolean canManageDocuments) {
+    CriterionArray published =
+        new CriterionArray(
+            CriterionUtils.buildCriterion(
+                "lifecycleStage", Condition.EQUAL, "urn:li:lifecycleStageType:PUBLISHED"),
+            CriterionUtils.buildCriterion("showInGlobalContext", Condition.EQUAL, true, "false"));
+    CriterionArray legacy =
+        new CriterionArray(CriterionUtils.buildIsNullCriterion("lifecycleStage"));
+    if (!canManageDocuments) {
+      legacy.add(CriterionUtils.buildCriterion("state", Condition.EQUAL, true, "UNPUBLISHED"));
+    }
+    legacy.add(
+        CriterionUtils.buildCriterion("showInGlobalContext", Condition.EQUAL, true, "false"));
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                new ConjunctiveCriterion().setAnd(published),
+                new ConjunctiveCriterion().setAnd(legacy)));
   }
 
   /** Hits d0, d1, ... with these engine scores. */

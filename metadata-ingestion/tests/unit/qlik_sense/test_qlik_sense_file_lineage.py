@@ -320,7 +320,8 @@ def test_file_without_known_storage_is_reported(mock_api_cls: MagicMock) -> None
         source._resolve_file_source("app-1", _file_qri("adls", "lake", "other.csv"))
         is None
     )
-    assert list(source.reporter.unresolved_file_connections) == [CONNECTION]
+    source._resolve_file_source("app-1", _file_qri("adls", "lake", "ref/regions.xlsx"))
+    assert source.reporter.unresolved_file_connections == [CONNECTION]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -531,6 +532,39 @@ def test_file_list_loop_load_is_not_named_by_the_last_value(
     # Unnamed, so the files the graph names are only added to the lineage.
     source._file_source_resolver(app, parsed)
     assert app.id in source._apps_file_paths_unknown
+    # The recipe can't set a loop variable, so it is not suggested.
+    [warning] = source.reporter.warnings
+    assert "script_variables" not in str(warning.message)
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_load_path_variable_nothing_sets_points_to_script_variables(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source({}, {})
+    app = App.model_validate(
+        {
+            "id": "app-9",
+            "qTitle": "Sales",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "space-1",
+        }
+    )
+    source._file_source_resolver(
+        app,
+        parse_script(
+            "X: LOAD * FROM [lib://Lake/$(vYear)/a.csv] (txt);\n"
+            "Y: LOAD * FROM [lib://Lake/m/*.csv] (txt);\n"
+        ),
+    )
+
+    [warning] = source.reporter.warnings
+    assert "script_variables" in str(warning.message)
+    # Only the load a variable can name is listed as settable.
+    settable = str(warning.context).split("settable: ")[1]
+    assert "$(vYear)" in settable
+    assert "*.csv" not in settable
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")

@@ -735,7 +735,7 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     SearchTemplateRoute bySurface = route(".*", SEARCH_TEMPLATE_EXACT_URN);
     bySurface.setMatch(
         new SearchTemplateRouteMatch()
-            .setSurfaces(new StringArray("searchEntities", "semanticSearch")));
+            .setSurfaces(new StringArray("searchEntities", "aggregateEntities")));
     SearchTemplateProperties router = body("Router", "{ \"match_all\": {} }", null);
     router.setApiVersion(2);
     router.setRoutes(routes(bySurface));
@@ -765,7 +765,7 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     String onSearch = cacheKey(coordinator, routed.withSearchSurface("searchEntities"));
     // Both surfaces fire the route to the same template, and the surface is not otherwise in the
     // search cache key, so the route's inputs are
-    assertNotEquals(onSearch, cacheKey(coordinator, routed.withSearchSurface("semanticSearch")));
+    assertNotEquals(onSearch, cacheKey(coordinator, routed.withSearchSurface("aggregateEntities")));
     assertNotEquals(onSearch, cacheKey(coordinator, pinned.withSearchSurface("searchEntities")));
   }
 
