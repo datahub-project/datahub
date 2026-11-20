@@ -22,6 +22,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -75,7 +76,9 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
           final Set<Urn> existingDownstreamUrns =
               _entityService.exists(context.getOperationContext(), downstreamUrns, true);
           for (Urn downstreamUrn : downstreamUrns) {
-            if (!existingDownstreamUrns.contains(downstreamUrn)) {
+            if (!existingDownstreamUrns.contains(downstreamUrn)
+                && !isOnlyRemovedFromMlModels(
+                    downstreamUrn, downstreamToUpstreamsToAdd, downstreamToUpstreamsToRemove)) {
               throw new IllegalArgumentException(
                   String.format(
                       "Cannot upsert lineage as downstream urn %s doesn't exist", downstreamUrn));
@@ -101,7 +104,16 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
             }
           }
 
+          // Both directions of an ML model's lineage live in one properties aspect, so they are
+          // collected here and written together once.
+          final Map<Urn, MlModelJobChanges> mlModelChanges = new LinkedHashMap<>();
+
           for (Urn downstreamUrn : downstreamUrns) {
+            if (!existingDownstreamUrns.contains(downstreamUrn)) {
+              // A hard-deleted job whose ML model upstreams are only being removed: those edges
+              // are removed from the model below.
+              continue;
+            }
             final List<Urn> upstreamUrnsToAdd =
                 downstreamToUpstreamsToAdd.getOrDefault(downstreamUrn, new ArrayList<>());
             final List<Urn> upstreamUrnsToRemove =
@@ -170,24 +182,11 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                       actor);
                   break;
                 case Constants.ML_MODEL_ENTITY_NAME:
-                  _lineageService.updateMlModelLineage(
-                      context.getOperationContext(),
-                      downstreamUrn,
-                      upstreamUrnsToAdd,
-                      upstreamUrnsToRemove,
-                      new ArrayList<>(),
-                      new ArrayList<>(),
-                      actor);
-                  break;
                 case Constants.ML_MODEL_GROUP_ENTITY_NAME:
-                  _lineageService.updateMlModelGroupLineage(
-                      context.getOperationContext(),
-                      downstreamUrn,
-                      upstreamUrnsToAdd,
-                      upstreamUrnsToRemove,
-                      new ArrayList<>(),
-                      new ArrayList<>(),
-                      actor);
+                  final MlModelJobChanges changes =
+                      mlModelChanges.computeIfAbsent(downstreamUrn, urn -> new MlModelJobChanges());
+                  changes.trainingJobsToAdd.addAll(upstreamUrnsToAdd);
+                  changes.trainingJobsToRemove.addAll(upstreamUrnsToRemove);
                   break;
                 case Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME:
                   // Only ML model upstreams pass validateMlModelEdges; they are written on the
@@ -233,24 +232,11 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                       filteredDownstreamUrnsToRemove,
                       actor);
                 }
-              } else if (upstreamUrn.getEntityType().equals(Constants.ML_MODEL_ENTITY_NAME)) {
-                _lineageService.updateMlModelLineage(
-                    context.getOperationContext(),
-                    upstreamUrn,
-                    new ArrayList<>(),
-                    new ArrayList<>(),
-                    downstreamUrnsToAdd,
-                    downstreamUrnsToRemove,
-                    actor);
-              } else if (upstreamUrn.getEntityType().equals(Constants.ML_MODEL_GROUP_ENTITY_NAME)) {
-                _lineageService.updateMlModelGroupLineage(
-                    context.getOperationContext(),
-                    upstreamUrn,
-                    new ArrayList<>(),
-                    new ArrayList<>(),
-                    downstreamUrnsToAdd,
-                    downstreamUrnsToRemove,
-                    actor);
+              } else if (ML_MODEL_ENTITY_TYPES.contains(upstreamUrn.getEntityType())) {
+                final MlModelJobChanges changes =
+                    mlModelChanges.computeIfAbsent(upstreamUrn, urn -> new MlModelJobChanges());
+                changes.downstreamJobsToAdd.addAll(downstreamUrnsToAdd);
+                changes.downstreamJobsToRemove.addAll(downstreamUrnsToRemove);
               }
             } catch (Exception e) {
               throw new RuntimeException(
@@ -258,10 +244,67 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
             }
           }
 
+          for (Map.Entry<Urn, MlModelJobChanges> entry : mlModelChanges.entrySet()) {
+            try {
+              updateMlModelJobs(context, entry.getKey(), entry.getValue(), actor);
+            } catch (Exception e) {
+              throw new RuntimeException(
+                  String.format("Failed to update lineage for urn %s", entry.getKey()), e);
+            }
+          }
+
           return true;
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  private void updateMlModelJobs(
+      @Nonnull final QueryContext context,
+      @Nonnull final Urn modelUrn,
+      @Nonnull final MlModelJobChanges changes,
+      @Nonnull final Urn actor)
+      throws Exception {
+    if (Constants.ML_MODEL_ENTITY_NAME.equals(modelUrn.getEntityType())) {
+      _lineageService.updateMlModelLineage(
+          context.getOperationContext(),
+          modelUrn,
+          changes.trainingJobsToAdd,
+          changes.trainingJobsToRemove,
+          changes.downstreamJobsToAdd,
+          changes.downstreamJobsToRemove,
+          actor);
+    } else {
+      _lineageService.updateMlModelGroupLineage(
+          context.getOperationContext(),
+          modelUrn,
+          changes.trainingJobsToAdd,
+          changes.trainingJobsToRemove,
+          changes.downstreamJobsToAdd,
+          changes.downstreamJobsToRemove,
+          actor);
+    }
+  }
+
+  /**
+   * Whether a downstream's only edges in this request are removals of ML model upstreams. Those
+   * edges are stored on the model, as its downstreamJobEdges, so they can still be removed after
+   * the downstream job has been hard-deleted.
+   */
+  private static boolean isOnlyRemovedFromMlModels(
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final Map<Urn, List<Urn>> downstreamToUpstreamsToAdd,
+      @Nonnull final Map<Urn, List<Urn>> downstreamToUpstreamsToRemove) {
+    return !downstreamToUpstreamsToAdd.containsKey(downstreamUrn)
+        && downstreamToUpstreamsToRemove.getOrDefault(downstreamUrn, List.of()).stream()
+            .allMatch(upstream -> ML_MODEL_ENTITY_TYPES.contains(upstream.getEntityType()));
+  }
+
+  private static final class MlModelJobChanges {
+    private final List<Urn> trainingJobsToAdd = new ArrayList<>();
+    private final List<Urn> trainingJobsToRemove = new ArrayList<>();
+    private final List<Urn> downstreamJobsToAdd = new ArrayList<>();
+    private final List<Urn> downstreamJobsToRemove = new ArrayList<>();
   }
 
   private static List<Urn> filterOutEntityTypes(

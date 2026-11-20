@@ -19,6 +19,8 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.LineageService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.ml.metadata.MLModelProperties;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -268,8 +270,8 @@ public class UpdateLineageResolverTest {
     assertTrue(resolver.get(_mockEnv).get());
   }
 
-  // DataJob -> ML model edges in both directions, through a real LineageService: each edge is
-  // written on the model only, and the dataJob's dataJobInputOutput is left alone.
+  // DataJob -> ML model edges in both directions, through a real LineageService: both are
+  // written on the model only, in one write, and the dataJob's dataJobInputOutput is left alone.
   @Test
   public void testDataJobAndMlModelEdgesWriteOnlyTheModel() throws Exception {
     SystemEntityClient entityClient = Mockito.mock(SystemEntityClient.class);
@@ -288,12 +290,72 @@ public class UpdateLineageResolverTest {
     assertTrue(resolver.get(_mockEnv).get());
     ArgumentCaptor<MetadataChangeProposal> proposals =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    Mockito.verify(entityClient, Mockito.times(2))
-        .ingestProposal(any(), proposals.capture(), eq(false));
-    for (MetadataChangeProposal proposal : proposals.getAllValues()) {
-      assertEquals(proposal.getEntityUrn(), urn(ML_MODEL_URN));
-      assertEquals(proposal.getAspectName(), Constants.ML_MODEL_PROPERTIES_ASPECT_NAME);
-    }
+    Mockito.verify(entityClient).ingestProposal(any(), proposals.capture(), eq(false));
+    MetadataChangeProposal proposal = proposals.getValue();
+    assertEquals(proposal.getEntityUrn(), urn(ML_MODEL_URN));
+    assertEquals(proposal.getAspectName(), Constants.ML_MODEL_PROPERTIES_ASPECT_NAME);
+    MLModelProperties properties =
+        GenericRecordUtils.deserializeAspect(
+            proposal.getAspect().getValue(),
+            proposal.getAspect().getContentType(),
+            MLModelProperties.class);
+    assertEquals(properties.getTrainingJobEdges().get(0).getDestinationUrn(), urn(DATAJOB_URN_1));
+    assertEquals(properties.getDownstreamJobEdges().get(0).getDestinationUrn(), urn(DATAJOB_URN_2));
+  }
+
+  // The model -> job edge is stored on the model, so it can be removed after the job is
+  // hard-deleted.
+  @Test
+  public void testRemoveModelEdgeToDeletedJobSucceeds() throws Exception {
+    List<LineageEdge> edgesToRemove =
+        Arrays.asList(
+            createLineageEdge(DATAJOB_URN_1, ML_MODEL_URN),
+            createLineageEdge(DATA_PROCESS_INSTANCE_URN, ML_MODEL_URN));
+    mockInputAndContext(new ArrayList<>(), edgesToRemove);
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(
+            args ->
+                ((Collection<Urn>) args.getArgument(1))
+                    .stream()
+                        .filter(urn -> urn.toString().equals(ML_MODEL_URN))
+                        .collect(java.util.stream.Collectors.toSet()));
+
+    assertTrue(resolver.get(_mockEnv).get());
+    Mockito.verify(_lineageService)
+        .updateMlModelLineage(
+            any(),
+            eq(urn(ML_MODEL_URN)),
+            eq(Collections.emptyList()),
+            eq(Collections.emptyList()),
+            eq(Collections.emptyList()),
+            eq(Arrays.asList(urn(DATAJOB_URN_1), urn(DATA_PROCESS_INSTANCE_URN))),
+            any());
+    Mockito.verify(_lineageService, Mockito.never())
+        .updateDataJobUpstreamLineage(any(), any(), any(), any(), any());
+  }
+
+  // A deleted job still can't be written to when one of its non-model edges changes.
+  @Test
+  public void testDeletedJobWithDatasetEdgeFails() throws Exception {
+    List<LineageEdge> edgesToRemove =
+        Arrays.asList(
+            createLineageEdge(DATAJOB_URN_1, ML_MODEL_URN),
+            createLineageEdge(DATAJOB_URN_1, DATASET_URN_1));
+    mockInputAndContext(new ArrayList<>(), edgesToRemove);
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(
+            args ->
+                ((Collection<Urn>) args.getArgument(1))
+                    .stream()
+                        .filter(urn -> !urn.toString().equals(DATAJOB_URN_1))
+                        .collect(java.util.stream.Collectors.toSet()));
+
+    assertThrows(CompletionException.class, () -> resolver.get(_mockEnv).join());
+    Mockito.verifyNoInteractions(_lineageService);
   }
 
   @Test
