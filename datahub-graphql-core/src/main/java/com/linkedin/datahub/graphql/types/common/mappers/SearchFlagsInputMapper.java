@@ -105,6 +105,9 @@ public class SearchFlagsInputMapper
     if (searchFlags.getMinScore() != null) {
       result.setMinScore(searchFlags.getMinScore());
     }
+    if (searchFlags.getMinSimilarity() != null) {
+      result.setMinSimilarity(searchFlags.getMinSimilarity());
+    }
     if (searchFlags.getSearchTemplate() != null && !searchFlags.getSearchTemplate().isBlank()) {
       result.setSearchTemplate(requireSearchTemplate(searchFlags.getSearchTemplate()));
     }

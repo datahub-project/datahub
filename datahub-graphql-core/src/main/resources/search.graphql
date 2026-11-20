@@ -246,6 +246,16 @@ input SearchFlags {
   minScore: Float
 
   """
+  Raw cosine floor, from -1 to 1, on the hits a vector rung (retrieval.combine: vector) retrieves.
+  A hit below it is dropped and a hit at it is kept; the window is not refilled. With no floor in
+  effect it sets one. With retrieval.minSimilarity, or else semanticSearch.minSimilarity, in effect
+  it can only raise it: the higher of the two applies. A profile whose metric is not cosine rejects
+  it. Only a vector rung reads it, as on semantic search through the semantic search template.
+  Semantic search on its legacy path rejects it.
+  """
+  minSimilarity: Float
+
+  """
   Caller-selected search template URN (`urn:li:searchTemplate:<id>`). When set, the server uses this
   template and skips query classification and engine lookup. The resolved template is not written
   back onto this field.
@@ -1865,9 +1875,15 @@ type VectorRetrievalExplanation {
   candidates: Int
 
   """
-  The raw cosine floor in effect: retrieval.minSimilarity, else semanticSearch.minSimilarity
+  The raw cosine floor in effect: retrieval.minSimilarity, else semanticSearch.minSimilarity, or
+  SearchFlags.minSimilarity when that is higher or no other floor is in effect
   """
   minSimilarity: Float
+
+  """
+  SearchFlags.minSimilarity, the floor the caller set, whether or not it raised the floor in effect
+  """
+  callerMinSimilarity: Float
 
   """
   Why the floor inherited from semanticSearch.minSimilarity was not applied, such as
@@ -1879,6 +1895,12 @@ type VectorRetrievalExplanation {
   Hits below minSimilarity. They are dropped and the window is not refilled
   """
   belowMinSimilarity: Int!
+
+  """
+  Of the hits below minSimilarity, those SearchFlags.minSimilarity dropped by raising the floor:
+  the floor in effect without it would have kept them
+  """
+  belowCallerMinSimilarity: Int!
 
   """
   Hits below the deprecated SearchFlags.minScore. They are dropped and the window is not refilled

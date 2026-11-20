@@ -106,8 +106,10 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
     explanation.setClampedCandidateCap(input.getClampedCandidateCap());
     explanation.setCandidates(input.getCandidates());
     explanation.setMinSimilarity(input.getMinSimilarity());
+    explanation.setCallerMinSimilarity(input.getCallerMinSimilarity());
     explanation.setMinSimilaritySkipped(input.getMinSimilaritySkipped());
     explanation.setBelowMinSimilarity(input.getBelowMinSimilarity());
+    explanation.setBelowCallerMinSimilarity(input.getBelowCallerMinSimilarity());
     explanation.setBelowMinScore(input.getBelowMinScore());
     explanation.setFilterInVectorSearch(input.isFilterInVectorSearch());
     explanation.setDeprecations(new ArrayList<>(input.getDeprecations()));

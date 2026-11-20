@@ -24,6 +24,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.linkedin.common.EmbeddingChunk;
 import com.linkedin.common.EmbeddingChunkArray;
@@ -218,6 +219,93 @@ public class ESSearchDAOVectorRetrievalTest {
         search(context(DOCUMENT, flags -> flags.setMinScore(0.85f)), null, 0, 10, DOCUMENT);
 
     assertEquals(urns(result), List.of("urn:li:document:d0"));
+  }
+
+  @Test
+  public void testTheCallerFloorRaisesTheFloorInEffectAndNeverLowersIt() throws Exception {
+    // Cosines 0.98, 0.9, 0.8, and 0.6
+    knnReturns(hits(0.99, 0.95, 0.9, 0.8));
+
+    // No floor in effect: the caller's sets one
+    store(vector(r -> {}));
+    VectorRetrievalExplanation set = floored(0.85f, 2);
+    assertEquals(set.getMinSimilarity(), 0.85f);
+    assertEquals(set.getCallerMinSimilarity(), 0.85f);
+    assertEquals(set.getBelowMinSimilarity().intValue(), 2);
+    assertEquals(set.getBelowCallerMinSimilarity().intValue(), 2);
+
+    // A template floor in effect: the caller raises it, and explain counts the hits only the raise
+    // dropped
+    store(vector(r -> r.setMinSimilarity(0.7f)));
+    VectorRetrievalExplanation raised = floored(0.85f, 2);
+    assertEquals(raised.getMinSimilarity(), 0.85f);
+    assertEquals(raised.getBelowMinSimilarity().intValue(), 2);
+    assertEquals(raised.getBelowCallerMinSimilarity().intValue(), 1);
+
+    // ... and cannot lower it
+    VectorRetrievalExplanation lowered = floored(0.5f, 3);
+    assertEquals(lowered.getMinSimilarity(), 0.7f);
+    // Explain still shows the floor the caller asked for
+    assertEquals(lowered.getCallerMinSimilarity(), 0.5f);
+    assertEquals(lowered.getBelowCallerMinSimilarity().intValue(), 0);
+
+    // The deployment's floor is in effect the same way
+    semanticSearch.setMinSimilarity(0.7f);
+    store(vector(r -> {}));
+    assertEquals(floored(0.5f, 3).getMinSimilarity(), 0.7f);
+    assertEquals(floored(0.85f, 2).getBelowCallerMinSimilarity().intValue(), 1);
+  }
+
+  @Test
+  public void testACallerFloorOnAProfileThatIsNotCosineFailsAsABadRequest() throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.99));
+    EmbeddingProfile l2 =
+        new EmbeddingProfile(
+            MODEL_KEY,
+            EmbeddingProfile.TEXT_CHUNKS,
+            null,
+            "l2",
+            Set.of("document"),
+            Set.of(EmbeddingProfileRegistry.OPENSEARCH));
+    SearchTemplateCoordinator coordinator =
+        coordinator(SearchTemplateGates.of(registry(l2), semanticSearch, false));
+
+    SearchTemplateFailClosedException notCosine =
+        expectThrows(
+            SearchTemplateFailClosedException.class,
+            () ->
+                search(
+                    context(DOCUMENT, f -> f.setMinSimilarity(0.5f), coordinator),
+                    null,
+                    0,
+                    10,
+                    DOCUMENT));
+    assertTrue(notCosine.getCause() instanceof IllegalArgumentException);
+    // A raw cosine is from -1 to 1
+    SearchTemplateFailClosedException outOfRange =
+        expectThrows(
+            SearchTemplateFailClosedException.class,
+            () -> search(context(DOCUMENT, f -> f.setMinSimilarity(1.5f)), null, 0, 10, DOCUMENT));
+    assertTrue(outOfRange.getCause() instanceof IllegalArgumentException);
+    verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+    verify(client, never()).searchKnn(any(), any());
+  }
+
+  @Test
+  public void testTheSearchCacheKeysOnTheCallerFloor() throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.99, 0.95, 0.9, 0.8));
+    CachingEntitySearchService cache = cached(dao(null, embedding()));
+
+    assertEquals(searchOn(cache, context(DOCUMENT, f -> {})).getNumEntities().intValue(), 4);
+    // The same search with a floor is not served the unfloored page
+    assertEquals(
+        searchOn(cache, context(DOCUMENT, f -> f.setMinSimilarity(0.85f)))
+            .getNumEntities()
+            .intValue(),
+        2);
+    verify(client, times(2)).searchKnn(any(), any());
   }
 
   @Test
@@ -2224,6 +2312,14 @@ public class ESSearchDAOVectorRetrievalTest {
   private OperationContext semanticContext(Consumer<com.linkedin.metadata.query.SearchFlags> flags)
       throws Exception {
     return unpinned(flags).withSearchSurface(SearchTemplateSurfaces.SEMANTIC_SEARCH);
+  }
+
+  /** A search with the caller floor {@code floor}, which keeps {@code survivors} hits. */
+  private VectorRetrievalExplanation floored(float floor, int survivors) throws Exception {
+    SearchResult result =
+        search(context(DOCUMENT, f -> f.setMinSimilarity(floor)), null, 0, 10, DOCUMENT);
+    assertEquals(result.getNumEntities().intValue(), survivors, "floor " + floor);
+    return result.getMetadata().getVectorRetrieval();
   }
 
   private static SearchResult searchOn(

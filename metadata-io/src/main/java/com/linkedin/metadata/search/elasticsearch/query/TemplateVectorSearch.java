@@ -249,6 +249,8 @@ final class TemplateVectorSearch {
               + ", which has no adapter in this process");
     }
     requirePreFilter(opContext, template, system, store, postFilters);
+    requireCallerFloor(
+        opContext, template, gates, anchor == null ? embedding.getModelEmbeddingKey() : profile);
     try {
       return retrieve(
           opContext,
@@ -380,14 +382,21 @@ final class TemplateVectorSearch {
     final Float inheritedFloor = templateFloor == null ? gates.minSimilarity(template) : null;
     final EmbeddingProfile profile = gates.profiles().profile(profileId);
     final boolean cosine = profile != null && profile.cosine();
-    final Float minSimilarity =
+    final Float floorInEffect =
         templateFloor != null ? templateFloor : cosine ? inheritedFloor : null;
     if (inheritedFloor != null && !cosine) {
       explanation.setMinSimilaritySkipped(SearchTemplateVectorRetrieval.PROFILE_NOT_COSINE);
     }
+    // The caller's floor may raise the one in effect and never lowers it
+    final Float callerFloor = flags.hasMinSimilarity() ? flags.getMinSimilarity() : null;
+    final Float minSimilarity =
+        callerFloor == null || (floorInEffect != null && floorInEffect >= callerFloor)
+            ? floorInEffect
+            : callerFloor;
     final Float minScore = flags.hasMinScore() ? flags.getMinScore() : null;
     final List<Neighbor> kept = new ArrayList<>();
     int belowMinSimilarity = 0;
+    int belowCallerMinSimilarity = 0;
     int belowMinScore = 0;
     for (Neighbor hit : hits) {
       // Compared as floats, so a hit at the floor is kept
@@ -395,6 +404,11 @@ final class TemplateVectorSearch {
           minSimilarity != null && (float) hit.similarity() < minSimilarity;
       final boolean underScore = minScore != null && (float) hit.score() < minScore;
       belowMinSimilarity += underSimilarity ? 1 : 0;
+      // Dropped only because the caller raised the floor
+      belowCallerMinSimilarity +=
+          underSimilarity && (floorInEffect == null || (float) hit.similarity() >= floorInEffect)
+              ? 1
+              : 0;
       belowMinScore += underScore ? 1 : 0;
       if (!underSimilarity && !underScore) {
         kept.add(hit);
@@ -440,7 +454,9 @@ final class TemplateVectorSearch {
         .setK(k)
         .setCandidates(candidates)
         .setMinSimilarity(minSimilarity, SetMode.IGNORE_NULL)
+        .setCallerMinSimilarity(callerFloor, SetMode.IGNORE_NULL)
         .setBelowMinSimilarity(belowMinSimilarity)
+        .setBelowCallerMinSimilarity(belowCallerMinSimilarity)
         .setBelowMinScore(belowMinScore)
         .setFilterInVectorSearch(preFilter);
     return page(opContext, explanation, survivors, aggregations, from, pageSize);
@@ -922,6 +938,37 @@ final class TemplateVectorSearch {
   private Map<String, VectorStoreConfiguration> stores() {
     return SearchTemplateVectorRetrieval.stores(
         dao.searchConfiguration.getEntityIndex().getSemanticSearch());
+  }
+
+  /**
+   * {@code SearchFlags.minSimilarity} is a raw cosine from -1 to 1, and a profile whose metric is
+   * not cosine rejects it, as it rejects a template floor. The search fails as a bad request, also
+   * from a parallel group.
+   */
+  private static void requireCallerFloor(
+      @Nonnull OperationContext opContext,
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull SearchTemplateGates gates,
+      @Nonnull String profileId) {
+    final SearchFlags flags = opContext.getSearchContext().getSearchFlags();
+    if (!flags.hasMinSimilarity()) {
+      return;
+    }
+    final float floor = flags.getMinSimilarity();
+    final EmbeddingProfile profile = gates.profiles().profile(profileId);
+    final String rejection =
+        !(floor >= -1f && floor <= 1f)
+            ? "SearchFlags.minSimilarity must be a raw cosine from -1 to 1: " + floor
+            : profile == null || !profile.cosine()
+                ? "SearchFlags.minSimilarity is a raw cosine, and embedding profile "
+                    + profileId
+                    + " is not cosine"
+                : null;
+    if (rejection != null) {
+      throw new SearchTemplateFailClosedException(
+          "Search template " + template.getUrn() + " cannot apply the caller's floor",
+          new IllegalArgumentException(rejection));
+    }
   }
 
   /**

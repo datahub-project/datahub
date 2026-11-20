@@ -27,6 +27,7 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
+import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -1061,6 +1062,41 @@ public class SemanticSearchAcrossEntitiesResolverTest {
     verify(mockSemanticSearchService, never())
         .semanticTemplateSearchAcrossEntities(
             any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList());
+  }
+
+  @Test
+  public void testMinSimilarityReachesTheTemplateAndTheLegacySearchRejectsIt() throws Exception {
+    SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DOCUMENT));
+    input.setQuery("quarterly revenue");
+    SearchFlags flags = new SearchFlags();
+    flags.setMinSimilarity(0.8f);
+    input.setSearchFlags(flags);
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+
+    // The legacy kNN search has no raw cosine floor, so it refuses one rather than ignore it
+    org.testng.Assert.expectThrows(ValidationException.class, () -> resolver.get(mockEnvironment));
+    verify(mockSemanticSearchService, never())
+        .semanticSearchAcrossEntities(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList());
+
+    // The template's vector rung reads it
+    when(mockSemanticSearchService.servesTemplate(any())).thenReturn(true);
+    when(mockSemanticSearchService.semanticTemplateSearchAcrossEntities(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setFrom(0)
+                .setPageSize(10)
+                .setNumEntities(0)
+                .setMetadata(new SearchResultMetadata()));
+    resolver.get(mockEnvironment).get();
+    ArgumentCaptor<OperationContext> searching = ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockSemanticSearchService)
+        .semanticTemplateSearchAcrossEntities(
+            searching.capture(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList());
+    assertEquals(searching.getValue().getSearchContext().getSearchFlags().getMinSimilarity(), 0.8f);
   }
 
   private static AggregationMetadata facet(String name) {

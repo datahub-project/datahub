@@ -19,6 +19,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
+import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -57,6 +58,11 @@ public class SemanticSearchAcrossEntitiesResolver
   private static final int DEFAULT_START = 0;
   private static final int DEFAULT_COUNT = 10;
 
+  /** The legacy kNN search has no raw cosine floor, so it refuses one rather than ignore it. */
+  static final String LEGACY_MIN_SIMILARITY =
+      "SearchFlags.minSimilarity applies when semantic search runs the semantic search template,"
+          + " and this request runs the legacy semantic search";
+
   private final SemanticSearchService _semanticSearchService;
   private final ViewService _viewService;
   private final FormService _formService;
@@ -82,6 +88,14 @@ public class SemanticSearchAcrossEntitiesResolver
 
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
+    // Decided once per request, by the rule the template coordinator applies
+    final boolean servesTemplate =
+        _semanticSearchService.servesTemplate(context.getOperationContext());
+    if (!servesTemplate
+        && input.getSearchFlags() != null
+        && input.getSearchFlags().getMinSimilarity() != null) {
+      throw new ValidationException(LEGACY_MIN_SIMILARITY);
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -133,8 +147,7 @@ public class SemanticSearchAcrossEntitiesResolver
                     ? getStructuredPropertyFacets(context, finalEntities)
                     : Collections.emptyList();
 
-            // Decided once per request, by the rule the template coordinator applies
-            if (_semanticSearchService.servesTemplate(context.getOperationContext())) {
+            if (servesTemplate) {
               return templateSearch(
                   context,
                   finalEntities,

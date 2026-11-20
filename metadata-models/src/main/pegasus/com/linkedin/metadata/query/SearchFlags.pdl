@@ -143,6 +143,16 @@ record SearchFlags {
   minScore: optional float
 
   /**
+   * Raw cosine floor, from -1 to 1, on the hits a vector rung (retrieval.combine: vector)
+   * retrieves. A hit below it is dropped and a hit at it is kept; the window is not refilled.
+   * With no floor in effect it sets one. With retrieval.minSimilarity, or else
+   * semanticSearch.minSimilarity, in effect it can only raise it: the higher of the two applies.
+   * A profile whose metric is not cosine rejects it. Only a vector rung reads it, as on semantic
+   * search through the semantic search template. Semantic search on its legacy path rejects it.
+   */
+  minSimilarity: optional float
+
+  /**
    * Caller-selected search template URN. When set, selection skips classification, sub-intent,
    * and engine lookup. The resolved template is not written back onto this field.
    */
