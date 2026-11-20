@@ -1,7 +1,7 @@
 # Restores the v18 semantic search template, which has no routes. v19 routes a query that is an
-# entity URN on semantic to similarity. A release that has similarity runs that route, and one that
-# has the semantic template but not similarity fails it, so run one system-update with this file
-# before rolling back to such a release:
+# entity URN on semantic to similarity. An earlier release fails that route, or runs it without the
+# typed noAnchor error, so run one system-update with this file before rolling back past v19,
+# whatever the target:
 #   DATAHUB_SEARCH_TEMPLATES_REVISION='{"version":"v19-revert","mcps_location":"bootstrap_mcps/search-templates-semantic-revert.yaml","force":true}'
 # then unset the variable. force runs it again after a re-apply. See docs/how/breaking-changes.md.
 # Only semantic changed. similarity stays stored: a release without the route runs it only when a

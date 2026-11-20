@@ -39,13 +39,14 @@ A GMS pod without similarity fails the route. In a rolling upgrade from a releas
 the old pods from the time system update writes version 19 until those pods are replaced. Upgrading
 through a release that has similarity first avoids this.
 
-**Before rolling back** to a release that ships the `semantic` template but not similarity, restore the
-previous `semantic` template, or a URN query on it fails there. A rollback to a release that has
-similarity needs no step, since that release runs the route. That release reads the anchor without
-dropping the structured `\/q ` prefix or the GraphQL `\/` escape, so there a routed `\/q <urn>` query,
-or a URN whose key contains `/`, fails as `noAnchor`. A rollback to a release from before the
-`semantic` template follows the version 17 rollback steps below instead. While this release is still
-deployed:
+**Before rolling back** past this release, whatever the target, restore the previous `semantic`
+template. A release without similarity fails a URN query on `semantic` while the route is stored. A
+release with similarity runs the route but has no typed `noAnchor` error, so a routed URN that cannot
+anchor the search, in OSS any URN of a type other than Document, is a server error there, with an error
+log. That release also reads the anchor without dropping the structured `\/q ` prefix or the GraphQL
+`\/` escape, so a routed `\/q <urn>` query, or a URN whose key contains `/`, fails there as well. A
+rollback to a release from before the `semantic` template also follows the version 17 rollback steps
+below. While this release is still deployed:
 
 1. Run system update once with
    `DATAHUB_SEARCH_TEMPLATES_REVISION='{"version":"v19-revert","mcps_location":"bootstrap_mcps/search-templates-semantic-revert.yaml","force":true}'`,
@@ -55,8 +56,8 @@ deployed:
    shows an empty `routes` list. A revert the write validator rejects is only logged by system update.
    Then roll back.
 
-If you rolled back without the revert, run system update once on the earlier release with
-`DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable. That writes the earlier
+If you rolled back without the revert to a release that ships the `semantic` template, run system
+update once there with `DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable. That writes the earlier
 release's own templates again, including `semantic` without the route.
 
 If you later upgrade to this release again, system update keeps the restored template, because version

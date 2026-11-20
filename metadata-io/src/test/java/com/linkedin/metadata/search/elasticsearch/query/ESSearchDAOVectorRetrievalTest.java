@@ -62,6 +62,7 @@ import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
@@ -2522,6 +2523,54 @@ public class ESSearchDAOVectorRetrievalTest {
     assertNotNull(
         ExceptionUtils.throwableOfType(failure, SearchTemplateNoAnchorException.class),
         failure.toString());
+  }
+
+  /**
+   * An anchor whose entity type selects no single profile is noAnchor only for a reason about the
+   * type. A profile, selection, or registry fault, or no reason at all, fails closed as
+   * unavailable.
+   */
+  @Test
+  public void testAnchorWithoutProfileIsNoAnchorOnlyForAnEntityTypeReason() throws Exception {
+    SearchTemplateFixtures.readShipped().forEach(harness::store);
+    OperationContext measured = context(DOCUMENT, f -> {});
+    MergedSearchTemplate similarity = harness.loader.load(measured, SIMILARITY_URN);
+    Urn anchor = UrnUtils.getUrn(ANCHOR);
+
+    for (String reason :
+        List.of(
+            SearchTemplateGates.ENTITY_NOT_ENABLED,
+            SearchTemplateGates.ENTITY_NOT_ADVERTISED,
+            EmbeddingProfileRegistry.NO_DEFAULT)) {
+      assertTrue(
+          SearchTemplateVectorRetrieval.anchorWithoutProfile(measured, similarity, anchor, reason)
+              instanceof SearchTemplateNoAnchorException,
+          reason);
+    }
+    for (String reason :
+        Arrays.asList(
+            EmbeddingProfileRegistry.UNKNOWN_PROFILE,
+            EmbeddingProfileRegistry.SYSTEM_UNAVAILABLE,
+            EmbeddingProfileRegistry.EMPTY_SELECTION,
+            SearchTemplateGates.SEVERAL_PROFILES,
+            null)) {
+      assertFalse(
+          SearchTemplateVectorRetrieval.anchorWithoutProfile(measured, similarity, anchor, reason)
+              instanceof SearchTemplateNoAnchorException,
+          String.valueOf(reason));
+    }
+    verify(metrics, times(3))
+        .incrementMicrometer(
+            SearchTemplateMetrics.VECTOR_RETRIEVAL,
+            1,
+            "outcome",
+            SearchTemplateVectorRetrieval.NO_ANCHOR);
+    verify(metrics, times(5))
+        .incrementMicrometer(
+            SearchTemplateMetrics.VECTOR_RETRIEVAL,
+            1,
+            "outcome",
+            SearchTemplateVectorRetrieval.UNAVAILABLE);
   }
 
   /**
