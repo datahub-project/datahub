@@ -1,0 +1,40 @@
+namespace com.linkedin.ingestion.discovery
+
+import com.linkedin.common.Urn
+
+/**
+ * Summary of a data platform that DataHub has seen evidence of, consolidated from all collected evidence.
+ */
+@Aspect = {
+  "name": "discoveredDataSourceInfo"
+}
+record DiscoveredDataSourceInfo {
+  /**
+   * The data platform that was discovered.
+   */
+  @Searchable = {
+    "fieldType": "URN"
+  }
+  platform: Urn
+
+  /**
+   * The strongest tier across the live evidence.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  tier: DiscoveredDataSourceTier
+
+  /**
+   * When evidence for this source was first seen, in epoch milliseconds.
+   */
+  firstSeen: long
+
+  /**
+   * When evidence for this source was last seen, in epoch milliseconds.
+   */
+  @Searchable = {
+    "fieldType": "DATETIME"
+  }
+  lastSeen: long
+}

@@ -1,0 +1,16 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Discovered Data Source
+ */
+@Aspect = {
+  "name": "discoveredDataSourceKey"
+}
+record DiscoveredDataSourceKey {
+  /**
+   * Identifier of the discovered source. Currently the data platform name (e.g. "mysql"), since
+   * discovery is tracked per platform. Kept as a free-form id so that per-instance discovery can
+   * later use a canonical connection key without changing the key shape.
+   */
+  id: string
+}
