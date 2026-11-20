@@ -30,6 +30,7 @@ from datahub.metadata.urns import (
     EntityTypeUrn,
     StructuredPropertyUrn,
 )
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 
 @dataclass(frozen=True)
@@ -235,7 +236,10 @@ def identity_column_lineage(
     each column maps to the same-named external column. Matched case-insensitively
     because the mirror and the external source may differ only in field-name case
     (e.g. Databricks CUSTOMER_ID vs a lowercased Snowflake customer_id). Downstream
-    fields with no external match are skipped.
+    fields with no external match are skipped. A downstream complex (struct/array)
+    column has a v2 path; it is matched on its simplified root path and keeps its
+    real path in the downstream URN, giving a root-to-root edge. Nested fields are
+    neither matched nor counted.
 
     `upstream_field_paths` are simplified paths (what SchemaResolver keys on);
     `upstream_original_field_paths` maps them back to the external dataset's real
@@ -245,7 +249,10 @@ def identity_column_lineage(
     upstream_by_casefold = {p.casefold(): p for p in upstream_field_paths}
     result = IdentityColumnLineage()
     for downstream_path in downstream_field_paths:
-        upstream_path = upstream_by_casefold.get(downstream_path.casefold())
+        simple_downstream = get_simple_field_path_from_v2_field_path(downstream_path)
+        if "." in simple_downstream:
+            continue
+        upstream_path = upstream_by_casefold.get(simple_downstream.casefold())
         if upstream_path is None:
             result.unmatched_downstream_paths.append(downstream_path)
             continue
