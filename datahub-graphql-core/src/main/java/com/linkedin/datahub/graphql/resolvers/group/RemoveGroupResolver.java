@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -32,6 +33,10 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
     if (AuthorizationUtils.canManageUsersAndGroups(context)) {
       final String groupUrn = environment.getArgument("urn");
       final Urn urn = Urn.createFromString(groupUrn);
+      if (!AuthorizationUtils.isEntityType(urn, Constants.CORP_GROUP_ENTITY_NAME)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
       return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {

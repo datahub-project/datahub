@@ -110,7 +110,53 @@ public class DeleteAssertionResolverTest {
   }
 
   @Test
-  public void testGetSuccessNoAssertionInfoFound() throws Exception {
+  public void testGetUnauthorizedNoAssertionInfoFound() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityService<?> mockService = getMockEntityService();
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                eq(Urn.createFromString(TEST_ASSERTION_URN)),
+                eq(Constants.ASSERTION_INFO_ASPECT_NAME),
+                eq(0L)))
+        .thenReturn(null);
+
+    DeleteAssertionResolver resolver = new DeleteAssertionResolver(mockClient, mockService);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(eq("urn"))).thenReturn(TEST_ASSERTION_URN);
+    QueryContext mockContext = getMockDenyContext();
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verify(mockClient, Mockito.never()).deleteEntityThenReferences(any(), any());
+    // Authorization runs before the existence check, so a denied caller learns nothing about it.
+    Mockito.verify(mockService, Mockito.never())
+        .exists(any(), any(Urn.class), Mockito.anyBoolean());
+  }
+
+  @Test
+  public void testGetUnauthorizedNonAssertionUrn() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityService<?> mockService = getMockEntityService();
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DATASET_URN)), eq(true)))
+        .thenReturn(true);
+
+    DeleteAssertionResolver resolver = new DeleteAssertionResolver(mockClient, mockService);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(eq("urn"))).thenReturn(TEST_DATASET_URN);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verify(mockClient, Mockito.never()).deleteEntityThenReferences(any(), any());
+  }
+
+  @Test
+  public void testGetSuccessNoAssertionInfoFoundWithDeletePrivilege() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityClient.ReferencesCleanup references = Mockito.mock(EntityClient.ReferencesCleanup.class);
     Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
