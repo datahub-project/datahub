@@ -6,9 +6,13 @@ import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.AggregationMetadata;
@@ -24,7 +28,9 @@ import graphql.execution.MergedField;
 import graphql.language.Field;
 import graphql.language.SelectionSet;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -71,7 +77,7 @@ public class ListIngestionSourceResolverTest {
     ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
 
     // Execute resolver
-    QueryContext mockContext = getMockAllowContext();
+    QueryContext mockContext = TestUtils.getMockAllowContext();
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
@@ -81,6 +87,8 @@ public class ListIngestionSourceResolverTest {
             mergedListIngestionSourcesField(
                 "start", "count", "total", "ingestionSources", "facets"));
     var result = resolver.get(mockEnv).get();
+
+    assertSearchedFulltextWithoutCache(mockClient);
 
     // Data Assertions
     assertEquals(result.getStart(), 0);
@@ -128,7 +136,7 @@ public class ListIngestionSourceResolverTest {
     ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
 
     // Execute resolver
-    QueryContext mockContext = getMockAllowContext();
+    QueryContext mockContext = TestUtils.getMockAllowContext();
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
@@ -139,6 +147,76 @@ public class ListIngestionSourceResolverTest {
 
     assertEquals(result.getIngestionSources().size(), 1);
     assertEquals(result.getFacets().size(), 0);
+    assertSearchedFulltextWithoutCache(mockClient);
+  }
+
+  @Test
+  public void testGetWithQueryFilterAndSortSkipsSearchCache() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(),
+                Mockito.eq(List.of(Constants.INGESTION_SOURCE_ENTITY_NAME)),
+                Mockito.eq("my-source"),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(20),
+                Mockito.any(),
+                Mockito.any()))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(0)
+                .setNumEntities(0)
+                .setEntities(new SearchEntityArray())
+                .setMetadata(new SearchResultMetadata()));
+    ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
+
+    com.linkedin.datahub.graphql.generated.SortCriterion sort =
+        new com.linkedin.datahub.graphql.generated.SortCriterion();
+    sort.setField("name");
+    sort.setSortOrder(com.linkedin.datahub.graphql.generated.SortOrder.ASCENDING);
+    ListIngestionSourcesInput input =
+        new ListIngestionSourcesInput(
+            0,
+            20,
+            "my-source",
+            List.of(
+                new FacetFilterInput("type", List.of("snowflake"), false, FilterOperator.EQUAL)),
+            sort);
+
+    QueryContext mockContext = TestUtils.getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getMergedField())
+        .thenReturn(mergedListIngestionSourcesField("start", "count", "total"));
+    resolver.get(mockEnv).get();
+
+    assertSearchedFulltextWithoutCache(mockClient);
+  }
+
+  /**
+   * Asserts that the ingestion source search bypassed the search result cache, which is not evicted
+   * on writes, while keeping the fulltext search it has always used.
+   */
+  private static void assertSearchedFulltextWithoutCache(final EntityClient mockClient)
+      throws Exception {
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+    Mockito.verify(mockClient, Mockito.times(1))
+        .searchAcrossEntities(
+            opContextCaptor.capture(),
+            Mockito.eq(List.of(Constants.INGESTION_SOURCE_ENTITY_NAME)),
+            Mockito.anyString(),
+            Mockito.any(),
+            Mockito.anyInt(),
+            Mockito.anyInt(),
+            Mockito.any(),
+            Mockito.any());
+    SearchFlags flags = opContextCaptor.getValue().getSearchContext().getSearchFlags();
+    assertTrue(Boolean.TRUE.equals(flags.isSkipCache()), "search must skip the result cache");
+    assertTrue(Boolean.TRUE.equals(flags.isFulltext()), "search must remain fulltext");
   }
 
   @Test

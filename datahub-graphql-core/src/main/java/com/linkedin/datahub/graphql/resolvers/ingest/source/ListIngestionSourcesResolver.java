@@ -78,9 +78,16 @@ public class ListIngestionSourcesResolver
         () -> {
           try {
             // First, get all ingestion sources Urns.
+            //
+            // Skip the search result cache (searchService.enableCache): writes do not evict it, so
+            // a cached page keeps showing sources that were deleted, and omitting ones created,
+            // for up to the cache TTL. This admin list is low-volume and must reflect what was
+            // just created or deleted, so it always reads the index directly.
             final SearchResult gmsResult =
                 _entityClient.searchAcrossEntities(
-                    context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
                     List.of(Constants.INGESTION_SOURCE_ENTITY_NAME),
                     query,
                     buildFilter(filters, Collections.emptyList()),
