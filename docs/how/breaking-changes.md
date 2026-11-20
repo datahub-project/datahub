@@ -32,6 +32,13 @@ by another script or agent. To connect to another instance, use a separate name,
 To intentionally replace an existing connection, add `--force`. Refreshing a token for the same
 server continues to work. Existing connection files and environment variables keep working.
 
+### Elasticsearch source: password requires username
+
+An Elasticsearch ingestion recipe that sets `password` without `username` now fails to start
+instead of running ([PR #21330](https://github.com/datahub-project/datahub/pull/21330)). Previously the password was ignored and DataHub connected to the cluster
+without logging in. To fix an affected recipe, add the matching `username`, or remove `password`
+if the cluster does not need a username and password.
+
 ### Custom github-documents sources
 
 The shared code of the `github-documents` source moved to `datahub.ingestion.source.repository_documents`, so a GitLab source can reuse it ([PR #21230](https://github.com/datahub-project/datahub/pull/21230)). The documents recipes import are unchanged. Except for the report titles and the `document_mapping` and `hierarchy` settings below, this only affects Python code that subclasses `GitHubDocumentsSource` or imports its modules:

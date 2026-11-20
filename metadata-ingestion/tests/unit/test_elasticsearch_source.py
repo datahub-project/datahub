@@ -2622,6 +2622,25 @@ def test_index_apis_use_keyword_only_opensearch_3_api(mock_opensearch: Any) -> N
     assert client.indices.get_alias.call_args.kwargs == {}
 
 
+def test_password_without_username_is_rejected() -> None:
+    with pytest.raises(pydantic.ValidationError, match="username"):
+        ElasticsearchSourceConfig.model_validate({"password": "pass"})
+
+
+@pytest.mark.parametrize(
+    "credentials, expected_http_auth",
+    [
+        ({"username": "user", "password": "pass"}, ("user", "pass")),
+        ({"username": "user"}, ("user", "")),
+    ],
+)
+def test_username_with_or_without_password_is_accepted(
+    credentials: Dict[str, Any], expected_http_auth: Tuple[str, str]
+) -> None:
+    config = ElasticsearchSourceConfig.model_validate(credentials)
+    assert config.http_auth == expected_http_auth
+
+
 _AWS_KEYS_CONFIG: Dict[str, Any] = {
     "aws_access_key_id": "AKIAEXAMPLE",
     "aws_secret_access_key": "secret",
