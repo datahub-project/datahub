@@ -134,6 +134,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     this.entitySearchService = entitySearchService;
   }
 
+  @VisibleForTesting
+  void setTimeseriesAspectService(TimeseriesAspectService timeseriesAspectService) {
+    this.timeseriesAspectService = timeseriesAspectService;
+  }
+
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
    * TODO: Get rid of this and migrate to getAspect.
@@ -227,7 +232,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
           }
           if (latestValue) {
             response.setLimit(1);
-          } else {
+          } else if (limit != null) {
+            // The response field is a long, so an omitted limit would be unboxed into
+            // setLimit(long) and fail the request with an NPE. Omitting it means the server default.
             response.setLimit(limit);
           }
           List<EnvelopedAspect> values =

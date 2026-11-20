@@ -1,4 +1,3 @@
-import { format } from 'date-fns';
 import Fuse from 'fuse.js';
 
 import {
@@ -35,6 +34,7 @@ import {
     IncidentState,
     IncidentType,
 } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
 
 //  Fuse.js setup for search functionality
 const fuse = new Fuse<any>([], {
@@ -461,13 +461,10 @@ export const getLinkedAssetsData = (assets) => {
 };
 
 export const getFormattedDateForResolver = (lastUpdate) => {
-    // Create a Date object from the timestamp
-    const date = new Date(lastUpdate);
-
-    // Format the date and time
-    const resolvedDateTime = format(date, "M/d/yyyy 'at' h:mm a");
-
-    return resolvedDateTime;
+    // dayjs(undefined) is "now", which would show a made-up resolution time
+    if (lastUpdate === undefined || lastUpdate === null) return '-';
+    // Pinned to English: "[at]" is English text, and other locales would localize the AM/PM marker
+    return dayjs(lastUpdate).locale('en').format('M/D/YYYY [at] h:mm A');
 };
 
 // Helper function for validating the form errors

@@ -82,6 +82,15 @@ const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React
         // The content root is also an antd Typography div, whose default 1em bottom margin
         // otherwise leaves empty space under a one-line description.
         margin-bottom: 0;
+        /* A one-line viewer (schema descriptions, field properties) ellipsizes.
+           white-space: normal on the read-only editor would wrap that line, trip
+           the height check, and replace the text with Show more. */
+        ${({ limit }) =>
+            limit != null &&
+            limit <= 1 &&
+            `
+            white-space: nowrap;
+        `}
     }
 `;
 

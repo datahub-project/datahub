@@ -205,11 +205,23 @@ def render_playwright_section(plan: Dict[str, Any]) -> str:
         )
     lines += [
         "",
-        f"- **P0 tier selection:** `{selection}`: {sanitize(str(plan.get('selectionReason', '')))}",
+        f"- **Selection:** `{selection}`: {sanitize(str(plan.get('selectionReason', '')))}",
     ]
+    # plan_playwright_tier.py --smart-mode shadow: what tagged specs would have run.
+    shadow = plan.get("smartShadow")
+    if isinstance(shadow, dict):
+        count = len(shadow.get("specs") or [])
+        size = ""
+        if shadow.get("totalShards"):
+            minutes = round(float(shadow.get("predictedSeconds", 0)) / 60)
+            size = f" (~{minutes} min predicted on {shadow['totalShards']} shard(s))"
+        lines.append(
+            f"- **Smart selection (shadow, not run):** `{shadow.get('selectionMode', 'unknown')}`, "
+            f"{count} spec file{'' if count == 1 else 's'}{size}: {sanitize(str(shadow.get('selectionReason', '')))}"
+        )
 
     specs = plan.get("specs") or []
-    if selection == "p0" and specs:
+    if selection in ("p0", "smart") and specs:
         selected = sum(int(s.get("selectedTests", 0)) for s in specs)
         minutes = round(float(plan.get("predictedSeconds", 0)) / 60)
         lines.append(
@@ -222,9 +234,10 @@ def render_playwright_section(plan: Dict[str, Any]) -> str:
             s for s in specs if [str(r) for r in s.get("reasons", [])] != [P0_REASON]
         ]
         baseline = len(specs) - len(affected)
-        lines.append(
-            f"- **Baseline:** {baseline} spec file{'' if baseline == 1 else 's'} run for every PR (`@p0`)"
-        )
+        if selection == "p0":
+            lines.append(
+                f"- **Baseline:** {baseline} spec file{'' if baseline == 1 else 's'} run for every PR (`@p0`)"
+            )
         if affected:
             lines += [
                 "",

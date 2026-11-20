@@ -1,3 +1,7 @@
+import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
+
+import { SearchSortInput, SortOrder } from '@types';
+
 /** Filters that start behind "+ Filter" until promoted. Primary row is Domain / Owner / Tag. */
 export type SecondaryBrowseFilter = 'term' | 'application';
 
@@ -55,6 +59,16 @@ export function buildMarketplaceSearchModeState({
 export function marketplaceSidebarSearchQuery(searchInput: string): string {
     const trimmed = searchInput.trim();
     return trimmed.length > 0 ? trimmed : '*';
+}
+
+/**
+ * Sort for the flat sidebar results. Filter-only results (`*`) are listed by name. A text query
+ * keeps the backend's relevance order: the query matches broadly, so a name sort would push the
+ * best matches past the first page.
+ */
+export function marketplaceSidebarSearchSort(query: string): SearchSortInput | undefined {
+    if (query !== '*') return undefined;
+    return { sortCriteria: [{ field: ENTITY_NAME_FIELD, sortOrder: SortOrder.Ascending }] };
 }
 
 /**

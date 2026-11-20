@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql;
 
+import com.linkedin.datahub.graphql.generated.SiblingGroupsInput;
+import com.linkedin.datahub.graphql.resolvers.siblings.SiblingGroupsResolver;
 import graphql.Directives;
 import graphql.ExecutionResult;
 import graphql.GraphQLContext;
@@ -26,7 +28,9 @@ import graphql.language.NodeVisitorStub;
 import graphql.language.Selection;
 import graphql.language.SelectionSet;
 import graphql.language.VariableReference;
+import graphql.schema.GraphQLArgument;
 import graphql.schema.GraphQLFieldDefinition;
+import graphql.schema.GraphQLTypeUtil;
 import graphql.util.TraversalControl;
 import graphql.util.TraverserContext;
 import java.util.ArrayList;
@@ -51,6 +55,10 @@ import javax.annotation.Nullable;
  *   <li>{@code 2 * input.count}, if the field is a lineage field and {@code input.count} is more
  *       than 1. A lineage field has {@code searchResults { entity { ...searchResultFields } } } in
  *       its selection set.
+ *   <li>{@code distinctUrns * (5 + pageSize)}, if the field takes a {@code SiblingGroupsInput}. It
+ *       walks the sibling group of each distinct urn (priced at 5, even when {@code count} is 0)
+ *       and loads a page of up to {@code count} members for each. {@code pageSize} is {@code
+ *       count}, defaulting to 5 and capped at 200, as the resolver does.
  * </ul>
  *
  * <p>A fragment counts one time in an operation, even if the query uses it many times. Fields that
@@ -70,6 +78,12 @@ final class QueryCostInstrumentation extends SimplePerformantInstrumentation {
 
   private static final String INPUT_ARG = "input";
   private static final String COUNT_ARG = "count";
+  private static final String URNS_ARG = "urns";
+  private static final String SIBLING_GROUPS_INPUT_TYPE = SiblingGroupsInput.class.getSimpleName();
+  // A flat price per group walk, so count 0 is not free. Each walk reads at most
+  // SiblingGraphService.MAX_GROUP_MEMBERS members, so the complexity limit bounds a request's
+  // walks.
+  private static final int SIBLING_GROUP_WALK_COST = 5;
   private static final String SEARCH_RESULTS_FIELD = "searchResults";
   private static final String ENTITY_FIELD = "entity";
   private static final String SEARCH_RESULT_FIELDS_FRAGMENT = "searchResultFields";
@@ -89,7 +103,8 @@ final class QueryCostInstrumentation extends SimplePerformantInstrumentation {
   private final int maxDepth;
   private final int maxComplexity;
 
-  private record InputField(Field field, GraphQLFieldDefinition definition, boolean isLineage) {}
+  private record InputField(
+      Field field, GraphQLFieldDefinition definition, boolean isLineage, boolean isSiblingGroups) {}
 
   /**
    * An operation in the query, and the values of the variables that its @skip and @include read.
@@ -202,9 +217,14 @@ final class QueryCostInstrumentation extends SimplePerformantInstrumentation {
         return;
       }
       fieldCount++;
-      if (env.getFieldDefinition().getArgument(INPUT_ARG) != null) {
+      final GraphQLArgument input = env.getFieldDefinition().getArgument(INPUT_ARG);
+      if (input != null) {
         inputFields.add(
-            new InputField(env.getField(), env.getFieldDefinition(), isLineage(env.getField())));
+            new InputField(
+                env.getField(),
+                env.getFieldDefinition(),
+                isLineage(env.getField()),
+                isSiblingGroups(input)));
       }
     }
   }
@@ -225,11 +245,23 @@ final class QueryCostInstrumentation extends SimplePerformantInstrumentation {
         if (inputField.isLineage() && map.get(COUNT_ARG) instanceof Integer count && count > 1) {
           complexity += 2L * count;
         }
+        if (inputField.isSiblingGroups() && map.get(URNS_ARG) instanceof List<?> urns) {
+          // The resolver walks each distinct urn's group even when count is 0, so a walk is priced
+          // on its own as well as per member returned.
+          final Integer count = map.get(COUNT_ARG) instanceof Integer value ? value : null;
+          complexity +=
+              (long) new HashSet<>(urns).size()
+                  * (SIBLING_GROUP_WALK_COST + SiblingGroupsResolver.pageSize(count));
+        }
       } else if (input instanceof List<?> list) {
         complexity += list.size();
       }
     }
     return (int) Math.min(complexity, Integer.MAX_VALUE);
+  }
+
+  private static boolean isSiblingGroups(GraphQLArgument input) {
+    return SIBLING_GROUPS_INPUT_TYPE.equals(GraphQLTypeUtil.unwrapAll(input.getType()).getName());
   }
 
   private static boolean isLineage(Field field) {

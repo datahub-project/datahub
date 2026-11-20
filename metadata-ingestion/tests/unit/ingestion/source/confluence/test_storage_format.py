@@ -2,7 +2,7 @@ from typing import Optional
 
 import pytest
 
-from datahub.ingestion.source.confluence.confluence_html import (
+from datahub.ingestion.source.confluence.storage_format import (
     UserRef,
     storage_to_markdown,
 )

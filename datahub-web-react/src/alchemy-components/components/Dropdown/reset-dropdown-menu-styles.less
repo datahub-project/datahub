@@ -1,4 +1,7 @@
-.datahub-reset-dropdown-menu-styles {
+// antd 5 styles menu items as `.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item`, so the resets
+// are anchored on the popup's own antd class to outrank that selector
+.datahub-reset-dropdown-menu-styles.ant-dropdown,
+.datahub-reset-dropdown-menu-styles.ant-dropdown-menu-submenu {
     & .ant-dropdown-menu {
         border-radius: 12px;
         padding: 8px;
