@@ -4,7 +4,7 @@ import org.apache.commons.io.output.TeeOutputStream
 
 def _getDockerImages(String fullImageTag) {
   def stdOut = new ByteArrayOutputStream()
-  exec {
+  execOps.exec {
     commandLine "docker", "images", "-q", "${fullImageTag}"
     standardOutput = stdOut
   }
@@ -13,7 +13,7 @@ def _getDockerImages(String fullImageTag) {
 
 def _getDockerContainers(String fullImageTag) {
   def stdOut = new ByteArrayOutputStream()
-  exec {
+  execOps.exec {
     commandLine "docker", "container", "ls", "-q", "--filter",
         "ancestor=${fullImageTag}"
     standardOutput = stdOut
@@ -26,17 +26,17 @@ def _cleanLocalDockerImages(String fullImageTag) {
   def containers = _getDockerContainers(fullImageTag)
   if (!containers.isEmpty()) {
     println "Stopping containers: $containers"
-    exec {
+    execOps.exec {
       commandLine = ["docker", "container", "stop"] + containers
     }
-    exec {
+    execOps.exec {
       commandLine = ["docker", "container", "rm"] + containers
     }
   }
   def images = _getDockerImages(fullImageTag)
   if (!images.isEmpty()) {
     println "Removing images: $images"
-    exec {
+    execOps.exec {
       ignoreExitValue true // may not work if used by downstream image
       commandLine = ["docker", "rmi", "-f"] + images
     }
@@ -254,7 +254,7 @@ project.afterEvaluate {
     // Reference the docker original task's configuration and run it but without its dependencies
     doLast {
       def originalTaskInstance = tasks.named('docker').get()
-      project.exec {
+      execOps.exec {
         // No preparation graph runs here, so do not require a staged context.
         commandLine originalTaskInstance.commandLine.collect { arg ->
           arg == buildContext ? rootProject.projectDir.absolutePath : arg
