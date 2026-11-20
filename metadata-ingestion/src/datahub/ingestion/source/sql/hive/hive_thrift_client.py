@@ -25,6 +25,7 @@ from typing import (
     Generator,
     List,
     Optional,
+    Set,
     Tuple,
     Type,
 )
@@ -52,6 +53,10 @@ logger = logging.getLogger(__name__)
 
 # Hive table type for views
 VIRTUAL_VIEW_TYPE = "VIRTUAL_VIEW"
+
+# (db_name, table_name, is_view) -> allowed. is_view is None when the metastore could
+# not tell tables and views apart without loading them.
+TableNameFilter = Callable[[str, str, Optional[bool]], bool]
 
 
 # =============================================================================
@@ -201,6 +206,8 @@ class HiveMetastoreThriftClient:
         self._table_failures: Dict[TableKey, str] = {}
         # Cache table info to avoid duplicate API calls
         self._table_cache: Dict[TableKey, Dict[str, Any]] = {}
+        # None means the metastore could not list views by type
+        self._view_names_cache: Dict[DatabaseKey, Optional[Set[str]]] = {}
 
     def get_database_failures(self) -> List[tuple[str, str]]:
         """Get list of database failures as (db_name, error_message) tuples.
@@ -235,6 +242,7 @@ class HiveMetastoreThriftClient:
         self._database_failures.clear()
         self._table_failures.clear()
         self._table_cache.clear()
+        self._view_names_cache.clear()
 
     def _create_sasl_transport(self, socket: TSocket.TSocket) -> "TSaslClientTransport":
         """Create SASL transport for Kerberos authentication."""
@@ -528,6 +536,49 @@ class HiveMetastoreThriftClient:
 
         return _call()
 
+    def get_view_names(
+        self, db_name: str, catalog_name: Optional[str] = None
+    ) -> Optional[Set[str]]:
+        """
+        Get the names of the views in a database without loading them.
+
+        Returns None when the metastore cannot list tables by type (the call was
+        added in Hive 2.2), so callers can fall back to loading each table.
+        """
+        db_key = DatabaseKey(catalog_name=catalog_name, db_name=db_name)
+        if db_key not in self._view_names_cache:
+            view_names: Optional[Set[str]]
+            try:
+                view_names = set(self._list_view_names(db_name, catalog_name))
+            except Exception as e:
+                # Only an optimization: without it, name filters are applied less
+                # precisely, so any failure here must not fail the database.
+                logger.debug(
+                    f"Could not list views of {db_name} by type, "
+                    f"tables will be loaded to tell them apart: {e}"
+                )
+                view_names = None
+            self._view_names_cache[db_key] = view_names
+        return self._view_names_cache[db_key]
+
+    def _list_view_names(self, db_name: str, catalog_name: Optional[str]) -> List[str]:
+        if catalog_name:
+            try:
+                return list(
+                    self.client.get_tables_by_type(
+                        f"@{catalog_name}#{db_name}", "*", VIRTUAL_VIEW_TYPE
+                    )
+                    or []
+                )
+            except _CATALOG_NOT_SUPPORTED_EXCEPTIONS as e:
+                logger.debug(
+                    f"Catalog-aware get_tables_by_type failed for catalog "
+                    f"'{catalog_name}', falling back to default: {e}"
+                )
+        return list(
+            self.client.get_tables_by_type(db_name, "*", VIRTUAL_VIEW_TYPE) or []
+        )
+
     def get_table(
         self, db_name: str, table_name: str, catalog_name: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -761,6 +812,7 @@ class HiveMetastoreThriftClient:
         databases: List[str],
         table_type_filter: Optional[Callable[[str], bool]] = None,
         catalog_name: Optional[str] = None,
+        name_filter: Optional[TableNameFilter] = None,
     ) -> Generator[Tuple[str, str, Dict[str, Any]], None, None]:
         """
         Shared generator for iterating over tables/views.
@@ -773,6 +825,8 @@ class HiveMetastoreThriftClient:
             table_type_filter: Optional function to filter by table_type
                                (e.g., lambda t: t != "VIRTUAL_VIEW" for tables only)
             catalog_name: Optional catalog name for HMS 3.x
+            name_filter: Optional function to drop tables and views by name before
+                         they are loaded from the metastore
 
         Yields:
             Tuple of (db_name, table_name, table_info dict)
@@ -799,7 +853,21 @@ class HiveMetastoreThriftClient:
                 self._database_failures[db_key] = str(e)
                 continue
 
+            view_names = (
+                self.get_view_names(db_name, catalog_name) if name_filter else None
+            )
+
             for table_name in table_names:
+                # Filter before get_table: a filtered-out table may be one the
+                # metastore refuses to serve (e.g. ACID tables for clients without
+                # the matching capabilities), and loading it only produces warnings.
+                if name_filter and not name_filter(
+                    db_name,
+                    table_name,
+                    None if view_names is None else table_name in view_names,
+                ):
+                    continue
+
                 # Cache key includes catalog for multi-catalog support
                 table_key = TableKey(
                     catalog_name=catalog_name, db_name=db_name, table_name=table_name
@@ -845,6 +913,7 @@ class HiveMetastoreThriftClient:
         self,
         databases: List[str],
         catalog_name: Optional[str] = None,
+        name_filter: Optional[TableNameFilter] = None,
     ) -> Generator[Dict[str, Any], None, None]:
         """
         Iterate over table/column rows in SQL row format.
@@ -869,6 +938,7 @@ class HiveMetastoreThriftClient:
             databases,
             table_type_filter=lambda t: t != VIRTUAL_VIEW_TYPE,  # Exclude views
             catalog_name=catalog_name,
+            name_filter=name_filter,
         ):
             create_date = self._format_create_date(table_info.get("create_time"))
 
@@ -917,6 +987,7 @@ class HiveMetastoreThriftClient:
         self,
         databases: List[str],
         catalog_name: Optional[str] = None,
+        name_filter: Optional[TableNameFilter] = None,
     ) -> Generator[Dict[str, Any], None, None]:
         """
         Iterate over Hive view rows in SQL row format.
@@ -941,6 +1012,7 @@ class HiveMetastoreThriftClient:
             databases,
             table_type_filter=lambda t: t == VIRTUAL_VIEW_TYPE,  # Only views
             catalog_name=catalog_name,
+            name_filter=name_filter,
         ):
             create_date = self._format_create_date(table_info.get("create_time"))
             description = table_info.get("parameters", {}).get("comment", "")
@@ -994,6 +1066,7 @@ class HiveMetastoreThriftClient:
         self,
         databases: List[str],
         catalog_name: Optional[str] = None,
+        name_filter: Optional[TableNameFilter] = None,
     ) -> Generator[Dict[str, Any], None, None]:
         """
         Iterate over table properties rows in SQL row format.
@@ -1012,6 +1085,7 @@ class HiveMetastoreThriftClient:
             databases,
             table_type_filter=lambda t: t != VIRTUAL_VIEW_TYPE,  # Exclude views
             catalog_name=catalog_name,
+            name_filter=name_filter,
         ):
             # Yield each parameter as a row
             for param_key, value in table_info.get("parameters", {}).items():

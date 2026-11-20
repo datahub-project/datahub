@@ -5,7 +5,7 @@ This module provides the ThriftDataFetcher class that implements the HiveDataFet
 Protocol using the HMS Thrift API. It handles:
 - Kerberos/SASL authentication
 - HMS 3.x catalog support
-- Database pattern filtering
+- Database, table and view pattern filtering
 - Connection management
 """
 
@@ -103,19 +103,52 @@ class ThriftDataFetcher:
 
         return self._databases
 
+    def _is_dataset_allowed(
+        self, db_name: str, table_name: str, is_view: Optional[bool]
+    ) -> bool:
+        """
+        Apply table_pattern / view_pattern to a name before it is loaded.
+
+        Loading a table only to drop it later is wasteful, and fails for tables the
+        metastore refuses to serve to this client.
+        """
+        # Must match the dataset names HiveMetadataProcessor filters on.
+        dataset_name = f"{db_name}.{table_name}"
+        if self.config.include_catalog_name_in_ids:
+            catalog = (
+                self.config.catalog_name
+                or self.config.metastore_db_name
+                or self.config.database
+                or "hive"
+            )
+            dataset_name = f"{catalog}.{dataset_name}"
+
+        if is_view is None:
+            # Type unknown until loaded: only skip names that neither pattern allows.
+            return self.config.table_pattern.allowed(
+                dataset_name
+            ) or self.config.view_pattern.allowed(dataset_name)
+        if is_view:
+            return self.config.view_pattern.allowed(dataset_name)
+        return self.config.table_pattern.allowed(dataset_name)
+
     def fetch_table_rows(self) -> Iterable[Dict[str, Any]]:
         """Fetch table/column rows via Thrift API."""
         client = self._ensure_connected()
         databases = self._get_databases_to_process()
         catalog_name = self._get_catalog_name()
-        return client.iter_table_rows(databases, catalog_name)
+        return client.iter_table_rows(
+            databases, catalog_name, name_filter=self._is_dataset_allowed
+        )
 
     def fetch_view_rows(self) -> Iterable[Dict[str, Any]]:
         """Fetch Hive view rows via Thrift API."""
         client = self._ensure_connected()
         databases = self._get_databases_to_process()
         catalog_name = self._get_catalog_name()
-        return client.iter_view_rows(databases, catalog_name)
+        return client.iter_view_rows(
+            databases, catalog_name, name_filter=self._is_dataset_allowed
+        )
 
     def fetch_schema_rows(self) -> Iterable[Dict[str, Any]]:
         """Fetch schema/database rows via Thrift API."""
@@ -129,7 +162,9 @@ class ThriftDataFetcher:
         client = self._ensure_connected()
         databases = self._get_databases_to_process()
         catalog_name = self._get_catalog_name()
-        return client.iter_table_properties_rows(databases, catalog_name)
+        return client.iter_table_properties_rows(
+            databases, catalog_name, name_filter=self._is_dataset_allowed
+        )
 
     def get_database_failures(self) -> List[Tuple[str, str]]:
         """Get list of database failures for reporting."""
