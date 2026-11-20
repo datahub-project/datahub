@@ -130,6 +130,11 @@ setting keeps it off, whatever `SEARCH_V3_TEMPLATES_ROLLOUT` says. With it on:
 - `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY`, when set, drops results below that cosine. The
   legacy semantic search applies only the `minScore` search flag.
 - The facets count the results semantic search found, not every document that matches the filter.
+- The query embedding and the vector search share a budget of two seconds, where the legacy semantic
+  search sets no timeout. A slow embedding fails as `DEADLINE_EXCEEDED`, and a vector search that
+  runs past the budget fails the search, which the keyword fallback below does not cover.
+- With the search cache on, results are cached per user and query for the cache's lifetime. The
+  legacy semantic search was never cached.
 - A query that cannot be embedded fails with an error that names the reason, instead of a generic
   server error: `timeout` as `DEADLINE_EXCEEDED`; `rejected`, `reserveExhausted`, or
   `budgetExhausted` as `SERVICE_UNAVAILABLE`; and `failed` as a server error. Set the new

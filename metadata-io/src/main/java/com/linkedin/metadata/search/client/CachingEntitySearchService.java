@@ -192,6 +192,13 @@ public class CachingEntitySearchService {
         throw new SearchTemplateFailClosedException(
             "Semantic search runs a search template, and no template serves this request");
       }
+      // A template that reaches no vector rung can only serve a keyword page, so it is not run
+      if (!resolved.isVectorReachable()) {
+        throw new SearchTemplateFailClosedException(
+            "Semantic search is served only by a vector rung, and search template "
+                + resolved.getUrn()
+                + " reaches none");
+      }
       return searchOnce(
           bound, resolved, entityNames, query, filters, sortCriteria, from, size, facets);
     }

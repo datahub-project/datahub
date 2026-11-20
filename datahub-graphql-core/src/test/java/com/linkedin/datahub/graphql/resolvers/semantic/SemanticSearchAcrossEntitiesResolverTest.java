@@ -1162,6 +1162,41 @@ public class SemanticSearchAcrossEntitiesResolverTest {
   }
 
   @Test
+  public void testAFailedKeywordFallbackKeepsTheEmbeddingReason() throws Exception {
+    SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DOCUMENT));
+    input.setQuery("quarterly revenue");
+    SearchFlags flags = new SearchFlags();
+    flags.setKeywordFallbackOnEmbeddingFailure(true);
+    flags.setSearchTemplate("urn:li:searchTemplate:semantic");
+    input.setSearchFlags(flags);
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockSemanticSearchService.isServedByTemplate(any())).thenReturn(true);
+    embeddingFails(QueryEmbeddingException.TIMEOUT);
+    when(mockEntityClient.searchAcrossEntities(
+            any(), anyList(), anyString(), any(), anyInt(), anyInt(), any(), anyList()))
+        .thenThrow(new RuntimeException("keyword search unavailable"));
+
+    DataHubGraphQLException error = typedError();
+
+    assertEquals(error.errorCode(), DataHubGraphQLErrorCode.DEADLINE_EXCEEDED);
+    assertTrue(error.getMessage().contains(QueryEmbeddingException.TIMEOUT));
+    // The fallback does not run the template the caller named again
+    ArgumentCaptor<OperationContext> fallback = ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockEntityClient)
+        .searchAcrossEntities(
+            fallback.capture(),
+            anyList(),
+            anyString(),
+            any(),
+            anyInt(),
+            anyInt(),
+            any(),
+            anyList());
+    assertFalse(fallback.getValue().getSearchContext().getSearchFlags().hasSearchTemplate());
+  }
+
+  @Test
   public void testOnlyAQueryEmbeddingFailureFallsBackToKeywordResults() {
     SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
     input.setTypes(Collections.singletonList(EntityType.DOCUMENT));

@@ -1551,6 +1551,23 @@ public class ESSearchDAOVectorRetrievalTest {
   }
 
   @Test
+  public void testOnTheSemanticSurfaceAKnnTimeoutFailsClosedWithNoFallback() throws Exception {
+    store(vector(r -> r.setOnFailure("next")));
+    semanticSlot(VECTOR_URN);
+    harness.templates.getRollout().setSemanticSearch("active");
+    when(client.searchKnn(any(), any()))
+        .thenThrow(new UncheckedTimeoutException("the kNN request ran out of time"));
+
+    SearchTemplateFailClosedException failure =
+        expectThrows(
+            SearchTemplateFailClosedException.class,
+            () -> searchOn(cached(dao(null, embedding())), semanticContext(f -> {})));
+
+    // Not a query embedding failure, so the caller's keyword fallback does not apply
+    assertNull(ExceptionUtils.throwableOfType(failure, QueryEmbeddingException.class));
+  }
+
+  @Test
   public void testOnTheSemanticSurfaceAFailedEmbeddingFailsTypedInsteadOfFollowingNext()
       throws Exception {
     harness.store(KEYWORD_URN, keyword());

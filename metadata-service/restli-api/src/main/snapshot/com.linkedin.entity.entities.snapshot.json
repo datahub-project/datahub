@@ -7937,7 +7937,7 @@
     }, {
       "name" : "keywordFallbackOnEmbeddingFailure",
       "type" : "boolean",
-      "doc" : "Semantic search through the semantic search template answers a query it could not embed with\nan error naming why: timeout, rejected, reserveExhausted, budgetExhausted, or failed. With this\nflag set it serves keyword search results for the same request instead, and\nSearchResultMetadata.keywordFallback marks them with that reason. Only a failed query embedding\nfalls back: a failed kNN or facet request, and similarity, still fail. Semantic search on its\nlegacy path fails as it does without the flag.",
+      "doc" : "Semantic search through the semantic search template answers a query it could not embed with\nan error naming why: timeout, rejected, reserveExhausted, budgetExhausted, or failed. With this\nflag set it serves keyword search results for the same request instead, and\nSearchResultMetadata.keywordFallback marks them with that reason. Those results cover every\nrequested entity type, not only the ones semantic search covers. Only a failed query embedding\nfalls back: a failed kNN or facet request, and similarity, still fail. Semantic search on its\nlegacy path fails as it does without the flag.",
       "default" : false,
       "optional" : true
     }, {

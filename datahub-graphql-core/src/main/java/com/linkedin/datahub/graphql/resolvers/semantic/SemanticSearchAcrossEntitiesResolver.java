@@ -33,6 +33,7 @@ import com.linkedin.metadata.search.QueryEmbeddingException;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SemanticSearchDisabledException;
 import com.linkedin.metadata.search.SemanticSearchService;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
@@ -249,17 +250,36 @@ public class SemanticSearchAcrossEntitiesResolver
           || !Boolean.TRUE.equals(searchFlags.isKeywordFallbackOnEmbeddingFailure())) {
         throw new DataHubGraphQLException(failure.getMessage(), errorCode(failure), failure);
       }
-      // The keyword search the same request runs, as keyword search escapes it
-      result =
-          _entityClient.searchAcrossEntities(
-              searching,
-              entityNames,
-              ResolverUtils.escapeForwardSlash(query),
-              filter,
-              start,
-              count,
-              sortCriteria,
-              facets);
+      log.warn(
+          "Semantic search could not embed the query ({}); serving keyword results, as the caller"
+              + " opted in",
+          failure.getReason());
+      SearchTemplateMetrics.keywordFallback(searching, failure.getReason());
+      // The keyword search the same request runs, as keyword search escapes it. A template the
+      // caller named is not run again: it may be the vector template that just failed.
+      try {
+        result =
+            _entityClient.searchAcrossEntities(
+                searching.withSearchFlags(
+                    flags -> {
+                      flags.removeSearchTemplate();
+                      return flags;
+                    }),
+                entityNames,
+                ResolverUtils.escapeForwardSlash(query),
+                filter,
+                start,
+                count,
+                sortCriteria,
+                facets);
+      } catch (RemoteInvocationException | RuntimeException keywordFailure) {
+        // The error keeps the embedding's reason and code, and the fallback's failure as its cause
+        keywordFailure.addSuppressed(failure);
+        throw new DataHubGraphQLException(
+            failure.getMessage() + ", and the keyword fallback failed",
+            errorCode(failure),
+            keywordFailure);
+      }
       result.getMetadata().setKeywordFallback(failure.getReason());
     }
     return UrnSearchResultsMapper.map(

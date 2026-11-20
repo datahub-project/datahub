@@ -8,12 +8,14 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchTemplateConfiguration;
 import com.linkedin.metadata.config.search.SearchTemplateRolloutConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -120,6 +122,42 @@ public class SearchTemplateRolloutTest {
     rollout.setSemanticSearch("active");
     rollout.setSemanticSearchPercent(-1);
     assertEquals(effect(false, rollout, semantic, key), off());
+  }
+
+  @Test
+  public void testTheShippedSemanticSearchSlotBindsTheShippedSemanticTemplate() throws Exception {
+    open();
+    String shippedSlot =
+        new YAMLMapper()
+            .readTree(applicationYaml().toFile())
+            .at("/elasticsearch/search/v3/templates/surfaces/semanticSearch/fulltext/default")
+            .asText();
+    harness
+        .templates
+        .getSurfaces()
+        .put(SearchTemplateSurfaces.SEMANTIC_SEARCH, Map.of("fulltext", slot(shippedSlot)));
+    harness.templates.getRollout().setSemanticSearch("active");
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            harness.elastic(),
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
+
+    ResolvedSearchTemplate resolved =
+        coordinator
+            .bind(
+                harness.opContext.withSearchSurface(SearchTemplateSurfaces.SEMANTIC_SEARCH),
+                "quarterly revenue",
+                false,
+                List.of("document"))
+            .getSearchContext()
+            .getResolvedSearchTemplate();
+
+    assertEquals(resolved.getUrn(), "urn:li:searchTemplate:semantic");
+    assertTrue(resolved.isVectorReachable());
   }
 
   @Test

@@ -20,7 +20,7 @@ import javax.annotation.Nullable;
  */
 public final class SearchTemplateVectorRetrieval {
   /** Changes when a vector rung serves a request differently, so cached results are not shared. */
-  public static final int EXECUTION_VERSION = 1;
+  public static final int EXECUTION_VERSION = 2;
 
   /** Neighbors one native kNN request returns. A larger {@code candidateCap} is clamped to it. */
   public static final int MAX_K = V3HybridKnnRequestBuilder.MAX_K;
