@@ -17,12 +17,12 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 from datahub.specific.domain import DomainPatchBuilder
-from tests.test_helpers.graph_helpers import MockDataHubGraph
+from tests.test_helpers.graph_helpers import MockDataHubGraphWithSearch
 
 
 @pytest.fixture
-def base_mock_graph() -> MockDataHubGraph:
-    return MockDataHubGraph(
+def base_mock_graph() -> MockDataHubGraphWithSearch:
+    return MockDataHubGraphWithSearch(
         entity_graph={
             "urn:li:domain:12345": {
                 "domainProperties": DomainPropertiesClass(
@@ -34,9 +34,9 @@ def base_mock_graph() -> MockDataHubGraph:
 
 
 @pytest.fixture
-def hierarchy_graph() -> MockDataHubGraph:
+def hierarchy_graph() -> MockDataHubGraphWithSearch:
     # root <- child <- grandchild
-    return MockDataHubGraph(
+    return MockDataHubGraphWithSearch(
         entity_graph={
             "urn:li:domain:root": {
                 "domainProperties": DomainPropertiesClass(name="Root")
@@ -111,7 +111,7 @@ def test_snapshot_name_falls_back_to_id() -> None:
 
 def test_full_replace_to_a_graph_keeps_created_and_custom_properties() -> None:
     created = AuditStampClass(time=1, actor="urn:li:corpuser:admin")
-    graph = MockDataHubGraph(
+    graph = MockDataHubGraphWithSearch(
         entity_graph={
             "urn:li:domain:marketing": {
                 "domainProperties": DomainPropertiesClass(
@@ -138,7 +138,7 @@ def test_full_replace_to_a_graph_keeps_created_and_custom_properties() -> None:
 
 def test_upsert_of_a_missing_domain_writes_the_full_aspect() -> None:
     # A patch alone would create domainProperties without the required name.
-    graph = MockDataHubGraph(entity_graph={})
+    graph = MockDataHubGraphWithSearch(entity_graph={})
 
     Domain(id="marketing", description="Brand").emit(graph, upsert=True)
 
@@ -176,7 +176,7 @@ def test_upsert_without_display_name_keeps_existing_name() -> None:
 
 
 def test_resolves_parent_by_name(
-    test_resources_dir: Path, base_mock_graph: MockDataHubGraph
+    test_resources_dir: Path, base_mock_graph: MockDataHubGraphWithSearch
 ) -> None:
     domain = Domain.from_yaml(test_resources_dir / "domain_child.yaml", base_mock_graph)
 
@@ -185,7 +185,7 @@ def test_resolves_parent_by_name(
 
 
 def test_parent_id_wins_over_another_domains_display_name(tmp_path: Path) -> None:
-    graph = MockDataHubGraph(
+    graph = MockDataHubGraphWithSearch(
         entity_graph={
             "urn:li:domain:sales": {
                 "domainProperties": DomainPropertiesClass(name="Sales")
@@ -206,7 +206,7 @@ def test_parent_id_wins_over_another_domains_display_name(tmp_path: Path) -> Non
 def test_resolves_parent_name_with_four_hyphens(tmp_path: Path) -> None:
     # DomainRegistry passes these through unresolved, which would write a bare
     # name into the URN-typed parentDomain.
-    graph = MockDataHubGraph(
+    graph = MockDataHubGraphWithSearch(
         entity_graph={
             "urn:li:domain:abc": {
                 "domainProperties": DomainPropertiesClass(name="eu-west-1-sales-ops")
@@ -233,7 +233,7 @@ def test_from_yaml_rejects_unusable_parent(
     tmp_path: Path, parent_domain: str, error: str
 ) -> None:
     # Names only need to be unique among siblings.
-    graph = MockDataHubGraph(
+    graph = MockDataHubGraphWithSearch(
         entity_graph={
             "urn:li:domain:a1": {
                 "domainProperties": DomainPropertiesClass(name="Analytics")
@@ -253,7 +253,7 @@ def test_from_yaml_rejects_unusable_parent(
     "parent_domain", ["urn:li:domain:grandchild", "Grandchild", "urn:li:domain:root"]
 )
 def test_from_yaml_rejects_nesting_under_a_descendant(
-    tmp_path: Path, hierarchy_graph: MockDataHubGraph, parent_domain: str
+    tmp_path: Path, hierarchy_graph: MockDataHubGraphWithSearch, parent_domain: str
 ) -> None:
     yaml_file = _write_yaml(tmp_path, f"id: root\nparent_domain: {parent_domain}\n")
 
@@ -263,7 +263,7 @@ def test_from_yaml_rejects_nesting_under_a_descendant(
 
 def test_cycle_check_stops_on_a_cycle_already_in_the_hierarchy(tmp_path: Path) -> None:
     # a <-> b is already stored; nesting c under a must not loop forever.
-    graph = MockDataHubGraph(
+    graph = MockDataHubGraphWithSearch(
         entity_graph={
             "urn:li:domain:a": {
                 "domainProperties": DomainPropertiesClass(
@@ -285,7 +285,7 @@ def test_cycle_check_stops_on_a_cycle_already_in_the_hierarchy(tmp_path: Path) -
 
 
 def test_find_child_domains_uses_the_gms_parent_criteria(
-    hierarchy_graph: MockDataHubGraph,
+    hierarchy_graph: MockDataHubGraphWithSearch,
 ) -> None:
     with patch.object(
         hierarchy_graph,
@@ -309,7 +309,9 @@ def test_find_child_domains_uses_the_gms_parent_criteria(
     ]
 
 
-def test_emit_to_a_graph_checks_the_parent(hierarchy_graph: MockDataHubGraph) -> None:
+def test_emit_to_a_graph_checks_the_parent(
+    hierarchy_graph: MockDataHubGraphWithSearch,
+) -> None:
     domain = Domain(id="root", parent_domain="urn:li:domain:grandchild")
 
     with pytest.raises(ValueError, match="descendants"):
@@ -319,7 +321,7 @@ def test_emit_to_a_graph_checks_the_parent(hierarchy_graph: MockDataHubGraph) ->
 
 def test_parent_name_ignores_near_matches_from_search(tmp_path: Path) -> None:
     # EQUAL on the analyzed name field can also return "Sales Ops" for "Sales".
-    graph = MockDataHubGraph(
+    graph = MockDataHubGraphWithSearch(
         entity_graph={
             "urn:li:domain:sales": {
                 "domainProperties": DomainPropertiesClass(name="Sales")
@@ -358,7 +360,7 @@ def test_parent_name_ignores_near_matches_from_search(tmp_path: Path) -> None:
     ],
 )
 def test_emit_rejects_a_sibling_with_the_same_name(
-    hierarchy_graph: MockDataHubGraph, domain: Domain, upsert: bool
+    hierarchy_graph: MockDataHubGraphWithSearch, domain: Domain, upsert: bool
 ) -> None:
     with pytest.raises(ValueError, match="already exists"):
         domain.emit(hierarchy_graph, upsert=upsert)
@@ -382,7 +384,7 @@ def test_emit_rejects_a_sibling_with_the_same_name(
     ],
 )
 def test_emit_allows_a_name_unique_under_its_parent(
-    hierarchy_graph: MockDataHubGraph, domain: Domain, upsert: bool
+    hierarchy_graph: MockDataHubGraphWithSearch, domain: Domain, upsert: bool
 ) -> None:
     domain.emit(hierarchy_graph, upsert=upsert)
     assert hierarchy_graph.emitted
@@ -409,7 +411,7 @@ def test_generate_mcp_rejects_unresolved_parent_name() -> None:
 def test_round_trip_through_datahub_and_yaml(
     test_resources_dir: Path, tmp_path: Path
 ) -> None:
-    graph = MockDataHubGraph()
+    graph = MockDataHubGraphWithSearch()
     for mcp in Domain.from_yaml(test_resources_dir / "domain.yaml").generate_mcp(
         upsert=False
     ):
@@ -432,7 +434,7 @@ def test_round_trip_through_datahub_and_yaml(
 
 
 def test_from_datahub_translates_custom_ownership_type() -> None:
-    graph = MockDataHubGraph(
+    graph = MockDataHubGraphWithSearch(
         entity_graph={
             "urn:li:domain:abc": {
                 "domainProperties": DomainPropertiesClass(name="ABC"),
@@ -455,7 +457,7 @@ def test_from_datahub_translates_custom_ownership_type() -> None:
 
 
 def test_from_datahub_raises_when_no_properties() -> None:
-    graph = MockDataHubGraph(entity_graph={"urn:li:domain:ghost": {}})
+    graph = MockDataHubGraphWithSearch(entity_graph={"urn:li:domain:ghost": {}})
     with pytest.raises(ValueError, match="domainProperties"):
         Domain.from_datahub(graph, id="urn:li:domain:ghost")
 
