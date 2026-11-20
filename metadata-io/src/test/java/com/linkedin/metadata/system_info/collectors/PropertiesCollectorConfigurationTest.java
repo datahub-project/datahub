@@ -637,6 +637,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showManageTags",
           "featureFlags.showNavBarRedesign",
           "featureFlags.showProductUpdates",
+          "featureFlags.showGithubStarPrompt",
           "featureFlags.productUpdatesJsonUrl",
           "featureFlags.productUpdatesJsonFallbackResource",
           "featureFlags.showStatsTabRedesign",
