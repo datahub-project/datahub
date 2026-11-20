@@ -28,15 +28,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Resolver for {@code SemanticModel.metrics}: scrolls root metrics ({@code hasParentMetric=false})
- * whose {@code metricInfo.semanticModel} equals this SemanticModel URN.
+ * Resolver for {@code SemanticModel.metrics}: scrolls root metrics (no parent metric) whose {@code
+ * metricInfo.semanticModel} equals this SemanticModel URN.
  */
 @Slf4j
 @RequiredArgsConstructor
 public class SemanticModelMetricsResolver implements DataFetcher<CompletableFuture<ScrollResults>> {
 
   static final String SEMANTIC_MODEL_FIELD_NAME = "semanticModel";
-  static final String HAS_PARENT_METRIC_FIELD_NAME = "hasParentMetric";
 
   private final EntityClient _entityClient;
   private final ViewService _viewService;
@@ -50,8 +49,7 @@ public class SemanticModelMetricsResolver implements DataFetcher<CompletableFutu
 
     final Criterion semanticModelFilter =
         CriterionUtils.buildCriterion(SEMANTIC_MODEL_FIELD_NAME, Condition.EQUAL, entity.getUrn());
-    final Criterion noParentFilter =
-        CriterionUtils.buildCriterion(HAS_PARENT_METRIC_FIELD_NAME, Condition.EQUAL, "false");
+    final Criterion noParentFilter = GetRootMetricsResolver.buildNoParentMetricCriterion();
     final Filter baseFilter =
         new Filter()
             .setOr(

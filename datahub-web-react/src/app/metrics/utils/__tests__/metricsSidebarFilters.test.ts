@@ -1,4 +1,4 @@
-import { buildMetricsSidebarFilters } from '@app/metrics/utils/metricsSidebarFilters';
+import { ROOT_METRICS_FILTER, buildMetricsSidebarFilters } from '@app/metrics/utils/metricsSidebarFilters';
 import {
     DOMAINS_FILTER_NAME,
     GLOSSARY_TERMS_FILTER_NAME,
@@ -60,5 +60,13 @@ describe('buildMetricsSidebarFilters', () => {
                 expect.objectContaining({ field: TAGS_FILTER_NAME, values: ['urn:li:tag:pii'] }),
             ]),
         );
+    });
+});
+
+describe('ROOT_METRICS_FILTER', () => {
+    it('excludes metrics with a parent instead of requiring hasParentMetric=false', () => {
+        // Metrics without a metricRelationships aspect index no hasParentMetric value, so an
+        // equality match on 'false' would drop them.
+        expect(ROOT_METRICS_FILTER).toEqual({ field: 'hasParentMetric', values: ['true'], negated: true });
     });
 });
