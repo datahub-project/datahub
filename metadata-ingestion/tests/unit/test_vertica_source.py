@@ -545,3 +545,61 @@ def test_view_definition_uses_default_schema_when_unspecified():
 
     assert dialect.get_view_definition(fake, "v") == "SELECT 2"  # type: ignore[arg-type]
     assert fake.executed[0][1] == {"schema": "public", "view": "v"}
+
+
+@pytest.mark.parametrize(
+    "loop, names_method, process_method, schema, dataset",
+    [
+        ("loop_views", "get_view_names", "_process_view", "public", "vmart.public.v1"),
+        (
+            "loop_models",
+            "get_models_names",
+            "_process_models",
+            "public",
+            "vmart.Entities.m1",
+        ),
+        (
+            "loop_projections",
+            "get_projection_names",
+            "_process_projections",
+            "public",
+            "vmart.public.p1",
+        ),
+    ],
+)
+def test_loops_recover_dropped_connection_after_a_failed_object(
+    monkeypatch: pytest.MonkeyPatch,
+    loop: str,
+    names_method: str,
+    process_method: str,
+    schema: str,
+    dataset: str,
+) -> None:
+    # Each loop checks the connection before an object and again from its error
+    # handler, so a drop while reading the last object is still a failure.
+    source = VerticaSource(
+        VerticaConfig.model_validate({"host_port": "host:5433", "database": "vmart"}),
+        PipelineContext(run_id="vertica-test"),
+    )
+    checked: List[str] = []
+
+    def recover(inspector: Any, context: str) -> bool:
+        checked.append(context)
+        return True
+
+    def failing(*args: Any, **kwargs: Any) -> Iterator[Any]:
+        raise sa_exc.OperationalError("SELECT", {}, Exception("connection dropped"))
+        yield  # pragma: no cover - makes this a generator like the real method
+
+    class _Inspector:
+        def __getattr__(self, name: str) -> Any:
+            if name == names_method:
+                return lambda schema: [dataset.rsplit(".", 1)[-1]]
+            raise AttributeError(name)
+
+    monkeypatch.setattr(source, "recover_lost_connection", recover)
+    monkeypatch.setattr(source, process_method, failing)
+
+    list(getattr(source, loop)(_Inspector(), schema, source.config))
+
+    assert checked == [dataset, dataset]
