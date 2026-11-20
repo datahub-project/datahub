@@ -25,8 +25,8 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
   private static final String ERROR_SOURCE_VALIDATION = "VALIDATION";
 
   /**
-   * Priority (first match wins via cause walk): {@link DataHubGraphQLException} → {@link
-   * QueryEmbeddingException} → metadata-io's {@code ValidationException} → {@link
+   * Priority (first match wins via cause walk): {@link QueryEmbeddingException} → {@link
+   * DataHubGraphQLException} → metadata-io's {@code ValidationException} → {@link
    * ValidationException} → {@link IllegalArgumentException} → {@link
    * DatabaseTransactionConflictException} → {@link LineageTimeoutException} → {@link
    * IllegalStateException} → {@link ActorAccessException} → {@link RuntimeException} → fallback.
@@ -43,6 +43,24 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     SourceLocation sourceLocation = handlerParameters.getSourceLocation();
     ResultPath path = handlerParameters.getPath();
 
+    // A search template's vector rung could not embed the query, from any resolver that passes
+    // SearchFlags.searchTemplate. First, so the typed error a resolver throws for it, which maps
+    // to the same code, is logged the same way, and before the IllegalArgumentException branch: a
+    // provider fault under it is not the caller's. A timeout or a throttle is expected under load,
+    // so it is a warning without the stack trace.
+    QueryEmbeddingException queryEmbeddingException =
+        findFirstThrowableCauseOfClass(exception, QueryEmbeddingException.class);
+    if (queryEmbeddingException != null) {
+      final DataHubGraphQLErrorCode code = QueryEmbeddingErrorCodes.of(queryEmbeddingException);
+      if (code == DataHubGraphQLErrorCode.SERVER_ERROR) {
+        log.error("Failed to execute", queryEmbeddingException);
+      } else {
+        log.warn("Failed to execute: {}", queryEmbeddingException.getMessage());
+      }
+      return completedResult(
+          extractErrorMessage(queryEmbeddingException), code, path, sourceLocation);
+    }
+
     DataHubGraphQLException graphQLException =
         findFirstThrowableCauseOfClass(exception, DataHubGraphQLException.class);
     if (graphQLException != null) {
@@ -50,21 +68,6 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       return completedResult(
           extractErrorMessage(graphQLException),
           graphQLException.errorCode(),
-          path,
-          sourceLocation);
-    }
-
-    // A search template's vector rung failed, from any resolver that passes
-    // SearchFlags.searchTemplate. Before the IllegalArgumentException branch: a provider fault
-    // under a failed query embedding is not the caller's.
-    QueryEmbeddingException queryEmbeddingException =
-        findFirstThrowableCauseOfClass(exception, QueryEmbeddingException.class);
-    if (queryEmbeddingException != null) {
-      // Logged at error, as the branch above logs the typed error a resolver throws for it
-      log.error("Failed to execute", queryEmbeddingException);
-      return completedResult(
-          extractErrorMessage(queryEmbeddingException),
-          QueryEmbeddingErrorCodes.of(queryEmbeddingException),
           path,
           sourceLocation);
     }

@@ -1023,15 +1023,12 @@ public class SearchAcrossEntitiesResolverTest {
   }
 
   @Test
-  public static void testAFallbackThatRunsTheSameVectorRungKeepsTheEmbeddingError()
-      throws Exception {
-    // No template named: a slot or route selected the vector rung, so the fallback, which only
-    // drops the caller's template, runs it again
+  public static void testWithNoTemplateNamedTheEmbeddingErrorStandsAtOnce() throws Exception {
+    // A slot or route selected the vector rung, so dropping a template would run it again
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.searchAcrossEntities(
                 any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
-        .thenThrow(embeddingFailure(QueryEmbeddingException.REJECTED))
         .thenThrow(embeddingFailure(QueryEmbeddingException.REJECTED));
     SearchAcrossEntitiesResolver resolver =
         new SearchAcrossEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
@@ -1048,6 +1045,27 @@ public class SearchAcrossEntitiesResolverTest {
             null,
             flags,
             null);
+
+    Assert.assertEquals(
+        typedError(resolver, input).errorCode(), DataHubGraphQLErrorCode.SERVICE_UNAVAILABLE);
+    Mockito.verify(mockClient, Mockito.times(1))
+        .searchAcrossEntities(any(), any(), any(), any(), anyInt(), anyInt(), any(), any());
+  }
+
+  @Test
+  public static void testAFallbackThatRunsAVectorRungAgainKeepsTheEmbeddingError()
+      throws Exception {
+    // The named template is dropped, and a slot or route selects a vector rung for the rest
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenThrow(embeddingFailure(QueryEmbeddingException.REJECTED))
+        .thenThrow(embeddingFailure(QueryEmbeddingException.TIMEOUT));
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
+    SearchAcrossEntitiesInput input = namedTemplateSearch("urn:li:searchTemplate:semantic");
+    input.getSearchFlags().setKeywordFallbackOnEmbeddingFailure(true);
 
     DataHubGraphQLException error = typedError(resolver, input);
 

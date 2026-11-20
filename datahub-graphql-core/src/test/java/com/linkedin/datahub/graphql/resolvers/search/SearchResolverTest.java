@@ -202,6 +202,49 @@ public class SearchResolverTest {
     Assert.assertEquals(result.getKeywordFallback(), QueryEmbeddingException.TIMEOUT);
   }
 
+  @Test
+  public void testWithNoTemplateNamedThereIsNoKeywordFallback() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.search(
+                any(),
+                Mockito.anyString(),
+                Mockito.anyString(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.anyInt(),
+                Mockito.anyInt()))
+        .thenThrow(
+            new SearchTemplateFailClosedException(
+                "Search template urn:li:searchTemplate:semantic failed to retrieve by vector",
+                new QueryEmbeddingException(QueryEmbeddingException.TIMEOUT, null)));
+    final SearchResolver resolver = new SearchResolver(mockClient);
+    final SearchFlags flags = new SearchFlags();
+    flags.setKeywordFallbackOnEmbeddingFailure(true);
+    final SearchInput input =
+        new SearchInput(EntityType.DOCUMENT, "quarterly revenue", 0, 10, null, null, flags);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    CompletionException failure =
+        Assert.expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    Assert.assertEquals(
+        ((DataHubGraphQLException) failure.getCause()).errorCode(),
+        DataHubGraphQLErrorCode.DEADLINE_EXCEEDED);
+    Mockito.verify(mockClient, Mockito.times(1))
+        .search(
+            any(),
+            Mockito.anyString(),
+            Mockito.anyString(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.anyInt(),
+            Mockito.anyInt());
+  }
+
   private EntityClient initMockSearchEntityClient() throws Exception {
     EntityClient client = Mockito.mock(EntityClient.class);
     Mockito.when(

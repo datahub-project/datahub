@@ -87,7 +87,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
             com.linkedin.metadata.query.filter.Filter filter =
                 ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
             // A template the caller names may embed the query; the keyword fallback is the same
-            // search without it
+            // search without it, so with no template named there is none
             final FailableFunction<OperationContext, SearchResult, RemoteInvocationException>
                 search =
                     opContext ->
@@ -108,7 +108,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                         .withCallerOptionalFilterFields(
                             DefaultEntityFiltersUtil.callerOptionalFilterFields(filter)),
                     search,
-                    search));
+                    searchFlags.hasSearchTemplate() ? search : null));
           } catch (DataHubGraphQLException e) {
             // Already typed, as a query embedding failure is
             throw e;

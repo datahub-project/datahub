@@ -221,7 +221,7 @@ semantic search when the query cannot be embedded, instead of a generic server e
 `DEADLINE_EXCEEDED` (`timeout`), `SERVICE_UNAVAILABLE` (`rejected`), or a server error (`failed`), with
 the reason in the message. A Vertex AI or Amazon Bedrock query embedding that is throttled now fails as
 `rejected` instead of `failed` or `timeout`, also on semantic search through the semantic search
-template: it makes one attempt, since a retry would outlast the search's budget.
+template: a throttle is not retried, since a retry would outlast the search's budget.
 `searchAcrossEntities` and `search` now honor the `keywordFallbackOnEmbeddingFailure` search flag: with
 it set, a query that cannot be embedded gets the keyword search results for the same request, without
 the named template, and the results' `keywordFallback` field names the reason. A search that names

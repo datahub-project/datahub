@@ -129,7 +129,8 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                     : Collections.emptyList();
 
             // Execute search and remove default filter fields from aggregations. A template the
-            // caller names may embed the query; the keyword fallback is the same search without it.
+            // caller names may embed the query; the keyword fallback is the same search without it,
+            // so with no template named there is none.
             final Filter searchFilter = combinedFilter;
             final FailableFunction<OperationContext, SearchResult, RemoteInvocationException>
                 search =
@@ -153,7 +154,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         .withCallerFiltered(callerFiltered)
                         .withAnchorFilter(defaults.anchorFilter()),
                     search,
-                    search);
+                    searchFlags != null && searchFlags.hasSearchTemplate() ? search : null);
 
             // Cleanse aggregations to remove hidden/default filter fields
             searchResult =

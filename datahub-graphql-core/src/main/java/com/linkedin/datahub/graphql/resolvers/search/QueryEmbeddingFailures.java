@@ -9,6 +9,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateM
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.commons.lang3.function.FailableFunction;
@@ -30,13 +31,16 @@ public final class QueryEmbeddingFailures {
    * the caller opted in, is answered by {@code keywordSearch} without the template the caller
    * named, which may be the vector template that just failed. Any other failure propagates as it
    * was.
+   *
+   * @param keywordSearch null when only {@code search} can serve the request: a keyword search that
+   *     named no template would run the same vector rung again, which a slot or route chose
    */
   @Nonnull
   public static SearchResult searchWithKeywordFallback(
       @Nonnull final OperationContext searching,
       @Nonnull
           final FailableFunction<OperationContext, SearchResult, RemoteInvocationException> search,
-      @Nonnull
+      @Nullable
           final FailableFunction<OperationContext, SearchResult, RemoteInvocationException>
               keywordSearch)
       throws RemoteInvocationException {
@@ -48,17 +52,14 @@ public final class QueryEmbeddingFailures {
       if (failure == null) {
         throw e;
       }
-      if (!Boolean.TRUE.equals(
-          searching.getSearchContext().getSearchFlags().isKeywordFallbackOnEmbeddingFailure())) {
+      if (keywordSearch == null
+          || !Boolean.TRUE.equals(
+              searching
+                  .getSearchContext()
+                  .getSearchFlags()
+                  .isKeywordFallbackOnEmbeddingFailure())) {
         throw typed(failure);
       }
-      // The keyword fallback counter tracks each fallback, so this stays at debug: an embedding
-      // outage would otherwise log a line per search
-      log.debug(
-          "Search could not embed the query ({}); serving keyword results, as the caller opted in",
-          failure.getReason(),
-          failure);
-      SearchTemplateMetrics.keywordFallback(searching, reasonTag(failure));
       final SearchResult result;
       try {
         result =
@@ -89,6 +90,13 @@ public final class QueryEmbeddingFailures {
                 : DataHubGraphQLErrorCode.SERVER_ERROR,
             keywordFailure);
       }
+      // The keyword fallback counter tracks each fallback, so this stays at debug: an embedding
+      // outage would otherwise log a line per search
+      log.debug(
+          "Search could not embed the query ({}); served keyword results, as the caller opted in",
+          failure.getReason(),
+          failure);
+      SearchTemplateMetrics.keywordFallback(searching, reasonTag(failure));
       result.getMetadata().setKeywordFallback(reasonTag(failure));
       return result;
     }
