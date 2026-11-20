@@ -98,8 +98,10 @@ class DatahubEmitterOperator(DatahubBaseOperator):
                     self._render_template_fields(value, context, jinja_env),
                 )
         elif isinstance(field_value, list):
-            for item in field_value:
+            field_value = [
                 self._render_template_fields(item, context, jinja_env)
+                for item in field_value
+            ]
         elif isinstance(field_value, str):
             return super().render_template(field_value, context, jinja_env)
         else:
