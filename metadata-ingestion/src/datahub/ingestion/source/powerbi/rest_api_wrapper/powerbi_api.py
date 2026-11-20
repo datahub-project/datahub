@@ -1,6 +1,7 @@
 import json
 import logging
 import sys
+from dataclasses import dataclass
 from typing import (
     Any,
     Dict,
@@ -26,6 +27,10 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiMetadataApiMode,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper import data_resolver
+from datahub.ingestion.source.powerbi.rest_api_wrapper.composite_model import (
+    analysis_services_targets,
+    remote_model_key,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     FABRIC_ARTIFACT_LAKEHOUSE,
     FABRIC_ARTIFACT_SQL_ANALYTICS_ENDPOINT,
@@ -39,6 +44,8 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     FabricArtifact,
     Measure,
     PowerBIDataset,
+    RemoteModelMatch,
+    RemoteModelReference,
     Report,
     ReportType,
     RlsTableFilter,
@@ -85,6 +92,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import (
     ParsedColumn,
     ParsedMeasure,
     ParsedModel,
+    ParsedPartition,
     ParsedTable,
     parse_semantic_model,
 )
@@ -141,6 +149,25 @@ def form_full_table_name(
 
 
 R = TypeVar("R", bound=DataResolverBase)
+
+
+def registry_key(dataset_id: str) -> str:
+    """Key of dataset_registry: dataset ids are GUIDs whose casing differs
+    between the REST listing and TMDL / RDL references."""
+    return dataset_id.casefold()
+
+
+@dataclass
+class EntityPartitionSource:
+    """What a TMDL `entity` partition reads: a Fabric lakehouse / warehouse
+    table (DirectLake) or, in a composite model, a table of an Analysis
+    Services database over DirectQuery."""
+
+    storage_mode: Optional[str]
+    source_schema: Optional[str] = None
+    source_expression: Optional[str] = None
+    remote_model: Optional[RemoteModelReference] = None
+    remote_table_name: Optional[str] = None
 
 
 def make_resolver(config: PowerBiDashboardSourceConfig, resolver_cls: Type[R]) -> R:
@@ -235,9 +262,52 @@ class PowerBiAPI:
             shared_connection=self._file_backed_conn,
             tablename="dataset_registry",
         )
+        # A composite model names its source model by workspace and model
+        # name, not by id. Keyed by remote_model_key; same snapshot semantics
+        # as dataset_registry. Built in Phase 1 of workspace_apis mode. A key
+        # that two datasets claim (same name twice in a workspace, or two
+        # workspaces with one display name) is dropped and remembered as
+        # ambiguous so it never resolves to whichever was listed last.
+        self.datasets_by_workspace_and_name: MutableMapping[str, PowerBIDataset] = (
+            FileBackedDict(
+                shared_connection=self._file_backed_conn,
+                tablename="datasets_by_workspace_and_name",
+            )
+        )
+        self.ambiguous_remote_model_keys: Set[str] = set()
 
     def close(self) -> None:
         self._file_backed_conn.close()
+
+    def _index_datasets_by_name(self, workspace: Workspace) -> None:
+        for dataset in workspace.datasets.values():
+            if not dataset.name:
+                continue
+            key = remote_model_key(workspace.name, dataset.name)
+            if key in self.ambiguous_remote_model_keys:
+                continue
+            existing = self.datasets_by_workspace_and_name.get(key)
+            if existing is not None and registry_key(existing.id) != registry_key(
+                dataset.id
+            ):
+                del self.datasets_by_workspace_and_name[key]
+                self.ambiguous_remote_model_keys.add(key)
+                continue
+            self.datasets_by_workspace_and_name[key] = dataset
+
+    def find_remote_model(self, reference: RemoteModelReference) -> RemoteModelMatch:
+        """The ingested dataset a composite model's connection points at. A
+        dataset id in the connection is authoritative: when it is not in the
+        registry the name is not tried, because a model of the same name
+        could be a different (recreated) dataset."""
+        if reference.dataset_id:
+            return RemoteModelMatch(
+                dataset=self.dataset_registry.get(registry_key(reference.dataset_id))
+            )
+        key = remote_model_key(reference.workspace_name, reference.model_name)
+        if key in self.ambiguous_remote_model_keys:
+            return RemoteModelMatch(ambiguous=True)
+        return RemoteModelMatch(dataset=self.datasets_by_workspace_and_name.get(key))
 
     def log_http_error(self, message: str) -> Any:
         logger.warning(message)
@@ -370,22 +440,12 @@ class PowerBiAPI:
         if self.__config.metadata_api_mode == PowerBiMetadataApiMode.WORKSPACE_APIS:
             bound_from_rdl = self._paginated_report_binding_from_rdl(report, workspace)
             if bound_from_rdl is not None:
-                # The RDL's GUID casing need not match the REST API's, which
-                # keys the registry; try the API's usual lowercase too.
-                registry_id = next(
-                    (
-                        candidate
-                        for candidate in (
-                            bound_from_rdl,
-                            bound_from_rdl.lower(),
-                            bound_from_rdl.upper(),
-                        )
-                        if candidate in self.dataset_registry
-                    ),
-                    bound_from_rdl,
+                report.dataset = self.dataset_registry.get(registry_key(bound_from_rdl))
+                # The RDL's GUID casing need not match the REST API's; keep the
+                # registered dataset's own id when the binding resolves.
+                report.dataset_id = (
+                    report.dataset.id if report.dataset is not None else bound_from_rdl
                 )
-                report.dataset_id = registry_id
-                report.dataset = self.dataset_registry.get(registry_id)
                 if report.dataset is None:
                     self.reporter.info(
                         title="Missing Lineage For Paginated Report",
@@ -446,7 +506,7 @@ class PowerBiAPI:
             # RDL report bound to a shared semantic model: reuse the same
             # dataset->report lineage as a regular report.
             report.dataset_id = bound_dataset_id
-            report.dataset = self.dataset_registry.get(bound_dataset_id)
+            report.dataset = self.dataset_registry.get(registry_key(bound_dataset_id))
             if report.dataset is None:
                 self.reporter.info(
                     title="Missing Lineage For Paginated Report",
@@ -596,7 +656,9 @@ class PowerBiAPI:
             if self.__config.extract_report_field_usage:
                 self._fill_report_field_usage(workspace, report)
             if report.dataset_id:
-                report.dataset = self.dataset_registry.get(report.dataset_id)
+                report.dataset = self.dataset_registry.get(
+                    registry_key(report.dataset_id)
+                )
                 if report.dataset is None:
                     self.reporter.info(
                         title="Missing Lineage For Report",
@@ -1240,38 +1302,71 @@ class PowerBiAPI:
             )
             return None
 
+    @staticmethod
+    def _entity_partition_source(
+        table_name: str,
+        partition: ParsedPartition,
+        analysis_services: Dict[str, Optional[RemoteModelReference]],
+    ) -> EntityPartitionSource:
+        """An `entity` partition is DirectLake over a Fabric SQL endpoint
+        unless the shared expression it names is an AnalysisServices call:
+        then it is a DirectQuery table of a Power BI semantic model (linked
+        with extract_composite_model_lineage) or of some other Analysis
+        Services server (never linked)."""
+        if partition.expression_source in analysis_services:
+            return EntityPartitionSource(
+                storage_mode=Constant.DIRECT_QUERY,
+                remote_model=analysis_services[partition.expression_source],
+                remote_table_name=partition.entity_name or table_name,
+            )
+        if partition.mode is not None and partition.mode != PARTITION_MODE_DIRECT_LAKE:
+            # A non-DirectLake entity partition whose shared expression was not
+            # recognised: not a Fabric SQL endpoint table, so no OneLake edge.
+            return EntityPartitionSource(
+                storage_mode=PARTITION_MODE_TO_STORAGE_MODE.get(
+                    partition.mode, partition.mode
+                ),
+            )
+        return EntityPartitionSource(
+            storage_mode=Constant.DIRECT_LAKE,
+            source_schema=partition.schema_name,
+            source_expression=partition.entity_name,
+        )
+
     def _table_from_parsed(
         self,
         workspace: Workspace,
         dataset: PowerBIDataset,
         dataset_name: str,
         parsed_table: ParsedTable,
+        analysis_services: Dict[str, Optional[RemoteModelReference]],
     ) -> Table:
         partition = parsed_table.partition
         expression: Optional[str] = None
         calculated_expression: Optional[str] = None
         storage_mode: Optional[str] = None
-        source_schema: Optional[str] = None
-        source_expression: Optional[str] = None
+        entity_source: Optional[EntityPartitionSource] = None
         if partition is not None:
             if partition.kind == PARTITION_KIND_M:
                 expression = partition.source
             elif partition.kind == PARTITION_KIND_CALCULATED:
                 calculated_expression = partition.source
             elif partition.kind == PARTITION_KIND_ENTITY:
-                source_schema = partition.schema_name
-                source_expression = partition.entity_name
+                entity_source = self._entity_partition_source(
+                    parsed_table.name, partition, analysis_services
+                )
             # `query` partitions hold native SQL, which the M parser cannot
             # consume; the table is emitted without an expression or lineage.
-            if partition.kind == PARTITION_KIND_ENTITY:
-                storage_mode = Constant.DIRECT_LAKE
-            elif (
-                partition.mode is not None
+            if (
+                partition.kind != PARTITION_KIND_ENTITY
+                and partition.mode is not None
                 and partition.mode != PARTITION_MODE_DIRECT_LAKE
             ):
                 storage_mode = PARTITION_MODE_TO_STORAGE_MODE.get(
                     partition.mode, partition.mode
                 )
+        if entity_source is None:
+            entity_source = EntityPartitionSource(storage_mode=storage_mode)
 
         columns = [self._column_from_parsed(column) for column in parsed_table.columns]
         measures = [
@@ -1291,13 +1386,15 @@ class PowerBiAPI:
             dataset=dataset,
             row_count=None,
             column_count=None,
-            storage_mode=storage_mode,
-            source_schema=source_schema,
-            source_expression=source_expression,
+            storage_mode=entity_source.storage_mode,
+            source_schema=entity_source.source_schema,
+            source_expression=entity_source.source_expression,
             calculated_expression=calculated_expression,
             description=parsed_table.description,
             partition_count=parsed_table.partition_count,
             refresh_policy=parsed_table.refresh_policy,
+            remote_model=entity_source.remote_model,
+            remote_table_name=entity_source.remote_table_name,
         )
 
     @staticmethod
@@ -1444,9 +1541,15 @@ class PowerBiAPI:
             parsed_model
         )
         dataset_name = dataset.name if dataset.name is not None else dataset.id
+        analysis_services = analysis_services_targets(
+            {
+                name: shared.expression
+                for name, shared in parsed_model.shared_expressions.items()
+            }
+        )
         for parsed_table in parsed_model.tables:
             table = self._table_from_parsed(
-                workspace, dataset, dataset_name, parsed_table
+                workspace, dataset, dataset_name, parsed_table, analysis_services
             )
             if self.__config.profiling.enabled:
                 self.__regular_api_resolver.profile_dataset(
@@ -1533,7 +1636,13 @@ class PowerBiAPI:
                 )
                 continue
             workspace.datasets[dataset.id] = dataset
-        self.dataset_registry.update(workspace.datasets)
+        self.dataset_registry.update(
+            {
+                registry_key(dataset_id): dataset
+                for dataset_id, dataset in workspace.datasets.items()
+            }
+        )
+        self._index_datasets_by_name(workspace)
 
     def fill_metadata_from_definitions(self, workspaces: List[Workspace]) -> Set[str]:
         """workspace_apis-mode counterpart of fill_metadata_from_scan_result.
@@ -1675,7 +1784,12 @@ class PowerBiAPI:
             )
             cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)
             # collect all datasets in the registry
-            self.dataset_registry.update(cur_workspace.datasets)
+            self.dataset_registry.update(
+                {
+                    registry_key(dataset_id): dataset
+                    for dataset_id, dataset in cur_workspace.datasets.items()
+                }
+            )
 
         # Surface workspaces the scan API silently omitted. They still reach
         # Phase 2 with empty scan metadata, but ingesters need visibility into
@@ -1797,7 +1911,9 @@ class PowerBiAPI:
                     # https://learn.microsoft.com/en-us/fabric/admin/portal-workspace#use-semantic-models-across-workspaces
                     # That's why the global 'dataset_registry' is required
                     if tile.dataset_id:
-                        tile.dataset = self.dataset_registry.get(tile.dataset_id)
+                        tile.dataset = self.dataset_registry.get(
+                            registry_key(tile.dataset_id)
+                        )
                         if tile.dataset is None:
                             self.reporter.info(
                                 title="Missing Dataset Lineage For Tile",

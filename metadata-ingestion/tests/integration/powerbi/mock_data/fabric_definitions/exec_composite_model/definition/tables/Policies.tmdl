@@ -1,0 +1,41 @@
+/// Policies as read live from the Insurance Model.
+table Policies
+	lineageTag: 00000021-1111-4222-8333-000000000021
+	sourceLineageTag: Policies
+
+	column PolicyId
+		dataType: int64
+		isHidden
+		lineageTag: 00000022-1111-4222-8333-000000000022
+		sourceLineageTag: PolicyId
+		summarizeBy: none
+		sourceColumn: PolicyId
+
+	column State
+		dataType: string
+		lineageTag: 00000023-1111-4222-8333-000000000023
+		sourceLineageTag: State
+		summarizeBy: none
+		sourceColumn: State
+
+	column WrittenPremium
+		dataType: double
+		lineageTag: 00000024-1111-4222-8333-000000000024
+		sourceLineageTag: WrittenPremium
+		summarizeBy: sum
+		sourceColumn: WrittenPremium
+
+	/// Calculated locally on the composite model; not a mirrored column.
+	column PremiumInThousands = DIVIDE('Policies'[WrittenPremium], 1000)
+		dataType: double
+		lineageTag: 00000025-1111-4222-8333-000000000025
+		summarizeBy: sum
+		type: calculated
+
+	partition Policies = entity
+		mode: directQuery
+		source
+			entityName: Policies
+			expressionSource: 'DirectQuery to AS - Insurance Model'
+
+	changedProperty = IsHidden

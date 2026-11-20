@@ -30,6 +30,8 @@ source:
     # Field properties (formatString, displayFolder, isHidden, ...), storage mode, partitions,
     # incremental refresh, RLS role filters (never members) and masked dataset parameters
     # extract_model_properties: true
+    # Lineage from a composite model's remote tables to the semantic model they read
+    # extract_composite_model_lineage: true
     # Latest dataset refresh as an Operation aspect (works in both modes)
     # extract_refresh_history: true
 

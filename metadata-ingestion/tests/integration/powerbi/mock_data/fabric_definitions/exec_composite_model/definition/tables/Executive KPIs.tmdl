@@ -1,0 +1,24 @@
+/// Executive measures over the remote Policies table.
+table 'Executive KPIs'
+	lineageTag: 00000028-1111-4222-8333-000000000028
+
+	measure 'Total Written Premium' = SUM('Policies'[WrittenPremium])
+		formatString: $#,##0
+		lineageTag: 00000029-1111-4222-8333-000000000029
+
+	column Value
+		dataType: string
+		isHidden
+		lineageTag: 0000002a-1111-4222-8333-00000002a
+		summarizeBy: none
+		sourceColumn: [Value]
+
+	partition 'Executive KPIs' = m
+		mode: import
+		source =
+				let
+				    Source = Table.FromRows(Json.Document(Binary.Decompress(Binary.FromText("i44FAA==", BinaryEncoding.Base64), Compression.Deflate)), let _t = ((type nullable text) meta [Serialized.Text = true]) in type table [Value = _t])
+				in
+				    Source
+
+	annotation PBI_ResultType = Table
