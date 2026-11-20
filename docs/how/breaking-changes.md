@@ -185,9 +185,10 @@ so after upgrading OpenSearch to 3.5 or later, restart GMS for the switch to tak
   returns documents only. Other entity types in `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` return
   nothing, and a request for only those types returns an empty page. Keep the switch off if semantic
   search serves other entity types for you.
-- Documents follow the same defaults as keyword search: only published documents shown in global
-  context come back, unless the request sets `includeHiddenLifecycleStages`. A user who can manage
-  documents also gets unpublished documents that have no lifecycle stage.
+- Documents follow the same defaults as keyword search: only published documents come back, and only
+  those shown in global context unless the filter names `showInGlobalContext`. A request that sets
+  `includeHiddenLifecycleStages` gets both kinds. A user who can manage documents also gets
+  unpublished documents that have no lifecycle stage.
 - As in keyword search, soft-deleted entities and entities in a hidden lifecycle stage are left out
   unless the request sets `includeSoftDeleted` or `includeHiddenLifecycleStages`.
 - `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY`, when set, drops results below that cosine. The

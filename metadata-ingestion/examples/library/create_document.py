@@ -77,7 +77,7 @@ client.entities.upsert(doc)
 print(f"Created Confluence document: {doc.urn}")
 
 # ============================================================================
-# Example 5: Create a document hidden from global context (AI-only)
+# Example 5: Create a document hidden from global context
 # ============================================================================
 # Global search and sidebar navigation leave this document out by default, and
 # the related asset still leads to it - useful for AI agent context. This is not
