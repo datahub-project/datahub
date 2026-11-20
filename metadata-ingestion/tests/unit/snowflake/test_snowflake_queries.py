@@ -3038,7 +3038,6 @@ class TestTablesForDatabaseQueryWithFilter:
 
     def test_tables_for_database_with_table_types(self):
         """Test tables_for_database correctly applies table_types filtering."""
-        # Default includes BASE TABLE, EXTERNAL TABLE, and INTERACTIVE TABLE
         query_default = SnowflakeQuery.tables_for_database(
             "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"}
         )
@@ -3047,7 +3046,6 @@ class TestTablesForDatabaseQueryWithFilter:
         assert "'INTERACTIVE TABLE'" in query_default
         assert "COALESCE(is_dynamic" not in query_default
 
-        # Only BASE TABLE (excludes external and interactive tables)
         query_base_only = SnowflakeQuery.tables_for_database(
             "TEST_DB", table_types={"BASE TABLE"}
         )
