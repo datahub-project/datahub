@@ -22,7 +22,13 @@ source:
     # enable it, also remove modified_since and filter_dataset_endorsements below
     # (and extract_app / extract_endorsements_to_tags if set), or the recipe is rejected.
     # metadata_api_mode: workspace_apis
-    # Enrichment read from the semantic-model and report definitions (workspace_apis only)
+    # Optional -- keep the admin scan but also read the semantic-model and report definitions
+    # to overlay sourceColumn lineage, DAX references, descriptions, relationships, model
+    # properties and report field usage onto the scanned tables. Same Contributor role and
+    # Fabric tenant setting as workspace_apis; not with admin_apis_only.
+    # enrich_from_item_definitions: true
+    # Enrichment read from the semantic-model and report definitions
+    # (workspace_apis or enrich_from_item_definitions)
     # extract_model_relationships: true
     # extract_report_field_usage: true
     # Column lineage derived from DAX (calculated columns, measure-to-measure references)

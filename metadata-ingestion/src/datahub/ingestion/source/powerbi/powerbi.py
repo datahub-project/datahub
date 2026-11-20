@@ -773,12 +773,15 @@ class Mapper:
         if (
             (upstream or cll_lineage)
             and table.expression
+            and not table.calculated_expression
             and not any(lineage.upstreams for lineage in upstream_lineage)
         ):
             # The M source resolved to nothing this run (parse failure or an
             # unsupported source). An aspect with only the model-internal edges
             # would replace external lineage emitted by earlier runs, so keep
-            # the stored lineage.
+            # the stored lineage. A calculated table has no M source: the admin
+            # scan stores its DAX in `expression`, and its DAX table edges are
+            # its whole lineage.
             self.__reporter.model_internal_lineage_withheld += 1
             return mcps
 
@@ -2647,16 +2650,32 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
+        reporter = PowerBiDashboardSourceReport()
         try:
             PowerBiAPI(
                 PowerBiDashboardSourceConfig.parse_obj_allow_extras(config_dict),
-                PowerBiDashboardSourceReport(),
+                reporter,
             )
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
                 capable=False, failure_reason=str(e)
             )
+            return test_report
+        # enrich_from_item_definitions only warns when the Fabric token cannot
+        # be acquired (the scan still works); surface it here so a recipe
+        # whose enrichment would silently do nothing is caught up front.
+        token_warnings = [
+            warning.message
+            for warning in reporter.warnings
+            if warning.title == Constant.FABRIC_TOKEN_NOT_ACQUIRED
+        ]
+        if token_warnings:
+            test_report.capability_report = {
+                SourceCapability.LINEAGE_FINE: CapabilityReport(
+                    capable=False, failure_reason=token_warnings[0]
+                )
+            }
         return test_report
 
     @classmethod
@@ -2999,10 +3018,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 for ws in batch_workspaces:
                     workspaces[ws.id] = ws
 
-            if (
-                self.source_config.metadata_api_mode
-                == PowerBiMetadataApiMode.WORKSPACE_APIS
-            ):
+            if self.source_config.item_definitions_available:
                 self.powerbi_client.report_if_no_definitions_fetched()
 
             # Phase 2: fetch the rest of the metadata per workspace. We skip
