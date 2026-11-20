@@ -1,5 +1,6 @@
 """Unit tests for Snowflake interactive table discovery."""
 
+from datetime import datetime, timezone
 from typing import Dict, List, cast
 from unittest.mock import MagicMock
 
@@ -38,6 +39,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 )
 from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.sql_parsing.sql_parsing_aggregator import (
+    ObservedQuery,
     QueryLogSetting,
     SqlParsingAggregator,
 )
@@ -246,6 +248,14 @@ def test_dynamic_interactive_table_gets_show_definition_and_lag() -> None:
     assert not any("GET_DDL" in q for q in connection.queries)
 
 
+def test_get_table_ddl_escapes_embedded_quotes_in_identifiers() -> None:
+    """GET_DDL's object name is a single-quoted literal around a quoted identifier."""
+    sql = SnowflakeQuery.get_table_ddl('DB"X', 'SCHEMA"A', "tab'le")
+    assert (
+        sql == """SELECT GET_DDL('TABLE', '"DB""X"."SCHEMA""A"."tab''le"') AS "DDL";"""
+    )
+
+
 def test_static_interactive_table_gets_get_ddl_text() -> None:
     ddl_query = SnowflakeQuery.get_table_ddl(DB, SCHEMA, "INT_STATIC")
 
@@ -389,10 +399,12 @@ def test_register_interactive_static_definition_rewritten_for_lineage() -> None:
     gen._register_interactive_table_upstreams(table, DB, SCHEMA)
 
     aggregator = cast(MagicMock, gen.aggregator)
-    aggregator.add_view_definition.assert_called_once()
-    view_definition = aggregator.add_view_definition.call_args.kwargs["view_definition"]
-    assert "INTERACTIVE TABLE" not in view_definition.upper()
-    assert "TABLE INT_STATIC" in view_definition.upper()
+    aggregator.add_view_definition.assert_not_called()
+    aggregator.add_observed_query.assert_called_once()
+    observed = aggregator.add_observed_query.call_args.args[0]
+    query_text = observed.query
+    assert "INTERACTIVE TABLE" not in query_text.upper()
+    assert "TABLE INT_STATIC" in query_text.upper()
 
 
 def test_register_interactive_dynamic_definition_passes_show_text() -> None:
@@ -456,6 +468,59 @@ def test_rewritten_get_ddl_yields_upstream() -> None:
         if isinstance(aspect, UpstreamLineageClass):
             upstreams = {u.dataset for u in aspect.upstreams}
     assert upstreams == {upstream}
+
+
+def test_static_interactive_query_log_preferred_over_get_ddl_definition() -> None:
+    ids = SnowflakeIdentifierBuilder(
+        identifier_config=SnowflakeIdentifierConfig(),
+        structured_reporter=SourceReport(),
+    )
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        generate_queries=True,
+        query_log=QueryLogSetting.STORE_ALL,
+    )
+    gen = _schema_gen_with_mocks()
+    gen.identifiers = ids
+    gen.aggregator = aggregator
+    gen.report = SnowflakeV2Report()
+    gen._register_interactive_table_upstreams(
+        _interactive_with_definition("INT_STATIC", definition=STATIC_DDL),
+        "TEST_DB",
+        "PUBLIC",
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query=(
+                "INSERT INTO TEST_DB.PUBLIC.INT_STATIC "
+                "SELECT * FROM TEST_DB.PUBLIC.SOURCE"
+            ),
+            default_db="TEST_DB",
+            default_schema="PUBLIC",
+            timestamp=datetime(2022, 6, 6, tzinfo=timezone.utc),
+        )
+    )
+
+    downstream = ids.gen_dataset_urn(
+        ids.get_dataset_identifier("INT_STATIC", "PUBLIC", "TEST_DB")
+    )
+    upstream_lineage = None
+    for mcp in aggregator.gen_metadata():
+        if getattr(mcp, "entityUrn", None) != downstream:
+            continue
+        aspect = getattr(mcp, "aspect", None)
+        if isinstance(aspect, UpstreamLineageClass):
+            upstream_lineage = aspect
+
+    assert upstream_lineage is not None
+    assert len(upstream_lineage.upstreams) == 1
+    assert upstream_lineage.upstreams[0].type == "TRANSFORMED"
+    query_urn = upstream_lineage.upstreams[0].query
+    assert query_urn is not None
+    assert not query_urn.startswith("urn:li:query:view_")
 
 
 def test_static_interactive_not_suppressed() -> None:

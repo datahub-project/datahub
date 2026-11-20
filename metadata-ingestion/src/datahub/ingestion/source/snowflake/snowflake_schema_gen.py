@@ -141,6 +141,7 @@ from datahub.metadata.urns import (
 from datahub.sdk.dashboard import Dashboard
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownLineageMapping,
+    ObservedQuery,
     SqlParsingAggregator,
 )
 from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
@@ -774,19 +775,31 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         aggregator = self.aggregator
         if aggregator is None:
             return False
-        downstream_urn = self.identifiers.gen_dataset_urn(
-            self.identifiers.get_dataset_identifier(table.name, schema_name, db_name)
-        )
         if not table.definition:
             self.report.num_interactive_tables_without_definition += 1
             return False
         view_definition = _INTERACTIVE_TABLE_RE.sub("TABLE", table.definition, count=1)
-        aggregator.add_view_definition(
-            view_urn=downstream_urn,
-            view_definition=view_definition,
-            default_db=db_name,
-            default_schema=schema_name,
-        )
+        if table.target_lag:
+            downstream_urn = self.identifiers.gen_dataset_urn(
+                self.identifiers.get_dataset_identifier(
+                    table.name, schema_name, db_name
+                )
+            )
+            aggregator.add_view_definition(
+                view_urn=downstream_urn,
+                view_definition=view_definition,
+                default_db=db_name,
+                default_schema=schema_name,
+            )
+        else:
+            # Static tables: TRANSFORMED so query-log CTAS/INSERT keeps precedence over this fallback.
+            aggregator.add_observed_query(
+                ObservedQuery(
+                    query=view_definition,
+                    default_db=db_name,
+                    default_schema=schema_name,
+                )
+            )
         return True
 
     def _process_tables(

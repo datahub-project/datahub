@@ -726,7 +726,11 @@ WHERE SCHEMA = '{schema_name}'
         Note: Inputs are expected to be pre-validated Snowflake identifiers from
         INFORMATION_SCHEMA queries. Double-quote escaping is used for identifiers.
         """
-        return f"""SELECT GET_DDL('SEMANTIC_VIEW', '"{db_name}"."{schema_name}"."{semantic_view_name}"') AS "DDL";"""
+        qualified = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            db_name, schema_name, semantic_view_name
+        )
+        literal = _escape_sql_string_literal(qualified)
+        return f"""SELECT GET_DDL('SEMANTIC_VIEW', '{literal}') AS "DDL";"""
 
     @staticmethod
     def get_table_ddl(db_name: str, schema_name: str, table_name: str) -> str:
@@ -735,7 +739,11 @@ WHERE SCHEMA = '{schema_name}'
         Note: Inputs are expected to be pre-validated Snowflake identifiers from
         INFORMATION_SCHEMA queries. Double-quote escaping is used for identifiers.
         """
-        return f"""SELECT GET_DDL('TABLE', '"{db_name}"."{schema_name}"."{table_name}"') AS "DDL";"""
+        qualified = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            db_name, schema_name, table_name
+        )
+        literal = _escape_sql_string_literal(qualified)
+        return f"""SELECT GET_DDL('TABLE', '{literal}') AS "DDL";"""
 
     @staticmethod
     def get_semantic_tables_for_database(db_name: str) -> str:
