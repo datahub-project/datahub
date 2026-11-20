@@ -73,6 +73,10 @@ DYNAMIC_IT_DDL = (
     "target_lag = '1 hour' warehouse = WH as "
     "select * from TEST_DB.TEST_SCHEMA.TABLE_1"
 )
+GET_DDL_DYNAMIC_IT = (
+    "CREATE INTERACTIVE TABLE INT_DYN TARGET_LAG = '1 hour' WAREHOUSE = W "
+    "AS SELECT * FROM TEST_DB.TEST_SCHEMA.TABLE_1"
+)
 
 
 def _schema_gen_with_mocks() -> SnowflakeSchemaGenerator:
@@ -232,8 +236,12 @@ def test_no_interactive_rows_issue_no_new_query() -> None:
 
 def test_dynamic_interactive_table_gets_show_definition_and_lag() -> None:
     connection = FakeShowConnection({INTERACTIVE_TABLES: [(SCHEMA, "INT_DYN")]})
+    issued: List[str] = []
 
     def dispatch(sql: str) -> List[dict]:
+        issued.append(sql)
+        if "GET_DDL" in sql.upper():
+            pytest.fail(f"dynamic interactive table should not call GET_DDL: {sql}")
         if sql.lstrip().startswith("SHOW "):
             return connection.query(sql)
         if "information_schema.tables" in sql.lower():
@@ -248,7 +256,7 @@ def test_dynamic_interactive_table_gets_show_definition_and_lag() -> None:
     assert isinstance(table, SnowflakeInteractiveTable)
     assert table.definition == "CREATE DYNAMIC TABLE INT_DYN AS SELECT 1"
     assert table.target_lag == "1 hour"
-    assert not any("GET_DDL" in q for q in connection.queries)
+    assert not any("GET_DDL" in q for q in issued)
 
 
 def test_get_table_ddl_escapes_embedded_quotes_in_identifiers() -> None:
@@ -425,6 +433,23 @@ def test_register_interactive_dynamic_definition_passes_show_text() -> None:
     assert aggregator.add_view_definition.call_args.kwargs["view_definition"] == (
         DYNAMIC_IT_DDL
     )
+
+
+def test_register_interactive_dynamic_get_ddl_form_uses_view_definition() -> None:
+    gen = _schema_gen_with_mocks()
+    table = _interactive_with_definition(
+        "INT_DYN",
+        definition=GET_DDL_DYNAMIC_IT,
+        target_lag=None,
+        is_dynamic=True,
+    )
+    gen._register_interactive_table_upstreams(table, DB, SCHEMA)
+
+    aggregator = cast(MagicMock, gen.aggregator)
+    aggregator.add_view_definition.assert_called_once()
+    aggregator.add_observed_query.assert_not_called()
+    rewritten = aggregator.add_view_definition.call_args.kwargs["view_definition"]
+    assert "INTERACTIVE TABLE" not in rewritten.upper()
 
 
 def test_register_interactive_without_definition_is_counted() -> None:
@@ -633,6 +658,114 @@ def test_dynamic_interactive_added_to_suppression_set() -> None:
     )
 
     assert gen.dynamic_table_identifiers == {f"{DB}.{SCHEMA}.INT_DYN".lower()}
+
+
+def test_dynamic_interactive_get_ddl_only_added_to_suppression_set() -> None:
+    gen = _schema_gen_with_mocks()
+    gen.config = MagicMock()
+    gen.config.include_technical_schema = False
+    gen.dynamic_table_identifiers = set()
+    table = _interactive_with_definition(
+        "INT_DYN",
+        definition=GET_DDL_DYNAMIC_IT,
+        target_lag=None,
+        is_dynamic=True,
+    )
+
+    list(
+        gen._process_tables(
+            [table], snowflake_schema=MagicMock(), db_name=DB, schema_name=SCHEMA
+        )
+    )
+
+    assert gen.dynamic_table_identifiers == {f"{DB}.{SCHEMA}.INT_DYN".lower()}
+
+
+def test_process_tables_one_failing_observed_query_flush_does_not_drop_siblings() -> (
+    None
+):
+    """A failure flushing one static interactive table's observed query is caught and
+    reported so siblings still register -- the post-loop flush has no per-table guard."""
+    gen = _schema_gen_with_mocks()
+    gen.config = MagicMock()
+    gen.config.include_technical_schema = False
+    gen.dynamic_table_identifiers = set()
+    gen.report = MagicMock()
+
+    bad_ddl = (
+        "CREATE OR REPLACE INTERACTIVE TABLE INT_BAD CLUSTER BY (COL_1) "
+        "AS SELECT * FROM TEST_DB.PUBLIC.SOURCE"
+    )
+    good_ddl = (
+        "CREATE OR REPLACE INTERACTIVE TABLE INT_GOOD CLUSTER BY (COL_1) "
+        "AS SELECT * FROM TEST_DB.PUBLIC.SOURCE2"
+    )
+    bad = _interactive_with_definition("INT_BAD", definition=bad_ddl)
+    good = _interactive_with_definition("INT_GOOD", definition=good_ddl)
+    flushed: list[str] = []
+
+    def fake_add_observed(observed: ObservedQuery) -> None:
+        flushed.append(observed.query)
+        if "INT_BAD" in observed.query.upper():
+            raise RuntimeError("flush boom")
+
+    cast(MagicMock, gen.aggregator).add_observed_query = fake_add_observed
+
+    list(
+        gen._process_tables(
+            [bad, good],
+            snowflake_schema=MagicMock(),
+            db_name=DB,
+            schema_name=SCHEMA,
+        )
+    )
+
+    assert len(flushed) == 2
+    cast(MagicMock, gen.report).warning.assert_called_once()
+    warn = cast(MagicMock, gen.report).warning.call_args
+    assert warn.args[1] == f"{DB}.{SCHEMA}.INT_BAD"
+    assert isinstance(warn.kwargs.get("exc"), RuntimeError)
+
+
+def test_process_tables_flushes_static_observed_queries_after_process_table_failure() -> (
+    None
+):
+    """Queued static interactive observed queries flush even when table emission aborts."""
+    gen = _schema_gen_with_mocks()
+    gen.config = MagicMock()
+    gen.config.include_technical_schema = True
+    gen.dynamic_table_identifiers = set()
+    gen.make_data_reader = MagicMock(return_value=MagicMock())  # type: ignore[method-assign]
+    gen.classification_handler = MagicMock()
+
+    static = _interactive_with_definition("INT_STATIC", definition=STATIC_DDL)
+    regular = table("REGULAR")
+
+    def fake_process_table(
+        tbl: SnowflakeTable, *_args: object, **_kwargs: object
+    ) -> object:
+        if tbl.name == "REGULAR":
+            raise RuntimeError("emit failed")
+        return iter(())
+
+    with (
+        patch.object(gen, "_process_table", side_effect=fake_process_table),
+        patch(
+            "datahub.ingestion.source.snowflake.snowflake_schema_gen.classification_workunit_processor",
+            side_effect=lambda wu_gen, *_a: wu_gen,
+        ),
+        pytest.raises(RuntimeError, match="emit failed"),
+    ):
+        list(
+            gen._process_tables(
+                [static, regular],
+                snowflake_schema=MagicMock(),
+                db_name=DB,
+                schema_name=SCHEMA,
+            )
+        )
+
+    cast(MagicMock, gen.aggregator).add_observed_query.assert_called_once()
 
 
 def test_interactive_dataset_properties_target_lag_and_table_url() -> None:
