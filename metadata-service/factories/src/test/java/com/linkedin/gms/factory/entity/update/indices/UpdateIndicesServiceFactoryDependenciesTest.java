@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.entity.update.indices;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.RETURNS_MOCKS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -26,7 +27,10 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -109,6 +113,14 @@ public class UpdateIndicesServiceFactoryDependenciesTest {
     SearchClientShim<?> client = mock(SearchClientShim.class);
     when(client.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
     when(client.partialNgramConfig()).thenReturn(Es8SearchClientShim.PARTIAL_NGRAM_CONFIG);
+    try {
+      when(client.getIndex(any(), any(), any()))
+          .thenReturn(
+              new GetIndexResponse(
+                  new String[0], Map.of(), Map.of(), Map.of(), Map.of(), Map.of()));
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
     return client;
   }
 

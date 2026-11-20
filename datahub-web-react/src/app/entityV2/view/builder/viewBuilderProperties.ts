@@ -248,7 +248,7 @@ export const viewBuilderProperties: Property[] = [
                     },
                 },
                 {
-                    id: 'STAGING',
+                    id: 'STG',
                     get displayName() {
                         return i18next.t('entity.views:prop.environmentStaging');
                     },

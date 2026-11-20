@@ -87,26 +87,28 @@ const LabelCountWrapper = styled.span`
 `;
 
 const ArrowButton = styled(Button)<{ isOpen: boolean }>`
-    margin-left: 4px;
-    background-color: transparent;
-    height: 24px;
-
-    svg {
-        height: 12px;
-        width: 12px;
-    }
-
-    &:hover,
-    &:focus,
-    &:active {
+    && {
+        margin-left: 4px;
         background-color: transparent;
-    }
+        height: 24px;
 
-    ${(props) =>
-        props.isOpen &&
-        `
-        transform: rotate(180deg);
-    `}
+        svg {
+            height: 12px;
+            width: 12px;
+        }
+
+        &:hover,
+        &:focus,
+        &:active {
+            background-color: transparent;
+        }
+
+        ${(props) =>
+            props.isOpen &&
+            `
+            transform: rotate(180deg);
+        `}
+    }
 `;
 
 const ParentWrapper = styled.div`

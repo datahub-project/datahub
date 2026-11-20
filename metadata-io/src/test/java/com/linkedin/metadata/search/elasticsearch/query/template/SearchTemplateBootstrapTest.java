@@ -41,6 +41,7 @@ public class SearchTemplateBootstrapTest {
   private static final String FULLTEXT = "urn:li:searchTemplate:fulltext";
   private static final String LIGHT = "urn:li:searchTemplate:light";
   private static final String SEMANTIC = "urn:li:searchTemplate:semantic";
+  private static final String SIMILARITY = "urn:li:searchTemplate:similarity";
   private static final String PROPERTY = "urn:li:structuredProperty:retention";
   private static final String PROPERTY_QUERY =
       "{\"match\": {\"name\": \"{{query}} {{urn:li:structuredProperty:retention}}\"}}";
@@ -204,8 +205,10 @@ public class SearchTemplateBootstrapTest {
 
   /**
    * fulltext reranks with the default blend and no floor, and light inherits that rerank rather
-   * than restating it. semantic is one vector window with no cap, floor, or next. None selects an
-   * embedding profile or an entity scope, so each entity type resolves to its registry default.
+   * than restating it. semantic is one vector window with no cap, floor, next, or route yet.
+   * similarity is the anchor's neighbors, 500 at most, above a cosine of 0.8, without the anchor
+   * itself. None selects an embedding profile or an entity scope, so each entity type resolves to
+   * its registry default.
    */
   @Test
   public void testShippedKeywordTemplatesRerankAndSemanticRetrievesByVector() {
@@ -213,6 +216,7 @@ public class SearchTemplateBootstrapTest {
     MergedSearchTemplate fulltext = loader.load(harness.opContext, FULLTEXT);
     MergedSearchTemplate light = loader.load(harness.opContext, LIGHT);
     MergedSearchTemplate semantic = loader.load(harness.opContext, SEMANTIC);
+    MergedSearchTemplate similarity = loader.load(harness.opContext, SIMILARITY);
 
     assertTrue(SearchTemplateCapabilities.keywordRerank(fulltext));
     SearchTemplateRerankKnn blend = SearchTemplateJson.parseRerankKnn(fulltext.getKnn());
@@ -237,7 +241,18 @@ public class SearchTemplateBootstrapTest {
     assertNull(semantic.getLadder());
     assertTrue(semantic.getRoutes().isEmpty());
 
-    for (MergedSearchTemplate template : List.of(fulltext, light, semantic)) {
+    assertTrue(SearchTemplateCapabilities.vectorRetrieval(similarity));
+    SearchTemplateRetrieval anchored = similarity.getRetrieval();
+    assertEquals(anchored.getQuerySource(), SearchTemplateCapabilities.QUERY_SOURCE_ANCHOR_ENTITY);
+    assertEquals(anchored.getCandidateCap().intValue(), 500);
+    assertEquals(anchored.getMinSimilarity(), 0.8f);
+    assertEquals(anchored.getAnchor().getUrnParameter(), "raw");
+    assertTrue(anchored.getAnchor().isExcludeSelf());
+    assertNull(similarity.getKnn());
+    assertNull(similarity.getLadder());
+    assertTrue(similarity.getRoutes().isEmpty());
+
+    for (MergedSearchTemplate template : List.of(fulltext, light, semantic, similarity)) {
       assertNull(template.getProfiles(), template.getUrn());
       assertFalse(template.isProfilesSet(), template.getUrn());
       assertNull(template.getScope(), template.getUrn());
@@ -248,7 +263,8 @@ public class SearchTemplateBootstrapTest {
   /**
    * The revert seed writes fulltext back without its keywordRerank sections, as the previous seed
    * wrote it. Over the shipped templates, every template an earlier release can select then
-   * resolves to contract 1 with no retrieval or knn. semantic stays: no earlier release selects it.
+   * resolves to contract 1 with no retrieval or knn. semantic and similarity stay: no earlier
+   * release selects them.
    */
   @Test
   public void testRevertSeedRestoresTheKeywordOnlyTemplates() {
@@ -265,7 +281,7 @@ public class SearchTemplateBootstrapTest {
     SearchTemplateFixtures.readShipped().forEach(harness::store);
     revert.forEach(harness::store);
     for (String urn : SearchTemplateBootstrap.urns()) {
-      if (SEMANTIC.equals(urn)) {
+      if (SEMANTIC.equals(urn) || SIMILARITY.equals(urn)) {
         continue;
       }
       MergedSearchTemplate merged = harness.loader.load(harness.opContext, urn);

@@ -162,14 +162,13 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
   @BeforeClass
   public void setUp() throws Exception {
     if (!SemanticEntitySearchService.supportsV3SemanticFilters(getSearchClient())) {
-      throw new SkipException(
-          "Hybrid read needs V3 semantic reads, which DataHub refuses on OpenSearch before 3.5");
+      throw new SkipException("Hybrid read needs a Search V3 client that supports semantic reads");
     }
     ModelEmbeddingConfig model = new ModelEmbeddingConfig();
     model.setVectorDimension(QUERY_VECTOR.length);
     semanticSearch =
         new SemanticSearchConfiguration(
-            true, Set.of("document"), Map.of(MODEL_KEY, model), null, null);
+            true, Set.of("document"), Map.of(MODEL_KEY, model), null, null, null);
     EntityIndexConfiguration entityIndex =
         V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.toBuilder()
             .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())

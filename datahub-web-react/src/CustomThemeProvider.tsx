@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { ThemeProvider } from 'styled-components';
 
+import { AntdThemeProvider } from '@components/theme/AntdThemeProvider';
+
 import GlobalThemeStyles from '@app/theme/GlobalThemeStyles';
 import { useCustomThemeId } from '@app/useSetAppTheme';
 import themes from '@conf/theme/themes';
@@ -28,8 +30,10 @@ const CustomThemeProvider = ({ children, isDarkMode = false, injectGlobalStyles 
     return (
         <CustomThemeContext.Provider value={{ theme, updateTheme: setTheme }}>
             <ThemeProvider theme={theme}>
-                {injectGlobalStyles && <GlobalThemeStyles />}
-                {children}
+                <AntdThemeProvider>
+                    {injectGlobalStyles && <GlobalThemeStyles />}
+                    {children}
+                </AntdThemeProvider>
             </ThemeProvider>
         </CustomThemeContext.Provider>
     );

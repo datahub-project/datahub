@@ -538,6 +538,40 @@ public class EntityGraphCacheConfigLoaderTest {
   }
 
   @Test
+  public void testStaleWhileRevalidateAcceptedForPartialLazy() {
+    EntityGraphCacheProperties config = enabledConfigWithGraph("container", validPartialGraph());
+    config
+        .getGraphs()
+        .get("container")
+        .getPopulation()
+        .setRebuildExecution(RebuildExecution.STALE_WHILE_REVALIDATE);
+
+    loader.validate(config);
+  }
+
+  @Test
+  public void testStaleWhileRevalidateRejectedForFullScope() {
+    EntityGraphCacheProperties config = enabledConfigWithGraph("container", validPartialGraph());
+    GraphDefinition graph = config.getGraphs().get("container");
+    graph.getScope().setMode(ScopeMode.FULL);
+    graph.getScope().setMaxDepth(0);
+    graph.setBuildSource("search");
+    graph.getPopulation().setRebuildExecution(RebuildExecution.STALE_WHILE_REVALIDATE);
+
+    assertThrows(IllegalStateException.class, () -> loader.validate(config));
+  }
+
+  @Test
+  public void testStaleWhileRevalidateRejectedForScheduled() {
+    EntityGraphCacheProperties config = enabledConfigWithGraph("container", validPartialGraph());
+    GraphDefinition graph = config.getGraphs().get("container");
+    graph.getPopulation().setStrategy(PopulationStrategy.SCHEDULED);
+    graph.getPopulation().setRebuildExecution(RebuildExecution.STALE_WHILE_REVALIDATE);
+
+    assertThrows(IllegalStateException.class, () -> loader.validate(config));
+  }
+
+  @Test
   public void testBackgroundRebuildRequiresLazyFullScope() {
     EntityGraphCacheProperties config = enabledConfigWithGraph("domain-bg", validPartialGraph());
     GraphDefinition graph = config.getGraphs().get("domain-bg");
