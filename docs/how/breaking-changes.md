@@ -66,15 +66,44 @@ are ignored; the rerank uses the default embedding profile for each entity type.
 with only `field` keeps today's behavior. To keep the earlier document rerank, remove `model` from
 the section.
 
+### Hard delete removes graph references before the entity
+
+`EntityClient.deleteEntityThenReferences` is renamed to `deleteReferencesThenEntity`
+([PR #21481](https://github.com/datahub-project/datahub/pull/21481)). Java code that calls the old
+method no longer compiles, and a class that overrode it has to override the new method. The old
+override is no longer called.
+
+On GMS, this delete now removes the relationships other entities hold to the deleted one, then
+deletes it, when there are at most 5000 of those relationships. Deleting the entity first dropped
+them from the graph, so they stayed on the other entities. Set
+`DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`
+(`hardDelete.graph-reference-cleanup-limit`) to change that limit. Above the limit, or at `0`,
+only the entity is hard-deleted and the other entities keep their pointers.
+`ReferencesCleanup.choice()` reports which one happened.
+
+The UI and GraphQL use this for hard deletes of applications, assertions, business attributes,
+data products, domains, forms, glossary terms and nodes, groups, incidents, ownership types, page
+modules, page templates, structured properties, tags, users, and views. OpenAPI, Rest.li, and
+`datahub delete` still hard-delete the entity without clearing those relationships first. The Java
+client's default does the same, and a remote client uses that default: it deletes the entity, then
+hands back the reference cleanup for the caller to run.
+
 ### Deleting a Data Product that has children
 
-A Data Product that has child Data Products can no longer be deleted, either hard or soft. Previously
-the delete succeeded and the children were left pointing at a parent that no longer existed. The
-delete now fails with an error saying the product has children. Delete the children, or move them to
-another parent, before deleting the parent. This applies to the UI, GraphQL, OpenAPI,
-Rest.li and the `datahub delete` CLI. A bulk delete that removes parents and children together may
+Soft-deleting a Data Product that has child Data Products now fails, and so does a hard delete
+through OpenAPI, Rest.li, or the `datahub delete` CLI, while a child still points at the parent.
+Previously the delete succeeded and the children were left pointing at a parent that no longer
+existed. The delete fails with an error saying the product has children. Delete the children, or
+move them to another parent, first. A bulk delete that removes parents and children together may
 reject some parents on the first pass; run it again, or delete the children first. Rolling back an
 ingestion run is not affected.
+
+Deleting the product in the UI, or with the GraphQL `deleteDataProduct` mutation, removes the
+parent and clears the parent on each child, so the children stay and become top-level products
+([PR #21481](https://github.com/datahub-project/datahub/pull/21481)). That cleanup runs when the
+product has at most 5000 incoming relationships
+(`DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`, default 5000). Above that limit the children
+are left pointing at the parent, the delete is rejected, and the parent stays.
 
 ### Rest.li status codes for rejected writes
 
