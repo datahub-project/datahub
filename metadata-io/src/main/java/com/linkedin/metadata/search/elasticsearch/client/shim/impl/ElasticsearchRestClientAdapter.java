@@ -22,6 +22,9 @@ public final class ElasticsearchRestClientAdapter {
     Request esRequest = new Request(os.getMethod(), os.getEndpoint());
     esRequest.addParameters(os.getParameters());
     esRequest.setEntity(os.getEntity());
+    // Without this, per-request timeouts and headers set by callers are silently dropped on ES8.
+    esRequest.setOptions(
+        toElasticsearchRequestOptions(new OpenSearchRestRequestOptions(os.getOptions())));
     return esRequest;
   }
 

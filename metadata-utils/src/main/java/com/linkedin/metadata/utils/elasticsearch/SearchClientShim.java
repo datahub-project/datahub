@@ -12,12 +12,14 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
+import org.apache.http.util.EntityUtils;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
@@ -461,6 +463,26 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
   /** Check if the client supports a specific API feature */
   @OperationContextExempt(reason = "Local feature flag, no I/O.")
   boolean supportsFeature(@Nonnull String feature);
+
+  /**
+   * Fetches a task as the search engine stores it ({@code GET _tasks/<taskId>}), as raw JSON.
+   * Unlike {@link #getTask}, this keeps the task's {@code response.failures[]}, which the typed
+   * task APIs drop. Empty when the engine has no record of the task (404, e.g. purged from {@code
+   * .tasks}).
+   */
+  @Nonnull
+  default Optional<String> getRawTask(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull String taskId,
+      @Nonnull RequestOptions options)
+      throws IOException {
+    Request request = new Request("GET", "/_tasks/" + taskId);
+    request.setOptions(options);
+    RawResponse response = performLowLevelRequest(opContext, request);
+    return response.getEntity() == null
+        ? Optional.empty()
+        : Optional.of(EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8));
+  }
 
   /**
    * WARNING: This breaks abstraction layers and should be considered an anti-pattern for usage,
