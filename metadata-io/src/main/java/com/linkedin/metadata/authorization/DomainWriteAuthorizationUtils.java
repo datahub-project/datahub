@@ -337,7 +337,8 @@ public final class DomainWriteAuthorizationUtils {
    * <p>Every proposed domain must be managed, and each must be a domain URN. The rename and
    * membership checks accept {@code MANAGE_DATA_PRODUCTS} on <em>any</em> product domain because
    * they act on a product that is already placed; placing a product into domains has to be allowed
-   * for each of them.
+   * for each of them. {@code MANAGE_ALL_DATA_PRODUCTS} is checked separately, by {@link
+   * #isAuthorizedDataProductDomainsWithManageAll}.
    */
   public static boolean isAuthorizedDataProductDomainsEstablish(
       @Nonnull AuthorizationSession session, @Nonnull Urn urn, @Nullable Domains proposedDomains) {

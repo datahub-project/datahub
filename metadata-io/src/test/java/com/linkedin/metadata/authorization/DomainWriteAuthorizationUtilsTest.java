@@ -246,24 +246,14 @@ public class DomainWriteAuthorizationUtilsTest {
   }
 
   @Test
-  public void testIsAuthorizedDataProductDomainsEstablish_allowedWithManageAllDataProducts() {
+  public void testIsAuthorizedDataProductDomainsEstablish_ignoresManageAllDataProducts() {
+    // MANAGE_ALL_DATA_PRODUCTS is covered by isAuthorizedDataProductDomainsWithManageAll, which the
+    // validator checks first.
     AuthorizationSession session =
         sessionAllowing(PoliciesConfig.MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE.getType());
-    assertTrue(
+    assertFalse(
         DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
             session, DATA_PRODUCT_URN, domains(DOMAIN_X)));
-    assertTrue(
-        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
-            session,
-            DATA_PRODUCT_URN,
-            new Domains().setDomains(new UrnArray(List.of(DOMAIN_X, DOMAIN_Y)))));
-    // Still nothing to establish, and still only for data products.
-    assertFalse(
-        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
-            session, DATA_PRODUCT_URN, new Domains()));
-    assertFalse(
-        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
-            session, DATASET_URN, domains(DOMAIN_X)));
   }
 
   @Test
