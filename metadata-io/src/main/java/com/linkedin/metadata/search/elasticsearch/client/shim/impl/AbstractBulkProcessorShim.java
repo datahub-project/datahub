@@ -6,9 +6,12 @@ import com.linkedin.metadata.search.elasticsearch.update.BulkProcessorCompletion
 import com.linkedin.metadata.search.elasticsearch.update.BulkWriteResultTracker;
 import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -36,6 +39,17 @@ public abstract class AbstractBulkProcessorShim<T> {
 
   @Nullable protected BulkItemRequeueSupport bulkItemRequeueSupport;
 
+  private enum Lifecycle {
+    OPEN,
+    // A close owns the processors and is draining them; failed items may still be requeued.
+    CLOSING,
+    // Native processors are closed; any requeue would be dropped, so it is rejected instead.
+    CLOSED
+  }
+
+  private final AtomicReference<Lifecycle> lifecycle = new AtomicReference<>(Lifecycle.OPEN);
+  private volatile boolean receivedBulkWrites;
+
   /**
    * Initialize bulk processor infrastructure with common fields and build the processor array.
    * Subclasses should call this method with their processor supplier.
@@ -56,6 +70,7 @@ public abstract class AbstractBulkProcessorShim<T> {
     }
     this.bulkProcessors = processors;
     this.completionTrackers = trackers;
+    lifecycle.set(Lifecycle.OPEN);
   }
 
   public void configureBulkProcessorWriteOptions(
@@ -76,6 +91,7 @@ public abstract class AbstractBulkProcessorShim<T> {
       @Nonnull OperationFingerprint opContext,
       @Nonnull String urn,
       @Nonnull DocWriteRequest<?> writeRequest) {
+    receivedBulkWrites = true;
     bulkWriteResultTracker.recordEnqueued(1);
     int index = Math.floorMod(urn.hashCode(), threadCount);
     try {
@@ -106,6 +122,22 @@ public abstract class AbstractBulkProcessorShim<T> {
 
   public long drainBulkTransferFailures() {
     return bulkWriteResultTracker.drainUnrecoveredTransferFailures();
+  }
+
+  public int pendingBulkWriteCount() {
+    return bulkWriteResultTracker.getPendingItems();
+  }
+
+  @Nonnull
+  public List<String> pendingBulkItems() {
+    if (completionTrackers == null) {
+      return List.of();
+    }
+    List<String> keys = new ArrayList<>();
+    for (BulkProcessorCompletionTracker completionTracker : completionTrackers) {
+      keys.addAll(completionTracker.pendingItemKeys());
+    }
+    return keys;
   }
 
   @Nonnull
@@ -163,9 +195,24 @@ public abstract class AbstractBulkProcessorShim<T> {
   }
 
   /**
+   * Claims the close of this shim's processors. Several {@code ESBulkProcessor}s can share one shim
+   * (the Spring bean, the registry entry, aliased clusters); only the first claim drains them.
+   *
+   * @return false if another close already claimed or finished it
+   */
+  public boolean claimBulkProcessorClose() {
+    return lifecycle.compareAndSet(Lifecycle.OPEN, Lifecycle.CLOSING);
+  }
+
+  public boolean hasReceivedBulkWrites() {
+    return receivedBulkWrites;
+  }
+
+  /**
    * Close all bulk processors. Subclasses must implement the actual processor-specific close logic.
    */
   public void closeBulkProcessor() {
+    lifecycle.set(Lifecycle.CLOSED);
     if (completionTrackers != null) {
       for (BulkProcessorCompletionTracker completionTracker : completionTrackers) {
         completionTracker.shutdownFlushExecutor();
@@ -179,23 +226,24 @@ public abstract class AbstractBulkProcessorShim<T> {
     }
   }
 
-  /** Requeue without {@code recordEnqueued}: the item is already pending from the original add. */
+  /**
+   * Requeue without {@code recordEnqueued}: the item is already pending from the original add.
+   * Throws when the item cannot be resubmitted; the listener then records it as unrecovered, so it
+   * must not be recorded here as well.
+   */
   protected void requeueFailedRequest(@Nonnull DocWriteRequest<?> writeRequest) {
+    if (lifecycle.get() == Lifecycle.CLOSED) {
+      throw new IllegalStateException("Cannot requeue bulk item; bulk processors are closed");
+    }
     if (bulkProcessors == null || bulkProcessors.length == 0 || completionTrackers == null) {
-      log.warn("Cannot requeue bulk item; processors not initialized");
-      return;
+      throw new IllegalStateException("Cannot requeue bulk item; processors not initialized");
     }
     String routingKey =
         writeRequest.id() != null
             ? writeRequest.id()
             : String.valueOf(writeRequest.index()) + ":" + System.identityHashCode(writeRequest);
     int index = Math.floorMod(routingKey.hashCode(), threadCount);
-    try {
-      trackAndSubmit(index, writeRequest);
-    } catch (RuntimeException | Error e) {
-      bulkWriteResultTracker.recordUnrecoveredTransferFailure(1);
-      throw e;
-    }
+    trackAndSubmit(index, writeRequest);
   }
 
   private void trackAndSubmit(int index, @Nonnull DocWriteRequest<?> writeRequest) {

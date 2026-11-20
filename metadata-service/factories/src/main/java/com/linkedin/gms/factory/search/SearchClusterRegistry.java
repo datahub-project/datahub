@@ -15,6 +15,9 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import java.io.Closeable;
+import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
@@ -27,6 +30,7 @@ import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Value;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Resolves which search cluster serves each subsystem, and holds the per-cluster client, bulk
@@ -37,7 +41,8 @@ import lombok.Value;
  * default — every lookup returns the same objects and behavior is identical to a single-cluster
  * deployment.
  */
-public class SearchClusterRegistry implements SearchClusterAccess, SearchWriteAccess {
+@Slf4j
+public class SearchClusterRegistry implements SearchClusterAccess, SearchWriteAccess, Closeable {
 
   /** Everything bound to one named cluster. */
   @Value
@@ -333,6 +338,59 @@ public class SearchClusterRegistry implements SearchClusterAccess, SearchWriteAc
       }
     }
     return processors;
+  }
+
+  /**
+   * Drains and closes the bulk processors of every client that received writes, then closes those
+   * clients except primary's, which Spring closes as the {@code searchClientShim} bean after this
+   * registry. Processors must finish before their client closes: closing a client aborts any bulk
+   * still on the wire. All processors share one deadline so several clusters cannot multiply the
+   * shutdown time. A client that never received a write has nothing to drain and is left alone.
+   */
+  @Override
+  public void close() {
+    ClusterConnection primary = connections.get(ElasticSearchConfiguration.PRIMARY_CLUSTER);
+    SearchClientShim<?> primaryClient = primary == null ? null : primary.getClient();
+    long deadlineNanos = System.nanoTime() + closeBudget(primary).toNanos();
+
+    List<SearchClientShim<?>> clientsToClose = new ArrayList<>();
+    for (ClusterConnection connection : uniqueConnections) {
+      SearchClientShim<?> client = connection.getClient();
+      ESBulkProcessor processor = connection.getBulkProcessor();
+      if (client == null || processor == null || !client.hasReceivedBulkWrites()) {
+        continue;
+      }
+      Duration remaining = Duration.ofNanos(Math.max(0, deadlineNanos - System.nanoTime()));
+      try {
+        processor.close(remaining);
+      } catch (RuntimeException e) {
+        log.error(
+            "Failed to close bulk processor for search cluster '{}'", connection.getName(), e);
+      }
+      if (client != primaryClient) {
+        clientsToClose.add(client);
+      }
+    }
+    for (SearchClientShim<?> client : clientsToClose) {
+      try {
+        client.close();
+      } catch (IOException | RuntimeException e) {
+        log.warn("Failed to close search client", e);
+      }
+    }
+  }
+
+  @Nonnull
+  private Duration closeBudget(@Nullable ClusterConnection primary) {
+    ClusterConnection source =
+        primary != null && primary.getBulkProcessor() != null
+            ? primary
+            : uniqueConnections.stream()
+                .filter(connection -> connection.getBulkProcessor() != null)
+                .findFirst()
+                .orElse(null);
+    Duration budget = source == null ? null : source.getBulkProcessor().getCloseTimeout();
+    return budget == null ? Duration.ZERO : budget;
   }
 
   /** Every family currently configured to migrate, in family order. */
