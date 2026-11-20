@@ -27,6 +27,7 @@ from looker_sdk.sdk.api40.models import (
     WriteQuery,
 )
 
+from datahub.configuration.source_common import PlatformDetail
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
@@ -120,6 +121,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
 
@@ -188,7 +190,51 @@ def test_looker_ingest_external_project_view(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_looker_imported_project_view_uses_its_platform_instance(tmp_path, mock_time):
+    # The imported project's views are ingested by its own lookml recipe under
+    # another platform instance; the explore must reference those URNs.
+    mocked_client = mock.MagicMock()
+    with mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_sdk.return_value = mocked_client
+        setup_mock_dashboard(mocked_client)
+        setup_mock_external_project_view_explore(mocked_client)
+
+        output_path = tmp_path / "looker_mces.json"
+        pipeline = Pipeline.create(
+            {
+                "run_id": "looker-test",
+                "source": {
+                    "type": "looker",
+                    "config": {
+                        "base_url": "https://looker.company.com",
+                        "client_id": "foo",
+                        "client_secret": "bar",
+                        "extract_usage_history": False,
+                        "project_to_platform_instance": {
+                            "datahub-demo": {"platform_instance": "demo_lookml"}
+                        },
+                    },
+                },
+                "sink": {"type": "file", "config": {"filename": str(output_path)}},
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    output = output_path.read_text()
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:looker,demo_lookml.datahub-demo.view.faa_flights,PROD)"
+        in output
+    )
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:looker,datahub-demo.view.faa_flights,PROD)"
+        not in output
+    )
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -229,6 +275,7 @@ def test_looker_ingest_joins(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=tmp_path / "looker_mces_joins.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
 
@@ -290,6 +337,7 @@ def test_looker_ingest_unaliased_joins(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=tmp_path / "looker_mces_unaliased_joins.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
 
@@ -745,6 +793,7 @@ def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
 
@@ -813,6 +862,7 @@ def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=temp_output_file,
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
 
@@ -944,6 +994,7 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
             pytestconfig,
             output_path=tmp_path / output_file_name,
             golden_path=f"{test_resources_dir}/{golden_file_name}",
+            fail_on_output_mces=True,
         )
 
     checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
@@ -973,6 +1024,7 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
             pytestconfig,
             output_path=tmp_path / output_file_deleted_name,
             golden_path=f"{test_resources_dir}/{golden_file_deleted_name}",
+            fail_on_output_mces=True,
         )
 
     checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
@@ -1079,6 +1131,7 @@ def ingest_independent_looks(
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
             golden_path=f"{test_resources_dir}/{golden_file_name}",
+            fail_on_output_mces=True,
         )
 
 
@@ -1161,6 +1214,7 @@ def test_file_path_in_view_naming_pattern(
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
 
@@ -1336,6 +1390,7 @@ def test_looker_ingest_multi_model_explores(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=output_file,
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
         # Simply check that both model_1 and model_2 explores appear in the output file
@@ -1403,6 +1458,9 @@ def test_upstream_cll(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         config.platform_name = "snowflake"
         config.platform_instance = "sales"
         config.env = "DEV"
+        config.view_platform_detail.return_value = PlatformDetail(
+            platform_instance="sales", env="DEV"
+        )
 
         looker_explore: Optional[LookerExplore] = looker_common.LookerExplore.from_api(
             model="fake",
@@ -1619,6 +1677,7 @@ def test_folder_path_pattern(pytestconfig, tmp_path, mock_time, mock_datahub_gra
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
 
@@ -1738,4 +1797,5 @@ def test_group_label_tags(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=output_file,
             golden_path=test_resources_dir / mce_out_file,
+            fail_on_output_mces=True,
         )

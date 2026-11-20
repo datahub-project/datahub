@@ -1,9 +1,12 @@
 {
     "autoPropagatedDescription": "Diese Beschreibung wurde automatisch von einer Upstream-Spalte propagiert. <learnMore>Mehr erfahren</learnMore>",
+    "ingested": "Aufgenommen",
+    "ingestedFrom": "Aufgenommen aus {{origin}}",
     "origin": "Ursprung",
     "originLabel": "Ursprung",
     "propagated": "Propagiert",
     "propagatedDescriptionTitle": "Propagierte Beschreibung",
+    "sourceLabel": "Quelle",
     "via": "über",
     "viaLabel": "Über"
 }

@@ -104,7 +104,7 @@ The portion of the tag after the matched tag pattern will be converted into an o
 | --------------------- | -------- | ------------ | ------- | ----------------------------------------------------- |
 | `pattern_for_cleanup` | ✅       | list[string] |         | List of suffix/prefix to remove from the Owner URN(s) |
 
-Matches against a Onwer URN and remove the matching part from the Owner URN
+Matches against an Owner URN and removes the matching part from the Owner URN
 
 ```yaml
 transformers:
@@ -119,9 +119,9 @@ transformers:
 
 ### Config Details
 
-| Field     | Required | Type    | Default | Description                                 |
-| --------- | -------- | ------- | ------- | ------------------------------------------- |
-| `removed` | ✅       | boolean |         | Flag to control visbility of dataset on UI. |
+| Field     | Required | Type    | Default | Description                                  |
+| --------- | -------- | ------- | ------- | -------------------------------------------- |
+| `removed` | ✅       | boolean |         | Flag to control visibility of dataset on UI. |
 
 If you would like to stop a dataset from appearing in the UI, then you need to mark the status of the dataset as removed.
 
@@ -1655,9 +1655,8 @@ First, let's get all our imports in:
 import json
 from typing import List, Optional
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, TransformerSemantics
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.transformer.add_dataset_ownership import Semantics
 from datahub.ingestion.transformer.base_transformer import (
     BaseTransformer,
     SingleAspectTransformer,
@@ -1683,7 +1682,9 @@ class AddCustomOwnership(BaseTransformer, SingleAspectTransformer):
     # as defined in the previous block
     config: AddCustomOwnershipConfig
 
-    def __init__(self, config: AddCustomOwnershipConfig, ctx: PipelineContext):
+    def __init__(
+        self, config: AddCustomOwnershipConfig, ctx: PipelineContext
+    ) -> None:
         super().__init__()
         self.ctx = ctx
         self.config = config
@@ -1732,15 +1733,19 @@ def transform_aspect(  # type: ignore
     owners_to_add = self.owners
     assert aspect is None or isinstance(aspect, OwnershipClass)
 
-    if owners_to_add:
-        ownership = (
-            aspect
-            if aspect
-            else OwnershipClass(
-                owners=[],
-            )
+    # Returning the incoming aspect unchanged is the correct no-op here; returning
+    # None would suppress the aspect entirely.
+    if not owners_to_add:
+        return aspect
+
+    ownership = (
+        aspect
+        if aspect
+        else OwnershipClass(
+            owners=[],
         )
-        ownership.owners.extend(owners_to_add)
+    )
+    ownership.owners.extend(owners_to_add)
 
     return ownership
 ```
@@ -1788,7 +1793,7 @@ def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventCla
         )
         ownership.owners.extend(owners_to_add)
 
-        if self.config.semantics == Semantics.PATCH:
+        if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
             patch_ownership = AddDatasetOwnership.get_ownership_to_set(
                 self.ctx.graph, mce.proposedSnapshot.urn, ownership

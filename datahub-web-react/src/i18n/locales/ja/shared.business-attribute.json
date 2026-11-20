@@ -1,13 +1,13 @@
 {
-    "addAttribute": "属性を追加",
+    "addAttribute": "Business Attributeを追加",
     "addError": "追加に失敗しました: \n {{error}}",
-    "addSuccess": "属性を追加しました！",
+    "addSuccess": "Business Attributeを追加しました!",
     "modal.addTitle": "{{entityName}}を追加",
-    "modal.removeTitle": "{{entityName}}を削除",
-    "removeAttributeError": "属性の削除に失敗しました: \n {{error}}",
-    "removeConfirm.content": "属性「{{attributeName}}」を削除してもよろしいですか？",
-    "removeConfirm.title": "属性「{{attributeName}}」を削除しますか？",
-    "removeError": "削除に失敗しました: \n {{error}}",
-    "removeSuccess": "属性を削除しました！",
+    "modal.removeTitle": "{{entityName}}を外す",
+    "removeAttributeError": "Business Attributeを外せませんでした: \n {{error}}",
+    "removeConfirm.content": "Business Attribute「{{attributeName}}」を外してもよろしいですか?",
+    "removeConfirm.title": "Business Attribute「{{attributeName}}」を外しますか?",
+    "removeError": "外せませんでした: \n {{error}}",
+    "removeSuccess": "Business Attributeを外しました!",
     "searchPlaceholder": "{{entityName}}を検索..."
 }

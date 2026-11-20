@@ -27,15 +27,20 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.pegasus2avro.entity.EnvelopedAspect;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
+import com.linkedin.timeseries.CalendarInterval;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
+import com.linkedin.timeseries.TimeWindowSize;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -60,6 +65,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
+import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.Request;
@@ -70,6 +76,7 @@ import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.metrics.ParsedTopHits;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -101,6 +108,16 @@ public class TimeseriesAspectServiceUnitTest {
           null);
 
   private static final String INDEX_PATTERN = "indexPattern";
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
 
   @BeforeMethod
   public void resetMocks() {
@@ -135,6 +152,40 @@ public class TimeseriesAspectServiceUnitTest {
     Assert.assertEquals(results.get(0).getSizeInMb(), 8078.398031);
     // Propagation: the index pattern must be resolved with the exact operation context passed in.
     verify(indexConvention).getAllTimeseriesAspectIndicesPattern(eq(opContext));
+  }
+
+  @Test
+  public void testAggregatedStatsRejectsUnknownAspect() {
+    // An aspect added by a newer version (e.g. requested after a rollback) is not in the registry:
+    // the request must fail as a bad argument instead of a NullPointerException.
+    Assert.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _timeseriesAspectService.getAggregatedStats(
+                opContext, "dataset", "futureAspect", new AggregationSpec[0], null, null));
+    // A known aspect that is not timeseries is handled as with tolerance off: the tolerance only
+    // concerns aspects the registry doesn't know.
+    final Class<? extends Throwable> tolerant =
+        outcomeOf(
+            () ->
+                _timeseriesAspectService.getAggregatedStats(
+                    opContext, "dataset", "status", new AggregationSpec[0], null, null));
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    final Class<? extends Throwable> strict =
+        outcomeOf(
+            () ->
+                _timeseriesAspectService.getAggregatedStats(
+                    opContext, "dataset", "status", new AggregationSpec[0], null, null));
+    Assert.assertEquals(tolerant, strict);
+  }
+
+  private static Class<? extends Throwable> outcomeOf(final Runnable call) {
+    try {
+      call.run();
+      return null;
+    } catch (RuntimeException e) {
+      return e.getClass();
+    }
   }
 
   @Test
@@ -1404,5 +1455,63 @@ public class TimeseriesAspectServiceUnitTest {
 
     Assert.assertEquals(result.size(), 2);
     verify(searchClient, times(1)).search(any(), any(), any());
+  }
+
+  @Test
+  public void testBatchGetAggregatedStatsNestsDateHistogramUnderUrnBucket() throws IOException {
+    // Guards the daily-buckets batch path (DashboardUsageBucketsBatchLoader): a DATE grouping
+    // bucket
+    // must be emitted as a date_histogram nested inside the outer terms(batch_urn_outer). #18131
+    // only exercised STRING groupings, so this covers the date-histogram nesting the buckets loader
+    // relies on.
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dashboard"), eq("dashboardUsageStatistics")))
+        .thenReturn("dashboard_dashboardusagestatistics_v1");
+
+    ParsedTerms emptyTerms = mock(ParsedTerms.class);
+    doReturn(Collections.emptyList()).when(emptyTerms).getBuckets();
+    Aggregations topLevelAggs = mock(Aggregations.class);
+    when(topLevelAggs.get("batch_urn_outer")).thenReturn(emptyTerms);
+    SearchResponse batchResponse = mock(SearchResponse.class);
+    when(batchResponse.getAggregations()).thenReturn(topLevelAggs);
+    when(searchClient.search(any(), any(), any())).thenReturn(batchResponse);
+
+    GroupingBucket dailyBucket =
+        new GroupingBucket()
+            .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
+            .setKey("timestampMillis")
+            .setTimeWindowSize(new TimeWindowSize().setMultiple(1).setUnit(CalendarInterval.DAY));
+    AggregationSpec viewsSum =
+        new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("viewsCount");
+
+    List<Urn> urns =
+        List.of(
+            UrnUtils.getUrn("urn:li:dashboard:(looker,d1)"),
+            UrnUtils.getUrn("urn:li:dashboard:(looker,d2)"));
+
+    Map<Urn, GenericTable> result =
+        _timeseriesAspectService.batchGetAggregatedStats(
+            opContext,
+            "dashboard",
+            "dashboardUsageStatistics",
+            new AggregationSpec[] {viewsSum},
+            urns,
+            null,
+            new GroupingBucket[] {dailyBucket},
+            "urn");
+
+    // Every URN gets a table entry even though the mocked outer terms response is empty.
+    Assert.assertEquals(result.size(), 2);
+
+    // Capture the emitted request and assert the date_histogram lives inside the URN terms agg.
+    ArgumentCaptor<SearchRequest> captor = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(searchClient, times(1)).search(any(), captor.capture(), any());
+    String source = captor.getValue().source().toString();
+    Assert.assertTrue(source.contains("batch_urn_outer"), source);
+    Assert.assertTrue(source.contains("date_histogram"), source);
+    Assert.assertTrue(source.contains("timestampMillis"), source);
+    Assert.assertTrue(source.contains("1d"), source);
+    // The date_histogram is serialized after the outer terms agg → nested under it, not a sibling.
+    Assert.assertTrue(source.indexOf("date_histogram") > source.indexOf("batch_urn_outer"), source);
   }
 }

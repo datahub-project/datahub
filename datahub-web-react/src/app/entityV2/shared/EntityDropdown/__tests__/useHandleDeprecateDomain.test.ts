@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
 
 import { useDomainsContext } from '@app/domainV2/DomainsContext';
 import { useHandleDeprecateDomain } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 

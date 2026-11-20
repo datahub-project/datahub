@@ -1006,6 +1006,7 @@ public class StructuredPropertiesValidatorTest {
     StructuredPropertiesValidator validator =
         new StructuredPropertiesValidator()
             .setKeywordMaxLength(ESUtils.KEYWORD_MAXLENGTH)
+            .setDropOversizedKeywordValuesFromIndex(false)
             .setConfig(
                 AspectPluginConfig.builder()
                     .className(StructuredPropertiesValidator.class.getName())
@@ -1020,6 +1021,101 @@ public class StructuredPropertiesValidatorTest {
             .count(),
         1,
         "Proposed-time PATCH ADD validation should reject oversized string values");
+  }
+
+  @Test
+  public void testValidateAspectStringUpsertAllowsOversizedWhenDropFromIndexEnabled()
+      throws URISyntaxException {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+    StructuredPropertyDefinition stringPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+
+    String oversized = "a".repeat(ESUtils.KEYWORD_MAXLENGTH + 1);
+    StructuredProperties payload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create(oversized)))));
+
+    assertEquals(
+        StructuredPropertiesValidator.validateProposedUpserts(
+                OperationFingerprint.EMPTY,
+                TestMCP.ofOneUpsertItemDatasetUrn(payload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, stringPropertyDef),
+                false,
+                ESUtils.KEYWORD_MAXLENGTH,
+                true)
+            .count(),
+        0,
+        "Oversized values should be accepted when dropOversizedKeywordValuesFromIndex is true");
+  }
+
+  @Test
+  public void testValidateProposedAllowsOversizedPatchAddWhenDropFromIndexEnabled()
+      throws Exception {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+    StructuredPropertyDefinition stringPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+
+    GenericJsonPatch.PatchOp addOp = new GenericJsonPatch.PatchOp();
+    addOp.setOp("add");
+    addOp.setPath("/properties/" + propertyUrn + "/");
+    addOp.setValue(
+        Map.of(
+            "propertyUrn",
+            propertyUrn.toString(),
+            "values",
+            List.of(Map.of("string", "a".repeat(ESUtils.KEYWORD_MAXLENGTH + 1)))));
+
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder()
+            .arrayPrimaryKeys(Map.of("properties", List.of("propertyUrn", "attribution␟source")))
+            .patch(List.of(addOp))
+            .build();
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(TEST_DATASET_URN);
+    mcp.setEntityType("dataset");
+    mcp.setAspectName(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.PATCH);
+    mcp.setAspect(
+        GenericRecordUtils.serializePatch(genericJsonPatch, TEST_OP_CONTEXT.getObjectMapper()));
+
+    AuditStamp auditStamp =
+        new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(0L);
+    PatchItemImpl patchItem = PatchItemImpl.builder().build(mcp, auditStamp, TEST_REGISTRY);
+
+    RetrieverContext retrieverContext = mock(RetrieverContext.class);
+    MockAspectRetriever aspectRetriever = new MockAspectRetriever(propertyUrn, stringPropertyDef);
+    aspectRetriever.setEntityRegistry(TEST_REGISTRY);
+    when(retrieverContext.getAspectRetriever()).thenReturn(aspectRetriever);
+
+    StructuredPropertiesValidator validator =
+        new StructuredPropertiesValidator()
+            .setKeywordMaxLength(ESUtils.KEYWORD_MAXLENGTH)
+            .setDropOversizedKeywordValuesFromIndex(true)
+            .setConfig(
+                AspectPluginConfig.builder()
+                    .className(StructuredPropertiesValidator.class.getName())
+                    .enabled(true)
+                    .supportedOperations(List.of("UPSERT", "PATCH"))
+                    .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
+                    .build());
+
+    assertEquals(
+        validator
+            .validateProposed(TEST_OP_CONTEXT, List.of(patchItem), retrieverContext, null)
+            .count(),
+        0,
+        "Proposed-time PATCH ADD should allow oversized values when dropping from the index");
   }
 
   @Test
@@ -1114,6 +1210,8 @@ public class StructuredPropertiesValidatorTest {
 
     StructuredPropertiesValidator validator =
         new StructuredPropertiesValidator()
+            .setKeywordMaxLength(ESUtils.KEYWORD_MAXLENGTH)
+            .setDropOversizedKeywordValuesFromIndex(false)
             .setConfig(
                 AspectPluginConfig.builder()
                     .className(StructuredPropertiesValidator.class.getName())
@@ -1128,5 +1226,36 @@ public class StructuredPropertiesValidatorTest {
             .count(),
         1,
         "A ProposedItem patch ADD with a disallowed value must be rejected at request time");
+  }
+
+  @Test
+  public void testValidateAspectTreatsNonPositiveKeywordMaxLengthAsLuceneDefault()
+      throws URISyntaxException {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+    StructuredPropertyDefinition stringPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+
+    StructuredProperties payload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(PrimitivePropertyValue.create("ok")))));
+
+    assertEquals(
+        StructuredPropertiesValidator.validateProposedUpserts(
+                OperationFingerprint.EMPTY,
+                TestMCP.ofOneUpsertItemDatasetUrn(payload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, stringPropertyDef),
+                false,
+                0,
+                false)
+            .count(),
+        0,
+        "Non-positive keywordMaxLength should resolve to ESUtils.KEYWORD_MAXLENGTH");
   }
 }

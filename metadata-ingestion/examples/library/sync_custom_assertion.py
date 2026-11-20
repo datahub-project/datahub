@@ -1,9 +1,6 @@
-import logging
 import time
 
 from datahub.sdk import DataHubClient
-
-log = logging.getLogger(__name__)
 
 client = DataHubClient.from_env()
 
@@ -32,4 +29,4 @@ client.assertions.report_assertion_result(
     type="SUCCESS",
 )
 
-log.info("Synced custom assertion %s: %s", assertion_urn, res)
+print(f"Synced custom assertion {assertion_urn}: {res}")

@@ -9,6 +9,7 @@
     "empty.title": "Empty Glossary",
     "list.error": "Failed to load glossary! An unexpected error occurred.",
     "list.loading": "Loading Glossary...",
+    "page.contactAdmin": "Reach out to your DataHub admin to set up Glossary.",
     "page.createGlossary": "Create Glossary",
     "page.subtitle": "Classify your data assets and columns using data dictionaries",
     "page.title": "Business Glossary",

@@ -1,8 +1,7 @@
 import { useReactiveVar } from '@apollo/client';
-import { Modal } from '@components';
-import { Form, message } from 'antd';
+import { Modal, toast } from '@components';
 import * as QueryString from 'query-string';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Redirect, useLocation } from 'react-router';
 
@@ -11,21 +10,21 @@ import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import LoginForm from '@app/auth/loginV2/LoginForm';
 import ModalHeader from '@app/auth/shared/ModalHeader';
 import { LoginFormValues } from '@app/auth/shared/types';
-import { Message } from '@app/shared/Message';
+import { useAuthForm } from '@app/auth/shared/useAuthForm';
+import { useLoadingToast } from '@app/auth/shared/useLoadingToast';
 import { useAppConfig } from '@app/useAppConfig';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
+
+const REDIRECT_ERROR_TOAST_KEY = 'login-redirect-error';
 
 export default function LoginModal() {
     const { t } = useTranslation('auth');
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const location = useLocation();
     const params = QueryString.parse(location.search, { decode: true });
-    const maybeRedirectError = params.error_msg;
+    const redirectError = Array.isArray(params.error_msg) ? params.error_msg[0] : params.error_msg;
 
     const { refreshContext } = useAppConfig();
-
-    const [form] = Form.useForm();
-    const [isSubmitDisabled, setIsSubmitDisabled] = useState(true);
 
     const [loading, setLoading] = useState(false);
 
@@ -51,26 +50,37 @@ export default function LoginModal() {
                     return Promise.resolve();
                 })
                 .catch((e) => {
-                    message.error(t('login.failed', { error: e }));
+                    toast.error(t('login.failed', { error: e }));
                 })
                 .finally(() => setLoading(false));
         },
         [refreshContext, t],
     );
 
+    const form = useAuthForm<LoginFormValues>(
+        { username: '', password: '' },
+        {
+            username: (value) => (value ? undefined : t('usernameRequired')),
+            password: (value) => (value ? undefined : t('passwordRequired')),
+        },
+        handleLogin,
+    );
+
+    useLoadingToast(loading, t('login.loading'));
+
+    useEffect(() => {
+        if (!redirectError) {
+            return undefined;
+        }
+        toast.error(redirectError, { key: REDIRECT_ERROR_TOAST_KEY, duration: 0 });
+        return () => toast.destroy(REDIRECT_ERROR_TOAST_KEY);
+    }, [redirectError]);
+
     if (isLoggedIn) {
         const maybeRedirectUri = params.redirect_uri;
         // NOTE we do not decode the redirect_uri because it is already decoded by QueryString.parse
         return <Redirect to={maybeRedirectUri || '/'} />;
     }
-
-    const onFormChange = () => {
-        const hasErrors = form.getFieldsError().some(({ errors }) => errors.length > 0);
-
-        const isTouched = form.isFieldsTouched(true);
-
-        setIsSubmitDisabled(hasErrors || !isTouched);
-    };
 
     const handleSSOLogin = () => {
         window.location.href = resolveRuntimePath('/sso');
@@ -88,8 +98,8 @@ export default function LoginModal() {
                 },
                 {
                     text: t('login.submitButton'),
-                    onClick: () => form.submit(),
-                    disabled: isSubmitDisabled,
+                    onClick: form.submit,
+                    disabled: form.isSubmitDisabled,
                     buttonDataTestId: 'sign-in',
                 },
             ]}
@@ -98,16 +108,7 @@ export default function LoginModal() {
             closable={false}
             width="533px"
         >
-            {maybeRedirectError && maybeRedirectError.length > 0 && (
-                <Message type="error" content={maybeRedirectError} />
-            )}
-            {loading && <Message type="loading" content={t('login.loading')} />}
-            <LoginForm
-                form={form}
-                handleSubmit={handleLogin}
-                onFormChange={onFormChange}
-                isSubmitDisabled={isSubmitDisabled}
-            />
+            <LoginForm form={form} />
         </Modal>
     );
 }

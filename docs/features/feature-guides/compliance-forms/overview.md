@@ -10,7 +10,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability/>
 
 :::note
-In self-hosted DataHub (OSS), Compliance Forms are available via API only. The full UI experience — including form creation, assignment, Task Center notifications, and analytics — is available in DataHub Cloud. If you are using DataHub Core, please refer to the [Compliance Forms API Guide](../../../api/tutorials/forms.md).
+In DataHub Core, Compliance Forms are available via API only. The full UI experience — including form creation, assignment, Task Center notifications, and analytics — is available in DataHub Cloud. See the [Compliance Forms API Guide](../../../api/tutorials/forms.md).
 :::
 
 **DataHub Compliance Forms** streamline the process of documenting, annotating, and classifying your most critical Data Assets through a collaborative, crowdsourced approach.

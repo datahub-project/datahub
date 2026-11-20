@@ -2,7 +2,7 @@ import json
 import logging
 import traceback
 import uuid
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union, cast
 
 from sqlalchemy import types
 from sqlalchemy.engine.reflection import Inspector
@@ -32,31 +32,51 @@ class SqlAlchemyColumnToAvroConverter:
     # tuple of complex data types that require a special handling
     _COMPLEX_TYPES = (STRUCT, types.ARRAY, MapType)
 
-    # mapping of primitive SQLalchemy data types to AVRO schema data types
+    # mapping of primitive SQLalchemy data types to AVRO schema data types.
+    # Looked up along the column type's MRO, so the most specific registered class
+    # wins and dialect-specific subclasses resolve to their generic parent.
     PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE: Dict[Type[types.TypeEngine], str] = {
         types.String: "string",
         types.BINARY: "string",
         types.BOOLEAN: "boolean",
+        # "float" rather than "double": SQLAlchemy 1.4-era PyAthena reflected
+        # double/real as FLOAT, and the avro type is part of the v2 fieldPath (and
+        # hence the schemaField URN). Covers Double/DOUBLE/DOUBLE_PRECISION/REAL.
+        types.Float: "float",
         types.FLOAT: "float",
+        # PyAthena 3.x reflects tinyint/smallint as TINYINT/SMALLINT (Integer
+        # subclasses, not INTEGER) where it used to return INTEGER.
+        types.Integer: "int",
         types.INTEGER: "int",
+        types.BigInteger: "long",
         types.BIGINT: "long",
         types.VARCHAR: "string",
         types.CHAR: "string",
+        # PyAthena 3.x reflects json as JSON where it used to return String.
+        types.JSON: "string",
     }
+
+    @classmethod
+    def get_primitive_avro_type(
+        cls, column_type: Union[types.TypeEngine, STRUCT, MapType]
+    ) -> Optional[str]:
+        for klass in type(column_type).__mro__:
+            if (
+                issubclass(klass, types.TypeEngine)
+                and klass in cls.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE
+            ):
+                return cls.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE[klass]
+        return None
 
     @classmethod
     def get_avro_type(
         cls, column_type: Union[types.TypeEngine, STRUCT, MapType], nullable: bool
     ) -> Dict[str, Any]:
         """Determines the concrete AVRO schema type for a SQLalchemy-typed column"""
-        if isinstance(
-            column_type, tuple(cls.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE.keys())
-        ):
-            # All keys are TypeEngine subclasses, so the matched column_type is one too.
-            # The assert narrows the union for the dict lookup below.
-            assert isinstance(column_type, types.TypeEngine)
+        primitive_avro_type = cls.get_primitive_avro_type(column_type)
+        if primitive_avro_type is not None:
             return {
-                "type": cls.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE[type(column_type)],
+                "type": primitive_avro_type,
                 "native_data_type": str(column_type),
                 "_nullable": nullable,
             }
@@ -64,8 +84,10 @@ class SqlAlchemyColumnToAvroConverter:
             return {
                 "type": "bytes",
                 "logicalType": "decimal",
-                "precision": int(column_type.precision),
-                "scale": int(column_type.scale),
+                # SA 2.0 types precision/scale as Optional[int]; cast preserves
+                # the existing behavior (a DECIMAL without precision still raises).
+                "precision": int(cast(int, column_type.precision)),
+                "scale": int(cast(int, column_type.scale)),
                 "native_data_type": str(column_type),
                 "_nullable": nullable,
             }
@@ -232,12 +254,10 @@ def get_schema_fields_for_sqlalchemy_column(
     # for all non-nested data types an additional modification of the `fieldPath` property is required
     # NullType (fallback for unrecognised types) is included so that each column gets a unique path;
     # without it all unrecognised columns would share "[version=2.0].[type=null]".
-    if type(column_type) in (
-        *SqlAlchemyColumnToAvroConverter.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE.keys(),
-        types.TIMESTAMP,
-        types.DATE,
-        types.DECIMAL,
-        types.NullType,
+    if SqlAlchemyColumnToAvroConverter.get_primitive_avro_type(
+        column_type
+    ) is not None or isinstance(
+        column_type, (types.TIMESTAMP, types.DATE, types.DECIMAL, types.NullType)
     ):
         schema_fields[0].fieldPath += f".{column_name}"
 

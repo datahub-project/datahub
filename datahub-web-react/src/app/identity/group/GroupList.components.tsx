@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
-import { getElasticCappedTotalValueText } from '@app/entity/shared/constants';
+import { getElasticCappedTotalValueText } from '@app/entityV2/shared/constants';
 import type { ListGroupsGroup } from '@app/identity/group/GroupList';
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import { useEntityRegistry } from '@app/useEntityRegistry';

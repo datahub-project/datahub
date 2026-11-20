@@ -17,9 +17,11 @@ TBD
 #### Recommended Versions
 
 - **CLI/SDK**: TBD
-- **Remote Executor**: TBD
+- **Remote Executor**:
+  - **Image**: TBD
+  - **Helm chart**: TBD ([`datahub-executor-worker`](https://executor-helm.acryl.io/index.yaml) from `https://executor-helm.acryl.io`)
 - **On-Prem Versions**:
-  - **Helm**: TBD
+  - **Helm**: TBD ([`acryl-datahub`](https://helm.acryl.io/index.yaml) from `https://helm.acryl.io`)
   - **API Gateway**: TBD
 
 ## Release Changelog
@@ -29,6 +31,7 @@ TBD
 Breaking Changes:
 
 - **(UI / Lineage)** The `LINEAGE_GRAPH_V2` and `LINEAGE_GRAPH_V3` feature flags (GMS environment variables) have been removed, along with the older lineage graph visualizations they gated. DataHub now always renders the latest lineage graph experience. **Action:** if you set `LINEAGE_GRAPH_V2` or `LINEAGE_GRAPH_V3` in your GMS environment or Helm values, remove them — they are no longer recognized. There is no longer a way to switch back to the previous lineage visualizations.
+- **(Remote Executor)** SQS executors now run the ingestion-log garbage collector, which is on by default (`DATAHUB_EXECUTOR_LOG_GC_ENABLED=true`). Until now only Kafka executors ran it. A minute after the executor starts, and every hour after that, it deletes per-run log folders under `/tmp/datahub/logs/` that are older than 14 days, then the oldest folders while the directory is over 10 GB. Folders written in the last hour are kept. **Action:** none for most deployments. To keep all local logs, set `DATAHUB_EXECUTOR_LOG_GC_ENABLED=false` on the executor. See [Remote Executor best practices → Storage](../remote-executor/best-practices.md#storage).
 
 New Features:
 
@@ -36,6 +39,7 @@ New Features:
 
 Fixes:
 
+- **(UI / Structured properties)** Search results and lineage graph nodes now load structured properties for every entity type that supports them. Previously the queries listed entity types one by one, so APIs, applications, users, groups, documents, data contracts, metrics, repositories and semantic models were returned without their structured properties.
 - **(GMS rate limiting)** Mounted `RATE_LIMITS_CONFIG_FILE` rule lists now apply: policy is loaded once by `RateLimitEffectiveConfig` (Binder + classpath default, file replaces it, `RATE_LIMITS_CONFIG_JSON` overlays) and shared by Hazelcast bootstrap and the engine. Previously `@PropertySource` sat below packaged `application.yaml` and Boot kept the bundled empty `endpoint.rules` list. **Action:** none if the file URI already has a `file:` prefix. Confirm `GET /openapi/v1/rate-limits/config` shows the mounted rules after upgrade.
 
 ## Known Issues

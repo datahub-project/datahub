@@ -1,7 +1,6 @@
-import { Select } from 'antd';
-import React from 'react';
+import { SimpleSelect } from '@components';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components/macro';
 
 import { UnionType } from '@app/searchV2/utils/constants';
 
@@ -11,37 +10,32 @@ type Props = {
     disabled?: boolean;
 };
 
-const { Option } = Select;
-
-const StyledSelect = styled(Select)`
-    border-radius: 5px;
-    background: ${(props) => props.theme.colors.bgSurface};
-    :hover {
-        background: ${(props) => props.theme.colors.bgHover};
-    }
-`;
-
 export const AdvancedSearchFilterOverallUnionTypeSelect = ({ unionType, onUpdate, disabled = false }: Props) => {
     const { t } = useTranslation('search');
+
+    // UnionType is a numeric enum; the select works with string values.
+    const options = useMemo(
+        () => [
+            { value: String(UnionType.AND), label: t('advancedSearch.allFilters') },
+            { value: String(UnionType.OR), label: t('advancedSearch.anyFilter') },
+        ],
+        [t],
+    );
+
     return (
-        <>
-            <StyledSelect
-                showArrow={false}
-                bordered={false}
-                disabled={disabled}
-                // these values are just for display purposes- the actual value is the unionType prop
-                value={unionType === UnionType.AND ? t('advancedSearch.allFilters') : t('advancedSearch.anyFilter')}
-                onChange={(newValue) => {
-                    if ((newValue as any) !== unionType) {
-                        onUpdate(newValue as any);
-                    }
-                }}
-                size="small"
-                dropdownMatchSelectWidth={false}
-            >
-                <Option value={UnionType.AND}>{t('advancedSearch.allFilters')}</Option>
-                <Option value={UnionType.OR}>{t('advancedSearch.anyFilter')}</Option>
-            </StyledSelect>
-        </>
+        <SimpleSelect
+            options={options}
+            values={[String(unionType)]}
+            onUpdate={(values) => {
+                const newValue = Number(values[0]) as UnionType;
+                if (values.length && newValue !== unionType) {
+                    onUpdate(newValue);
+                }
+            }}
+            isDisabled={disabled}
+            showClear={false}
+            width="fit-content"
+            size="sm"
+        />
     );
 };

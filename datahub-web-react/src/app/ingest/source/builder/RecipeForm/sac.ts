@@ -96,7 +96,7 @@ export const RESOURCE_ID_DENY: RecipeField = {
         setListValuesOnRecipe(recipe, values, resourceIdDenyFieldPath),
 };
 
-const resourceNameAllowFieldPath = 'source.config.resource_id_pattern.allow';
+const resourceNameAllowFieldPath = 'source.config.resource_name_pattern.allow';
 export const RESOURCE_NAME_ALLOW: RecipeField = {
     name: 'resource_name_pattern.allow',
     label: 'Resource Name Allow Patterns',
@@ -128,7 +128,7 @@ export const RESOURCE_NAME_DENY: RecipeField = {
         setListValuesOnRecipe(recipe, values, resourceNameDenyFieldPath),
 };
 
-const folderAllowFieldPath = 'source.config.resource_id_pattern.allow';
+const folderAllowFieldPath = 'source.config.folder_pattern.allow';
 export const FOLDER_ALLOW: RecipeField = {
     name: 'folder_pattern.allow',
     label: 'Folder Allow Patterns',

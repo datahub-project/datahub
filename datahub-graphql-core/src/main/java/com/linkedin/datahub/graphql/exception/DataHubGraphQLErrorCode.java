@@ -7,6 +7,10 @@ public enum DataHubGraphQLErrorCode {
   CONFLICT(409),
   /** Transient failure; clients may retry (aligns with HTTP 503). */
   SERVICE_UNAVAILABLE(503),
+  /**
+   * Server-side deadline/timeout exceeded; the operation was too expensive to finish (HTTP 504).
+   */
+  DEADLINE_EXCEEDED(504),
   SERVER_ERROR(500);
 
   private final int _code;

@@ -35,6 +35,7 @@ import com.linkedin.metadata.graph.cache.ReadMissReason;
 import com.linkedin.metadata.graph.cache.ReadMode;
 import com.linkedin.metadata.graph.cache.TraversalDirection;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.ActorGroupMembershipService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -83,7 +84,7 @@ public class BoundMembershipAccessTest {
   }
 
   @Test
-  public void listRelatedReturnsEmptyForNonPositiveCount() {
+  public void listRelatedReturnsEmptyForNegativeCount() {
     OperationContext opContext = contextWithCache(entityGraphCache);
 
     MembershipNeighborResult result =
@@ -94,10 +95,43 @@ public class BoundMembershipAccessTest {
             TraversalDirection.FORWARD,
             Set.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME),
             0,
-            0);
+            -1);
 
     assertTrue(result.isHit());
     assertTrue(result.neighborsOrEmpty().isEmpty());
+    verify(entityGraphCache, never())
+        .listRelated(any(), any(), any(), any(), any(), anyInt(), anyInt(), anyInt(), any());
+  }
+
+  @Test
+  public void listRelatedReturnsTotalForZeroCount() {
+    when(entityGraphCache.listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(GROUP.toString()),
+            eq(TraversalDirection.REVERSE),
+            eq(spec.getGroupRelationshipTypes()),
+            eq(1),
+            eq(0),
+            eq(0),
+            eq(ReadMode.CACHED)))
+        .thenReturn(MembershipNeighborResult.fromNeighbors(List.of(), 4));
+
+    OperationContext opContext = contextWithCache(entityGraphCache);
+
+    MembershipNeighborResult result =
+        BoundMembershipAccess.listRelated(
+            opContext,
+            spec,
+            GROUP,
+            TraversalDirection.REVERSE,
+            spec.getGroupRelationshipTypes(),
+            0,
+            0);
+
+    assertTrue(result instanceof MembershipNeighborResult.Hit);
+    assertTrue(result.neighborsOrEmpty().isEmpty());
+    assertEquals(((MembershipNeighborResult.Hit) result).total(), 4);
   }
 
   @Test
@@ -553,7 +587,7 @@ public class BoundMembershipAccessTest {
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
     when(graphRetriever.scrollRelatedEntities(
             eq(Set.of(CORP_USER_ENTITY_NAME)),
-            isNull(),
+            eq(QueryUtils.EMPTY_FILTER),
             eq(Set.of(CORP_GROUP_ENTITY_NAME)),
             any(),
             eq(spec.getGroupRelationshipTypes()),

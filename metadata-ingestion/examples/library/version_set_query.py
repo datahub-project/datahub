@@ -3,12 +3,8 @@
 Query a version set to retrieve information about versions.
 
 This example demonstrates how to fetch version set metadata and query
-all versions using both REST API and GraphQL approaches.
+all versions using both the Python SDK and GraphQL approaches.
 """
-
-from urllib.parse import quote
-
-import requests
 
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
@@ -32,37 +28,37 @@ version_set_props = graph.get_aspect(
     aspect_type=VersionSetPropertiesClass,
 )
 
-if version_set_props:
-    print(f"Version Set: {version_set_urn}")
-    print(f"Latest Version: {version_set_props.latest}")
-    print(f"Versioning Scheme: {version_set_props.versioningScheme}")
+if version_set_props is None:
+    raise SystemExit(f"Version set not found: {version_set_urn}")
 
-    if version_set_props.customProperties:
-        print("\nCustom Properties:")
-        for key, value in version_set_props.customProperties.items():
-            print(f"  {key}: {value}")
+print(f"Version Set: {version_set_urn}")
+print(f"Latest Version: {version_set_props.latest}")
+print(f"Versioning Scheme: {version_set_props.versioningScheme}")
 
-    # Get version properties for the latest version
-    print("\n=== Latest Version Details ===\n")
-    latest_version_props = graph.get_aspect(
-        entity_urn=version_set_props.latest,
-        aspect_type=VersionPropertiesClass,
-    )
+if version_set_props.customProperties:
+    print("\nCustom Properties:")
+    for key, value in version_set_props.customProperties.items():
+        print(f"  {key}: {value}")
 
-    if latest_version_props:
-        print(f"Version: {latest_version_props.version.versionTag}")
-        print(f"Sort ID: {latest_version_props.sortId}")
-        if latest_version_props.comment:
-            print(f"Comment: {latest_version_props.comment}")
-        if latest_version_props.aliases:
-            aliases = [
-                alias.versionTag
-                for alias in latest_version_props.aliases
-                if alias.versionTag is not None
-            ]
-            print(f"Aliases: {', '.join(aliases)}")
-else:
-    print(f"Version set {version_set_urn} not found")
+# Get version properties for the latest version
+print("\n=== Latest Version Details ===\n")
+latest_version_props = graph.get_aspect(
+    entity_urn=version_set_props.latest,
+    aspect_type=VersionPropertiesClass,
+)
+
+if latest_version_props:
+    print(f"Version: {latest_version_props.version.versionTag}")
+    print(f"Sort ID: {latest_version_props.sortId}")
+    if latest_version_props.comment:
+        print(f"Comment: {latest_version_props.comment}")
+    if latest_version_props.aliases:
+        aliases = [
+            alias.versionTag
+            for alias in latest_version_props.aliases
+            if alias.versionTag is not None
+        ]
+        print(f"Aliases: {', '.join(aliases)}")
 
 # Method 2: Query all versions using GraphQL
 print("\n=== Querying All Versions via GraphQL ===\n")
@@ -141,25 +137,3 @@ if "versionSet" in response and response["versionSet"]:
         print()
 else:
     print("No version set data found")
-
-# Method 3: Query using REST API directly
-print("\n=== Querying via REST API ===\n")
-
-rest_url = f"http://localhost:8080/entities/{quote(version_set_urn, safe='')}"
-
-try:
-    rest_response = requests.get(rest_url)
-    rest_response.raise_for_status()
-
-    entity_data = rest_response.json()
-    aspects = entity_data.get("aspects", {})
-
-    if "versionSetProperties" in aspects:
-        props = aspects["versionSetProperties"]["value"]
-        print(f"Latest (from REST): {props.get('latest')}")
-        print(f"Versioning Scheme (from REST): {props.get('versioningScheme')}")
-    else:
-        print("No versionSetProperties found in REST response")
-
-except requests.exceptions.RequestException as e:
-    print(f"REST API error: {e}")

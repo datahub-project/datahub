@@ -32,8 +32,6 @@ import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
-import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.util.Arrays;
 import java.util.Collections;
@@ -44,7 +42,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import lombok.Getter;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.SessionConfig;
 import org.testng.SkipException;
@@ -58,14 +55,11 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
   private Neo4jTestServerBuilder _serverBuilder;
   private Driver _driver;
   private Neo4jGraphService _client;
-  @Getter private OperationContext operationContext;
 
   private static final String TAG_RELATIONSHIP = "SchemaFieldTaggedWith";
 
   @BeforeClass
   public void init() {
-    operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
-
     // Create and start the Neo4j test server
     _serverBuilder = new Neo4jTestServerBuilder();
     _serverBuilder.start();

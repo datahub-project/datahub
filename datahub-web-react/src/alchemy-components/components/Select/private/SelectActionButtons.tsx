@@ -1,33 +1,8 @@
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
-import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useCallback } from 'react';
-import styled from 'styled-components';
 
-import { Button } from '@components/components/Button';
-import { ActionButtonsContainer, StyledIcon } from '@components/components/Select/components';
+import { ActionButtonsContainer, ClearButton, StyledIcon } from '@components/components/Select/components';
 import { ActionButtonsProps } from '@components/components/Select/types';
-
-import { shadows } from '@src/alchemy-components/theme';
-
-export const StyledClearButton = styled(Button).attrs({
-    variant: 'text',
-})(({ theme }) => ({
-    color: theme?.colors?.text,
-    padding: '0px',
-
-    '&:hover': {
-        border: 'none',
-        backgroundColor: 'transparent',
-        borderColor: 'transparent',
-        boxShadow: shadows.none,
-    },
-
-    '&:focus': {
-        border: 'none',
-        backgroundColor: 'transparent',
-        boxShadow: `0 0 0 2px ${theme?.colors?.bg}, 0 0 0 4px ${theme?.colors?.borderBrand}`,
-    },
-}));
 
 export default function SelectActionButtons({
     hasSelectedValues,
@@ -47,15 +22,11 @@ export default function SelectActionButtons({
     );
 
     return (
-        <ActionButtonsContainer>
+        // flexShrink: 0 keeps the clear/chevron controls fixed-size when a truncating
+        // label (see SelectValue) shrinks to fit a capped SelectBase `maxWidth`.
+        <ActionButtonsContainer style={{ flexShrink: 0 }}>
             {showClear && hasSelectedValues && !isDisabled && !isReadOnly && (
-                <StyledClearButton
-                    icon={{ icon: X, size: 'md' }}
-                    isCircle
-                    size={fontSize}
-                    onClick={onClearClickHandler}
-                    data-testid="button-clear"
-                />
+                <ClearButton size={fontSize} onClick={onClearClickHandler} data-testid="button-clear" />
             )}
             <StyledIcon icon={CaretDown} rotate={isOpen ? '180' : '0'} size="md" color="gray" />
         </ActionButtonsContainer>

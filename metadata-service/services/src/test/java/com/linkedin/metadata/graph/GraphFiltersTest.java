@@ -4,6 +4,7 @@ import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 import static org.testng.Assert.*;
 
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -46,7 +47,9 @@ public class GraphFiltersTest {
     // Test from method
     Set<String> relationshipTypes = new HashSet<>(Arrays.asList("HAS", "OWNS"));
     RelationshipFilter relationshipFilter =
-        new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
+        new RelationshipFilter()
+            .setDirection(RelationshipDirection.OUTGOING)
+            .setOr(new ConjunctiveCriterionArray());
 
     GraphFilters fromFilters =
         GraphFilters.from(sourceFilter, relationshipTypes, relationshipFilter);
@@ -76,7 +79,9 @@ public class GraphFiltersTest {
     Set<String> destTypes = new HashSet<>(Arrays.asList("dataset", "schemaField"));
     Set<String> relationshipTypes = new HashSet<>(Arrays.asList("DownstreamOf", "Consumes"));
     RelationshipFilter relationshipFilter =
-        new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
+        new RelationshipFilter()
+            .setDirection(RelationshipDirection.OUTGOING)
+            .setOr(new ConjunctiveCriterionArray());
 
     GraphFilters filters =
         new GraphFilters(
@@ -94,6 +99,19 @@ public class GraphFiltersTest {
     assertEquals(filters.getRelationshipTypes(), relationshipTypes);
     assertEquals(filters.getRelationshipFilter(), relationshipFilter);
     assertEquals(filters.getRelationshipDirection(), RelationshipDirection.OUTGOING);
+  }
+
+  @Test
+  public void testConstructorNormalizesRelationshipFilterWithUnsetOr() {
+    RelationshipFilter unsetOrFilter =
+        new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
+    assertNull(unsetOrFilter.getOr());
+
+    GraphFilters filters = GraphFilters.from(EMPTY_FILTER, Set.of("HAS"), unsetOrFilter);
+
+    assertNotNull(filters.getRelationshipFilter().getOr());
+    assertTrue(filters.getRelationshipFilter().getOr().isEmpty());
+    assertEquals(filters.getRelationshipFilter().getDirection(), RelationshipDirection.OUTGOING);
   }
 
   @Test
@@ -225,7 +243,9 @@ public class GraphFiltersTest {
     assertEquals(filters.getSourceEntityFilter(), EMPTY_FILTER);
     assertEquals(filters.getDestinationEntityFilter(), EMPTY_FILTER);
     RelationshipFilter emptyRelationshipFilter =
-        new RelationshipFilter().setDirection(RelationshipDirection.INCOMING);
+        new RelationshipFilter()
+            .setDirection(RelationshipDirection.INCOMING)
+            .setOr(new ConjunctiveCriterionArray());
     assertEquals(filters.getRelationshipFilter(), emptyRelationshipFilter);
     assertNull(filters.getSourceTypes());
     assertNull(filters.getDestinationTypes());

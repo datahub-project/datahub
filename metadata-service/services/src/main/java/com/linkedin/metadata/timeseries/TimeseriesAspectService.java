@@ -190,6 +190,19 @@ public interface TimeseriesAspectService {
       @Nullable final Map<String, Long> endTimeMillis);
 
   /**
+   * Returns latest values only when every backing query completed successfully. Implementations
+   * that can return partial results must override this method and surface partial-query failures.
+   */
+  @Nonnull
+  default Map<Urn, Map<String, EnvelopedAspect>> getLatestTimeseriesAspectValuesStrict(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Set<Urn> urns,
+      @Nonnull final Set<String> aspectNames,
+      @Nullable final Map<String, Long> endTimeMillis) {
+    return getLatestTimeseriesAspectValues(opContext, urns, aspectNames, endTimeMillis);
+  }
+
+  /**
    * Perform a arbitrary aggregation query over a set of Time-Series aspects. This is used to answer
    * arbitrary questions about the Time-Series aspects that we have.
    *

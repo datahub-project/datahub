@@ -1,10 +1,10 @@
+import logging
 import pathlib
 import subprocess
 import sys
 import tempfile
 import threading
 import time
-from io import StringIO
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -24,8 +24,8 @@ from datahub.executor.execution.runner import (
     _expand_pip_req,
     _validate_wheel_url,
     setup_venv,
-    validate_dependency_resolution_enabled,
 )
+from datahub.masking.secret_registry import SecretRegistry
 
 
 def test_venv_config_json_parsing() -> None:
@@ -485,18 +485,14 @@ class TestLogHolder:
         # Should be truncated to approximately the max size
         assert len(logs) <= 200  # Some tolerance for truncation messages
 
-    def test_echo_to_stdout_functionality(self):
-        """Test echo to stdout with prefix."""
-        # Capture stdout
-        captured_output = StringIO()
-
-        with patch("sys.stdout", captured_output):
+    def test_echo_goes_through_stdlib_logging(self, caplog):
+        """Echoed lines are stdlib log records, so masking filters on logging
+        handlers apply to them."""
+        with caplog.at_level(logging.DEBUG, logger="datahub.executor.execution.runner"):
             log_holder = LogHolder(echo_to_stdout_prefix="[TEST] ")
             log_holder.append("Test message\n")
 
-        # Check if message was echoed (depends on loguru implementation)
-        # This test verifies the LogHolder can be created with echo prefix
-        assert log_holder._echo_logs_prefix == "[TEST] "
+        assert "[TEST] Test message" in caplog.text
 
     def test_concurrent_log_access(self):
         """Test thread-safe access to logs."""
@@ -649,46 +645,6 @@ class TestAsyncLogStreaming:
         assert "stderr message" in logs
 
 
-class TestValidateDependencyResolutionEnabled:
-    def test_validation_enabled_by_default(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test that validation passes by default."""
-        monkeypatch.delenv("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", raising=False)
-
-        # Should not raise for any version when enabled (default)
-        validate_dependency_resolution_enabled("latest")
-        validate_dependency_resolution_enabled("0.12.1")
-        validate_dependency_resolution_enabled("bundled")
-
-    def test_validation_disabled_with_bundled_version(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test that bundled version passes when validation is disabled."""
-        monkeypatch.setenv("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "false")
-
-        # Should not raise for default version
-        validate_dependency_resolution_enabled("bundled")
-
-    def test_validation_disabled_with_non_default_version(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test that non-default versions fail when validation is disabled."""
-        monkeypatch.setenv("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "false")
-
-        with pytest.raises(
-            ValueError,
-            match="Version 'latest' is not supported when INGESTION_DEPENDENCY_RESOLUTION_ENABLED=false",
-        ):
-            validate_dependency_resolution_enabled("latest")
-
-        with pytest.raises(
-            ValueError,
-            match="Version '0.12.1' is not supported when INGESTION_DEPENDENCY_RESOLUTION_ENABLED=false",
-        ):
-            validate_dependency_resolution_enabled("0.12.1")
-
-
 class TestSetupVenv:
     @pytest.fixture
     def temp_dir(self):
@@ -743,6 +699,95 @@ class TestSetupVenv:
         assert venv_ref.venv_loc == bundled_venv
         # Should not call any subprocess commands since bundled venv exists
         mock_runner.execute.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "version", ["0.12.1", VENV_VERSION_LATEST, VENV_NO_DATAHUB]
+    )
+    async def test_setup_venv_resolution_disabled_replaces_requested_version(
+        self, mock_runner, temp_dir, monkeypatch, version
+    ):
+        monkeypatch.setenv("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "false")
+        config = VenvConfig(version=version, main_plugin="snowflake")
+
+        bundled_path = temp_dir / "bundled_venvs"
+        bundled_venv = bundled_path / "snowflake-bundled"
+        (bundled_venv / "bin").mkdir(parents=True)
+        (bundled_venv / "bin" / "python").touch()
+
+        venv_ref = await setup_venv(
+            config, mock_runner, temp_dir, bundled_venv_path=bundled_path
+        )
+
+        assert venv_ref.venv_loc == bundled_venv
+        mock_runner.execute.assert_not_called()
+        assert f"requested version '{version}'" in mock_runner.logs.get_logs()
+
+    async def test_setup_venv_resolution_disabled_with_bundled_requested(
+        self, mock_runner, temp_dir, monkeypatch
+    ):
+        monkeypatch.setenv("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "false")
+        config = VenvConfig(version=VENV_VERSION_BUNDLED, main_plugin="snowflake")
+
+        bundled_path = temp_dir / "bundled_venvs"
+        bundled_venv = bundled_path / "snowflake-bundled"
+        (bundled_venv / "bin").mkdir(parents=True)
+        (bundled_venv / "bin" / "python").touch()
+
+        venv_ref = await setup_venv(
+            config, mock_runner, temp_dir, bundled_venv_path=bundled_path
+        )
+
+        assert venv_ref.venv_loc == bundled_venv
+        mock_runner.execute.assert_not_called()
+        # Nothing was replaced, so the run log must not claim a version was.
+        assert "requested version" not in mock_runner.logs.get_logs()
+
+    @pytest.mark.parametrize("version", [VENV_VERSION_BUNDLED, "0.12.1"])
+    async def test_setup_venv_resolution_disabled_missing_bundled_venv_fails(
+        self, mock_runner, temp_dir, monkeypatch, version
+    ):
+        monkeypatch.setenv("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "false")
+        config = VenvConfig(version=version, main_plugin="snowflake")
+
+        with pytest.raises(FileNotFoundError, match="BUNDLED_VENV_PLUGINS"):
+            await setup_venv(
+                config,
+                mock_runner,
+                temp_dir,
+                bundled_venv_path=temp_dir / "bundled_venvs",
+            )
+        mock_runner.execute.assert_not_called()
+
+    @pytest.mark.parametrize("version", [VENV_VERSION_BUNDLED, "0.12.1"])
+    async def test_setup_venv_bundled_warns_extras_are_not_installed(
+        self, mock_runner, temp_dir, monkeypatch, version
+    ):
+        monkeypatch.setenv("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "false")
+        config = VenvConfig(
+            version=version,
+            main_plugin="snowflake",
+            extra_pip_requirements=["my-package==1.0"],
+        )
+
+        bundled_path = temp_dir / "bundled_venvs"
+        bundled_venv = bundled_path / "snowflake-bundled"
+        (bundled_venv / "bin").mkdir(parents=True)
+        (bundled_venv / "bin" / "python").touch()
+
+        await setup_venv(config, mock_runner, temp_dir, bundled_venv_path=bundled_path)
+
+        assert "extra_pip_requirements" in mock_runner.logs.get_logs()
+        mock_runner.execute.assert_not_called()
+
+    async def test_setup_venv_resolution_disabled_keeps_native(
+        self, mock_runner, temp_dir, monkeypatch
+    ):
+        monkeypatch.setenv("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "false")
+        config = VenvConfig(version=VENV_VERSION_NATIVE, main_plugin="snowflake")
+
+        venv_ref = await setup_venv(config, mock_runner, temp_dir)
+
+        assert venv_ref.venv_loc == Path(sys.prefix)
 
     @patch("datahub.executor.execution.runner._find_uv")
     async def test_setup_venv_dynamic_creation(
@@ -1015,6 +1060,35 @@ class TestSetupVenvConstraints:
         pass2_cmd = extra_installs[0][0][0]
         assert "--reinstall" not in pass2_cmd
         assert "--reinstall-package" not in pass2_cmd
+
+    @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
+    async def test_setup_venv_registers_referenced_env_values(
+        self, _find_uv, temp_dir, monkeypatch
+    ):
+        """Env values referenced in pip requirements must be maskable before
+        any expanded content reaches a log line."""
+        SecretRegistry.reset_instance()
+        monkeypatch.setenv("VENV_PIP_TOKEN", "venv-pip-token-value")
+        config = VenvConfig(
+            version="0.12.1",
+            main_plugin="snowflake",
+            extra_pip_requirements=[
+                "pkg @ https://user:${VENV_PIP_TOKEN}@example.com/simple"
+            ],
+        )
+        runner = SubprocessRunner()
+        mock = AsyncMock(side_effect=self._mock_execute)
+
+        try:
+            with patch.object(runner, "execute", mock):
+                await setup_venv(config, runner, temp_dir)
+
+            assert (
+                SecretRegistry.get_instance().get_secret_value("VENV_PIP_TOKEN")
+                == "venv-pip-token-value"
+            )
+        finally:
+            SecretRegistry.reset_instance()
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
     async def test_custom_requirements_file_skips_pass2(self, _find_uv, temp_dir):

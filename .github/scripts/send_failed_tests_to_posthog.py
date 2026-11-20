@@ -26,6 +26,7 @@ class FailedTest:
     name: str
     test_type: str
     error_message: Optional[str] = None
+    custom_properties: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -36,12 +37,27 @@ class PostHogConfig:
     timeout: int = 10
 
 
+def _testcase_custom_properties(testcase: ET.Element) -> Optional[Dict[str, Any]]:
+    """Collect ``<properties>/<property>`` from a JUnit testcase."""
+    properties: Dict[str, Any] = {}
+    for prop in testcase.findall("properties/property"):
+        name = prop.get("name")
+        if not name:
+            continue
+        value = prop.get("value", "")
+        try:
+            properties[name] = json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            properties[name] = value
+    return properties or None
+
+
 def _detect_junit_subtype(xml_file: Path) -> str:
     """
     Distinguish between Playwright and Pytest JUnit XML by content.
 
     Playwright's JUnit reporter sets testsuite.name to the spec file path
-    (e.g. "tests/domains/domains.spec.ts"), which is reliable for detection.
+    (e.g. "tests/e2e/domains/domains.spec.ts"), which is reliable for detection.
     """
     try:
         tree = ET.parse(xml_file)
@@ -113,7 +129,8 @@ def parse_playwright_failures(xml_file: Path) -> List[FailedTest]:
                 failed_tests.append(FailedTest(
                     name=test_identifier,
                     test_type='playwright',
-                    error_message=error_msg[:200] if error_msg else None
+                    error_message=error_msg[:200] if error_msg else None,
+                    custom_properties=_testcase_custom_properties(testcase),
                 ))
 
     except ET.ParseError as e:
@@ -148,7 +165,7 @@ def parse_pytest_failures(xml_file: Path) -> List[FailedTest]:
                     continue
 
                 # Convert classname from dotted format to file path
-                # Example: tests.structured_properties.test_structured_properties
+                # Example: tests.e2e.structured_properties.test_structured_properties
                 #       -> tests/structured_properties/test_structured_properties.py
                 module_path = classname.replace('.', '/') + '.py'
 
@@ -165,7 +182,8 @@ def parse_pytest_failures(xml_file: Path) -> List[FailedTest]:
                 failed_tests.append(FailedTest(
                     name=test_identifier,
                     test_type='pytest',
-                    error_message=error_msg[:200] if error_msg else None
+                    error_message=error_msg[:200] if error_msg else None,
+                    custom_properties=_testcase_custom_properties(testcase),
                 ))
 
     except ET.ParseError as e:
@@ -212,7 +230,8 @@ def parse_java_failures(xml_file: Path) -> List[FailedTest]:
                 failed_tests.append(FailedTest(
                     name=test_identifier,
                     test_type='java',
-                    error_message=error_msg[:200] if error_msg else None
+                    error_message=error_msg[:200] if error_msg else None,
+                    custom_properties=_testcase_custom_properties(testcase),
                 ))
 
     except ET.ParseError as e:
@@ -263,6 +282,48 @@ def parse_all_failures(input_dir: Path) -> List[FailedTest]:
     return all_failures
 
 
+def capture_event(
+    config: PostHogConfig,
+    event: str,
+    properties: Dict[str, Any],
+    distinct_id: str,
+) -> bool:
+    """
+    Send one event to PostHog's capture endpoint.
+
+    Returns:
+        True if PostHog accepted the event, False otherwise (never raises)
+    """
+    try:
+        payload = {
+            "api_key": config.api_key,
+            "event": event,
+            "properties": properties,
+            "distinct_id": distinct_id,
+        }
+        request = urllib.request.Request(
+            f"{config.host.rstrip('/')}/capture/",
+            data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(request, timeout=config.timeout) as response:
+            status_code = response.getcode()
+            if status_code == 200:
+                return True
+            print(f"⚠️ PostHog returned HTTP {status_code} for {event}", file=sys.stderr)
+            return False
+
+    except urllib.error.HTTPError as e:
+        print(f"⚠️ HTTP error sending {event}: {e.code} {e.reason}", file=sys.stderr)
+        return False
+    except urllib.error.URLError as e:
+        print(f"⚠️ Network error sending {event}: {e.reason}", file=sys.stderr)
+        return False
+    except Exception as e:
+        print(f"⚠️ Unexpected error sending {event}: {e}", file=sys.stderr)
+        return False
+
+
 def send_posthog_event(
     config: PostHogConfig,
     test: FailedTest,
@@ -279,50 +340,25 @@ def send_posthog_event(
     Returns:
         True if event sent successfully, False otherwise
     """
-    try:
-        endpoint = f"{config.host.rstrip('/')}/capture/"
+    properties = {
+        "test_name": test.name,
+        "test_type": test.test_type,
+        **metadata
+    }
+    if test.custom_properties:
+        properties["custom_properties"] = test.custom_properties
 
-        # Build event properties
-        properties = {
-            "test_name": test.name,
-            "test_type": test.test_type,
-            **metadata
-        }
-
-        # Build event payload
-        payload = {
-            "api_key": config.api_key,
-            "event": "ci-test-failure",
-            "properties": properties,
-            "distinct_id": f"github-actions-{metadata.get('github_repository', 'unknown')}"
-        }
-
-        # Send request
-        data = json.dumps(payload).encode('utf-8')
-        request = urllib.request.Request(
-            endpoint,
-            data=data,
-            headers={'Content-Type': 'application/json'}
-        )
-
-        with urllib.request.urlopen(request, timeout=config.timeout) as response:
-            status_code = response.getcode()
-            if status_code == 200:
-                print(f"✅ Sent event for {test.test_type} test: {test.name}")
-                return True
-            else:
-                print(f"⚠️ PostHog returned HTTP {status_code} for test: {test.name}", file=sys.stderr)
-                return False
-
-    except urllib.error.HTTPError as e:
-        print(f"⚠️ HTTP error sending event for {test.name}: {e.code} {e.reason}", file=sys.stderr)
-        return False
-    except urllib.error.URLError as e:
-        print(f"⚠️ Network error sending event for {test.name}: {e.reason}", file=sys.stderr)
-        return False
-    except Exception as e:
-        print(f"⚠️ Unexpected error sending event for {test.name}: {e}", file=sys.stderr)
-        return False
+    sent = capture_event(
+        config,
+        "ci-test-failure",
+        properties,
+        f"github-actions-{metadata.get('github_repository', 'unknown')}",
+    )
+    if sent:
+        print(f"✅ Sent event for {test.test_type} test: {test.name}")
+    else:
+        print(f"⚠️ Event not sent for test: {test.name}", file=sys.stderr)
+    return sent
 
 
 def process_and_send_failures(
@@ -410,6 +446,14 @@ def build_workflow_metadata(args: argparse.Namespace) -> Dict[str, Any]:
         metadata["command"] = args.command
     if args.timezone:
         metadata["timezone"] = args.timezone
+
+    # docker-unified pytest smart test selection context
+    if args.smart_mode:
+        metadata["smart_mode"] = args.smart_mode
+    if args.smart_selection:
+        metadata["smart_selection"] = args.smart_selection
+    if args.smart_confidence:
+        metadata["smart_confidence"] = args.smart_confidence
 
     return metadata
 
@@ -515,6 +559,18 @@ Examples:
     parser.add_argument(
         '--timezone',
         help='Timezone (for build-and-test matrix)'
+    )
+    parser.add_argument(
+        '--smart-mode',
+        help='Smart test selection mode: off, shadow or active (docker-unified pytest)'
+    )
+    parser.add_argument(
+        '--smart-selection',
+        help='Smart selection the run planned: smart, plumbing, canary or p0 (docker-unified pytest)'
+    )
+    parser.add_argument(
+        '--smart-confidence',
+        help='Smart-testing classifier confidence (docker-unified pytest)'
     )
 
     args = parser.parse_args()

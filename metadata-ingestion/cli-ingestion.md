@@ -150,6 +150,61 @@ To do so, simply run `datahub ingest` with a pointer to your YAML recipe file:
 datahub ingest -c <path/to/recipe.yml>
 ```
 
+<details>
+<summary><b>Example: Ingest metadata from Snowflake</b></summary>
+
+Extract table metadata, column schemas, lineage, and usage statistics from a Snowflake data warehouse.
+
+**Prerequisites:** a running DataHub instance (local or remote) and a Snowflake account with read permissions.
+
+```shell
+pip install 'acryl-datahub[snowflake]'
+```
+
+```yaml
+# snowflake_recipe.yml
+source:
+  type: snowflake
+  config:
+    # Connection details
+    account_id: "xy12345.us-east-1"
+    warehouse: "COMPUTE_WH"
+    username: "${SNOWFLAKE_USER}"
+    password: "${SNOWFLAKE_PASSWORD}"
+
+    # Optional: Filter specific databases
+    database_pattern:
+      allow:
+        - "ANALYTICS_DB"
+        - "MARKETING_DB"
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+```
+
+```shell
+datahub ingest -c snowflake_recipe.yml
+```
+
+When the run completes, the CLI prints a source and sink report followed by a summary line such as:
+
+```shell-session
+Pipeline finished successfully; produced 1234 events in 2 minutes and 5 seconds.
+```
+
+**What gets ingested:**
+
+- Table and view schemas (columns, data types, descriptions)
+- Table statistics (row counts, size, last modified)
+- Lineage information (upstream/downstream tables)
+- Usage statistics (query frequency, top users)
+
+See the [Snowflake source documentation](https://docs.datahub.com/docs/generated/ingestion/sources/snowflake) for all configuration options.
+
+</details>
+
 ## Scheduling Ingestion
 
 Ingestion can either be run in an ad-hoc manner by a system administrator or scheduled for repeated executions. Most commonly, ingestion will be run on a daily cadence.
@@ -169,5 +224,5 @@ Please refer the following pages for advanced guides on CLI ingestion.
 DataHub server uses a 3 digit versioning scheme, while the CLI uses a 4 digit scheme. For example, if you're using DataHub server version 1.5.0, you should use CLI version 1.5.0.7, where the last digit is a patch version.
 We do this because we do CLI releases at a much higher frequency than server releases — CLI patches ship roughly weekly, while server releases happen roughly every couple of months.
 
-For ingestion sources, any breaking changes will be highlighted in the [release notes](../docs/how/updating-datahub.md). When fields are deprecated or otherwise changed, we will try to maintain backwards compatibility for two server releases, which is about 4-6 weeks. The CLI will also print warnings whenever deprecated options are used.
+For ingestion sources, any breaking changes will be highlighted in the [release notes](../docs/how/breaking-changes.md). When fields are deprecated or otherwise changed, we will try to maintain backwards compatibility for two server releases, which is about 4-6 weeks. The CLI will also print warnings whenever deprecated options are used.
 :::

@@ -3,7 +3,7 @@ services:
   openldap:
     image: osixia/openldap:latest
     command: --copy-service --loglevel debug
-    container_name: openldap
+    container_name: test-openldap
     domainname: "example.org"
     hostname: "openldap"
     environment:
@@ -42,8 +42,12 @@ services:
       # Populates the LDAP server with sample data.
       - ./setup/custom:/container/service/slapd/assets/config/bootstrap/ldif/custom
     ports:
-      - "389:389"
-      - "636:636"
+      # Ephemeral: avoids a leaked container from a prior CI run holding these
+      # ports forever and failing the next run's `docker compose up`. Only 389
+      # is used from the host (see test_ldap.py); 636 (TLS) isn't dialed by
+      # any test but is left ephemeral too so a leaked container can't block it.
+      - "389"
+      - "636"
   # phpldapadmin:
   #   # This LDAP web interface is disabled for the integration tests, but can be
   #   # useful for debugging purposes.

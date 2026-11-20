@@ -54,6 +54,7 @@
     "properties.save.error": "Strukturierte Eigenschaft konnte nicht gespeichert werden. Etwas ist schiefgelaufen.",
     "properties.search.placeholder": "Suchen...",
     "properties.searchInProperties.placeholder": "In Eigenschaften suchen...",
+    "properties.showCountMoreValues": "{{count}} weitere von {{total, number}} Werten anzeigen",
     "properties.structuredProperty.title": "Strukturierte Eigenschaft",
     "properties.updated.success": "Strukturierte Eigenschaft erfolgreich aktualisiert!"
 }

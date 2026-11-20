@@ -2,16 +2,39 @@ import functools
 import logging
 import re
 import warnings
-from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Type
+from collections import Counter
+from dataclasses import dataclass, field
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    List,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Set,
+    Sized,
+    Type,
+    TypeVar,
+    cast,
+)
 
 from sqlalchemy import text
 from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql
 from sqlalchemy.dialects.mysql.reflection import ReflectedState
 from sqlalchemy.engine import Connection, reflection
-from sqlalchemy.exc import SAWarning, SQLAlchemyError
+from sqlalchemy.engine.interfaces import ReflectedColumn, ReflectedTableComment
+from sqlalchemy.exc import (
+    DBAPIError,
+    PendingRollbackError,
+    SAWarning,
+    SQLAlchemyError,
+)
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
+
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +137,42 @@ _EXPECTED_DDL_REFUSAL_PATTERN = re.compile(
 _DESCRIBE_NULLABLE_INDEX = 2
 _DESCRIBE_DEFAULT_INDEX = 4
 
+# SHOW CREATE TABLE writes every Doris comment as COMMENT "..." while SQLAlchemy's
+# MySQL DDL parser only reads COMMENT '...', and aggregate-model columns
+# (`hll HLL_UNION`) and complex types (`array<int>`) defeat its column regex
+# outright, so the parse yields no comments at all. information_schema serves the
+# same comments unescaped; one query per database covers every table in it.
+# The filter must stay a single equality: Doris pushes only `TABLE_SCHEMA = <literal>`
+# down into the information_schema scan, and anything else (IN, OR) makes it walk
+# every database and table in the catalog first, which on an external catalog means
+# loading every remote schema and can run for minutes. TABLE_CATALOG is selected,
+# not filtered on, to keep that push-down.
+_COLUMN_COMMENTS_SQL = (
+    "SELECT TABLE_CATALOG, TABLE_NAME, COLUMN_NAME, COLUMN_COMMENT "
+    "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = :schema"
+)
+_TABLE_COMMENTS_SQL = (
+    "SELECT TABLE_CATALOG, TABLE_NAME, TABLE_COMMENT "
+    "FROM information_schema.TABLES WHERE TABLE_SCHEMA = :schema"
+)
+
+
+class ColumnCommentRow(NamedTuple):
+    table_catalog: Optional[str]
+    table_name: str
+    column_name: str
+    column_comment: Optional[str]
+
+
+class TableCommentRow(NamedTuple):
+    table_catalog: Optional[str]
+    table_name: str
+    table_comment: Optional[str]
+
+
+_CommentRow = TypeVar("_CommentRow", ColumnCommentRow, TableCommentRow)
+_CommentValue = TypeVar("_CommentValue")
+
 
 @dataclass(frozen=True)
 class ReflectionFallback:
@@ -121,6 +180,72 @@ class ReflectionFallback:
     # Whether `error` matched a known Doris refusal. Drives which warning the source
     # raises, so an unexpected failure is not reported as routine degradation.
     expected: bool
+
+
+@dataclass(frozen=True)
+class CommentScope:
+    database: str
+    # The external catalog the database belongs to, or None for the internal one.
+    catalog: Optional[str]
+
+    @property
+    def qualified_database(self) -> str:
+        return f"{self.catalog}.{self.database}" if self.catalog else self.database
+
+
+class CommentLookupFailureKind(StrEnum):
+    # The query raised (a missing grant, a Doris query_timeout) or returned rows
+    # of an unexpected shape.
+    QUERY_FAILED = "QUERY_FAILED"
+    # The query ran but information_schema has nothing for a database whose tables
+    # are being reflected, as on an external catalog before Doris 2.1.
+    NOT_SERVED = "NOT_SERVED"
+
+
+@dataclass
+class CommentLookupFailure:
+    kind: CommentLookupFailureKind
+    errors: List[str] = field(default_factory=list)
+
+    def add(self, kind: CommentLookupFailureKind, error: str) -> None:
+        # A query error explains more than missing rows, so it decides the message.
+        if kind == CommentLookupFailureKind.QUERY_FAILED:
+            self.kind = kind
+        if error not in self.errors:
+            self.errors.append(error)
+
+
+class CommentIndex(Generic[_CommentValue]):
+    """Comments by name, for a database's tables or one table's columns.
+
+    Doris 4.0.8+ keeps Iceberg and Paimon names in their source case where earlier
+    versions lower-cased them (apache/doris#65094), so a reflected table or column
+    name may differ in case from the one information_schema returns.
+    """
+
+    def __init__(self, entries: Mapping[str, Optional[_CommentValue]]) -> None:
+        # Every name information_schema returned, including those without a
+        # comment, so that an uncommented name is an exact hit rather than a miss
+        # that falls through to a case-insensitive sibling.
+        self._entries = entries
+        # Lower-cased name to the one name that lower-cases to it. Case-sensitive
+        # catalogs can hold names that differ only in case; those are left out,
+        # since picking one of them would be a guess. lower()
+        # rather than casefold(), which folds further (ß to ss) than Doris' own Java
+        # toLowerCase.
+        counts = Counter(name.lower() for name in entries)
+        self._lowered = {
+            name.lower(): name for name in entries if counts[name.lower()] == 1
+        }
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+    def get(self, name: str) -> Optional[_CommentValue]:
+        if name in self._entries:
+            return self._entries[name]
+        match = self._lowered.get(name.lower())
+        return None if match is None else self._entries[match]
 
 
 @dataclass(frozen=True)
@@ -146,6 +271,31 @@ def _parse_describe_row(row: Sequence[Any]) -> DescribeRow:
         # value to the annotation rather than passing whatever type it handed back.
         default=None if default is None else str(default),
     )
+
+
+def _non_empty_comment(value: object) -> Optional[str]:
+    # Doris reports "no comment" as an empty string, which must not become an empty
+    # description in DataHub.
+    if value is None:
+        return None
+    comment = str(value)
+    return comment if comment.strip() else None
+
+
+def _is_connection_lost(error: BaseException, connection: object) -> bool:
+    """Whether `error` means the connection is gone rather than the statement failed.
+
+    A dropped connection invalidates the SQLAlchemy connection, and every later
+    statement on it raises PendingRollbackError until it is rolled back, so both
+    forms mean that nothing read over this connection from here on can be trusted.
+    A failed reconnect (pymysql 2003) is not classed as a disconnect but leaves the
+    connection invalidated, so the connection's own state is checked as well.
+    """
+    if isinstance(connection, Connection) and connection.invalidated:
+        return True
+    if isinstance(error, DBAPIError):
+        return error.connection_invalidated
+    return isinstance(error, PendingRollbackError)
 
 
 @functools.lru_cache(maxsize=None)
@@ -203,6 +353,26 @@ class DorisDialect(MySQLDialect_pymysql):
         # warnings once a database is done.
         self.reflection_fallbacks: Dict[str, ReflectionFallback] = {}
         self.type_overlay_failures: Dict[str, str] = {}
+        # Databases whose comments could not be read or that information_schema
+        # does not serve, keyed by `catalog.database` for an external catalog and the
+        # database name otherwise, drained the same way.
+        self.comment_lookup_failures: Dict[str, CommentLookupFailure] = {}
+        # External catalogs whose information_schema keys rows by `catalog.database`
+        # (show_full_dbname_in_info_schema_db). DorisSource shares one set across the
+        # engines it opens per database, so only the first database of such a catalog
+        # pays for the bare-name query that misses.
+        self.qualified_comment_catalogs: Set[str] = set()
+        # Memoised on the dialect, which lives as long as the engine DorisSource
+        # opens per database, so each database-wide query runs once per database
+        # however many Inspectors reflect its tables.
+        self._column_comment_cache: Dict[
+            CommentScope, CommentIndex[CommentIndex[str]]
+        ] = {}
+        self._table_comment_cache: Dict[CommentScope, CommentIndex[str]] = {}
+        # Off for the profiling pass, which reflects each table only to build its
+        # queries: it never uses comments, and a lookup failing there would report
+        # descriptions missing that the metadata pass already ingested.
+        self.read_comments = True
 
     def pop_reflection_fallbacks(self) -> Dict[str, ReflectionFallback]:
         fallbacks = self.reflection_fallbacks
@@ -212,6 +382,11 @@ class DorisDialect(MySQLDialect_pymysql):
     def pop_type_overlay_failures(self) -> Dict[str, str]:
         failures = self.type_overlay_failures
         self.type_overlay_failures = {}
+        return failures
+
+    def pop_comment_lookup_failures(self) -> Dict[str, CommentLookupFailure]:
+        failures = self.comment_lookup_failures
+        self.comment_lookup_failures = {}
         return failures
 
     @reflection.cache  # type: ignore[call-arg]
@@ -250,10 +425,14 @@ class DorisDialect(MySQLDialect_pymysql):
                     connection, table_name, schema, **kw
                 )
         except (SQLAlchemyError, TypeError) as e:
+            if _is_connection_lost(e, connection):
+                # DESCRIBE would only fail with PendingRollbackError, hiding the
+                # original disconnect behind it.
+                raise
             # Doris rejects SHOW CREATE TABLE for async materialized views, and the
             # MySQL DDL parser raises TypeError on Doris types it cannot model.
-            # DESCRIBE answers for both, but carries no keys, constraints or table
-            # comment, so those degrade to empty rather than taking the whole table
+            # DESCRIBE answers for both, but carries no keys or constraints, so
+            # those degrade to empty rather than taking the whole table
             # down. Errors outside those two families stay fatal rather than turning a
             # bug in this path into missing metadata.
             full_name = self._full_name(connection, table_name, schema)
@@ -261,8 +440,7 @@ class DorisDialect(MySQLDialect_pymysql):
                 raise
             logger.info(
                 f"SHOW CREATE TABLE reflection failed for {full_name}: {e}. "
-                f"Falling back to DESCRIBE; keys, foreign keys and the table comment "
-                f"will be missing."
+                f"Falling back to DESCRIBE; keys and foreign keys will be missing."
             )
             state = ReflectedState()
             state.table_name = table_name
@@ -270,7 +448,9 @@ class DorisDialect(MySQLDialect_pymysql):
             # it fails too (the same missing grant that killed SHOW CREATE TABLE, a
             # dropped connection) the exception propagates and the caller drops the
             # table, which must not then also be reported as successfully reflected.
-            state.columns = self._describe_columns(connection, full_name)
+            state.columns = cast(
+                List[ReflectedColumn], self._describe_columns(connection, full_name)
+            )
             self.reflection_fallbacks[full_name] = ReflectionFallback(
                 error=str(e),
                 expected=_EXPECTED_DDL_REFUSAL_PATTERN.search(str(e)) is not None,
@@ -279,7 +459,7 @@ class DorisDialect(MySQLDialect_pymysql):
 
     @reflection.cache  # type: ignore[call-arg]
     def get_columns(self, connection, table_name, schema=None, **kw):
-        # type: (Connection, str, Optional[str], Any) -> List[Dict[str, Any]]
+        # type: (Connection, str, Optional[str], Any) -> List[ReflectedColumn]
         """
         Override to preserve Doris-specific types via DESCRIBE queries.
 
@@ -294,11 +474,212 @@ class DorisDialect(MySQLDialect_pymysql):
         if full_name is None:
             return columns
 
-        if full_name in self.reflection_fallbacks:
-            # _describe_columns already built these from DESCRIBE, so the overlay below
-            # would only repeat that round-trip to compute identical types.
-            return columns
+        # _describe_columns already built fallback tables from DESCRIBE, so the type
+        # overlay would only repeat that round-trip to compute identical types.
+        if full_name not in self.reflection_fallbacks:
+            self._overlay_doris_types(connection, full_name, columns)
 
+        scope = self._comment_scope(connection, schema)
+        if scope is not None:
+            column_index = self._column_comments(connection, scope)
+            self._check_comments_served(scope, column_index, "COLUMNS")
+            table_comments = column_index.get(table_name)
+            if table_comments is not None:
+                for col in columns:
+                    # information_schema wins: it has the comment unescaped, and the
+                    # DDL parse only ever recovers the rare single-quoted one.
+                    comment = table_comments.get(col["name"])
+                    if comment is not None:
+                        col["comment"] = comment
+
+        return columns
+
+    @reflection.cache  # type: ignore[call-arg]
+    def get_table_comment(self, connection, table_name, schema=None, **kw):
+        # type: (Connection, str, Optional[str], Any) -> ReflectedTableComment
+        """
+        Read the table comment from information_schema, which Doris fills in for
+        tables, views and DESCRIBE-fallback tables alike.
+
+        Type hints are in comment form because @reflection.cache doesn't support
+        modern Python type annotations in function signatures.
+        """
+        table_comment = super().get_table_comment(connection, table_name, schema, **kw)
+
+        scope = self._comment_scope(connection, schema)
+        if scope is None:
+            return table_comment
+
+        table_index = self._table_comments(connection, scope)
+        self._check_comments_served(scope, table_index, "TABLES")
+        comment = table_index.get(table_name)
+        if comment is None:
+            return table_comment
+        return ReflectedTableComment(text=comment)
+
+    def _check_comments_served(
+        self, scope: CommentScope, index: Sized, information_schema_table: str
+    ) -> None:
+        # A table is being reflected, so its database is not empty: no rows at all
+        # means information_schema does not cover it, and its descriptions would
+        # otherwise go missing without a word. Failures are drained only once the
+        # database is done, so a recorded one means it has been reported already.
+        if not index and scope.qualified_database not in self.comment_lookup_failures:
+            self._record_comment_failure(
+                scope,
+                CommentLookupFailureKind.NOT_SERVED,
+                f"information_schema.{information_schema_table} returned no rows "
+                f"for {scope.qualified_database}",
+            )
+
+    def _record_comment_failure(
+        self, scope: CommentScope, kind: CommentLookupFailureKind, error: str
+    ) -> None:
+        self.comment_lookup_failures.setdefault(
+            scope.qualified_database, CommentLookupFailure(kind)
+        ).add(kind, error)
+        logger.info(
+            f"Reading comments from information_schema failed for "
+            f"{scope.qualified_database}: {error}. Some or all of its tables and "
+            f"columns will have no descriptions."
+        )
+
+    def _column_comments(
+        self, connection: Connection, scope: CommentScope
+    ) -> CommentIndex[CommentIndex[str]]:
+        if scope not in self._column_comment_cache:
+            tables: Dict[str, Dict[str, Optional[str]]] = {}
+            for row in self._comment_rows(
+                connection, _COLUMN_COMMENTS_SQL, scope, ColumnCommentRow
+            ):
+                tables.setdefault(row.table_name, {})[row.column_name] = (
+                    _non_empty_comment(row.column_comment)
+                )
+            self._column_comment_cache[scope] = CommentIndex(
+                {table: CommentIndex(columns) for table, columns in tables.items()}
+            )
+        return self._column_comment_cache[scope]
+
+    def _table_comments(
+        self, connection: Connection, scope: CommentScope
+    ) -> CommentIndex[str]:
+        if scope not in self._table_comment_cache:
+            self._table_comment_cache[scope] = CommentIndex(
+                {
+                    row.table_name: _non_empty_comment(row.table_comment)
+                    for row in self._comment_rows(
+                        connection, _TABLE_COMMENTS_SQL, scope, TableCommentRow
+                    )
+                }
+            )
+        return self._table_comment_cache[scope]
+
+    def _comment_rows(
+        self,
+        connection: Connection,
+        sql: str,
+        scope: CommentScope,
+        row_type: Type[_CommentRow],
+    ) -> List[_CommentRow]:
+        # An external catalog keys its rows by the bare database name by default,
+        # and by `catalog.database` once show_full_dbname_in_info_schema_db is on.
+        # With that setting on, FE strips the prefix before pushing the filter down,
+        # so a bare-name miss still loads the database's remote metadata. Whichever
+        # form hit first is tried first for the rest of the catalog.
+        names = [scope.database]
+        if scope.catalog:
+            names.append(scope.qualified_database)
+            if scope.catalog in self.qualified_comment_catalogs:
+                names.reverse()
+        statement = text(sql)
+        rows: List[_CommentRow] = []
+        try:
+            for name in names:
+                result = [
+                    row_type._make(row)
+                    for row in connection.execute(statement, {"schema": name})
+                ]
+                if result:
+                    rows = result
+                # Only the scope's own catalog counts as a hit: before Doris 2.1 the
+                # bare name can match a same-named internal database instead.
+                if any(
+                    scope.catalog is None or row.table_catalog == scope.catalog
+                    for row in result
+                ):
+                    if scope.catalog and name == scope.qualified_database:
+                        self.qualified_comment_catalogs.add(scope.catalog)
+                    break
+        except SQLAlchemyError as e:
+            if _is_connection_lost(e, connection):
+                # Typically the database-wide query outrunning a read timeout on a
+                # large external catalog. The table's columns were already read, so
+                # roll back to let the next statement reconnect rather than fail
+                # this table and every one after it.
+                connection.rollback()
+                # Reconnect now rather than on the next statement: until then the
+                # connection still reads as invalidated, and the source would blame
+                # a later, unrelated error in this table on the drop. If the server
+                # is really gone this raises, and the table fails as it should.
+                connection.execute(text("SELECT 1"))
+            # Comments are lost but the tables are not. The empty result is what gets
+            # memoised, so a database whose lookup fails costs one failed query
+            # rather than one per table. A raised query is not a miss, so the other
+            # name form is not tried; the error text carries the name that was bound.
+            self._record_comment_failure(
+                scope, CommentLookupFailureKind.QUERY_FAILED, str(e)
+            )
+            return []
+        except (TypeError, ValueError) as e:
+            # A row of the wrong shape, or one the driver cannot decode. Raised
+            # inside get_columns, these would cost the table its columns.
+            self._record_comment_failure(
+                scope, CommentLookupFailureKind.QUERY_FAILED, str(e)
+            )
+            return []
+        return self._rows_in_catalog(rows, scope)
+
+    def _rows_in_catalog(
+        self, rows: List[_CommentRow], scope: CommentScope
+    ) -> List[_CommentRow]:
+        """Keep only the scope's own rows.
+
+        Before Doris 2.1 an external catalog has no information_schema of its own
+        (apache/doris#28919), so the query reads the internal catalog's, where a
+        database of the same name would lend its comments to the external tables.
+        Querying `<catalog>`.information_schema directly would fail outright on those
+        servers, but was tens of times slower on a Paimon catalog, so the rows are
+        filtered on TABLE_CATALOG instead.
+        """
+        if scope.catalog is None:
+            return rows
+        matching = [row for row in rows if row.table_catalog == scope.catalog]
+        if rows and not matching:
+            self._record_comment_failure(
+                scope,
+                CommentLookupFailureKind.NOT_SERVED,
+                f"information_schema returned rows of catalog "
+                f"{rows[0].table_catalog!r} rather than {scope.catalog!r}",
+            )
+        return matching
+
+    def _comment_scope(
+        self, connection: Connection, schema: Optional[str]
+    ) -> Optional[CommentScope]:
+        # An external-catalog connection's URL database is `catalog.database`, while
+        # the schema the inspector passes in is usually the bare name. Doris database
+        # names cannot contain a dot, so the last segment is always the database.
+        current_schema = self._current_schema(connection, schema)
+        if not self.read_comments or current_schema is None:
+            return None
+        catalog, _, database = current_schema.rpartition(".")
+        if not catalog:
+            catalog = (connection.engine.url.database or "").rpartition(".")[0]
+        return CommentScope(database=database, catalog=catalog or None)
+
+    def _overlay_doris_types(
+        self, connection: Connection, full_name: str, columns: List[ReflectedColumn]
+    ) -> None:
         try:
             type_map = {
                 row.name: row.type_str
@@ -308,7 +689,10 @@ class DorisDialect(MySQLDialect_pymysql):
             for col in columns:
                 if col["name"] in type_map:
                     doris_type_str = type_map[col["name"]]
-                    col["full_type"] = doris_type_str
+                    # "full_type" is a non-standard key consumed by SQLAlchemySource
+                    # to preserve the raw Doris type string; it is not part of the
+                    # ReflectedColumn TypedDict.
+                    col["full_type"] = doris_type_str  # type: ignore[typeddict-unknown-key]
 
                     # Only the Doris-only map here: MySQL reflection already resolved
                     # the standard types correctly, so this overlay exists purely to
@@ -318,6 +702,8 @@ class DorisDialect(MySQLDialect_pymysql):
                         col["type"] = parsed_type
 
         except (SQLAlchemyError, IndexError, TypeError) as e:
+            if _is_connection_lost(e, connection):
+                raise
             # Columns survive with MySQL's types; only the Doris-specific ones are
             # lost. Recorded rather than logged so the source can report it, since a
             # silently generic HLL or BITMAP column looks like correct output.
@@ -327,12 +713,14 @@ class DorisDialect(MySQLDialect_pymysql):
                 f"Falling back to MySQL type reflection."
             )
 
-        return columns
+    @staticmethod
+    def _current_schema(connection: Connection, schema: Optional[str]) -> Optional[str]:
+        return schema or connection.engine.url.database or None
 
     def _full_name(self, connection, table_name, schema):
         # type: (Connection, str, Optional[str]) -> Optional[str]
-        current_schema = schema or connection.engine.url.database
-        if not current_schema:
+        current_schema = self._current_schema(connection, schema)
+        if current_schema is None:
             return None
         quote = self.identifier_preparer.quote_identifier
         return f"{quote(current_schema)}.{quote(table_name)}"

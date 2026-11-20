@@ -19,6 +19,9 @@ import org.testng.annotations.Test;
 public class DeleteStructuredPropertyResolverTest {
   private static final String TEST_PROP_URN = "urn:li:structuredProperty:test";
 
+  private final EntityClient.ReferencesCleanup references =
+      Mockito.mock(EntityClient.ReferencesCleanup.class);
+
   private static final DeleteStructuredPropertyInput TEST_INPUT =
       new DeleteStructuredPropertyInput(TEST_PROP_URN);
 
@@ -37,9 +40,9 @@ public class DeleteStructuredPropertyResolverTest {
     Boolean success = resolver.get(mockEnv).get();
     assertTrue(success);
 
-    // Validate that we called delete
+    // Validate that we called delete, then the references in the background
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .deleteEntity(any(), Mockito.eq(UrnUtils.getUrn(TEST_PROP_URN)));
+        .deleteEntityThenReferences(any(), Mockito.eq(UrnUtils.getUrn(TEST_PROP_URN)));
   }
 
   @Test
@@ -58,7 +61,7 @@ public class DeleteStructuredPropertyResolverTest {
 
     // Validate that we did NOT call delete
     Mockito.verify(mockEntityClient, Mockito.times(0))
-        .deleteEntity(any(), Mockito.eq(UrnUtils.getUrn(TEST_PROP_URN)));
+        .deleteEntityThenReferences(any(), Mockito.eq(UrnUtils.getUrn(TEST_PROP_URN)));
   }
 
   @Test
@@ -75,16 +78,19 @@ public class DeleteStructuredPropertyResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    // Validate that deleteEntity was called, but since it's the thing that failed it was called
+    // Validate that the delete was called, but since it's the thing that failed it was called
     // once still
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .deleteEntity(any(), Mockito.eq(UrnUtils.getUrn(TEST_PROP_URN)));
+        .deleteEntityThenReferences(any(), Mockito.eq(UrnUtils.getUrn(TEST_PROP_URN)));
   }
 
   private EntityClient initMockEntityClient(boolean shouldSucceed) throws Exception {
     EntityClient client = Mockito.mock(EntityClient.class);
+    Mockito.when(client.deleteEntityThenReferences(any(), any())).thenReturn(references);
     if (!shouldSucceed) {
-      Mockito.doThrow(new RemoteInvocationException()).when(client).deleteEntity(any(), any());
+      Mockito.doThrow(new RemoteInvocationException())
+          .when(client)
+          .deleteEntityThenReferences(any(), any());
     }
     return client;
   }

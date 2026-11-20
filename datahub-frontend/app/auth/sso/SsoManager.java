@@ -92,7 +92,7 @@ public class SsoManager {
       ssoConfigs = new SsoConfigs.Builder().from(configs).build();
     } catch (Exception e) {
       // Debug-level logging since this is expected to fail if SSO has not been configured.
-      log.debug(String.format("Missing SSO settings in static configs %s", configs), e);
+      log.debug("Missing SSO settings in static configs {}", configs, e);
     }
 
     if (ssoConfigs != null && ssoConfigs.isOidcEnabled()) {
@@ -155,12 +155,14 @@ public class SsoManager {
       OidcProvider existingOidcProvider = (OidcProvider) existingSsoProvider;
       // If the existing provider is an OIDC provider and the configs are the same, do nothing.
       if (existingOidcProvider.configs().equals(oidcConfigs)) {
+        log.debug("OIDC provider reused; settings unchanged");
         return;
       }
     }
 
     OidcProvider oidcProvider = new OidcProvider(oidcConfigs);
     setSsoProvider(oidcProvider);
+    log.info("OIDC provider rebuilt");
   }
 
   /** Call the Auth Service to get SSO settings */

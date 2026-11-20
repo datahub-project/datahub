@@ -1,0 +1,11 @@
+{
+    "allDomains": "Все домены",
+    "dataLandscapeSummary": "Сводка ландшафта данных",
+    "domainLandscapeSummary": "Сводка ландшафта домена",
+    "failedToLoadCharts": "Не удалось загрузить графики",
+    "failedToLoadDomains": "Не удалось загрузить домены",
+    "failedToLoadHighlights": "Не удалось загрузить основные показатели",
+    "noDomainData": "Нет данных аналитики для этого домена",
+    "selectDomain": "Выберите домен",
+    "usageAnalytics": "Аналитика использования"
+}

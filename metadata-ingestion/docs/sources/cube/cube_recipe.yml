@@ -13,6 +13,11 @@ source:
     # warehouse_platform: "snowflake"
     # warehouse_database: "ANALYTICS"
 
+    # Emit Cube views as first-class semanticModel / metric entities instead of
+    # a view dataset. Cubes stay Cube datasets. Requires a server that registers
+    # those entities (Cloud >= 2.1.0, or OSS with METRICS_ENABLED=true).
+    # emit_semantic_model_entities: true
+
     # Cube Cloud only: ingest reports as charts and workbooks as dashboards, and
     # auto-mint a Metadata API token. cloud_api_key + deployment_id are required;
     # environment_id is needed only for the Metadata API token.

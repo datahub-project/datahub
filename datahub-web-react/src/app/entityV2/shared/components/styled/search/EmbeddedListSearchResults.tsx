@@ -1,23 +1,25 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import LanguageIcon from '@mui/icons-material/Language';
-import { Pagination, Spin, Typography } from 'antd';
+import { Icon, Loader, Pagination, Text } from '@components';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
-import { EntityAndType } from '@app/entity/shared/types';
 import {
     EntityActionProps,
     EntitySearchResults,
 } from '@app/entityV2/shared/components/styled/search/EntitySearchResults';
 import MatchingViewsLabel from '@app/entityV2/shared/components/styled/search/MatchingViewsLabel';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { SearchFiltersSection } from '@app/search/SearchFiltersSection';
 import { UnionType } from '@app/search/utils/constants';
 import { combineSiblingsInSearchResults } from '@app/searchV2/utils/combineSiblingsInSearchResults';
+import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { SearchCfg } from '@src/conf';
 
-import { DataHubView, FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
+import { DataHubView, Dataset, FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
 
 const SearchBody = styled.div<{ showFilters?: boolean }>`
     height: 100%;
@@ -38,7 +40,7 @@ const SearchBody = styled.div<{ showFilters?: boolean }>`
                `};
 `;
 
-const PaginationInfo = styled(Typography.Text)`
+const PaginationInfo = styled(Text)`
     padding: 0px;
 `;
 
@@ -101,10 +103,25 @@ const LoadingContainer = styled.div`
     flex: 1;
 `;
 
-const StyledLoading = styled(LoadingOutlined)`
-    font-size: 32px;
-    color: ${(props) => props.theme.colors.textTertiary};
-    padding-bottom: 18px;
+const WarningMessage = styled.div`
+    gap: 8px;
+    padding: 8px;
+    display: flex;
+    margin: 8px 16px 0 16px;
+    align-items: center;
+    color: ${(props) => props.theme.colors.textWarning};
+    background-color: ${(props) => props.theme.colors.bgSurfaceWarning};
+    border-radius: 8px;
+`;
+
+const WarningIcon = styled(Warning)`
+    color: ${(props) => props.theme.colors.iconWarning};
+    font-size: 16px;
+`;
+
+const SearchAllAssetsLink = styled.span`
+    cursor: pointer;
+    text-decoration: underline;
 `;
 
 const ViewsContainer = styled.div`
@@ -131,8 +148,8 @@ const Pill = styled.div<{ selected?: boolean }>`
 
 const Count = styled.div<{ selected: boolean }>`
     background-color: ${(props) =>
-        props.selected ? props.theme.colors.buttonFillBrand : props.theme.colors.textTertiary};
-    color: ${(props) => props.theme.colors.bg};
+        props.selected ? props.theme.colors.buttonFillBrand : props.theme.colors.bgSurfaceDarker};
+    color: ${(props) => (props.selected ? props.theme.colors.textOnFillBrand : props.theme.colors.textSecondary)};
     border-radius: 20px;
     min-width: 25px;
     padding: 2px 4px;
@@ -142,11 +159,6 @@ const Count = styled.div<{ selected: boolean }>`
     justify-content: center;
 
     font-size: 11px;
-`;
-
-const LanguageIconStyle = styled(LanguageIcon)<{ selected?: boolean }>`
-    font-size: 18px !important;
-    color: ${(props) => (props.selected ? props.theme.colors.iconBrand : props.theme.colors.textTertiary)};
 `;
 
 const ViewLabel = styled.span`
@@ -183,6 +195,8 @@ interface Props {
     view?: DataHubView;
     errorMessage?: string;
     selectLimit?: number;
+    isViewAllMode?: boolean;
+    handleViewAllClickWarning?: () => void;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -212,6 +226,8 @@ export const EmbeddedListSearchResults = ({
     view,
     errorMessage,
     selectLimit,
+    isViewAllMode = false,
+    handleViewAllClickWarning,
 }: Props) => {
     const { t } = useTranslation('entity.shared.components');
     const { t: tc } = useTranslation('common.actions');
@@ -225,6 +241,17 @@ export const EmbeddedListSearchResults = ({
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
+
+    const history = useHistory();
+    const platformUrn = searchResponse?.facets?.find((facet) => facet.field === 'platform')?.aggregations?.[0]?.value;
+    const platform = (combinedSiblingSearchResults?.[0]?.entity as Dataset | undefined)?.platform?.name;
+
+    const handleSearchAllAssetsClick = () => {
+        handleViewAllClickWarning?.();
+        if (platformUrn) {
+            navigateToSearchUrl({ filters: [{ field: 'platform', values: [platformUrn] }], history });
+        }
+    };
 
     return (
         <>
@@ -243,11 +270,11 @@ export const EmbeddedListSearchResults = ({
                 )}
 
                 <ResultContainer data-testid="embedded-list-search-results">
-                    {view && (
+                    {applyView && view && (
                         <ViewsContainer>
                             <ViewLabel>{t('embeddedSearch.viewLabel')}</ViewLabel>
                             <Pill selected={!selectedViewUrn} onClick={() => setSelectedViewUrn?.(undefined)}>
-                                <LanguageIconStyle selected={!selectedViewUrn} />
+                                <Icon icon={Globe} size="xl" color={!selectedViewUrn ? 'iconBrand' : 'icon'} />
                                 <span>{tc('all')}</span>
                                 {allSearchCount > 0 && <Count selected={!selectedViewUrn}>{allSearchCount}</Count>}
                             </Pill>
@@ -264,9 +291,32 @@ export const EmbeddedListSearchResults = ({
                             )}
                         </ViewsContainer>
                     )}
+                    {isViewAllMode && (
+                        <WarningMessage>
+                            <WarningIcon weight="fill" />
+                            <Text weight="bold" style={{ lineHeight: 'normal' }}>
+                                {t('viewAll.resultsIncomplete')}{' '}
+                                {platform && (
+                                    <SearchAllAssetsLink
+                                        onClick={handleSearchAllAssetsClick}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                handleSearchAllAssetsClick();
+                                            }
+                                        }}
+                                        role="button"
+                                        tabIndex={0}
+                                    >
+                                        {t('viewAll.searchAllAssets', { platform })}
+                                    </SearchAllAssetsLink>
+                                )}
+                            </Text>
+                        </WarningMessage>
+                    )}
                     {loading && (
                         <LoadingContainer>
-                            <Spin indicator={<StyledLoading />} />
+                            <Loader size="md" />
                         </LoadingContainer>
                     )}
                     {!loading && (
@@ -306,11 +356,11 @@ export const EmbeddedListSearchResults = ({
                             />
                         </PaginationInfo>
                         <StyledPagination
-                            current={page}
-                            pageSize={numResultsPerPage}
+                            currentPage={page}
+                            itemsPerPage={numResultsPerPage}
                             total={totalResults}
                             showLessItems
-                            onChange={onChangePage}
+                            onPageChange={onChangePage}
                             showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
                             onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
                             pageSizeOptions={['10', '20', '30']}

@@ -2,7 +2,7 @@
 
 The SAP Datasphere connector extracts metadata from [SAP Datasphere](https://www.sap.com/products/technology-platform/datasphere.html) — SAP's cloud-native data warehouse platform (the successor to SAP Data Warehouse Cloud). It reads the SAP-supported REST/OData v4 Catalog and Consumption APIs (authenticated via XSUAA OAuth), so no JDBC driver or SQL dialect is required.
 
-DataHub ingests Spaces as containers and Views, Analytic Models, and Local Tables as datasets, with column schema read from the per-asset OData EDMX (`$metadata`) surface. Optional features include table- and column-level lineage (`include_lineage`), SAP CDS semantic annotations emitted as tags, federated Remote Tables routed to their native storage platform (so they merge with native warehouse connectors), and stateful stale-entity removal.
+DataHub ingests Spaces as containers and Views, Analytic Models, and Local Tables as datasets, with column schema read from the per-asset OData EDMX (`$metadata`) surface (or from CSN when an asset is not exposed for consumption). Optional features include table- and column-level lineage (`include_lineage`), design-time discovery of Views / Analytic Models absent from the consumption catalog (`discover_unexposed_views`, on by default), SAP CDS semantic annotations emitted as tags, federated Remote Tables routed to their native storage platform (so they merge with native warehouse connectors), and stateful stale-entity removal.
 
 ## Concept Mapping
 

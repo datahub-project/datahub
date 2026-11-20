@@ -1,4 +1,3 @@
-import logging
 import os
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -14,9 +13,6 @@ from datahub.metadata.schema_classes import (
     StructuredPropertyParamsClass,
 )
 from datahub.metadata.urns import FormUrn
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 # Use the structured property created by structured_property_create_basic.py
 retention_property_urn = "urn:li:structuredProperty:io.acryl.privacy.retentionTime"

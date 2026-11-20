@@ -10,6 +10,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
@@ -90,6 +91,33 @@ public class GraphQueryUtilsTest {
     GraphQueryUtils.addFilterToQueryBuilder(filter, "testNode", rootQuery);
 
     assertNotNull(rootQuery.filter());
+    assertEquals(rootQuery.filter().size(), 1);
+  }
+
+  @Test
+  public void testAddFilterToQueryBuilderNullOrDoesNotThrow() {
+    Filter filter = new Filter();
+    assertNull(filter.getOr());
+
+    BoolQueryBuilder rootQuery = new BoolQueryBuilder();
+
+    GraphQueryUtils.addFilterToQueryBuilder(filter, "testNode", rootQuery);
+
+    assertEquals(rootQuery.filter().size(), 1);
+    assertTrue(((BoolQueryBuilder) rootQuery.filter().get(0)).should().isEmpty());
+  }
+
+  @Test
+  public void testAddFilterToQueryBuilderNullAndDoesNotThrow() {
+    Filter filter = new Filter();
+    ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
+    assertNull(conjunctiveCriterion.getAnd(GetMode.NULL));
+    filter.setOr(new ConjunctiveCriterionArray(conjunctiveCriterion));
+
+    BoolQueryBuilder rootQuery = new BoolQueryBuilder();
+
+    GraphQueryUtils.addFilterToQueryBuilder(filter, "testNode", rootQuery);
+
     assertEquals(rootQuery.filter().size(), 1);
   }
 

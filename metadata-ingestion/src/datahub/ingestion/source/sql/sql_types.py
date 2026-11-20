@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, Optional, Type, Union, ValuesView
+from typing import Any, Dict, Optional, Type, Union
 
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
@@ -55,22 +55,22 @@ POSTGRES_TYPES_MAP: Dict[str, Any] = {
     "cid": None,  # object identifier
     "oidvector": None,  # object identifier
     "json": RecordType,
-    "xml": RecordType,
+    "xml": StringType,  # rendered/stored as text; aligned with the postgres source mapping
     "xid8": None,  # object identifier
-    "point": None,  # 2D point
-    "lseg": None,  # line segment
-    "path": None,  # path of points
-    "box": None,  # a pair of corner points
-    "polygon": None,  # closed set of points
-    "line": None,  # infinite line
+    "point": BytesType,  # 2D point (opaque geometric scalar)
+    "lseg": BytesType,  # line segment
+    "path": BytesType,  # path of points
+    "box": BytesType,  # a pair of corner points
+    "polygon": BytesType,  # closed set of points
+    "line": BytesType,  # infinite line
     "real": NumberType,
     "double precision": NumberType,
     "unknown": None,
-    "circle": None,  # circle with center and radius
+    "circle": BytesType,  # circle with center and radius
     "money": NumberType,
     "macaddr": None,  # MAC address
     "inet": None,  # IPv4 or IPv6 host address
-    "cidr": None,  # IPv4 or IPv6 network specification
+    "cidr": StringType,  # IPv4 or IPv6 network specification
     "macaddr8": None,  # MAC address
     "aclitem": None,  # system info
     "character": StringType,
@@ -105,12 +105,28 @@ POSTGRES_TYPES_MAP: Dict[str, Any] = {
     "jsonpath": None,  # path to property in a JSON doc
     "txid_snapshot": None,
     "pg_snapshot": None,
-    "int4range": None,  # don't have support for ranges yet
-    "numrange": None,
-    "tsrange": None,
-    "tstzrange": None,
-    "daterange": None,
-    "int8range": None,
+    "int4range": StringType,  # ranges serialize as text, e.g. [1,10)
+    "numrange": StringType,
+    "tsrange": StringType,
+    "tstzrange": StringType,
+    "daterange": StringType,
+    "int8range": StringType,
+    "int4multirange": StringType,
+    "nummultirange": StringType,
+    "tsmultirange": StringType,
+    "tstzmultirange": StringType,
+    "datemultirange": StringType,
+    "int8multirange": StringType,
+    # Extension types (not in pg_type by default); aligned with the postgres
+    # source's SQLAlchemy-level registrations.
+    "citext": StringType,
+    "ltree": StringType,
+    "vector": ArrayType,  # pgvector
+    "halfvec": ArrayType,  # pgvector
+    "sparsevec": ArrayType,  # pgvector
+    "geometry": BytesType,  # PostGIS (WKB on the wire)
+    "geography": BytesType,  # PostGIS
+    "raster": BytesType,  # PostGIS
     "record": RecordType,
     "record[]": ArrayType,
     "cstring": None,
@@ -150,7 +166,7 @@ POSTGRES_TYPES_MAP: Dict[str, Any] = {
     "oidvector[]": ArrayType,
     "json[]": ArrayType,
     "xml[]": ArrayType,
-    "xid8[]": ValuesView,
+    "xid8[]": ArrayType,
     "point[]": ArrayType,
     "lseg[]": ArrayType,
     "path[]": ArrayType,

@@ -19,7 +19,8 @@ public class IngestPolicies implements BlockingSystemUpgrade {
       @Nonnull final EntitySearchService entitySearchService,
       @Nonnull final SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull final Resource policiesResource,
-      final boolean enabled) {
+      final boolean enabled,
+      final boolean v2EntityIndexEnabled) {
     stepList =
         ImmutableList.of(
             new IngestPoliciesUpgradeStep(
@@ -27,7 +28,8 @@ public class IngestPolicies implements BlockingSystemUpgrade {
                 entitySearchService,
                 searchDocumentTransformer,
                 policiesResource,
-                enabled));
+                enabled,
+                v2EntityIndexEnabled));
   }
 
   @Override

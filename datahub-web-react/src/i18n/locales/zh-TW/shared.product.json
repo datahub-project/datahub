@@ -1,0 +1,6 @@
+{
+    "updates.defaultCtaText": "探索 DataHub Cloud {{version}}",
+    "updates.defaultTitle": "DataHub 更新：{{month}}",
+    "updates.moreInThisRelease": "此版本的更多內容",
+    "upload.failedTitle": "上傳失敗"
+}

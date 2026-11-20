@@ -204,7 +204,11 @@ public class EntityGraphCacheProperties {
     @JsonAlias("maxStaleSeconds")
     private int intervalSeconds;
 
-    /** FULL + LAZY only: {@code SYNC} blocks expand on rebuild; {@code BACKGROUND} fail-closed. */
+    /**
+     * {@code SYNC} rebuilds on the request thread. {@code BACKGROUND} is LAZY + FULL only and
+     * fail-closed until fresh. {@code STALE_WHILE_REVALIDATE} is LAZY + PARTIAL only: serve the
+     * previous component snapshot and rebuild it in the background.
+     */
     private RebuildExecution rebuildExecution;
   }
 
@@ -261,6 +265,7 @@ public class EntityGraphCacheProperties {
 
   public enum RebuildExecution {
     SYNC,
-    BACKGROUND
+    BACKGROUND,
+    STALE_WHILE_REVALIDATE
   }
 }

@@ -30,10 +30,12 @@ const LinkText = styled(Text)`
 
 export function GraphCard({
     title,
+    titlePill,
     subTitle,
     loading,
     graphHeight = '350px',
     width = '100%',
+    gap,
     renderGraph,
     renderControls,
     isEmpty,
@@ -53,10 +55,10 @@ export function GraphCard({
     };
 
     return (
-        <CardContainer maxWidth={width} data-testid={dataTestId}>
+        <CardContainer maxWidth={width} gap={gap} data-testid={dataTestId}>
             {showHeader && (
                 <GraphCardHeader>
-                    <PageTitle title={title} subTitle={subTitle} variant="sectionHeader" />
+                    <PageTitle title={title} titlePill={titlePill} subTitle={subTitle} variant="sectionHeader" />
                     <ControlsContainer>{renderControls?.()}</ControlsContainer>
                 </GraphCardHeader>
             )}

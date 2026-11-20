@@ -1,4 +1,3 @@
-import { Tooltip } from '@components';
 import { capitalCase } from '@remirror/core';
 import { useHelpers, useI18n } from '@remirror/react';
 import { Button, ButtonProps } from 'antd';
@@ -6,8 +5,16 @@ import React, { MouseEventHandler, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Tooltip } from '@components/components/Tooltip';
+
 const StyledButton = styled(Button)`
     height: auto;
+
+    // antd 4 kept small buttons at 24px; line-height 0 keeps the icon centered at that height
+    &.ant-btn-sm {
+        height: 24px;
+        line-height: 0;
+    }
 `;
 
 export interface CommandButtonProps extends Omit<ButtonProps, 'type'> {

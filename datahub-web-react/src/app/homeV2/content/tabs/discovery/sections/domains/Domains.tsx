@@ -29,7 +29,7 @@ export const Domains = () => {
     const history = useHistory();
     const { user } = useUserContext();
     const { isUserInitializing } = useContext(OnboardingContext);
-    const { domains, loading } = useGetDomains(user);
+    const { domains, loading } = useGetDomains();
 
     useUpdateEducationStepsAllowList(!!domains.length, HOME_PAGE_DOMAINS_ID);
 

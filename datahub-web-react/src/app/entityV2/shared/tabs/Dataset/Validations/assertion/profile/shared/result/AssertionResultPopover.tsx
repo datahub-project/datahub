@@ -1,5 +1,4 @@
-import { Popover } from '@components';
-import { TooltipPlacement } from 'antd/lib/tooltip';
+import { Popover, TooltipPlacement } from '@components';
 import React from 'react';
 
 import { AssertionResultPopoverContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';

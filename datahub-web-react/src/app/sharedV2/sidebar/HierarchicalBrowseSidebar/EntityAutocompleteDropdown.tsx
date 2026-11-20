@@ -5,7 +5,7 @@ import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';
-import ClickOutside from '@app/shared/ClickOutside';
+import ClickOutside from '@app/sharedV2/ClickOutside';
 import { SearchResultsDropdown } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -48,7 +48,7 @@ type Props = {
 
 /**
  * Debounced autocomplete search bar with dropdown results, shared by hierarchical
- * browse sidebars (glossary, marketplace, etc.).
+ * browse sidebars (glossary, data products, etc.).
  */
 export default function EntityAutocompleteDropdown({ entityTypes, placeholder, dataTestId }: Props) {
     const [searchInput, setSearchInput] = useState('');

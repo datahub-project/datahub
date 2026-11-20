@@ -10,7 +10,12 @@ ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 
 ENV JMX_VERSION=1.0.1
 
+# Cache-bust the apk layers. Wolfi is a rolling distro, so a cached layer can keep
+# shipping a stale JDK after a fix lands. Bump WOLFI_PKG_REFRESH to force a fresh
+# apk upgrade and a fresh openjdk install in setup_java_runtime.sh.
+ARG WOLFI_PKG_REFRESH=2026-11-17
 RUN printf '%s\n' "${APK_REPOSITORY_URL}" > /etc/apk/repositories \
+    && echo "wolfi pkg refresh: ${WOLFI_PKG_REFRESH}" \
     && apk update --no-cache \
     && apk upgrade --no-cache
 
@@ -49,5 +54,5 @@ ENV MFE_CONFIG_FILE_PATH=/datahub-frontend/conf/mfe.config.dev.yaml
 RUN echo $SERVER_PORT
 EXPOSE $SERVER_PORT
 
-HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:$SERVER_PORT${DATAHUB_BASE_PATH}/admin || exit 1
+HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:${MANAGEMENT_SERVER_PORT:-4319}/health/live || exit 1
 CMD ./start.sh

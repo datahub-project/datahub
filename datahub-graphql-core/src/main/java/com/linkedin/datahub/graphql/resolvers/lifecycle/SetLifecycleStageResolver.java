@@ -2,15 +2,18 @@ package com.linkedin.datahub.graphql.resolvers.lifecycle;
 
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
-import com.linkedin.entity.Aspect;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -22,14 +25,14 @@ import lombok.extern.slf4j.Slf4j;
  * Resolves the setLifecycleStage mutation: sets or clears the lifecycle stage on any entity.
  *
  * <p>Passing null for lifecycleStageUrn clears the stage (publishes/activates the entity).
- * Transition rules on the destination stage are enforced by LifecycleStageTransitionHook before the
- * aspect is persisted.
+ * Transition rules on the destination stage are checked up front and rejected with an error;
+ * LifecycleStageTransitionHook still guards every other writer of Status.
  */
 @Slf4j
 @RequiredArgsConstructor
 public class SetLifecycleStageResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final EntityClient _entityClient;
+  private final EntityService<?> _entityService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -39,8 +42,15 @@ public class SetLifecycleStageResolver implements DataFetcher<CompletableFuture<
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
+          if (!LifecycleStageAssignmentUtils.canEditLifecycleStage(
+              context, UrnUtils.getUrn(urnStr))) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
           try {
             return setLifecycleStage(urnStr, lifecycleStageUrn, context);
+          } catch (DataHubGraphQLException e) {
+            throw e;
           } catch (Exception e) {
             log.error(
                 "Failed to set lifecycle stage {} on entity {}", lifecycleStageUrn, urnStr, e);
@@ -55,35 +65,42 @@ public class SetLifecycleStageResolver implements DataFetcher<CompletableFuture<
   private boolean setLifecycleStage(
       @Nonnull String urnStr, String lifecycleStageUrn, @Nonnull QueryContext context)
       throws Exception {
-    Urn entityUrn = UrnUtils.getUrn(urnStr);
-    String entityType = entityUrn.getEntityType();
+    final Urn entityUrn = UrnUtils.getUrn(urnStr);
+    final String entityType = entityUrn.getEntityType();
+    final Urn actorUrn = UrnUtils.getUrn(context.getActorUrn());
 
-    // Load the current Status aspect, or start fresh
-    Status status = new Status();
-    Aspect existing =
-        _entityClient.getLatestAspectObject(
-            context.getOperationContext(), entityUrn, STATUS_ASPECT_NAME, false);
-    if (existing != null) {
-      status = new Status(existing.data());
+    Urn stageUrn = null;
+    if (lifecycleStageUrn != null && !lifecycleStageUrn.isBlank()) {
+      stageUrn = UrnUtils.getUrn(lifecycleStageUrn);
+      LifecycleStageAssignmentUtils.validateUserAssignment(
+          context, _entityService, entityUrn, stageUrn);
     }
 
+    // Load the current Status aspect, or start fresh
+    Status status =
+        (Status)
+            EntityUtils.getAspectFromEntity(
+                context.getOperationContext(),
+                urnStr,
+                STATUS_ASPECT_NAME,
+                _entityService,
+                new Status());
+
     // Apply the change: set or clear lifecycleStage
-    if (lifecycleStageUrn != null && !lifecycleStageUrn.isBlank()) {
-      status.setLifecycleStage(UrnUtils.getUrn(lifecycleStageUrn));
+    if (stageUrn != null) {
+      status.setLifecycleStage(stageUrn);
     } else {
       status.removeLifecycleStage();
     }
+    status.setLifecycleLastUpdated(
+        new AuditStamp().setTime(System.currentTimeMillis()).setActor(actorUrn));
 
-    // Record who made this transition and when
-    AuditStamp auditStamp =
-        new AuditStamp()
-            .setTime(System.currentTimeMillis())
-            .setActor(UrnUtils.getUrn(context.getActorUrn()));
-    status.setLifecycleLastUpdated(auditStamp);
-
-    _entityClient.ingestProposal(
+    EntityUtils.ingestChangeProposals(
         context.getOperationContext(),
-        AspectUtils.buildMetadataChangeProposal(entityUrn, STATUS_ASPECT_NAME, status),
+        ImmutableList.of(
+            AspectUtils.buildMetadataChangeProposal(entityUrn, STATUS_ASPECT_NAME, status)),
+        _entityService,
+        actorUrn,
         false);
 
     log.info(

@@ -118,6 +118,7 @@
     "users.columns.name": "Navn",
     "users.columns.role": "Rolle",
     "users.columns.status": "Status",
+    "users.copyUrn": "Kopier URN",
     "users.deleteUser": "Slett bruker",
     "users.emptyTitle": "Ingen brukere!",
     "users.groups.overflowTitle": "Grupper",
@@ -146,5 +147,6 @@
     "users.statusFilter.placeholder": "Status",
     "users.statusFilter.suspended": "Suspendert",
     "users.statusInactive": "Inaktiv",
-    "users.statusNoUrn": "Ingen URN"
+    "users.statusNoUrn": "Ingen URN",
+    "users.urnCopied": "URN kopiert til utklippstavlen"
 }

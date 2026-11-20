@@ -1,5 +1,5 @@
-import { CheckCircleOutlined } from '@ant-design/icons';
-import { message } from 'antd';
+import { Button, Text, toast } from '@components';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
 import i18next from 'i18next';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,11 +8,10 @@ import { FontWeightOptions, SizeOptions } from '@components/theme/config';
 
 import analytics, { EventType } from '@app/analytics';
 import { EXECUTION_REQUEST_STATUS_FAILURE, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
-import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import { TestConnectionResult } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/types';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { yamlToJson } from '@app/ingestV2/source/utils';
-import { Button, Text } from '@src/alchemy-components';
+import { pollingContext } from '@src/apolloPolling';
 
 import {
     useCreateTestConnectionRequestMutation,
@@ -28,7 +27,7 @@ export function getRecipeJson(recipeYaml: string, hideWarnings?: boolean) {
     } catch (e) {
         if (!hideWarnings) {
             const { parsedLine } = e as any;
-            message.warn(
+            toast.warning(
                 parsedLine
                     ? i18next.t('ingestion.sourceBuilder:recipeForm.invalidYaml.fixLine.error', { line: parsedLine })
                     : i18next.t('ingestion.sourceBuilder:recipeForm.invalidYaml.error'),
@@ -88,15 +87,16 @@ function TestConnectionButton({
     const [hasEmittedAnalytics, setHasEmittedAnalytics] = useState(false);
     const [createTestConnectionRequest, { data: requestData }] = useCreateTestConnectionRequestMutation();
     const [getIngestionExecutionRequest, { data: resultData, loading }] = useGetIngestionExecutionRequestLazyQuery();
-    const ingestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     useEffect(() => {
         if (requestData && requestData.createTestConnectionRequest) {
             const interval = setInterval(
                 () =>
-                    getIngestionExecutionRequest({
-                        variables: { urn: requestData.createTestConnectionRequest as string },
-                    }),
+                    getIngestionExecutionRequest(
+                        pollingContext({
+                            variables: { urn: requestData.createTestConnectionRequest as string },
+                        }),
+                    ),
                 2000,
             );
             setIsLoading(true);
@@ -122,7 +122,7 @@ function TestConnectionButton({
                 }
 
                 if (result.status === EXECUTION_REQUEST_STATUS_FAILURE) {
-                    message.error(t('testConnection.failure.error'));
+                    toast.error(t('testConnection.failure.error'));
                     setIsModalVisible(false);
                 }
                 if (result.structuredReport) {
@@ -155,14 +155,13 @@ function TestConnectionButton({
                     }),
                 )
                 .catch(() => {
-                    message.error(t('testConnection.unexpectedError.error'));
+                    toast.error(t('testConnection.unexpectedError.error'));
                 });
 
             analytics.event({
                 type: EventType.IngestionTestConnectionClickEvent,
                 sourceType: getSourceTypeFromRecipeJson(recipeJson) || '',
                 sourceUrn: selectedSource?.urn,
-                ingestionOnboardingRedesignV1,
             });
 
             setIsLoading(true);
@@ -200,7 +199,6 @@ function TestConnectionButton({
             sourceUrn: selectedSource?.urn,
             hasCompleted,
             status,
-            ingestionOnboardingRedesignV1,
             durationMs: duration,
         });
         setDuration(undefined);
@@ -209,8 +207,13 @@ function TestConnectionButton({
 
     return (
         <>
-            <Button variant="outline" type="button" size={size} onClick={testConnection}>
-                {!hideIcon && <CheckCircleOutlined />}
+            <Button
+                variant="outline"
+                type="button"
+                size={size}
+                onClick={testConnection}
+                icon={hideIcon ? undefined : { icon: CheckCircle }}
+            >
                 <Text weight={textWeight} lineHeight="none">
                     {t('testConnection.button')}
                 </Text>

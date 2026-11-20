@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka.hook.spring;
 
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Authentication;
@@ -7,7 +8,7 @@ import com.datahub.metadata.ingestion.IngestionScheduler;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
-import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -15,6 +16,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.FormService;
@@ -22,6 +24,7 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
@@ -29,16 +32,15 @@ import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import org.apache.avro.generic.GenericRecord;
+import java.io.IOException;
+import java.util.Map;
 import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.consumer.Consumer;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
-import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
 @Configuration
 @ComponentScan(
@@ -134,24 +136,6 @@ public class MCLSpringCommonTestConfiguration {
     return TestOperationContexts.TEST_SYSTEM_AUTH;
   }
 
-  @Bean(name = "dataHubUpgradeKafkaListener")
-  @Primary
-  public DataHubUpgradeKafkaListener dataHubUpgradeKafkaListener() {
-    return Mockito.mock(DataHubUpgradeKafkaListener.class);
-  }
-
-  @Bean(name = "duheKafkaConsumerFactory")
-  @Primary
-  @SuppressWarnings("unchecked")
-  public DefaultKafkaConsumerFactory<String, GenericRecord> defaultKafkaConsumerFactory() {
-    DefaultKafkaConsumerFactory<String, GenericRecord> factory =
-        Mockito.mock(DefaultKafkaConsumerFactory.class);
-    Consumer<String, GenericRecord> consumer = Mockito.mock(Consumer.class);
-    Mockito.when(factory.createConsumer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
-        .thenReturn(consumer);
-    return factory;
-  }
-
   @Bean(name = "systemOperationContext")
   public OperationContext operationContext(
       final EntityRegistry entityRegistry,
@@ -199,6 +183,15 @@ public class MCLSpringCommonTestConfiguration {
   public SearchClientShim<?> searchClientShim() {
     SearchClientShim<?> mock = Mockito.mock(SearchClientShim.class);
     Mockito.when(mock.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    // V3 reads list V2 indices at startup. Nothing listed is a fresh install.
+    try {
+      Mockito.when(mock.getIndex(Mockito.any(), Mockito.any(), Mockito.any()))
+          .thenReturn(
+              new GetIndexResponse(
+                  new String[0], Map.of(), Map.of(), Map.of(), Map.of(), Map.of()));
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
     return mock;
   }
 
@@ -208,6 +201,19 @@ public class MCLSpringCommonTestConfiguration {
   @Primary
   public ESBulkProcessor elasticSearchBulkProcessor() {
     return Mockito.mock(ESBulkProcessor.class);
+  }
+
+  @Bean(name = "searchClusterRegistry")
+  @Primary
+  public SearchClusterRegistry searchClusterRegistry(
+      ESBulkProcessor elasticSearchBulkProcessor, SearchClientShim<?> searchClientShim) {
+    // This context does not scan factory.config, so there is no ConfigurationProvider to read the
+    // bound elasticsearch settings from.
+    return SearchClusterRegistry.singleCluster(
+        TEST_ES_SEARCH_CONFIG,
+        searchClientShim,
+        elasticSearchBulkProcessor,
+        Mockito.mock(ESIndexBuilder.class));
   }
 
   @Bean(name = "legacyMappingsBuilder")

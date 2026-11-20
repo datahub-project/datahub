@@ -1,13 +1,14 @@
 package com.linkedin.metadata.event;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.entity.ebean.batch.AttributedActorHeaders;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.usage.instrumentation.UsageMetadataChangeProposalEnricher;
 import com.linkedin.metadata.utils.arch.OperationContextExempt;
-import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
@@ -95,6 +96,18 @@ public abstract class EventProducer {
       @Nonnull final Urn urn,
       @Nonnull MetadataChangeProposal metadataChangeProposal) {
     UsageMetadataChangeProposalEnricher.enrich(opContext, metadataChangeProposal);
+    // The MCE consumer writes queued proposals with system credentials; this is the last point
+    // where the authenticated caller is known. Overwrites any client-supplied value. A non-system
+    // caller with no session actor must not keep a client-supplied header. System auth keeps an
+    // existing header so the original caller survives the queue.
+    Authentication session = opContext.getSessionAuthentication();
+    if (!opContext.isSystemAuth()) {
+      if (session != null && session.getActor() != null) {
+        AttributedActorHeaders.stamp(metadataChangeProposal, session.getActor().toUrnStr());
+      } else {
+        AttributedActorHeaders.strip(metadataChangeProposal);
+      }
+    }
     return doProduceMetadataChangeProposal(opContext, urn, metadataChangeProposal);
   }
 
@@ -161,14 +174,4 @@ public abstract class EventProducer {
 
   @OperationContextExempt(reason = "Pure topic-name lookup; no per-event context needed.")
   public abstract String getPlatformEventTopicName();
-
-  /**
-   * Creates an entry on the history log of when the indices were last rebuilt with the latest
-   * configuration.
-   *
-   * @param opContext per-event operation context.
-   * @param event the history event to send to the DataHub Upgrade history topic
-   */
-  public abstract void produceDataHubUpgradeHistoryEvent(
-      @Nonnull OperationContext opContext, @Nonnull DataHubUpgradeHistoryEvent event);
 }

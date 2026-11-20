@@ -1,0 +1,5 @@
+{
+    "schemaTimeline.changeAdded": "已添加 {{fieldPath}}。",
+    "schemaTimeline.changeModified": "已修改 {{fieldPath}}。",
+    "schemaTimeline.changeRemoved": "已移除 {{fieldPath}}。"
+}

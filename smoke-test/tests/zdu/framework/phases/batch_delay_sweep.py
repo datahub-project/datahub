@@ -37,8 +37,9 @@ import subprocess
 import threading
 import time
 from datetime import datetime
+from typing import Sequence
 
-from ._shared import old_image_gms_window, read_token_passthrough
+from ._shared import old_image_window, read_token_passthrough
 from .base import Phase, PhaseResult
 from ..constants import REPO_ROOT
 from ..context import BatchDelayCapture, TestContext
@@ -73,6 +74,7 @@ class BatchDelaySweepPhase(Phase):
         mysql: MySQLClient,
         datahub: DataHubClient,
         gms_service: str,
+        consumer_services: Sequence[str] = (),
         upgrade_service: str = "system-update-debug",
         seed_count: int = _DEFAULT_SEED_COUNT,
         batch_size: int = _DEFAULT_BATCH_SIZE,
@@ -90,6 +92,7 @@ class BatchDelaySweepPhase(Phase):
         self._mysql = mysql
         self._datahub = datahub
         self._gms_service = gms_service
+        self._consumer_services = tuple(consumer_services)
         self._upgrade_service = upgrade_service
         self._seed_count = seed_count
         self._batch_size = batch_size
@@ -116,19 +119,22 @@ class BatchDelaySweepPhase(Phase):
         # Best-effort cleanup of any stale container.
         self._docker.remove_container(_CONTAINER_NAME)
 
-        # Seed and sweep both run with GMS held on the OLD image. The window
-        # must span the sweep: GMS hosts the embedded MCE/MAE consumers, so
-        # restoring it to NEW hands the fixture to an armed mutator chain which
-        # drains it far faster than this deliberately-paced sweep can, leaving
-        # no inter-batch gaps to measure. See old_image_gms_window.
+        # Seed and sweep both run with the write path held on the OLD image.
+        # The window must span the sweep: restoring to NEW hands the fixture to
+        # an armed mutator chain which drains it far faster than this
+        # deliberately-paced sweep can, leaving no inter-batch gaps to measure.
+        # The consumers are passed explicitly because they only live inside the
+        # GMS process on the embedded profiles — on a split topology a GMS-only
+        # swap leaves them armed. See old_image_window.
         #
         # Seeding here rather than in a shared earlier phase is also deliberate:
         # the sweep is global (``streamAspectBatchesForMigration`` takes no URN
         # filter), so a fixture seeded before kill_switch_sweep would be
         # consumed by that phase's sweep instead of this one's.
-        with old_image_gms_window(
+        with old_image_window(
             self._docker,
             gms_service=self._gms_service,
+            consumer_services=self._consumer_services,
             old_image_tag=self._old_image_tag,
             new_image_tag=self._new_image_tag,
             build_images_root=self._build_images_root,

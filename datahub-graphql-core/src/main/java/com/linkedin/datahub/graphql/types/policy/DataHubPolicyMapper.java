@@ -16,8 +16,10 @@ import com.linkedin.datahub.graphql.generated.PolicyMatchFilter;
 import com.linkedin.datahub.graphql.generated.PolicyState;
 import com.linkedin.datahub.graphql.generated.PolicyType;
 import com.linkedin.datahub.graphql.generated.ResourceFilter;
+import com.linkedin.datahub.graphql.generated.StructuredPropertyCriterionValue;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -55,9 +57,14 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
       @Nullable QueryContext context, @Nonnull DataHubPolicy policy, @Nonnull DataMap dataMap) {
     DataHubPolicyInfo policyInfo = new DataHubPolicyInfo(dataMap);
     policy.setDescription(policyInfo.getDescription());
-    // Careful - we assume no other Policy types or states have been ingested using a backdoor.
-    policy.setPolicyType(PolicyType.valueOf(policyInfo.getType()));
-    policy.setState(PolicyState.valueOf(policyInfo.getState()));
+    // Type/state are free-form strings; while unknown enum values are tolerated, a value this
+    // version doesn't know (ingested via the API, or written by a newer version before a rollback)
+    // falls back to the same values PolicyInfoPolicyMapper uses. Otherwise it fails as before.
+    policy.setPolicyType(
+        UnknownEnumValues.fromString(PolicyType.class, policyInfo.getType(), PolicyType.METADATA));
+    policy.setState(
+        UnknownEnumValues.fromString(
+            PolicyState.class, policyInfo.getState(), PolicyState.INACTIVE));
     policy.setName(policyInfo.getDisplayName()); // Rebrand to 'name'
     policy.setPrivileges(policyInfo.getPrivileges());
     policy.setActors(mapActors(policyInfo.getActors()));
@@ -115,16 +122,25 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
         .setCriteria(
             filter.getCriteria().stream()
                 .map(
-                    criterion ->
-                        PolicyMatchCriterion.builder()
-                            .setField(criterion.getField())
-                            .setValues(
-                                criterion.getValues().stream()
-                                    .map(c -> mapValue(context, c))
-                                    .collect(Collectors.toList()))
-                            .setCondition(
-                                PolicyMatchCondition.valueOf(criterion.getCondition().name()))
-                            .build())
+                    criterion -> {
+                      boolean hasStructuredProps = criterion.hasStructuredPropertyValues();
+                      return PolicyMatchCriterion.builder()
+                          .setField(criterion.getField())
+                          .setValues(
+                              criterion.getValues().stream()
+                                  .map(c -> mapValue(context, c))
+                                  .collect(Collectors.toList()))
+                          .setCondition(
+                              UnknownEnumValues.mapOrNull(
+                                  PolicyMatchCondition.class, criterion.getCondition()))
+                          .setStructuredPropertyValues(
+                              hasStructuredProps
+                                  ? criterion.getStructuredPropertyValues().stream()
+                                      .map(this::mapStructuredPropertyValue)
+                                      .collect(Collectors.toList())
+                                  : null)
+                          .build();
+                    })
                 .collect(Collectors.toList()))
         .build();
   }
@@ -141,5 +157,13 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
       // Value is not an urn. Just set value
       return PolicyMatchCriterionValue.builder().setValue(value).build();
     }
+  }
+
+  private StructuredPropertyCriterionValue mapStructuredPropertyValue(
+      final com.linkedin.policy.StructuredPropertyCriterionValue value) {
+    final StructuredPropertyCriterionValue result = new StructuredPropertyCriterionValue();
+    result.setPropertyUrn(value.getPropertyUrn().toString());
+    result.setValues(value.getValues());
+    return result;
   }
 }

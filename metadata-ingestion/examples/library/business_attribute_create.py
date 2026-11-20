@@ -1,4 +1,3 @@
-import logging
 import os
 import time
 
@@ -10,9 +9,6 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     SchemaFieldDataTypeClass,
 )
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 business_attribute_urn = "urn:li:businessAttribute:customer_id"
 
@@ -38,4 +34,4 @@ gms_server = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
 token = os.getenv("DATAHUB_GMS_TOKEN")
 rest_emitter = DatahubRestEmitter(gms_server=gms_server, token=token)
 rest_emitter.emit(event)
-log.info(f"Created business attribute {business_attribute_urn}")
+print(f"Created business attribute {business_attribute_urn}")

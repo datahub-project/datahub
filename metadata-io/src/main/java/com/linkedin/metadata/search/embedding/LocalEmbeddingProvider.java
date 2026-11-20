@@ -87,14 +87,34 @@ public class LocalEmbeddingProvider implements EmbeddingProvider {
   @Override
   @Nonnull
   public float[] embed(@Nonnull String text, @Nullable String model) {
+    return embed(text, model, MAX_ATTEMPTS, REQUEST_TIMEOUT);
+  }
+
+  @Override
+  @Nonnull
+  public float[] embed(
+      @Nonnull String text,
+      @Nullable String model,
+      @Nonnull EmbeddingTaskType taskType,
+      @Nonnull Duration timeout) {
+    return embed(
+        text, model, 1, timeout.compareTo(REQUEST_TIMEOUT) < 0 ? timeout : REQUEST_TIMEOUT);
+  }
+
+  @Nonnull
+  private float[] embed(
+      @Nonnull String text,
+      @Nullable String model,
+      int maxAttempts,
+      @Nonnull Duration attemptTimeout) {
     Objects.requireNonNull(text, "text cannot be null");
 
     @Nonnull String modelToUse = model != null ? model : defaultModel;
     Exception lastException = null;
 
-    for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        return embedInternal(text, modelToUse);
+        return embedInternal(text, modelToUse, attemptTimeout);
       } catch (ConnectException e) {
         // Connection refused — server isn't running. Not retryable.
         throw newConnectError(e);
@@ -107,23 +127,23 @@ public class LocalEmbeddingProvider implements EmbeddingProvider {
           throw newConnectError(e.getCause());
         }
         lastException = e;
-        if (attempt < MAX_ATTEMPTS) {
+        if (attempt < maxAttempts) {
           log.warn(
               "Local embedding attempt {}/{} failed for model {}, retrying: {}",
               attempt,
-              MAX_ATTEMPTS,
+              maxAttempts,
               modelToUse,
               e.getMessage());
         }
       }
     }
 
-    log.error("All {} attempts failed for local embedding with model {}", MAX_ATTEMPTS, modelToUse);
+    log.error("All {} attempts failed for local embedding with model {}", maxAttempts, modelToUse);
     Exception cause = Objects.requireNonNull(lastException);
     throw new RuntimeException(
         String.format(
             "Local embedding call failed for model %s after %d attempts: %s",
-            modelToUse, MAX_ATTEMPTS, cause.getMessage()),
+            modelToUse, maxAttempts, cause.getMessage()),
         cause);
   }
 
@@ -137,7 +157,8 @@ public class LocalEmbeddingProvider implements EmbeddingProvider {
   }
 
   @Nonnull
-  private float[] embedInternal(@Nonnull String text, @Nonnull String modelToUse)
+  private float[] embedInternal(
+      @Nonnull String text, @Nonnull String modelToUse, @Nonnull Duration attemptTimeout)
       throws IOException, InterruptedException {
     ObjectNode requestBody = objectMapper.createObjectNode();
     requestBody.put("input", text);
@@ -150,7 +171,7 @@ public class LocalEmbeddingProvider implements EmbeddingProvider {
     HttpRequest request =
         HttpRequest.newBuilder()
             .uri(URI.create(endpoint))
-            .timeout(REQUEST_TIMEOUT)
+            .timeout(attemptTimeout)
             .header("Content-Type", "application/json")
             // Ollama ignores this header; included for compatibility with servers that require
             // a non-empty bearer token (e.g., LM Studio).

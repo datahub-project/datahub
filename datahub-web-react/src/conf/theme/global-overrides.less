@@ -1,5 +1,70 @@
-element {
-    --primary-color: brown;
+// antd 4's stylesheet set these document-wide base styles; antd 5's reset.css leaves them out
+body {
+    color: rgba(0, 0, 0, 0.85);
+    font-size: 12px;
+    // Overlays portaled to <body> (dropdowns, submenus, modals) sit outside the `.themeV2 *` Mulish
+    // rule and inherit this (antdTheme sets fontFamily: 'inherit'), so keep it in sync with @font-family-v2
+    font-family:
+        'Mulish',
+        -apple-system,
+        BlinkMacSystemFont,
+        'Segoe UI',
+        Roboto,
+        'Helvetica Neue',
+        Arial,
+        'Noto Sans',
+        sans-serif,
+        'Apple Color Emoji',
+        'Segoe UI Emoji',
+        'Segoe UI Symbol',
+        'Noto Color Emoji';
+    font-variant: tabular-nums;
+    line-height: 1.5715;
+    background-color: #fff;
+    font-feature-settings: 'tnum';
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: rgba(0, 0, 0, 0.85);
+}
+
+::selection {
+    color: #fff;
+    background: #533fd1;
+}
+
+a {
+    color: #533fd1;
+    text-decoration: none;
+    background-color: transparent;
+    outline: none;
+    cursor: pointer;
+    transition: color 0.3s;
+
+    &:hover {
+        color: #7a66de;
+    }
+
+    &:active {
+        color: #382bab;
+    }
+
+    &:active,
+    &:hover,
+    &:focus {
+        text-decoration: none;
+        outline: 0;
+    }
+
+    &[disabled] {
+        color: rgba(0, 0, 0, 0.25);
+        cursor: not-allowed;
+    }
 }
 
 body {
@@ -9,35 +74,119 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-::-webkit-scrollbar {
-    height: 8px;
-    width: 8px;
-}
-
-*::-webkit-scrollbar-track {
-    background: rgba(193, 196, 208, 0);
-    border-radius: 10px;
-}
-
-*::-webkit-scrollbar-thumb {
-    background: rgba(193, 196, 208, 0);
-    border-radius: 10px;
-    transition: 0.3s;
-}
-
-*:hover::-webkit-scrollbar-track {
-    background: rgba(193, 196, 208, 0.3);
-}
-
-*:hover::-webkit-scrollbar-thumb {
-    background: rgba(193, 196, 208, 0.8);
-}
-
-.ant-modal-title {
+.ant-modal .ant-modal-title {
     font-weight: 700;
 }
 .ant-form-item-label {
     font-weight: 600;
+}
+
+// antd 4 cleared borderless selects with !important, over GlobalThemeStyles' border and fill
+.ant-select-borderless .ant-select-selector {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+// antd 4 menu items used a fixed 22px line
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item,
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-submenu-title,
+.ant-dropdown-menu-submenu .ant-dropdown-menu .ant-dropdown-menu-item,
+.ant-dropdown-menu-submenu .ant-dropdown-menu .ant-dropdown-menu-submenu-title {
+    line-height: 22px;
+}
+
+// antd 4 drew vertical dividers in a fixed 6% black in both modes; antd 5 uses colorSplit, which dark mode sets
+.ant-divider.ant-divider-vertical {
+    border-inline-start-color: rgba(0, 0, 0, 0.06);
+}
+
+// antd 5 fixes single selects at the control height; selects that render their own input (AutoComplete
+// search bars) need to grow with it as they did in antd 4
+.ant-select-single.ant-select-customize-input {
+    height: auto;
+}
+
+// antd 5 puts an 8px gap between every child of a button, which widens buttons built from custom
+// icons and labels. antd 4 only spaced an antd icon from its text, so restore that.
+.ant-btn {
+    gap: 0;
+}
+.ant-btn > .ant-btn-icon + span,
+.ant-btn > span + .ant-btn-icon,
+.ant-btn > .anticon + span,
+.ant-btn > span + .anticon {
+    margin-inline-start: 8px;
+}
+
+// antd 5 pads the whole modal box; restore antd 4's padded header, body and footer with dividers
+.ant-modal .ant-modal-content {
+    padding: 0;
+}
+.ant-modal .ant-modal-header {
+    padding: 16px 24px;
+    margin-bottom: 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+.ant-modal .ant-modal-body {
+    padding: 24px;
+}
+.ant-modal .ant-modal-footer {
+    padding: 10px 16px;
+    margin-top: 0;
+    border-top: 1px solid #f0f0f0;
+}
+// antd 4's close icon: a 54px corner square on the inner element, with no hover background
+.ant-modal .ant-modal-close {
+    top: 0;
+    inset-inline-end: 0;
+    width: auto;
+    height: auto;
+
+    &:hover {
+        background-color: transparent;
+    }
+}
+.ant-modal .ant-modal-close-x {
+    width: 54px;
+    height: 54px;
+    align-items: center;
+    font-size: 16px;
+}
+.ant-modal.ant-modal-confirm .ant-modal-body {
+    padding: 32px 32px 24px;
+}
+
+// antd 5 sets the token font size and line height on Typography; antd 4 let both inherit
+.ant-typography {
+    font-size: inherit;
+    line-height: inherit;
+}
+
+// antd 5 sizes table sort arrows from fontSizeSM (10px here); antd 4 fixed them at 11px
+.ant-table-wrapper .ant-table-column-sorter-up,
+.ant-table-wrapper .ant-table-column-sorter-down {
+    font-size: 11px;
+}
+
+// antd 5 has no title-weight token: titles share fontWeightStrong with <strong>, which should stay 600
+// The descendant forms cover markdown headings inside Typography, e.g. the editor
+h1.ant-typography,
+h2.ant-typography,
+h3.ant-typography,
+h4.ant-typography,
+h5.ant-typography,
+div.ant-typography-h1,
+div.ant-typography-h2,
+div.ant-typography-h3,
+div.ant-typography-h4,
+div.ant-typography-h5,
+.ant-typography h1,
+.ant-typography h2,
+.ant-typography h3,
+.ant-typography h4,
+.ant-typography h5 {
+    font-weight: 700;
 }
 
 .ant-btn .anticon {
@@ -45,38 +194,12 @@ body {
     font-size: 16px;
 }
 
-.ant-empty .ant-empty-image {
-    svg {
-        display: none;
-    }
-    height: 32px;
-    background-repeat: no-repeat;
-    background-position: 50% 50%;
-    background-image: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.5625 16.7344H4.875C4.97812 16.7344 5.0625 16.65 5.0625 16.5469V15.2344C5.0625 15.1313 4.97812 15.0469 4.875 15.0469H3.5625C3.45937 15.0469 3.375 15.1313 3.375 15.2344V16.5469C3.375 16.65 3.45937 16.7344 3.5625 16.7344ZM3.5625 5.0625H4.875C4.97812 5.0625 5.0625 4.97812 5.0625 4.875V3.5625C5.0625 3.45937 4.97812 3.375 4.875 3.375H3.5625C3.45937 3.375 3.375 3.45937 3.375 3.5625V4.875C3.375 4.97812 3.45937 5.0625 3.5625 5.0625ZM3.5625 12.8438H4.875C4.97812 12.8438 5.0625 12.7594 5.0625 12.6562V11.3438C5.0625 11.2406 4.97812 11.1562 4.875 11.1562H3.5625C3.45937 11.1562 3.375 11.2406 3.375 11.3438V12.6562C3.375 12.7594 3.45937 12.8438 3.5625 12.8438ZM3.5625 8.95312H4.875C4.97812 8.95312 5.0625 8.86875 5.0625 8.76562V7.45312C5.0625 7.35 4.97812 7.26562 4.875 7.26562H3.5625C3.45937 7.26562 3.375 7.35 3.375 7.45312V8.76562C3.375 8.86875 3.45937 8.95312 3.5625 8.95312ZM7.45312 5.0625H8.76562C8.86875 5.0625 8.95312 4.97812 8.95312 4.875V3.5625C8.95312 3.45937 8.86875 3.375 8.76562 3.375H7.45312C7.35 3.375 7.26562 3.45937 7.26562 3.5625V4.875C7.26562 4.97812 7.35 5.0625 7.45312 5.0625ZM15.2344 5.0625H16.5469C16.65 5.0625 16.7344 4.97812 16.7344 4.875V3.5625C16.7344 3.45937 16.65 3.375 16.5469 3.375H15.2344C15.1313 3.375 15.0469 3.45937 15.0469 3.5625V4.875C15.0469 4.97812 15.1313 5.0625 15.2344 5.0625ZM20.4375 11.1562H19.125C19.0219 11.1562 18.9375 11.2406 18.9375 11.3438V12.6562C18.9375 12.7594 19.0219 12.8438 19.125 12.8438H20.4375C20.5406 12.8438 20.625 12.7594 20.625 12.6562V11.3438C20.625 11.2406 20.5406 11.1562 20.4375 11.1562ZM20.4375 3.375H19.125C19.0219 3.375 18.9375 3.45937 18.9375 3.5625V4.875C18.9375 4.97812 19.0219 5.0625 19.125 5.0625H20.4375C20.5406 5.0625 20.625 4.97812 20.625 4.875V3.5625C20.625 3.45937 20.5406 3.375 20.4375 3.375ZM11.3438 5.0625H12.6562C12.7594 5.0625 12.8438 4.97812 12.8438 4.875V3.5625C12.8438 3.45937 12.7594 3.375 12.6562 3.375H11.3438C11.2406 3.375 11.1562 3.45937 11.1562 3.5625V4.875C11.1562 4.97812 11.2406 5.0625 11.3438 5.0625ZM20.4375 15.0469H19.125C19.0219 15.0469 18.9375 15.1313 18.9375 15.2344V16.5469C18.9375 16.65 19.0219 16.7344 19.125 16.7344H20.4375C20.5406 16.7344 20.625 16.65 20.625 16.5469V15.2344C20.625 15.1313 20.5406 15.0469 20.4375 15.0469ZM20.4375 7.26562H19.125C19.0219 7.26562 18.9375 7.35 18.9375 7.45312V8.76562C18.9375 8.86875 19.0219 8.95312 19.125 8.95312H20.4375C20.5406 8.95312 20.625 8.86875 20.625 8.76562V7.45312C20.625 7.35 20.5406 7.26562 20.4375 7.26562Z' fill='%23BFBFBF'/%3E%3Cpath d='M4.875 20.6875H3.5625C3.45937 20.6875 3.375 20.6031 3.375 20.5V19.1875C3.375 19.0844 3.45937 19 3.5625 19H4.875C4.97812 19 5.0625 19.0844 5.0625 19.1875V20.5C5.0625 20.6031 4.97812 20.6875 4.875 20.6875Z' fill='%23BFBFBF'/%3E%3Cpath d='M8.76562 20.6875H7.45312C7.35 20.6875 7.26562 20.6031 7.26562 20.5V19.1875C7.26562 19.0844 7.35 19 7.45312 19H8.76562C8.86875 19 8.95312 19.0844 8.95312 19.1875V20.5C8.95312 20.6031 8.86875 20.6875 8.76562 20.6875Z' fill='%23BFBFBF'/%3E%3Cpath d='M16.5469 20.6875H15.2344C15.1313 20.6875 15.0469 20.6031 15.0469 20.5V19.1875C15.0469 19.0844 15.1313 19 15.2344 19H16.5469C16.65 19 16.7344 19.0844 16.7344 19.1875V20.5C16.7344 20.6031 16.65 20.6875 16.5469 20.6875Z' fill='%23BFBFBF'/%3E%3Cpath d='M19.125 19H20.4375C20.5406 19 20.625 19.0844 20.625 19.1875V20.5C20.625 20.6031 20.5406 20.6875 20.4375 20.6875H19.125C19.0219 20.6875 18.9375 20.6031 18.9375 20.5V19.1875C18.9375 19.0844 19.0219 19 19.125 19Z' fill='%23BFBFBF'/%3E%3Cpath d='M12.6562 20.6875H11.3438C11.2406 20.6875 11.1562 20.6031 11.1562 20.5V19.1875C11.1562 19.0844 11.2406 19 11.3438 19H12.6562C12.7594 19 12.8438 19.0844 12.8438 19.1875V20.5C12.8438 20.6031 12.7594 20.6875 12.6562 20.6875Z' fill='%23BFBFBF'/%3E%3C/svg%3E%0A");
-}
-
 .ant-tag {
     &&& {
         border-radius: 20px;
-        border-color: @gray-5;
     }
 }
 
-.ant-checkbox {
-    &:not(.ant-checkbox-disabled) {
-        &.ant-checkbox-checked {
-            .ant-checkbox-inner {
-                border-color: @primary-color;
-            }
-        }
-        &:not(.ant-checkbox-checked) {
-            .ant-checkbox-inner {
-                border-color: @gray-7;
-            }
-        }
-    }
-}
-
-.search-filter-popover .ant-popover-inner-content {
+.search-filter-popover .alchemy-floating-overlay-inner {
     padding: 0 !important;
 }

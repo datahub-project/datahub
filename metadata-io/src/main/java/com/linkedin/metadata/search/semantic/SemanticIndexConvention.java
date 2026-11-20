@@ -4,6 +4,7 @@ import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.util.Pair;
@@ -36,6 +37,12 @@ public class SemanticIndexConvention implements IndexConvention {
   }
 
   @Override
+  public Optional<String> getPrefix(
+      @Nonnull OperationFingerprint operation, @Nonnull SearchComponent component) {
+    return delegate.getPrefix(operation, component);
+  }
+
+  @Override
   @Nonnull
   public String getIndexName(
       @Nonnull OperationFingerprint operation, Class<? extends RecordTemplate> documentClass) {
@@ -52,6 +59,21 @@ public class SemanticIndexConvention implements IndexConvention {
   @Nonnull
   public String getIndexName(@Nonnull OperationFingerprint operation, String baseIndexName) {
     return delegate.getIndexName(operation, baseIndexName);
+  }
+
+  @Override
+  @Nonnull
+  public String getIndexName(
+      @Nonnull OperationFingerprint operation,
+      @Nonnull SearchComponent component,
+      @Nonnull String baseIndexName) {
+    return delegate.getIndexName(operation, component, baseIndexName);
+  }
+
+  @Override
+  public SearchComponent componentForIndex(
+      @Nonnull OperationFingerprint operation, @Nonnull String indexName) {
+    return delegate.componentForIndex(operation, indexName);
   }
 
   @Override
@@ -123,6 +145,12 @@ public class SemanticIndexConvention implements IndexConvention {
   @Nonnull
   public String getAllTimeseriesAspectIndicesPattern(@Nonnull OperationFingerprint operation) {
     return delegate.getAllTimeseriesAspectIndicesPattern(operation);
+  }
+
+  @Override
+  @Nonnull
+  public String getAllSemanticEntityIndicesPattern(@Nonnull OperationFingerprint operation) {
+    return delegate.getAllSemanticEntityIndicesPattern(operation);
   }
 
   @Override

@@ -20,7 +20,7 @@ import {
     BIGID_URL,
     BIGID_USER_TOKEN,
 } from '@app/ingest/source/builder/RecipeForm/bigid';
-import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+import { FieldType } from '@app/ingest/source/builder/RecipeForm/common';
 import { FilterRecipeField, FilterRule, setListValuesOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 export {
@@ -72,23 +72,3 @@ export const BIGID_CONNECTION_DENY: FilterRecipeField = {
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, bigidConnectionDenyFieldPath),
 };
-
-const allFields: RecipeField[] = [
-    BIGID_URL,
-    BIGID_USER_TOKEN,
-    BIGID_ACCESS_TOKEN,
-    BIGID_ENV,
-    BIGID_PLATFORM_INSTANCE,
-    BIGID_CONNECTION_ALLOW,
-    BIGID_CONNECTION_DENY,
-    BIGID_MIN_CONFIDENCE,
-    BIGID_CREATE_DATASETS,
-    BIGID_CONFIDENCE_LEVEL_TAG,
-    BIGID_SYNC_TAGS,
-    BIGID_SYNC_UNLINKED_CLASSIFIERS,
-    BIGID_SYNC_IDSOR,
-    BIGID_SYNC_UNSTRUCTURED,
-    BIGID_STATEFUL_INGESTION,
-];
-
-export default allFields;

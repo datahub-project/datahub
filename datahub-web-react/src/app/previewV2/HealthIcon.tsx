@@ -5,7 +5,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import HealthPopover from '@app/previewV2/HealthPopover';
-import { isHealthy, isUnhealthy } from '@app/shared/health/healthUtils';
+import { isHealthy, isUnhealthy } from '@app/sharedV2/health/healthUtils';
 
 import { Health } from '@types';
 

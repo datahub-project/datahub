@@ -2,6 +2,7 @@ package com.datahub.graphql;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.AspectLoadContext;
 import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -33,10 +34,12 @@ public class SpringQueryContext implements QueryContext {
   @Nonnull private final DataHubAppConfiguration dataHubAppConfig;
   @Nonnull private final RelationshipTraversalContext relationshipTraversalContext;
   private final int maxParentDepth;
+  private final int maxSiblingGroupUrns;
 
   @Nullable private AspectMappingRegistry aspectMappingRegistry;
   private final ConcurrentHashMap<String, AspectLoadContext> aspectLoadContexts =
       new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<Urn, Boolean> domainExistenceCache = new ConcurrentHashMap<>();
 
   public SpringQueryContext(
       final boolean isAuthenticated,
@@ -64,6 +67,7 @@ public class SpringQueryContext implements QueryContext {
     this.relationshipTraversalContext =
         new RelationshipTraversalContext(queryConfig.getMaxVisitedUrns());
     this.maxParentDepth = queryConfig.getMaxParentDepth();
+    this.maxSiblingGroupUrns = queryConfig.getMaxSiblingGroupUrns();
 
     GraphqlRequestUsageClassifier.Result classification =
         GraphqlRequestUsageClassifier.classify(
@@ -86,6 +90,11 @@ public class SpringQueryContext implements QueryContext {
   @Override
   public int getMaxParentDepth() {
     return maxParentDepth;
+  }
+
+  @Override
+  public int getMaxSiblingGroupUrns() {
+    return maxSiblingGroupUrns;
   }
 
   @Override
@@ -114,5 +123,10 @@ public class SpringQueryContext implements QueryContext {
   @Nullable
   public AspectLoadContext getAspectLoadContext(@Nonnull String entityTypeName) {
     return aspectLoadContexts.get(entityTypeName);
+  }
+
+  @Override
+  public Map<Urn, Boolean> getDomainExistenceCache() {
+    return domainExistenceCache;
   }
 }

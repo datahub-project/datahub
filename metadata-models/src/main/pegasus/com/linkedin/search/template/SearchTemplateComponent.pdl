@@ -1,0 +1,29 @@
+namespace com.linkedin.search.template
+
+/**
+ * A code-registered component. The template stores a name, a contract version, a mode, and
+ * opaque config. It does not name a class. Unset inherits the parent. An explicit empty
+ * record drops an inherited component.
+ */
+record SearchTemplateComponent {
+  /**
+   * Registry name.
+   */
+  name: optional string
+
+  /**
+   * Contract version. The registry key is name and version.
+   */
+  version: optional int
+
+  /**
+   * Required when the component is set. POST_PROCESS reorders the keyword window.
+   * OWN_RUNG owns the rung.
+   */
+  mode: optional SearchTemplateComponentMode
+
+  /**
+   * Opaque string configuration. The registered component interprets it.
+   */
+  config: optional map[string, string]
+}

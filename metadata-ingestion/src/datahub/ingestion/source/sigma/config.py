@@ -17,6 +17,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 
 class Constant:
@@ -203,9 +204,42 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # is counted in chart_input_fields_resolved; each additional pair increments
     # this counter. Non-zero means some chart columns have multi-upstream lineage.
     chart_input_fields_multi_ref_extra: int = 0
-    # Sub-bucket of self_ref_fallback: source name that is a case-only mismatch
-    # against a workbook element name (warehouse fallback intentionally skipped).
+    # Per ref: a ref source matching several workbook element or Data Model
+    # upstream names that differ only in case, none picked by lineage or spelled
+    # as the ref is, so it is refused (warehouse fallback skipped too).
     chart_input_fields_case_mismatch: int = 0
+    # Per ref: the ref's column is absent from its upstream's known columns, or
+    # matches only several case variants of it, so no edge is emitted.
+    chart_input_fields_column_not_found: int = 0
+    # Per ref: a 3+ segment ref that neither a known upstream schema nor a
+    # join-chain reading resolved.
+    chart_input_fields_multi_segment_refused: int = 0
+    # Per ref: [JoinElement/.../Owner/Column] resolved to the owner, a sibling
+    # of the Data Model join element the chart reads.
+    chart_input_fields_join_chain_resolved: int = 0
+    # Per ref: resolved to the one element with that name and column in a Data
+    # Model the workbook loads, though not a declared upstream of the chart.
+    chart_input_fields_loaded_dm_resolved: int = 0
+    # Per column: a column computed only from sibling columns (and parameters)
+    # that inherited their upstreams. Moves to resolved from skipped_sibling, or
+    # from self_ref_fallback when its formula also has parameters.
+    chart_input_fields_sibling_inherited: int = 0
+    # Sub-category of chart_input_fields_resolved: no formula ref resolved by
+    # name, but /workbooks/{id}/schema named another chart's column by id.
+    chart_input_fields_recovered_from_schema: int = 0
+    # /workbooks/{id}/schema calls that answered.
+    workbook_schema_fetched: int = 0
+    # /workbooks/{id}/schema failed; that workbook's charts keep their
+    # self-referential columns.
+    workbook_schema_fetch_failed: int = 0
+    # /workbooks/{id}/schema not called: an earlier 410, or 403/404 from
+    # several workbooks, before any call succeeded, said the endpoint is gone
+    # or refused for this token.
+    workbook_schema_skipped: int = 0
+    # /workbooks/{id}/schema answered in a shape not recognised, or without an
+    # element this run ingested, so which element renders a sheet cannot be
+    # trusted; nothing is read.
+    workbook_schema_incomplete: int = 0
     # Workbooks whose /columns pagination aborted partway through. InputFields
     # for those workbooks may be missing columns that appear after the failure.
     column_formulas_fetch_partial: int = 0
@@ -253,6 +287,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
     data_model_element_intra_upstreams: int = 0
+    # Siblings added as upstreams by orphan recovery; not in intra_upstreams,
+    # which counts what /lineage reported.
+    data_model_element_intra_upstreams_recovered: int = 0
+    # Union branches /lineage did not list, added as upstreams from /spec.
+    data_model_element_union_upstreams_added: int = 0
     data_model_element_external_upstreams: int = 0
     # Split intentionally so operators can triage "upstream dataset
     # exists but wasn't ingested in this run" (typically a pattern
@@ -316,6 +355,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # DM element column-level lineage (FGL) counters.
     # Throughout: "DM" / "dm" = data model.
     # Intra-DM FGL only; total FGL = fgl_emitted + fgl_cross_dm_resolved.
+    # Includes orphan-recovered edges (fgl_orphan_recovered).
     data_model_element_fgl_emitted: int = 0
     # Refs where multiple sibling candidates passed the /lineage filter;
     # sorted-first URN was chosen (matches collision precedent).
@@ -323,23 +363,59 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Refs whose source element is outside this DM; deferred to cross-DM resolution.
     data_model_element_fgl_cross_dm_deferred: int = 0
     # Warehouse-passthrough refs where columnId-based resolution failed.
-    # Fires for self-ref formulas (element name == formula source) AND for
-    # formulas where the source is the warehouse table name but resolution fails
-    # (e.g. inode-shaped columnId with /files miss or unmappable connection).
+    # Fires only when the columnId is inode-<url_id>/<COL> with url_id one of
+    # the element's sources and it fails to resolve (/files miss, unmappable
+    # connection), on a self-ref formula (element name == formula source), a
+    # formula naming the warehouse table, or an empty formula. Not counted:
+    # other columnIds, or an ingested Sigma Dataset. A Sigma Dataset excluded
+    # by workspace_pattern still counts: the lookup does not record why it
+    # returned nothing.
     # Note: semantics changed in this release — previously this counter fired on
     # every self-ref (a throughput signal); now it fires only on failure.
     data_model_element_fgl_warehouse_passthrough_deferred: int = 0
     # Warehouse-passthrough FGL emitted via columnId (inode-<url_id>/<COL>).
-    # Covers both the self-ref case and the case where the formula source is
-    # the warehouse table name rather than the element name.
+    # Covers the self-ref case, the case where the formula source is the
+    # warehouse table name rather than the element name, and a column with an
+    # empty formula.
     data_model_element_fgl_warehouse_resolved: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
-    # /lineage, and whose cross-DM rescue (_try_emit_self_named_cross_dm_fgl)
-    # also found no match; dropped to avoid orphan FGL the UI silently rejects.
+    # /lineage, whose cross-DM rescue (_try_emit_self_named_cross_dm_fgl) found
+    # no match, and that orphan recovery declined (see
+    # _recover_orphan_intra_dm_ref for the reasons). Dropped to avoid orphan
+    # FGL the UI silently rejects.
     data_model_element_fgl_dropped_orphan_upstream: int = 0
     # Refs whose column name has no matching fieldPath in the upstream element's
     # schema; dropped to avoid a dangling schemaField URN.
     data_model_element_fgl_dropped_unknown_upstream_column: int = 0
+    # Refs to an intra-DM sibling Sigma's /lineage did not list, emitted because
+    # that sibling alone owns the referenced column. Inferred, not reported by
+    # Sigma, so counted apart from the edges /lineage backs, and emitted with a
+    # lower confidenceScore. Counts edges, not refs.
+    data_model_element_fgl_orphan_recovered: int = 0
+    # Union output-column edges read from /spec, one per branch.
+    data_model_element_fgl_union_resolved: int = 0
+    # Union branch edges /spec named that could not be matched to an ingested
+    # element and column, plus output refs on a union whose /spec is not
+    # trusted (unknown schemaVersion, misaligned branches); and branches that
+    # are a warehouse table or another Data Model's element, not mapped yet.
+    data_model_element_fgl_union_unresolved: int = 0
+    data_model_element_fgl_union_branch_unmapped: int = 0
+    # Data Models whose /spec could not be fetched (see the warning for why),
+    # and those whose /spec did not match the shape the parser expects, so
+    # what is read from it may be incomplete until the connector is updated.
+    data_model_spec_fetch_failed: int = 0
+    # /spec not called: an earlier 410, or 403/404 from several Data Models,
+    # before any call succeeded.
+    data_model_spec_skipped: int = 0
+    data_model_spec_drift_detected: int = 0
+    # Refs whose listed upstream element came back with no columns, so the column
+    # could not be checked; usually a /columns fetch that failed partway.
+    # /columns is one list across all elements, so an abort leaves every
+    # element on the unread pages empty and only the one straddling the break
+    # partial; refs to a partial element land in
+    # dropped_unknown_upstream_column. An unlisted sibling with no columns
+    # blocks orphan recovery instead (dropped_orphan_upstream).
+    data_model_element_fgl_upstream_schema_unavailable: int = 0
     # Cross-DM FGL counters (DM = data model throughout).
     # Refs resolved via global bridge index and emitted as cross-DM FGL.
     # Resolution uses entity-level upstreams as a soft collision tiebreaker,
@@ -361,6 +437,40 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # emit a user-visible warning to prevent report flooding on a
     # vendor-wide regression; this counter captures the rest.
     pagination_malformed_entries_dropped: int = 0
+    # Paginated calls that aborted partway, losing every entry after the
+    # failure point. The warnings all group under one title, so without this
+    # the report shows one warning however many endpoints were truncated.
+    pagination_aborted: int = 0
+
+    # Failed Sigma API calls by HTTP status, or by exception class when there
+    # is no response (hence ..._or_error). Sourced from ``_log_http_error``,
+    # so NOT a total: the handlers that already emit their own entry with a
+    # status in it skip it rather than report the same failure twice.
+    api_call_failures_by_status_or_error: Dict[str, int] = field(default_factory=dict)
+    # The same failures keyed by Sigma's own ``code``, which is the actionable
+    # one: a single 400 covers a deleted warehouse object (inode_archived), a
+    # broken model (invalid_request) and the customer's own SQL failing
+    # (warehouse_query_failed_user_error). TopKDict because the key is
+    # server-controlled: it prints the top 10 plus a rollup, and keeps the
+    # rest.
+    api_call_failures_by_sigma_code: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
+    # RUN-WIDE calls whose failure removes entities from the emitted set.
+    # A failure, not a warning: the framework suppresses soft-deletion only
+    # when the source reports one.
+    entity_enumeration_failed: int = 0
+    # The same failure scoped to ONE parent: a workbook's pages, a page's
+    # elements, a Data Model's elements, or a workspace or file-path lookup.
+    # Counted, not failed -- the framework guard is run-wide, so failing here
+    # would freeze soft-deletion tenant-wide for one flaky call. The unit is
+    # DISTINCT PARENTS; both lookup paths dedupe on their own counted-set.
+    #
+    # RESIDUAL RISK, accepted: with ingest_shared_entities False a failed
+    # workspace lookup drops that workspace's content and the run still
+    # passes, so it is soft-deleted, with only fail_safe_threshold behind it.
+    # Reached only for workspaces MISSING from the /workspaces listing.
+    child_entity_listing_failed: int = 0
 
     element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
 
@@ -428,6 +538,77 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # type=table lineage entry missing inodeId or name; skipped to avoid
     # emitting a malformed URN.
     dm_element_warehouse_table_entry_incomplete: int = 0
+    # A table an element names but its Data Model's /lineage omits, resolved
+    # to its connection via /files/{urlId} and /connections/paths/{inodeId}.
+    # An unmappable connection still yields no edge (unknown_connection above).
+    # Once per distinct urlId.
+    dm_element_warehouse_resolved_by_url_id: int = 0
+    # /files/{urlId} returned 404: deleted, or not visible to this token.
+    dm_element_warehouse_url_id_unresolvable: int = 0
+    # /files/{urlId} failed otherwise (429, 5xx, exception, unusable body);
+    # each is also a warning. A /connections/paths failure after it counts as
+    # connection_path_lookup_failed instead.
+    dm_element_warehouse_url_id_lookup_failed: int = 0
+
+    # --- Sigma Dataset -> warehouse table, via /datasets/{id}/sources ---
+    # Replaces the SQL-name match that Sigma's 2026-09-15 dataset deprecation
+    # broke (a dataset-backed element's /query now returns 200 with no SQL).
+    # The dataset_* counters below are per Sigma Dataset, never per
+    # referencing element. connection_path_* are per warehouse table, and
+    # dataset_sources_endpoint_removed is effectively once per run.
+    #
+    # Datasets whose warehouse table(s) were recovered through this route.
+    dataset_warehouse_upstream_from_inode: int = 0
+    # Datasets whose /sources listed no type=table entry: a CSV upload, a
+    # dataset-on-dataset, or a custom-SQL dataset. Not an error.
+    dataset_warehouse_no_table_sources: int = 0
+    # A /sources entry named a table but could not be used: not a JSON object,
+    # or a type=table entry with no inodeId. Mirrors
+    # dm_element_warehouse_table_entry_incomplete. Counted per entry, and kept
+    # out of no_table_sources, which is documented as the benign case.
+    dataset_warehouse_table_entry_incomplete: int = 0
+    # /datasets/{id}/sources returned non-200, raised, or was not a JSON list.
+    dataset_sources_lookup_failed: int = 0
+    # Sub-bucket of the above: 429 after retries.
+    dataset_sources_lookup_rate_limited: int = 0
+    # Sub-bucket of dataset_sources_lookup_failed: /sources could not resolve one
+    # dataset (404, or the 409 inode_archived Sigma actually returns), i.e. it was
+    # deleted, archived or re-permissioned after the listing.
+    dataset_sources_not_found: int = 0
+    # 1 once the endpoint is concluded to be removed: a 410, or a 404/409 that a
+    # re-probe confirms (of a known-good dataset, or of the dataset API itself
+    # before anything has succeeded). Set at most once per run.
+    dataset_sources_endpoint_removed: int = 0
+    # Datasets skipped without a request because the endpoint was already
+    # latched as removed. Shows how much lineage the latch cost.
+    dataset_sources_skipped_endpoint_gone: int = 0
+    # /connections/paths/{inodeId} failed or returned an unusable body, so the
+    # table could not be tied to a connection. Also counts a failure on the
+    # Data Model urlId route.
+    connection_path_lookup_failed: int = 0
+    # Sub-bucket of the above: 429 after retries.
+    connection_path_lookup_rate_limited: int = 0
+    # The table's connectionId is absent from the connection registry or is
+    # not mappable to a DataHub platform. Mirrors
+    # dm_element_warehouse_unknown_connection for this route.
+    dataset_warehouse_unknown_connection: int = 0
+    # An element reads a Sigma Dataset that /v2/datasets did not return, so its
+    # datasetId is unknown and /sources cannot be called. Usually
+    # workspace_pattern excludes that dataset's workspace -- unless
+    # datasets_listing_failed is also set, in which case the listing itself
+    # failed and every referenced dataset lands here.
+    dataset_warehouse_unlisted_dataset: int = 0
+    # /v2/datasets could not be listed. The per-listing breakdown of
+    # entity_enumeration_failed: both fire, the aggregate driving the
+    # stale-removal guard and this one telling sigma.py which listing died.
+    # Without it the lineage loss looks like a workspace_pattern choice
+    # rather than the deprecated endpoint going away.
+    datasets_listing_failed: int = 0
+    # Datasets present in the listing but dropped because /files metadata was
+    # missing for them. _get_files_metadata returning {} drops every dataset
+    # without raising, so this distinguishes that from a workspace_pattern
+    # exclusion when a dataset later turns out to be unresolvable.
+    datasets_dropped_missing_file_metadata: int = 0
 
 
 class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
@@ -548,6 +729,16 @@ class SigmaSourceConfig(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Sigma workbook names in ingestion.",
     )
+    ingest_datasets: bool = pydantic.Field(
+        default=True,
+        description="Whether to ingest Sigma Datasets. Sigma ended dataset "
+        "support on 2026-09-15, so ``/v2/datasets`` is on a removal path. Set "
+        "this to ``False`` once that endpoint has gone for your tenant: the "
+        "call is not made and the run stops failing. Sigma Datasets a "
+        "previous run emitted are then soft-deleted. Data Model elements "
+        "that read one lose that upstream edge; workbook elements are "
+        "linked straight to the warehouse table when their SQL names it.",
+    )
     ingest_data_models: bool = pydantic.Field(
         default=True,
         description="Whether to ingest Sigma Data Models. Each Data Model is emitted "
@@ -558,6 +749,27 @@ class SigmaSourceConfig(
         "only issued when ``extract_lineage`` is also ``True`` (so users who opt out "
         "of lineage at the workbook surface don't get a lineage endpoint hit under a "
         "different flag).",
+    )
+    resolve_chart_refs_from_workbook_schema: bool = pydantic.Field(
+        default=True,
+        description="Give a chart column that no formula reference resolves "
+        "to by name column lineage from Sigma's workbook schema "
+        "(``/v2/workbooks/{id}/schema``), which names the referenced column by "
+        "id. Costs at most one call per workbook that has such a column. "
+        "Sigma has deprecated that endpoint; set this to ``False`` to stop "
+        "calling it, and those columns keep pointing at themselves. Requires "
+        "extract_lineage to be enabled.",
+    )
+    extract_data_model_spec_lineage: bool = pydantic.Field(
+        default=True,
+        description="Whether to read each Data Model's ``/dataModels/{id}/spec`` "
+        "for column lineage a formula cannot express. A union element's column "
+        "formula names the union's output, not a branch, so without ``/spec`` "
+        "no branch gets column lineage; with it, each column reading an output "
+        "gets an edge from every branch in the same Data Model. Costs one API call per Data "
+        "Model, which needs the same access as reading its elements. A failed "
+        "call is counted and reported, with each model's status, and never "
+        "fails the run. Requires ``ingest_data_models`` and ``extract_lineage``.",
     )
     data_model_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

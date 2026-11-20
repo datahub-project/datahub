@@ -1,17 +1,17 @@
 ---
-description: DataHub test review — use when asked to review, check, validate, or audit smoke tests or integration tests
+description: DataHub test review — use when asked to review, check, validate, or audit smoke tests
 globs:
 alwaysApply: false
 ---
 
 # DataHub Test Review
 
-When asked to review tests, check test quality, validate smoke tests, or review integration tests,
+When asked to review tests, check test quality, or validate smoke tests,
 follow the skill instructions in `.agent-skills/test-review/SKILL.md`.
 
 ## Quick reference
 
-1. Load standards from `.agent-skills/test-review/standards/smoke-and-integration.md`
+1. Load standards from `.agent-skills/test-review/standards/smoke.md` (authoring: `smoke-test/AGENTS.md`)
 2. If a PR number is given, use incremental review mode with `.agent-skills/test-review/scripts/detect-test-changes.sh`
 3. Otherwise, gather test files and run a full review
 4. Use the sequential fallback workflow (read each file, check against standards, report findings)
@@ -19,5 +19,5 @@ follow the skill instructions in `.agent-skills/test-review/SKILL.md`.
 
 ## Scope
 
-- **In scope:** `smoke-test/` (Python smoke tests + Cypress integration tests)
-- **Out of scope:** `metadata-ingestion/tests/unit/`, connector-specific integration tests
+- **In scope:** `smoke-test/` Python pytest smoke tests (excluding `tests/cypress/`)
+- **Out of scope:** Cypress, Playwright, `metadata-ingestion/tests/unit/`, connector-specific integration tests

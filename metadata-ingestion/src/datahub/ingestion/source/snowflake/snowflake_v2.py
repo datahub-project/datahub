@@ -20,6 +20,7 @@ from datahub.ingestion.api.source import (
     CapabilityReport,
     SourceCapability,
     SourceReport,
+    StructuredLogLevel,
     TestableSource,
     TestConnectionReport,
 )
@@ -36,6 +37,9 @@ from datahub.ingestion.source.snowflake.snowflake_assertion import (
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_MESSAGE,
+    SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_TITLE,
+    SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL,
     SnowflakeConnection,
     SnowflakeConnectionConfig,
 )
@@ -72,6 +76,12 @@ from datahub.ingestion.source.snowflake.snowflake_shares import SnowflakeSharesH
 from datahub.ingestion.source.snowflake.snowflake_stages import (
     SnowflakeStagesExtractor,
 )
+from datahub.ingestion.source.snowflake.snowflake_tag_entities import (
+    SnowflakeTagPlatformResourceRepository,
+)
+from datahub.ingestion.source.snowflake.snowflake_tag_resolver import (
+    SnowflakeTagResolver,
+)
 from datahub.ingestion.source.snowflake.snowflake_tasks import (
     SnowflakeTasksExtractor,
 )
@@ -99,6 +109,7 @@ from datahub.ingestion.source_report.ingestion_stage import (
     QUERIES_EXTRACTION,
     VIEW_PARSING,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
@@ -107,7 +118,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @platform_name("Snowflake", doc_order=1)
 @config_class(SnowflakeV2Config)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(
@@ -151,6 +162,10 @@ logger: logging.Logger = logging.getLogger(__name__)
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class SnowflakeV2Source(
     SnowflakeCommonMixin,
     StatefulIngestionSourceBase,
@@ -160,6 +175,16 @@ class SnowflakeV2Source(
         super().__init__(config, ctx)
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = SnowflakeV2Report()
+
+        # Mirror the deprecation in the structured report so it surfaces in the
+        # DataHub UI, not just CLI stdout. The URL goes in `context` and the
+        # message is a Final literal so identical warnings group in the report.
+        if self.config.is_using_password_auth():
+            self.report.warning(
+                SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_MESSAGE,
+                context=SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL,
+                title=SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_TITLE,
+            )
 
         self.filters = SnowflakeFilter(
             filter_config=self.config, structured_reporter=self.report
@@ -353,6 +378,7 @@ class SnowflakeV2Source(
                 SourceCapability.DOMAINS,
                 SourceCapability.DELETION_DETECTION,
                 SourceCapability.TEST_CONNECTION,
+                SourceCapability.PROBE,
             )
         ]
 
@@ -621,6 +647,24 @@ class SnowflakeV2Source(
                 context=decision.reason,
             )
 
+    def _build_tag_resolver(self) -> SnowflakeTagResolver:
+        # PlatformResource records need a DataHub graph; without one every
+        # Snowflake tag is ingested as native, as before.
+        repository = (
+            SnowflakeTagPlatformResourceRepository(
+                self.ctx.graph, platform_instance=self.config.platform_instance
+            )
+            if self.ctx.graph
+            else None
+        )
+        return SnowflakeTagResolver(
+            repository=repository,
+            config=self.config,
+            report=self.report,
+            identifiers=self.identifiers,
+            platform_instance=self.config.platform_instance,
+        )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._snowflake_clear_ocsp_cache()
 
@@ -647,6 +691,7 @@ class SnowflakeV2Source(
             filters=self.filters,
             identifiers=self.identifiers,
             fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
+            tag_resolver=self._build_tag_resolver(),
         )
 
         with self.report.new_stage(f"*: {METADATA_EXTRACTION}"):
@@ -751,44 +796,33 @@ class SnowflakeV2Source(
                         run_id=self.ctx.run_id,
                     )
 
-                queries_extractor = SnowflakeQueriesExtractor(
-                    connection=self.connection,
-                    # TODO: this should be its own section in main recipe
-                    config=SnowflakeQueriesExtractorConfig(
-                        window=BaseTimeWindowConfig(
-                            start_time=self.config.start_time,
-                            end_time=self.config.end_time,
-                            bucket_duration=self.config.bucket_duration,
-                        ),
-                        temporary_tables_pattern=self.config.temporary_tables_pattern,
-                        include_lineage=self.config.include_table_lineage,
-                        include_usage_statistics=self.config.include_usage_stats,
-                        include_operations=self.config.include_operational_stats,
-                        include_queries=self.config.include_queries,
-                        include_query_usage_statistics=self.config.include_query_usage_statistics,
-                        user_email_pattern=self.config.user_email_pattern,
-                        pushdown_deny_usernames=self.config.pushdown_deny_usernames,
-                        pushdown_allow_usernames=self.config.pushdown_allow_usernames,
-                        query_dedup_strategy=self.config.query_dedup_strategy,
-                        push_down_database_pattern_access_history=self.config.push_down_database_pattern_access_history,
-                        additional_database_names_allowlist=self.config.additional_database_names_allowlist,
-                    ),
-                    structured_report=self.report,
-                    filters=self.filters,
-                    identifiers=self.identifiers,
-                    redundant_run_skip_handler=redundant_queries_run_skip_handler,
-                    schema_resolver=schema_resolver,
-                    discovered_tables=self.discovered_datasets,
-                    graph=self.ctx.graph,
+                queries_extractor = self._create_queries_extractor(
+                    schema_resolver,
+                    redundant_queries_run_skip_handler,
+                    schema_extractor,
                 )
-
-                # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
-                # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
-                # it should be pretty straightforward to refactor this and only initialize the aggregator once.
-                # This also applies for the _is_temp_table and _is_allowed_table methods above, duplicated from SnowflakeQueriesExtractor.
-                self.report.queries_extractor = queries_extractor.report
-                yield from queries_extractor.get_workunits_internal()
-                queries_extractor.close()
+                # The extractor borrows the source's schema resolver and must not
+                # outlive it. Deliberately not `with queries_extractor:` the way
+                # BigQuery does: __exit__ would let a close() failure replace the
+                # stage's real exception, and a full disk fails both. report_exc
+                # downgrades the cleanup failure to a warning instead.
+                try:
+                    # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
+                    # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
+                    # it should be pretty straightforward to refactor this and only initialize the aggregator once.
+                    # This also applies for the _is_temp_table and _is_allowed_table methods above, duplicated from SnowflakeQueriesExtractor.
+                    self.report.queries_extractor = queries_extractor.report
+                    yield from queries_extractor.get_workunits_internal()
+                finally:
+                    with self.report.report_exc(
+                        title="Failed to clean up after query extraction",
+                        message="Cleaning up after the query-history stage failed; "
+                        "temporary files may have been left behind.",
+                        context=queries_extractor.report.audit_log_path
+                        or "audit log path not recorded",
+                        level=StructuredLogLevel.WARN,
+                    ):
+                        queries_extractor.close()
 
         else:
             if self.lineage_extractor:
@@ -846,6 +880,44 @@ class SnowflakeV2Source(
             ).get_assertion_workunits(self.discovered_datasets)
 
         self.connection.close()
+
+    def _create_queries_extractor(
+        self,
+        schema_resolver: SchemaResolver,
+        redundant_run_skip_handler: Optional[RedundantQueriesRunSkipHandler],
+        schema_extractor: SnowflakeSchemaGenerator,
+    ) -> SnowflakeQueriesExtractor:
+        return SnowflakeQueriesExtractor(
+            connection=self.connection,
+            # TODO: this should be its own section in main recipe
+            config=SnowflakeQueriesExtractorConfig(
+                window=BaseTimeWindowConfig(
+                    start_time=self.config.start_time,
+                    end_time=self.config.end_time,
+                    bucket_duration=self.config.bucket_duration,
+                ),
+                temporary_tables_pattern=self.config.temporary_tables_pattern,
+                include_lineage=self.config.include_table_lineage,
+                include_usage_statistics=self.config.include_usage_stats,
+                include_operations=self.config.include_operational_stats,
+                include_queries=self.config.include_queries,
+                include_query_usage_statistics=self.config.include_query_usage_statistics,
+                user_email_pattern=self.config.user_email_pattern,
+                pushdown_deny_usernames=self.config.pushdown_deny_usernames,
+                pushdown_allow_usernames=self.config.pushdown_allow_usernames,
+                query_dedup_strategy=self.config.query_dedup_strategy,
+                push_down_database_pattern_access_history=self.config.push_down_database_pattern_access_history,
+                additional_database_names_allowlist=self.config.additional_database_names_allowlist,
+            ),
+            structured_report=self.report,
+            filters=self.filters,
+            identifiers=self.identifiers,
+            redundant_run_skip_handler=redundant_run_skip_handler,
+            schema_resolver=schema_resolver,
+            discovered_tables=self.discovered_datasets,
+            dynamic_table_identifiers=schema_extractor.dynamic_table_identifiers,
+            graph=self.ctx.graph,
+        )
 
     def _get_stages_tasks_pipes_workunits(
         self,

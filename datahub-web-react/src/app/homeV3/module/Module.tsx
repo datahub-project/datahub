@@ -1,20 +1,19 @@
 import React, { memo, useMemo } from 'react';
 
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import AiContextModule from '@app/entityV2/summary/modules/aiContext/AiContextModule';
 import AssetsModule from '@app/entityV2/summary/modules/assets/AssetsModule';
 import ChildHierarchyModule from '@app/entityV2/summary/modules/childHierarchy/ChildHierarchyModule';
 import DataProductsModule from '@app/entityV2/summary/modules/dataProducts/DataProductsModule';
-import LineageModule from '@app/entityV2/summary/modules/lineage/LineageModule';
 import OutputPortsModule from '@app/entityV2/summary/modules/outputPorts/OutputPortsModule';
 import RelatedMetricsModule from '@app/entityV2/summary/modules/relatedMetrics/RelatedMetricsModule';
 import RelatedTermsModule from '@app/entityV2/summary/modules/relatedTerms/RelatedTermsModule';
-import ColumnsModule from '@app/entityV2/summary/modules/schemaTable/ColumnsModule';
 import SemanticModelDatasetsModule from '@app/entityV2/summary/modules/semanticModelDatasets/SemanticModelDatasetsModule';
 import SemanticModelDimensionsModule from '@app/entityV2/summary/modules/semanticModelDimensions/SemanticModelDimensionsModule';
 import SemanticModelMetricsModule from '@app/entityV2/summary/modules/semanticModelMetrics/SemanticModelMetricsModule';
 import SemanticModelRelationshipsModule from '@app/entityV2/summary/modules/semanticModelRelationships/SemanticModelRelationshipsModule';
-import MetricSqlModule from '@app/entityV2/summary/modules/sql/MetricSqlModule';
 import SubDataProductsModule from '@app/entityV2/summary/modules/subDataProducts/SubDataProductsModule';
+import LargeModule from '@app/homeV3/module/components/LargeModule';
 import ModuleErrorBoundary from '@app/homeV3/module/components/ModuleErrorBoundary';
 import { ModuleProvider } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
@@ -29,7 +28,35 @@ import PlatformsModule from '@app/homeV3/modules/platforms/PlatformsModule';
 
 import { DataHubPageModuleType } from '@types';
 
-function Module(props: ModuleProps) {
+// Home and asset summary render every module type from this file, so these load on demand:
+// LineageModule pulls React Flow, MetricSqlModule the syntax highlighter, and ColumnsModule the
+// schema table. The loading frame keeps the module's height, and render errors go to
+// ModuleErrorBoundary so its retry works.
+const largeModuleChunkOptions = {
+    fallback: (props: ModuleProps) => <LargeModule {...props} loading />,
+    propagateRenderErrors: true,
+};
+const LineageModule = lazyProfileComponent(
+    'LineageModule',
+    () => import('@app/entityV2/summary/modules/lineage/LineageModule'),
+    largeModuleChunkOptions,
+);
+const ColumnsModule = lazyProfileComponent(
+    'ColumnsModule',
+    () => import('@app/entityV2/summary/modules/schemaTable/ColumnsModule'),
+    largeModuleChunkOptions,
+);
+const MetricSqlModule = lazyProfileComponent(
+    'MetricSqlModule',
+    () => import('@app/entityV2/summary/modules/sql/MetricSqlModule'),
+    largeModuleChunkOptions,
+);
+
+type Props = ModuleProps & {
+    onHiddenChange?: (isHidden: boolean) => void;
+};
+
+function Module({ onHiddenChange, ...props }: Props) {
     const { module } = props;
 
     // Memoize component selection to prevent re-evaluation on every render
@@ -66,7 +93,7 @@ function Module(props: ModuleProps) {
 
     return (
         <ModuleErrorBoundary {...props}>
-            <ModuleProvider {...props}>
+            <ModuleProvider {...props} onHiddenChange={onHiddenChange}>
                 <Component {...props} />
             </ModuleProvider>
         </ModuleErrorBoundary>
@@ -74,4 +101,7 @@ function Module(props: ModuleProps) {
 }
 
 // Export memoized component to prevent unnecessary re-renders
-export default memo(Module);
+const MemoizedModule = memo(Module);
+MemoizedModule.displayName = 'Module';
+
+export default MemoizedModule;

@@ -22,6 +22,18 @@ export function isLargeModule(moduleType: DataHubPageModuleType): boolean {
 }
 
 /**
+ * Whether a specific module instance renders inside `<SmallModule>` chrome
+ * (vs `<LargeModule>`). For most module types the answer is determined by the
+ * type alone, but some module types pick their size from their params at
+ * runtime — so the row layout needs to look at the module instance, not just
+ * its type, to size drop zones correctly.
+ */
+export function isModuleRenderedSmall(module: PageModuleFragment): boolean {
+    const { type } = module.properties;
+    return SMALL_MODULE_TYPES.includes(type);
+}
+
+/**
  * Helper function to check if there's a size mismatch between two modules
  */
 export function hasModuleSizeMismatch(moduleType1: DataHubPageModuleType, moduleType2: DataHubPageModuleType): boolean {

@@ -27,7 +27,8 @@ export const StyledTable = styled(Table)`
         border: 1px solid ${(props) => props.theme.colors.border};
     }
 
-    &&& tr {
+    /* antd 5 keeps a zero-height measure row in the body; a fixed height would make it visible */
+    &&& tr:not(.ant-table-measure-row) {
         height: 32px;
     }
 
@@ -35,3 +36,4 @@ export const StyledTable = styled(Table)`
         background-color: inherit;
     }
 ` as typeof Table;
+// this above line preserves the Table component's generic-ness

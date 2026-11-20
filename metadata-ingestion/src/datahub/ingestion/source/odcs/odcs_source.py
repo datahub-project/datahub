@@ -4,10 +4,11 @@ import json
 import logging
 import os
 import pathlib
+import re
 import tempfile
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Generator, Iterable, List, Optional, Set, Type, Union
 from urllib.parse import urlparse
 
 import jsonschema
@@ -38,33 +39,56 @@ from datahub.ingestion.source.common.object_store_files import (
 )
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 from datahub.ingestion.source.odcs.odcs_config import ODCS_PLATFORM, ODCSSourceConfig
+from datahub.ingestion.source.odcs.odcs_constants import VARIABLE_MARKER
 from datahub.ingestion.source.odcs.odcs_mapper import (
     PhysicalBinding,
+    RefusalKind,
+    has_object_placeholder,
+    has_object_reference,
+    iter_schema_rules,
     odcs_to_assertion_mcps,
+    odcs_to_data_contract_mcps,
+    odcs_to_data_product_output_port_mcps,
+    odcs_to_data_product_urn,
+    odcs_to_domain_urn,
     odcs_to_logical_dataset_mcps,
     odcs_to_logical_dataset_name,
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
+    substitute_object_placeholder,
     unmapped_owner_roles,
+    unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_AUTHDEF_FIELDS,
     KNOWN_UNMAPPED_CONTRACT_FIELDS,
+    KNOWN_UNMAPPED_ENTRY_FIELDS,
     KNOWN_UNMAPPED_PROPERTY_FIELDS,
     KNOWN_UNMAPPED_QUALITY_FIELDS,
     KNOWN_UNMAPPED_SCHEMA_FIELDS,
     KNOWN_UNMAPPED_SERVER_FIELDS,
     KNOWN_UNMAPPED_TEAM_FIELDS,
     KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS,
+    LENIENT_FIELDS_BY_MODEL,
+    READ_BUT_UNMAPPED_CONTRACT_FIELDS,
+    READ_BUT_UNMAPPED_PROPERTY_FIELDS,
+    READ_BUT_UNMAPPED_QUALITY_FIELDS,
+    READ_BUT_UNMAPPED_SCHEMA_FIELDS,
+    READ_BUT_UNMAPPED_SERVER_FIELDS,
+    READ_BUT_UNMAPPED_TEAM_MEMBER_FIELDS,
     ODCSAuthoritativeDefinition,
+    ODCSContext,
+    ODCSContextConstraint,
     ODCSContract,
+    ODCSEnumValue,
     ODCSProperty,
     ODCSQualityRule,
     ODCSSchemaObject,
     ODCSServer,
     ODCSTeam,
     ODCSTeamMember,
+    ODCSVerifiedStatement,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -78,8 +102,19 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
-from datahub.metadata.schema_classes import LogicalParentClass, OwnershipClass
+from datahub.metadata.schema_classes import (
+    AiContextClass,
+    DataProductPropertiesClass,
+    DomainPropertiesClass,
+    DomainsClass,
+    LogicalParentClass,
+    OwnershipClass,
+    StatusClass,
+)
+from datahub.metadata.urns import DataProductUrn, DomainUrn
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.urns.error import InvalidUrnError
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -89,8 +124,11 @@ _VERSION_TO_SCHEMA = {
     "3.0.1": "odcs-v3.0.2.json",
     "3.0.2": "odcs-v3.0.2.json",
     "3.1.0": "odcs-v3.1.0.json",
+    "3.2.0": "odcs-v3.2.0.json",
 }
-_DEFAULT_VERSION = "3.1.0"
+# v3.2 is an additive superset, so contracts without an exact validator match
+# validate against the widest schema.
+_DEFAULT_VERSION = "3.2.0"
 
 _MODEL_FIELDS_CACHE: Dict[type, Set[str]] = {}
 
@@ -113,7 +151,50 @@ _KNOWN_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
     ODCSTeam: KNOWN_UNMAPPED_TEAM_FIELDS,
     ODCSTeamMember: KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS,
     ODCSAuthoritativeDefinition: KNOWN_UNMAPPED_AUTHDEF_FIELDS,
+    ODCSContextConstraint: KNOWN_UNMAPPED_ENTRY_FIELDS,
+    ODCSVerifiedStatement: KNOWN_UNMAPPED_ENTRY_FIELDS,
+    ODCSEnumValue: KNOWN_UNMAPPED_ENTRY_FIELDS,
 }
+
+_READ_BUT_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
+    ODCSContract: READ_BUT_UNMAPPED_CONTRACT_FIELDS,
+    ODCSSchemaObject: READ_BUT_UNMAPPED_SCHEMA_FIELDS,
+    ODCSProperty: READ_BUT_UNMAPPED_PROPERTY_FIELDS,
+    ODCSQualityRule: READ_BUT_UNMAPPED_QUALITY_FIELDS,
+    ODCSServer: READ_BUT_UNMAPPED_SERVER_FIELDS,
+    ODCSTeamMember: READ_BUT_UNMAPPED_TEAM_MEMBER_FIELDS,
+}
+
+
+class _ContractYamlLoader(yaml.SafeLoader):
+    """YAML 1.1 loader whose implicit integers are plain decimals only.
+
+    YAML 1.1 reads an unquoted `0777` as octal 511 and `12:30` as base-60 750,
+    so an identifier such as a database name or an AWS account ID would turn
+    into a different value and bind the contract to a table that does not
+    exist. Such values stay strings here, exactly as written. Unquoted dates
+    stay strings too: the JSON Schema types them as strings, and a `date`
+    object fails validation.
+    """
+
+
+_DROPPED_IMPLICIT_TAGS = ("tag:yaml.org,2002:int", "tag:yaml.org,2002:timestamp")
+_ContractYamlLoader.yaml_implicit_resolvers = {
+    first: [
+        (tag, regexp) for tag, regexp in resolvers if tag not in _DROPPED_IMPLICIT_TAGS
+    ]
+    for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
+_ContractYamlLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:int",
+    re.compile(r"^[-+]?(?:0|[1-9][0-9]*)$"),
+    list("-+0123456789"),
+)
+
+
+def _load_contract_yaml(raw_text: str) -> object:
+    return yaml.load(raw_text, Loader=_ContractYamlLoader)
+
 
 # Which list-valued keys of each model recurse into which child model, for the
 # unknown-field walker. `authoritativeDefinitions` is handled generically, and
@@ -126,8 +207,19 @@ _CHILD_MODEL_BY_KEY: Dict[type, Dict[str, type]] = {
         "team": ODCSTeamMember,
     },
     ODCSTeam: {"members": ODCSTeamMember},
-    ODCSSchemaObject: {"properties": ODCSProperty, "quality": ODCSQualityRule},
-    ODCSProperty: {"properties": ODCSProperty, "quality": ODCSQualityRule},
+    ODCSSchemaObject: {
+        "properties": ODCSProperty,
+        "quality": ODCSQualityRule,
+    },
+    ODCSProperty: {
+        "properties": ODCSProperty,
+        "quality": ODCSQualityRule,
+        "enum": ODCSEnumValue,
+    },
+    ODCSContext: {
+        "constraints": ODCSContextConstraint,
+        "verifiedStatements": ODCSVerifiedStatement,
+    },
 }
 
 
@@ -147,6 +239,42 @@ def _model_field_keys(model_cls: type[BaseModel]) -> Set[str]:
 
 
 @dataclass
+class _DataProductMembership:
+    """The output ports one DataProduct gains, accumulated across the whole run.
+
+    Several contracts — and several `schema[]` entries within one contract — can
+    name the same `dataProduct`, so they are folded together here and patched
+    once at the end rather than per schema entry. `created_name` is set only when
+    this run creates the product (verification off), so the patch names it.
+    """
+
+    asset_urns: List[str] = field(default_factory=list)
+    created_name: Optional[str] = None
+
+    def add(self, asset_urn: str) -> None:
+        if asset_urn not in self.asset_urns:
+            self.asset_urns.append(asset_urn)
+
+
+# Written only on a domain ODCS creates, so curators can tell where it came from.
+_CREATED_DOMAIN_DESCRIPTION = (
+    "Created by the DataHub ODCS connector from a data contract's `domain` field."
+)
+
+
+@dataclass
+class _EntityResolution:
+    """Outcome of resolving a contract's `dataProduct` or `domain` value to a urn.
+
+    `urn` is None when the value resolves to no entity (reported, skipped).
+    `created_name` is set only when this run should create the entity.
+    """
+
+    urn: Optional[str] = None
+    created_name: Optional[str] = None
+
+
+@dataclass
 class ODCSSourceReport(StaleEntityRemovalSourceReport):
     contracts_scanned: int = 0
     contracts_parsed: int = 0
@@ -156,12 +284,27 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     logical_parents_emitted: int = 0
     assertions_emitted: int = 0
     schema_assertions_emitted: int = 0
+    data_contracts_emitted: int = 0
+    data_contracts_skipped_no_assertions: int = 0
+    data_product_output_ports_emitted: int = 0
+    data_products_resolved_by_id: int = 0
+    data_products_resolved_by_name: int = 0
+    data_products_created: int = 0
+    data_products_unresolved: int = 0
+    domains_resolved_by_id: int = 0
+    domains_resolved_by_name: int = 0
+    domains_created: int = 0
+    domains_unresolved: int = 0
     unknown_fields_count: int = 0
     validation_errors: int = 0
     unmappable_servers: int = 0
+    unresolved_variable_bindings: int = 0
+    invalid_physical_urn_overrides: int = 0
+    ai_context_merge_skipped: int = 0
     physical_urns_verified: int = 0
     physical_urns_unverified: int = 0
     physical_urns_link_conflicts: int = 0
+    physical_urns_link_check_failed: int = 0
     physical_urns_verify_failed: int = 0
     physical_names_passthrough: int = 0
     owners_unresolved: int = 0
@@ -182,7 +325,7 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("Open Data Contract Standard", id="odcs")
 @config_class(ODCSSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(
     SourceCapability.SCHEMA_METADATA,
     "Canonical schema (types, descriptions, keys) from `schema[].properties[]`.",
@@ -193,8 +336,10 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Via standard stateful ingestion (`stateful_ingestion.remove_stale_metadata`): only "
-    "the logical `odcs` Datasets and Assertions ODCS owns are stale-removed; physical "
-    "datasets and their `logicalParent` links are never marked removed.",
+    "the logical `odcs` Datasets, Assertions, and native data contracts ODCS owns are "
+    "stale-removed; physical datasets, their `logicalParent` links, the optional "
+    "physical-dataset contract, and any data product the contract names are never marked "
+    "removed.",
 )
 class ODCSSource(StatefulIngestionSourceBase):
     """Ingest Open Data Contract Standard (ODCS) v3.x YAML documents as logical models.
@@ -233,6 +378,7 @@ class ODCSSource(StatefulIngestionSourceBase):
         # Logical `odcs` dataset URNs emitted this run, to detect collisions when
         # two contracts resolve to the same {contract_id}.{schema_name}.
         self._seen_logical_urns: Set[str] = set()
+        self._ai_context_unmerged_reported = False
         # Physical URNs already claimed by a logicalParent link this run:
         # logicalParent is single-valued, so a second contract binding the same
         # physical dataset silently overwrites the first (last-writer-wins).
@@ -241,13 +387,25 @@ class ODCSSource(StatefulIngestionSourceBase):
         self._urn_exists_cache: Dict[str, bool] = {}
         # Per-run cache of the persisted `logicalParent` target already on each
         # physical URN (one get_aspect per unique URN), for cross-run conflict
-        # detection. `None` means "no existing link" (or lookup unavailable).
+        # detection. `None` means "no existing link" (or lookup unavailable, or
+        # lookup failed and was already reported).
         self._physical_parent_cache: Dict[str, Optional[str]] = {}
         # URNs whose graph lookup raised and were assumed-present (fail-open),
         # so they are never miscounted as genuinely verified.
         self._urn_verify_failed: Set[str] = set()
         # Owner URNs already warned about (report-only resolution check).
         self._owners_warned: Set[str] = set()
+        self._data_product_ports: Dict[str, _DataProductMembership] = {}
+        # `dataProduct` value -> resolution; cached so a value shared by many
+        # contracts resolves and warns once. Whether the product is new is folded
+        # into the resolution (and then the membership).
+        self._data_product_urns: Dict[str, _EntityResolution] = {}
+        # `domain` value -> resolution, cached like `_data_product_urns`.
+        self._domain_urns: Dict[str, _EntityResolution] = {}
+        # Casefolded name -> urn of each domain created this run. A new domain is
+        # not searchable until indexed, so a case variant of its name (`Sales`
+        # vs `sales`) would otherwise create a second one.
+        self._created_domains_by_name: Dict[str, str] = {}
 
         if self.config.http_connection and not self.config.http_connection.verify_ssl:
             self.report.warning(
@@ -565,7 +723,7 @@ class ODCSSource(StatefulIngestionSourceBase):
             return None
         try:
             raw_text = file_path.read_text(encoding="utf-8")
-            raw_dict = yaml.safe_load(raw_text)
+            raw_dict = _load_contract_yaml(raw_text)
         except (OSError, yaml.YAMLError) as e:
             self.report.warning(
                 title="Failed to read ODCS file",
@@ -620,7 +778,7 @@ class ODCSSource(StatefulIngestionSourceBase):
             return None
         try:
             raw_text = raw_bytes.decode("utf-8")
-            raw_dict = yaml.safe_load(raw_text)
+            raw_dict = _load_contract_yaml(raw_text)
         except (UnicodeDecodeError, yaml.YAMLError) as e:
             self.report.warning(
                 title="Failed to read ODCS file",
@@ -647,7 +805,9 @@ class ODCSSource(StatefulIngestionSourceBase):
           1. Declared on the model — parsed; recurse into known list shapes.
           2. Spec-valid but unmapped (`KNOWN_UNMAPPED_*`) — collected and
              reported once per file as an info, NOT a warning: the field is
-             legitimate ODCS that this source deliberately does not map.
+             legitimate ODCS that this source deliberately does not map. Keys
+             the model reads but no mapping uses (`READ_BUT_UNMAPPED_*`) are
+             reported the same way.
           3. Genuinely unknown — a per-field warning. Pydantic's
              `extra="ignore"` silently drops these, and a silent drop of a
              typo'd field is a footgun.
@@ -659,6 +819,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 return
             allowed = _model_field_keys(model_cls)
             known_unmapped = _KNOWN_UNMAPPED_BY_MODEL.get(model_cls, frozenset())
+            read_unmapped = _READ_BUT_UNMAPPED_BY_MODEL.get(model_cls, frozenset())
             child_models = _CHILD_MODEL_BY_KEY.get(model_cls, {})
             for key, value in node.items():
                 if key not in allowed:
@@ -672,6 +833,8 @@ class ODCSSource(StatefulIngestionSourceBase):
                         context=f"{source_uri}: {path_hint}.{key} (model={model_cls.__name__})",
                     )
                     continue
+                if key in read_unmapped:
+                    spec_ignored.append(f"{path_hint}.{key}")
                 if (
                     model_cls is ODCSContract
                     and key == "team"
@@ -689,8 +852,17 @@ class ODCSSource(StatefulIngestionSourceBase):
                 if child_cls is not None and isinstance(value, list):
                     for i, item in enumerate(value):
                         walk(item, child_cls, f"{path_hint}.{key}[{i}]")
+                elif key == "context" and isinstance(value, dict):
+                    # `context` is the one child object; a child list given as
+                    # a map is already reported by schema validation.
+                    walk(value, ODCSContext, f"{path_hint}.{key}")
 
         walk(raw_dict, ODCSContract, "<root>")
+        # One entry per field, not per column: `properties[3].unique` and
+        # `properties[7].unique` are the same unmapped field.
+        spec_ignored = list(
+            dict.fromkeys(re.sub(r"\[\d+\]", "[*]", path) for path in spec_ignored)
+        )
         if spec_ignored:
             self.report.spec_fields_ignored.extend(spec_ignored)
             self.report.info(
@@ -749,19 +921,35 @@ class ODCSSource(StatefulIngestionSourceBase):
         Best-effort, cached graph read of the persisted `logicalParent` aspect.
         Returns None when no graph is attached, when there is no existing link,
         or when the lookup fails — conflict detection is advisory and must
-        never abort or alter emission.
+        never abort or alter emission. A failed lookup is reported, since it
+        means a conflicting link could be overwritten unnoticed.
         """
         graph = self.ctx.graph
         if graph is None:
             return None
         if physical_urn in self._physical_parent_cache:
             return self._physical_parent_cache[physical_urn]
+        if physical_urn in self._urn_verify_failed:
+            # The existence check on the same endpoint already failed and
+            # warned; skip a second call and a duplicate warning.
+            self.report.physical_urns_link_check_failed += 1
+            self._physical_parent_cache[physical_urn] = None
+            return None
         target: Optional[str] = None
         try:
             existing = graph.get_aspect(physical_urn, LogicalParentClass)
-        except Exception:
-            # Advisory-only: a flaky read must not change behavior or spam the
-            # report (the existence check already surfaces graph errors).
+        except Exception as e:
+            # Reported once per URN: the result is cached.
+            self.report.physical_urns_link_check_failed += 1
+            self.report.warning(
+                title="Could not read existing logicalParent link",
+                message=(
+                    "Graph lookup failed; the link is emitted without checking "
+                    "whether it overwrites one to a different ODCS contract."
+                ),
+                context=physical_urn,
+                exc=e,
+            )
             existing = None
         if isinstance(existing, LogicalParentClass) and existing.parent is not None:
             target = existing.parent.destinationUrn
@@ -840,8 +1028,31 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.contracts_skipped += 1
             return
 
-        for role_key in unmapped_owner_roles(contract):
-            self.report.owners_role_defaulted.append(f"{contract.id}: {role_key}")
+        defaulted_roles = unmapped_owner_roles(contract)
+        if defaulted_roles:
+            self.report.owners_role_defaulted.extend(
+                f"{contract.id}: {role_key}" for role_key in defaulted_roles
+            )
+            self.report.info(
+                title="ODCS team roles mapped to Technical Owner",
+                message=(
+                    "These team roles have no DataHub ownership type mapping, so "
+                    "their members were added as Technical Owners."
+                ),
+                context=f"{source_uri}: {', '.join(defaulted_roles)}",
+            )
+        unstorable_urls = unstorable_authoritative_definition_urls(contract)
+        if unstorable_urls:
+            self.report.warning(
+                title="ODCS authoritativeDefinitions URLs skipped",
+                message=(
+                    "DataHub only stores absolute http, https, ftp or mailto links "
+                    'that are valid URIs (no spaces or characters like | { } " < >), '
+                    "so these authoritativeDefinitions URLs were not added as links."
+                ),
+                context=f"{source_uri}: {', '.join(unstorable_urls)}",
+            )
+        self._report_lossy_mappings(raw_dict, contract, source_uri)
 
         overrides = self.config.physical_urn_overrides.get(contract.id)
         if overrides:
@@ -875,7 +1086,8 @@ class ODCSSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         # One binding == one ODCS schema entry. Each concern is a focused
         # helper; the physical-binding helper is last because it depends on the
-        # logical dataset the first helper emits.
+        # logical dataset the first helper emits. Assertion URNs are captured so
+        # the native contract can reference them without re-deriving them.
         for binding in bindings:
             logical_name = odcs_to_logical_dataset_name(
                 contract, binding.schema_entry, self.config
@@ -886,11 +1098,55 @@ class ODCSSource(StatefulIngestionSourceBase):
             yield from self._emit_logical_dataset(
                 contract, binding, source_uri, source_file
             )
+            # Checked once, before the assertions, so a table the run reports
+            # as missing is not written into their SQL. True without a check
+            # when verify_physical_urns_exist is off.
+            physical_usable = binding.physical_urn is not None and (
+                not self.config.verify_physical_urns_exist
+                or self._physical_urn_exists(binding.physical_urn)
+            )
+            assertion_urns: List[str] = []
+            schema_assertion_urn: Optional[str] = None
             if self.config.emit_assertions:
-                yield from self._emit_assertions(contract, binding, source_uri)
+                assertion_urns = yield from self._emit_assertions(
+                    contract, binding, source_uri, physical_usable
+                )
             if self.config.emit_schema_assertion:
-                yield from self._emit_schema_assertion(contract, binding)
-            yield from self._emit_logical_parent(contract, binding, source_uri)
+                schema_assertion_urn = yield from self._emit_schema_assertion(
+                    contract, binding
+                )
+            yield from self._emit_logical_contract(
+                contract,
+                binding.logical_urn,
+                schema_assertion_urn,
+                assertion_urns,
+            )
+            physical_urn = yield from self._emit_logical_parent(
+                contract, binding, source_uri, physical_usable
+            )
+            if physical_urn is not None:
+                yield from self._emit_physical_contract(
+                    contract,
+                    physical_urn,
+                    schema_assertion_urn,
+                    assertion_urns,
+                )
+            self._record_data_product_asset(contract, binding, source_uri)
+            # Best-effort, opt-in feature: a failure here must not drop the rest
+            # of the file, whose skipped datasets stale-removal would then delete.
+            try:
+                yield from self._emit_domain_association(
+                    contract, binding.logical_urn, source_uri
+                )
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to set Domain on ODCS dataset",
+                    message="The dataset's domain was left unchanged; the rest of "
+                    "the run is unaffected.",
+                    context=f"file={source_uri} contract={contract.id} "
+                    f"dataset={binding.logical_urn}",
+                    exc=e,
+                )
 
     def _emit_logical_dataset(
         self,
@@ -928,26 +1184,211 @@ class ODCSSource(StatefulIngestionSourceBase):
         )
         self._check_owner_resolution(logical_mcps, source_uri)
         for mcp in logical_mcps:
-            yield mcp.as_workunit()
+            is_field = guess_entity_type(mcp.entityUrn or "") == "schemaField"
+            if is_field and isinstance(mcp.aspect, AiContextClass):
+                merged = self._merge_ai_context(
+                    mcp.entityUrn or "", mcp.aspect, source_uri
+                )
+                if merged is None:
+                    continue
+                mcp.aspect = merged
+            # Field-level aspects (v3.2 deprecation/aiContext) are not
+            # primary-source: a schemaField URN in the checkpoint would be
+            # soft-deleted once a later contract drops the flag.
+            yield mcp.as_workunit(is_primary_source=not is_field)
         for unmapped in unmapped_types:
             self.report.schema_type_fallbacks.append(
                 f"{contract.id}/{schema_entry.name}: {unmapped}"
             )
+
+    def _report_lossy_mappings(
+        self, raw_dict: dict, contract: ODCSContract, source_uri: str
+    ) -> None:
+        """Report contract content that parses but does not reach DataHub as written."""
+        self._report_dropped_values(raw_dict, contract, source_uri)
+        self._report_variables_in_rules(contract, source_uri)
+
+    def _report_dropped_values(
+        self, raw_dict: dict, contract: ODCSContract, source_uri: str
+    ) -> None:
+        dropped: List[str] = []
+
+        def check(raw: object, parsed: BaseModel, path: str) -> None:
+            if not isinstance(raw, dict):
+                return
+            for key in LENIENT_FIELDS_BY_MODEL.get(type(parsed), ()):
+                raw_value = raw.get(key)
+                if raw_value is None:
+                    continue
+                value = getattr(parsed, key)
+                if value is None:
+                    dropped.append(f"{path}.{key}")
+                elif isinstance(value, BaseModel):
+                    check(raw_value, value, f"{path}.{key}")
+                elif isinstance(raw_value, list) and isinstance(value, list):
+                    if len(value) < len(raw_value):
+                        dropped.append(
+                            f"{path}.{key} ({len(raw_value) - len(value)} of "
+                            f"{len(raw_value)} entries)"
+                        )
+                    for i, item in enumerate(raw_value):
+                        # Each entry is re-validated alone so it lines up with
+                        # what the list validator kept from it. That holds while
+                        # the lenient list validators judge each entry on its own.
+                        single = getattr(
+                            type(parsed).__pydantic_validator__.validate_assignment(
+                                parsed.model_copy(), key, [item]
+                            ),
+                            key,
+                        )
+                        if single and isinstance(single[0], BaseModel):
+                            check(item, single[0], f"{path}.{key}[{i}]")
+            raw_props = raw.get("properties")
+            props = getattr(parsed, "properties", None) or []
+            if isinstance(raw_props, list):
+                for i, (raw_prop, prop) in enumerate(
+                    zip(raw_props, props, strict=False)
+                ):
+                    check(raw_prop, prop, f"{path}.properties[{i}]")
+
+        check(raw_dict, contract, "<root>")
+        raw_schema = raw_dict.get("schema")
+        if isinstance(raw_schema, list):
+            for i, (raw_entry, entry) in enumerate(
+                zip(raw_schema, contract.schema_ or [], strict=False)
+            ):
+                check(raw_entry, entry, f"<root>.schema[{i}]")
+        if dropped:
+            self.report.warning(
+                title="ODCS values dropped as off-spec",
+                message=(
+                    "These values do not match the spec's type and were not "
+                    "mapped; the rest of the contract was ingested."
+                ),
+                context=f"{source_uri}: {', '.join(dropped)}",
+            )
+
+    def _report_unreplaced_object_placeholder(
+        self, binding: PhysicalBinding, source_uri: str, reason: str
+    ) -> None:
+        if binding.refusal_kind is RefusalKind.EXPLICITLY_UNBOUND:
+            return
+        schema_entry = binding.schema_entry
+        if any(
+            rule.query and has_object_placeholder(rule.query)
+            for rule, _, _ in iter_schema_rules(schema_entry)
+        ):
+            self.report.warning(
+                title="ODCS quality rule table placeholder not replaced",
+                message=(
+                    "{object} in the schema entry's SQL rules stays as written "
+                    "because the entry has no usable physical table."
+                ),
+                context=f"{source_uri}: {schema_entry.name}: {reason}",
+            )
+
+    def _report_variables_in_rules(
+        self, contract: ODCSContract, source_uri: str
+    ) -> None:
+        found: List[str] = []
+        for entry in contract.schema_ or []:
+            for rule, column, _ in iter_schema_rules(entry):
+                body = rule.query or rule.implementation
+                text = body if isinstance(body, str) else json.dumps(body)
+                # `${object}` in a query is the table placeholder, replaced
+                # once bound (or reported as unbound), not a variable to
+                # resolve. Only queries are substituted, so either placeholder
+                # in `implementation` stays as written and is reported here, as
+                # is a mistyped one such as `{object}}` that is never replaced.
+                left = substitute_object_placeholder(text, "") if rule.query else text
+                unresolved = VARIABLE_MARKER in left or has_object_reference(left)
+                if body is not None and unresolved:
+                    location = f"{entry.name}.{column}" if column else entry.name
+                    found.append(f"{location}: {text}")
+        if found:
+            self.report.warning(
+                title="ODCS quality rule contains an unresolved variable",
+                message=(
+                    "The rule is copied into its assertion as written; resolve the "
+                    "variables before ingestion or the assertion cannot run."
+                ),
+                context=f"{source_uri}: {'; '.join(found)}",
+            )
+
+    def _merge_ai_context(
+        self, field_urn: str, contract_ai: AiContextClass, source_uri: str
+    ) -> Optional[AiContextClass]:
+        """The field's aiContext with only `synonyms` taken from the contract.
+
+        `aiContext` is written as a whole aspect, so the contract's synonyms
+        replace the field's synonyms while its instructions and examples are
+        kept. Without a graph the aspect is written as is, unless it would be
+        empty: loaded later, an empty aspect would erase that context.
+        Returns None when the existing aspect cannot be read: overwriting it
+        blindly could erase user-entered context.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            if not self._ai_context_unmerged_reported:
+                self._ai_context_unmerged_reported = True
+                self.report.info(
+                    title="ODCS synonyms written as whole AI context aspects",
+                    message=(
+                        "No DataHub connection, so a field's existing AI context "
+                        "cannot be read; the aspect is written with only the "
+                        "contract's synonyms, replacing instructions and examples."
+                    ),
+                    context=source_uri,
+                )
+            return contract_ai if contract_ai.synonyms else None
+        try:
+            existing = graph.get_aspect(field_urn, AiContextClass)
+        except Exception as e:
+            self.report.ai_context_merge_skipped += 1
+            self.report.warning(
+                title="Could not read existing AI context; synonyms not written",
+                message="Skipped this field's ODCS synonyms to avoid overwriting "
+                "user-entered AI context.",
+                context=field_urn,
+                exc=e,
+            )
+            return None
+        if existing is None:
+            # Nothing to clear: skip writing an empty aspect.
+            return contract_ai if contract_ai.synonyms else None
+        # The contract owns the field's synonyms: they replace the existing ones.
+        existing.synonyms = contract_ai.synonyms
+        return existing
 
     def _emit_assertions(
         self,
         contract: ODCSContract,
         binding: PhysicalBinding,
         source_uri: str,
-    ) -> Iterable[MetadataWorkUnit]:
+        physical_usable: bool,
+    ) -> Generator[MetadataWorkUnit, None, List[str]]:
         # Assertions target the LOGICAL dataset and are emitted whether or not a
         # physical binding resolved. Propagation onto bound physical datasets is
         # handled by a separate DataHub mechanism via the PhysicalInstanceOf link.
+        # The URNs are returned so a native contract can reference them.
         schema_entry = binding.schema_entry
+        bound_table = binding.table_name if physical_usable else None
+        if bound_table is None:
+            if binding.physical_urn is None:
+                reason = binding.unmapped_reason or "the entry is not bound"
+            elif not physical_usable:
+                reason = "the bound physical table was not found in DataHub"
+            else:
+                reason = (
+                    "the override URN's name may start with a platform instance, "
+                    "so the table's SQL name is unknown"
+                )
+            self._report_unreplaced_object_placeholder(binding, source_uri, reason)
         assertion_urns, assertion_mcps, trace = odcs_to_assertion_mcps(
             contract=contract,
             schema_entry=schema_entry,
             logical_urn=binding.logical_urn,
+            bound_table=bound_table,
         )
         self.report.rules_routed_to_custom.extend(trace.routed_to_custom)
         if trace.deprecated_rule_key:
@@ -978,12 +1419,13 @@ class ODCSSource(StatefulIngestionSourceBase):
         self.report.assertions_emitted += len(assertion_urns)
         for mcp in assertion_mcps:
             yield mcp.as_workunit()
+        return assertion_urns
 
     def _emit_schema_assertion(
         self,
         contract: ODCSContract,
         binding: PhysicalBinding,
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Generator[MetadataWorkUnit, None, Optional[str]]:
         schema_assertion_urn, schema_assertion_mcps = odcs_to_schema_assertion_mcps(
             contract=contract,
             schema_entry=binding.schema_entry,
@@ -994,56 +1436,76 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.schema_assertions_emitted += 1
             for mcp in schema_assertion_mcps:
                 yield mcp.as_workunit()
+        return schema_assertion_urn
 
     def _emit_logical_parent(
         self,
         contract: ODCSContract,
         binding: PhysicalBinding,
         source_uri: str,
-    ) -> Iterable[MetadataWorkUnit]:
+        physical_usable: bool,
+    ) -> Generator[MetadataWorkUnit, None, Optional[str]]:
+        # Returns the bound physical URN (or None) so the caller can attach an
+        # optional native contract to the physical dataset.
         schema_entry = binding.schema_entry
         if binding.physical_urn is None:
             # No binding costs only the logicalParent link — never the
             # assertions. The unmapped reason is informational.
-            if binding.unmapped_reason:
-                self.report.unmappable_servers += 1
+            message = (
+                "Emitted the logical dataset and its assertions; no logicalParent link."
+            )
+            context = (
+                f"file={source_uri} schema_index={binding.index} "
+                f"schema_name={schema_entry.name}: {binding.unmapped_reason}"
+            )
+            kind = binding.refusal_kind
+            if kind is RefusalKind.UNRESOLVED_VARIABLE:
+                self.report.unresolved_variable_bindings += 1
+                self.report.warning(
+                    title="ODCS physical binding refused: unresolved variable",
+                    message=message,
+                    context=context,
+                )
+            elif kind is RefusalKind.INVALID_OVERRIDE:
+                self.report.invalid_physical_urn_overrides += 1
+                self.report.warning(
+                    title="ODCS physical_urn_overrides entry is not a usable dataset URN",
+                    message=message,
+                    context=context,
+                )
+            elif kind is not None:
+                if kind is RefusalKind.UNMAPPABLE:
+                    self.report.unmappable_servers += 1
                 self.report.info(
                     title="ODCS schema entry has no physical binding",
-                    message=(
-                        f"{binding.unmapped_reason}. Emitted the logical "
-                        "dataset and its assertions; no logicalParent link."
-                    ),
-                    context=(
-                        f"file={source_uri} schema_index={binding.index} "
-                        f"schema_name={schema_entry.name}"
-                    ),
+                    message=message,
+                    context=context,
                 )
-            return
+            return None
 
         physical_urn = binding.physical_urn
         if binding.name_passthrough:
             self.report.physical_names_passthrough += 1
 
-        if self.config.verify_physical_urns_exist and not self._physical_urn_exists(
-            physical_urn
-        ):
+        if not physical_usable:
             self.report.physical_urns_unverified += 1
             self.report.warning(
-                title="Derived physical dataset not found in DataHub",
+                title="Physical dataset not found in DataHub",
                 message=(
-                    "The physical URN derived from the contract's servers[] "
-                    "does not exist in DataHub, so no logicalParent link was "
-                    "emitted (this avoids creating a stub dataset). Ingest "
-                    "the physical platform first, fix the derived name via "
-                    "physical_urn_overrides, or set "
-                    "verify_physical_urns_exist=false to emit optimistically."
+                    "The physical URN, derived from the contract's servers[] "
+                    "or given in physical_urn_overrides, does not exist in "
+                    "DataHub, so no logicalParent link was emitted (this "
+                    "avoids creating a stub dataset). Ingest the physical "
+                    "platform first, correct the URN via physical_urn_overrides, "
+                    "or set verify_physical_urns_exist=false to emit "
+                    "optimistically."
                 ),
                 context=(
                     f"file={source_uri} schema_name={schema_entry.name} "
                     f"urn={physical_urn}"
                 ),
             )
-            return
+            return None
 
         self.report.physical_bindings_resolved += 1
 
@@ -1091,6 +1553,507 @@ class ODCSSource(StatefulIngestionSourceBase):
             ).as_workunit(is_primary_source=False)
             self.report.logical_parents_emitted += 1
 
+        return physical_urn
+
+    def _emit_logical_contract(
+        self,
+        contract: ODCSContract,
+        logical_urn: str,
+        schema_assertion_urn: Optional[str],
+        assertion_urns: List[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        # The logical dataset is the self-consistent contract home: the assertions
+        # target it, so contract.entity == assertion.entity and results resolve
+        # directly. It renders under the LOGICAL_MODELS_ENABLED flag.
+        if not self.config.emit_data_contract:
+            return
+        # A contract only means something if it pins at least one assertion.
+        if schema_assertion_urn is None and not assertion_urns:
+            self.report.data_contracts_skipped_no_assertions += 1
+            return
+        yield from self._emit_data_contract(
+            contract,
+            logical_urn,
+            schema_assertion_urn,
+            assertion_urns,
+            is_primary_source=True,
+        )
+
+    def _emit_physical_contract(
+        self,
+        contract: ODCSContract,
+        physical_urn: str,
+        schema_assertion_urn: Optional[str],
+        assertion_urns: List[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        # Opt-in: also surface the contract on the physical table consumers
+        # browse. Off by default and always non-primary — the contract URN
+        # collides with the hand-authored SDK convention, so a primary write here
+        # would overwrite and (on stale removal) soft-delete a user's
+        # hand-authored contract. Gated on emit_logical_parent, the master switch
+        # for writing any aspect onto physical datasets.
+        #
+        # emit_data_contract is the global switch: disabling contract emission
+        # turns off both the logical and physical destinations.
+        if not self.config.emit_data_contract:
+            return
+        if not (
+            self.config.emit_physical_data_contract and self.config.emit_logical_parent
+        ):
+            return
+        if schema_assertion_urn is None and not assertion_urns:
+            self.report.data_contracts_skipped_no_assertions += 1
+            return
+        yield from self._emit_data_contract(
+            contract,
+            physical_urn,
+            schema_assertion_urn,
+            assertion_urns,
+            is_primary_source=False,
+        )
+
+    def _emit_data_contract(
+        self,
+        contract: ODCSContract,
+        entity_urn: str,
+        schema_assertion_urn: Optional[str],
+        assertion_urns: List[str],
+        is_primary_source: bool,
+    ) -> Iterable[MetadataWorkUnit]:
+        # is_primary_source drives stale removal. The logical contract is ODCS's
+        # own (primary): drop the schema entry and it soft-deletes. The optional
+        # physical contract collides with the hand-authored SDK urn, so it is
+        # non-primary — ODCS never soft-deletes a contract on a dataset it does
+        # not own.
+        contract_urn, contract_mcps = odcs_to_data_contract_mcps(
+            contract=contract,
+            entity_urn=entity_urn,
+            schema_assertion_urn=schema_assertion_urn,
+            data_quality_assertion_urns=assertion_urns,
+        )
+        if contract_urn is None:
+            return
+        self.report.data_contracts_emitted += 1
+        for mcp in contract_mcps:
+            yield mcp.as_workunit(is_primary_source=is_primary_source)
+
+    def _record_data_product_asset(
+        self, contract: ODCSContract, binding: PhysicalBinding, source_uri: str
+    ) -> None:
+        if not self.config.emit_data_product_association:
+            return
+        raw = (contract.dataProduct or "").strip()
+        if not raw:
+            return
+        # Use the intended physical target (binding.physical_urn), not the
+        # verification-gated physical_urn: membership is additive and never
+        # stale-removed, so a target that flips between runs (logical on a verify
+        # miss, physical once it resolves) would leave the product with both
+        # ports. Fall back to logical only when there is no physical binding.
+        asset_urn = binding.physical_urn or binding.logical_urn
+        if raw not in self._data_product_urns:
+            resolution = self._resolve_data_product(raw, contract, source_uri)
+            self._data_product_urns[raw] = resolution
+            if resolution.urn is None:
+                self.report.data_products_unresolved += 1
+        resolution = self._data_product_urns[raw]
+        if resolution.urn is None:
+            return
+        membership = self._data_product_ports.setdefault(
+            resolution.urn, _DataProductMembership()
+        )
+        membership.add(asset_urn)
+        if resolution.created_name is not None:
+            membership.created_name = resolution.created_name
+
+    def _resolve_data_product(
+        self, raw: str, contract: ODCSContract, source_uri: str
+    ) -> _EntityResolution:
+        """Resolve a `dataProduct` value to a product urn, if resolvable.
+
+        Tried as an id first, then matched against product display names. A value
+        matching neither is reported rather than invented, unless
+        `verify_data_product_exists` is off. The unresolved counter is bumped once
+        by the caller; this only emits the diagnostic warning per case.
+        """
+        context = f"file={source_uri} contract={contract.id} dataProduct={raw}"
+        try:
+            by_id: Optional[str] = odcs_to_data_product_urn(raw)
+        except InvalidUrnError:
+            by_id = None
+        # `is not False` also covers the no-graph case (file sink), where the
+        # id-derived urn is emitted unverified.
+        if by_id is not None and self._urn_exists_in_graph(by_id) is not False:
+            self.report.data_products_resolved_by_id += 1
+            return _EntityResolution(urn=by_id)
+
+        by_name = self._resolve_by_name(
+            raw,
+            context,
+            DataProductUrn.ENTITY_TYPE,
+            DataProductPropertiesClass,
+            label="Data Product",
+            field_name="dataProduct",
+        )
+        if by_name is not None:
+            if by_name.urn is not None:
+                self.report.data_products_resolved_by_name += 1
+            return by_name
+
+        if not self.config.verify_data_product_exists and by_id is not None:
+            # The graph was definitive that no product exists at this id (a
+            # missing graph returned above), so seeding it overwrites nothing.
+            # Name the new product after the urn's id, never the raw value, which
+            # may be a full `urn:li:dataProduct:...` string.
+            created_name = DataProductUrn.from_string(by_id).id
+            self.report.data_products_created += 1
+            self.report.info(
+                title="Created new Data Product",
+                message=(
+                    "No product matched this `dataProduct` value, so a new one was "
+                    "created (verify_data_product_exists is off)."
+                ),
+                context=f"{context} created={by_id}",
+            )
+            return _EntityResolution(urn=by_id, created_name=created_name)
+
+        no_id_message = (
+            "No Data Product matches this value by id or by name, so the "
+            "contract's datasets were not added to one. Create the product "
+            "first, or set `verify_data_product_exists: false` to have ODCS "
+            "create it."
+            if by_id is not None
+            else "No Data Product matches this value by name, and the value "
+            "cannot be an id. Rename the product to match, or set "
+            "`dataProduct` to the product's id or full urn."
+        )
+        self.report.warning(
+            title="ODCS dataProduct not found in DataHub",
+            message=no_id_message,
+            context=context,
+        )
+        return _EntityResolution()
+
+    def _resolve_by_name(
+        self,
+        raw: str,
+        context: str,
+        entity_type: str,
+        properties_cls: Union[
+            Type[DataProductPropertiesClass], Type[DomainPropertiesClass]
+        ],
+        label: str,
+        field_name: str,
+    ) -> Optional[_EntityResolution]:
+        """The name-match step shared by `dataProduct` and `domain` resolution.
+
+        Returns None when nothing carries this name, leaving the caller's own
+        missing-entity policy (create or report). Otherwise returns the single
+        match, or an unresolved result when the search was uncertain or matched
+        several entities.
+        """
+        by_name = self._entities_named(raw, entity_type, properties_cls, label)
+        if by_name is None:
+            # The search failed rather than coming back empty. A failure is not
+            # proof the entity is absent, so leave the contract unresolved instead
+            # of seeding a duplicate at the id-derived urn. Already warned about
+            # in `_entities_named`.
+            return _EntityResolution()
+        if len(by_name) == 1:
+            return _EntityResolution(urn=by_name[0])
+        if len(by_name) > 1:
+            self.report.warning(
+                title=f"ODCS {field_name} matches several {label}s",
+                message=(
+                    f"More than one {label} carries this name, so the contract's "
+                    f"datasets were linked to none of them. Set `{field_name}` to "
+                    "the id of the intended one, or to its full urn."
+                ),
+                context=f"{context} matches={', '.join(sorted(by_name))}",
+            )
+            return _EntityResolution()
+        return None
+
+    def _entities_named(
+        self,
+        name: str,
+        entity_type: str,
+        properties_cls: Union[
+            Type[DataProductPropertiesClass], Type[DomainPropertiesClass]
+        ],
+        label: str,
+    ) -> Optional[List[str]]:
+        """Urns of every `entity_type` entity whose display name equals `name`.
+
+        Returns None whenever the result is uncertain rather than definitive, so
+        the caller can distinguish that from a genuine empty result and never
+        seed an entity off the back of it. That covers both a failed search (a
+        graph error) and a candidate whose aspect read failed while fewer than
+        two matches were confirmed — an unreadable candidate could be a
+        same-named duplicate, so the partial view is neither a trustworthy miss
+        nor a trustworthy unique match. The server-side filter is a prefilter;
+        each candidate is confirmed against the persisted
+        `name` of its `properties_cls` aspect.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            return []
+        wanted = name.casefold()
+        try:
+            # Case-insensitive exact name match (IEQUAL). A relevance-ranked
+            # full-text `query=name` searches every field and, once capped, can
+            # rank the true `name` match past the cap and
+            # miss it; a plain EQUAL is case-sensitive, but the match is
+            # documented as case-insensitive. Materialize here: the filter
+            # scrolls lazily, so the search's network calls happen as the
+            # iterator is drained and belong inside this try, not the confirm
+            # loop below.
+            candidates = list(
+                graph.get_urns_by_filter(
+                    entity_types=[entity_type],
+                    extraFilters=[
+                        {"field": "name", "condition": "IEQUAL", "values": [name]}
+                    ],
+                )
+            )
+        except Exception as e:
+            self.report.warning(
+                title=f"Could not search {label}s by name",
+                message=(
+                    f"Graph lookup failed, so a value that names a {label} rather "
+                    "than identifying it could not be resolved."
+                ),
+                context=f"{label}={name}",
+                exc=e,
+            )
+            return None
+        matches: List[str] = []
+        had_read_error = False
+        for urn in candidates:
+            try:
+                props = graph.get_aspect(urn, properties_cls)
+            except Exception as e:
+                # A single unreadable candidate must not abort the loop; keep
+                # confirming the rest, but remember the view is now incomplete.
+                had_read_error = True
+                self.report.warning(
+                    title=f"Could not read a {label} while matching by name",
+                    message=(
+                        f"A candidate {label}'s properties could not be read, so "
+                        "it was skipped while matching by name."
+                    ),
+                    context=f"{label}={name} candidate={urn}",
+                    exc=e,
+                )
+                continue
+            if props is not None and (props.name or "").strip().casefold() == wanted:
+                matches.append(urn)
+        # An unreadable candidate might itself be a same-named entity, so a
+        # partial view can be trusted as neither a definitive miss (which would
+        # seed a stub) nor a unique match (which could mask a duplicate). Only a
+        # >=2 result is safe under that uncertainty — it is ambiguous either way;
+        # anything less is reported unresolved rather than guessed.
+        if had_read_error and len(matches) < 2:
+            return None
+        return matches
+
+    def _emit_data_product_output_ports(self) -> Iterable[MetadataWorkUnit]:
+        for product_urn, membership in self._data_product_ports.items():
+            # Best-effort, opt-in feature: a failure on one product must not lose
+            # the others or fail the run (this runs after every contract has been
+            # sent to the sink), so isolate each product's emission.
+            try:
+                yield from self._data_product_output_port_workunits(
+                    product_urn, membership
+                )
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to emit Data Product output ports",
+                    message="The contract's datasets were not added to this "
+                    "product; the rest of the run is unaffected.",
+                    context=product_urn,
+                    exc=e,
+                )
+
+    def _data_product_output_port_workunits(
+        self, product_urn: str, membership: _DataProductMembership
+    ) -> Iterable[MetadataWorkUnit]:
+        if membership.created_name is not None:
+            # AutoStatusAspectProcessor only sets status on primary-source
+            # workunits, and these are not, so spell it out for a new product.
+            yield MetadataChangeProposalWrapper(
+                entityUrn=product_urn, aspect=StatusClass(removed=False)
+            ).as_workunit(is_primary_source=False)
+        # Non-primary: the product is curated in DataHub, so ODCS must never
+        # stale-remove it when a contract stops naming it.
+        for mcp in odcs_to_data_product_output_port_mcps(
+            product_urn, membership.asset_urns, name=membership.created_name
+        ):
+            yield MetadataWorkUnit(
+                id=MetadataWorkUnit.generate_workunit_id(mcp),
+                mcp_raw=mcp,
+                is_primary_source=False,
+            )
+        self.report.data_product_output_ports_emitted += len(membership.asset_urns)
+
+    def _emit_domain_association(
+        self, contract: ODCSContract, logical_urn: str, source_uri: str
+    ) -> Iterable[MetadataWorkUnit]:
+        if not self.config.emit_domain_association:
+            return
+        raw = (contract.domain or "").strip()
+        domains: List[str] = []
+        if raw:
+            if raw not in self._domain_urns:
+                # Cache an unresolved placeholder first: if resolution raises,
+                # later datasets naming this value skip it instead of failing again.
+                self._domain_urns[raw] = _EntityResolution()
+                resolution = self._resolve_domain(raw, contract, source_uri)
+                self._domain_urns[raw] = resolution
+                if resolution.urn is None:
+                    self.report.domains_unresolved += 1
+                elif resolution.created_name is not None:
+                    # Once per value, and a reused case variant carries no name,
+                    # so each created domain is written once.
+                    yield from self._created_domain_workunits(
+                        resolution.urn, resolution.created_name
+                    )
+            resolution = self._domain_urns[raw]
+            if resolution.urn is None:
+                # Leave the dataset's current domain alone: an unresolved value
+                # (often a transient lookup failure) is not a request to clear it.
+                return
+            domains = [resolution.urn]
+        # The logical dataset is ODCS-owned, so the contract decides its domain:
+        # a contract without `domain` clears it.
+        yield MetadataChangeProposalWrapper(
+            entityUrn=logical_urn, aspect=DomainsClass(domains=domains)
+        ).as_workunit()
+
+    def _created_domain_workunits(
+        self, domain_urn: str, name: str
+    ) -> Iterable[MetadataWorkUnit]:
+        # Non-primary: a domain outlives the contracts that named it, so ODCS
+        # must never stale-remove it. Status is spelled out because
+        # AutoStatusAspectProcessor only covers primary-source workunits.
+        for aspect in (
+            DomainPropertiesClass(name=name, description=_CREATED_DOMAIN_DESCRIPTION),
+            StatusClass(removed=False),
+        ):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=domain_urn, aspect=aspect
+            ).as_workunit(is_primary_source=False)
+
+    def _resolve_domain(
+        self, raw: str, contract: ODCSContract, source_uri: str
+    ) -> _EntityResolution:
+        """Resolve a `domain` value to a Domain urn, creating the domain if allowed.
+
+        Tried as an id first, then matched against domain names. A value matching
+        neither is created at its id-derived urn (unless `verify_domain_exists`),
+        but only once the graph has definitively shown it is absent.
+        """
+        context = f"file={source_uri} contract={contract.id} domain={raw}"
+        try:
+            by_id: Optional[str] = odcs_to_domain_urn(raw)
+        except InvalidUrnError:
+            by_id = None
+        if self.ctx.graph is None:
+            return self._unverified_domain(by_id, context)
+        if by_id is not None:
+            exists = self._urn_exists_in_graph(by_id)
+            if by_id in self._urn_verify_failed:
+                # The existence check failed open. Assigning the id-derived urn
+                # would replace the dataset's real domain with one that may not
+                # exist.
+                self.report.warning(
+                    title="ODCS domain could not be verified",
+                    message=(
+                        "The DataHub lookup failed, so the contract's datasets keep "
+                        "their current domain. Rerun when DataHub is reachable."
+                    ),
+                    context=context,
+                )
+                return _EntityResolution()
+            if exists:
+                self.report.domains_resolved_by_id += 1
+                return _EntityResolution(urn=by_id)
+
+        by_name = self._resolve_by_name(
+            raw,
+            context,
+            DomainUrn.ENTITY_TYPE,
+            DomainPropertiesClass,
+            label="Domain",
+            field_name="domain",
+        )
+        if by_name is not None:
+            if by_name.urn is not None:
+                self.report.domains_resolved_by_name += 1
+            return by_name
+
+        if by_id is None:
+            self.report.warning(
+                title="ODCS domain not found in DataHub",
+                message=(
+                    "No Domain matches this value by name, and the value cannot be "
+                    "an id, so no domain could be created for it. Rename the domain "
+                    "to match, or set `domain` to the domain's id or urn."
+                ),
+                context=context,
+            )
+            return _EntityResolution()
+        # Name the new domain after the urn's id, never the raw value, which may
+        # be a full `urn:li:domain:...` string.
+        created_name = DomainUrn.from_string(by_id).id
+        created_earlier = self._created_domains_by_name.get(created_name.casefold())
+        if created_earlier is not None:
+            return _EntityResolution(urn=created_earlier)
+        if self.config.verify_domain_exists:
+            self.report.warning(
+                title="ODCS domain not found in DataHub",
+                message=(
+                    "No Domain matches this value by id or by name, so none was set "
+                    "on the contract's datasets. Create the domain first, or set "
+                    "`verify_domain_exists: false` to have ODCS create it."
+                ),
+                context=context,
+            )
+            return _EntityResolution()
+        self._created_domains_by_name[created_name.casefold()] = by_id
+        self.report.domains_created += 1
+        self.report.info(
+            title="Created new Domain",
+            message="No Domain matched this `domain` value, so a new one was created.",
+            context=f"{context} created={by_id}",
+        )
+        return _EntityResolution(urn=by_id, created_name=created_name)
+
+    def _unverified_domain(
+        self, by_id: Optional[str], context: str
+    ) -> _EntityResolution:
+        """With no graph (file sink), use the id-derived urn without checking it."""
+        if by_id is None:
+            self.report.warning(
+                title="ODCS domain not resolved: no DataHub graph",
+                message=(
+                    "The value cannot be an id, and matching it by name needs a "
+                    "DataHub graph (datahub-rest sink), so no domain was set."
+                ),
+                context=context,
+            )
+            return _EntityResolution()
+        self.report.warning(
+            title="ODCS domain not verified: no DataHub graph",
+            message=(
+                "The domain was set by id without checking that it exists. A value "
+                "that is a domain's name rather than its id points at no domain; "
+                "use a datahub-rest sink to resolve names."
+            ),
+            context=f"{context} urn={by_id}",
+        )
+        return _EntityResolution(urn=by_id)
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with contextlib.ExitStack() as stack:
             checkout_dir: Optional[pathlib.Path] = None
@@ -1128,6 +2091,9 @@ class ODCSSource(StatefulIngestionSourceBase):
                 )
                 self.report.files_skipped.append(uri)
                 self.report.contracts_skipped += 1
+
+        # After all contracts are read, so a product named by several gets one patch.
+        yield from self._emit_data_product_output_ports()
 
         # Surface the silent-by-default case: logical datasets were emitted but
         # nothing bound to a physical dataset. Assertions are unaffected (they

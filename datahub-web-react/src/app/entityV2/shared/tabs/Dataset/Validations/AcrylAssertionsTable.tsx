@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import {
     ActionsColumn,
     DetailsColumn,
@@ -37,7 +37,7 @@ const BaseStyledTable = styled(Table)<StyledTableProps>`
         > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
             [colspan]
         )::before {
-        border: 1px solid ${(props) => props.theme.colors.bgHover};
+        border: 1px solid ${(props) => props.theme.colors.border};
     }
     && {
         .ant-table-tbody > tr > td {

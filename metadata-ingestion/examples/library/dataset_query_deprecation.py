@@ -25,14 +25,11 @@ def query_dataset_deprecation(
     return (False, None, None)
 
 
-def main(client: Optional[DataHubClient] = None) -> None:
+def main() -> None:
     """
     Main function to query dataset deprecation example.
-
-    Args:
-        client: Optional DataHub client (for testing). If not provided, creates one from env.
     """
-    client = client or DataHubClient.from_env()
+    client = DataHubClient.from_env()
 
     dataset_urn = DatasetUrn(platform="hive", name="fct_users_created", env="PROD")
 

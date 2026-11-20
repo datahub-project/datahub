@@ -1,47 +1,46 @@
 # metadata-ingestion/examples/library/dataflow_query_rest.py
-import json
-import urllib.parse
+from datahub.ingestion.graph.client import get_default_graph
+from datahub.metadata.schema_classes import (
+    DataFlowInfoClass,
+    EditableDataFlowPropertiesClass,
+    GlobalTagsClass,
+    OwnershipClass,
+)
+from datahub.metadata.urns import DataFlowUrn
 
-import requests
+graph = get_default_graph()
 
-# DataHub REST API endpoint
-DATAHUB_GMS_URL = "http://localhost:8080"
+flow_urn = DataFlowUrn(
+    orchestrator="airflow", flow_id="example_dataflow", cluster="PROD"
+)
 
-# Create the URN for the DataFlow
-flow_urn = "urn:li:dataFlow:(airflow,daily_sales_pipeline,prod)"
+print("DataFlow Entity:", flow_urn)
 
-# URL encode the URN
+info = graph.get_aspect(entity_urn=str(flow_urn), aspect_type=DataFlowInfoClass)
+if info is None:
+    raise SystemExit(f"DataFlow not found: {flow_urn}")
 
-encoded_urn = urllib.parse.quote(flow_urn, safe="")
+# Description lives in two places: dataFlowInfo is what ingestion writes, and the
+# editable overlay is what UI and SDK edits write. Show both rather than reimplement
+# the precedence -- DataFlow.description already resolves it (see dataflow_read.py).
+editable = graph.get_aspect(
+    entity_urn=str(flow_urn), aspect_type=EditableDataFlowPropertiesClass
+)
 
-# Fetch the entity
-response = requests.get(f"{DATAHUB_GMS_URL}/entities/{encoded_urn}")
+print(f"\nFlow Name: {info.name}")
+print(f"Description (dataFlowInfo): {info.description}")
+if editable is not None:
+    print(f"Description (editable overlay): {editable.description}")
+print(f"Project: {info.project}")
 
-if response.status_code == 200:
-    entity_data = response.json()
-    print("DataFlow Entity:")
-    print(json.dumps(entity_data, indent=2))
+ownership = graph.get_aspect(entity_urn=str(flow_urn), aspect_type=OwnershipClass)
+if ownership is not None:
+    print(f"\nOwners: {len(ownership.owners)}")
+    for owner in ownership.owners:
+        print(f"  - {owner.owner} ({owner.type})")
 
-    # Extract specific aspects
-    aspects = entity_data.get("aspects", {})
-
-    if "dataFlowInfo" in aspects:
-        info = aspects["dataFlowInfo"]
-        print(f"\nFlow Name: {info.get('name')}")
-        print(f"Description: {info.get('description')}")
-        print(f"Project: {info.get('project')}")
-
-    if "ownership" in aspects:
-        ownership = aspects["ownership"]
-        print(f"\nOwners: {len(ownership.get('owners', []))}")
-        for owner in ownership.get("owners", []):
-            print(f"  - {owner.get('owner')} ({owner.get('type')})")
-
-    if "globalTags" in aspects:
-        tags = aspects["globalTags"]
-        print(f"\nTags: {len(tags.get('tags', []))}")
-        for tag in tags.get("tags", []):
-            print(f"  - {tag.get('tag')}")
-else:
-    print(f"Failed to fetch entity: {response.status_code}")
-    print(response.text)
+tags = graph.get_aspect(entity_urn=str(flow_urn), aspect_type=GlobalTagsClass)
+if tags is not None:
+    print(f"\nTags: {len(tags.tags)}")
+    for tag in tags.tags:
+        print(f"  - {tag.tag}")

@@ -1,6 +1,7 @@
 package io.datahubproject.openapi.v2.controller;
 
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
@@ -18,6 +19,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -39,6 +41,7 @@ import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.controller.GenericEntitiesController;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.datahubproject.openapi.util.RequestInputUtil;
 import io.datahubproject.openapi.v2.models.BatchGetUrnRequestV2;
 import io.datahubproject.openapi.v2.models.BatchGetUrnResponseV2;
 import io.datahubproject.openapi.v2.models.GenericAspectV2;
@@ -150,6 +153,10 @@ public class EntityController
         .results(
             toRecordTemplates(opContext, searchEntities, aspectNames, withSystemMetadata, true))
         .scrollId(scrollId)
+        .routeChain(
+            searchResultMetadata != null && searchResultMetadata.hasRouteChain()
+                ? new ArrayList<>(searchResultMetadata.getRouteChain())
+                : null)
         .build();
   }
 
@@ -176,10 +183,27 @@ public class EntityController
         while (aspectItr.hasNext()) {
           Map.Entry<String, JsonNode> aspect = aspectItr.next();
 
-          AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).get();
+          final boolean alternateValidation =
+              opContext.getValidationContext().isAlternateValidation();
+          final AspectSpec aspectSpec;
+          if (!handling().toleratesUnknownEntityAspect()) {
+            aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).get();
+          } else if (alternateValidation) {
+            // ProposedItem.build validates the aspect against the registry itself.
+            aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).orElse(null);
+          } else {
+            // The typed path needs the spec, so an unknown name is rejected with a 400 instead of
+            // a 500.
+            aspectSpec =
+                RequestInputUtil.requireAspectSpec(
+                    handling()
+                        .entitySpecForData(entityRegistry, entityUrn.getEntityType())
+                        .orElse(null),
+                    aspect.getKey());
+          }
           JsonNode jsonNodeAspect = aspect.getValue().get("value");
 
-          if (opContext.getValidationContext().isAlternateValidation()) {
+          if (alternateValidation) {
             items.add(
                 ProposedItem.builder()
                     .build(
@@ -239,12 +263,21 @@ public class EntityController
 
     return urnAspectVersions.keySet().stream()
         .map(
-            u ->
-                GenericEntityV2.builder()
-                    .urn(u.toString())
-                    .build(
-                        objectMapper,
-                        toAspectMap(u, aspects.getOrDefault(u, List.of()), withSystemMetadata)))
+            u -> {
+              List<EnvelopedAspect> urnAspects =
+                  aspects.getOrDefault(u, List.of()).stream()
+                      .filter(
+                          a ->
+                              !EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+                                  opContext, u, a.getName()))
+                      .collect(Collectors.toList());
+              return GenericEntityV2.builder()
+                  .urn(u.toString())
+                  .build(
+                      objectMapper,
+                      SensitiveAspectAuthUtil.omitUnauthorizedAspects(
+                          opContext, u, toAspectMap(u, urnAspects, withSystemMetadata)));
+            })
         .collect(Collectors.toList());
   }
 

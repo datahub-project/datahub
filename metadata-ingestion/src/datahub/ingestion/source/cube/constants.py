@@ -1,6 +1,7 @@
 """Constants for the Cube (cube.dev) semantic layer connector."""
 
-from typing import Dict
+import re
+from typing import Dict, Pattern
 
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
@@ -27,6 +28,8 @@ CONTROL_PLANE_META_SYNC_TOKEN_PATH = (
     "api/v1/deployments/{deployment_id}/environments/{environment_id}/"
     "tokens-for-meta-sync"
 )
+# Requested when minting a token with include_private.
+META_PRIVATE_SCOPE = "meta-private"
 
 # Cube Cloud Platform API: lists saved reports (charts) and workbooks
 # (dashboards) for a deployment. Authenticated with the Cube Cloud API key as a
@@ -62,6 +65,8 @@ MAX_REQUEST_TIMEOUT_WARNING_THRESHOLD = 300
 # Entity discriminator returned by both APIs.
 ENTITY_TYPE_CUBE = "cube"
 ENTITY_TYPE_VIEW = "view"
+# The only cube_references type Cube documents (Metadata API).
+CUBE_REFERENCE_TYPE_UPSTREAM = "upstream"
 
 # Cube member data types (the `type` field on a dimension/measure) mapped to
 # DataHub schema field types. Cube's primitive set is small and stable.
@@ -118,3 +123,12 @@ DATA_SOURCE_TYPE_TO_PLATFORM: Dict[str, str] = {
 TAG_MEASURE = "Measure"
 TAG_DIMENSION = "Dimension"
 TAG_TEMPORAL = "Temporal"
+
+# Cube join SQL: `{CUBE}.customer_id = {customers}.id` or the reverse order.
+_CUBE_IDENT = r"[A-Za-z_][A-Za-z0-9_]*"
+CUBE_JOIN_CUBE_PLACEHOLDER = "CUBE"
+CUBE_JOIN_EQ_RE: Pattern[str] = re.compile(
+    rf"\{{({_CUBE_IDENT})\}}\.({_CUBE_IDENT})\s*=\s*"
+    rf"\{{({_CUBE_IDENT})\}}\.({_CUBE_IDENT})",
+    re.IGNORECASE,
+)

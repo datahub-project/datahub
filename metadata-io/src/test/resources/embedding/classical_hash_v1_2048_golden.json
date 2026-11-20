@@ -1,0 +1,88 @@
+[
+  {
+    "id": "hello_world",
+    "text": "Hello, World!",
+    "sha256": "bec441fc81b6a708326c70ddfd5229c197bc315c450ac4cda1bfeb63826ce9ab"
+  },
+  {
+    "id": "hello_world_lowercase",
+    "note": "same digest as hello_world: A-Z fold",
+    "text": "hello, world!",
+    "sha256": "bec441fc81b6a708326c70ddfd5229c197bc315c450ac4cda1bfeb63826ce9ab"
+  },
+  {
+    "id": "user_id_customer_id",
+    "text": "user_id customer_id",
+    "sha256": "0a803a46b7b0db404eeeb79344d9d56effcb6d81cdbce71a4e488e5978c78ec6"
+  },
+  {
+    "id": "id",
+    "text": "id",
+    "sha256": "91d865d24040d06fb4298bb4d51ecb47a60d919a74c11a97364aeb5ecaf6b2f3"
+  },
+  {
+    "id": "gruesse_tokyo_data",
+    "note": "Grüße 東京 data",
+    "text": "Grüße 東京 data",
+    "sha256": "97777de6cfe5a291c9711b1be592479ea6867b80aca515d950a2018835b2dd74"
+  },
+  {
+    "id": "naive_cafe",
+    "note": "naïve café",
+    "text": "naïve café",
+    "sha256": "a8291f6e6798ef926025c47b85202c2734e66d025fa22b4bda60428104ae998e"
+  },
+  {
+    "id": "e_acute_combining",
+    "note": "e + U+0301 combining acute; must differ from the precomposed form",
+    "text": "é",
+    "sha256": "26e0cf186ad15cc6a307f215cd94ffd41d2115b7b021cbd21a56be33a8ae4c5e"
+  },
+  {
+    "id": "e_acute_precomposed",
+    "note": "U+00E9",
+    "text": "é",
+    "sha256": "3376ecfc87f89b3d3d673b2ec8ce2645713dbcd47bd73b1c1af41d793c70cfbf"
+  },
+  {
+    "id": "nbsp_one_word",
+    "note": "a NBSP b: NBSP is not a separator, one word",
+    "text": "a b",
+    "sha256": "6f3c34bb96eb1114f09ab6f8965df17a170225eecd2e1cd9b9636c213300151e"
+  },
+  {
+    "id": "x_space_y",
+    "note": "two one-character words: word features only, no n-grams",
+    "text": "x y",
+    "sha256": "7e9211ae1d54571d56bcda55c2b4b3595dcc7aa2b6aa4984943e6c12a9f90144"
+  },
+  {
+    "id": "emoji",
+    "note": "U+1F600 (a surrogate pair in UTF-16) counts as one code point",
+    "text": "😀 emoji",
+    "sha256": "c8fd64833ba1b40ec97efb673c00e92218750f1f748da766f32355bc6e10e766"
+  },
+  {
+    "id": "lone_surrogate",
+    "note": "unpaired U+D800 followed by x, canonicalized to U+FFFD",
+    "text": "\ud800x",
+    "sha256": "3b34bccb1a43951ed6567c13bc809713f7082688395f8504b41537147a59b9bc"
+  },
+  {
+    "id": "slash_path",
+    "text": "a/b path",
+    "sha256": "cf00b52f191ebca9ac7dc94947f568176d943258f60275abbfe4edc9ab628de7"
+  },
+  {
+    "id": "empty",
+    "note": "empty sentinel",
+    "text": "",
+    "sha256": "4fb362b7ae0cc6e8c1ee2ed26b3245c89937fa655d37f269ff3b1eb40db67033"
+  },
+  {
+    "id": "whitespace_only",
+    "note": "whitespace only: empty sentinel",
+    "text": "   \t\n",
+    "sha256": "4fb362b7ae0cc6e8c1ee2ed26b3245c89937fa655d37f269ff3b1eb40db67033"
+  }
+]

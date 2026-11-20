@@ -2,7 +2,7 @@
 
 The connector extracts the following metadata:
 
-- **Cubes and views** as datasets, grouped under a container representing the deployment. The container links back to the deployment UI (derived from `api_url`, or set `deployment_url`).
+- **Cubes and views.** Cubes are ingested as datasets with subtype `Cube`. By default, views are ingested as datasets with subtype `Semantic Model` (the same subtype as dbt semantic-layer models). Set `emit_semantic_model_entities: true` to emit each view as a first-class `semanticModel` instead: included cubes become logical datasets (subtype `Semantic Model Dataset`) with lineage to the Cube datasets, and each view measure becomes a `metric` entity. The view dataset is not emitted in that mode, so re-ingest with stateful ingestion to drop previous view datasets. Requires a DataHub server that registers `semanticModel`/`metric` (Cloud >= 2.1.0, or OSS with `METRICS_ENABLED=true`). Cubes and views are grouped under a container representing the deployment. The container links back to the deployment UI (derived from `api_url`, or set `deployment_url`).
 - **Schema** — each measure and dimension becomes a schema field. Measures carry their aggregation type (e.g. `count`, `sum`) in the native data type; primary-key dimensions are flagged as part of the key. Fields are tagged `Measure` or `Dimension` — and `Temporal` for time dimensions (disable with `tag_measures_and_dimensions: false`).
 - **Descriptions and properties** — titles, descriptions, segment names, source file name, and any custom `meta` defined in the model.
 - **Structural metadata** — joins (with relationship), hierarchies (with levels), folders/nested folders (with members), and pre-aggregation names are captured as dataset custom properties (disable with `emit_member_details: false`).
@@ -15,9 +15,9 @@ The connector extracts the following metadata:
 
 Lineage is emitted when `include_lineage` is enabled (the default):
 
-- **View to cube** — views are linked to the cubes they are built on, including column-level lineage derived from each member's `aliasMember`.
+- **View to cube** — in dataset mode, views are linked to the cubes they are built on, including column-level lineage derived from each member's `aliasMember`. In semantic-model mode, that hop is `metric` → logical dataset → Cube dataset.
 - **Cube to warehouse** — on Cube Cloud with the Metadata API, table and column references are read directly. On Cube Core, table-level lineage is parsed from each cube's SQL definition when `parse_sql_for_lineage` and `warehouse_platform` are set. Column-level lineage on Cube Core is best-effort: since `/v1/meta` does not expose per-member SQL, members are matched by name against the upstream table's columns as found in DataHub (so the warehouse must be ingested first, and members whose name differs from the underlying column — e.g. aggregate measures — are not linked).
-- **Report and workbook to view** — on Cube Cloud, charts (reports) carry input lineage to the cubes/views in their query, and dashboards (workbooks) contain those charts, extending the chain to `warehouse → cube → view → chart → dashboard`.
+- **Report and workbook to view** — on Cube Cloud, charts (reports) carry input lineage to the cubes/views in their query, and dashboards (workbooks) contain those charts, extending the chain to `warehouse → cube → view → chart → dashboard`. When `emit_semantic_model_entities` is true, a report that queried a view points at that view's logical datasets instead of a view dataset.
 
 Disable column-level lineage with `include_column_lineage: false`.
 
@@ -30,7 +30,7 @@ The Metadata API requires a metadata-scoped JWT. You can either:
 - Provide a pre-generated token in `api_token`, or
 - Let the connector mint one automatically: set `cloud_api_key` (a Cube Cloud API key from Account → API keys) together with `deployment_id` and `environment_id`. The connector calls the Control Plane `tokens-for-meta-sync` endpoint to obtain a short-lived, metadata-only token. Override the Control Plane host with `cloud_api_url` if it differs from the `api_url` host, and embed a `security_context` to scope multi-tenant visibility.
 
-If the Metadata API cannot be reached, the connector logs a warning and continues with `/v1/meta` only (structural metadata and view-to-cube lineage, but no warehouse lineage).
+If the Metadata API cannot be reached, the connector logs a warning and continues with `/v1/meta` only (structural metadata and view-to-cube lineage, but no warehouse lineage). If a single entity in its response cannot be parsed, only that entity is skipped and reported; the others keep their lineage. The skip is reported as a failure, which skips stale removal, when `include_private` is set or when `/v1/meta` does not return that entity. Empty (`null`) items in the response are counted and ignored.
 
 #### Reports and workbooks (Cube Cloud Platform API)
 
@@ -45,7 +45,7 @@ Cube [context variables](https://cube.dev/docs/reference/data-model/context-vari
 
 ### Limitations
 
-- The `/v1/meta` endpoint does not return cubes or views marked `public: false`. On Cube Cloud the Metadata API may still return them (and the connector merges them in); on Cube Core such cubes are not ingested as datasets, though lineage edges to them are still emitted.
+- The `/v1/meta` endpoint does not return cubes, views, or members marked `public: false`, and on Cube Cloud the Metadata API omits them too, cutting any view lineage that passes through them. On Cube Cloud, set `include_private: true` to request them from the Metadata API. This needs the `meta-private` token scope; see the `include_private` option description for its prerequisites, who can get the scope, and what happens when it is refused. On Cube Core such cubes are not ingested as datasets, though lineage edges to them are still emitted.
 - Warehouse lineage on Cube Cloud requires a metadata-scoped token for the Metadata API (supplied via `api_token`, or minted automatically with `cloud_api_key` + `deployment_id` + `environment_id`). Without it, the connector falls back to `/v1/meta` and only view-to-cube lineage is available.
 - The Control Plane **audit-logs export** and **Orchestration API** (pre-aggregation build jobs) are intentionally not used — they are operational/governance surfaces rather than data-catalog metadata, and the audit-logs export is an Enterprise-only CSV stream.
 - Column-level lineage on Cube Core relies on member names matching the warehouse column names (Cube's default convention) and on the upstream table's schema already being present in DataHub. Members backed by a renamed or computed expression (e.g. `total_amount` over `amount`, or any aggregate measure) are not column-linked, since Cube Core's `/v1/meta` does not expose the underlying member SQL. Cube Cloud's Metadata API provides exact references and has no such limitation.

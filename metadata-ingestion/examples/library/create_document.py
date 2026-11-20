@@ -1,4 +1,3 @@
-# Inlined from metadata-ingestion/examples/library/create_document.py
 """Example: Creating documents using the DataHub SDK.
 
 This example demonstrates how to create both native documents (stored in DataHub)

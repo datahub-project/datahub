@@ -1,6 +1,5 @@
 {
     "copyQuery.tooltip": "Query kopieren",
-    "emptyQueries.noHighlightedQueries": "Noch keine hervorgehobenen Queries",
     "queriesTab.addHighlightedQueryButton": "Hervorgehobene Query hinzufügen",
     "queriesTab.addHighlightedQueryTooltip": "Eine hervorgehobene Query hinzufügen",
     "queriesTab.addUnauthorizedMessage": "Du bist nicht berechtigt, Queries zu dieser Entität hinzuzufügen.",
@@ -8,6 +7,8 @@
     "queriesTab.downstreamQueriesTooltip": "Queries, die Downstream-Assets antreiben",
     "queriesTab.highlightedQueriesTitle": "Hervorgehobene Queries",
     "queriesTab.highlightedQueriesTooltip": "Kuratierte Queries, die für dieses Dataset relevant sind",
+    "queriesTab.noViewPermission": "Du hast keine Berechtigung, Queries für dieses Dataset anzuzeigen.",
+    "queriesTab.queriesTitle": "Queries",
     "queriesTab.recentQueriesTitle": "Aktuelle Queries",
     "queriesTab.recentQueriesTooltip": "Kürzlich gegen dieses Dataset ausgeführte Queries",
     "queryBuilderModal.createError": "Query konnte nicht erstellt werden! Ein unerwarteter Fehler ist aufgetreten",

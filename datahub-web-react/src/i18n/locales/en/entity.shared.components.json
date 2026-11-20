@@ -96,9 +96,14 @@
     "searchActions.glossaryTerms.addTitle": "Add Glossary Terms",
     "searchActions.glossaryTerms.name": "Glossary Terms",
     "searchActions.glossaryTerms.removeTitle": "Remove Glossary Terms",
+    "searchActions.noSelection": "Select at least one asset to use this action.",
     "searchActions.notSupported": "This action is not supported for the selected types.",
     "searchActions.owners.addTitle": "Add owners",
     "searchActions.owners.removeTitle": "Remove owners",
     "searchActions.tags.addTitle": "Add tags",
-    "searchActions.tags.removeTitle": "Remove tags"
+    "searchActions.tags.removeTitle": "Remove tags",
+    "structuredProperty.addMore": "+ Add More",
+    "structuredProperty.selectPlaceholder": "Select",
+    "viewAll.resultsIncomplete": "Results may be incomplete.",
+    "viewAll.searchAllAssets": "Search all ingested {{platform}} assets"
 }

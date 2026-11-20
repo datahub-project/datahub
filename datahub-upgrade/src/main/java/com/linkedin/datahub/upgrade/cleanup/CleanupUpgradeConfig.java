@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.cleanup;
 
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.config.OpenTelemetryConfig;
+import com.linkedin.datahub.upgrade.shared.NoOpKafkaEventProducerConfig;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
 import com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupConfig;
 import com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupEbeanFactory;
@@ -9,12 +10,15 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.RetentionBufferFactory;
 import com.linkedin.gms.factory.entity.RetentionBufferSchedulingConfig;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.gms.factory.search.SearchV3IndexRebuild;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.utils.EnvironmentUtils;
 import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -36,11 +40,13 @@ import org.springframework.context.annotation.Import;
   MetricsAutoConfiguration.class,
   OpenTelemetryConfig.class,
   SqlSetupConfig.class,
-  SqlSetupEbeanFactory.class
+  SqlSetupEbeanFactory.class,
+  NoOpKafkaEventProducerConfig.class
 })
 @ComponentScan(
     basePackages = {
       "com.linkedin.gms.factory.config",
+      "com.linkedin.gms.factory.aws",
       "com.linkedin.gms.factory.common",
       "com.linkedin.gms.factory.entity",
       "com.linkedin.gms.factory.entityclient",
@@ -60,6 +66,15 @@ import org.springframework.context.annotation.Import;
     })
 public class CleanupUpgradeConfig {
 
+  /**
+   * Cleanup tears indices down and serves no reads, so a missing V3 index after the cutover does
+   * not stop it.
+   */
+  @Bean
+  public SearchV3IndexRebuild searchV3IndexRebuild() {
+    return new SearchV3IndexRebuild();
+  }
+
   @Autowired(required = false)
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents;
 
@@ -77,6 +92,10 @@ public class CleanupUpgradeConfig {
   @Qualifier("sqlSetupArgs")
   private SqlSetupArgs sqlSetupArgs;
 
+  @Autowired(required = false)
+  @Nullable
+  private SearchClusterRegistry searchClusterRegistry;
+
   @Bean(name = "cleanup")
   @Nonnull
   public Cleanup createCleanup() {
@@ -88,7 +107,7 @@ public class CleanupUpgradeConfig {
 
     // Order: ES first (so indices aren't queried during DB drop), then Kafka, then SQL
     if (esEnabled && esComponents != null) {
-      steps.add(new DeleteElasticsearchIndicesStep(esComponents));
+      steps.add(new DeleteElasticsearchIndicesStep(esComponents, searchClusterRegistry));
       log.info("Elasticsearch cleanup step enabled");
     } else if (esEnabled) {
       log.warn("Elasticsearch cleanup requested but ES components not available — skipping");

@@ -1,4 +1,4 @@
-import { CaretDownFilled } from '@ant-design/icons';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -55,21 +55,24 @@ export default function BooleanSearchFilter({ icon, title, option, count, initia
             trigger={['click']}
             menu={{ items: filterOptions }}
             open={isMenuOpen}
-            onOpenChange={(open) => setIsMenuOpen(open)}
+            // antd 5 asks to close on a menu click (the filter checkbox); antd 4 kept it open until Update
+            onOpenChange={(open, info) => {
+                if (info.source !== 'menu') setIsMenuOpen(open);
+            }}
             dropdownRender={(menuOption) => (
                 <BooleanSearchFilterMenu menuOption={menuOption} onUpdate={updateSelected} />
             )}
         >
             <SearchFilterLabel
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                isActive={isSelected}
-                data-testid={`filter-dropdown-${title}`}
+                $isActive={isSelected}
+                data-testid={`filter-dropdown-${title.replace(/\s/g, '-')}`}
             >
                 <IconNameWrapper>
                     {icon && <IconWrapper>{icon}</IconWrapper>}
                     {title} {isSelected ? `(1) ` : ''}
                 </IconNameWrapper>
-                <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
+                <CaretDown size={12} weight="fill" />
             </SearchFilterLabel>
         </Dropdown>
     );

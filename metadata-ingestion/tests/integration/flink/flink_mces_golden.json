@@ -118,7 +118,7 @@
         "json": {
             "path": [
                 {
-                    "id": "test_ds_kafka_hop1",
+                    "id": "urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST)",
                     "urn": "urn:li:dataFlow:(flink,test_ds_kafka_hop1,TEST)"
                 }
             ]
@@ -285,7 +285,7 @@
         "json": {
             "path": [
                 {
-                    "id": "test_ds_kafka_hop2",
+                    "id": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)",
                     "urn": "urn:li:dataFlow:(flink,test_ds_kafka_hop2,TEST)"
                 }
             ]
@@ -452,7 +452,7 @@
         "json": {
             "path": [
                 {
-                    "id": "test_iceberg_events_pipeline",
+                    "id": "urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST)",
                     "urn": "urn:li:dataFlow:(flink,test_iceberg_events_pipeline,TEST)"
                 }
             ]
@@ -617,7 +617,7 @@
         "json": {
             "path": [
                 {
-                    "id": "test_enrich_orders",
+                    "id": "urn:li:dataFlow:(flink,test_enrich_orders,TEST)",
                     "urn": "urn:li:dataFlow:(flink,test_enrich_orders,TEST)"
                 }
             ]
@@ -766,7 +766,7 @@
         "json": {
             "path": [
                 {
-                    "id": "test_kafka_to_pg",
+                    "id": "urn:li:dataFlow:(flink,test_kafka_to_pg,TEST)",
                     "urn": "urn:li:dataFlow:(flink,test_kafka_to_pg,TEST)"
                 }
             ]
@@ -933,7 +933,7 @@
         "json": {
             "path": [
                 {
-                    "id": "test_kafka_to_iceberg",
+                    "id": "urn:li:dataFlow:(flink,test_kafka_to_iceberg,TEST)",
                     "urn": "urn:li:dataFlow:(flink,test_kafka_to_iceberg,TEST)"
                 }
             ]
@@ -1099,7 +1099,7 @@
         "json": {
             "path": [
                 {
-                    "id": "test_pg_users_pipeline",
+                    "id": "urn:li:dataFlow:(flink,test_pg_users_pipeline,TEST)",
                     "urn": "urn:li:dataFlow:(flink,test_pg_users_pipeline,TEST)"
                 }
             ]

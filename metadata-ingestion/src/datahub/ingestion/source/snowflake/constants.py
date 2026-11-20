@@ -11,6 +11,11 @@ SNOWFLAKE_DEFAULT_CLOUD = SnowflakeCloudProvider.AWS
 
 DEFAULT_SNOWFLAKE_DOMAIN = "snowflakecomputing.com"
 
+# Snowflake auto-creates an INFORMATION_SCHEMA in every database; ingestion never
+# emits it. Single source of truth for the extraction SQL and the agent probe.
+SNOWFLAKE_INFORMATION_SCHEMA = "INFORMATION_SCHEMA"
+SNOWFLAKE_DEFAULT_SCHEMAS = frozenset({SNOWFLAKE_INFORMATION_SCHEMA})
+
 
 class SnowflakeEdition(StrEnum):
     STANDARD = "Standard"
@@ -64,6 +69,16 @@ class SnowflakeObjectDomain(StrEnum):
     STAGE = "stage"
     TASK = "task"
     PIPE = "pipe"
+
+
+# The plural keyword naming an object class in a SHOW statement, e.g. `SHOW DYNAMIC TABLES`.
+# Deliberately separate from SnowflakeObjectDomain, which carries the singular lowercase
+# objectDomain values ACCESS_HISTORY reports ("dynamic table") - the two vocabularies differ
+# in both number and case, so neither can stand in for the other.
+class SnowflakeShowKind(StrEnum):
+    VIEWS = "VIEWS"
+    STREAMS = "STREAMS"
+    DYNAMIC_TABLES = "DYNAMIC TABLES"
 
 
 GENERIC_PERMISSION_ERROR_KEY = "permission-error"

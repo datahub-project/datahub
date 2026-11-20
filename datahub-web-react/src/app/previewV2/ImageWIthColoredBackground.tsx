@@ -71,7 +71,7 @@ const ImageWithColoredBackground = ({ src, alt, imgSize, backgroundSize, borderR
     return (
         <Icon
             size={backgroundSize || DEFAULT_BACKGROUND_SIZE}
-            background={platformBackground}
+            background={theme.id === 'themeV2Dark' ? theme.colors.bgSurfaceDarker : platformBackground}
             borderRadius={borderRadius || DEFAULT_BORDER_RADIUS}
         >
             {logo}

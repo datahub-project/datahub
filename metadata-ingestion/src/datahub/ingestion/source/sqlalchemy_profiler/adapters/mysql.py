@@ -1,14 +1,17 @@
 """MySQL-specific profiling adapter."""
 
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 import sqlalchemy as sa
-from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
-from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+    PlatformAdapter,
+    ProfilingConnection,
+    QueryTimeout,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +66,21 @@ class MySQLAdapter(PlatformAdapter):
     # Row Count Estimation
     # =========================================================================
 
+    def get_query_timeout_statements(self, seconds: int) -> Optional[QueryTimeout]:
+        # Milliseconds. Restoring the value read beforehand rather than
+        # DEFAULT keeps a limit the session already carried.
+        return QueryTimeout(
+            read="SELECT @@SESSION.max_execution_time",
+            apply=f"SET SESSION max_execution_time = {seconds * 1000}",
+            restore="SET SESSION max_execution_time = {value}",
+        )
+
+    def is_query_timeout(self, e: Exception) -> bool:
+        # 3024 ER_QUERY_TIMEOUT, which is what max_execution_time raises. The
+        # drivers put the server's error number first in args.
+        args: Tuple[Any, ...] = getattr(getattr(e, "orig", None), "args", ())
+        return bool(args) and args[0] == 3024
+
     def supports_row_count_estimation(self) -> bool:
         """
         MySQL supports fast row count estimation.
@@ -73,7 +91,7 @@ class MySQLAdapter(PlatformAdapter):
         return True
 
     def get_estimated_row_count(
-        self, table: sa.Table, conn: Connection
+        self, table: sa.Table, conn: ProfilingConnection
     ) -> Optional[int]:
         """
         Get fast row count estimate using information_schema.tables.table_rows.
@@ -102,12 +120,14 @@ class MySQLAdapter(PlatformAdapter):
                 schema="information_schema",
             )
             query = (
-                sa.select([info_schema_tables.c.table_rows])
+                sa.select(info_schema_tables.c.table_rows)
                 .where(info_schema_tables.c.table_schema == schema)
                 .where(info_schema_tables.c.table_name == table_name)
             )
 
-            result = conn.execute(query).scalar()
+            # Deliberately not single-row: filtered on schema+table, so a table
+            # absent from information_schema yields zero rows.
+            result = conn.execute_rows(query).scalar()
             return int(result) if result is not None else None
 
         except SQLAlchemyError as e:

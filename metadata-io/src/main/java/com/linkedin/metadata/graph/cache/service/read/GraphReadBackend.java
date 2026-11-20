@@ -19,6 +19,7 @@ import com.linkedin.metadata.graph.cache.snapshot.EntityGraphView;
 import com.linkedin.metadata.graph.cache.snapshot.TraversalCoverage;
 import com.linkedin.metadata.graph.cache.store.EntityGraphDistributedStore;
 import com.linkedin.metadata.graph.cache.store.EntityGraphLocalViewCache;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.Collections;
@@ -77,6 +78,32 @@ public class GraphReadBackend {
       @Nonnull String cacheKey,
       @Nonnull TraversalDirection direction) {
     return freshnessEvaluator.isFresh(definition, cacheKey, direction);
+  }
+
+  public void recordCachedRead(
+      @Nonnull EntityGraphDefinition definition,
+      @Nonnull String outcome,
+      @Nullable ReadMissReason reason) {
+    if (systemOperationContext == null) {
+      return;
+    }
+    Optional<MetricUtils> metrics = systemOperationContext.getMetricUtils();
+    if (metrics == null) {
+      return;
+    }
+    // Prometheus requires one tag-key set per metric name. A hit that omits reason and a
+    // miss that includes it throws on the second registration and fails the cached read.
+    metrics.ifPresent(
+        utils ->
+            utils.incrementMicrometer(
+                "entity.graph.cache.read",
+                1,
+                "graphId",
+                definition.getGraphId(),
+                "outcome",
+                outcome,
+                "reason",
+                reason == null ? "none" : reason.name()));
   }
 
   public boolean coverageSatisfies(
@@ -220,14 +247,70 @@ public class GraphReadBackend {
       @Nonnull EntityGraphView view,
       @Nonnull List<GraphComponentContext> components) {
     Set<String> normalizedRoots = rootsFrom(roots);
+    // If any requested root is absent from the snapshot, the seed was never captured (e.g.
+    // created/re-parented by a write that did not pass the sync gate). Report ABSENT so callers
+    // fall back to the live graph instead of a partial HIT that expands only present roots and
+    // under-restricts VBAC/policy ancestor expansion. Empty roots keep vacuous allMatch (no miss).
+    if (!normalizedRoots.isEmpty() && !normalizedRoots.stream().allMatch(view::containsVertex)) {
+      return GraphReadResult.miss(ReadMissReason.ABSENT);
+    }
     int effectiveDepth = resolveExpandDepth(definition, maxDepth, direction, components);
     logIncompleteCoverage(definition, direction, components);
-    EntityGraphView.ExpandResult expandResult =
-        view.expandWithResult(direction, normalizedRoots, limit, effectiveDepth);
+    return expandAtDepth(
+        definition, direction, normalizedRoots, limit, maxDepth, view, effectiveDepth);
+  }
 
-    if (expandResult.isTruncatedByMaxDepth()
-        && definition.getScope().getMode() == ScopeMode.PARTIAL
-        && effectiveDepth == definition.getScope().getMaxDepth()) {
+  /**
+   * Expands {@code view} at {@code effectiveDepth}. {@code requestedMaxDepth} is the caller's depth
+   * and is used only for truncation logging.
+   */
+  @Nonnull
+  public GraphReadResult expandAtDepth(
+      @Nonnull EntityGraphDefinition definition,
+      @Nonnull TraversalDirection direction,
+      @Nonnull Set<String> normalizedRoots,
+      int limit,
+      int requestedMaxDepth,
+      @Nonnull EntityGraphView view,
+      int effectiveDepth) {
+    return expandAtDepth(
+        definition,
+        direction,
+        normalizedRoots,
+        limit,
+        requestedMaxDepth,
+        view,
+        effectiveDepth,
+        null);
+  }
+
+  /**
+   * Expands {@code view} at {@code effectiveDepth}. When {@code allowedEdgeLines} is non-null, only
+   * those canonical lines are followed.
+   */
+  @Nonnull
+  public GraphReadResult expandAtDepth(
+      @Nonnull EntityGraphDefinition definition,
+      @Nonnull TraversalDirection direction,
+      @Nonnull Set<String> normalizedRoots,
+      int limit,
+      int requestedMaxDepth,
+      @Nonnull EntityGraphView view,
+      int effectiveDepth,
+      @Nullable Set<String> allowedEdgeLines) {
+    EntityGraphView.ExpandResult expandResult =
+        view.expandWithResult(direction, normalizedRoots, limit, effectiveDepth, allowedEdgeLines);
+
+    // A definition-depth read that stops at scope.maxDepth still returns the prefix. The hit is
+    // marked scope-truncated so a caller that needs the full closure can miss, and a caller that
+    // wants the in-cap vertices can keep them. An explicit positive depth is the bounded walk the
+    // caller asked for and is not marked.
+    boolean scopeTruncated =
+        expandResult.isTruncatedByMaxDepth()
+            && definition.getScope().getMode() == ScopeMode.PARTIAL
+            && effectiveDepth == definition.getScope().getMaxDepth()
+            && requestedMaxDepth <= 0;
+    if (scopeTruncated) {
       log.warn(
           "Entity graph PARTIAL expand reached configured scope.maxDepth: graphId={} direction={} roots={} maxDepth={} resultSize={}",
           definition.getGraphId(),
@@ -235,13 +318,13 @@ public class GraphReadBackend {
           normalizedRoots,
           effectiveDepth,
           expandResult.getVertices().size());
-    } else if (expandResult.isTruncatedByMaxDepth() && maxDepth > 0) {
+    } else if (expandResult.isTruncatedByMaxDepth() && requestedMaxDepth > 0) {
       log.warn(
           "Entity graph expand truncated by per-call maxDepth: graphId={} direction={} roots={} maxDepth={} resultSize={}",
           definition.getGraphId(),
           direction,
           normalizedRoots,
-          maxDepth,
+          requestedMaxDepth,
           expandResult.getVertices().size());
     }
     if (expandResult.isTruncatedByLimit()) {
@@ -257,12 +340,12 @@ public class GraphReadBackend {
 
     Set<String> expanded = expandResult.getVertices();
     if (expanded.isEmpty()) {
-      return GraphReadResult.fromVertices(Collections.emptySet());
+      return GraphReadResult.fromVertices(Collections.emptySet(), scopeTruncated);
     }
     if (direction == TraversalDirection.REVERSE && expanded.equals(normalizedRoots)) {
-      return GraphReadResult.fromVertices(Collections.emptySet());
+      return GraphReadResult.fromVertices(Collections.emptySet(), scopeTruncated);
     }
-    return GraphReadResult.fromVertices(expanded);
+    return GraphReadResult.fromVertices(expanded, scopeTruncated);
   }
 
   private static int resolveExpandDepth(
@@ -270,7 +353,6 @@ public class GraphReadBackend {
       int maxDepth,
       @Nonnull TraversalDirection direction,
       @Nonnull List<GraphComponentContext> components) {
-    int callerDepth = GraphReadDepthResolver.resolve(definition, maxDepth);
     int coverageCap =
         components.stream()
             .map(GraphComponentContext::coverage)
@@ -280,6 +362,7 @@ public class GraphReadBackend {
             .mapToInt(TraversalCoverage.DirectionCoverage::getExploredDepth)
             .min()
             .orElse(Integer.MAX_VALUE);
+    int callerDepth = GraphReadDepthResolver.resolve(definition, maxDepth);
     if (coverageCap == Integer.MAX_VALUE) {
       return callerDepth;
     }

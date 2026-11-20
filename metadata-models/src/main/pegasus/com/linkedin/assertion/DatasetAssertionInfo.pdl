@@ -26,7 +26,11 @@ record DatasetAssertionInfo {
     /**
     * Scope of the Assertion. What part of the dataset does this assertion apply to?
     **/
-    @Searchable = {}
+    @Searchable = {
+      "v3": {
+        "queryByDefault": true
+      }
+    }
     scope: DatasetAssertionScope
 
     /**
@@ -42,7 +46,10 @@ record DatasetAssertionInfo {
     }
     @Searchable = {
       "/*": {
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "v3": {
+          "copyToOther": true
+        }
       }
     }
     @UrnValidation = {
@@ -56,7 +63,11 @@ record DatasetAssertionInfo {
     * Standardized assertion operator
     * This field is left blank if there is no selected aggregation or metric for a particular column.
     */
-    @Searchable = {}
+    @Searchable = {
+      "v3": {
+        "queryByDefault": true
+      }
+    }
     aggregation: optional AssertionStdAggregation
 
     /**

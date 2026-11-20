@@ -8,20 +8,39 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.cache.CacheableSearcher;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateHybrid;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
+import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.opentelemetry.api.trace.Span;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.javatuples.Octet;
 import org.javatuples.Septet;
@@ -29,6 +48,7 @@ import org.javatuples.Sextet;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 
+@Slf4j
 @RequiredArgsConstructor
 public class CachingEntitySearchService {
   public static final String ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME = "entitySearchServiceSearch";
@@ -42,6 +62,13 @@ public class CachingEntitySearchService {
       entitySearchService; // This is a shared component, also used in search aggregation
   private final int batchSize;
   private final boolean enableCache;
+
+  /** Optional. When set, a template kNN section blends document hits into keyword search. */
+  @Nullable private SemanticEntitySearch semanticEntitySearch;
+
+  public void setSemanticEntitySearch(@Nullable SemanticEntitySearch semanticEntitySearch) {
+    this.semanticEntitySearch = semanticEntitySearch;
+  }
 
   /**
    * Retrieves cached search results. If the query has been cached, this will return quickly. If
@@ -155,12 +182,18 @@ public class CachingEntitySearchService {
       @Nullable Integer size,
       @Nonnull List<String> facets) {
     size = ConfigUtils.applyLimit(entitySearchService.getSearchServiceConfig(), size);
+    OperationContext bound = SearchTemplateRuntimes.bind(opContext, query, false, entityNames);
+    ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
+    if (resolved != null && resolved.isVectorReachable()) {
+      return searchOnce(
+          bound, resolved, entityNames, query, filters, sortCriteria, from, size, facets);
+    }
     return new CacheableSearcher<>(
             cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME),
             batchSize,
             querySize ->
                 getRawSearchResults(
-                    opContext,
+                    bound,
                     entityNames,
                     query,
                     filters,
@@ -170,15 +203,56 @@ public class CachingEntitySearchService {
                     facets),
             querySize ->
                 Septet.with(
-                    opContext.getSearchContextId(),
-                    entityNames,
+                    bound.getSearchContextId(),
+                    cacheKeyList(entityNames),
                     query,
                     filters != null ? toJsonString(filters) : null,
                     CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
-                    facets,
+                    cacheKeyList(facets),
                     querySize),
             enableCache)
         .getSearchResults(opContext, from, size);
+  }
+
+  /**
+   * A template that can reach a vector rung runs once for the caller's page, not in batches: a
+   * vector rung retrieves one window sized from the page, and the ladder's predicates see the
+   * caller's size. The result is cached under that page, unless a vector rung failed over to the
+   * ladder's next, so the next search tries it again.
+   */
+  @Nonnull
+  private SearchResult searchOnce(
+      @Nonnull OperationContext bound,
+      @Nonnull ResolvedSearchTemplate resolved,
+      @Nonnull List<String> entityNames,
+      @Nonnull String query,
+      @Nullable Filter filters,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      int size,
+      @Nonnull List<String> facets) {
+    final Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME);
+    final Object cacheKey =
+        Septet.with(
+            bound.getSearchContextId(),
+            cacheKeyList(entityNames),
+            query,
+            filters != null ? toJsonString(filters) : null,
+            CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
+            cacheKeyList(facets),
+            new CacheableSearcher.QueryPagination(from, size));
+    if (enableCache(bound.getSearchContext().getSearchFlags())) {
+      final String json = cache.get(cacheKey, String.class);
+      if (json != null) {
+        return toRecordTemplate(SearchResult.class, json);
+      }
+    }
+    final SearchResult result =
+        getRawSearchResults(bound, entityNames, query, filters, sortCriteria, from, size, facets);
+    if (enableCache && !resolved.isSkipResultCache()) {
+      cache.put(cacheKey, toJsonString(result));
+    }
+    return result;
   }
 
   /** Returns cached auto-complete results. */
@@ -295,24 +369,25 @@ public class CachingEntitySearchService {
     return opContext.withSpan(
         "getScrollResults",
         () -> {
+          OperationContext bound = SearchTemplateRuntimes.bind(opContext, query, true, entities);
           boolean isFullText =
               Boolean.TRUE.equals(
-                  Optional.ofNullable(opContext.getSearchContext().getSearchFlags())
+                  Optional.ofNullable(bound.getSearchContext().getSearchFlags())
                       .orElse(new SearchFlags())
                       .isFulltext());
           Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME);
           ScrollResult result;
-          if (enableCache(opContext.getSearchContext().getSearchFlags())) {
+          if (enableCache(bound.getSearchContext().getSearchFlags())) {
 
             Object cacheKey =
                 Octet.with(
-                    opContext.getSearchContextId(),
-                    entities,
+                    bound.getSearchContextId(),
+                    cacheKeyList(entities),
                     query,
                     filters != null ? toJsonString(filters) : null,
                     CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
                     scrollId,
-                    facets,
+                    cacheKeyList(facets),
                     size);
             String json = cache.get(cacheKey, String.class);
             result = json != null ? toRecordTemplate(ScrollResult.class, json) : null;
@@ -320,7 +395,7 @@ public class CachingEntitySearchService {
             if (result == null) {
               result =
                   getRawScrollResults(
-                      opContext,
+                      bound,
                       entities,
                       query,
                       filters,
@@ -344,7 +419,7 @@ public class CachingEntitySearchService {
             Span.current().setAttribute(CACHE_HIT_ATTR, false);
             result =
                 getRawScrollResults(
-                    opContext,
+                    bound,
                     entities,
                     query,
                     filters,
@@ -371,8 +446,138 @@ public class CachingEntitySearchService {
       final int start,
       @Nullable Integer count,
       @Nonnull final List<String> facets) {
-    return entitySearchService.search(
-        opContext, entityNames, input, filters, sortCriteria, start, count, facets);
+    SearchResult keyword =
+        entitySearchService.search(
+            opContext, entityNames, input, filters, sortCriteria, start, count, facets);
+    return rerankDocuments(opContext, entityNames, input, filters, sortCriteria, start, keyword);
+  }
+
+  /**
+   * Reorders document rows inside the first keyword window. Later pages, a non-score sort, and a
+   * window with no documents keep keyword order. The total and the facets stay the keyword query's.
+   */
+  @Nonnull
+  private SearchResult rerankDocuments(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable Filter filters,
+      @Nullable List<SortCriterion> sortCriteria,
+      int start,
+      @Nonnull SearchResult keyword) {
+    ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
+    if (semanticEntitySearch == null
+        || resolved == null
+        || !resolved.isKnnApplied()
+        || !SearchTemplateHybrid.includesDocument(entityNames)
+        || start > 0
+        || !scoreSort(sortCriteria)
+        || !SearchTemplateHybrid.hasDocument(keyword)) {
+      return keyword;
+    }
+    List<String> documentUrns = documentUrns(keyword);
+    if (documentUrns.isEmpty()) {
+      return keyword;
+    }
+    Float minScore = null;
+    SearchFlags flags = opContext.getSearchContext().getSearchFlags();
+    if (flags != null && flags.hasMinScore() && flags.getMinScore() != null) {
+      minScore = flags.getMinScore();
+    }
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+    int rerankTimeoutSeconds = coordinator == null ? 2 : coordinator.documentRerankTimeoutSeconds();
+    CompletableFuture<SearchResult> rerank =
+        CompletableFuture.supplyAsync(
+            () ->
+                semanticEntitySearch.search(
+                    opContext,
+                    List.of(SearchTemplateHybrid.DOCUMENT),
+                    input,
+                    documentFilter(filters, documentUrns),
+                    null,
+                    0,
+                    documentUrns.size()));
+    try {
+      SearchResult knn = rerank.get(rerankTimeoutSeconds, TimeUnit.SECONDS);
+      if (coordinator == null) {
+        return keyword;
+      }
+      return SearchTemplateHybrid.rerank(
+          keyword,
+          knn,
+          resolved.getKeywordWeight(),
+          resolved.getVectorWeight(),
+          minScore,
+          coordinator.hybridKeywordScale());
+    } catch (TimeoutException e) {
+      rerank.cancel(true);
+      log.warn("Document rerank timed out; returning keyword order");
+      return keyword;
+    } catch (ExecutionException e) {
+      rerank.cancel(true);
+      log.warn("Document rerank failed; returning keyword order", e.getCause());
+      return keyword;
+    } catch (InterruptedException e) {
+      rerank.cancel(true);
+      Thread.currentThread().interrupt();
+      log.warn("Document rerank interrupted; returning keyword order");
+      return keyword;
+    } catch (RuntimeException e) {
+      rerank.cancel(true);
+      log.warn("Document rerank failed; returning keyword order", e);
+      return keyword;
+    }
+  }
+
+  @Nonnull
+  private static List<String> documentUrns(@Nonnull SearchResult keyword) {
+    List<String> urns = new ArrayList<>();
+    if (keyword.getEntities() == null) {
+      return urns;
+    }
+    for (SearchEntity entity : keyword.getEntities()) {
+      if (entity.getEntity() != null
+          && SearchTemplateHybrid.DOCUMENT.equals(entity.getEntity().getEntityType())) {
+        urns.add(entity.getEntity().toString());
+      }
+    }
+    return urns;
+  }
+
+  /** The vector candidates are the document rows already in the keyword window. */
+  @Nonnull
+  private static Filter documentFilter(@Nullable Filter filters, @Nonnull List<String> urns) {
+    Criterion urnCriterion = CriterionUtils.buildCriterion("urn", Condition.EQUAL, urns);
+    ConjunctiveCriterionArray or = new ConjunctiveCriterionArray();
+    if (filters == null || filters.getOr() == null || filters.getOr().isEmpty()) {
+      or.add(new ConjunctiveCriterion().setAnd(new CriterionArray(urnCriterion)));
+      return new Filter().setOr(or);
+    }
+    for (ConjunctiveCriterion conjunction : filters.getOr()) {
+      CriterionArray and = new CriterionArray();
+      if (conjunction.getAnd() != null) {
+        and.addAll(conjunction.getAnd());
+      }
+      and.add(urnCriterion);
+      or.add(new ConjunctiveCriterion().setAnd(and));
+    }
+    return new Filter().setOr(or);
+  }
+
+  private static boolean scoreSort(@Nullable List<SortCriterion> sortCriteria) {
+    if (sortCriteria == null || sortCriteria.isEmpty()) {
+      return true;
+    }
+    for (SortCriterion criterion : sortCriteria) {
+      String field = criterion.getField();
+      if (field != null && !"_score".equals(field) && !"score".equals(field)) {
+        return false;
+      }
+      if (criterion.getOrder() == SortOrder.ASCENDING) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /** Executes the expensive autocomplete query using the {@link EntitySearchService} */
@@ -416,6 +621,16 @@ public class CachingEntitySearchService {
       return entitySearchService.structuredScroll(
           opContext, entities, input, filters, sortCriteria, scrollId, keepAlive, count, facets);
     }
+  }
+
+  /**
+   * Cache keys are Java-serialized into Hazelcast and read back by peers (e.g. key scans during
+   * eviction). The embedded member only accepts JDK and DataHub types, so callers' list types
+   * (Guava {@code ImmutableList} and similar) are copied into an {@link ArrayList}.
+   */
+  @Nullable
+  private static List<String> cacheKeyList(@Nullable List<String> values) {
+    return values == null ? null : new ArrayList<>(values);
   }
 
   /** Returns true if the cache should be used or skipped when fetching search results */

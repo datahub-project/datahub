@@ -118,12 +118,17 @@ class SnowflakeTagHelper(Closeable):
 
     def run_query(self, database: str, schema: str, query: str) -> None:
         try:
-            self.engine.execute(f"USE {database}.{schema};")
-            self.engine.execute(query)
+            # begin() commits on exit: SQLAlchemy 2.0 connections never
+            # autocommit, and USE must share a connection with the statement.
+            # exec_driver_sql, not text(): tag values are URNs, and text() would
+            # parse their ":li" / ":tag" segments as bind parameters.
+            with self.engine.begin() as conn:
+                conn.exec_driver_sql(f"USE {database}.{schema};")
+                conn.exec_driver_sql(query)
             logger.info(f"Successfully executed query {query}")
         except Exception as e:
             logger.warning(
-                f"Failed to execute snowflake query: {query}. Exception: ", e
+                f"Failed to execute snowflake query: {query}. Exception: {e}"
             )
 
     def close(self) -> None:

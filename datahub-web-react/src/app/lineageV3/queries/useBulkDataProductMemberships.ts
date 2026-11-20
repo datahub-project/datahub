@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from 'react';
 
-import { FetchStatus, LineageNodesContext } from '@app/lineageV3/common';
+import { FetchStatus, LineageEntity, LineageNodesContext, setDefault } from '@app/lineageV3/common';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 
 import { GetBulkEntityDataProductsQuery, useGetBulkEntityDataProductsQuery } from '@graphql/lineage.generated';
@@ -58,6 +58,7 @@ export default function useBulkDataProductMemberships() {
                             const entity = makeDataProductEntity(dataProduct);
                             if (entity) boundingBoxEntities.set(dataProduct.urn, entity);
                         }
+                        setDefault(nodes, dataProduct.urn, makeDataProductNode(dataProduct.urn));
                     });
                     // Members of the home data product — directly or via a sibling — are shown
                     // expanded, so their lineage renders without a manual expand.
@@ -79,6 +80,29 @@ export default function useBulkDataProductMemberships() {
             }
         },
     });
+}
+
+/** Registered as a node so its bounding box's entity is fetched like any other node's; it has no
+ * lineage of its own, and `boundingBoxes` is set so membership isn't fetched for it. */
+function makeDataProductNode(urn: string): LineageEntity {
+    return {
+        id: urn,
+        urn,
+        type: EntityType.DataProduct,
+        boundingBoxes: [],
+        isExpanded: {
+            [LineageDirection.Upstream]: false,
+            [LineageDirection.Downstream]: false,
+        },
+        fetchStatus: {
+            [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
+            [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
+        },
+        filters: {
+            [LineageDirection.Upstream]: { facetFilters: new Map() },
+            [LineageDirection.Downstream]: { facetFilters: new Map() },
+        },
+    };
 }
 
 /** Builds a minimal FetchedEntityV2 for a data product, for rendering its bounding box. */

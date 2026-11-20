@@ -43,12 +43,11 @@ interface TimeBucket {
 interface FilterFieldBase {
     field: string;
     displayName: string;
-    icon?: JSX.Element;
     useDatePicker?: boolean; // In advanced filter section, don't use dropdown
     entity?: Entity; // if the filter itself is an entity ie. Structured Properties
 }
 
-export interface BasicFilterField extends FilterFieldBase {
+interface BasicFilterField extends FilterFieldBase {
     type: Exclude<FieldType, FieldType.BUCKETED_TIMESTAMP | FieldType.ENTITY>;
 }
 

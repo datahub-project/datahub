@@ -5,11 +5,11 @@ path, and precedence over static tokens (env, ~/.datahubenv, sink blocks)."""
 
 import concurrent.futures
 import logging
+from pathlib import Path
 
 import pytest
 import yaml
 
-import datahub.cli.config_utils as config_utils
 import datahub.ingestion.sink.datahub_rest as sink_mod
 from datahub.cli.config_utils import MissingConfigError, load_client_config
 from datahub.configuration.common import ConfigurationError
@@ -19,6 +19,8 @@ from datahub.ingestion.auth.env import build_auth_config_from_env
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink, DatahubRestSinkConfig
 
 _AUTH_ENV_VARS = [
+    "DATAHUB_PROFILE",
+    "DATAHUB_SKIP_CONFIG",
     "DATAHUB_AUTH_TYPE",
     "DATAHUB_AUTH_TOKEN_FILE",
     "DATAHUB_AUTH_AUDIENCE",
@@ -38,7 +40,8 @@ _AUTH_ENV_VARS = [
 
 
 @pytest.fixture(autouse=True)
-def _clean_env(monkeypatch):
+def _clean_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
     for var in _AUTH_ENV_VARS:
         monkeypatch.delenv(var, raising=False)
 
@@ -79,6 +82,64 @@ def test_azure_entra_secret_optional(monkeypatch):
         "client_id": "cid",
         "scope": "api://datahub-gms/.default",
     }
+
+
+def test_pat_token_file(monkeypatch, tmp_path):
+    token_file = tmp_path / "token"
+    token_file.write_text("pat-from-file")
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "pat")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_FILE", str(token_file))
+
+    auth = build_auth_config_from_env()
+    assert auth is not None and auth.type == "pat"
+    assert auth.config == {"token_file": str(token_file)}
+
+
+def test_pat_falls_back_to_gms_token_without_warning(monkeypatch, caplog):
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "pat")
+    monkeypatch.setenv("DATAHUB_GMS_TOKEN", "static-pat")
+
+    with caplog.at_level(logging.WARNING):
+        auth = build_auth_config_from_env()
+    assert auth is not None and auth.type == "pat"
+    config = auth.config
+    assert isinstance(config, dict)
+    assert config["token"].get_secret_value() == "static-pat"
+    assert "static-pat" not in repr(auth)
+    assert not any("ignoring the static token" in r.message for r in caplog.records)
+
+
+def test_pat_token_file_wins_over_gms_token_and_warns(monkeypatch, tmp_path, caplog):
+    token_file = tmp_path / "token"
+    token_file.write_text("pat-from-file")
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "pat")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_FILE", str(token_file))
+    monkeypatch.setenv("DATAHUB_GMS_TOKEN", "static-pat")
+
+    with caplog.at_level(logging.WARNING):
+        auth = build_auth_config_from_env()
+    assert auth is not None
+    assert auth.config == {"token_file": str(token_file)}
+    assert any("ignoring the static token" in r.message for r in caplog.records)
+
+
+def test_pat_without_any_source_names_both_vars(monkeypatch):
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "pat")
+
+    with pytest.raises(ConfigurationError) as exc:
+        build_auth_config_from_env()
+    assert "DATAHUB_AUTH_TOKEN_FILE" in str(exc.value)
+    assert "DATAHUB_GMS_TOKEN" in str(exc.value)
+
+
+def test_oauth_type_warns_when_static_token_ignored(monkeypatch, caplog):
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "k8s_oidc")
+    monkeypatch.setenv("DATAHUB_GMS_TOKEN", "static-pat")
+
+    with caplog.at_level(logging.WARNING):
+        auth = build_auth_config_from_env()
+    assert auth is not None
+    assert any("ignoring the static token" in r.message for r in caplog.records)
 
 
 def test_k8s_oidc_all_vars_optional(monkeypatch):
@@ -285,7 +346,7 @@ def test_load_client_config_file_branch_env_auth_overrides_stored_token(
     path.write_text(
         yaml.safe_dump({"gms": {"server": "http://gms:8080", "token": "stored-pat"}})
     )
-    monkeypatch.setattr(config_utils, "DATAHUB_CONFIG_PATH", str(path))
+    monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "k8s_oidc")
 
     with caplog.at_level(logging.WARNING):
@@ -298,9 +359,7 @@ def test_load_client_config_file_branch_env_auth_overrides_stored_token(
 def test_missing_server_error_names_gms_url_when_env_auth_set(tmp_path, monkeypatch):
     # A fully env-configured OAuth container missing only DATAHUB_GMS_URL should
     # be told exactly that, not to run `datahub init`.
-    monkeypatch.setattr(
-        config_utils, "DATAHUB_CONFIG_PATH", str(tmp_path / "missing-datahubenv")
-    )
+    monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "k8s_oidc")
 
     with pytest.raises(MissingConfigError, match="DATAHUB_GMS_URL"):

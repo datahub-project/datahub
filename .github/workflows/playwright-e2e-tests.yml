@@ -95,6 +95,8 @@ jobs:
       shard: ${{ matrix.shard }}
       shard_count: ${{ matrix.shard_count }}
       test_runner_type: ${{ needs.setup.outputs.test_runner_type }}
+      # This workflow tests an already-published tag: no depot/local build, pull it from the registry.
+      pull_from_registry: true
       datahub_version: ${{ inputs.datahub_version }}
       profile_name: ${{ inputs.profileName }}
       workers_per_shard: ${{ inputs.workers_per_shard }}

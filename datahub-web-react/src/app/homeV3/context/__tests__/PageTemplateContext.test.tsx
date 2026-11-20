@@ -1,5 +1,4 @@
 import { act, render } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { vi } from 'vitest';
 
@@ -7,6 +6,7 @@ import { PageTemplateProvider, usePageTemplateContext } from '@app/homeV3/contex
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
 import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOperations';
 import { useTemplateState } from '@app/homeV3/context/hooks/useTemplateState';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, PageTemplateSurfaceType } from '@types';
@@ -156,6 +156,7 @@ describe('PageTemplateContext', () => {
         it('should call useTemplateState without parameters', () => {
             render(
                 <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
+                    {/* eslint-disable-next-line i18next/no-literal-string */}
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
@@ -166,6 +167,7 @@ describe('PageTemplateContext', () => {
         it('should call useTemplateOperations with setPersonalTemplate and personalTemplate', () => {
             render(
                 <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
+                    {/* eslint-disable-next-line i18next/no-literal-string */}
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
@@ -180,6 +182,7 @@ describe('PageTemplateContext', () => {
         it('should call useModuleOperations with correct parameters', () => {
             render(
                 <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
+                    {/* eslint-disable-next-line i18next/no-literal-string */}
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
@@ -284,6 +287,7 @@ describe('PageTemplateContext', () => {
 
             render(
                 <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
+                    {/* eslint-disable-next-line i18next/no-literal-string */}
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
@@ -357,10 +361,8 @@ describe('PageTemplateContext', () => {
         });
 
         it('should throw error when used outside provider', () => {
-            const { result } = renderHook(() => usePageTemplateContext());
-
-            expect(result.error).toEqual(
-                new Error('usePageTemplateContext must be used within a PageTemplateProvider'),
+            expect(() => renderHook(() => usePageTemplateContext())).toThrow(
+                'usePageTemplateContext must be used within a PageTemplateProvider',
             );
         });
 

@@ -1,4 +1,3 @@
-# Inlined from metadata-ingestion/examples/library/update_document.py
 """Example: Updating documents using the DataHub SDK.
 
 This example demonstrates how to retrieve, modify, and update documents.

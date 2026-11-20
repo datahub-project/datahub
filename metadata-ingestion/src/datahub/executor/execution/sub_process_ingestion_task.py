@@ -17,11 +17,13 @@ import asyncio.exceptions
 import json
 import logging
 import os
+import re
 import signal
 import sys
 from asyncio import tasks
 from collections.abc import Generator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import IO, Any, Optional
@@ -45,14 +47,40 @@ from datahub.executor.execution.runner import (
 from datahub.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
     SubProcessTaskUtil,
+    check_credential_redirects,
     resolve_wrapper_script,
 )
 from datahub.executor.execution.task import Task, TaskError
-from datahub.masking.bootstrap import shutdown_secret_masking
 from datahub.masking.masking_filter import SecretMaskingFilter
-from datahub.masking.secret_registry import SecretRegistry
 
 logger = logging.getLogger(__name__)
+
+# Matches the pipeline's periodic CLI report, e.g. "'peak_memory_usage': '12.3 GB',".
+# Only a humanfriendly size is accepted: the value is quoted in the OOM error,
+# which is printed unmasked, so anything a connector could put in a matching
+# log line must not reach it.
+_PEAK_MEMORY_RE = re.compile(
+    r"^\s*'peak_memory_usage': '(\d{1,6}(?:\.\d{1,2})? (?:bytes?|[KMGTPEZY]B))',?\s*$"
+)
+
+
+@dataclass
+class IngestionMemoryInfo:
+    """The peak memory the ingestion subprocess last reported about itself.
+
+    A run killed for running out of memory never writes its report file, so the
+    periodic CLI report in its output is the only record of what it used.
+    """
+
+    last_reported_peak: Optional[str] = None
+
+    def record_log_line(self, line: str) -> None:
+        if "peak_memory_usage" not in line:
+            return
+        match = _PEAK_MEMORY_RE.search(line)
+        if match:
+            self.last_reported_peak = match.group(1)
+
 
 ARTIFACTS_DIR_NAME = "artifacts"
 
@@ -112,6 +140,45 @@ class SubProcessIngestionTaskArgs(SubProcessRecipeTaskArgs):
         if isinstance(v, str):
             return v.lower()
         return str(v).lower()
+
+
+# A run that asks for `datahub ingest run` flags carries them under this top-level
+# recipe key, not as a task argument. The task arguments model ignores keys it
+# does not know, so an older executor would drop the flags and run for real. A
+# key left in the recipe fails the CLI's recipe validation instead, so an older
+# executor refuses the run before anything is written.
+RUN_OPTIONS_RECIPE_KEY = "__run_options__"
+
+
+class IngestionRunOptions(ConfigModel):
+    """The `datahub ingest run` flags a run asks for."""
+
+    dry_run: bool = Field(
+        default=False, description="Run without writing anything to the sink."
+    )
+    preview: bool = Field(
+        default=False,
+        description=(
+            "Stop after the first `preview_workunits`. Those are still written "
+            "to the sink unless `dry_run` is also set."
+        ),
+    )
+    preview_workunits: int = Field(
+        default=10, ge=1, description="How many work units a preview processes."
+    )
+
+
+def split_run_options(recipe: dict) -> tuple[dict, IngestionRunOptions]:
+    """The recipe without its run options, and the options it carried."""
+    # By key, not value: a null left in the recipe would reach the CLI, which
+    # would fail with an unrelated-looking "extra fields not permitted".
+    if RUN_OPTIONS_RECIPE_KEY not in recipe:
+        return recipe, IngestionRunOptions()
+    try:
+        options = IngestionRunOptions.model_validate(recipe[RUN_OPTIONS_RECIPE_KEY])
+    except pydantic.ValidationError as e:
+        raise TaskError(f"Invalid {RUN_OPTIONS_RECIPE_KEY} in the recipe: {e}") from e
+    return {k: v for k, v in recipe.items() if k != RUN_OPTIONS_RECIPE_KEY}, options
 
 
 class SubProcessIngestionTask(Task):
@@ -260,12 +327,15 @@ class SubProcessIngestionTask(Task):
         exec_out_dir: str,
         shared_logs: LogHolder,
         secret_values: dict[str, str],
+        run_options: IngestionRunOptions,
     ) -> asyncio.subprocess.Process:
         """Create and return the ingestion subprocess.
 
         Secrets and recipe are passed via stdin as a JSON envelope to avoid
         writing secrets to env vars or recipe to disk.
         """
+        user_env_secrets = SubProcessTaskUtil.subprocess_env_secrets(validated_args)
+
         # First, set up the venv using Python utilities with shared logging
         venv_ref = await self._setup_venv(
             validated_args, plugin, exec_out_dir, shared_logs
@@ -294,15 +364,17 @@ class SubProcessIngestionTask(Task):
         }
 
         # Build stdin envelope in datahub-compatible format.
-        # __recipe_yaml__ and __secrets__ are consumed by datahub's config_loader.
-        # __report_out_file__ and __debug_mode__ are consumed by the wrapper script.
+        # The wrapper consumes the envelope and forwards it to the CLI's
+        # config_loader when the venv CLI supports it.
         # All envelope keys use dunder prefix to distinguish from recipe content.
+        # Per-run values only, never the whole registry; recipe values win on collision.
         stdin_envelope = json.dumps(
             {
                 "__recipe_yaml__": yaml.dump(recipe),
-                "__secrets__": secret_values,
+                "__secrets__": {**user_env_secrets, **secret_values},
                 "__report_out_file__": report_out_file,
                 "__debug_mode__": debug_mode,
+                "__run_options__": run_options.model_dump(),
             }
         )
 
@@ -352,6 +424,9 @@ class SubProcessIngestionTask(Task):
         recipe, secret_values = SubProcessTaskUtil._resolve_recipe(
             validated_args.recipe, ctx, self.ctx
         )
+        check_credential_redirects(recipe, validated_args, secret_values)
+        # Before any directory or log file exists, like the check above.
+        recipe, run_options = split_run_options(recipe)
         plugin: str = SubProcessTaskUtil._get_plugin_from_recipe(recipe)
 
         # 2. Setup directories
@@ -387,6 +462,7 @@ class SubProcessIngestionTask(Task):
             exec_out_dir,
             shared_logs,
             secret_values,
+            run_options,
         )
 
         # Publish the artifact directory on the context so callers can locate this run's
@@ -403,10 +479,16 @@ class SubProcessIngestionTask(Task):
         # text is in the result report, not here.
         ctx.set_artifact_dir(artifact_output_dir)
 
+        memory_info = IngestionMemoryInfo()
         cancelled = False
         try:
             await self._monitor_subprocess(
-                ingest_process, exec_id, ctx, shared_logs, full_log_file
+                ingest_process,
+                exec_id,
+                ctx,
+                shared_logs,
+                full_log_file,
+                memory_info=memory_info,
             )
         except asyncio.CancelledError:
             # Track for the finally cleanup; the bare raise re-raises so
@@ -427,6 +509,7 @@ class SubProcessIngestionTask(Task):
                 exec_out_dir,
                 shared_logs,
                 cancelled=cancelled,
+                memory_info=memory_info,
             )
 
     @staticmethod
@@ -445,9 +528,15 @@ class SubProcessIngestionTask(Task):
         ctx: ExecutionContext,
         shared_logs: LogHolder,
         full_log_file: IO[str],
+        memory_info: Optional[IngestionMemoryInfo] = None,
     ) -> None:
-        """Monitor subprocess execution with async tasks for output reading and progress reporting."""
+        """Monitor subprocess execution with async tasks for output reading and progress reporting.
+
+        When ``memory_info`` is given, the peak memory the pipeline prints in its
+        periodic CLI report is remembered so an OOM error can quote it.
+        """
         most_recent_log_ts: Optional[datetime] = None
+        masking_filter = SecretMaskingFilter()
 
         async def _read_output_lines() -> None:
             nonlocal most_recent_log_ts
@@ -485,6 +574,8 @@ class SubProcessIngestionTask(Task):
                 line = line_bytes.decode("utf-8")
 
                 most_recent_log_ts = datetime.now(tz=timezone.utc)
+                if memory_info is not None:
+                    memory_info.record_log_line(line)
 
                 full_log_file.write(line)
 
@@ -522,7 +613,7 @@ class SubProcessIngestionTask(Task):
 
                     # TODO maybe use the normal report field here?
                     logger.debug(f"Reporting in-progress for exec_id={exec_id}")
-                    ctx.request.progress_callback(report)
+                    ctx.request.progress_callback(masking_filter.mask_text(report))
 
                 full_log_file.flush()
                 await asyncio.sleep(0)
@@ -586,6 +677,7 @@ class SubProcessIngestionTask(Task):
         exec_out_dir: str,
         shared_logs: LogHolder,
         cancelled: bool = False,
+        memory_info: Optional[IngestionMemoryInfo] = None,
     ) -> None:
         """Handle subprocess completion: report processing, cleanup, and status.
 
@@ -594,21 +686,15 @@ class SubProcessIngestionTask(Task):
         code from a non-cancelled run — so callers can invoke this from a
         `finally` block without fear of masking an in-flight exception.
         """
+        masking_filter = SecretMaskingFilter()
 
         if os.path.exists(report_out_file):
             try:
                 with open(report_out_file) as structured_report_fp:
                     report_content = structured_report_fp.read()
-                try:
-                    registry = SecretRegistry.get_instance()
-                    if registry and registry.get_count() > 0:
-                        report_content = SecretMaskingFilter(registry).mask_text(
-                            report_content
-                        )
-                except Exception:
-                    # Better to have the report than to fail completely.
-                    logger.warning("Failed to mask structured report, using original")
-                ctx.get_report().set_structured_report(report_content)
+                ctx.get_report().set_structured_report(
+                    masking_filter.mask_text(report_content)
+                )
             except Exception:
                 logger.exception(
                     "Failed to process structured report from %s", report_out_file
@@ -616,17 +702,14 @@ class SubProcessIngestionTask(Task):
 
         try:
             ctx.get_report().set_logs(
-                SubProcessTaskUtil._format_log_lines(shared_logs.get_lines())
+                masking_filter.mask_text(
+                    SubProcessTaskUtil._format_log_lines(shared_logs.get_lines())
+                )
             )
         except Exception:
             logger.exception("Failed to set logs on execution report")
 
         SubProcessTaskUtil._remove_directory(exec_out_dir)
-
-        try:
-            shutdown_secret_masking()
-        except Exception as e:
-            logger.warning(f"Failed to shutdown secret masking: {e}")
 
         if cancelled:
             ctx.get_report().report_info("Ingestion task was cancelled")
@@ -641,13 +724,15 @@ class SubProcessIngestionTask(Task):
                 except ValueError:
                     signal_name = str(-return_code)
                 ctx.get_report().report_error(
-                    f"The ingestion process was killed by signal {signal_name} likely because it ran out of memory. "
-                    "You can resolve this issue by allocating more memory to the datahub-actions container."
+                    self._format_oom_error(
+                        f"was killed by signal {signal_name}", memory_info
+                    )
                 )
             elif return_code == 137:
                 ctx.get_report().report_error(
-                    "The ingestion process was terminated with exit code 137, likely because it ran out of memory."
-                    "You can resolve this issue by allocating more memory to the datahub-actions container."
+                    self._format_oom_error(
+                        "was terminated with exit code 137", memory_info
+                    )
                 )
             else:
                 ctx.get_report().report_info(
@@ -657,6 +742,31 @@ class SubProcessIngestionTask(Task):
 
         # Report Successful execution
         ctx.get_report().report_info("Successfully executed 'datahub ingest'")
+
+    @staticmethod
+    def _format_oom_error(
+        how_it_ended: str, memory_info: Optional[IngestionMemoryInfo]
+    ) -> str:
+        """An OOM error that quotes the run's last reported peak memory.
+
+        The peak is the last value the pipeline printed before the kill, not the
+        true peak. The memory limit applies to the whole executor and is shown
+        with its memory use on the executor's status, so it is not repeated here.
+        """
+        peak = memory_info.last_reported_peak if memory_info is not None else None
+        measured = (
+            f" This run last reported a peak memory usage of {peak}."
+            if peak is not None
+            else ""
+        )
+        return (
+            f"The ingestion process {how_it_ended}, most likely because the "
+            f"executor ran out of memory.{measured} The executor's memory limit is "
+            "shared by every ingestion running on it; its memory use and limit are "
+            "shown under Data Sources > Executors. Reduce this ingestion's memory "
+            "use, run fewer ingestions at once on the executor, or give the "
+            "executor more memory."
+        )
 
     def close(self) -> None:
         pass

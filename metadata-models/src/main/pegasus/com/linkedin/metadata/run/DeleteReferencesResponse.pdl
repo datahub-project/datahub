@@ -15,4 +15,10 @@ record DeleteReferencesResponse {
    * Total number of relationships that an entity urn has.
    */
   total: int
+
+  /**
+   * True when the delete was queued to run later. The counts are then what existed when it was
+   * queued, not what was deleted.
+   */
+  queued: optional boolean
 }

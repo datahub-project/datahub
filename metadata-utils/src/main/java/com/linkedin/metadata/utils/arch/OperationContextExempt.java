@@ -22,7 +22,7 @@ import java.lang.annotation.Target;
  */
 @Documented
 @Retention(RetentionPolicy.CLASS)
-@Target(ElementType.METHOD)
+@Target({ElementType.METHOD, ElementType.TYPE})
 public @interface OperationContextExempt {
   /** Required explanation for why this method does not accept an OperationContext. */
   String reason();

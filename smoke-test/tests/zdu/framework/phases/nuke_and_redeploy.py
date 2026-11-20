@@ -37,7 +37,7 @@ from datetime import datetime
 
 from .base import ConfiguredPhase, PhaseResult
 from ..config import ZDUTestConfig
-from ..constants import REPO_ROOT, TOKEN_SERVICE_KEYS
+from ..constants import PER_SERVICE_VERSION_KEY, REPO_ROOT, TOKEN_SERVICE_KEYS
 from ..context import TestContext
 from ..docker_compose import DEFAULT_UP_TIMEOUT_S, DockerComposeClient
 from ..host_mounts import worktree_mount_env
@@ -187,7 +187,8 @@ class NukeAndRedeployPhase(ConfiguredPhase):
         log.info("[nuke] wiping containers + MySQL + OpenSearch volumes")
         self._docker.down_and_wipe(
             timeout_s=self._down_timeout_s,
-            wipe_volumes=["osdata", "mysqldata"],
+            # os3data backs the unversioned profiles; osdata the *-opensearch2 pins.
+            wipe_volumes=["os3data", "osdata", "mysqldata"],
         )
 
         # G20c — point the dev host mounts at the OLD worktree's build outputs
@@ -205,11 +206,29 @@ class NukeAndRedeployPhase(ConfiguredPhase):
                 "[nuke] pinning host mounts to OLD worktree: %s",
                 sorted(mount_env.keys()),
             )
+        # Per-service vars, not DATAHUB_VERSION — that cascades to
+        # frontend/actions, whose images don't exist at the OLD tag.
+        #
+        # Must cover the consumers, not just GMS: on a split topology they carry
+        # the write path, and unpinned they fall through to ${DATAHUB_VERSION},
+        # which in CI is `head` — a Docker Hub image that is neither side of the
+        # upgrade. Services absent from the profile just add an unread env var.
+        old_version_pins = {
+            key: config.old_image_tag
+            for svc in config.services_in_restart_order
+            if (key := PER_SERVICE_VERSION_KEY.get(svc)) is not None
+        }
+        # system-update runs the OLD worktree's jar, so it needs the OLD image
+        # too. `head` on Docker Hub can lag master and miss env the jar needs
+        # (e.g. SPRING_PROFILES_ACTIVE=upgrade).
+        old_version_pins["DATAHUB_UPDATE_VERSION"] = config.old_image_tag
+        log.info(
+            "[nuke] pinning to OLD (%s): %s",
+            config.old_image_tag,
+            sorted(old_version_pins),
+        )
         compose_env = {
-            # Pin GMS specifically to OLD via the per-service var (NOT
-            # DATAHUB_VERSION — that one cascades to all services including
-            # frontend/actions whose images don't exist at the OLD tag).
-            "DATAHUB_GMS_VERSION": config.old_image_tag,
+            **old_version_pins,
             # Carry DATAHUB_LOCAL_COMMON_ENV through so the redeployed GMS
             # honors the same authz-bypass file (zdu-test.env) that
             # preflight already validated.
@@ -235,7 +254,12 @@ class NukeAndRedeployPhase(ConfiguredPhase):
             **preserved,
         }
         log.info(
-            "[nuke] redeploying stack — GMS on OLD (%s), other services on default debug tag",
+            "[nuke] redeploying stack — %s on OLD (%s), other services on default debug tag",
+            ", ".join(
+                svc
+                for svc in config.services_in_restart_order
+                if svc in PER_SERVICE_VERSION_KEY
+            ),
             config.old_image_tag,
         )
         # Bring up the FULL profile (no `services=` arg). Reason: GMS's

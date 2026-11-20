@@ -1,4 +1,4 @@
-import { ClockCircleOutlined } from '@ant-design/icons';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { Divider } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -66,7 +66,7 @@ export const FreshnessContractSummary = ({ contracts, showAction = false }: Prop
             <TitleText>{t('contractSection.freshness')}</TitleText>
             <SummaryContainer>
                 <Header>
-                    <ClockCircleOutlined style={{ marginRight: 8 }} />
+                    <Clock style={{ marginRight: 8 }} />
                     {t('freshnessContract.updateFrequency')}
                 </Header>
                 <Body>

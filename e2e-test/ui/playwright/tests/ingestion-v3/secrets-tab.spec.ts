@@ -2,6 +2,7 @@ import { SnowflakeFormDetails } from '@pages/ingestion/base/sources/SnowflakeSou
 import { test } from '../../fixtures/base-test';
 import { IngestionV3Page } from '../../pages/ingestion/v3/ingestion-v3.page';
 import { generateRandomString } from '../../utils/random';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'ingestion-v3' });
 
@@ -12,8 +13,6 @@ test.describe('secrets tab in manage data sources', () => {
     ingestionPage = new IngestionV3Page(page, logger, logDir);
 
     await apiMock.setFeatureFlags({
-      showIngestionPageRedesign: true,
-      ingestionOnboardingRedesignV1: true,
       showNavBarRedesign: true,
     });
 
@@ -23,7 +22,7 @@ test.describe('secrets tab in manage data sources', () => {
     await ingestionPage.secretsTab.open();
   });
 
-  test('create and delete a secret', async () => {
+  test('create and delete a secret', { tag: [TestTag.P0, DomainTag.Ingestion] }, async () => {
     const suffix = generateRandomString();
     const secretName = `playwright_secret_${suffix}`;
     const secretValue = `secret-value-${suffix}`;

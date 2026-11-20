@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.kafka;
 
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import java.time.Duration;
@@ -15,13 +16,15 @@ import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Import;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
 @Slf4j
 @Configuration
-@DependsOn("configurationProvider")
+@Import(AwsClientFactory.class)
+@DependsOn({"configurationProvider", "defaultAwsCredentialsProvider"})
 public class SimpleKafkaConsumerFactory {
 
   @Bean(name = "simpleKafkaConsumer")
@@ -59,6 +62,7 @@ public class SimpleKafkaConsumerFactory {
     customizedProperties.put(
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
         kafkaConfiguration.getConsumer().getMaxPartitionFetchBytes());
+    KafkaMskIamAuth.configure(customizedProperties);
 
     ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
         new ConcurrentKafkaListenerContainerFactory<>();

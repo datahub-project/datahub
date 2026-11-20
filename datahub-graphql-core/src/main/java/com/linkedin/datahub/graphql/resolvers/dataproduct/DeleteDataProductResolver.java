@@ -43,8 +43,8 @@ public class DeleteDataProductResolver implements DataFetcher<CompletableFuture<
           // a data product with no domain would be undeletable by anyone (including
           // admins), because the domain-scoped check fails closed on an empty domain
           // set and no domain-scoped policy can match a product without domains.
-          if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProductsOnAnyDomain(
-                  context, domains)
+          if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProduct(
+                  context, dataProductUrn, domains)
               && !AuthorizationUtils.canDeleteEntity(dataProductUrn, context)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");

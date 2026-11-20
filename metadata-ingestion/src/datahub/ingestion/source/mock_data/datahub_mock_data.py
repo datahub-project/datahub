@@ -154,7 +154,7 @@ class DataHubMockDataConfig(ConfigModel):
 
 @platform_name(PLATFORM_NAME)
 @config_class(DataHubMockDataConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.ALPHA)
 class DataHubMockDataSource(Source):
     """
     This source is for generating mock data for testing purposes.

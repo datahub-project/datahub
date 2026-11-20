@@ -1,4 +1,3 @@
-import _ from 'lodash';
 import { DefaultTheme } from 'styled-components';
 
 import { AssertionResultType } from '@types';

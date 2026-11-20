@@ -96,9 +96,14 @@
     "searchActions.glossaryTerms.addTitle": "Lisää termejä",
     "searchActions.glossaryTerms.name": "Termit",
     "searchActions.glossaryTerms.removeTitle": "Poista termejä",
+    "searchActions.noSelection": "Valitse vähintään yksi kohde käyttääksesi tätä toimintoa.",
     "searchActions.notSupported": "Tätä toimintoa ei tueta valituille tyypeille.",
     "searchActions.owners.addTitle": "Lisää omistajia",
     "searchActions.owners.removeTitle": "Poista omistajia",
     "searchActions.tags.addTitle": "Lisää tunnisteita",
-    "searchActions.tags.removeTitle": "Poista tunnisteita"
+    "searchActions.tags.removeTitle": "Poista tunnisteita",
+    "structuredProperty.addMore": "+ Lisää",
+    "structuredProperty.selectPlaceholder": "Valitse",
+    "viewAll.resultsIncomplete": "Tulokset saattavat olla puutteellisia.",
+    "viewAll.searchAllAssets": "Hae kaikkia sisäänluettuja {{platform}}-kohteita"
 }

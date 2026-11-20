@@ -2,11 +2,12 @@ package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchAssignFormInput;
 import com.linkedin.metadata.service.FormService;
 import graphql.schema.DataFetcher;
@@ -34,10 +35,13 @@ public class BatchAssignFormResolver implements DataFetcher<CompletableFuture<Bo
         bindArgument(environment.getArgument("input"), BatchAssignFormInput.class);
     final Urn formUrn = UrnUtils.getUrn(input.getFormUrn());
     final List<String> entityUrns = input.getEntityUrns();
-    final Authentication authentication = context.getAuthentication();
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
+          if (!AuthorizationUtils.canManageForms(context)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
           try {
             _formService.batchAssignFormToEntities(
                 context.getOperationContext(),

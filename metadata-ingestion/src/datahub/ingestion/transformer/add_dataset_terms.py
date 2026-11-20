@@ -17,6 +17,7 @@ from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
 )
+from datahub.utilities.dedup_list import deduplicate_list
 
 
 class AddDatasetTermsConfig(TransformerSemanticsConfigModel):
@@ -89,6 +90,10 @@ class AddDatasetTerms(DatasetTermsTransformer):
         terms_to_add = self.config.get_terms_to_add(entity_urn)
         if terms_to_add is not None:
             out_glossary_terms.terms.extend(terms_to_add)
+
+        out_glossary_terms.terms = deduplicate_list(
+            out_glossary_terms.terms, key=lambda term: term.urn, keep="last"
+        )
 
         patch_glossary_terms: Optional[GlossaryTermsClass] = None
         if self.config.semantics == TransformerSemantics.PATCH:

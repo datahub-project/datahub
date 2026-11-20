@@ -56,7 +56,9 @@ public class PgQueueMaePollerSourcesConfigurationTest {
     configurationProvider = mock(ConfigurationProvider.class);
     MaeConsumerConfiguration.PgQueuePoll poll = new MaeConsumerConfiguration.PgQueuePoll();
     poll.setUsageEventsMaxBatch(200);
+    poll.setUsageEventsEmptyPollSleepMillis(5000L);
     poll.setMetadataChangeLogMaxBatch(50);
+    poll.setMetadataChangeLogEmptyPollSleepMillis(5000L);
     MaeConsumerConfiguration maeConsumer = new MaeConsumerConfiguration();
     maeConsumer.setPgQueue(poll);
     when(configurationProvider.getMaeConsumer()).thenReturn(maeConsumer);
@@ -338,8 +340,7 @@ public class PgQueueMaePollerSourcesConfigurationTest {
     PostgresSqlSetupProperties properties = new PostgresSqlSetupProperties();
     PostgresSqlSetupProperties.PgQueue.ConsumerPoll consumerPoll =
         new PostgresSqlSetupProperties.PgQueue.ConsumerPoll();
-    consumerPoll.setEmptyPollSleepMillis(100L);
-    consumerPoll.setMclEmptyPollSleepMillis(25L);
+    consumerPoll.setEmptyPollSleepMinMillis(1000L);
     consumerPoll.setMissingTopicSleepMillis(500L);
     consumerPoll.setErrorRecoverySleepMillis(1000L);
     properties.getPgQueue().setConsumerPoll(consumerPoll);

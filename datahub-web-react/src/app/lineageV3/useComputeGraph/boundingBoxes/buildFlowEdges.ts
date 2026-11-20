@@ -53,13 +53,14 @@ export default function buildFlowEdges(
 
     graphStore.edges.forEach((edge, edgeId) => {
         const [upstream, downstream] = parseEdgeId(edgeId);
-        const segments: [Urn, Urn][] =
-            edge.via && displayedFreeIds.has(edge.via)
-                ? [
-                      [upstream, edge.via],
-                      [edge.via, downstream],
-                  ]
-                : [[upstream, downstream]];
+        // Route through query nodes wherever they're rendered: free or in a bounding box
+        const via = edge.via && endpointsFor(edge.via).length ? edge.via : undefined;
+        const segments: [Urn, Urn][] = via
+            ? [
+                  [upstream, via],
+                  [via, downstream],
+              ]
+            : [[upstream, downstream]];
 
         segments.forEach(([source, target]) => {
             endpointsFor(source).forEach((sourceEndpoint) => {

@@ -8,13 +8,8 @@ ext {
 
 node {
 
-  // If true, it will download node using above parameters.
-  // If false, it will try to use globally installed node.
-  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
-    download = false
-  } else {
-    download = true
-  }
+  // Download Node unless the root build says to use the one on PATH (the default in CI).
+  download = !rootProject.ext.useSystemNode
 
   // Version of node to use.
   version = rootProject.ext.nodeVersion
@@ -62,6 +57,14 @@ task pythonLintFix(type: Exec, dependsOn: installDev) {
         "ruff check --fix . && " +
         "ruff format . && " +
         "mypy ."
+}
+
+// CPU tests — no quickstart. ./gradlew :smoke-test:stackFreePytest
+task stackFreePytest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:codegen']) {
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+            "python -m pytest tests/unit --junit-xml=test-results/junit.stack-free.xml"
 }
 
 /**

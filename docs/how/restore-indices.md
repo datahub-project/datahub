@@ -6,6 +6,8 @@ description: "Rebuild DataHub's Elasticsearch, OpenSearch, or Neo4j indices from
 
 If your search infrastructure (Elasticsearch/OpenSearch) or graph services (Elasticsearch/OpenSearch/Neo4j) become inconsistent or out-of-sync with your primary metadata store, you can **rebuild them from the source of truth**: the `metadata_aspect_v2` table in your relational database (MySQL/Postgres).
 
+Cassandra is not supported. On Cassandra the job runs no steps: it reads no rows and does not clear the index, including with `-a clean`, so search and graph keep whatever they hold. Cassandra was never validated for zero-downtime upgrade, and support for upgrades after v1.6.0 is still a todo. Stay on Search V2, or re-ingest so later writes fill the index. Do not enable ZDU on Cassandra.
+
 This process works by fetching the latest version of each aspect from the database and replaying them as Metadata Change Log (MCL) events. These events will regenerate your search and graph indexes, effectively restoring a consistent view.
 
 > ⚠️ **Note**: By default, this process does **not remove** stale documents from the index that no longer exist in the database. To ensure full consistency, we recommend reindexing into a clean instance, or using the `-a clean` option to wipe existing index contents before replay.
@@ -293,8 +295,8 @@ To improve write performance during restoration:
 
 ##### Refresh Interval Adjustment:
 
-Temporarily increase the refresh_interval setting from the default (typically 1s) to something like 30s or 60s.
-Run the system update job with the following environment variable `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS=60`
+Temporarily increase the refresh interval. `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS` is the fallback for entity search, graph, and system metadata. `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ENTITY_SECONDS`, `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_GRAPH_SECONDS`, `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_SYSTEM_METADATA_SECONDS`, and a per-entity `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ENTITIES` value replace that fallback. Timeseries and usage use `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_TIMESERIES_SECONDS` and `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_USAGE_SECONDS` (default 60). A per-aspect `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ASPECTS` value replaces the timeseries default.
+Run the system update job with those variables set, for example `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS=60`.
 
 :::caution
 Remember to reset this after restoration completes!

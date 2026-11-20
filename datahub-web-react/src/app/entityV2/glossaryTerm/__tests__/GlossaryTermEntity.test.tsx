@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { GlossaryTermEntity } from '@app/entityV2/glossaryTerm/GlossaryTermEntity';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
 
 describe('GlossaryTermEntity tag support', () => {
     const entity = new GlossaryTermEntity();
@@ -13,6 +12,10 @@ describe('GlossaryTermEntity tag support', () => {
 
     it('includes SidebarTagsSection in the profile sidebar', () => {
         const sections = entity.getSidebarSections();
-        expect(sections.some((section) => section.component === SidebarTagsSection)).toBe(true);
+        expect(
+            sections.some(
+                (section) => (section.component as { displayName?: string }).displayName === 'SidebarTagsSection',
+            ),
+        ).toBe(true);
     });
 });

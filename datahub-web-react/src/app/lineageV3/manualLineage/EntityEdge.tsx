@@ -1,10 +1,10 @@
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import Text from 'antd/lib/typography/Text';
+import Text from 'antd/es/typography/Text';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { DEFAULT_SYSTEM_ACTOR_URNS } from '@app/entity/shared/constants';
+import { DEFAULT_SYSTEM_ACTOR_URNS } from '@app/entityV2/shared/constants';
 import UserAvatar from '@app/lineageV3/manualLineage/UserAvatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Icon } from '@src/alchemy-components';

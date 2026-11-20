@@ -24,7 +24,7 @@ export const Glyph = ({ x, y }: GlyphProps): React.ReactElement => {
     );
 };
 
-export const GlyphWithRef = forwardRef<SVGGElement, GlyphProps>((props, ref): React.ReactElement => {
+const GlyphWithRef = forwardRef<SVGGElement, GlyphProps>((props, ref): React.ReactElement => {
     return (
         <g ref={ref}>
             <Glyph {...props} />

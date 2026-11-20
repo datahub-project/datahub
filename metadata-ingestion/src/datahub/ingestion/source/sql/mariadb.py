@@ -12,7 +12,7 @@ from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 
 @platform_name("MariaDB")
 @config_class(MySQLConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
@@ -40,6 +40,10 @@ from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
         SourceCapabilityModifier.VIEW,
         SourceCapabilityModifier.TABLE,
     ],
+)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
 )
 class MariaDBSource(MySQLSource):
     def get_platform(self):

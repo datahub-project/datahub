@@ -1,4 +1,7 @@
-import { EditOutlined, ReadOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
+import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { User } from '@phosphor-icons/react/dist/csr/User';
 
 import { getRoleNameFromUrn, mapRoleIcon, shouldShowGlossary } from '@app/identity/user/UserUtils';
 
@@ -81,54 +84,54 @@ describe('UserUtils', () => {
     });
 
     describe('mapRoleIcon', () => {
-        it('should return SettingOutlined for Admin role', () => {
+        it('should return Gear for Admin role', () => {
             const result = mapRoleIcon('Admin');
-            expect(result.type).toEqual(SettingOutlined);
+            expect(result.type).toEqual(Gear);
         });
 
-        it('should return EditOutlined for Editor role', () => {
+        it('should return PencilSimple for Editor role', () => {
             const result = mapRoleIcon('Editor');
-            expect(result.type).toEqual(EditOutlined);
+            expect(result.type).toEqual(PencilSimple);
         });
 
-        it('should return ReadOutlined for Reader role', () => {
+        it('should return BookOpen for Reader role', () => {
             const result = mapRoleIcon('Reader');
-            expect(result.type).toEqual(ReadOutlined);
+            expect(result.type).toEqual(BookOpen);
         });
 
-        it('should return UserOutlined for unknown role names', () => {
+        it('should return User for unknown role names', () => {
             const result = mapRoleIcon('CustomRole');
-            expect(result.type).toEqual(UserOutlined);
+            expect(result.type).toEqual(User);
         });
 
-        it('should return UserOutlined for empty role name', () => {
+        it('should return User for empty role name', () => {
             const result = mapRoleIcon('');
-            expect(result.type).toEqual(UserOutlined);
+            expect(result.type).toEqual(User);
         });
 
-        it('should return UserOutlined for null role name', () => {
+        it('should return User for null role name', () => {
             const result = mapRoleIcon(null);
-            expect(result.type).toEqual(UserOutlined);
+            expect(result.type).toEqual(User);
         });
 
-        it('should return UserOutlined for undefined role name', () => {
+        it('should return User for undefined role name', () => {
             const result = mapRoleIcon(undefined);
-            expect(result.type).toEqual(UserOutlined);
+            expect(result.type).toEqual(User);
         });
 
         it('should be case-sensitive for role matching', () => {
             const result = mapRoleIcon('admin'); // lowercase
-            expect(result.type).toEqual(UserOutlined);
+            expect(result.type).toEqual(User);
         });
 
         it('should handle numeric role names', () => {
             const result = mapRoleIcon('123');
-            expect(result.type).toEqual(UserOutlined);
+            expect(result.type).toEqual(User);
         });
 
         it('should handle role names with special characters', () => {
             const result = mapRoleIcon('Admin@123');
-            expect(result.type).toEqual(UserOutlined);
+            expect(result.type).toEqual(User);
         });
     });
 
@@ -159,28 +162,28 @@ describe('UserUtils', () => {
             const roleName = getRoleNameFromUrn('urn:li:dataHubRole:admin');
             const icon = mapRoleIcon(roleName);
             expect(roleName).toEqual('Admin');
-            expect(icon.type).toEqual(SettingOutlined);
+            expect(icon.type).toEqual(Gear);
         });
 
         it('should properly handle the complete flow from URN to icon for Editor', () => {
             const roleName = getRoleNameFromUrn('urn:li:dataHubRole:editor');
             const icon = mapRoleIcon(roleName);
             expect(roleName).toEqual('Editor');
-            expect(icon.type).toEqual(EditOutlined);
+            expect(icon.type).toEqual(PencilSimple);
         });
 
         it('should properly handle the complete flow from URN to icon for Reader', () => {
             const roleName = getRoleNameFromUrn('urn:li:dataHubRole:reader');
             const icon = mapRoleIcon(roleName);
             expect(roleName).toEqual('Reader');
-            expect(icon.type).toEqual(ReadOutlined);
+            expect(icon.type).toEqual(BookOpen);
         });
 
         it('should properly handle the complete flow from URN to icon for custom role', () => {
             const roleName = getRoleNameFromUrn('urn:li:dataHubRole:customRole');
             const icon = mapRoleIcon(roleName);
             expect(roleName).toEqual('Customrole');
-            expect(icon.type).toEqual(UserOutlined);
+            expect(icon.type).toEqual(User);
         });
     });
 });

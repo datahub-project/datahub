@@ -7,6 +7,7 @@ import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.datahubusage.event.EventSource;
 import com.linkedin.metadata.datahubusage.event.LogInEvent;
 import com.linkedin.metadata.datahubusage.event.LoginSource;
@@ -66,7 +67,8 @@ public class DataHubUsageServiceTest {
   @BeforeMethod
   public void setup() throws Exception {
     // Setup mock index convention to return test index name
-    when(mockIndexConvention.getIndexName(opContext, DATAHUB_USAGE_EVENT_INDEX))
+    when(mockIndexConvention.getIndexName(
+            opContext, SearchComponent.USAGE, DATAHUB_USAGE_EVENT_INDEX))
         .thenReturn(TEST_INDEX_NAME);
 
     // Initialize the service with mocks

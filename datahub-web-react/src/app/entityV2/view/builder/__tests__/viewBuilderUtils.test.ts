@@ -12,7 +12,7 @@ import {
 } from '@app/entityV2/view/builder/utils';
 import { LogicalOperatorType, LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
-import { FilterOperator, LogicalOperator } from '@types';
+import { EntityType, FilterOperator, LogicalOperator } from '@types';
 
 describe('View builder conversion utils', () => {
     describe('selectedUrnsToFilters', () => {
@@ -322,7 +322,7 @@ describe('View builder conversion utils', () => {
         it('should build a valid view definition with AND operator', () => {
             const filters = [{ field: URN_FILTER_NAME, values: ['urn:li:domain:marketing'] }];
 
-            const result = buildViewDefinition(LogicalOperator.And, filters);
+            const result = buildViewDefinition(LogicalOperator.And, filters, []);
 
             expect(result.entityTypes).toEqual([]);
             expect(result.filter?.operator).toBe(LogicalOperator.And);
@@ -493,6 +493,36 @@ describe('View builder conversion utils', () => {
             const result = buildEntityMap(entities);
 
             expect(result['urn:li:domain:a'].name).toBe('second');
+        });
+    });
+
+    describe('entity-type scope pass-through', () => {
+        it('should return the entity types it was given', () => {
+            const definition = buildViewDefinition(
+                LogicalOperator.And,
+                [{ field: 'tags', values: ['urn:li:tag:pii'] }],
+                [EntityType.Dataset, EntityType.Dashboard],
+            );
+
+            expect(definition.entityTypes).toEqual([EntityType.Dataset, EntityType.Dashboard]);
+        });
+
+        it('should never invent a scope of its own', () => {
+            expect(
+                buildViewDefinition(LogicalOperator.And, [{ field: 'tags', values: ['urn:li:tag:pii'] }], [])
+                    .entityTypes,
+            ).toEqual([]);
+        });
+
+        it('should keep an _entityType row as an ordinary filter instead of lifting it into the scope', () => {
+            const definition = buildViewDefinition(
+                LogicalOperator.And,
+                [{ field: '_entityType', values: ['dataset'] }],
+                [EntityType.Chart],
+            );
+
+            expect(definition.entityTypes).toEqual([EntityType.Chart]);
+            expect(definition.filter?.filters).toEqual([{ field: '_entityType', values: ['dataset'] }]);
         });
     });
 });

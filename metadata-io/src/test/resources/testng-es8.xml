@@ -3,6 +3,13 @@
 <suite name="metadata-io-es8" parallel="tests" thread-count="1">
     <test name="es8-testcontainers">
         <parameter name="elasticVersion" value="8.17.4"/>
+        <!-- Es8SemanticSearchIT sits under search.elasticsearch.* but boots its own ES 8.18
+             container; run it once, in es8-semantic-search-it below. -->
+        <groups>
+            <run>
+                <exclude name="es8-semantic"/>
+            </run>
+        </groups>
         <packages>
             <package name="com.linkedin.metadata.graph.search.elasticsearch.*" />
             <package name="com.linkedin.metadata.search.elasticsearch.*"/>

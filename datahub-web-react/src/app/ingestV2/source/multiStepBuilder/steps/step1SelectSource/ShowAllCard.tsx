@@ -42,7 +42,7 @@ export default function ShowAllCard({ hiddenSources, onShowAll }: Props) {
             <CardContentWrapper>
                 <LogosContainer>
                     {firstSixSources.map((source) => (
-                        <SourceLogo sourceName={source.name} />
+                        <SourceLogo key={source.name} sourceName={source.name} />
                     ))}
                 </LogosContainer>
                 <ButtonContainer>

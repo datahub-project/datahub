@@ -1,4 +1,4 @@
-import { RightOutlined } from '@ant-design/icons';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Dropdown } from 'antd';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
@@ -58,7 +58,10 @@ export default function BooleanMoreFilter({ icon, title, option, count, initialS
             trigger={['click']}
             menu={{ items: filterOptions }}
             open={isMenuOpen}
-            onOpenChange={(open) => setIsMenuOpen(open)}
+            // antd 5 asks to close on a menu click (the filter checkbox); antd 4 kept it open until Update
+            onOpenChange={(open, info) => {
+                if (info.source !== 'menu') setIsMenuOpen(open);
+            }}
             dropdownRender={(menuOption) => (
                 <BooleanSearchFilterMenu
                     menuOption={menuOption}
@@ -71,14 +74,14 @@ export default function BooleanMoreFilter({ icon, title, option, count, initialS
                 ref={labelRef}
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 isOpen={isMenuOpen}
-                isActive={isSelected}
-                data-testid={`more-filter-${title}`}
+                $isActive={isSelected}
+                data-testid={`more-filter-${title.replace(/\s/g, '-').toLowerCase()}`}
             >
                 <IconNameWrapper>
                     {icon && <IconWrapper>{icon}</IconWrapper>}
                     {title} {isSelected ? `(1) ` : ''}
                 </IconNameWrapper>
-                <RightOutlined style={{ fontSize: '12px', height: '12px' }} />
+                <CaretRight size={12} />
             </MoreFilterOptionLabel>
         </Dropdown>
     );

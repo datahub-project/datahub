@@ -1,9 +1,9 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useGetDomainsYouOwn } from '@app/homeV2/reference/sections/domains/useGetDomainsYouOwn';
 import { OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useGetSearchResultsForMultipleCardsQuery } from '@graphql/search.generated';
 import { CorpUser, EntityType } from '@types';
@@ -50,7 +50,7 @@ describe('useGetDomainsYouOwn', () => {
         );
     });
 
-    it('uses the cards search query for domains owned by the user', () => {
+    it('searches domains owned by the user using the trimmed cards query', () => {
         const user = mockCorpUser('urn:li:corpuser:alice');
         renderHook(() => useGetDomainsYouOwn(user));
 

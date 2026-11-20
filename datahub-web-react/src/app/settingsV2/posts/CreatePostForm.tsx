@@ -1,8 +1,9 @@
-import { Editor, TabButtons } from '@components';
+import { TabButtons } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Editor } from '@app/sharedV2/editor/Editor';
 import { Input } from '@src/alchemy-components';
 import { Label } from '@src/alchemy-components/components/Input/components';
 

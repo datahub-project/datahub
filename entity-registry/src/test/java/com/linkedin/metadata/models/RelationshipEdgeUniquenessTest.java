@@ -152,7 +152,7 @@ public class RelationshipEdgeUniquenessTest {
     AspectSpec aspect =
         new AspectSpec(
             new com.linkedin.metadata.models.annotation.AspectAnnotation(
-                aspectName, false, false, null, 1L),
+                aspectName, false, false, null, 1L, false),
             Collections.emptyList(),
             Collections.emptyList(),
             fields,

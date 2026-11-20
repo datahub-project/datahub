@@ -29,6 +29,22 @@ public class GraphReadResultTest {
   }
 
   @Test
+  public void scopeTruncatedHitStaysAHitUntilTheCallerRejectsIt() {
+    GraphReadResult prefix =
+        GraphReadResult.fromVertices(Set.of("urn:li:glossaryNode:child"), true);
+
+    assertTrue(prefix.isHit());
+    assertTrue(prefix.isScopeTruncated());
+    assertEquals(prefix.verticesOrEmpty(), Set.of("urn:li:glossaryNode:child"));
+
+    GraphReadResult rejected = prefix.missIfScopeTruncated();
+    assertTrue(rejected.isMiss());
+    assertEquals(((GraphReadResult.Miss) rejected).reason(), ReadMissReason.TRUNCATED);
+    assertFalse(
+        GraphReadResult.fromVertices(Set.of("urn:li:glossaryNode:child")).isScopeTruncated());
+  }
+
+  @Test
   public void missReturnsEmptyVertices() {
     GraphReadResult result = GraphReadResult.miss(ReadMissReason.ABSENT);
 

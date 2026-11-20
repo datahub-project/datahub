@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { buildDocumentParentBreadcrumb } from '@app/document/utils/documentSidebarGrouping';
 import { isDocumentUnpublished } from '@app/document/utils/documentUtils';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
 import SidebarFilteredResults from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarFilteredResults';
@@ -18,6 +19,9 @@ type Props = {
     onSelect: (urn: string) => void;
     onClear: () => void;
     onCreateChild?: (parentUrn: string) => void;
+    /** A DataHub View is applied to the search and may be filtering out results. */
+    hasSelectedView?: boolean;
+    onClearView?: () => void;
 };
 
 /**
@@ -33,8 +37,11 @@ export default function DocumentSidebarSearchResults({
     onSelect,
     onClear,
     onCreateChild,
+    hasSelectedView = false,
+    onClearView,
 }: Props) {
     const { t: tet } = useTranslation('entity.types');
+    const { t: th } = useTranslation('home.v2');
 
     return (
         <SidebarFilteredResults
@@ -45,9 +52,13 @@ export default function DocumentSidebarSearchResults({
             onClear={onClear}
             clearTestId="context-sidebar-clear-search"
             dataTestId="context-sidebar-search-results"
+            hasSelectedView={hasSelectedView}
+            onClearView={onClearView}
+            clearViewTestId="context-sidebar-clear-view"
         >
             {documents.map((doc) => {
                 const title = doc.info?.title || tet('document.untitledFallback');
+                const breadcrumb = buildDocumentParentBreadcrumb(doc, th('untitled'));
                 return (
                     <DocumentTreeItem
                         key={doc.urn}
@@ -58,6 +69,7 @@ export default function DocumentSidebarSearchResults({
                         isExpanded={false}
                         isSelected={doc.urn === selectedUrn}
                         isUnpublished={isDocumentUnpublished(doc)}
+                        belowLabel={breadcrumb}
                         onToggleExpand={() => {}}
                         onClick={() => onSelect(doc.urn)}
                         onCreateChild={onCreateChild ?? (() => {})}

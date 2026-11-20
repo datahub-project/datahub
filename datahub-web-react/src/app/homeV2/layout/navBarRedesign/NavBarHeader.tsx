@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
-import { useIsHomePage } from '@app/shared/useIsHomePage';
+import { useIsHomePage } from '@app/sharedV2/useIsHomePage';
 import analytics, { EventType } from '@src/app/analytics';
 
 import DatahubCoreLogo from '@images/datahub_core.svg?react';

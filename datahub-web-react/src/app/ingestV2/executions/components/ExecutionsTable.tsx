@@ -1,5 +1,4 @@
 import { Column, Table } from '@components';
-import * as QueryString from 'query-string';
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
@@ -12,14 +11,11 @@ import { ExecutedByColumn } from '@app/ingestV2/executions/components/columns/Ex
 import RollbackExecutionConfirmation from '@app/ingestV2/executions/components/columns/RollbackExecutionConfirmation';
 import SourceColumn from '@app/ingestV2/executions/components/columns/SourceColumn';
 import { ExecutionCancelInfo, ExecutionRequestRecord } from '@app/ingestV2/executions/types';
-import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import TableFooter from '@app/ingestV2/shared/components/TableFooter';
 import DateTimeColumn, { wrapDateTimeColumnWithHover } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import DurationColumn from '@app/ingestV2/shared/components/columns/DurationColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
-import { TabType, tabUrlMap } from '@app/ingestV2/types';
-import { PageRoutes } from '@conf/Global';
 
 import { ExecutionRequest } from '@types';
 
@@ -29,29 +25,34 @@ const StyledTable = styled(Table)`
 
 interface Props {
     executionRequests: ExecutionRequest[];
-    setFocusExecutionUrn: (urn: string) => void;
     loading?: boolean;
     handleRollback: (executionUrn: string) => void;
     handleCancelExecution: (executionUrn: string, ingestionSourceUrn: string) => void;
     isLastPage?: boolean;
-    setSelectedTab: (selectedTab: TabType | null | undefined) => void;
+    /** Invoked when the user clicks a source name in a run row. Owns navigation, since the host
+     * page decides what "go to this source" means. */
+    onSourceClick: (record: ExecutionRequestRecord) => void;
+    /** Returns the route to a run-details page for the given execution urn. */
+    getRunDetailsPath: (urn: string) => string;
+    /** Stashed as location state on the run-details route so its breadcrumb can link back here. */
+    runDetailsFromUrl: string;
 }
 
 export default function ExecutionsTable({
     executionRequests,
-    setFocusExecutionUrn,
     loading,
     handleRollback,
     handleCancelExecution,
     isLastPage,
-    setSelectedTab,
+    onSourceClick,
+    getRunDetailsPath,
+    runDetailsFromUrl,
 }: Props) {
     const { t } = useTranslation('ingestion');
     const { t: tl } = useTranslation('common.labels');
     const [runIdOfRollbackConfirmation, setRunIdOfRollbackConfirmation] = useState<string | undefined>();
     const [executionInfoToCancel, setExecutionInfoToCancel] = useState<ExecutionCancelInfo | undefined>();
     const history = useHistory();
-    const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     const tableData: ExecutionRequestRecord[] = executionRequests.map((execution) => ({
         urn: execution.urn,
@@ -73,14 +74,6 @@ export default function ExecutionsTable({
         setRunIdOfRollbackConfirmation(undefined);
     }, [handleRollback, runIdOfRollbackConfirmation]);
 
-    const navigateToSource = (record) => {
-        setSelectedTab(TabType.Sources);
-        history.replace({
-            pathname: tabUrlMap[TabType.Sources],
-            search: QueryString.stringify({ query: record.name }, { arrayFormat: 'comma' }),
-        });
-    };
-
     const handleConfirmCancel = useCallback(() => {
         if (executionInfoToCancel)
             handleCancelExecution(executionInfoToCancel.executionUrn, executionInfoToCancel.sourceUrn);
@@ -89,22 +82,16 @@ export default function ExecutionsTable({
 
     const handleViewDetails = useCallback(
         (urn: string) => {
-            if (showIngestionOnboardingRedesignV1) {
-                history.push(PageRoutes.INGESTION_RUN_DETAILS.replace(':urn', urn), {
-                    fromUrl: tabUrlMap[TabType.RunHistory],
-                });
-            } else {
-                setFocusExecutionUrn(urn);
-            }
+            history.push(getRunDetailsPath(urn), { fromUrl: runDetailsFromUrl });
         },
-        [history, setFocusExecutionUrn, showIngestionOnboardingRedesignV1],
+        [history, getRunDetailsPath, runDetailsFromUrl],
     );
 
     const tableColumns: Column<ExecutionRequestRecord>[] = [
         {
             title: tl('source'),
             key: 'source',
-            render: (record) => <SourceColumn record={record} navigateToSource={() => navigateToSource(record)} />,
+            render: (record) => <SourceColumn record={record} navigateToSource={() => onSourceClick(record)} />,
             width: '30%',
         },
         {
@@ -129,7 +116,13 @@ export default function ExecutionsTable({
         {
             title: tl('status'),
             key: 'status',
-            render: (record) => <StatusColumn status={record.status} onClick={() => handleViewDetails(record.urn)} />,
+            render: (record) => (
+                <StatusColumn
+                    status={record.status}
+                    onClick={() => handleViewDetails(record.urn)}
+                    dataTestId="execution-table-status"
+                />
+            ),
             width: '15%',
         },
         {

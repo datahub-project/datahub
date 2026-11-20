@@ -17,4 +17,21 @@ record SearchResultMetadata {
    */
   suggestions: array[SearchSuggestion] = []
 
+  /**
+   * Templates visited while choosing this result. Set when the caller asks for an explanation.
+   */
+  routeChain: optional array[string]
+
+  /**
+   * How the served template's keywordRerank ordered this result. Set when the caller asks for an
+   * explanation and the served rung declares keywordRerank.
+   */
+  keywordRerank: optional KeywordRerankExplanation
+
+  /**
+   * How the served template's vector rung retrieved this result. Set when the caller asks for an
+   * explanation and the served rung declares combine: vector.
+   */
+  vectorRetrieval: optional VectorRetrievalExplanation
+
 }

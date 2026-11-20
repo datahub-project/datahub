@@ -216,8 +216,7 @@ public interface HasTags<T extends Entity & HasTags<T>> {
       @Nonnull MetadataChangeProposal patch, @Nonnull EntityClient client)
       throws IOException, ExecutionException, InterruptedException {
 
-    log.debug(
-        "Transforming tag patch to full aspect for entity: {}", patch.getEntityUrn().toString());
+    log.debug("Transforming tag patch to full aspect for entity: {}", patch.getEntityUrn());
 
     // Step 1: Fetch current globalTags aspect
     datahub.client.v2.operations.AspectWithMetadata<GlobalTags> aspectWithMetadata =

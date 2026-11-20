@@ -159,18 +159,19 @@ def _handle_proxy_connection(self, original_open, pool_kwargs):
             "No proxy authentication headers could be created from environment variables"
         )
 
-    proxy_manager = ProxyManager(
-        self.proxy_uri,
-        num_pools=1,
-        proxy_headers=proxy_headers,
-    )
-
-    # Validate proxy manager attributes
+    # Validate before building anything: a client without the real target host
+    # falls back to the original open and must not construct a ProxyManager.
     if not hasattr(self, "realhost") or not hasattr(self, "realport"):
         logger.warning(
             "THttpClient missing realhost/realport attributes, falling back to original"
         )
         return original_open(self)
+
+    proxy_manager = ProxyManager(
+        self.proxy_uri,
+        num_pools=1,
+        proxy_headers=proxy_headers,
+    )
 
     # Set up the connection pool
     self._THttpClient__pool = proxy_manager.connection_from_host(
@@ -281,7 +282,8 @@ def apply_databricks_proxy_fix():
 
         # Apply the patch
         patched_open = _create_patched_open_method(original_open)
-        thrift_http.THttpClient.open = patched_open
+        # Intentional monkeypatch of the third-party thrift client method.
+        thrift_http.THttpClient.open = patched_open  # type: ignore[method-assign]
         logger.info("Successfully applied databricks-sql proxy authentication fix")
 
         # Verify the patch was applied

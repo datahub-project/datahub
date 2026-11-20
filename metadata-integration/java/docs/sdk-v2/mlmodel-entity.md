@@ -471,4 +471,4 @@ client.entities().upsert(modelB);
 
 - [Dataset Entity](dataset-entity.md) - For training data lineage
 - [DataJob Entity](datajob-entity.md) - For training job metadata
-- [SDK V2 Overview](README.md) - General SDK concepts
+- [SDK V2 Overview](getting-started.md) - General SDK concepts

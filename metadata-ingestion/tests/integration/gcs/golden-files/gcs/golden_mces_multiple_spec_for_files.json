@@ -11,7 +11,7 @@
                 "number_of_files": "1",
                 "size_in_bytes": "619"
             },
-            "externalUrl": "https://console.cloud.google.com/storage/browser/my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro",
+            "externalUrl": "https://console.cloud.google.com/storage/browser/_details/my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro",
             "name": "chord_progressions_avro.avro",
             "description": "",
             "tags": []
@@ -627,7 +627,7 @@
                 "number_of_files": "1",
                 "size_in_bytes": "604"
             },
-            "externalUrl": "https://console.cloud.google.com/storage/browser/my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv",
+            "externalUrl": "https://console.cloud.google.com/storage/browser/_details/my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv",
             "name": "chord_progressions_csv.csv",
             "description": "",
             "tags": []

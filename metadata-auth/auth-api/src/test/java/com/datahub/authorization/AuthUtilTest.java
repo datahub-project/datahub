@@ -67,6 +67,7 @@ public class AuthUtilTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,3,PROD)");
   private static final Urn TEST_GLOBAL_SETTINGS_URN = UrnUtils.getUrn("urn:li:globalSettings:0");
   private static final Urn TEST_DOCUMENT_URN = UrnUtils.getUrn("urn:li:document:new-document");
+  private static final Urn TEST_INVITE_TOKEN_URN = UrnUtils.getUrn("urn:li:inviteToken:test-token");
 
   @Test
   public void testSimplePrivilegeGroupBuilder() {
@@ -340,6 +341,78 @@ public class AuthUtilTest {
             READ,
             List.of(TEST_GLOBAL_SETTINGS_URN)),
         "MANAGE_GLOBAL_SETTINGS should authorize globalSettings read as an alternative");
+  }
+
+  @Test
+  public void testInviteTokenRestApiAuthorization() {
+    final String actorEditOnly = "urn:li:corpuser:inviteTokenEdit";
+    final String actorManage = "urn:li:corpuser:inviteTokenManage";
+    final String actorView = "urn:li:corpuser:inviteTokenView";
+
+    Authorizer mockAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                actorEditOnly,
+                Map.of(
+                    "EDIT_ENTITY", Set.of(TEST_INVITE_TOKEN_URN),
+                    "CREATE_ENTITY", Set.of(TEST_INVITE_TOKEN_URN)),
+                actorManage,
+                Map.of(
+                    PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE.getType(),
+                    Set.of(TEST_INVITE_TOKEN_URN)),
+                actorView,
+                Map.of(
+                    "VIEW_ENTITY_PAGE", Set.of(TEST_INVITE_TOKEN_URN),
+                    "GET_ENTITY_PRIVILEGE", Set.of(TEST_INVITE_TOKEN_URN))));
+
+    Authentication authEditOnly =
+        new Authentication(new Actor(ActorType.USER, "inviteTokenEdit"), "");
+    Authentication authManage =
+        new Authentication(new Actor(ActorType.USER, "inviteTokenManage"), "");
+    Authentication authView = new Authentication(new Actor(ActorType.USER, "inviteTokenView"), "");
+
+    assertFalse(
+        AuthUtil.isAPIAuthorizedEntityUrns(
+            TestAuthSession.from(authView, mockAuthorizer), READ, List.of(TEST_INVITE_TOKEN_URN)),
+        "Standard entity read privileges must not authorize inviteToken read");
+
+    assertFalse(
+        AuthUtil.isAPIAuthorizedEntityUrns(
+            TestAuthSession.from(authEditOnly, mockAuthorizer),
+            READ,
+            List.of(TEST_INVITE_TOKEN_URN)),
+        "EDIT_ENTITY must not authorize inviteToken read");
+
+    assertTrue(
+        AuthUtil.isAPIAuthorizedEntityUrns(
+            TestAuthSession.from(authManage, mockAuthorizer), READ, List.of(TEST_INVITE_TOKEN_URN)),
+        "MANAGE_USER_CREDENTIALS should authorize inviteToken read");
+
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(authEditOnly, mockAuthorizer),
+            ENTITY,
+            List.of(
+                Pair.of(ChangeType.UPSERT, TEST_INVITE_TOKEN_URN),
+                Pair.of(ChangeType.CREATE_ENTITY, TEST_INVITE_TOKEN_URN))),
+        Map.of(
+            Pair.of(ChangeType.UPSERT, TEST_INVITE_TOKEN_URN), 403,
+            Pair.of(ChangeType.CREATE_ENTITY, TEST_INVITE_TOKEN_URN), 403),
+        "EDIT_ENTITY and CREATE_ENTITY must not authorize inviteToken mutation");
+
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(authManage, mockAuthorizer),
+            ENTITY,
+            List.of(
+                Pair.of(ChangeType.UPSERT, TEST_INVITE_TOKEN_URN),
+                Pair.of(ChangeType.DELETE, TEST_INVITE_TOKEN_URN),
+                Pair.of(ChangeType.CREATE_ENTITY, TEST_INVITE_TOKEN_URN))),
+        Map.of(
+            Pair.of(ChangeType.UPSERT, TEST_INVITE_TOKEN_URN), 200,
+            Pair.of(ChangeType.DELETE, TEST_INVITE_TOKEN_URN), 200,
+            Pair.of(ChangeType.CREATE_ENTITY, TEST_INVITE_TOKEN_URN), 200),
+        "MANAGE_USER_CREDENTIALS should authorize inviteToken mutations");
   }
 
   @Test
@@ -771,6 +844,48 @@ public class AuthUtilTest {
             List.of(
                 new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY")),
                 new ConjunctivePrivilegeGroup(List.of("EDIT_DATASET_COL_TAGS")))));
+  }
+
+  @Test
+  public void testIsAPIAuthorizedForStructuredPropertyModification() {
+    final Urn TEST_PROPERTY = UrnUtils.getUrn("urn:li:structuredProperty:test1");
+
+    Authorizer mockAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                TEST_AUTH_A.getActor().toUrnStr(),
+                Map.of("EDIT_ENTITY_PROPERTIES", Set.of(TEST_ENTITY_1))));
+
+    assertTrue(
+        AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+            TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
+            TEST_ENTITY_1,
+            List.of(TEST_PROPERTY)),
+        "Expected EDIT_ENTITY_PROPERTIES to authorize structured property modifications without EDIT_ENTITY");
+
+    assertFalse(
+        AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+            TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
+            TEST_ENTITY_1,
+            List.of(TEST_PROPERTY)),
+        "Expected user without EDIT_ENTITY_PROPERTIES to be denied");
+
+    assertTrue(
+        AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+            TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
+            TEST_ENTITY_1,
+            Collections.emptyList()),
+        "Expected empty property list to skip authorization");
+  }
+
+  @Test
+  public void testStructuredPropertyModificationPrivilegeGroup() {
+    assertEquals(
+        AuthUtil.structuredPropertyModificationPrivilegeGroup(),
+        new DisjunctivePrivilegeGroup(
+            List.of(
+                new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY")),
+                new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY_PROPERTIES")))));
   }
 
   @Test

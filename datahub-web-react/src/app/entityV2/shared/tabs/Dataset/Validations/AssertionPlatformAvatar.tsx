@@ -4,7 +4,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { LinkWrapper } from '@app/shared/LinkWrapper';
+import { LinkWrapper } from '@app/sharedV2/LinkWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataPlatform, EntityType } from '@types';

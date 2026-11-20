@@ -68,13 +68,13 @@ public class ReflectionCache {
           String.join("_", clazz.getName(), method),
           key -> {
             try {
-              log.debug(
-                  "Lookup: "
-                      + clazz.getName()
-                      + " Method: "
-                      + method
-                      + " Parameters: "
-                      + Arrays.toString(parameters));
+              if (log.isDebugEnabled()) {
+                log.debug(
+                    "Lookup: {} Method: {} Parameters: {}",
+                    clazz.getName(),
+                    method,
+                    Arrays.toString(parameters));
+              }
               return clazz.getDeclaredMethod(method, parameters);
             } catch (NoSuchMethodException e) {
               return null;
@@ -114,7 +114,7 @@ public class ReflectionCache {
         String.format("%s.%s", packageName, className),
         key -> {
           try {
-            log.debug("Lookup: " + key);
+            log.debug("Lookup: {}", key);
             return Class.forName(key);
           } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);

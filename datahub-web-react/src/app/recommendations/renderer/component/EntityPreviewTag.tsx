@@ -5,7 +5,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '@src/app/sharedV2/useEmbeddedProfileLinkProps';
 
 // Styled to match the rest of the app's pills (see TagPill / GlossaryTermPill): 26px tall, fully
 // rounded, single 8px horizontal padding, 12px / 500 text, theme-text color. antd's Tag defaults
@@ -40,10 +40,13 @@ const IconContainer = styled.span`
 `;
 
 const PlatformLogo = styled(Image)`
-    max-height: 16px;
-    width: auto;
-    object-fit: contain;
-    background-color: transparent;
+    /* antd 5 sizes .ant-image .ant-image-img with two classes; && keeps these sizes winning */
+    && {
+        max-height: 16px;
+        width: auto;
+        object-fit: contain;
+        background-color: transparent;
+    }
 `;
 
 const DisplayNameContainer = styled.span`
@@ -57,6 +60,7 @@ const DisplayNameContainer = styled.span`
 `;
 
 const ColumnName = styled.span`
+    color: ${(props) => props.theme.colors.textSecondary};
     font-family: 'Roboto Mono', monospace;
     font-weight: bold;
 `;

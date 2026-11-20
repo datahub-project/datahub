@@ -12,6 +12,9 @@ dependencies {
 
   implementation externalDependency.caffeine
   implementation externalDependency.slf4jApi
+
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.caffeine
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
 }

@@ -1,4 +1,3 @@
-import { Button } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -11,32 +10,11 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
 import { EntityType, TermRelationshipType } from '@types';
 
-const TransparentButton = styled(Button)`
-    color: ${(props) => props.theme.colors.textBrand};
-    font-size: 12px;
-    box-shadow: none;
-    border: none;
-    padding: 0px 10px;
-    position: absolute;
-    top: 19px;
-    right: 50px;
-    display: none;
-
-    &:hover {
-        transition: 0.15s;
-        opacity: 0.9;
-        color: ${(props) => props.theme.colors.textHover};
-    }
-`;
-
 const ListItem = styled.div`
     position: relative;
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 11px;
 
-    &:hover ${TransparentButton} {
-        display: inline-block;
-    }
     &:hover {
         border: 1px solid ${(props) => props.theme.colors.borderBrand};
     }
@@ -60,12 +38,19 @@ function RelatedTerm(props: Props) {
 
     const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
-    const { data, loading } = useGetGlossaryTermQuery({ variables: { urn } });
+    // Separate this from the profile's in-flight getGlossaryTerm. Sharing that request lets
+    // unmounting the card cancel the profile fetch when the user opens this term.
+    const { data, loading } = useGetGlossaryTermQuery({
+        variables: { urn },
+        skip: !urn,
+        // Apollo 3 reads this from context, not the top-level watchQuery option.
+        context: { queryDeduplication: false },
+    });
     let displayName = '';
     if (data) {
         displayName = entityRegistry.getDisplayName(EntityType.GlossaryTerm, data.glossaryTerm);
     }
-    const { onRemove } = useRemoveRelatedTerms(urn, relationshipType, displayName);
+    const { onRemove, removeConfirmationModal } = useRemoveRelatedTerms(urn, relationshipType, displayName);
 
     if (loading) return null;
 
@@ -78,6 +63,7 @@ function RelatedTerm(props: Props) {
                     {entityRegistry.renderPreview(EntityType.GlossaryTerm, PreviewType.PREVIEW, data?.glossaryTerm)}
                 </Profile>
             </SearchCardContext.Provider>
+            {removeConfirmationModal}
         </ListItem>
     );
 }

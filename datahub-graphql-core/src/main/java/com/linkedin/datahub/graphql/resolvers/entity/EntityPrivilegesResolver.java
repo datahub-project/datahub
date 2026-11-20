@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.resolvers.assertion.AssertionUtils;
 import com.linkedin.datahub.graphql.resolvers.businessattribute.BusinessAttributeAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.incident.IncidentUtils;
+import com.linkedin.datahub.graphql.resolvers.lifecycle.LifecycleStageAssignmentUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DeprecationUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
@@ -25,14 +26,18 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.domain.Domains;
+import com.linkedin.entity.Aspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -69,6 +74,12 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
               return getDataJobPrivileges(urn, context);
             case Constants.DOCUMENT_ENTITY_NAME:
               return getDocumentPrivileges(urn, context);
+            case Constants.DOMAIN_ENTITY_NAME:
+              return getDomainPrivileges(urn, context);
+            case Constants.DATA_PRODUCT_ENTITY_NAME:
+              return getDataProductPrivileges(urn, context);
+            case Constants.QUERY_ENTITY_NAME:
+              return getQueryPrivileges(urn, context);
             default:
               log.warn(
                   "Tried to get entity privileges for entity type {}. Adding common privileges only.",
@@ -133,10 +144,23 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     return AuthUtil.isAuthorizedUrns(context.getOperationContext(), LINEAGE, UPDATE, List.of(urn));
   }
 
+  /**
+   * Whether {@code canViewQueries} should read as granted for this entity — delegates to {@link
+   * EntityAspectAuthorizationUtils#canViewQueriesOnEntity}, which folds in the escape valve
+   * (query-view authorization disabled) and system auth alongside the ordinary per-entity check,
+   * matching the same guard {@code ListQueriesResolver}/{@code QueryType} apply before their own
+   * subject-dataset lookups.
+   */
+  private boolean canViewQueries(Urn urn, QueryContext context) {
+    return EntityAspectAuthorizationUtils.canViewQueriesOnEntity(
+        context.getOperationContext(), urn);
+  }
+
   private EntityPrivileges getDatasetPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
     // Schema Field Edits are a bit of a hack.
+    result.setCanViewQueries(canViewQueries(urn, context));
     result.setCanEditQueries(AuthorizationUtils.canCreateQuery(ImmutableList.of(urn), context));
     result.setCanEditSchemaFieldTags(
         LabelUtils.isAuthorizedToUpdateTags(
@@ -157,6 +181,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   private EntityPrivileges getChartPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
+    result.setCanViewQueries(canViewQueries(urn, context));
     addCommonPrivileges(result, urn, context);
     return result;
   }
@@ -170,22 +195,98 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
 
   private EntityPrivileges getDataJobPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
+    result.setCanViewQueries(canViewQueries(urn, context));
     addCommonPrivileges(result, urn, context);
     return result;
+  }
+
+  private EntityPrivileges getQueryPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, urn, context);
+    result.setCanViewQueries(isQueryEntityViewable(urn, context));
+    return result;
+  }
+
+  /**
+   * A Query entity's statement is visible when query-view authorization is off, for system auth, or
+   * when {@link EntityAspectAuthorizationUtils#filterViewableQueryEntities} accepts this URN. That
+   * is the same subject-dataset check {@code QueryType} uses before returning the entity.
+   */
+  private boolean isQueryEntityViewable(Urn urn, QueryContext context) {
+    io.datahubproject.metadata.context.OperationContext opContext = context.getOperationContext();
+    if (!EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(opContext)
+        || opContext.isSystemAuth()) {
+      return true;
+    }
+    return EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            opContext,
+            opContext,
+            opContext.getAspectRetriever(),
+            List.of(urn),
+            EntityAspectAuthorizationUtils.requireAllQuerySubjects(opContext))
+        .contains(urn);
+  }
+
+  private EntityPrivileges getDomainPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, urn, context);
+    result.setCanManageDataProducts(
+        DataProductAuthorizationUtils.isAuthorizedToManageDataProducts(context, urn));
+    return result;
+  }
+
+  /**
+   * Mirrors the checks in UpdateDataProductResolver, DeleteDataProductResolver and the product-side
+   * membership check in BatchSetDataProductResolver.
+   */
+  private EntityPrivileges getDataProductPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, urn, context);
+    boolean canManage;
+    try {
+      canManage =
+          DataProductAuthorizationUtils.isAuthorizedToManageDataProduct(
+              context, urn, getDataProductDomains(urn, context));
+    } catch (Exception e) {
+      // Fail closed: treating a failed read as "no domain" would apply the orphan fallback.
+      log.warn("Failed to fetch domains for data product {}", urn, e);
+      canManage = false;
+    }
+    result.setCanManageEntity(canManage);
+    // Deleting also falls back to the DELETE privilege on the product itself.
+    result.setCanDeleteEntity(canManage || AuthorizationUtils.canDeleteEntity(urn, context));
+    return result;
+  }
+
+  /** Bypasses the EntityClient cache, matching DataProductService.getDataProductDomains. */
+  @Nullable
+  private Domains getDataProductDomains(Urn urn, QueryContext context) {
+    final Aspect domainsAspect =
+        context
+            .getOperationContext()
+            .getAspectRetriever()
+            .getLatestAspectObject(
+                context.getOperationContext(), urn, Constants.DOMAINS_ASPECT_NAME);
+    return domainsAspect == null ? null : new Domains(domainsAspect.data());
   }
 
   private EntityPrivileges getDocumentPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     addCommonPrivileges(result, urn, context);
-    // Document-specific: canManageEntity includes ability to delete/move documents
+    // Document-specific: editing controls moves; deletion is resolved in addCommonPrivileges.
     result.setCanManageEntity(AuthorizationUtils.canEditDocument(urn, context));
     return result;
   }
 
   private void addCommonPrivileges(
       @Nonnull EntityPrivileges result, @Nonnull Urn urn, @Nonnull QueryContext context) {
+    result.setCanDeleteEntity(
+        Constants.DOCUMENT_ENTITY_NAME.equals(urn.getEntityType())
+            ? AuthorizationUtils.canDeleteDocument(urn, context)
+            : AuthorizationUtils.canDeleteEntity(urn, context));
     result.setCanEditLineage(canEditEntityLineage(urn, context));
-    result.setCanEditProperties(AuthorizationUtils.canEditProperties(urn, context));
+    result.setCanEditProperties(
+        AuthorizationUtils.canEditProperties(urn, context, Collections.emptyList()));
     result.setCanEditAssertions(
         AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, urn));
     result.setCanEditAssertionOwners(
@@ -205,5 +306,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     result.setCanEditDescription(DescriptionUtils.isAuthorizedToUpdateDescription(context, urn));
     result.setCanEditLinks(LinkUtils.isAuthorizedToUpdateLinks(context, urn));
     result.setCanManageAssetSummary(AuthorizationUtils.canManageAssetSummary(context, urn));
+    result.setCanEditLifecycleStage(
+        LifecycleStageAssignmentUtils.canEditLifecycleStage(context, urn));
   }
 }

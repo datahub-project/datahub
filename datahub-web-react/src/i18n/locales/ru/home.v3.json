@@ -1,0 +1,10 @@
+{
+    "defaultTemplateBar.editingWarning": "Редактирование домашней страницы по умолчанию для организации",
+    "header.discoverLabel": "Обзор",
+    "error.failedToAddSummaryElement": "Не удалось добавить элемент сводки",
+    "error.failedToRemoveSummaryElement": "Не удалось удалить элемент сводки",
+    "error.failedToReplaceSummaryElement": "Не удалось заменить элемент сводки",
+    "error.noTemplateAvailable": "Нет доступного шаблона для обновления",
+    "toast.editedDescription": "Чтобы сбросить домашнюю страницу, нажмите «Сбросить к настройкам по умолчанию»",
+    "toast.editedTitle": "Вы изменили свою домашнюю страницу"
+}

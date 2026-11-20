@@ -5,6 +5,12 @@ namespace com.linkedin.lifecycle
  */
 record LifecycleStageSettings {
   /**
+   * Whether users may explicitly set or propose this stage through lifecycle APIs.
+   * Set to false for system-managed stages. Internal services may still write the stage.
+   */
+  userAssignable: boolean = true
+
+  /**
    * When true, entities in this stage are excluded from default search results.
    * Users can still discover them by explicitly filtering on the lifecycleStage field.
    */

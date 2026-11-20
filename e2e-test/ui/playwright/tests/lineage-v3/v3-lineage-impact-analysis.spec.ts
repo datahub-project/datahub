@@ -13,10 +13,12 @@
 import { request as playwrightRequest } from '@playwright/test';
 import { test } from '../../fixtures/base-test';
 import { LineageV3Page } from '../../pages/lineage-v3.page';
+import { GraphQLHelper } from '../../helpers/graphql-helper';
 import { TIMEOUTS, gmsUrl, LOAD_STATES } from '../../utils/constants';
 import { seedTimeRangeLineage } from '../../utils/lineage-time-seeder';
 import { readGmsToken } from '../../fixtures/login';
 import { users } from '../../data/users';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'lineage-v3' });
 
@@ -32,8 +34,13 @@ const JAN_1_2022_TIMESTAMP = 1641089357755;
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:kafka,SamplePlaywrightKafkaDataset,PROD)';
 const DATASET_NAME = 'SamplePlaywrightKafkaDataset';
 const TRANSACTION_ETL_URN = 'urn:li:dataJob:(urn:li:dataFlow:(airflow,bq_etl,prod),transaction_etl)';
+const TRANSACTIONS_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,transactions.transactions,PROD)';
+const USER_PROFILE_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,transactions.user_profile,PROD)';
+const AGGREGATED_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,transactions.aggregated_transactions,PROD)';
 const MONTHLY_TEMPERATURE_DATASET_URN =
   'urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.monthly_temperature,PROD)';
+const TEMPERATURE_ETL_1_URN = 'urn:li:dataJob:(urn:li:dataFlow:(airflow,snowflake_etl,PROD),temperature_etl_1)';
+const TEMPERATURE_ETL_2_URN = 'urn:li:dataJob:(urn:li:dataFlow:(airflow,snowflake_etl,PROD),temperature_etl_2)';
 
 const TIMESTAMP_MILLIS_14_DAYS_AGO = getTimestampMillisNumDaysAgo(14);
 const TIMESTAMP_MILLIS_7_DAYS_AGO = getTimestampMillisNumDaysAgo(7);
@@ -41,6 +48,7 @@ const TIMESTAMP_MILLIS_NOW = getTimestampMillisNumDaysAgo(0);
 
 // UI text constants
 const UI_TEXT = {
+  NO_RESULTS: 'No results found',
   IMPACT_ANALYSIS: 'Impact Analysis',
   USER_CREATIONS: 'User Creations',
   USER_DELETIONS: 'User Deletions',
@@ -53,11 +61,6 @@ const UI_TEXT = {
   FEATURE_1: 'some-playwright-feature-1',
   BAZ_CHART: 'Baz Chart 1',
   DOWNSTREAM_COLUMN: 'Downstream column: shipment_info',
-  AGGREGATED: 'aggregated',
-  TRANSACTIONS: 'transactions',
-  USER_PROFILE: 'user_profile',
-  TEMPERATURE_ETL_1: 'temperature_etl_1',
-  TEMPERATURE_ETL_2: 'temperature_etl_2',
 } as const;
 
 // ── Test Suite ──────────────────────────────────────────────────────────────
@@ -102,7 +105,7 @@ test.describe('impact analysis', () => {
     await lineagePage.expectResultTextHidden(UI_TEXT.USER_DELETIONS);
   });
 
-  test('can see lineage multiple hops away', async () => {
+  test('can see lineage multiple hops away', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await lineagePage.goToDatasetLineage(DATASET_URN, DATASET_NAME);
 
     await lineagePage.clickImpactAnalysis();
@@ -124,41 +127,54 @@ test.describe('impact analysis', () => {
     await lineagePage.expectResultTextVisible(UI_TEXT.USER_DELETIONS, TIMEOUTS.LONG);
   });
 
-  test('can view column level impact analysis and turn it off', async ({ page }) => {
-    // Navigate directly to the column lineage URL
-    const columnParam = encodeURIComponent('[version=2.0].[type=boolean].field_bar');
-    await page.goto(`/dataset/${DATASET_URN}/Lineage?column=${columnParam}&is_lineage_mode=false`);
-    await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.MEDIUM);
+  test(
+    'can view column level impact analysis and turn it off',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page }) => {
+      // Navigate directly to the column lineage URL
+      const columnParam = encodeURIComponent('[version=2.0].[type=boolean].field_bar');
+      await page.goto(`/dataset/${DATASET_URN}/Lineage?column=${columnParam}&is_lineage_mode=false`);
+      await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
 
-    await lineagePage.clickImpactAnalysis();
+      await lineagePage.clickImpactAnalysis();
 
-    await lineagePage.expectResultTextVisible(UI_TEXT.HDFS_DATASET, TIMEOUTS.LONG);
-    await lineagePage.expectResultTextVisible(UI_TEXT.SHIPMENT_INFO, TIMEOUTS.MEDIUM);
-    await lineagePage.expectResultTextHidden(UI_TEXT.FEATURE_1);
-    await lineagePage.expectResultTextHidden(UI_TEXT.BAZ_CHART);
+      await lineagePage.expectResultTextVisible(UI_TEXT.HDFS_DATASET, TIMEOUTS.LONG);
+      await lineagePage.expectResultTextVisible(UI_TEXT.SHIPMENT_INFO, TIMEOUTS.MEDIUM);
+      await lineagePage.expectResultTextHidden(UI_TEXT.FEATURE_1);
+      await lineagePage.expectResultTextHidden(UI_TEXT.BAZ_CHART);
 
-    // Toggle off column-level impact analysis
-    await lineagePage.clickColumnLineageToggle();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.SHORT);
+      // Toggle off column-level impact analysis
+      await lineagePage.clickColumnLineageToggle();
 
-    await lineagePage.expectResultTextVisible(UI_TEXT.HDFS_DATASET, TIMEOUTS.MEDIUM);
-    await lineagePage.expectResultTextHidden(UI_TEXT.SHIPMENT_INFO, TIMEOUTS.SHORT);
-    await lineagePage.expectResultTextVisible(UI_TEXT.FEATURE_1, TIMEOUTS.MEDIUM);
-    await lineagePage.expectResultTextVisible(UI_TEXT.BAZ_CHART, TIMEOUTS.MEDIUM);
-  });
+      // Dataset-level results only appear once the toggle has taken effect, so check them first;
+      // HDFS_DATASET was already on screen and proves nothing on its own.
+      await lineagePage.expectResultTextVisible(UI_TEXT.FEATURE_1, TIMEOUTS.MEDIUM);
+      await lineagePage.expectResultTextVisible(UI_TEXT.BAZ_CHART, TIMEOUTS.MEDIUM);
+      await lineagePage.expectResultTextVisible(UI_TEXT.HDFS_DATASET, TIMEOUTS.MEDIUM);
+      await lineagePage.expectResultTextHidden(UI_TEXT.SHIPMENT_INFO, TIMEOUTS.MEDIUM);
+    },
+  );
 
   test('can filter lineage edges by time', async ({ page }) => {
+    // The absence checks below pass vacuously before results load, so wait for the
+    // time-bounded lineage response first. Registered before goto: the list view may
+    // request it on load.
+    const lineageLoaded = new GraphQLHelper(page).waitForGraphQLResponse(
+      'searchAcrossLineage',
+      (variables) =>
+        Number((variables.input as { startTimeMillis?: unknown } | undefined)?.startTimeMillis) ===
+        JAN_1_2021_TIMESTAMP,
+    );
     await page.goto(
       `/dataset/${DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${JAN_1_2021_TIMESTAMP}&end_time_millis=${JAN_1_2022_TIMESTAMP}`,
     );
     await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
     await lineagePage.clickImpactAnalysis();
+    await lineageLoaded;
+    // The list's empty state only renders once it has loaded with no results (an error shows a
+    // different message), so the absence checks below can't pass on a list that hasn't painted.
+    await lineagePage.expectResultTextVisible(UI_TEXT.NO_RESULTS, TIMEOUTS.LONG);
 
     // No lineage edges should exist for the 2021 time window
     await lineagePage.expectResultTextHidden(UI_TEXT.HDFS_DATASET);
@@ -167,68 +183,70 @@ test.describe('impact analysis', () => {
     await lineagePage.expectResultTextHidden(UI_TEXT.BAZ_CHART);
   });
 
-  test('can see when the inputs to a data job change', async ({ page }) => {
+  // The graph applies start_time_millis/end_time_millis; the sidebar Lineage tab does not. Nodes are
+  // matched by URN: the text "transactions" is on the page before any lineage response arrives.
+  // user_profile comes in the same upstream response as transactions, so the absence check runs
+  // only after the transactions node is rendered.
+  test('can see when the inputs to a data job change', async () => {
     test.setTimeout(90000);
 
     // Between 14 days ago and 7 days ago, only transactions was an input
-    await page.goto(
-      `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`,
+    await lineagePage.goToLineageGraphWithTimeRange(
+      'tasks',
+      TRANSACTION_ETL_URN,
+      TIMESTAMP_MILLIS_14_DAYS_AGO,
+      TIMESTAMP_MILLIS_7_DAYS_AGO,
     );
-    await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.MEDIUM);
-
-    await lineagePage.clickSidebarLineageTab();
-    // Downstream
-    await lineagePage.expectResultTextVisible(UI_TEXT.AGGREGATED, TIMEOUTS.EXTRA_LONG);
-    // Upstream
-    await lineagePage.clickUpstreamDirection();
-    await lineagePage.expectResultTextVisible(UI_TEXT.TRANSACTIONS, TIMEOUTS.EXTRA_LONG);
-    await lineagePage.expectResultTextNotVisible(UI_TEXT.USER_PROFILE, TIMEOUTS.SHORT);
+    await lineagePage.expectGraphNodeVisible(AGGREGATED_URN);
+    await lineagePage.expectGraphNodeVisible(TRANSACTIONS_URN);
+    await lineagePage.expectGraphNodeAbsent(USER_PROFILE_URN);
 
     // From 7 days ago to now, user_profile was also added as an input
-    await page.goto(
-      `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
+    await lineagePage.goToLineageGraphWithTimeRange(
+      'tasks',
+      TRANSACTION_ETL_URN,
+      TIMESTAMP_MILLIS_7_DAYS_AGO,
+      TIMESTAMP_MILLIS_NOW,
     );
-    await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.MEDIUM);
-
-    await lineagePage.clickSidebarLineageTab();
-    // Downstream
-    await lineagePage.expectResultTextVisible(UI_TEXT.AGGREGATED, TIMEOUTS.EXTRA_LONG);
-    // Upstream
-    await lineagePage.clickUpstreamDirection();
-    await lineagePage.expectResultTextVisible(UI_TEXT.TRANSACTIONS, TIMEOUTS.EXTRA_LONG);
-    await lineagePage.expectResultTextVisible(UI_TEXT.USER_PROFILE, TIMEOUTS.EXTRA_LONG);
+    await lineagePage.expectGraphNodeVisible(AGGREGATED_URN);
+    await lineagePage.expectGraphNodeVisible(TRANSACTIONS_URN);
+    await lineagePage.expectGraphNodeVisible(USER_PROFILE_URN);
   });
 
+  // The Impact Analysis list in the main Lineage tab (lineageView=impact) also applies the time range.
+  // Each absence check follows a visible check on an entity from the same response; without it the
+  // check passes against a list still loading.
   test('can see when a data job is replaced', async ({ page }) => {
-    // Between 14 days ago and 7 days ago — temperature_etl_1 is the input
+    // Between 14 days ago and 7 days ago, temperature_etl_1 is the input
     await page.goto(
-      `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`,
+      `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&lineageView=impact&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`,
     );
-    await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.SHORT);
-
-    await lineagePage.clickSidebarLineageTab();
-    await lineagePage.clickUpstreamDirection();
-
-    await lineagePage.expectResultTextVisible(UI_TEXT.TEMPERATURE_ETL_1, TIMEOUTS.MEDIUM);
+    await lineagePage.clickUpstreamOption();
+    await lineagePage.expectImpactAnalysisResultVisible(TEMPERATURE_ETL_1_URN);
+    await lineagePage.expectImpactAnalysisResultAbsent(TEMPERATURE_ETL_2_URN);
 
     // Since 7 days ago, temperature_etl_1 has been replaced by temperature_etl_2
     await page.goto(
-      `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
+      `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&lineageView=impact&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
     );
-    await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.SHORT);
+    await lineagePage.clickUpstreamOption();
+    await lineagePage.expectImpactAnalysisResultVisible(TEMPERATURE_ETL_2_URN);
+    await lineagePage.expectImpactAnalysisResultAbsent(TEMPERATURE_ETL_1_URN);
+  });
 
+  // The sidebar Lineage tab lists direct lineage for the default time range and ignores
+  // start_time_millis/end_time_millis by design, so this test sets no time range.
+  test('can see data job lineage in the sidebar', async ({ page }) => {
+    await page.goto(`/tasks/${TRANSACTION_ETL_URN}`);
     await lineagePage.clickSidebarLineageTab();
-    await lineagePage.clickUpstreamDirection();
 
-    await lineagePage.expectResultTextVisible(UI_TEXT.TEMPERATURE_ETL_2, TIMEOUTS.MEDIUM);
+    // Downstream is the default direction
+    await lineagePage.expectSidebarLineageResultVisible(AGGREGATED_URN);
+
+    await lineagePage.clickUpstreamDirection();
+    await lineagePage.expectSidebarLineageResultVisible(TRANSACTIONS_URN);
+    await lineagePage.expectSidebarLineageResultVisible(USER_PROFILE_URN);
+    await lineagePage.expectSidebarLineageResultAbsent(AGGREGATED_URN);
   });
 
   test('editing upstream lineage will redirect to visual view with edit modal open', async ({ page }) => {

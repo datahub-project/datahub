@@ -4,11 +4,13 @@ import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.util.Pair;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * The convention for naming search indices.
@@ -22,8 +24,23 @@ import javax.annotation.Nonnull;
  * OperationFingerprint#EMPTY}.
  */
 public interface IndexConvention {
-  /** The prefix applied to index names for {@code operation}, or empty when there is none. */
+  /** Suffix every timeseries aspect index carries, after the per-operation prefix. */
+  String TIMESERIES_INDEX_MARKER = "aspect_v1";
+
+  /**
+   * The fallback prefix resolved for {@code operation}, before any per-component cluster overlay,
+   * or empty when there is none.
+   */
   Optional<String> getPrefix(@Nonnull OperationFingerprint operation);
+
+  /**
+   * The effective prefix for a component after applying its cluster overlay. Implementations
+   * without component-specific naming may delegate to {@link #getPrefix(OperationFingerprint)}.
+   */
+  default Optional<String> getPrefix(
+      @Nonnull OperationFingerprint operation, @Nonnull SearchComponent component) {
+    return getPrefix(operation);
+  }
 
   @Nonnull
   String getIndexName(
@@ -34,6 +51,26 @@ public interface IndexConvention {
 
   @Nonnull
   String getIndexName(@Nonnull OperationFingerprint operation, String baseIndexName);
+
+  /**
+   * Builds an index name owned by {@code component}. Service-owned families should use this
+   * overload rather than relying on reverse classification of {@code baseIndexName}.
+   */
+  @Nonnull
+  default String getIndexName(
+      @Nonnull OperationFingerprint operation,
+      @Nonnull SearchComponent component,
+      @Nonnull String baseIndexName) {
+    return getIndexName(operation, baseIndexName);
+  }
+
+  /**
+   * Index service that owns {@code indexName}, or null when the name is not a DataHub index.
+   * Semantic names are classified before {@code index_v2}.
+   */
+  @Nullable
+  SearchComponent componentForIndex(
+      @Nonnull OperationFingerprint operation, @Nonnull String indexName);
 
   @Nonnull
   String getEntityIndexName(@Nonnull OperationFingerprint operation, String entityName);
@@ -56,6 +93,14 @@ public interface IndexConvention {
 
   @Nonnull
   String getAllTimeseriesAspectIndicesPattern(@Nonnull OperationFingerprint operation);
+
+  /**
+   * Wildcard for V2 semantic entity indices ({@code *index_v2_semantic}), using the SEMANTIC
+   * component prefix overlay. Distinct from {@link #getAllEntityIndicesPatterns} so V2 cleanup
+   * cannot swallow a split semantic cluster.
+   */
+  @Nonnull
+  String getAllSemanticEntityIndicesPattern(@Nonnull OperationFingerprint operation);
 
   /**
    * Returns entity index patterns for cleanup operations. This method considers both V2 and V3
@@ -149,19 +194,158 @@ public interface IndexConvention {
   // that must touch only the current operation's indices) and would wrongly reject a name whose
   // prefix came from a different operation than the caller's.
 
-  /** True if {@code indexName} is a V2 entity index, ignoring any prefix. */
+  /** True if {@code indexName} is a V2 entity index alias, ignoring any prefix. */
   default boolean isV2EntityIndexType(@Nonnull String indexName) {
-    return indexName.endsWith("index_v2") && indexName.length() > "index_v2".length();
+    return EntityIndexVersion.V2.isAliasName(indexName);
   }
 
-  /** True if {@code indexName} is a V3 entity index, ignoring any prefix. */
+  /** True if {@code indexName} is a V3 entity index alias, ignoring any prefix. */
   default boolean isV3EntityIndexType(@Nonnull String indexName) {
-    return indexName.endsWith("index_v3") && indexName.length() > "index_v3".length();
+    return EntityIndexVersion.V3.isAliasName(indexName);
+  }
+
+  /**
+   * True if {@code indexName} is a V2 entity index alias or one of its physical backing indices
+   * ({@code datasetindex_v2_1704067200000}, {@code datasetindex_v2_0_13_1_0_1704067200000}),
+   * ignoring any prefix.
+   */
+  default boolean isV2EntityIndexOrBackingType(@Nonnull String indexName) {
+    return EntityIndexVersion.V2.matches(indexName);
+  }
+
+  /**
+   * True if {@code indexName} is a V3 entity index alias or one of its physical backing indices,
+   * ignoring any prefix.
+   */
+  default boolean isV3EntityIndexOrBackingType(@Nonnull String indexName) {
+    return EntityIndexVersion.V3.matches(indexName);
+  }
+
+  /** The entity index generation encoded in {@code indexName} (alias or physical), if any. */
+  default Optional<EntityIndexVersion> entityIndexVersionOf(@Nonnull String indexName) {
+    return EntityIndexVersion.fromIndexName(indexName);
+  }
+
+  /**
+   * Inverse of {@link #getEntityIndexNameV3}: the V3 index key — the search group, or the entity
+   * name under an entity-named layout — for an alias or physical V3 index name carrying the V3
+   * family's prefix for {@code operation} (a per-cluster overlay when the V3 cluster declares one,
+   * else the deploy-wide prefix). Empty when the name is not a V3 entity index for this operation.
+   */
+  default Optional<String> getEntityIndexKeyV3(
+      @Nonnull OperationFingerprint operation, @Nonnull String indexName) {
+    final String prefixToken =
+        getPrefix(operation, SearchComponent.SEARCH_V3).map(prefix -> prefix + "_").orElse("");
+    if (!indexName.startsWith(prefixToken)) {
+      return Optional.empty();
+    }
+    return EntityIndexVersion.V3
+        .keyOf(indexName)
+        .map(key -> key.substring(prefixToken.length()))
+        .filter(key -> !key.isEmpty());
   }
 
   /** True if {@code indexName} is a V2 semantic entity index, ignoring any prefix. */
   default boolean isSemanticEntityIndexType(@Nonnull String indexName) {
     return indexName.endsWith("index_v2_semantic")
         && indexName.length() > "index_v2_semantic".length();
+  }
+
+  /**
+   * True if {@code indexName} is a semantic entity alias or one of its rebuild indices ({@code
+   * datasetindex_v2_semantic_1712345678}).
+   */
+  default boolean isSemanticEntityIndexOrBackingType(@Nonnull String indexName) {
+    return isSemanticEntityIndexType(indexName)
+        || matchesRebuildIndex(indexName, "index_v2_semantic");
+  }
+
+  /**
+   * True if {@code indexNameOrPattern} is a semantic entity index, including ES wildcards such as
+   * {@code *index_v2_semantic*} and timestamped backing names. Check this before {@link
+   * #matchesV2EntityIndexFamily} because semantic names share the {@code index_v2} marker.
+   */
+  static boolean matchesSemanticEntityIndexFamily(@Nonnull String indexNameOrPattern) {
+    String name = stripIndexWildcards(indexNameOrPattern);
+    return name.endsWith("index_v2_semantic") || matchesRebuildIndex(name, "index_v2_semantic");
+  }
+
+  /**
+   * True if {@code indexNameOrPattern} is a V3 entity index, a rebuild index, or a wildcard that
+   * still carries the V3 marker ({@code *index_v3*}).
+   */
+  static boolean matchesV3EntityIndexFamily(@Nonnull String indexNameOrPattern) {
+    String name = stripIndexWildcards(indexNameOrPattern);
+    return name.endsWith("index_v3") || matchesRebuildIndex(name, "index_v3");
+  }
+
+  /**
+   * True if {@code indexNameOrPattern} is a timeseries aspect index, a rebuild index, or a wildcard
+   * that still carries the timeseries marker ({@code *aspect_v1}). Mirrors the suffix produced by
+   * {@link #getTimeseriesAspectIndexName}.
+   */
+  static boolean matchesTimeseriesAspectIndexFamily(@Nonnull String indexNameOrPattern) {
+    String name = stripIndexWildcards(indexNameOrPattern);
+    boolean wildcardOnlyMarker =
+        indexNameOrPattern.contains("*") && name.equals(TIMESERIES_INDEX_MARKER);
+    return (name.endsWith(TIMESERIES_INDEX_MARKER)
+            && (name.length() > TIMESERIES_INDEX_MARKER.length() || wildcardOnlyMarker))
+        || matchesRebuildIndex(name, TIMESERIES_INDEX_MARKER);
+  }
+
+  /**
+   * True if {@code indexNameOrPattern} is a V2 entity index, a rebuild index, or a wildcard that
+   * still carries the V2 marker ({@code *index_v2*}). Semantic names are excluded.
+   */
+  static boolean matchesV2EntityIndexFamily(@Nonnull String indexNameOrPattern) {
+    if (matchesSemanticEntityIndexFamily(indexNameOrPattern)) {
+      return false;
+    }
+    String name = stripIndexWildcards(indexNameOrPattern);
+    return name.endsWith("index_v2") || matchesRebuildIndex(name, "index_v2");
+  }
+
+  /** Strips Elasticsearch {@code *} wildcards so family markers can be matched on the remainder. */
+  static String stripIndexWildcards(@Nonnull String indexNameOrPattern) {
+    return indexNameOrPattern.replace("*", "");
+  }
+
+  /**
+   * Rebuild index names for {@code marker}: ZDU {@code <marker>_<digits>}, incremental {@code
+   * <marker>_next_*}, or versioned incremental {@code <marker>_<version>_<digits>}.
+   */
+  private static boolean matchesRebuildIndex(@Nonnull String indexName, @Nonnull String marker) {
+    int markerAt = indexName.lastIndexOf(marker + "_");
+    if (markerAt <= 0) {
+      return false;
+    }
+    String suffix = indexName.substring(markerAt + marker.length() + 1);
+    if (suffix.isEmpty()) {
+      return false;
+    }
+    if ("index_v2".equals(marker)
+        && (suffix.equals("semantic") || suffix.startsWith("semantic_"))) {
+      return false;
+    }
+    if (isAllDigits(suffix) || suffix.startsWith("next_")) {
+      return true;
+    }
+    int lastUnderscore = suffix.lastIndexOf('_');
+    if (lastUnderscore < 0) {
+      return false;
+    }
+    return isAllDigits(suffix.substring(lastUnderscore + 1));
+  }
+
+  private static boolean isAllDigits(@Nonnull String value) {
+    if (value.isEmpty()) {
+      return false;
+    }
+    for (int i = 0; i < value.length(); i++) {
+      if (!Character.isDigit(value.charAt(i))) {
+        return false;
+      }
+    }
+    return true;
   }
 }

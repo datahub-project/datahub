@@ -355,6 +355,15 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
     ) -> Optional[sqlglot.exp.Expression]:
         node.comments = None
 
+        if isinstance(node, sqlglot.exp.Is) and node.args.get("negate"):
+            # sqlglot 30.22 keeps Postgres `x IS NOT NULL` as one negated Is, where
+            # earlier versions parsed it as NOT (x IS NULL). The fingerprint is the
+            # query's urn:li:query id on sources without their own query id, so it
+            # keeps the old form.
+            node.set("negate", None)
+            # transform() skips the children of a node it replaces, so strip the
+            # literals inside the Is here.
+            return sqlglot.exp.Not(this=node.transform(_strip_expression, copy=False))
         if isinstance(node, (sqlglot.exp.In, sqlglot.exp.Values)):
             _simplify_node_expressions(node)
         elif isinstance(node, sqlglot.exp.Literal):

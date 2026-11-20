@@ -74,6 +74,7 @@
     "levelFilter.indirectTooltip": "Exibir ativos de dados indiretamente relacionados",
     "manageLineage.changeToHome": "Definir como Início",
     "manageLineage.dashboardNoDownstream": "Entidades Dashboard não possuem lineage downstream",
+    "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",
     "manageLineage.downstreamDisabled": "Defina esta entidade como inicial para editar o downstream.",
     "manageLineage.editDownstream": "Editar Downstream",
     "manageLineage.editUpstream": "Editar Upstream",

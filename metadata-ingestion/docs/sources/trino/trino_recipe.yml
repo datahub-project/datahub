@@ -23,7 +23,17 @@ source:
     #     connector_database: db_name
     #     connector_platform: connector_platform_name
     #     platform_instance: cloud_instance
-    #     env: DEV    
+    #     env: DEV
+    #   # Two-tier connectors (e.g. hive, mysql, oracle) build schema.table URNs and need no connector_database:
+    #   oracle_catalog:
+    #     platform_instance: my_oracle
+    #   # Three-tier connectors (e.g. starrocks, postgresql) require connector_database for the top tier.
+    #   # StarRocks is reached through Trino's mysql connector (it is MySQL-wire-compatible), so Trino
+    #   # reports connector_name="mysql"; set connector_platform to retarget it to the starrocks platform:
+    #   starrocks_catalog:
+    #     connector_platform: starrocks
+    #     connector_database: starrocks_catalog_name
+    #     platform_instance: my_starrocks
 
 sink:
   # sink configs

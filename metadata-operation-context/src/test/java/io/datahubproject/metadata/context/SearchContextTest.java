@@ -3,11 +3,16 @@ package io.datahubproject.metadata.context;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
+import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 public class SearchContextTest {
@@ -27,6 +32,20 @@ public class SearchContextTest {
     config.setV3(v3Config);
 
     return config;
+  }
+
+  @Test
+  public void callerFilteredSplitsTheCacheKey() {
+    IndexConvention convention =
+        IndexConventionImpl.noPrefix("MD5", createDefaultEntityIndexConfiguration());
+    SearchContext unset = SearchContext.builder().indexConvention(convention).build();
+    SearchContext unfiltered = unset.toBuilder().callerFiltered(false).build();
+    SearchContext filtered = unset.toBuilder().callerFiltered(true).build();
+
+    // A page served for a filter the caller did not set is not reused for one the caller did
+    assertNotEquals(unfiltered.getCacheKeyComponent(), filtered.getCacheKeyComponent());
+    assertNotEquals(unfiltered.getCacheKeyComponent(), unset.getCacheKeyComponent());
+    assertNotEquals(unfiltered, filtered);
   }
 
   @Test
@@ -124,5 +143,95 @@ public class SearchContextTest {
 
     // ensure original is not changed
     assertEquals(initial.getSearchFlags(), new SearchFlags().setSkipCache(false));
+  }
+
+  @Test
+  public void testSearchClusterAccessIsExcludedFromCacheKeyAndEquals() {
+    EntityIndexConfiguration entityIndexConfig = createDefaultEntityIndexConfiguration();
+    IndexConvention convention = IndexConventionImpl.noPrefix("MD5", entityIndexConfig);
+    SearchClusterAccess accessA = SearchClusterAccess.fixed(Mockito.mock(SearchClientShim.class));
+    SearchClusterAccess accessB = SearchClusterAccess.fixed(Mockito.mock(SearchClientShim.class));
+
+    SearchContext withoutAccess = SearchContext.builder().indexConvention(convention).build();
+    SearchContext withAccess =
+        SearchContext.builder().indexConvention(convention).searchClusterAccess(accessA).build();
+    SearchContext otherAccess =
+        SearchContext.builder().indexConvention(convention).searchClusterAccess(accessB).build();
+
+    assertEquals(withoutAccess.getCacheKeyComponent(), withAccess.getCacheKeyComponent());
+    assertEquals(withAccess.getCacheKeyComponent(), otherAccess.getCacheKeyComponent());
+    assertEquals(withoutAccess, withAccess);
+    assertEquals(withAccess, otherAccess);
+
+    SearchContext copied = withAccess.withFlagDefaults(flags -> flags.setSkipCache(true));
+    assertEquals(copied.getSearchClusterAccess(), accessA);
+  }
+
+  @Test
+  public void testSearchTemplateRuntimeIsExcludedFromCacheKeyAndEquals() {
+    EntityIndexConfiguration entityIndexConfig = createDefaultEntityIndexConfiguration();
+    IndexConvention convention = IndexConventionImpl.noPrefix("MD5", entityIndexConfig);
+    SearchTemplateRuntime runtimeA = new SearchTemplateRuntime() {};
+    SearchTemplateRuntime runtimeB = new SearchTemplateRuntime() {};
+
+    SearchContext withoutRuntime = SearchContext.builder().indexConvention(convention).build();
+    SearchContext withRuntime =
+        SearchContext.builder().indexConvention(convention).searchTemplateRuntime(runtimeA).build();
+    SearchContext otherRuntime =
+        SearchContext.builder().indexConvention(convention).searchTemplateRuntime(runtimeB).build();
+
+    assertEquals(withoutRuntime.getCacheKeyComponent(), withRuntime.getCacheKeyComponent());
+    assertEquals(withRuntime.getCacheKeyComponent(), otherRuntime.getCacheKeyComponent());
+    assertEquals(withoutRuntime, withRuntime);
+    assertEquals(withRuntime, otherRuntime);
+
+    SearchContext copied = withRuntime.withFlagDefaults(flags -> flags.setSkipCache(true));
+    assertEquals(copied.getSearchTemplateRuntime(), runtimeA);
+  }
+
+  @Test
+  public void testResolvedSearchTemplateIsPartOfTheCacheKey() {
+    EntityIndexConfiguration entityIndexConfig = createDefaultEntityIndexConfiguration();
+    IndexConvention convention = IndexConventionImpl.noPrefix("MD5", entityIndexConfig);
+    SearchContext plain = SearchContext.builder().indexConvention(convention).build();
+    SearchContext fulltext =
+        plain.toBuilder()
+            .resolvedSearchTemplate(
+                new ResolvedSearchTemplate("urn:li:searchTemplate:fulltext", 10L, "fulltext", null))
+            .build();
+    SearchContext edited =
+        plain.toBuilder()
+            .resolvedSearchTemplate(
+                new ResolvedSearchTemplate("urn:li:searchTemplate:fulltext", 11L, "fulltext", null))
+            .build();
+    SearchContext list =
+        plain.toBuilder()
+            .resolvedSearchTemplate(
+                new ResolvedSearchTemplate("urn:li:searchTemplate:list", 10L, "list", null))
+            .build();
+
+    assertNotEquals(plain.getCacheKeyComponent(), fulltext.getCacheKeyComponent());
+    assertNotEquals(fulltext.getCacheKeyComponent(), edited.getCacheKeyComponent());
+    assertNotEquals(fulltext.getCacheKeyComponent(), list.getCacheKeyComponent());
+  }
+
+  @Test
+  public void testUnresolvedSearchTemplateFlagIsNotPartOfTheCacheKey() {
+    EntityIndexConfiguration entityIndexConfig = createDefaultEntityIndexConfiguration();
+    IndexConvention convention = IndexConventionImpl.noPrefix("MD5", entityIndexConfig);
+    SearchContext plain =
+        SearchContext.builder()
+            .indexConvention(convention)
+            .searchFlags(new SearchFlags().setFulltext(true))
+            .build();
+    SearchContext requested =
+        plain.toBuilder()
+            .searchFlags(
+                new SearchFlags()
+                    .setFulltext(true)
+                    .setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:fulltext")))
+            .build();
+
+    assertEquals(plain.getCacheKeyComponent(), requested.getCacheKeyComponent());
   }
 }

@@ -1,4 +1,4 @@
-import { encodeComma } from '@app/entity/shared/utils';
+import { encodeComma } from '@app/entityV2/shared/utils';
 import { DEGREE_FILTER_NAME, FILTER_URL_PREFIX } from '@app/search/utils/constants';
 
 import { FacetFilterInput, FilterOperator } from '@types';
@@ -29,7 +29,7 @@ function reduceFiltersIntoQueryStringDict(acc, filter, idx) {
     return acc;
 }
 
-// transform filters from [{ filter, value }, { filter, value }] to { filter: [value, value ] } that QueryString can parse
+// Serialize FacetFilterInput `values` arrays into query-string params that useFilters can parse
 export default function filtersToQueryStringParams(filters: Array<FacetFilterInput> = []) {
     return filters
         .reduce(reduceFiltersToCombineDegreeFilters, [])

@@ -13,9 +13,10 @@ services:
       # Production deployments should use proper cgroup v2 support or java 25+
       - JAVA_TOOL_OPTIONS=-XX:-UseContainerSupport
     ports:
-      - 58030:8030  # FE web UI
-      - 59030:9030  # MySQL protocol port
-      - 59010:9010  # FE edit log port
+      # Ephemeral: only the MySQL protocol port needs host access (for ingestion),
+      # and letting Docker pick a free port avoids colliding with a leaked container
+      # from a prior run. FE web UI and edit log ports aren't used from the host.
+      - "9030"
     volumes:
       - ./setup:/setup
     networks:
@@ -31,9 +32,7 @@ services:
       # JAVA_TOOL_OPTIONS is read directly by the JVM, bypassing all wrapper scripts
       # Production deployments should use proper cgroup v2 support or java 25+
       - JAVA_TOOL_OPTIONS=-XX:-UseContainerSupport
-    ports:
-      - 58040:8040  # BE web UI
-      - 59050:9050  # BE heartbeat port
+    # No host-exposed ports: BE is only reached over the compose network (by FE).
     volumes:
       - ./setup:/setup
     depends_on:

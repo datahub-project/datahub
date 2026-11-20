@@ -3,9 +3,11 @@ package com.linkedin.datahub.graphql;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.context.RelationshipTraversalContext;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -44,6 +46,15 @@ public interface QueryContext {
    * Configurable via {@link com.linkedin.metadata.config.graphql.GraphQLQueryConfiguration}.
    */
   int getMaxParentDepth();
+
+  /**
+   * Max datasets one {@code siblingGroups} request may ask for; 0 turns the query off. GMS reads
+   * graphQL.query.maxSiblingGroupUrns, which defaults to 0; contexts built without that
+   * configuration also leave the query off.
+   */
+  default int getMaxSiblingGroupUrns() {
+    return 0;
+  }
 
   /**
    * Optional request-scoped context for tracking visited URNs during relationship resolution (cycle
@@ -89,6 +100,16 @@ public interface QueryContext {
    */
   @Nullable
   default AspectLoadContext getAspectLoadContext(@Nonnull String entityTypeName) {
+    return null;
+  }
+
+  /**
+   * Request-scoped Domain existence answers for {@code DomainAssociationMapper}. GraphQL request
+   * contexts return a mutable map so the same Domain URN is not re-probed per result row. Default
+   * is no cache.
+   */
+  @Nullable
+  default Map<Urn, Boolean> getDomainExistenceCache() {
     return null;
   }
 }

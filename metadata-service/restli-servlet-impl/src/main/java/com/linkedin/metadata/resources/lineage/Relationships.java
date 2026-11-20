@@ -125,7 +125,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "getRelationships", urn.getEntityType()).withUsageOperation(UsageOperation.LINEAGE_QUERY), _authorizer, auth, true);
+                    "getRelationships", urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
 
     if (!isAPIAuthorizedUrns(
             opContext,
@@ -164,7 +164,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
               .setTotal(relatedEntitiesResult.getTotal())
               .setRelationships(entityArray);
         },
-        MetricRegistry.name(this.getClass(), "getLineage"));
+        MetricRegistry.name(this.getClass(), "getRelationships"));
   }
 
   @Nonnull

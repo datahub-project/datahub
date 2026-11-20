@@ -1,0 +1,1030 @@
+[
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.raw,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "raw",
+        "description": "Upstream of the dbt transformation chain"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.raw,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_lineage_controls.raw",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "metric",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_lineage_controls.model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "model",
+        "description": "dbt model drawn as a transformation node"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_lineage_controls.model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_lineage_controls.model",
+        "platform": "urn:li:dataPlatform:dbt",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "metric",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.mart,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "mart",
+        "description": "Downstream of the dbt transformation chain"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.mart,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_lineage_controls.mart",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "metric",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_lineage_controls.model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.raw,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.raw,PROD),metric)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_lineage_controls.model,PROD),metric)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.mart,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_lineage_controls.model,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_lineage_controls.model,PROD),metric)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.mart,PROD),metric)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,playwright_lineage_controls.chart)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+      "json": {
+        "title": "Lineage Controls Chart",
+        "description": "Chart downstream of the dbt transformation chain",
+        "lastModified": {
+          "created": {
+            "time": 0,
+            "actor": "urn:li:corpuser:datahub"
+          },
+          "lastModified": {
+            "time": 0,
+            "actor": "urn:li:corpuser:datahub"
+          }
+        },
+        "inputEdges": [
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.mart,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.ghost_src,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "ghost_src",
+        "description": "Upstream of a soft-deleted table"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.ghost_src,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_lineage_controls.ghost_src",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "value",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.ghost_dst,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "ghost_dst",
+        "description": "Soft-deleted downstream table"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.ghost_dst,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_lineage_controls.ghost_dst",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "value",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.ghost_dst,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.ghost_src,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.ghost_src,PROD),value)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.ghost_dst,PROD),value)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.ghost_dst,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": true
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.wide,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "wide",
+        "description": "25 columns, to paginate and search within a node"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.wide,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_lineage_controls.wide",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "col_01",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_02",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_03",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_04",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_05",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_06",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_07",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_08",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_09",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_10",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_11",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_12",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_13",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_14",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_15",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_16",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_17",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_18",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_19",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_20",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_21",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_22",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_23",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_24",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "col_25",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.wide_upstream,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "wide_upstream",
+        "description": "Upstream of the wide table"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.wide_upstream,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_lineage_controls.wide_upstream",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "col_01",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.wide,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.wide_upstream,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.wide_upstream,PROD),col_01)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.wide,PROD),col_01)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.sf_a,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "sf_a",
+        "description": "First table in the schema field lineage chain"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.sf_a,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_lineage_controls.sf_a",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "breed",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.sf_b,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "sf_b",
+        "description": "Second table in the schema field lineage chain"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.sf_b,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_lineage_controls.sf_b",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "breed",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.sf_c,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "sf_c",
+        "description": "Third table in the schema field lineage chain"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.sf_c,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_lineage_controls.sf_c",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          },
+          {
+            "fieldPath": "breed",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.sf_b,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.sf_a,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.sf_a,PROD),breed)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.sf_b,PROD),breed)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.sf_c,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.sf_b,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.sf_b,PROD),breed)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_controls.sf_c,PROD),breed)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  }
+]

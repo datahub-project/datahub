@@ -1,3 +1,6 @@
+import json
+import pathlib
+from typing import List
 from unittest.mock import MagicMock
 
 import pytest
@@ -5,15 +8,21 @@ import sqlglot
 from sqlglot import parse_one
 from sqlglot.expressions import Table
 
+from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.sql_parsing.schema_resolver import (
+    GraphQLSchemaMetadata,
     SchemaInfo,
     SchemaResolver,
     SchemaResolverReport,
+    _SchemaResolverWithExtras,
     _TableName,
     match_columns_to_schema,
 )
+from datahub.sql_parsing.sqlglot_lineage import _table_name_from_sqlglot_table
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 
 def create_default_schema_resolver(urn: str) -> SchemaResolver:
@@ -113,6 +122,60 @@ def test_get_urn_for_table_lowercase():
     )
 
 
+@pytest.mark.parametrize(
+    "keep_platform_instance_case, expected_name",
+    [
+        pytest.param(False, "prodws.main.sales.orders", id="default_lowercases"),
+        pytest.param(True, "ProdWS.main.sales.orders", id="opt_in_keeps_case"),
+    ],
+)
+def test_resolve_table_miss_platform_instance_case(
+    keep_platform_instance_case: bool, expected_name: str
+) -> None:
+    schema_resolver = SchemaResolver(
+        platform="databricks",
+        platform_instance="ProdWS",
+        env="PROD",
+        keep_platform_instance_case=keep_platform_instance_case,
+    )
+
+    urn, schema_info = schema_resolver.resolve_table(
+        _TableName(database="Main", db_schema="Sales", table="Orders")
+    )
+
+    assert schema_info is None
+    assert (
+        urn == f"urn:li:dataset:(urn:li:dataPlatform:databricks,{expected_name},PROD)"
+    )
+
+
+@pytest.mark.parametrize("keep_platform_instance_case", [False, True])
+def test_temp_table_registered_under_miss_urn_resolves(
+    keep_platform_instance_case: bool,
+) -> None:
+    # The aggregator registers a temp table under the URN the base resolver returned
+    # for it, so later lookups must build that same URN.
+    base = SchemaResolver(
+        platform="databricks",
+        platform_instance="ProdWS",
+        env="PROD",
+        keep_platform_instance_case=keep_platform_instance_case,
+    )
+    resolver = _SchemaResolverWithExtras(base_resolver=base, extra_schemas={})
+    temp_view = _TableName(database="main", db_schema="sales", table="tmp_v")
+    temp_urn, _ = base.resolve_table(temp_view)
+
+    resolver.add_temp_tables(
+        {
+            temp_urn: [
+                SchemaFieldClass(fieldPath="id", nativeDataType="int", type=MagicMock())
+            ]
+        }
+    )
+
+    assert resolver.resolve_table(temp_view) == (temp_urn, {"id": "int"})
+
+
 def test_get_urn_for_table_not_lower_should_keep_capital_letters():
     schema_resolver = SchemaResolver(
         platform="mssql",
@@ -173,6 +236,27 @@ class TestResolveTableBatching:
         urns_tried = mock_graph.get_entities.call_args[1]["urns"]
         assert len(urns_tried) >= 2
         assert len(urns_tried) == len(set(urns_tried))
+
+    def test_batch_fetch_keeps_original_field_paths(self, schema_resolver, mock_graph):
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
+        mock_graph.get_entities.return_value = {
+            urn: {
+                "schemaMetadata": (
+                    create_mock_schema([("[version=2.0].[type=long].col_a", "int")]),
+                    {},
+                )
+            }
+        }
+
+        resolved_urn, schema_info = schema_resolver.resolve_table(
+            _TableName(database="DB", db_schema="SCHEMA", table="TABLE")
+        )
+
+        assert resolved_urn == urn
+        assert schema_info == {"col_a": "int"}
+        assert schema_resolver.get_original_field_paths(urn) == {
+            "col_a": "[version=2.0].[type=long].col_a"
+        }
 
     def test_uses_cache_first(self, schema_resolver, mock_graph):
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
@@ -311,7 +395,7 @@ class TestTableNameParts:
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table = tables[0]
 
-        table_name = _TableName.from_sqlglot_table(table)
+        table_name = _table_name_from_sqlglot_table(table, None)
 
         assert table_name.parts is not None
         assert len(table_name.parts) == 5
@@ -330,7 +414,7 @@ class TestTableNameParts:
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table = tables[0]
 
-        table_name = _TableName.from_sqlglot_table(table)
+        table_name = _table_name_from_sqlglot_table(table, None)
 
         assert table_name.parts is not None
         assert len(table_name.parts) == 4
@@ -343,7 +427,7 @@ class TestTableNameParts:
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table = tables[0]
 
-        table_name = _TableName.from_sqlglot_table(table)
+        table_name = _table_name_from_sqlglot_table(table, None)
 
         assert table_name.parts is not None
         for part in table_name.parts:
@@ -356,7 +440,7 @@ class TestTableNameParts:
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table = tables[0]
 
-        table_name = _TableName.from_sqlglot_table(table)
+        table_name = _table_name_from_sqlglot_table(table, None)
 
         # Should be able to hash it
         h = hash(table_name)
@@ -403,14 +487,14 @@ class TestTableNameParts:
         parsed2 = parse_one(sql2)
         parsed3 = parse_one(sql3)
 
-        tn1 = _TableName.from_sqlglot_table(
-            list(parsed1.find_all(sqlglot.exp.Table))[0]
+        tn1 = _table_name_from_sqlglot_table(
+            list(parsed1.find_all(sqlglot.exp.Table))[0], None
         )
-        tn2 = _TableName.from_sqlglot_table(
-            list(parsed2.find_all(sqlglot.exp.Table))[0]
+        tn2 = _table_name_from_sqlglot_table(
+            list(parsed2.find_all(sqlglot.exp.Table))[0], None
         )
-        tn3 = _TableName.from_sqlglot_table(
-            list(parsed3.find_all(sqlglot.exp.Table))[0]
+        tn3 = _table_name_from_sqlglot_table(
+            list(parsed3.find_all(sqlglot.exp.Table))[0], None
         )
 
         # Set should deduplicate tn1 and tn3
@@ -498,7 +582,7 @@ class TestTableNameParts:
         parsed = parse_one(sql)
         table = list(parsed.find_all(Table))[0]
 
-        table_name = _TableName.from_sqlglot_table(table)
+        table_name = _table_name_from_sqlglot_table(table, None)
 
         assert table_name.parts is not None
         assert len(table_name.parts) == 7
@@ -510,7 +594,7 @@ class TestTableNameParts:
         parsed = parse_one(sql)
         table = list(parsed.find_all(Table))[0]
 
-        table_name = _TableName.from_sqlglot_table(table)
+        table_name = _table_name_from_sqlglot_table(table, None)
 
         assert table_name.parts is not None
         assert "my-source" in table_name.parts
@@ -534,200 +618,334 @@ class TestTableNameParts:
         assert table_without_parts.parts is None
 
 
-class TestNormalizedUrnResolution:
-    def test_mixedcase_registered_resolves_from_lowercase_query(self):
-        """Teradata-style: schema keeps DBC casing; lineage queries are lowercase."""
-        report = SchemaResolverReport()
-        resolver = SchemaResolver(
-            platform="teradata",
-            platform_instance="td20-jul26-trial",
-            env="Test",
-            graph=None,
-            report=report,
-        )
-        mixed_urn = resolver.get_urn_for_table(
-            _TableName(database=None, db_schema="Riverflow", table="riverflow_native")
-        )
-        resolver.add_raw_schema_info(mixed_urn, {"col_a": "VARCHAR"})
+def test_closed_reflects_the_underlying_cache():
+    """`closed` is the accessor callers use instead of reaching through
+    `_schema_cache`, so the delegation needs a test of its own rather than being
+    covered only where it happens to be used.
+    """
+    resolver = SchemaResolver(platform="snowflake")
 
-        resolved_urn, schema = resolver.resolve_table(
-            _TableName(database=None, db_schema="riverflow", table="riverflow_native")
-        )
+    assert not resolver.closed
+    assert not resolver._schema_cache.closed
 
-        assert schema is not None
-        assert schema["col_a"] == "VARCHAR"
-        assert resolved_urn == mixed_urn
-        assert "Riverflow" in resolved_urn
-        assert report.num_normalized_urn_hits == 1
+    resolver.close()
 
-    def test_malformed_urn_skips_normalized_index(self) -> None:
-        resolver = SchemaResolver(platform="teradata", env="PROD", graph=None)
-        resolver.add_raw_schema_info("not-a-valid-urn", {"c": "VARCHAR"})
-        canonical_urn = resolver.get_urn_for_table(
-            _TableName(database=None, db_schema="Riverflow", table="t")
-        )
-        resolver.add_raw_schema_info(canonical_urn, {"c": "VARCHAR"})
+    assert resolver.closed
+    assert resolver._schema_cache.closed
 
-        resolved_urn, schema = resolver.resolve_table(
-            _TableName(database=None, db_schema="riverflow", table="t")
-        )
 
-        assert schema is not None
-        assert resolved_urn == canonical_urn
+_V2_URN = "urn:li:dataset:(urn:li:dataPlatform:glue,my_db.my_table,PROD)"
+_V2_FIELDS = [
+    ("[version=2.0].[type=long].col_a", "bigint"),
+    ("[version=2.0].[type=string].Col_B", "string"),
+    # Nested fields are dropped from the schema info, so they get no mapping either.
+    ("[version=2.0].[type=struct].col_c.[type=string].inner", "string"),
+]
 
-    def test_ambiguous_collision_stays_unresolved(self):
-        resolver = SchemaResolver(platform="teradata", env="PROD", graph=None)
-        mixed = resolver.get_urn_for_table(
-            _TableName(database=None, db_schema="Riverflow", table="t")
-        )
-        other = resolver.get_urn_for_table(
-            _TableName(database=None, db_schema="RIVERFLOW", table="T")
-        )
-        assert mixed != other
-        resolver.add_raw_schema_info(mixed, {"a": "int"})
-        resolver.add_raw_schema_info(other, {"b": "int"})
 
-        resolved_urn, schema = resolver.resolve_table(
-            _TableName(database=None, db_schema="riverflow", table="t")
-        )
+def _v2_graphql_schema() -> GraphQLSchemaMetadata:
+    return {
+        "fields": [
+            {"fieldPath": path, "nativeDataType": native_type}
+            for path, native_type in _V2_FIELDS
+        ]
+    }
 
-        assert schema is None
-        assert resolved_urn == resolver.get_urn_for_table(
-            _TableName(database=None, db_schema="riverflow", table="t"), lower=True
-        )
 
-    @pytest.mark.parametrize("platform", ["bigquery", "db2"])
-    def test_case_sensitive_platform_resolves_when_unambiguous(
-        self, platform: str
+@pytest.mark.parametrize(
+    "add_schema",
+    [
+        pytest.param(
+            lambda r: r.add_schema_metadata(_V2_URN, create_mock_schema(_V2_FIELDS)),
+            id="add_schema_metadata",
+        ),
+        pytest.param(
+            lambda r: r.add_schema_metadata_from_fetch(
+                _V2_URN, create_mock_schema(_V2_FIELDS)
+            ),
+            id="add_schema_metadata_from_fetch",
+        ),
+        pytest.param(
+            lambda r: r.add_graphql_schema_metadata(_V2_URN, _v2_graphql_schema()),
+            id="add_graphql_schema_metadata",
+        ),
+    ],
+)
+def test_original_field_paths_kept_for_v2_schemas(add_schema):
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    add_schema(resolver)
+
+    # resolve_urn keeps returning the simplified paths the SQL parser matches on.
+    assert resolver.resolve_urn(_V2_URN)[1] == {"col_a": "bigint", "Col_B": "string"}
+    assert resolver.get_original_field_paths(_V2_URN) == {
+        "col_a": "[version=2.0].[type=long].col_a",
+        "Col_B": "[version=2.0].[type=string].Col_B",
+    }
+
+
+def test_original_field_paths_kept_when_fetched_from_graph():
+    graph = MagicMock(spec=DataHubGraph)
+    graph.get_aspect.return_value = create_mock_schema(_V2_FIELDS)
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=graph)
+
+    resolver.resolve_urn(_V2_URN)
+
+    assert resolver.get_original_field_paths(_V2_URN)["col_a"] == (
+        "[version=2.0].[type=long].col_a"
+    )
+
+
+def test_original_field_paths_empty_for_v1_and_unknown_schemas():
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    resolver.add_schema_metadata(_V2_URN, create_mock_schema([("col_a", "bigint")]))
+
+    assert resolver.get_original_field_paths(_V2_URN) == {}
+    assert resolver.get_original_field_paths("urn:li:dataset:unknown") == {}
+
+
+@pytest.mark.parametrize(
+    "replace",
+    [
+        pytest.param(
+            lambda r: r.add_raw_schema_info(_V2_URN, {"col_a": "bigint"}), id="raw"
+        ),
+        pytest.param(
+            lambda r: r.add_schema_metadata(
+                _V2_URN, create_mock_schema([("col_a", "bigint")])
+            ),
+            id="v1_schema",
+        ),
+        pytest.param(
+            lambda r: r.add_schema_metadata_from_fetch(_V2_URN, None), id="fetch_miss"
+        ),
+    ],
+)
+def test_original_field_paths_cleared_when_schema_replaced(replace):
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    resolver.add_schema_metadata(_V2_URN, create_mock_schema(_V2_FIELDS))
+    replace(resolver)
+
+    assert resolver.get_original_field_paths(_V2_URN) == {}
+
+
+def test_original_field_paths_for_mixed_v1_and_v2_schema():
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    resolver.add_schema_metadata(
+        _V2_URN,
+        create_mock_schema(
+            [("col_a", "bigint"), ("[version=2.0].[type=string].col_b", "string")]
+        ),
+    )
+
+    assert resolver.resolve_urn(_V2_URN)[1] == {"col_a": "bigint", "col_b": "string"}
+    assert resolver.get_original_field_paths(_V2_URN) == {
+        "col_b": "[version=2.0].[type=string].col_b"
+    }
+
+
+def _hive_paths(name: str, hive_type: str) -> List[str]:
+    return [f.fieldPath for f in get_schema_fields_for_hive_column(name, hive_type)]
+
+
+def _avro_paths(avro_type: object) -> List[str]:
+    record = {
+        "type": "record",
+        "name": "R",
+        "fields": [{"name": "u", "type": avro_type}],
+    }
+    return [f.fieldPath for f in avro_schema_to_mce_fields(json.dumps(record))]
+
+
+@pytest.mark.parametrize(
+    "paths, expected",
+    [
+        # Real converter output; the column root is what a schemaField URN targets.
+        (
+            _hive_paths("s", "struct<a:int,b:string>"),
+            "[version=2.0].[type=struct].[type=struct].s",
+        ),
+        (
+            _hive_paths("arr", "array<int>"),
+            "[version=2.0].[type=struct].[type=array].[type=int].arr",
+        ),
+        (
+            _hive_paths("m", "map<string,int>"),
+            "[version=2.0].[type=struct].[type=map].[type=int].m",
+        ),
+        (
+            _hive_paths("u", "uniontype<int,string>"),
+            "[version=2.0].[type=struct].[type=union].u",
+        ),
+        # A nullable Avro union collapses to the member type: there is no wrapper.
+        (_avro_paths(["null", "long"]), "[version=2.0].[type=R].[type=long].u"),
+        (
+            _avro_paths(["null", "long", "string"]),
+            "[version=2.0].[type=R].[type=union].u",
+        ),
+    ],
+    ids=[
+        "struct",
+        "array",
+        "map",
+        "hive_union",
+        "avro_nullable_union",
+        "avro_multi_union",
+    ],
+)
+@pytest.mark.parametrize(
+    "order",
+    [list, sorted, lambda p: list(reversed(p))],
+    ids=["emitted", "sorted", "reversed"],
+)
+def test_original_field_path_is_the_column_root(paths, expected, order):
+    # Union members simplify to the same path as their column. The column must win
+    # whatever the field order: some sources sort fields by fieldPath, which puts
+    # members before the column.
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    resolver.add_schema_metadata(
+        _V2_URN, create_mock_schema([(p, "t") for p in order(paths)])
+    )
+
+    simple = get_simple_field_path_from_v2_field_path(expected)
+    assert resolver.get_original_field_paths(_V2_URN) == {simple: expected}
+
+
+@pytest.mark.parametrize(
+    "order",
+    [list, sorted, lambda p: list(reversed(p))],
+    ids=["emitted", "sorted", "reversed"],
+)
+def test_original_field_path_tie_break_is_order_independent(order):
+    # A Kafka-style key and value field share a name and a [type=...] count; the
+    # value field wins regardless of field order.
+    value_path = "[version=2.0].[type=V].[type=long].id"
+    key_path = "[version=2.0].[key=True].[type=K].[type=long].id"
+    other_value_path = "[version=2.0].[type=W].[type=long].id"
+    resolver = SchemaResolver(platform="kafka", env="PROD", graph=None)
+    resolver.add_schema_metadata(
+        _V2_URN,
+        create_mock_schema(
+            [(p, "t") for p in order([key_path, value_path, other_value_path])]
+        ),
+    )
+
+    # Ties between value fields fall back to lexicographic order.
+    assert resolver.get_original_field_paths(_V2_URN) == {"id": value_path}
+
+
+def test_close_releases_the_shared_connection():
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    resolver.add_schema_metadata(_V2_URN, create_mock_schema(_V2_FIELDS))
+    temp_directory = resolver._conn._temp_directory
+    assert temp_directory is not None and pathlib.Path(temp_directory).exists()
+
+    resolver.close()
+
+    assert resolver.closed
+    assert resolver._original_field_paths.closed
+    assert not pathlib.Path(temp_directory).exists()
+
+
+def test_reopened_cache_file_restores_schemas_and_original_field_paths(tmp_path):
+    cache_file = tmp_path / "schema_cache.db"
+    resolver = SchemaResolver(
+        platform="glue", env="PROD", graph=None, _cache_filename=cache_file
+    )
+    resolver.add_schema_metadata(_V2_URN, create_mock_schema(_V2_FIELDS))
+    # Indexes on the schema cache's extra column are created lazily by queries.
+    assert resolver.schema_count() == 1
+    resolver.close()
+
+    reopened = SchemaResolver(
+        platform="glue", env="PROD", graph=None, _cache_filename=cache_file
+    )
+
+    assert reopened.schema_count() == 1
+    assert reopened.resolve_urn(_V2_URN)[1] == {"col_a": "bigint", "Col_B": "string"}
+    assert reopened.get_original_field_paths(_V2_URN) == {
+        "col_a": "[version=2.0].[type=long].col_a",
+        "Col_B": "[version=2.0].[type=string].Col_B",
+    }
+
+
+class TestCaseInsensitiveResolution:
+    def test_lowercase_reference_resolves_to_registered_mixed_case_urn(
+        self,
     ) -> None:
         report = SchemaResolverReport()
+        graph = MagicMock(spec=DataHubGraph)
         resolver = SchemaResolver(
-            platform=platform, env="PROD", graph=None, report=report
+            platform="teradata", env="PROD", graph=graph, report=report
         )
-        canonical_urn = resolver.get_urn_for_table(
-            _TableName(database="proj", db_schema="ds", table="MyTable")
+        registered = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Sales", table="Orders")
         )
-        resolver.add_raw_schema_info(canonical_urn, {"c": "STRING"})
+        resolver.add_raw_schema_info(registered, {"col_a": "VARCHAR"})
 
-        resolved_urn, schema = resolver.resolve_table(
-            _TableName(database="proj", db_schema="ds", table="mytable")
+        urn, schema = resolver.resolve_table(
+            _TableName(database=None, db_schema="sales", table="orders")
         )
 
-        assert schema is not None
-        assert schema["c"] == "STRING"
-        assert resolved_urn == canonical_urn
-        assert report.num_normalized_urn_hits == 1
+        assert urn == registered
+        assert schema == {"col_a": "VARCHAR"}
+        assert report.num_case_insensitive_hits == 1
+        graph.get_entities.assert_not_called()
 
-    def test_case_sensitive_miss_keeps_query_casing(self) -> None:
-        resolver = SchemaResolver(platform="bigquery", env="PROD", graph=None)
+    def test_several_registered_casings_stay_unresolved(self) -> None:
+        report = SchemaResolverReport()
+        resolver = SchemaResolver(platform="teradata", env="PROD", report=report)
+        for db_schema in ("Sales", "SALES"):
+            resolver.add_raw_schema_info(
+                resolver.get_urn_for_table(
+                    _TableName(database=None, db_schema=db_schema, table="Orders")
+                ),
+                {"col_a": "VARCHAR"},
+            )
+        table = _TableName(database=None, db_schema="sales", table="orders")
+
+        urn, schema = resolver.resolve_table(table)
+
+        assert schema is None
+        assert urn == resolver.get_urn_for_unresolved_table(table)
+        assert report.num_case_insensitive_collisions == 1
+
+    @pytest.mark.parametrize("platform", ["bigquery", "db2"])
+    def test_case_sensitive_platform_does_not_match_other_casing(
+        self, platform: str
+    ) -> None:
+        resolver = SchemaResolver(platform=platform, env="PROD")
+        resolver.add_raw_schema_info(
+            resolver.get_urn_for_table(
+                _TableName(database="proj", db_schema="ds", table="MyTable")
+            ),
+            {"c": "STRING"},
+        )
         table = _TableName(database="proj", db_schema="ds", table="mytable")
 
-        resolved_urn, schema = resolver.resolve_table(table)
+        urn, schema = resolver.resolve_table(table)
 
         assert schema is None
-        assert resolved_urn == resolver.get_urn_for_table(table)
-        assert "MyTable" not in resolved_urn
+        assert urn == resolver.get_urn_for_unresolved_table(table)
 
-    def test_negative_cache_does_not_block_normalized_hit(self) -> None:
-        resolver = SchemaResolver(platform="bigquery", env="PROD", graph=None)
-        canonical_urn = resolver.get_urn_for_table(
-            _TableName(database="proj", db_schema="ds", table="MyTable")
-        )
-        resolver.add_raw_schema_info(canonical_urn, {"c": "STRING"})
-        query_urn = resolver.get_urn_for_table(
-            _TableName(database="proj", db_schema="ds", table="mytable")
-        )
-        resolver._save_to_cache(query_urn, None)
-
-        resolved_urn, schema = resolver.resolve_table(
-            _TableName(database="proj", db_schema="ds", table="mytable")
-        )
-
-        assert schema is not None
-        assert resolved_urn == canonical_urn
-
-    def test_case_sensitive_graph_fetches_only_exact_urn(self) -> None:
-        mock_graph = MagicMock(spec=DataHubGraph)
-        mock_graph.get_entities.return_value = {}
-        resolver = SchemaResolver(platform="bigquery", env="PROD", graph=mock_graph)
-
-        resolver.resolve_table(
-            _TableName(database="proj", db_schema="ds", table="MyTable")
-        )
-
-        mock_graph.get_entities.assert_called_once()
-        urns_fetched = mock_graph.get_entities.call_args[1]["urns"]
-        assert len(urns_fetched) == 1
-        assert "MyTable" in urns_fetched[0]
-
-    @pytest.mark.parametrize("platform", ["bigquery", "db2"])
-    def test_case_sensitive_third_casing_stays_unresolved_when_both_exist(
-        self, platform: str
+    def test_index_survives_reopening_the_cache_file(
+        self, tmp_path: pathlib.Path
     ) -> None:
-        """Do not pick a lowercase candidate when two case-distinct tables exist."""
-        resolver = SchemaResolver(platform=platform, env="PROD", graph=None)
-        mixed = resolver.get_urn_for_table(
-            _TableName(database="proj", db_schema="ds", table="MyTable")
-        )
-        lower = resolver.get_urn_for_table(
-            _TableName(database="proj", db_schema="ds", table="mytable")
-        )
-        assert mixed != lower
-        resolver.add_raw_schema_info(mixed, {"a": "int"})
-        resolver.add_raw_schema_info(lower, {"b": "int"})
-
-        resolved_urn, schema = resolver.resolve_table(
-            _TableName(database="proj", db_schema="ds", table="MYTABLE")
-        )
-
-        assert schema is None
-        assert resolved_urn == resolver.get_urn_for_table(
-            _TableName(database="proj", db_schema="ds", table="MYTABLE")
-        )
-
-    def test_in_process_index_needs_no_bootstrap_scan(self) -> None:
-        # No restored cache: the incremental index (via _save_to_cache) is authoritative,
-        # so a normalized lookup must never walk the full FileBackedDict.
-        resolver = SchemaResolver(platform="teradata", env="PROD", graph=None)
-        assert resolver._normalized_bootstrapped is True
-        mixed_urn = resolver.get_urn_for_table(
-            _TableName(database=None, db_schema="Riverflow", table="t")
-        )
-        resolver.add_raw_schema_info(mixed_urn, {"col_a": "VARCHAR"})
-
-        def _fail_scan() -> None:
-            raise AssertionError("normalized index should not scan the cache")
-
-        resolver._schema_cache.items = _fail_scan  # type: ignore[assignment,method-assign]
-
-        resolved_urn, schema = resolver.resolve_table(
-            _TableName(database=None, db_schema="riverflow", table="t")
-        )
-
-        assert schema is not None
-        assert resolved_urn == mixed_urn
-
-    def test_bootstrap_scan_indexes_unindexed_cache_entries(self) -> None:
-        # Simulate a cache restored from a prior run: rows exist in _schema_cache but the
-        # in-memory normalized index is empty and not yet bootstrapped. The first
-        # normalized lookup must scan the cache once to pick them up.
-        report = SchemaResolverReport()
+        cache_file = tmp_path / "schema_cache.db"
         resolver = SchemaResolver(
-            platform="teradata", env="PROD", graph=None, report=report
+            platform="teradata", env="PROD", _cache_filename=cache_file
         )
-        mixed_urn = resolver.get_urn_for_table(
-            _TableName(database=None, db_schema="Riverflow", table="native")
+        registered = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Sales", table="Orders")
         )
-        resolver.add_raw_schema_info(mixed_urn, {"col_a": "VARCHAR"})
-        resolver._normalized_to_urns.clear()
-        resolver._normalized_bootstrapped = False
+        resolver.add_raw_schema_info(registered, {"col_a": "VARCHAR"})
+        resolver.close()
 
-        resolved_urn, schema = resolver.resolve_table(
-            _TableName(database=None, db_schema="riverflow", table="native")
+        reopened = SchemaResolver(
+            platform="teradata", env="PROD", _cache_filename=cache_file
+        )
+        urn, schema = reopened.resolve_table(
+            _TableName(database=None, db_schema="sales", table="orders")
         )
 
-        assert schema is not None
-        assert schema["col_a"] == "VARCHAR"
-        assert resolved_urn == mixed_urn
-        assert resolver._normalized_bootstrapped is True
-        assert report.num_normalized_urn_hits == 1
+        assert urn == registered
+        assert schema == {"col_a": "VARCHAR"}

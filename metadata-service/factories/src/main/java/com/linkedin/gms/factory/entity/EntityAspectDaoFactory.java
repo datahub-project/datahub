@@ -67,10 +67,12 @@ public class EntityAspectDaoFactory {
       final ScopedTransactionFactory scopedTransactionFactory) {
     List<SystemAspectValidator> validators =
         Objects.requireNonNullElse(systemAspectValidators, List.of());
-    log.debug(
-        "Creating EntityAspectDao with {} SystemAspectValidators: {}",
-        validators.size(),
-        validators.stream().map(v -> v.getClass().getSimpleName()).toList());
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Creating EntityAspectDao with {} SystemAspectValidators: {}",
+          validators.size(),
+          validators.stream().map(v -> v.getClass().getSimpleName()).toList());
+    }
     EbeanAspectDao ebeanAspectDao =
         new EbeanAspectDao(
             primaryStorageResolver,

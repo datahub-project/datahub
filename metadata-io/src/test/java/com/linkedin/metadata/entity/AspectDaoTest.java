@@ -496,6 +496,11 @@ public class AspectDaoTest {
     }
 
     @Override
+    public int countUrnRows(OperationContext opContext, String urn) {
+      return 0;
+    }
+
+    @Override
     public <R> R streamAspectBatches(
         OperationContext opContext,
         RestoreIndicesArgs args,

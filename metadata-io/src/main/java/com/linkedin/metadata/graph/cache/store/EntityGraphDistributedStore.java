@@ -9,19 +9,31 @@ import com.hazelcast.map.listener.EntryUpdatedListener;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ScopeMode;
 import com.linkedin.metadata.graph.cache.CacheStatus;
+import com.linkedin.metadata.graph.cache.FullWalkEdge;
+import com.linkedin.metadata.graph.cache.FullWalkPublishResult;
+import com.linkedin.metadata.graph.cache.FullWalkWriteBack;
 import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.EntityGraphDefinition;
+import com.linkedin.metadata.graph.cache.config.EntityGraphModel.GraphBounds;
 import com.linkedin.metadata.graph.cache.config.EntityGraphRegistry;
+import com.linkedin.metadata.graph.cache.service.freshness.SnapshotFreshnessEvaluator;
+import com.linkedin.metadata.graph.cache.snapshot.EntityGraphEndpoints;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot;
+import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot.DirectedEdge;
+import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotBuilder;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotEditor;
+import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotEditor.FullWalkEdit;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphView;
 import com.linkedin.metadata.graph.cache.snapshot.TraversalCoverage;
+import com.linkedin.metadata.graph.cache.snapshot.TraversalCoverage.DirectionCoverage;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -122,6 +134,21 @@ public class EntityGraphDistributedStore {
     return snapshotsForKey(cacheKey).get(cacheKey);
   }
 
+  /**
+   * {@code -1} when this member has no full-snapshot map. {@link IMap#size()} is a cluster call.
+   */
+  public int fullSnapshotCount() {
+    return fullSnapshots == null ? -1 : fullSnapshots.size();
+  }
+
+  /**
+   * {@code -1} when this graph has no partial snapshot map. {@link IMap#size()} is a cluster call.
+   */
+  public int partialSnapshotCount(@Nonnull String graphId) {
+    IMap<String, EntityGraphSnapshot> partialSnapshots = partialSnapshotsByGraphId.get(graphId);
+    return partialSnapshots == null ? -1 : partialSnapshots.size();
+  }
+
   /** Generation is embedded in the published snapshot (single source of truth). */
   public long getGeneration(@Nonnull String cacheKey) {
     EntityGraphSnapshot snapshot = getSnapshot(cacheKey);
@@ -195,6 +222,43 @@ public class EntityGraphDistributedStore {
     return claimed[0];
   }
 
+  /**
+   * True when {@code cacheKey} still holds a snapshot readers can serve. Failure tombstones are not
+   * servable.
+   */
+  public boolean hasServableSnapshot(@Nonnull String cacheKey) {
+    EntityGraphSnapshot snapshot = getSnapshot(cacheKey);
+    if (snapshot == null || TOMBSTONE_FINGERPRINT.equals(snapshot.getTopologyFingerprint())) {
+      return false;
+    }
+    String embedded = snapshot.getCacheStatus();
+    return embedded == null || CacheStatus.ACTIVE.name().equals(embedded);
+  }
+
+  /**
+   * Records a failed refresh without tombstoning {@code cacheKey}. Drops the {@code BUILDING} lease
+   * so reads fall back to the embedded {@code ACTIVE} snapshot, and stores retry suppression on a
+   * side status key.
+   */
+  public void suppressRebuildKeepingSnapshot(
+      @Nonnull String cacheKey, @Nonnull CacheStatus failureStatus) {
+    releaseRebuildClaim(cacheKey);
+    status.put(
+        EntityGraphCacheKeys.rebuildSuppressionKey(cacheKey),
+        failureStatus == CacheStatus.COOLDOWN
+            ? EntityGraphOperationalStatus.of(failureStatus, System.currentTimeMillis())
+            : EntityGraphOperationalStatus.of(failureStatus));
+  }
+
+  public void clearRebuildSuppression(@Nonnull String cacheKey) {
+    status.remove(EntityGraphCacheKeys.rebuildSuppressionKey(cacheKey));
+  }
+
+  @Nullable
+  public EntityGraphOperationalStatus getRebuildSuppression(@Nonnull String cacheKey) {
+    return status.get(EntityGraphCacheKeys.rebuildSuppressionKey(cacheKey));
+  }
+
   /** Drops a {@link CacheStatus#BUILDING} lease when a claimed rebuild does not publish. */
   public void releaseRebuildClaim(@Nonnull String cacheKey) {
     status.compute(
@@ -258,17 +322,228 @@ public class EntityGraphDistributedStore {
   public boolean shouldSkipPublish(
       @Nonnull String cacheKey, @Nonnull EntityGraphSnapshot candidate) {
     EntityGraphSnapshot existing = getSnapshot(cacheKey);
-    if (existing == null || getStatus(cacheKey) != CacheStatus.ACTIVE) {
+    if (existing == null) {
+      return false;
+    }
+    CacheStatus cacheStatus = getStatus(cacheKey);
+    // A rebuild holds BUILDING on the same key it is about to publish. That lease must not let a
+    // depth-capped snapshot replace a fresh trusted walk.
+    if (cacheStatus != CacheStatus.ACTIVE && cacheStatus != CacheStatus.BUILDING) {
+      return false;
+    }
+    TraversalCoverage candidateCoverage = candidate.getTraversalCoverage();
+    if (freshTrustedWalkWouldBeLost(existing, candidateCoverage)) {
+      return true;
+    }
+    if (cacheStatus != CacheStatus.ACTIVE) {
+      return false;
+    }
+    if (candidateCoverage == null) {
+      return false;
+    }
+    EntityGraphDefinition definition = registry.getDefinition(existing.getGraphId());
+    if (definition != null
+        && SnapshotFreshnessEvaluator.isStale(existing, definition)
+        && replacesTrustedDirection(existing.getTraversalCoverage(), candidateCoverage)) {
       return false;
     }
     if (!candidate.getTopologyFingerprint().equals(existing.getTopologyFingerprint())) {
       return false;
     }
-    TraversalCoverage candidateCoverage = candidate.getTraversalCoverage();
-    if (candidateCoverage == null) {
+    return !candidateCoverage.isStrictImprovementOver(existing.getTraversalCoverage());
+  }
+
+  /**
+   * A fresh trusted walk is the more complete snapshot. Skip a publish that would drop it,
+   * including when the candidate fingerprint differs, until the snapshot is stale.
+   */
+  private boolean freshTrustedWalkWouldBeLost(
+      @Nonnull EntityGraphSnapshot existing, @Nullable TraversalCoverage candidateCoverage) {
+    TraversalCoverage existingCoverage = existing.getTraversalCoverage();
+    if (existingCoverage == null || !existingCoverage.hasTrustedFullWalk()) {
       return false;
     }
-    return !candidateCoverage.isStrictImprovementOver(existing.getTraversalCoverage());
+    EntityGraphDefinition definition = registry.getDefinition(existing.getGraphId());
+    if (definition == null || SnapshotFreshnessEvaluator.isStale(existing, definition)) {
+      return false;
+    }
+    if (candidateCoverage == null) {
+      return true;
+    }
+    for (DirectionCoverage direction : existingCoverage.getDirections()) {
+      if (!direction.isTrustedFullWalk()) {
+        continue;
+      }
+      DirectionCoverage replacement = candidateCoverage.getDirection(direction.getDirection());
+      if (replacement == null || !replacement.isTrustedFullWalk()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * True when {@code candidate} carries a direction that {@code existing} stamped as a trusted full
+   * walk and the candidate no longer marks that direction trusted. A stale snapshot must publish so
+   * the stamp does not stick forever.
+   */
+  private static boolean replacesTrustedDirection(
+      @Nullable TraversalCoverage existing, @Nonnull TraversalCoverage candidate) {
+    if (existing == null) {
+      return false;
+    }
+    for (DirectionCoverage direction : existing.getDirections()) {
+      if (!direction.isTrustedFullWalk()) {
+        continue;
+      }
+      DirectionCoverage replacement = candidate.getDirection(direction.getDirection());
+      if (replacement != null && !replacement.isTrustedFullWalk()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Publishes a walk the caller already finished. The invalidation generation is checked inside the
+   * same {@link IMap#compute} as the edge replace. Does not bump the invalidation generation and
+   * does not write an {@link CacheStatus#OVER_LIMIT} tombstone.
+   */
+  @Nonnull
+  public FullWalkPublishResult publishFullWalk(
+      @Nullable EntityGraphDefinition definition, @Nonnull FullWalkWriteBack writeBack) {
+    if (writeBack.getSeeds() == null || writeBack.getSeeds().isEmpty()) {
+      return FullWalkPublishResult.REJECTED_SIGNAL;
+    }
+    if (writeBack.isTruncated()) {
+      return FullWalkPublishResult.REJECTED_TRUNCATED;
+    }
+    if (definition == null || definition.getScope().getMode() != ScopeMode.PARTIAL) {
+      return FullWalkPublishResult.REJECTED_NOT_PARTIAL;
+    }
+    if (definition.getBuildSource() != writeBack.getSource()) {
+      return FullWalkPublishResult.REJECTED_SOURCE;
+    }
+    List<DirectedEdge> walkedEdges = toDirectedEdges(writeBack.getEdges());
+    Set<String> resolvedKeys = new LinkedHashSet<>();
+    for (String vertex : closureVertices(writeBack.getSeeds(), walkedEdges)) {
+      findCacheKeyForSeeds(writeBack.getGraphId(), writeBack.getSource(), Set.of(vertex))
+          .ifPresent(resolvedKeys::add);
+    }
+    if (resolvedKeys.size() > 1) {
+      return FullWalkPublishResult.REJECTED_SPLIT_COMPONENTS;
+    }
+    boolean create = resolvedKeys.isEmpty();
+    if (create && walkedEdges.isEmpty()) {
+      return FullWalkPublishResult.REJECTED_EMPTY_CREATE;
+    }
+    String cacheKey;
+    if (create) {
+      List<DirectedEdge> createdEdges =
+          new EntityGraphView(List.of())
+              .replacingClosure(writeBack.getDirection(), writeBack.getSeeds(), walkedEdges)
+              .getEdges();
+      if (!new EntityGraphView(createdEdges).isSingleWeakComponent()) {
+        return FullWalkPublishResult.REJECTED_SPLIT_COMPONENTS;
+      }
+      cacheKey =
+          EntityGraphCacheKeys.componentCacheKey(
+              writeBack.getGraphId(),
+              writeBack.getSource(),
+              EntityGraphSnapshotBuilder.topologyFingerprint(createdEdges));
+    } else {
+      cacheKey = resolvedKeys.iterator().next();
+    }
+    int maxVertices = definition.getBounds().getMaxVertices();
+    int maxEdges = definition.getBounds().getMaxEdges().orElse(Integer.MAX_VALUE);
+    int configuredMaxDepth = definition.getScope().getMaxDepth();
+    FullWalkPublishResult[] outcome = {FullWalkPublishResult.PUBLISHED};
+    snapshotsForKey(cacheKey)
+        .compute(
+            cacheKey,
+            (key, existing) -> {
+              long currentGeneration = getInvalidationGeneration(writeBack.getGraphId());
+              if (currentGeneration != writeBack.getInvalidationGenerationAtStart()) {
+                outcome[0] = FullWalkPublishResult.REJECTED_GENERATION;
+                return existing;
+              }
+              long builtAtMillis = System.currentTimeMillis();
+              long generation = existing == null ? 1L : existing.getGeneration() + 1L;
+              String buildSource =
+                  existing != null && existing.getBuildSource() != null
+                      ? existing.getBuildSource()
+                      : writeBack.getSource().name().toLowerCase(java.util.Locale.ROOT);
+              FullWalkEdit edit =
+                  EntityGraphSnapshotEditor.applyFullWalk(
+                      existing,
+                      writeBack.getGraphId(),
+                      key,
+                      buildSource,
+                      builtAtMillis,
+                      generation,
+                      writeBack.getDirection(),
+                      writeBack.getSeeds(),
+                      walkedEdges,
+                      configuredMaxDepth);
+              if (!edit.isContainsAllSeeds() || edit.getSnapshot() == null) {
+                outcome[0] = FullWalkPublishResult.REJECTED_EMPTY_CREATE;
+                return existing;
+              }
+              EntityGraphSnapshot updated = edit.getSnapshot();
+              if (updated.getVertexCount() > maxVertices || updated.getEdgeCount() > maxEdges) {
+                outcome[0] = FullWalkPublishResult.REJECTED_BOUNDS;
+                return existing;
+              }
+              if (!new EntityGraphView(updated.getEdges()).isSingleWeakComponent()) {
+                outcome[0] = FullWalkPublishResult.REJECTED_SPLIT_COMPONENTS;
+                return existing;
+              }
+              outcome[0] = FullWalkPublishResult.PUBLISHED;
+              return updated;
+            });
+    if (outcome[0] == FullWalkPublishResult.PUBLISHED) {
+      status.remove(cacheKey);
+      refreshPartialSeedIndex(cacheKey);
+    }
+    return outcome[0];
+  }
+
+  @Nonnull
+  private static Set<String> closureVertices(
+      @Nonnull Set<String> seeds, @Nonnull List<DirectedEdge> walkedEdges) {
+    Set<String> vertices = new LinkedHashSet<>();
+    for (String seed : seeds) {
+      addCanonical(vertices, seed);
+    }
+    for (DirectedEdge edge : walkedEdges) {
+      addCanonical(vertices, edge.getSourceUrn());
+      addCanonical(vertices, edge.getDestinationUrn());
+    }
+    return vertices;
+  }
+
+  private static void addCanonical(@Nonnull Set<String> vertices, @Nullable String raw) {
+    String canonical = EntityGraphEndpoints.parse(raw);
+    if (canonical != null) {
+      vertices.add(canonical);
+    }
+  }
+
+  @Nonnull
+  private static List<DirectedEdge> toDirectedEdges(@Nullable List<FullWalkEdge> edges) {
+    if (edges == null || edges.isEmpty()) {
+      return List.of();
+    }
+    List<DirectedEdge> directed = new ArrayList<>(edges.size());
+    for (FullWalkEdge edge : edges) {
+      directed.add(
+          DirectedEdge.builder()
+              .sourceUrn(edge.getSourceUrn())
+              .destinationUrn(edge.getDestinationUrn())
+              .relationshipType(edge.getRelationshipType())
+              .build());
+    }
+    return directed;
   }
 
   /** When a transient failure cooldown was recorded, or empty if never in cooldown. */
@@ -416,7 +691,9 @@ public class EntityGraphDistributedStore {
   /**
    * Removes {@code entityUrn} from every snapshot for {@code graphId}. When the edited snapshot was
    * {@link CacheStatus#OVER_LIMIT} and the remaining vertex count is below {@code maxVertices},
-   * clears the failure status so rebuild can proceed. Returns true when any snapshot changed.
+   * clears the failure status so rebuild can proceed. An {@code OVER_LIMIT} retry suppression on
+   * the side status key is cleared on that same under-bounds edit, and when the snapshot key is
+   * dropped. Returns true when any snapshot changed.
    */
   public boolean removeVertexFromSnapshot(
       @Nonnull String graphId, @Nonnull String entityUrn, int maxVertices) {
@@ -447,11 +724,67 @@ public class EntityGraphDistributedStore {
           && removalResult.snapshotAfter.getVertexCount() < maxVertices) {
         status.remove(cacheKey);
       }
+      clearSuppressionAfterSurgicalEdit(graphId, cacheKey, removalResult, maxVertices);
     }
     if (changed) {
       recordInvalidationGeneration(graphId);
     }
     return changed;
+  }
+
+  /**
+   * A failed refresh records permanent suppression beside the snapshot key. A surgical delete must
+   * clear that side key when the snapshot is gone or the remaining graph is under bounds, without
+   * clearing an {@code INVALID} configuration failure or an unexpired {@code COOLDOWN}.
+   */
+  private void clearSuppressionAfterSurgicalEdit(
+      @Nonnull String graphId,
+      @Nonnull String cacheKey,
+      @Nonnull AtomicVertexRemovalResult removalResult,
+      int maxVertices) {
+    EntityGraphOperationalStatus suppression = getRebuildSuppression(cacheKey);
+    if (suppression == null) {
+      return;
+    }
+    CacheStatus suppressed;
+    try {
+      suppressed = suppression.cacheStatus();
+    } catch (IllegalArgumentException e) {
+      return;
+    }
+    if (suppressed == CacheStatus.INVALID) {
+      return;
+    }
+    if (removalResult.droppedKey) {
+      clearRebuildSuppression(cacheKey);
+      return;
+    }
+    if (suppressed != CacheStatus.OVER_LIMIT || removalResult.snapshotAfter == null) {
+      return;
+    }
+    if (removalResult.snapshotAfter.getVertexCount() >= maxVertices) {
+      return;
+    }
+    if (!edgeCountUnderCap(graphId, removalResult.snapshotAfter.getEdgeCount())) {
+      return;
+    }
+    clearRebuildSuppression(cacheKey);
+  }
+
+  private boolean edgeCountUnderCap(@Nonnull String graphId, int edgeCount) {
+    EntityGraphDefinition definition = registry.getDefinition(graphId);
+    if (definition == null) {
+      return true;
+    }
+    GraphBounds bounds = definition.getBounds();
+    if (bounds == null) {
+      return true;
+    }
+    OptionalInt maxEdges = bounds.getMaxEdges();
+    if (maxEdges == null || maxEdges.isEmpty()) {
+      return true;
+    }
+    return edgeCount < maxEdges.getAsInt();
   }
 
   /**
@@ -525,7 +858,8 @@ public class EntityGraphDistributedStore {
    */
   private void writeFailureTombstoneIfSnapshotKey(
       @Nonnull String cacheKey, @Nonnull CacheStatus failureStatus) {
-    if (EntityGraphCacheKeys.isFailureMarkerKey(cacheKey)) {
+    if (EntityGraphCacheKeys.isFailureMarkerKey(cacheKey)
+        || EntityGraphCacheKeys.isRebuildSuppressionKey(cacheKey)) {
       return;
     }
     try {

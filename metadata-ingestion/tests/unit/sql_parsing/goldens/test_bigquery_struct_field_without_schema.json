@@ -1,0 +1,52 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "7eda942d4b8a39a8a05425c5aa5a247468ae758299fbbab44ef88a2f6d014f61",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.table_a,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "f",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.table_a,PROD)",
+                    "column": "s.f"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "`table_a`.`s`.`f` AS `f`"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "col_a",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.table_a,PROD)",
+                    "column": "col_a"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`table_a`.`col_a` AS `col_a`"
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT s.f, col_a FROM my_project.my_dataset.table_a"
+    }
+}

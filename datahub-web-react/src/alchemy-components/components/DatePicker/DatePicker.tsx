@@ -1,9 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 
+import { buildDateTimeFormat } from '@components/components/DatePicker/DatePicker.utils';
+import { DatePickerGlobalStyles } from '@components/components/DatePicker/DatePickerGlobalStyles';
 import { DatePickerWrapper, Label, StyledAntdDatePicker } from '@components/components/DatePicker/components';
 import { DatePickerVariant } from '@components/components/DatePicker/constants';
 import useVariantProps from '@components/components/DatePicker/hooks/useVariantProps';
 import { DatePickerProps, DatePickerValue } from '@components/components/DatePicker/types';
+
+const FOCUSABLE_SELECTOR = '[tabindex]:not([tabindex="-1"])';
+const CONTENTS_STYLE: React.CSSProperties = { display: 'contents' };
 
 export const datePickerDefault: DatePickerProps = {
     variant: DatePickerVariant.Default,
@@ -17,7 +22,10 @@ export function DatePicker({
     disabled = datePickerDefault.disabled,
     disabledDate,
     placeholder,
+    'data-testid': dataTestId,
     label,
+    showTime,
+    format,
 }: DatePickerProps) {
     const [internalValue, setInternalValue] = useState<DatePickerValue | undefined>(value);
 
@@ -25,7 +33,12 @@ export function DatePicker({
     const presetProps = useVariantProps(variant);
     const { inputRender, ...datePickerProps } = presetProps;
 
-    useEffect(() => onChange?.(internalValue), [onChange, internalValue]);
+    // showTime extends the format in play rather than replacing it.
+    const resolvedFormat = showTime ? buildDateTimeFormat(format ?? datePickerProps.format) : format;
+
+    const onChangeRef = useRef(onChange);
+    onChangeRef.current = onChange;
+    useEffect(() => onChangeRef.current?.(internalValue), [internalValue]);
 
     const wrappedInputRender = useMemo(() => {
         if (!inputRender) return undefined;
@@ -44,18 +57,49 @@ export function DatePicker({
             });
     }, [disabled, placeholder, isOpen, inputRender]);
 
+    // rc-picker 4 renders the custom input as a component type, so its identity must stay stable or the
+    // input remounts (and loses focus) on every render. It reads the latest render function from a ref.
+    const wrappedInputRenderRef = useRef(wrappedInputRender);
+    wrappedInputRenderRef.current = wrappedInputRender;
+    const StableInput = useMemo(
+        () =>
+            forwardRef<HTMLElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => {
+                const holderRef = useRef<HTMLSpanElement>(null);
+                // rc-picker focuses this ref on click, so it must be the variant's focusable element: its input,
+                // else a tabindex element (the date switcher has no input)
+                useImperativeHandle(ref, () => {
+                    const holder = holderRef.current;
+                    return (holder?.querySelector<HTMLElement>('input') ??
+                        holder?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ??
+                        holder) as HTMLElement;
+                });
+                return (
+                    <span ref={holderRef} style={CONTENTS_STYLE}>
+                        {wrappedInputRenderRef.current?.(props)}
+                    </span>
+                );
+            }),
+        [],
+    );
+
     return (
-        <DatePickerWrapper>
-            {label && <Label aria-label={label}>{label}</Label>}
-            <StyledAntdDatePicker
-                {...datePickerProps}
-                value={value}
-                inputRender={wrappedInputRender && ((props) => wrappedInputRender?.(props))}
-                onChange={(newValue) => setInternalValue(newValue)}
-                onOpenChange={(open) => setIsOpen(open)}
-                disabled={disabled}
-                disabledDate={disabledDate}
-            />
-        </DatePickerWrapper>
+        <>
+            <DatePickerGlobalStyles />
+            <DatePickerWrapper>
+                {label && <Label aria-label={label}>{label}</Label>}
+                <StyledAntdDatePicker
+                    {...datePickerProps}
+                    {...(resolvedFormat ? { format: resolvedFormat } : {})}
+                    value={value}
+                    components={wrappedInputRender ? { input: StableInput } : undefined}
+                    onChange={(newValue) => setInternalValue(newValue as DatePickerValue)}
+                    onOpenChange={(open) => setIsOpen(open)}
+                    disabled={disabled}
+                    disabledDate={disabledDate}
+                    showTime={showTime}
+                    data-testid={dataTestId}
+                />
+            </DatePickerWrapper>
+        </>
     );
 }

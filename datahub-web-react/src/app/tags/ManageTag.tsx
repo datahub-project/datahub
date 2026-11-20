@@ -1,5 +1,4 @@
-import { ColorPicker, Input, Modal } from '@components';
-import { message } from 'antd';
+import { ColorPicker, Input, Modal, toast } from '@components';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
@@ -95,11 +94,11 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     const handleSave = async () => {
         try {
             if (!tagName.trim()) {
-                message.error({ content: t('tags.nameRequiredError'), key: 'tagUpdate', duration: 3 });
+                toast.error(t('tags.nameRequiredError'), { duration: 3, key: 'tagUpdate' });
                 return;
             }
 
-            message.loading({ content: t('tags.savingChanges'), key: 'tagUpdate' });
+            toast.loading(t('tags.savingChanges'), { key: 'tagUpdate' });
             let changesMade = false;
 
             if (colorValue !== originalColor) {
@@ -128,7 +127,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
             }
 
             if (changesMade) {
-                message.success({ content: t('tags.updateSuccess'), key: 'tagUpdate', duration: 2 });
+                toast.success(t('tags.updateSuccess'), { duration: 2, key: 'tagUpdate' });
             }
 
             await refetch();
@@ -136,7 +135,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
             onClose();
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : tf('unknownError');
-            message.error({ content: t('tags.updateError', { error: errorMessage }), key: 'tagUpdate', duration: 3 });
+            toast.error(t('tags.updateError', { error: errorMessage }), { duration: 3, key: 'tagUpdate' });
         }
     };
 

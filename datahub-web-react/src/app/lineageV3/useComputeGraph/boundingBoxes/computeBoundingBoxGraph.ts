@@ -12,6 +12,7 @@ import {
 } from '@app/lineageV3/common';
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import {
+    assignQueriesToGroups,
     collectBoundingBoxGroups,
     computeMembership,
 } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxGroups';
@@ -24,7 +25,9 @@ import positionTopLevelNodes from '@app/lineageV3/useComputeGraph/boundingBoxes/
 import filterToRevealedEdges from '@app/lineageV3/useComputeGraph/boundingBoxes/revealedEdges';
 import computeLineageGraph from '@app/lineageV3/useComputeGraph/computeLineageGraph';
 import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
+import { hideOrphanedNodes } from '@app/lineageV3/useComputeGraph/lineageGraph.utils';
 import { generateCompareNodesFunction } from '@app/lineageV3/useComputeGraph/orderNodes';
+import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -59,10 +62,11 @@ function createBoundingBoxNodeFilter(
  *    lineage of its own), using the standard impact analysis display rules (per-node filters,
  *    expansion state, lineage filter nodes). Members of bounding boxes sort before other children,
  *    so they're prioritized by pagination.
- * 2. Displayed entities are grouped by bounding-box membership. Displayed members of each box
- *    are laid out horizontally via NodeBuilder, determining the size of the bounding box.
- *    An entity in multiple boxes gets one node per box.
- * 3. Bounding boxes and free entities (displayed entities not in any box) are positioned
+ * 2. Displayed entities are grouped by bounding-box membership, along with query nodes connecting
+ *    two members of the same box. Displayed members of each box are laid out horizontally via
+ *    NodeBuilder, determining the size of the bounding box. An entity in multiple boxes gets one
+ *    node per box.
+ * 3. Bounding boxes and free entities (displayed entities not rendered in a box) are positioned
  *    together via BoundingBoxNodeBuilder, in a single graph rooted at the home bounding box:
  *    lineage between two boxes' members becomes an edge between their boxes,
  *    and lineage between a member and a free entity becomes an edge between the box and the free
@@ -79,6 +83,7 @@ export default function computeBoundingBoxGraph(
         NodeContext,
         GraphStoreFields | LineageToggles | 'rootType' | 'outputPortsOnly' | 'boundingBoxEntities'
     >,
+    entityRegistry: EntityRegistry,
     ignoreSchemaFieldStatus: boolean,
     showFilterNodes = true,
 ) {
@@ -108,7 +113,7 @@ export default function computeBoundingBoxGraph(
     };
     const nodeFilter = createBoundingBoxNodeFilter(urn, rootType, showDataProcessInstances);
     const graphStore: GraphStore = {
-        ...hideNodes(urn, rootType, config, { nodes, edges, adjacencyList }, nodeFilter),
+        ...hideNodes(urn, rootType, entityRegistry, config, { nodes, edges, adjacencyList }, nodeFilter),
         rootType,
     };
     // Positioning and edge creation only consider edges that are actually shown
@@ -128,10 +133,11 @@ export default function computeBoundingBoxGraph(
 
     // Step 1: Compute displayed nodes globally. The hide flags are overridden to match `config`
     // above, so `computeLineageGraph` recomputes the same graph store internally.
-    const compareLineageNodes = generateCompareNodesFunction(rootType);
+    const compareLineageNodes = generateCompareNodesFunction(rootType, entityRegistry);
     const { displayedNodes, lineageFilters } = computeLineageGraph(
         urn,
         { ...context, hideTransformations: false, showDataProcessInstances: true },
+        entityRegistry,
         ignoreSchemaFieldStatus,
         {
             nodeFilter,
@@ -164,9 +170,17 @@ export default function computeBoundingBoxGraph(
               return displayedNodes.filter((node) => keep.has(node.id));
           })()
         : displayedNodes;
-    const displayedIds = new Set(shownNodes.map((node) => node.id));
+
+    // Hide nodes with no lineage for data products
+    const shownFilteredNodes =
+        rootType === EntityType.DataProduct
+            ? hideOrphanedNodes(shownNodes, urn, groups.get(urn)?.memberUrns ?? new Set(), nodes, adjacencyList)
+            : shownNodes;
+
+    const displayedIds = new Set(shownFilteredNodes.map((node) => node.id));
 
     // Step 2 (+ 4): Lay out the displayed members within each bounding box, sizing it
+    assignQueriesToGroups(groups, revealedGraphStore, displayedIds);
     const boxes = new Map<Urn, BoxLayout>();
     groups.forEach((group) => {
         const displayedMemberUrns = new Set(Array.from(group.memberUrns).filter((member) => displayedIds.has(member)));
@@ -174,6 +188,7 @@ export default function computeBoundingBoxGraph(
         const box = layoutBoundingBoxInterior(
             { ...group, memberUrns: displayedMemberUrns },
             revealedGraphStore,
+            entityRegistry,
             ignoreSchemaFieldStatus,
         );
         if (box) boxes.set(group.urn, box);
@@ -209,10 +224,11 @@ export default function computeBoundingBoxGraph(
 
     // Nodes rendered inside a bounding box; all other displayed nodes are free nodes
     const displayedMembership = new Map<Urn, Urn[]>();
-    boxes.forEach((box) =>
-        box.group.memberUrns.forEach((member) => setDefault(displayedMembership, member, []).push(box.group.urn)),
-    );
-    const freeNodes = shownNodes.filter((node) => node.id !== urn && !displayedMembership.has(node.id));
+    boxes.forEach((box) => {
+        box.group.memberUrns.forEach((member) => setDefault(displayedMembership, member, []).push(box.group.urn));
+        box.group.queryUrns.forEach((query) => setDefault(displayedMembership, query, []).push(box.group.urn));
+    });
+    const freeNodes = shownFilteredNodes.filter((node) => node.id !== urn && !displayedMembership.has(node.id));
     const displayedFreeIds = new Set(freeNodes.map((node) => node.id));
 
     // Step 3: Position bounding boxes and free nodes together, based on the lineage between them,

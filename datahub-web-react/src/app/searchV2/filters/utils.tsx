@@ -1,14 +1,17 @@
-import { FolderFilled } from '@ant-design/icons';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import i18next from 'i18next';
-import React, { useLayoutEffect, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { Avatar } from '@components/components/Avatar';
+import { AvatarType } from '@components/components/AvatarStack/types';
+
+import { IconStyleType } from '@app/entityV2/Entity';
 import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { TagColor } from '@app/searchV2/filters/FilterOption';
 import { FACETS_TO_ENTITY_TYPES } from '@app/searchV2/filters/constants';
-import { ALL_FILTER_FIELDS, STRUCTURED_PROPERTY_FILTER } from '@app/searchV2/filters/field/fields';
+import { ALL_FILTER_FIELDS } from '@app/searchV2/filters/field/fields';
 import { convertBackendToFrontendOperatorType } from '@app/searchV2/filters/operator/operator';
 import {
     FieldType,
@@ -30,6 +33,7 @@ import {
     ENTITY_TYPE_FIELDS,
     FIELD_GLOSSARY_TERMS_FILTER_NAME,
     FIELD_TAGS_FILTER_NAME,
+    FIELD_TO_LABEL,
     FILTER_DELIMITER,
     GLOSSARY_TERMS_FILTER_NAME,
     LAST_MODIFIED_FILTER_NAME,
@@ -47,24 +51,26 @@ import {
     TYPE_NAMES_FILTER_NAME,
     UNIT_SEPARATOR,
 } from '@app/searchV2/utils/constants';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
-import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
+import { stripMarkdown } from '@app/sharedV2/stripMarkdown';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import {
     DATE_TYPE_URN,
     NUMBER_TYPE_URN,
     RICH_TEXT_TYPE_URN,
     STRING_TYPE_URN,
     URN_TYPE_URN,
-} from '@src/app/shared/constants';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+} from '@src/app/sharedV2/constants';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 import dayjs from '@utils/dayjs';
 
 import { GetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
 import {
     AggregationMetadata,
+    CorpGroup,
+    CorpUser,
     DataPlatform,
     DataPlatformInstance,
     Document,
@@ -271,7 +277,7 @@ export function getFilterIconAndLabel(
         }
         label = filterEntity ? entityRegistry.getDisplayName(EntityType.DataPlatform, filterEntity) : filterValue;
     } else if (filterField === BROWSE_PATH_V2_FILTER_NAME) {
-        icon = <FolderFilled style={{ fontSize: size }} />;
+        icon = <Folder size={size} weight="fill" />;
         label = getLastBrowseEntryFromFilterValue(filterValue);
     } else if (filterEntity) {
         const { icon: newIcon, label: newLabel } = getFilterWithEntityIconAndLabel(
@@ -344,13 +350,6 @@ export function sortFacets(facetA: FacetMetadata, facetB: FacetMetadata, sortedF
     if (sortedFacetFields.indexOf(facetA.field) === -1) return 1;
     if (sortedFacetFields.indexOf(facetB.field) === -1) return -1;
     return sortedFacetFields.indexOf(facetA.field) - sortedFacetFields.indexOf(facetB.field);
-}
-
-export function getFilterDropdownIcon(field: string) {
-    if (field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)) {
-        return STRUCTURED_PROPERTY_FILTER.icon;
-    }
-    return ALL_FILTER_FIELDS.find((filterField) => filterField.field === field)?.icon;
 }
 
 // maps aggregations and auto complete results to FilterOptionType[] and adds selected filter options if not already there
@@ -512,7 +511,10 @@ function getKnownFilterField(field: string): FilterField | undefined {
 
 export function getDynamicFilterField(field: string, availableFilters: FacetMetadata[]): FilterField {
     const associatedAvailableFilter = availableFilters?.find((availableFilter) => availableFilter.field === field);
-    const filterDisplayName = associatedAvailableFilter?.displayName;
+    // FIELD_TO_LABEL before the facet's displayName: the backend ships an English displayName
+    // (sometimes a PDL filterNameOverride) for fields we have a localized label for, and this
+    // displayName is what SearchFilter passes down as the primary filter chip's label.
+    const filterDisplayName = FIELD_TO_LABEL[field] ?? associatedAvailableFilter?.displayName;
     const filterAggregations = availableFilters?.find(
         (availableFilter) => availableFilter.field === field,
     )?.aggregations;
@@ -550,7 +552,6 @@ export function getDynamicFilterField(field: string, availableFilters: FacetMeta
         displayName: filterDisplayName || field,
         type,
         entityTypes,
-        icon: getFilterDropdownIcon(field),
         entity,
     };
 }
@@ -613,7 +614,7 @@ export function getStructuredPropFilterDisplayName(field: string, value: string,
         return parseFloat(value).toString();
     }
 
-    return removeMarkdown(value);
+    return stripMarkdown(value);
 }
 
 /**
@@ -704,10 +705,29 @@ export const FilterEntityIcon: React.FC<FilterEntityIconProps> = ({ field, entit
             return <TagColor color={(entity as Tag).properties?.colorHex || ''} colorHash={entity?.urn} />;
 
         case field === DOMAINS_FILTER_NAME && entity?.type === EntityType.Domain:
-            return <DomainColoredIcon domain={entity as Domain} size={28} />;
+            return <DomainColoredIcon domain={entity as Domain} size={22} fontSize={11} />;
+
+        case field === OWNERS_FILTER_NAME && entity?.type === EntityType.CorpUser:
+            return (
+                <Avatar
+                    name={(entity as CorpUser).editableProperties?.displayName || (entity as CorpUser).username || ''}
+                    imageUrl={(entity as CorpUser).editableProperties?.pictureLink}
+                    size="sm"
+                    type={AvatarType.user}
+                />
+            );
+
+        case field === OWNERS_FILTER_NAME && entity?.type === EntityType.CorpGroup:
+            return (
+                <Avatar
+                    name={(entity as CorpGroup).properties?.displayName || (entity as CorpGroup).name || ''}
+                    size="sm"
+                    type={AvatarType.group}
+                />
+            );
 
         default:
-            return null; // default
+            return null;
     }
 };
 
@@ -755,14 +775,27 @@ export function useElementDimensions(ref) {
     return dimensions;
 }
 
+export function useGetFilterDisplayName() {
+    const entityRegistry = useEntityRegistry();
+
+    return useCallback(
+        (filter: FacetMetadata | FilterField, predicateDisplayName?: string): string => {
+            if (filter.entity) {
+                return entityRegistry.getDisplayName(filter.entity.type, filter.entity);
+            }
+
+            // FIELD_TO_LABEL before filter.displayName: raw FacetMetadata carries the backend's
+            // English displayName (or a PDL filterNameOverride), so surfaces that hand us a facet
+            // directly (the "More" filter menu) would otherwise never localize.
+            return predicateDisplayName || FIELD_TO_LABEL[filter.field] || filter.displayName || filter.field;
+        },
+        [entityRegistry],
+    );
+}
+
 export function useFilterDisplayName(filter: FacetMetadata | FilterField, predicateDisplayName?: string) {
-    const entityRegistry = useEntityRegistryV2();
-
-    if (filter.entity) {
-        return entityRegistry.getDisplayName(filter.entity.type, filter.entity);
-    }
-
-    return predicateDisplayName || filter.displayName || filter.field;
+    const getFilterDisplayNameFn = useGetFilterDisplayName();
+    return getFilterDisplayNameFn(filter, predicateDisplayName);
 }
 
 export function getIsDateRangeFilter(field: FilterField | FacetMetadata) {

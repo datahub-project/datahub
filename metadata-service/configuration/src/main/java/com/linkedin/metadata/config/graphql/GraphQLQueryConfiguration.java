@@ -21,6 +21,20 @@ public class GraphQLQueryConfiguration {
    */
   private int maxVisitedUrns;
 
+  /**
+   * Max datasets one {@code siblingGroups} field may ask for. 0, the default, turns the query off.
+   * Each dataset's group walk reads at most 1,000 members, and with view authorization on every
+   * member is view-checked. Default in application.yaml.
+   */
+  private int maxSiblingGroupUrns;
+
   /** Requests taking longer than this threshold (in ms) are logged at INFO. Default 1000ms. */
   private long slowQueryThresholdMs;
+
+  /**
+   * Stream the JSON response to the socket instead of buffering it as one String (bounds GMS heap
+   * on large responses). Kill switch; default {@code false} (buffered). Default in
+   * application.yaml.
+   */
+  private boolean streamResponse;
 }

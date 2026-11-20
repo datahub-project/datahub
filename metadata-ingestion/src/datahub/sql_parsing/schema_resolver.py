@@ -3,7 +3,16 @@ import json
 import logging
 import pathlib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Protocol,
+    Set,
+    Tuple,
+)
 
 from requests.models import HTTPError
 from typing_extensions import TypedDict
@@ -19,11 +28,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIde
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
-from datahub.metadata.urns import DataPlatformUrn, DatasetUrn
+from datahub.metadata.urns import DataPlatformUrn
 from datahub.sql_parsing._models import _TableName as _TableName
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
-from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 logger = logging.getLogger(__name__)
@@ -38,10 +46,10 @@ class SchemaResolverReport:
 
     num_schema_cache_hits: int = 0
     num_schema_cache_misses: int = 0
-    # Hits that resolved via the lowercase→canonical index (case-insensitive platforms).
-    num_normalized_urn_hits: int = 0
-    # Lookups where multiple registered URNs shared a normalized key (left unresolved).
-    num_normalized_urn_collisions: int = 0
+    # Hits on a registered URN whose casing differs from every candidate casing.
+    num_case_insensitive_hits: int = 0
+    # Lookups left unresolved because several registered URNs differ only by case.
+    num_case_insensitive_collisions: int = 0
 
 
 class GraphQLSchemaField(TypedDict):
@@ -81,32 +89,39 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         graph: Optional["DataHubGraph"] = None,
         _cache_filename: Optional[pathlib.Path] = None,
         report: Optional[SchemaResolverReport] = None,
+        keep_platform_instance_case: bool = False,
     ):
         # Also supports platform with an urn prefix.
         self._platform = DataPlatformUrn(platform).platform_name
         self.platform_instance = platform_instance
         self.env = env
+        # For sources that emit URNs with the platform_instance as configured, so a
+        # URN synthesized for an unknown table matches theirs. Off by default:
+        # sources that lowercase whole URNs expect the instance lowercased too.
+        self._keep_platform_instance_case = keep_platform_instance_case
 
         self.graph = graph
         self.report = report
 
-        # Init cache, potentially restoring from a previous run.
-        shared_conn = None
-        if _cache_filename:
-            shared_conn = ConnectionWrapper(filename=_cache_filename)
+        # Init cache, potentially restoring from a previous run. Without a filename
+        # the connection uses a temp directory, removed on close.
+        self._conn = ConnectionWrapper(filename=_cache_filename)
         self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
-            shared_connection=shared_conn,
+            shared_connection=self._conn,
             extra_columns={"is_missing": lambda v: v is None},
         )
-        # Lowercased dataset-name key -> registered URN(s). Every in-process write goes
-        # through _save_to_cache, which indexes incrementally, so the index stays complete
-        # on its own. The one exception is a cache restored from a persisted _cache_filename:
-        # those rows never passed through _save_to_cache, so they need a one-time bootstrap
-        # scan on the first normalized lookup. When there is no restored cache we mark the
-        # index bootstrapped up front to avoid ever walking the full FileBackedDict (a
-        # needless SQLite flush + deserialize on large bulk-loaded catalogs).
-        self._normalized_to_urns: Dict[str, Set[str]] = {}
-        self._normalized_bootstrapped = _cache_filename is None
+        # {urn: {simplified field path: original field path}}, only for fields whose
+        # paths differ (v2 paths). SchemaInfo keys are simplified for the SQL parser,
+        # but a schemaField URN must use the dataset's real field path to join.
+        self._original_field_paths: FileBackedDict[Dict[str, str]] = FileBackedDict(
+            shared_connection=self._conn, tablename="original_field_paths"
+        )
+        # {lowercased urn: registered urns}, on case-insensitive platforms only. The
+        # exact/lower/mixed candidates in resolve_table cannot reach a table registered
+        # as e.g. `Db.Table` when SQL references `db.table`; this does.
+        self._urns_by_lower_urn: FileBackedDict[List[str]] = FileBackedDict(
+            shared_connection=self._conn, tablename="urns_by_lower_urn"
+        )
 
     @property
     def platform(self) -> str:
@@ -117,6 +132,15 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
     def get_urns(self) -> Set[str]:
         return {k for k, v in self._schema_cache.items() if v is not None}
+
+    @property
+    def closed(self) -> bool:
+        """Whether the backing cache has been closed.
+
+        A resolver can be shared with objects that did not create it and will
+        not close it, so a borrower cannot infer this from its own state.
+        """
+        return self._schema_cache.closed
 
     def schema_count(self) -> int:
         return int(
@@ -158,6 +182,13 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
         return urn
 
+    def get_urn_for_unresolved_table(self, table: _TableName) -> str:
+        """The URN resolve_table returns for a table it has no schema for."""
+        lower = self._prefers_urn_lower()
+        return self.get_urn_for_table(
+            table, lower=lower, mixed=lower and self._keep_platform_instance_case
+        )
+
     def resolve_urn(self, urn: str) -> Tuple[str, Optional[SchemaInfo]]:
         schema_info = self._resolve_schema_info(urn)
         if schema_info:
@@ -175,29 +206,33 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         exists must test the ``SchemaInfo``, never ``urn is None``.
         """
         urn = self.get_urn_for_table(table)
-        prefers_lower = self._prefers_urn_lower()
-        urns_to_try = [urn]
-        urn_lower = urn
-        urn_mixed = urn
-        if prefers_lower:
-            urn_lower = self.get_urn_for_table(table, lower=True)
-            # Our treatment of platform instances when lowercasing urns
-            # is inconsistent. In some places (e.g. Snowflake), we lowercase
-            # the table names but not the platform instance. In other places
-            # (e.g. Databricks), we lowercase everything because it happens
-            # via the automatic lowercasing helper.
-            # See https://github.com/datahub-project/datahub/pull/8928.
-            # While we have this sort of inconsistency, we should also
-            # check the mixed case urn, as a last resort.
-            if urn_lower != urn:
-                urns_to_try.append(urn_lower)
-            urn_mixed = self.get_urn_for_table(table, lower=True, mixed=True)
-            if urn_mixed not in {urn, urn_lower}:
-                urns_to_try.append(urn_mixed)
+        urn_lower = self.get_urn_for_table(table, lower=True)
+        # Our treatment of platform instances when lowercasing urns
+        # is inconsistent. In some places (e.g. Snowflake), we lowercase
+        # the table names but not the platform instance. In other places
+        # (e.g. Databricks), we lowercase everything because it happens
+        # via the automatic lowercasing helper.
+        # See https://github.com/datahub-project/datahub/pull/8928.
+        # While we have this sort of inconsistency, we should also
+        # check the mixed case urn, as a last resort.
+        urn_mixed = self.get_urn_for_table(table, lower=True, mixed=True)
 
-        hit = self._try_resolve_cached(urns_to_try)
-        if hit is not None:
-            return hit
+        urns_to_try = [urn]
+        if urn_lower != urn:
+            urns_to_try.append(urn_lower)
+        if urn_mixed not in {urn, urn_lower}:
+            urns_to_try.append(urn_mixed)
+
+        for candidate_urn in urns_to_try:
+            if candidate_urn in self._schema_cache:
+                schema_info = self._schema_cache[candidate_urn]
+                if schema_info is not None:
+                    self._track_cache_hit()
+                    return candidate_urn, schema_info
+
+        case_insensitive_hit = self._resolve_case_insensitive(urn)
+        if case_insensitive_hit is not None:
+            return case_insensitive_hit
 
         if self.graph:
             # Skip URNs already in cache (None entries included) to avoid repeated API calls.
@@ -245,9 +280,11 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                     for fetch_urn in urns_to_fetch:
                         self._save_to_cache(fetch_urn, None)
 
-            hit = self._try_resolve_cached(urns_to_try)
-            if hit is not None:
-                return hit
+            for candidate_urn in urns_to_try:
+                schema_info = self._schema_cache.get(candidate_urn)
+                if schema_info is not None:
+                    self._track_cache_hit()
+                    return candidate_urn, schema_info
 
         logger.debug(
             f"Schema resolution failed for table {table}. Tried URNs: "
@@ -255,7 +292,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
         self._track_cache_miss()
 
-        return (urn_lower if prefers_lower else urn), None
+        return self.get_urn_for_unresolved_table(table), None
 
     def resolve_table_parts(
         self,
@@ -277,6 +314,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def _prefers_urn_lower(self) -> bool:
         return self.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 
+    def get_original_field_paths(self, urn: str) -> Dict[str, str]:
+        """{simplified field path: original field path} for the fields of `urn`
+        whose stored path differs from its simplified form (e.g. v2 paths). Fields
+        absent from the result use the simplified path as-is."""
+        return self._original_field_paths.get(urn) or {}
+
     def has_urn(self, urn: str) -> bool:
         return self._schema_cache.get(urn) is not None
 
@@ -285,101 +328,34 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         if self.report is not None:
             self.report.num_schema_cache_hits += 1
 
+    def _resolve_case_insensitive(self, urn: str) -> Optional[Tuple[str, SchemaInfo]]:
+        if not self._prefers_urn_lower():
+            # On case-sensitive platforms `MyTable` and `mytable` are different tables.
+            return None
+        registered = [
+            (candidate, schema_info)
+            for candidate in self._urns_by_lower_urn.get(urn.lower(), [])
+            if (schema_info := self._schema_cache.get(candidate)) is not None
+        ]
+        if len(registered) > 1:
+            if self.report is not None:
+                self.report.num_case_insensitive_collisions += 1
+            logger.debug(
+                f"Not resolving {urn}: registered under several casings "
+                f"{sorted(candidate for candidate, _ in registered)}"
+            )
+            return None
+        if not registered:
+            return None
+        self._track_cache_hit()
+        if self.report is not None:
+            self.report.num_case_insensitive_hits += 1
+        return registered[0]
+
     def _track_cache_miss(self) -> None:
         """Track a cache miss if reporting is enabled."""
         if self.report is not None:
             self.report.num_schema_cache_misses += 1
-
-    def _track_normalized_hit(self) -> None:
-        if self.report is not None:
-            self.report.num_normalized_urn_hits += 1
-
-    def _track_normalized_collision(self) -> None:
-        if self.report is not None:
-            self.report.num_normalized_urn_collisions += 1
-
-    @staticmethod
-    def _normalized_urn_key(urn: str) -> Optional[str]:
-        """Lowercase the dataset name while keeping platform / env identity intact."""
-        try:
-            parsed = DatasetUrn.from_string(urn)
-            platform = DataPlatformUrn.from_string(parsed.platform).platform_name
-            return make_dataset_urn_with_platform_instance(
-                platform=platform,
-                # Name already embeds any platform_instance prefix.
-                platform_instance=None,
-                env=parsed.env,
-                name=parsed.name.lower(),
-            )
-        except (ValueError, IndexError, AttributeError, TypeError, InvalidUrnError):
-            return None
-
-    def _ensure_normalized_index_bootstrapped(self) -> None:
-        if self._normalized_bootstrapped:
-            return
-        self._normalized_bootstrapped = True
-        for urn, info in self._schema_cache.items():
-            if info is None:
-                continue
-            self._index_normalized_urn(urn)
-
-    def _index_normalized_urn(self, urn: str) -> None:
-        key = self._normalized_urn_key(urn)
-        if key is None:
-            return
-        self._normalized_to_urns.setdefault(key, set()).add(urn)
-
-    def _unindex_normalized_urn(self, urn: str) -> None:
-        key = self._normalized_urn_key(urn)
-        if key is None:
-            return
-        urns = self._normalized_to_urns.get(key)
-        if not urns:
-            return
-        urns.discard(urn)
-        if not urns:
-            del self._normalized_to_urns[key]
-
-    def _try_resolve_cached(
-        self, urns_to_try: List[str]
-    ) -> Optional[Tuple[str, SchemaInfo]]:
-        for candidate_urn in urns_to_try:
-            schema_info = self._schema_cache.get(candidate_urn)
-            if schema_info is not None:
-                self._track_cache_hit()
-                return candidate_urn, schema_info
-        # Cross-casing lookup (Teradata MixedCase, BigQuery/DB2 when unambiguous).
-        return self._resolve_via_normalized_index(urns_to_try)
-
-    def _resolve_via_normalized_index(
-        self, urns_to_try: List[str]
-    ) -> Optional[Tuple[str, SchemaInfo]]:
-        seen_keys: Set[str] = set()
-        for candidate in urns_to_try:
-            key = self._normalized_urn_key(candidate)
-            if key is None or key in seen_keys:
-                continue
-            seen_keys.add(key)
-            self._ensure_normalized_index_bootstrapped()
-            matches = self._normalized_to_urns.get(key)
-            if not matches:
-                continue
-            if len(matches) > 1:
-                self._track_normalized_collision()
-                logger.debug(
-                    "Ambiguous case-insensitive URN match for key %s: %s",
-                    key,
-                    sorted(matches),
-                )
-                continue
-            canonical_urn = next(iter(matches))
-            schema_info = self._schema_cache.get(canonical_urn)
-            if schema_info is None:
-                continue
-            self._track_cache_hit()
-            self._track_normalized_hit()
-            return canonical_urn, schema_info
-        return None
 
     def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
         if urn in self._schema_cache:
@@ -389,10 +365,14 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         # or _PARTITIONDATE where appropriate.
 
         if self.graph:
-            schema_info = self._fetch_schema_info(self.graph, urn)
-            if schema_info:
-                self._save_to_cache(urn, schema_info)
-                return schema_info
+            aspect = self.graph.get_aspect(urn, SchemaMetadataClass)
+            if aspect:
+                schema_info, original_paths = _schema_info_and_original_paths(
+                    aspect.fields, urn
+                )
+                if schema_info:
+                    self._save_to_cache(urn, schema_info, original_paths)
+                    return schema_info
 
         self._save_to_cache(urn, None)
         return None
@@ -400,20 +380,19 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def add_schema_metadata(
         self, urn: str, schema_metadata: SchemaMetadataClass
     ) -> None:
-        schema_info = _convert_schema_aspect_to_info(schema_metadata)
-        self._save_to_cache(urn, schema_info)
+        self._save_to_cache(
+            urn, *_schema_info_and_original_paths(schema_metadata.fields, urn)
+        )
 
     def add_schema_metadata_from_fetch(
         self, urn: str, schema_metadata: Optional[SchemaMetadataClass]
     ) -> None:
         # Always stores a result (including None) to prevent repeated API calls
         # for schemas not found in DataHub.
-        schema_info = (
-            _convert_schema_aspect_to_info(schema_metadata)
-            if schema_metadata is not None
-            else None
-        )
-        self._save_to_cache(urn, schema_info)
+        if schema_metadata is not None:
+            self.add_schema_metadata(urn, schema_metadata)
+        else:
+            self._save_to_cache(urn, None)
 
     def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
         self._save_to_cache(urn, schema_info)
@@ -421,8 +400,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def add_graphql_schema_metadata(
         self, urn: str, schema_metadata: GraphQLSchemaMetadata
     ) -> None:
-        schema_info = self.convert_graphql_schema_metadata_to_info(schema_metadata)
-        self._save_to_cache(urn, schema_info)
+        self._save_to_cache(
+            urn, *_graphql_schema_info_and_original_paths(schema_metadata, urn)
+        )
 
     def with_temp_tables(
         self, temp_tables: Dict[str, Optional[List[SchemaFieldClass]]]
@@ -440,40 +420,34 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             base_resolver=self, extra_schemas=extra_schemas
         )
 
-    def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
-        previous = self._schema_cache.get(urn) if urn in self._schema_cache else None
-        if previous is not None and schema_info is None:
-            self._unindex_normalized_urn(urn)
+    def _save_to_cache(
+        self,
+        urn: str,
+        schema_info: Optional[SchemaInfo],
+        original_field_paths: Optional[Dict[str, str]] = None,
+    ) -> None:
         self._schema_cache[urn] = schema_info
-        if schema_info is not None:
-            self._index_normalized_urn(urn)
-
-    def _fetch_schema_info(
-        self, graph: "DataHubGraph", urn: str
-    ) -> Optional[SchemaInfo]:
-        aspect = graph.get_aspect(urn, SchemaMetadataClass)
-        if not aspect:
-            return None
-
-        return _convert_schema_aspect_to_info(aspect)
+        if schema_info is not None and self._prefers_urn_lower():
+            lower_urn = urn.lower()
+            registered = self._urns_by_lower_urn.get(lower_urn, [])
+            if urn not in registered:
+                self._urns_by_lower_urn[lower_urn] = [*registered, urn]
+        if original_field_paths:
+            self._original_field_paths[urn] = original_field_paths
+        else:
+            # One DELETE, rather than a lookup followed by a DELETE.
+            with contextlib.suppress(KeyError):
+                del self._original_field_paths[urn]
 
     @classmethod
     def convert_graphql_schema_metadata_to_info(
         cls, schema: GraphQLSchemaMetadata
     ) -> SchemaInfo:
-        return {
-            get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
-                # The actual types are more of a "nice to have".
-                field["nativeDataType"] or "str"
-            )
-            for field in schema["fields"]
-            # TODO: We can't generate lineage to columns nested within structs yet.
-            if "." not in get_simple_field_path_from_v2_field_path(field["fieldPath"])
-        }
+        return _graphql_schema_info_and_original_paths(schema)[0]
 
     def close(self) -> None:
-        self._schema_cache.close()
-        self._normalized_to_urns.clear()
+        # Closes (and flushes) both dicts; a temp-directory connection is removed.
+        self._conn.close()
 
 
 class _SchemaResolverWithExtras(SchemaResolverInterface):
@@ -494,9 +468,7 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
         return True
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
-        urn = self._base_resolver.get_urn_for_table(
-            table, lower=self._base_resolver._prefers_urn_lower()
-        )
+        urn = self._base_resolver.get_urn_for_unresolved_table(table)
         if urn in self._extra_schemas:
             # Track cache hit for extra schemas
             self._base_resolver._track_cache_hit()
@@ -518,22 +490,73 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
         )
 
 
+def _column_rank(field_path: str) -> Tuple[int, bool, str]:
+    # Lower ranks first: fewest [type=...] segments (the column, not a union
+    # member), then value fields before Kafka key fields, then lexicographic.
+    return (field_path.count("[type="), "[key=True]" in field_path, field_path)
+
+
+def _simple_to_original_paths(
+    fields: Iterable[Tuple[str, str]],
+    urn: Optional[str] = None,
+) -> Tuple[SchemaInfo, Dict[str, str]]:
+    """Build the SchemaInfo (simplified path -> native type) and the
+    simplified -> original field path map in one pass over (fieldPath, native type).
+
+    A union column simplifies to the same path as each of its members (e.g.
+    `[type=union].u`, `[type=union].[type=int].u`, `[type=union].[type=string].u`
+    all become `u`), and a Kafka key field can share its name with a value field.
+    The candidate with the lowest `_column_rank` wins: fewest `[type=...]`
+    segments (the union column itself), then a value field over a key field,
+    then lexicographic order. This is a total order, so the result does not
+    depend on field order, which sources that sort fields by fieldPath change. A
+    plain (v1) path has no segments and so always wins, and is then dropped from
+    the map because it needs no translation."""
+    schema_info: SchemaInfo = {}
+    candidates: Dict[str, str] = {}
+    for field_path, native_type in fields:
+        simple = get_simple_field_path_from_v2_field_path(field_path)
+        # TODO: We can't generate lineage to columns nested within structs yet.
+        if "." in simple:
+            continue
+        # The actual types are more of a "nice to have".
+        schema_info[simple] = native_type or "str"
+        current = candidates.get(simple)
+        if current is None:
+            candidates[simple] = field_path
+            continue
+        if current == field_path:
+            continue
+        winner = min(current, field_path, key=_column_rank)
+        logger.debug(
+            f"Field paths {current!r} and {field_path!r} of {urn} both simplify to "
+            f"{simple!r}; using {winner!r}"
+        )
+        candidates[simple] = winner
+    return schema_info, {k: v for k, v in candidates.items() if k != v}
+
+
+def _schema_info_and_original_paths(
+    schema_fields: Iterable[SchemaFieldClass], urn: Optional[str] = None
+) -> Tuple[SchemaInfo, Dict[str, str]]:
+    return _simple_to_original_paths(
+        ((col.fieldPath, col.nativeDataType) for col in schema_fields), urn
+    )
+
+
+def _graphql_schema_info_and_original_paths(
+    schema: GraphQLSchemaMetadata, urn: Optional[str] = None
+) -> Tuple[SchemaInfo, Dict[str, str]]:
+    return _simple_to_original_paths(
+        ((field["fieldPath"], field["nativeDataType"]) for field in schema["fields"]),
+        urn,
+    )
+
+
 def _convert_schema_field_list_to_info(
     schema_fields: List[SchemaFieldClass],
 ) -> SchemaInfo:
-    return {
-        get_simple_field_path_from_v2_field_path(col.fieldPath): (
-            # The actual types are more of a "nice to have".
-            col.nativeDataType or "str"
-        )
-        for col in schema_fields
-        # TODO: We can't generate lineage to columns nested within structs yet.
-        if "." not in get_simple_field_path_from_v2_field_path(col.fieldPath)
-    }
-
-
-def _convert_schema_aspect_to_info(schema_metadata: SchemaMetadataClass) -> SchemaInfo:
-    return _convert_schema_field_list_to_info(schema_metadata.fields)
+    return _schema_info_and_original_paths(schema_fields)[0]
 
 
 def match_columns_to_schema(

@@ -15,12 +15,16 @@ export interface BoundingBoxGroup {
     entity?: FetchedEntityV2;
     colorHex?: string;
     memberUrns: Set<Urn>;
+    /** Query nodes rendered in this bounding box; see `assignQueriesToGroups`. */
+    queryUrns: Set<Urn>;
 }
 
 export interface BoxLayout {
     group: BoundingBoxGroup;
-    /** Member nodes with bounding-box-qualified ids, positioned relative to the box. */
+    /** Member and query nodes with bounding-box-qualified ids, positioned relative to the box. */
     memberNodes: LineageVisualizationNode[];
+    /** Number of members shown, excluding query nodes. */
+    memberCount: number;
     width: number;
     height: number;
 }

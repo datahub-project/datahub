@@ -6,7 +6,8 @@ namespace com.linkedin.incident
  * ingestion sources that UPSERT IncidentInfo do not accidentally overwrite user-authored notes.
  */
 @Aspect = {
-  "name": "incidentNotes"
+  "name": "incidentNotes",
+  "schemaVersion": 2
 }
 record IncidentNotes {
 

@@ -83,6 +83,14 @@ export const InputField = styled.input(({ theme }) => ({
         outline: 'none',
     },
 
+    // Browsers force a light background on autofilled inputs that can't be overridden with
+    // background-color, so paint over it with an inset shadow instead.
+    '&:-webkit-autofill, &:-webkit-autofill:hover, &:-webkit-autofill:focus': {
+        WebkitBoxShadow: `0 0 0 1000px ${theme.colors.bg} inset`,
+        WebkitTextFillColor: theme.colors.text,
+        caretColor: theme.colors.text,
+    },
+
     '&:disabled': {
         backgroundColor: theme.colors.bgInputDisabled,
         cursor: 'not-allowed',

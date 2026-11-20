@@ -560,6 +560,21 @@ def test_auto_patch_last_modified_max_last_updated_timestamp():
     assert list(processor.process(auto_workunit(mcps))) == expected
 
 
+@pytest.mark.parametrize("primary_flags", [[False, False], [False, True]])
+def test_auto_patch_last_modified_is_primary_only_with_a_primary_workunit(
+    primary_flags: List[bool],
+) -> None:
+    work_units = list(auto_workunit(get_sample_mcps()))
+    for wu, is_primary_source in zip(work_units, primary_flags, strict=True):
+        wu.is_primary_source = is_primary_source
+
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
+    patches = list(processor.process(work_units))[len(work_units) :]
+
+    assert patches
+    assert all(wu.is_primary_source == any(primary_flags) for wu in patches)
+
+
 @time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_patch_last_modified_multi_patch():
     mcps = get_sample_mcps()

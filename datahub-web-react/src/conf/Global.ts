@@ -29,6 +29,8 @@ export enum PageRoutes {
     DOCUMENT = '/document',
     GLOSSARY = '/glossary',
     STRUCTURED_PROPERTIES = '/structured-properties',
+    STRUCTURED_PROPERTIES_CREATE = '/structured-properties/create',
+    STRUCTURED_PROPERTIES_EDIT = '/structured-properties/edit/:urn',
     SETTINGS_VIEWS = '/settings/views',
     EMBED = '/embed',
     EMBED_LOOKUP = '/embed/lookup/:url',

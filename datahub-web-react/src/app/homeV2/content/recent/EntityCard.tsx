@@ -2,8 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';

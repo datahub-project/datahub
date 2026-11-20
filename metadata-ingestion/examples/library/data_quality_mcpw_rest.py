@@ -31,7 +31,7 @@ def datasetUrn(tbl: str) -> str:
 
 
 def fldUrn(tbl: str, fld: str) -> str:
-    return f"urn:li:schemaField:({datasetUrn(tbl)}, {fld})"
+    return builder.make_schema_field_urn(datasetUrn(tbl), fld)
 
 
 def assertionUrn(info: AssertionInfo) -> str:

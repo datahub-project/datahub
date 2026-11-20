@@ -1,16 +1,20 @@
 import json
-import tempfile
+import warnings
 from datetime import datetime, timezone
 from unittest.mock import Mock
 
 import pytest
 
+from datahub.configuration.common import ConfigurationWarning, GraphError
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql_queries import (
     QueryEntry,
     SqlQueriesSource,
     SqlQueriesSourceConfig,
+    SqlQueriesSourceReport,
 )
 from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
     AutoIncrementalLineageProcessor,
@@ -19,6 +23,81 @@ from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
     AutoWorkunitsReporterProcessor,
 )
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+
+# ── Shared fixtures ──────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def mock_graph():
+    mock_graph = Mock(spec=DataHubGraph)
+
+    def mock_make_schema_resolver(platform, platform_instance, env, include_graph=True):
+        return SchemaResolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            graph=mock_graph if include_graph else None,
+        )
+
+    mock_graph._make_schema_resolver = mock_make_schema_resolver
+    return mock_graph
+
+
+@pytest.fixture
+def pipeline_context(mock_graph):
+    return PipelineContext(run_id="test", graph=mock_graph)
+
+
+@pytest.fixture
+def query_file_with(tmp_path):
+    """Write JSONL lines to a temp file and return its path."""
+
+    def _make(lines):
+        path = tmp_path / "queries.jsonl"
+        path.write_text("\n".join(lines) + "\n" if lines else "")
+        return str(path)
+
+    return _make
+
+
+def _make_source(pipeline_context, path, **config_overrides):
+    """Create a SqlQueriesSource with sensible defaults."""
+    config = SqlQueriesSourceConfig(
+        query_file=path, platform="snowflake", **config_overrides
+    )
+    return SqlQueriesSource(pipeline_context, config)
+
+
+def _query_line(idx=0, **overrides):
+    entry = {
+        "query": f"SELECT {idx} FROM table_{idx}",
+        "timestamp": 1640995200 + idx,
+        "user": "test_user",
+    }
+    entry.update(overrides)
+    return json.dumps(entry)
+
+
+def _lineage_line(idx=0):
+    """A row that reliably produces work units.
+
+    Explicit upstream/downstream tables bypass SQL parsing, so unlike
+    _query_line these still emit under the mocked graph. Abort tests need that:
+    asserting no output only proves anything if output was otherwise expected.
+    """
+    return json.dumps(
+        {
+            "query": f"INSERT INTO out_{idx} SELECT * FROM in_{idx}",
+            "timestamp": 1640995200 + idx,
+            "user": "test_user",
+            "upstream_tables": [f"db.schema.in_{idx}"],
+            "downstream_tables": [f"db.schema.out_{idx}"],
+        }
+    )
+
+
+# ── QueryEntry tests ─────────────────────────────────────────────────────
 
 
 class TestQueryEntry:
@@ -38,7 +117,6 @@ class TestQueryEntry:
                     query="SELECT * FROM table",
                     timestamp=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
                     user=CorpUserUrn("test_user"),
-                    operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
                         DatasetUrn.from_string(
@@ -64,7 +142,6 @@ class TestQueryEntry:
                         2021, 1, 1, 0, 0, 0, 500000, tzinfo=timezone.utc
                     ),
                     user=CorpUserUrn("test_user"),
-                    operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
                         DatasetUrn.from_string(
@@ -88,7 +165,6 @@ class TestQueryEntry:
                     query="SELECT * FROM table",
                     timestamp=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
                     user=CorpUserUrn("test_user"),
-                    operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
                         DatasetUrn.from_string(
@@ -112,7 +188,6 @@ class TestQueryEntry:
                     query="SELECT * FROM table",
                     timestamp=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
                     user=CorpUserUrn("test_user"),
-                    operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
                         DatasetUrn.from_string(
@@ -136,7 +211,6 @@ class TestQueryEntry:
                     query="SELECT * FROM table",
                     timestamp=datetime(2025, 7, 19, 15, 8, 7, tzinfo=timezone.utc),
                     user=CorpUserUrn("test_user"),
-                    operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
                         DatasetUrn.from_string(
@@ -160,7 +234,6 @@ class TestQueryEntry:
                     query="SELECT * FROM table",
                     timestamp=datetime(2025, 7, 19, 15, 8, 7, tzinfo=timezone.utc),
                     user=CorpUserUrn("test_user"),
-                    operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
                         DatasetUrn.from_string(
@@ -172,7 +245,6 @@ class TestQueryEntry:
                 False,
                 id="datetime_string_without_microseconds",
             ),
-            # Table filtering - empty strings removed
             pytest.param(
                 {
                     "query": "SELECT * FROM table",
@@ -186,7 +258,6 @@ class TestQueryEntry:
                     query="SELECT * FROM table",
                     timestamp=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
                     user=CorpUserUrn("test_user"),
-                    operation_type=None,
                     downstream_tables=[
                         DatasetUrn.from_string(
                             "urn:li:dataset:(urn:li:dataPlatform:athena,output_table,PROD)"
@@ -218,7 +289,6 @@ class TestQueryEntry:
                     query="SELECT * FROM table",
                     timestamp=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
                     user=CorpUserUrn("test_user"),
-                    operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[],
                     session_id=None,
@@ -239,7 +309,6 @@ class TestQueryEntry:
                     query="SELECT * FROM table",
                     timestamp=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
                     user=CorpUserUrn("test_user"),
-                    operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[],
                     session_id=None,
@@ -247,7 +316,6 @@ class TestQueryEntry:
                 False,
                 id="whitespace_only_tables",
             ),
-            # Missing fields
             pytest.param(
                 {
                     "query": "SELECT * FROM table",
@@ -259,7 +327,6 @@ class TestQueryEntry:
                     query="SELECT * FROM table",
                     timestamp=None,
                     user=CorpUserUrn("test_user"),
-                    operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
                         DatasetUrn.from_string(
@@ -282,7 +349,6 @@ class TestQueryEntry:
                     query="SELECT * FROM table",
                     timestamp=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
                     user=None,
-                    operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
                         DatasetUrn.from_string(
@@ -294,7 +360,6 @@ class TestQueryEntry:
                 False,
                 id="no_user",
             ),
-            # Both upstream and downstream tables
             pytest.param(
                 {
                     "query": "CREATE TABLE out AS SELECT * FROM table",
@@ -308,7 +373,6 @@ class TestQueryEntry:
                     query="CREATE TABLE out AS SELECT * FROM table",
                     timestamp=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
                     user=CorpUserUrn("test_user"),
-                    operation_type=None,
                     downstream_tables=[
                         DatasetUrn.from_string(
                             "urn:li:dataset:(urn:li:dataPlatform:athena,output_table,PROD)"
@@ -324,7 +388,6 @@ class TestQueryEntry:
                 False,
                 id="upstream_and_downstream_tables",
             ),
-            # Config variations - platform, platform_instance, env
             pytest.param(
                 {
                     "query": "SELECT * FROM table",
@@ -342,7 +405,6 @@ class TestQueryEntry:
                     query="SELECT * FROM table",
                     timestamp=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
                     user=CorpUserUrn("test_user"),
-                    operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
                         DatasetUrn.from_string(
@@ -368,7 +430,6 @@ class TestQueryEntry:
                     query="SELECT * FROM table",
                     timestamp=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
                     user=CorpUserUrn("test_user"),
-                    operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
                         DatasetUrn.from_string(
@@ -396,7 +457,6 @@ class TestQueryEntry:
                     query="SELECT * FROM table",
                     timestamp=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
                     user=CorpUserUrn("test_user"),
-                    operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
                         DatasetUrn.from_string(
@@ -408,7 +468,6 @@ class TestQueryEntry:
                 False,
                 id="config_with_platform_instance_only",
             ),
-            # Error cases
             pytest.param(
                 {
                     "query": "SELECT * FROM table",
@@ -424,152 +483,136 @@ class TestQueryEntry:
         ],
     )
     def test_create(self, entry_dict, entry_config, expected_query_entry, should_raise):
-        """Test QueryEntry creation with various input formats and edge cases."""
-
         if should_raise:
             with pytest.raises(ValueError):
-                QueryEntry.create(entry_dict, config=entry_config)
+                QueryEntry.create(
+                    entry_dict, config=entry_config, report=SqlQueriesSourceReport()
+                )
             return
 
-        query_entry = QueryEntry.create(entry_dict, config=entry_config)
+        query_entry = QueryEntry.create(
+            entry_dict, config=entry_config, report=SqlQueriesSourceReport()
+        )
 
-        # Check all fields match expected
         assert query_entry.query == expected_query_entry.query
         assert query_entry.timestamp == expected_query_entry.timestamp
         assert query_entry.user == expected_query_entry.user
-        assert query_entry.operation_type == expected_query_entry.operation_type
         assert query_entry.downstream_tables == expected_query_entry.downstream_tables
         assert query_entry.upstream_tables == expected_query_entry.upstream_tables
         assert query_entry.session_id == expected_query_entry.session_id
 
 
-class TestSqlQueriesSourceConfig:
-    """Test configuration parsing for SqlQueriesSourceConfig."""
+# ── Config tests ─────────────────────────────────────────────────────────
 
+
+class TestSqlQueriesSourceConfig:
     def test_incremental_lineage_default(self):
-        """Test that incremental_lineage defaults to False."""
-        config_dict = {"query_file": "test.jsonl", "platform": "snowflake"}
-        config = SqlQueriesSourceConfig.model_validate(config_dict)
+        config = SqlQueriesSourceConfig.model_validate(
+            {"query_file": "test.jsonl", "platform": "snowflake"}
+        )
         assert config.incremental_lineage is False
 
     def test_incremental_lineage_enabled(self):
-        """Test that incremental_lineage can be enabled."""
-        config_dict = {
-            "query_file": "test.jsonl",
-            "platform": "snowflake",
-            "incremental_lineage": True,
-        }
-        config = SqlQueriesSourceConfig.model_validate(config_dict)
+        config = SqlQueriesSourceConfig.model_validate(
+            {
+                "query_file": "test.jsonl",
+                "platform": "snowflake",
+                "incremental_lineage": True,
+            }
+        )
         assert config.incremental_lineage is True
 
-    def test_incremental_lineage_disabled_explicitly(self):
-        """Test that incremental_lineage can be explicitly disabled."""
-        config_dict = {
-            "query_file": "test.jsonl",
-            "platform": "snowflake",
-            "incremental_lineage": False,
-        }
-        config = SqlQueriesSourceConfig.model_validate(config_dict)
-        assert config.incremental_lineage is False
+    def test_enable_lazy_schema_loading_removed_gracefully(self):
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config = SqlQueriesSourceConfig.model_validate(
+                {
+                    "query_file": "test.jsonl",
+                    "platform": "snowflake",
+                    "enable_lazy_schema_loading": True,
+                }
+            )
+            assert any(issubclass(x.category, ConfigurationWarning) for x in w)
+        assert not hasattr(config, "enable_lazy_schema_loading")
+
+    def test_s3_uri_requires_aws_config(self):
+        with pytest.raises(ValueError, match="aws_config is required"):
+            SqlQueriesSourceConfig(
+                platform="snowflake", query_file="s3://bucket/file.json"
+            )
+
+    def test_invalid_temp_table_regex_rejected(self):
+        with pytest.raises(ValueError, match="Invalid regex in temp_table_patterns"):
+            SqlQueriesSourceConfig(
+                platform="snowflake",
+                query_file="dummy.json",
+                temp_table_patterns=["[invalid("],
+            )
+
+    def test_valid_regex_patterns_accepted(self):
+        config = SqlQueriesSourceConfig(
+            platform="snowflake",
+            query_file="dummy.json",
+            temp_table_patterns=["^temp_.*", "^tmp_\\d+$", ".*_staging$"],
+        )
+        assert len(config.temp_table_patterns) == 3
+
+
+# ── Source tests ──────────────────────────────────────────────────────────
 
 
 class TestSqlQueriesSource:
-    """Test SqlQueriesSource functionality including patch lineage support."""
-
     @pytest.fixture
-    def mock_graph(self):
-        """Create a mock DataHubGraph."""
-        from datahub.sql_parsing.schema_resolver import SchemaResolver
-
-        mock_graph = Mock(spec=DataHubGraph)
-
-        # Mock _make_schema_resolver to return a real SchemaResolver
-        def mock_make_schema_resolver(
-            platform, platform_instance, env, include_graph=True
-        ):
-            return SchemaResolver(
-                platform=platform,
-                platform_instance=platform_instance,
-                env=env,
-                graph=mock_graph if include_graph else None,
-            )
-
-        mock_graph._make_schema_resolver = mock_make_schema_resolver
-        return mock_graph
-
-    @pytest.fixture
-    def pipeline_context(self, mock_graph):
-        """Create a PipelineContext with mock graph."""
-        return PipelineContext(run_id="test", graph=mock_graph)
-
-    @pytest.fixture
-    def temp_query_file(self):
-        """Create a temporary query file for testing."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
-            # Write test queries
-            queries = [
-                {
-                    "query": "INSERT INTO target_table SELECT * FROM source_table",
-                    "timestamp": 1640995200,  # 2022-01-01
-                    "user": "test_user",
-                    "downstream_tables": ["target_table"],
-                    "upstream_tables": ["source_table"],
-                },
-                {
-                    "query": "CREATE TABLE output AS SELECT * FROM input1 JOIN input2",
-                    "timestamp": 1641081600,  # 2022-01-02
-                    "user": "another_user",
-                    "downstream_tables": ["output"],
-                    "upstream_tables": ["input1", "input2"],
-                },
-            ]
-            for query in queries:
-                f.write(json.dumps(query) + "\n")
-            query_file_path = f.name
-
-        yield query_file_path
-
-        # Cleanup
-        import os
-
-        os.unlink(query_file_path)
+    def temp_query_file(self, tmp_path):
+        queries = [
+            {
+                "query": "INSERT INTO target_table SELECT * FROM source_table",
+                "timestamp": 1640995200,
+                "user": "test_user",
+                "downstream_tables": ["target_table"],
+                "upstream_tables": ["source_table"],
+            },
+            {
+                "query": "CREATE TABLE output AS SELECT * FROM input1 JOIN input2",
+                "timestamp": 1641081600,
+                "user": "another_user",
+                "downstream_tables": ["output"],
+                "upstream_tables": ["input1", "input2"],
+            },
+        ]
+        path = tmp_path / "queries.jsonl"
+        path.write_text("\n".join(json.dumps(q) for q in queries) + "\n")
+        return str(path)
 
     def test_workunit_generation_structure(self, pipeline_context, temp_query_file):
-        """Test that MCPs are generated with proper structure."""
         config = SqlQueriesSourceConfig(
             query_file=temp_query_file, platform="snowflake", incremental_lineage=True
         )
-
         source = SqlQueriesSource(pipeline_context, config)
-
-        # Generate work units
         work_units = list(source.get_workunits_internal())
 
-        # Should generate some work units (exact number depends on SQL aggregator behavior)
-        assert len(work_units) >= 0  # At minimum, no errors should occur
-
-        # All items should be work units (MetadataWorkUnit or MetadataChangeProposalWrapper)
-        for work_unit in work_units:
-            # Should be MetadataWorkUnit or MetadataChangeProposalWrapper objects
-            assert (
-                hasattr(work_unit, "metadata")
-                or hasattr(work_unit, "aspectName")
-                or hasattr(work_unit, "aspect")
-            )
+        # The fixture holds valid lineage queries, so dropped output must fail.
+        assert work_units
+        assert all(isinstance(wu, MetadataWorkUnit) for wu in work_units)
+        aspects = set()
+        for wu in work_units:
+            if not isinstance(wu, MetadataWorkUnit):
+                continue
+            mcp = wu.metadata
+            if isinstance(mcp, MetadataChangeProposalWrapper) and mcp.aspectName:
+                aspects.add(mcp.aspectName)
+        assert "queryProperties" in aspects
+        assert "querySubjects" in aspects
 
     @pytest.mark.parametrize("incremental_lineage", [None, True, False])
     def test_workunit_processors_with_incremental_lineage(
         self, pipeline_context, temp_query_file, incremental_lineage
     ):
-        """Test workunit processors with different incremental_lineage settings."""
-        # Handle None case (default behavior) by not passing the parameter
         if incremental_lineage is None:
             config = SqlQueriesSourceConfig(
-                query_file=temp_query_file,
-                platform="snowflake",
-                # incremental_lineage not specified, should default to False
+                query_file=temp_query_file, platform="snowflake"
             )
-            expected_value = False  # Default value
+            expected_value = False
         else:
             config = SqlQueriesSourceConfig(
                 query_file=temp_query_file,
@@ -579,46 +622,300 @@ class TestSqlQueriesSource:
             expected_value = incremental_lineage
 
         source = SqlQueriesSource(pipeline_context, config)
-
-        # Verify config is properly set
         assert source.config.incremental_lineage == expected_value
 
-        # Verify processors are set up correctly
         processors = source.get_workunit_processors()
-        assert all(proc is not None for proc in processors)
-
-        # Check which processors were activated via workunit_processor_reports
-        active_processor_names = set(
-            source.get_report().workunit_processor_reports.keys()
-        )
-        assert AutoWorkunitsReporterProcessor.__name__ in active_processor_names
+        active = set(source.get_report().workunit_processor_reports.keys())
+        assert AutoWorkunitsReporterProcessor.__name__ in active
         if expected_value:
-            assert AutoIncrementalLineageProcessor.__name__ in active_processor_names
-        else:
-            assert (
-                AutoIncrementalLineageProcessor.__name__ not in active_processor_names
-            )
-
-        # Incremental lineage processor only active when configured
-        if expected_value:
+            assert AutoIncrementalLineageProcessor.__name__ in active
             assert len(processors) == 2
         else:
+            assert AutoIncrementalLineageProcessor.__name__ not in active
             assert len(processors) == 1
 
     def test_backward_compatibility(self, pipeline_context, temp_query_file):
-        """Test that existing configurations without incremental_lineage still work."""
-        config_dict = {
-            "query_file": temp_query_file,
-            "platform": "snowflake",
-            "usage": {"bucket_duration": "DAY"},
-        }
-
-        config = SqlQueriesSourceConfig.model_validate(config_dict)
+        config = SqlQueriesSourceConfig.model_validate(
+            {
+                "query_file": temp_query_file,
+                "platform": "snowflake",
+                "usage": {"bucket_duration": "DAY"},
+            }
+        )
         source = SqlQueriesSource(pipeline_context, config)
-
-        # Should default to False
         assert source.config.incremental_lineage is False
+        assert len(source.get_workunit_processors()) == 1
 
-        # Only reporter processor active when incremental_lineage is False
-        processors = source.get_workunit_processors()
-        assert len(processors) == 1
+
+# ── Error handling tests ─────────────────────────────────────────────────
+
+
+class TestErrorHandling:
+    def test_malformed_lines_skipped_and_counted(
+        self, pipeline_context, query_file_with
+    ):
+        path = query_file_with(
+            [
+                "this is not json",
+                _query_line(0),
+                "{bad json too",
+                _query_line(1),
+            ]
+        )
+        source = _make_source(pipeline_context, path)
+        list(source.get_workunits_internal())
+
+        assert source.report.num_entries_processed == 2
+        assert source.report.num_entries_failed == 2
+
+    def test_empty_file_warns_not_fails(self, pipeline_context, query_file_with):
+        """An empty file is a warning (normal for scheduled exports), not a failure."""
+        path = query_file_with([])
+        source = _make_source(pipeline_context, path)
+        list(source.get_workunits_internal())
+
+        assert len(source.report.failures) == 0
+        assert any(w.title == "Empty input" for w in source.report.warnings)
+
+    def test_all_lines_malformed_reports_failure(
+        self, pipeline_context, query_file_with
+    ):
+        path = query_file_with(["bad 1", "bad 2", "bad 3"])
+        source = _make_source(pipeline_context, path)
+        list(source.get_workunits_internal())
+
+        assert source.report.num_entries_processed == 0
+        assert source.report.num_entries_failed == 3
+        assert any(
+            f.title == "All entries failed to parse" for f in source.report.failures
+        )
+
+    def test_every_query_failing_reports_and_emits_nothing(
+        self, pipeline_context, query_file_with
+    ):
+        """A dead graph surfaces per-query, then the zero-success gate stops emission.
+
+        There is no special-cased connectivity abort — like every other source,
+        errors are reported and the run continues. What must not happen is
+        emitting afterwards: with incremental_lineage off, partial output
+        replaces complete lineage in DataHub.
+        """
+        path = query_file_with([_query_line(i) for i in range(10)])
+        source = _make_source(pipeline_context, path)
+        source.aggregator.add_observed_query = Mock(
+            side_effect=GraphError("Token expired")
+        )
+
+        work_units = list(source.get_workunits_internal())
+
+        assert source.report.num_queries_aggregator_failures == 10
+        assert source.report.num_queries_processed == 0
+        assert any(
+            f.title == "All queries failed aggregation" for f in source.report.failures
+        )
+        assert work_units == []
+
+    @pytest.mark.parametrize(
+        "bad_field",
+        [
+            pytest.param({"user": "urn:li:dataset:(a,b,c)"}, id="wrong_entity_urn"),
+            pytest.param({"timestamp": 99999999999999999999}, id="timestamp_overflow"),
+            pytest.param({"timestamp": 1e30}, id="timestamp_float_overflow"),
+            pytest.param({"upstream_tables": 42}, id="tables_not_a_list"),
+            pytest.param({"upstream_tables": "my_table"}, id="tables_bare_string"),
+        ],
+    )
+    def test_one_bad_row_never_aborts_the_run(
+        self, pipeline_context, query_file_with, bad_field
+    ):
+        """A single malformed row is counted and skipped, never fatal.
+
+        These are the shapes that motivated the broad catch in _parse_lines:
+        InvalidUrnError and OSError/OverflowError are NOT ValueError, so a
+        narrowed catch lets them escape and kill the whole run.
+        """
+        good = [_lineage_line(i) for i in range(4)]
+        bad = json.dumps({**json.loads(_lineage_line(99)), **bad_field})
+        source = _make_source(pipeline_context, query_file_with(good + [bad]))
+
+        work_units = list(source.get_workunits_internal())
+
+        assert source.report.num_entries_processed == 4
+        assert not source.report.failures
+        assert work_units
+
+    def test_empty_user_is_treated_as_no_actor(self, pipeline_context, query_file_with):
+        """Exported logs use "" for system queries; that must not fail the row."""
+        source = _make_source(
+            pipeline_context,
+            query_file_with(
+                [
+                    json.dumps({**json.loads(_lineage_line(i)), "user": ""})
+                    for i in range(4)
+                ]
+            ),
+        )
+
+        work_units = list(source.get_workunits_internal())
+
+        assert source.report.num_entries_failed == 0
+        assert source.report.num_entries_processed == 4
+        assert work_units
+
+    def test_bare_string_tables_do_not_become_per_character_urns(
+        self, pipeline_context, query_file_with
+    ):
+        """A str is iterable — without a guard each character becomes a URN."""
+        entry = {**json.loads(_lineage_line(0)), "upstream_tables": "my_table"}
+        source = _make_source(pipeline_context, query_file_with([json.dumps(entry)]))
+
+        list(source.get_workunits_internal())
+
+        assert source.report.num_entries_failed == 1
+        assert source.report.num_entries_processed == 0
+
+    def test_mid_read_error_reports_and_propagates(self, pipeline_context):
+        """_guarded_stream converts a mid-transfer read error into a failure."""
+        source = _make_source(pipeline_context, "dummy.jsonl")
+
+        def failing_stream():
+            yield _lineage_line(0) + "\n"
+            raise OSError("connection reset")
+
+        with pytest.raises(OSError):
+            list(source._guarded_stream(failing_stream()))
+
+        assert any(f.title == "Query file read error" for f in source.report.failures)
+
+    def test_guarded_stream_ignores_consumer_errors(self, pipeline_context):
+        """The whole point of the helper: yield sits outside the try.
+
+        An exception thrown in by the consumer belongs to the consumer, and must
+        not be reported as a read failure.
+        """
+        source = _make_source(pipeline_context, "dummy.jsonl")
+        gen = source._guarded_stream(iter(["a\n", "b\n"]))
+        next(gen)
+
+        with pytest.raises(ValueError):
+            gen.throw(ValueError("consumer blew up"))
+
+        assert not source.report.failures
+
+    def test_file_not_found_reports_failure(self, pipeline_context):
+        source = _make_source(pipeline_context, "/nonexistent/path/queries.jsonl")
+
+        with pytest.raises(OSError):
+            list(source.get_workunits_internal())
+
+        assert any(f.title == "Local file read error" for f in source.report.failures)
+
+    def test_wrongly_typed_tables_skipped_not_crash(
+        self, pipeline_context, query_file_with
+    ):
+        """upstream_tables: 42 should be skipped as a parse error, not crash."""
+        path = query_file_with(
+            [
+                json.dumps(
+                    {
+                        "query": "SELECT 1",
+                        "timestamp": 1640995200,
+                        "upstream_tables": 42,
+                    }
+                ),
+                _query_line(1),
+            ]
+        )
+        source = _make_source(pipeline_context, path)
+        list(source.get_workunits_internal())
+
+        assert source.report.num_entries_failed == 1
+        assert source.report.num_entries_processed == 1
+
+    def test_explicit_lineage_routing(self, pipeline_context, query_file_with):
+        path = query_file_with(
+            [
+                json.dumps(
+                    {
+                        "query": "INSERT INTO target SELECT * FROM source",
+                        "timestamp": 1640995200,
+                        "user": "test_user",
+                        "upstream_tables": ["source"],
+                        "downstream_tables": ["target"],
+                    }
+                )
+            ]
+        )
+        source = _make_source(pipeline_context, path)
+        source.aggregator.add_known_query_lineage = Mock()
+        source.aggregator.add_observed_query = Mock()
+
+        list(source.get_workunits_internal())
+
+        source.aggregator.add_known_query_lineage.assert_called_once()
+        call_args = source.aggregator.add_known_query_lineage.call_args[0][0]
+        assert call_args.query_text == "INSERT INTO target SELECT * FROM source"
+        assert "source" in call_args.upstreams[0]
+        assert "target" in call_args.downstream
+        source.aggregator.add_observed_query.assert_not_called()
+
+    def test_observed_query_routing(self, pipeline_context, query_file_with):
+        path = query_file_with(
+            [
+                json.dumps(
+                    {
+                        "query": "SELECT * FROM some_table",
+                        "timestamp": 1640995200,
+                        "user": "test_user",
+                    }
+                )
+            ]
+        )
+        source = _make_source(pipeline_context, path)
+        source.aggregator.add_observed_query = Mock()
+        source.aggregator.add_known_query_lineage = Mock()
+
+        list(source.get_workunits_internal())
+
+        source.aggregator.add_observed_query.assert_called_once()
+        call_args = source.aggregator.add_observed_query.call_args[0][0]
+        assert call_args.query == "SELECT * FROM some_table"
+        assert str(call_args.user) == "urn:li:corpuser:test_user"
+        source.aggregator.add_known_query_lineage.assert_not_called()
+
+    def test_non_str_table_entries_reported(self):
+        """Malformed table references are dropped, counted, and surfaced."""
+        entry_dict = {
+            "query": "SELECT * FROM t",
+            "timestamp": 1640995200,
+            "user": "test_user",
+            "upstream_tables": ["valid_table", 42, None, {"name": "bad"}],
+        }
+        config = SqlQueriesSourceConfig(platform="snowflake", query_file="dummy.json")
+        report = SqlQueriesSourceReport()
+
+        entry = QueryEntry.create(entry_dict, config=config, report=report)
+
+        assert len(entry.upstream_tables) == 1
+        assert entry.upstream_tables[0] == DatasetUrn.from_string(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,valid_table,PROD)"
+        )
+        assert report.num_invalid_table_entries == 3
+        assert any(w.title == "Invalid table entry" for w in report.warnings)
+
+    def test_all_queries_throw_under_threshold(self, pipeline_context, query_file_with):
+        """3 entries, all throw exceptions from add_observed_query (< threshold of 5).
+        Pipeline should still report failure because num_queries_processed == 0."""
+        path = query_file_with([_query_line(i) for i in range(3)])
+        source = _make_source(pipeline_context, path)
+        source.aggregator.add_observed_query = Mock(
+            side_effect=RuntimeError("some error")
+        )
+
+        list(source.get_workunits_internal())
+
+        assert any(
+            f.title == "All queries failed aggregation" for f in source.report.failures
+        )
+        assert source.report.num_queries_processed == 0
+        assert source.report.num_queries_aggregator_failures == 3

@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { truncate } from '@app/entityV2/shared/utils';
-import { capitalizeFirstLetter } from '@app/shared/textUtil';
+import { capitalizeFirstLetter } from '@app/sharedV2/textUtil';
 import { ColumnTypeIcon } from '@app/sharedV2/utils';
 
 import { SchemaFieldDataType } from '@types';

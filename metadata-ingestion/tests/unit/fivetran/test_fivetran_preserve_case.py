@@ -10,7 +10,7 @@ For Managed Data Lake setups specifically, `log_source: rest_api`
 sidesteps this issue entirely.
 """
 
-from typing import Tuple
+from typing import Callable, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -32,10 +32,16 @@ def _make_cfg(database: str, log_schema: str, preserve_case: bool) -> MagicMock:
     return cfg
 
 
-def _build_snowflake_setup(
-    monkeypatch: pytest.MonkeyPatch, preserve_case: bool
+def _run_snowflake_setup(
+    monkeypatch: pytest.MonkeyPatch, cfg: MagicMock
 ) -> Tuple[MagicMock, FivetranLogQuery, str]:
     """Run the static `_setup_snowflake_engine` with mocked engine creation.
+
+    SA 2.0 removed `Engine.execute()`; the USE DATABASE statement now runs
+    inside a `@event.listens_for(engine, "connect")` listener via a raw
+    DBAPI cursor. `event.listens_for` rejects a MagicMock target, so we
+    stub it to capture the registered listener, then invoke it against a
+    fake DBAPI connection to recover the executed USE DATABASE SQL.
 
     Returns the (engine, query, executed-USE-DATABASE statement) tuple so
     tests can assert on the resolved identifier casing.
@@ -46,16 +52,44 @@ def _build_snowflake_setup(
         lambda *_a, **_kw: fake_engine,
     )
 
+    registered = {}
+
+    def _fake_listens_for(
+        _target: object, _identifier: str
+    ) -> Callable[[Callable], Callable]:
+        def _decorator(fn: Callable) -> Callable:
+            registered["fn"] = fn
+            return fn
+
+        return _decorator
+
+    monkeypatch.setattr(
+        "datahub.ingestion.source.fivetran.fivetran_log_db_reader.event.listens_for",
+        _fake_listens_for,
+    )
+
+    query = FivetranLogQuery()
+    FivetranLogDbReader._setup_snowflake_engine(cfg, query)
+
+    # Invoke the captured connect-listener to recover the USE DATABASE SQL it
+    # runs on each pooled connection.
+    fake_cursor = MagicMock()
+    fake_dbapi_conn = MagicMock()
+    fake_dbapi_conn.cursor.return_value = fake_cursor
+    registered["fn"](fake_dbapi_conn, MagicMock())
+    use_db_call = fake_cursor.execute.call_args[0][0]
+    return fake_engine, query, use_db_call
+
+
+def _build_snowflake_setup(
+    monkeypatch: pytest.MonkeyPatch, preserve_case: bool
+) -> Tuple[MagicMock, FivetranLogQuery, str]:
     cfg = _make_cfg(
         database="mdl_log_db",
         log_schema="fivetran_metadata_test",
         preserve_case=preserve_case,
     )
-
-    query = FivetranLogQuery()
-    FivetranLogDbReader._setup_snowflake_engine(cfg, query)
-    use_db_call = fake_engine.execute.call_args[0][0]
-    return fake_engine, query, use_db_call
+    return _run_snowflake_setup(monkeypatch, cfg)
 
 
 class TestPreserveCaseSnowflakeBranch:
@@ -89,21 +123,12 @@ class TestPreserveCaseSnowflakeBranch:
         # be uppercased even on the legacy path — the user has signalled
         # they want exact control by quoting. Pin the exact emitted SQL
         # since the quote-doubling behaviour is the most fragile part.
-        fake_engine = MagicMock()
-        monkeypatch.setattr(
-            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine",
-            lambda *_a, **_kw: fake_engine,
-        )
-
         cfg = _make_cfg(
             database='"My Mixed-Case DB"',
             log_schema='"My-Schema"',
             preserve_case=False,
         )
-        query = FivetranLogQuery()
-        FivetranLogDbReader._setup_snowflake_engine(cfg, query)
-
-        use_db_sql = fake_engine.execute.call_args[0][0]
+        _, query, use_db_sql = _run_snowflake_setup(monkeypatch, cfg)
         # Pre-quoted input takes the else branch (no .upper()); the wrapping
         # quotes are doubled per Snowflake escaping rules so the identifier
         # round-trips correctly when re-quoted by `use_database`/`set_schema`.

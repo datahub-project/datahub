@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
-import { EntityAndType } from '@app/entity/shared/types';
-import CompactContext from '@app/shared/CompactContext';
-import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
-import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
+import { EntityAndType } from '@app/entityV2/shared/types';
+import CompactContext from '@app/sharedV2/CompactContext';
+import EntitySidebarContext, { SearchResultLineageCounts } from '@app/sharedV2/EntitySidebarContext';
+import useEntitySidebarWidth from '@app/sharedV2/sidebar/useEntitySidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const SidebarContainer = styled.div<{ height: string }>`
@@ -19,19 +19,36 @@ interface Props {
     height: string;
     highlightedIndex: number | null;
     selectedEntity?: EntityAndType | null;
+    searchResultLineage?: SearchResultLineageCounts | null;
+    searchResultLineageLoading?: boolean;
 }
 
-export const SearchEntitySidebarContainer = ({ height, highlightedIndex, selectedEntity }: Props) => {
+export const SearchEntitySidebarContainer = ({
+    height,
+    highlightedIndex,
+    selectedEntity,
+    searchResultLineage,
+    searchResultLineageLoading,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
     const [isClosed, setIsClosed] = useState(false);
-    const width = useSidebarWidth();
+    const { width, setWidth } = useEntitySidebarWidth();
 
     if (highlightedIndex === null) {
         return null;
     }
 
     return (
-        <EntitySidebarContext.Provider value={{ width, isClosed, setSidebarClosed: setIsClosed }}>
+        <EntitySidebarContext.Provider
+            value={{
+                width,
+                setWidth,
+                isClosed,
+                setSidebarClosed: setIsClosed,
+                searchResultLineage,
+                searchResultLineageLoading,
+            }}
+        >
             <SidebarContainer key={selectedEntity?.urn || ''} height={height}>
                 {selectedEntity && (
                     <CompactContext.Provider value>

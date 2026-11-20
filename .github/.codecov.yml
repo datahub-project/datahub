@@ -17,8 +17,12 @@ flag_management:
   individual_flags: # exceptions to the default rules above, stated flag by flag
     - name: frontend
       paths:
-        - "datahub-frontend/**"
         - "datahub-web-react/**"
+    # datahub-frontend's Java (Play) coverage is uploaded from a different CI job than the
+    # Vitest shards; a separate flag keeps carryforward independent if one upload is missing.
+    - name: frontend-java
+      paths:
+        - "datahub-frontend/**"
     - name: backend
       paths:
         - "metadata-models/**"
@@ -60,6 +64,44 @@ flag_management:
     - name: metadata-integration
       paths:
         - "metadata-integration/**"
+
+# Wiring = code that only runs when a real context is assembled: Spring factories and
+# @Configuration classes, MCL/MCP hooks, the GraphQL engine and datahub-frontend's Guice modules.
+# Regressions here tend to pass unit tests and break at boot, so its patch coverage gets its own
+# status. Informational for now: it is reported on PRs but never fails the check.
+# JaCoCo XML only records package + file name, and datahub-frontend's Play layout uses bare
+# packages under app/. These two prefixes also match backend files by suffix, so pin them.
+# Backend JaCoCo paths all start with com/ or io/, so they are unaffected.
+fixes:
+  - "config/::datahub-frontend/app/config/"
+  - "utils/::datahub-frontend/app/utils/"
+  # StartupModule.java lives at app/ but declares `package modules;`.
+  - "modules/StartupModule.java::datahub-frontend/app/StartupModule.java"
+
+component_management:
+  individual_components:
+    - component_id: wiring
+      name: wiring
+      paths:
+        - "metadata-service/factories/src/main/**"
+        - "metadata-service/war/src/main/**"
+        - "**/src/main/java/**/*Factory.java"
+        - "**/src/main/java/**/*Configuration.java"
+        - "**/src/main/java/**/*Config.java"
+        - "**/src/main/java/**/config/**"
+        - "**/src/main/java/**/hook/**"
+        - "**/src/main/java/**/hooks/**"
+        - "**/src/main/java/**/*Engine.java"
+        - "**/src/main/java/**/*EngineArgs.java"
+        - "datahub-frontend/app/*Module.java"
+        - "datahub-frontend/app/**/*Module.java"
+        - "datahub-frontend/app/config/**"
+      statuses:
+        - type: patch
+          target: 75% # same bar as the default patch status
+          only_pulls: true
+          informational: true
+
 coverage:
   status:
     project: false
@@ -67,12 +109,20 @@ coverage:
       default:
         target: 75% # for new code added in the patch
         only_pulls: true
+        # The blocking status keeps counting exactly the files it counted before datahub-frontend's
+        # Java coverage was uploaded (frontend-java flag). Codecov still shows that coverage, and
+        # its wiring files count toward the informational codecov/patch/wiring status, but it
+        # never blocks a PR.
+        paths:
+          - "!datahub-frontend/**"
 
 ignore:
-  # Import-time / interpreter-startup hooks: their behaviour only manifests in a
-  # fresh interpreter (before/at startup), so in-process coverage can't observe
-  # them. They are exercised via subprocess tests instead (see
-  # tests/unit/sql_parsing/test_force_pure_python_sqlglot.py). datahub/__init__.py
-  # only wires up these startup imports, so it is excluded for the same reason.
+  # Import-time / interpreter-startup hooks: their import-time wiring only runs in
+  # a fresh interpreter (before/at startup), so in-process coverage can't observe
+  # it. The observable runtime behaviour is exercised by dedicated tests instead
+  # (subprocess tests for _force_pure_python_sqlglot; the finder's find_spec in
+  # tests/unit/utilities/test_pkg_resources_shim.py). datahub/__init__.py only
+  # wires up these startup imports, so it is excluded for the same reason.
   - "metadata-ingestion/src/datahub/_force_pure_python_sqlglot.py"
+  - "metadata-ingestion/src/datahub/_pkg_resources_finder.py"
   - "metadata-ingestion/src/datahub/__init__.py"
