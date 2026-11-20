@@ -115,7 +115,8 @@ final class TemplateVectorSearch {
    * search surface it always fails the search, and a failed embedding is a {@link
    * QueryEmbeddingException} with its reason. A store with no adapter, or a caller filter on a
    * store without preFilter, fails closed. Similarity checks its anchor first, so an anchor it
-   * cannot use fails the search even when no requested type is eligible.
+   * cannot use fails the search even when no requested type is eligible. A caller floor out of
+   * range fails as a bad request before either.
    */
   @Nonnull
   SearchTemplateWalk.AttemptResult<SearchResult> attempt(
@@ -127,6 +128,7 @@ final class TemplateVectorSearch {
       int from,
       @Nullable Integer size,
       @Nonnull List<String> facets) {
+    requireCallerFloorInRange(opContext, template);
     final SearchTemplateGates gates = SearchTemplateRuntimes.coordinator(opContext).gates();
     final ResolvedSearchTemplate resolved =
         opContext.getSearchContext().getResolvedSearchTemplate();
@@ -252,7 +254,7 @@ final class TemplateVectorSearch {
               + ", which has no adapter in this process");
     }
     requirePreFilter(opContext, template, system, store, postFilters);
-    requireCallerFloor(
+    requireCosineForCallerFloor(
         opContext, template, gates, anchor == null ? embedding.getModelEmbeddingKey() : profile);
     try {
       return retrieve(
@@ -970,34 +972,49 @@ final class TemplateVectorSearch {
   }
 
   /**
-   * {@code SearchFlags.minSimilarity} is a raw cosine from -1 to 1, and a profile whose metric is
-   * not cosine rejects it, as it rejects a template floor. The search fails as a bad request, also
-   * from a parallel group.
+   * {@code SearchFlags.minSimilarity} is a raw cosine from -1 to 1. Out of range, the search fails
+   * as a bad request, also from a parallel group, before any eligibility or store check.
    */
-  private static void requireCallerFloor(
+  private static void requireCallerFloorInRange(
+      @Nonnull OperationContext opContext, @Nonnull MergedSearchTemplate template) {
+    final SearchFlags flags = opContext.getSearchContext().getSearchFlags();
+    if (flags.hasMinSimilarity()
+        && !(flags.getMinSimilarity() >= -1f && flags.getMinSimilarity() <= 1f)) {
+      throw callerFloorRejected(
+          template,
+          "SearchFlags.minSimilarity must be a raw cosine from -1 to 1: "
+              + flags.getMinSimilarity());
+    }
+  }
+
+  /**
+   * A profile whose metric is not cosine rejects the caller's floor, as it rejects a template
+   * floor. Checked once the rung knows its profile.
+   */
+  private static void requireCosineForCallerFloor(
       @Nonnull OperationContext opContext,
       @Nonnull MergedSearchTemplate template,
       @Nonnull SearchTemplateGates gates,
       @Nonnull String profileId) {
-    final SearchFlags flags = opContext.getSearchContext().getSearchFlags();
-    if (!flags.hasMinSimilarity()) {
+    if (!opContext.getSearchContext().getSearchFlags().hasMinSimilarity()) {
       return;
     }
-    final float floor = flags.getMinSimilarity();
     final EmbeddingProfile profile = gates.profiles().profile(profileId);
-    final String rejection =
-        !(floor >= -1f && floor <= 1f)
-            ? "SearchFlags.minSimilarity must be a raw cosine from -1 to 1: " + floor
-            : profile == null || !profile.cosine()
-                ? "SearchFlags.minSimilarity is a raw cosine, and embedding profile "
-                    + profileId
-                    + " is not cosine"
-                : null;
-    if (rejection != null) {
-      throw new SearchTemplateFailClosedException(
-          "Search template " + template.getUrn() + " cannot apply the caller's floor",
-          new IllegalArgumentException(rejection));
+    if (profile == null || !profile.cosine()) {
+      throw callerFloorRejected(
+          template,
+          "SearchFlags.minSimilarity is a raw cosine, and embedding profile "
+              + profileId
+              + " is not cosine");
     }
+  }
+
+  @Nonnull
+  private static SearchTemplateFailClosedException callerFloorRejected(
+      @Nonnull MergedSearchTemplate template, @Nonnull String rejection) {
+    return new SearchTemplateFailClosedException(
+        "Search template " + template.getUrn() + " cannot apply the caller's floor",
+        new IllegalArgumentException(rejection));
   }
 
   /**

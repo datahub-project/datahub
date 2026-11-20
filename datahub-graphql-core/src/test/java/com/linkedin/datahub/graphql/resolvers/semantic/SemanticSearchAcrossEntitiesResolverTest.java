@@ -59,13 +59,16 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SemanticSearchDisabledException;
 import com.linkedin.metadata.search.SemanticSearchService;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
@@ -1194,6 +1197,42 @@ public class SemanticSearchAcrossEntitiesResolverTest {
             any(),
             anyList());
     assertFalse(fallback.getValue().getSearchContext().getSearchFlags().hasSearchTemplate());
+  }
+
+  @Test
+  public void testTheKeywordFallbackIsCountedByReason() throws Exception {
+    MetricUtils metrics = mock(MetricUtils.class);
+    OperationContext base = mockQueryContext.getOperationContext();
+    OperationContext measured =
+        base.toBuilder()
+            .systemTelemetryContext(
+                SystemTelemetryContext.TEST.toBuilder().metricUtils(metrics).build())
+            .build(base.getSessionActorContext(), false);
+    when(mockQueryContext.getOperationContext()).thenReturn(measured);
+    SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DOCUMENT));
+    input.setQuery("quarterly revenue");
+    SearchFlags flags = new SearchFlags();
+    flags.setKeywordFallbackOnEmbeddingFailure(true);
+    input.setSearchFlags(flags);
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockSemanticSearchService.isServedByTemplate(any())).thenReturn(true);
+    embeddingFails(QueryEmbeddingException.REJECTED);
+    when(mockEntityClient.searchAcrossEntities(
+            any(), anyList(), anyString(), any(), anyInt(), anyInt(), any(), anyList()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setFrom(0)
+                .setPageSize(10)
+                .setNumEntities(0)
+                .setMetadata(new SearchResultMetadata()));
+
+    resolver.get(mockEnvironment).get();
+
+    verify(metrics)
+        .incrementMicrometer(
+            SearchTemplateMetrics.KEYWORD_FALLBACK, 1, "reason", QueryEmbeddingException.REJECTED);
   }
 
   @Test

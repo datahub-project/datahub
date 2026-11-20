@@ -253,7 +253,8 @@ public class SemanticSearchAcrossEntitiesResolver
       log.warn(
           "Semantic search could not embed the query ({}); serving keyword results, as the caller"
               + " opted in",
-          failure.getReason());
+          failure.getReason(),
+          failure);
       SearchTemplateMetrics.keywordFallback(searching, failure.getReason());
       // The keyword search the same request runs, as keyword search escapes it. A template the
       // caller named is not run again: it may be the vector template that just failed.

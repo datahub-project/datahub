@@ -294,6 +294,15 @@ public class ESSearchDAOVectorRetrievalTest {
             SearchTemplateFailClosedException.class,
             () -> search(context(DOCUMENT, f -> f.setMinSimilarity(1.5f)), null, 0, 10, DOCUMENT));
     assertTrue(outOfRange.getCause() instanceof IllegalArgumentException);
+    // Also when no requested type is eligible, which is otherwise an empty page
+    List<String> ineligible = List.of("dataset");
+    SearchTemplateFailClosedException noEligibleType =
+        expectThrows(
+            SearchTemplateFailClosedException.class,
+            () ->
+                search(
+                    context(ineligible, f -> f.setMinSimilarity(1.5f)), null, 0, 10, ineligible));
+    assertTrue(noEligibleType.getCause() instanceof IllegalArgumentException);
     verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
     verify(client, never()).searchKnn(any(), any());
   }
