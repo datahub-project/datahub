@@ -243,6 +243,9 @@ Requirements:
 
 ### Breaking Changes
 
+- [#21472](https://github.com/datahub-project/datahub/pull/21472) **(Ingestion / Informatica)** A run that cannot list all projects, folders, Taskflows or Mapping Tasks now fails instead of finishing with a warning. Stale metadata removal is paused for that run, so objects it did not read are no longer soft-deleted. A folder or Taskflow that fails to process is still a warning, but what it ingested in the previous run is kept instead of soft-deleted. A Taskflow whose definition cannot be exported keeps its `orchestrate` job from the previous run. Datasets that appear only in Informatica lineage are no longer soft-deleted by this source, and a dataset another connector soft-deleted is no longer restored by it.
+  **Action:** if runs now fail, fix the permission or API error named in the report. Datasets this source soft-deleted before upgrading stay deleted until the connector that owns them ingests them again.
+
 - **(GMS / Search / Groups)** `corpGroupInfo.email` is now searchable. On Search V2 it is a keyword included in the default query. On Search V3 it is an exact keyword plus `text` and `stemmed` subfields under the `email` label. A group written before this change has no value there until it is written again. **Action:** run RestoreIndices for `corpGroup` so existing groups can be found by email.
 
 - **(GMS / Search / Execution requests)** `requestTimeMs`, the execution request's `requestedAt`, is a date on the execution-request index. It was a `long` holding epoch milliseconds. A live `long` field cannot become `date` in place. **Action:** rebuild that index with `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true` on the next system update. Epoch-millis values stay valid under the default date format. The stored aspect JSON is unchanged. New writes record schema version 3, and existing rows are not swept.
