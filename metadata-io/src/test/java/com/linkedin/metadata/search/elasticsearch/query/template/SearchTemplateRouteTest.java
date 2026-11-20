@@ -374,6 +374,50 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     }
   }
 
+  /**
+   * The shipped semantic template sends a query that is an entity URN, a lowercase urn:li, an
+   * entity type, a colon, and a key, to similarity. Any other query misses and stays on semantic.
+   */
+  @Test
+  public void testShippedSemanticRoutesAnEntityUrnToSimilarity() {
+    String semantic = "urn:li:searchTemplate:semantic";
+    String similarity = "urn:li:searchTemplate:similarity";
+    SearchTemplateSelector selector =
+        new SearchTemplateSelector(
+            templates,
+            new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH),
+            SearchTemplateGates.none());
+    OperationContext named =
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSearchTemplate(UrnUtils.getUrn(semantic)));
+
+    for (String urn :
+        List.of(
+            "urn:li:document:runbook",
+            "urn:li:glossaryTerm:pii",
+            "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)")) {
+      ResolvedSearchTemplate routed = selector.select(named, urn, true, null, REQUEST);
+      assertEquals(routed.getUrn(), similarity, urn);
+      assertEquals(routed.getRouteChain(), List.of(semantic, similarity), urn);
+    }
+    for (String query :
+        List.of(
+            "customer orders",
+            "URN:LI:document:runbook",
+            "urn:li:",
+            "urn:li:document",
+            "urn:li:document:")) {
+      ResolvedSearchTemplate stayed = selector.select(named, query, true, null, REQUEST);
+      assertEquals(stayed.getUrn(), semantic, query);
+      assertEquals(stayed.getRouteChain(), List.of(semantic), query);
+    }
+    // A miss is retried without the structured prefix, as on every template, so this also routes.
+    // Similarity reads the whole query as the anchor and fails it as not a URN.
+    assertEquals(
+        selector.select(named, "\\/q urn:li:document:runbook", true, null, REQUEST).getUrn(),
+        similarity);
+  }
+
   @Test
   public void testMissingEngineSeedFallsThrough() {
     installShippedRoutes();

@@ -2363,11 +2363,34 @@ public class ESSearchDAOVectorRetrievalTest {
   }
 
   /**
-   * The build before this one runs vector retrieval but not similarity. The shipped semantic
-   * template has no route to similarity yet, so that build still embeds a URN query on it.
+   * The shipped semantic template routes a query that is an entity URN to similarity, so naming
+   * semantic with the anchor's URN serves the anchor's neighbors from the similarity window and
+   * embeds nothing.
    */
   @Test
-  public void testAnEarlierBuildEmbedsAUrnOnTheShippedSemantic() throws Exception {
+  public void testAUrnOnTheShippedSemanticFindsSimilarEntities() throws Exception {
+    SearchTemplateFixtures.readShipped().forEach(harness::store);
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95, 0.92));
+
+    SearchResult result = similar(pinned(context(DOCUMENT, f -> {}), SEMANTIC_URN), DOCUMENT);
+
+    assertEquals(urns(result), List.of("urn:li:document:d0", "urn:li:document:d1"));
+    verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+    // The window of 500 and one more for the anchor's place, not the semantic page window
+    assertEquals(knnRequest().k(), 501);
+    assertEquals(
+        result.getMetadata().getVectorRetrieval().getOutcome(),
+        SearchTemplateVectorRetrieval.SERVED);
+  }
+
+  /**
+   * The build before similarity runs vector retrieval but not similarity, so it fails the URN route
+   * on the shipped semantic template before it searches or embeds. Once the semantic revert seed is
+   * written, that build embeds a URN query on semantic again.
+   */
+  @Test
+  public void testAnEarlierBuildFailsTheUrnRouteUntilTheSemanticRevert() throws Exception {
     SearchTemplateFixtures.readShipped().forEach(harness::store);
     knnReturns(hits(0.95));
     SearchTemplateCoordinator earlier =
@@ -2380,6 +2403,12 @@ public class ESSearchDAOVectorRetrievalTest {
                 SearchTemplateGates.ADVERTISED_ENTITY_TYPES));
     OperationContext searching = pinned(context(DOCUMENT, f -> {}, earlier), SEMANTIC_URN);
 
+    assertThrows(SearchTemplateException.class, () -> similar(searching, DOCUMENT));
+    verify(client, never()).searchKnn(any(), any());
+    verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+
+    SearchTemplateFixtures.readSeed("/bootstrap_mcps/search-templates-semantic-revert.yaml")
+        .forEach(harness::store);
     SearchResult result = similar(searching, DOCUMENT);
 
     assertEquals(urns(result), List.of("urn:li:document:d0"));

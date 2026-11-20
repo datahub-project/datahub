@@ -15,6 +15,39 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Semantic search template sends an entity URN to similarity
+
+System update now writes version 19 of the shipped search templates. `urn:li:searchTemplate:semantic`
+routes a query that is an entity URN (lowercase `urn:li:`, an entity type, a colon, and a key) to
+`urn:li:searchTemplate:similarity`. A search that names `semantic` in the `searchTemplate` search flag
+with an entity URN as the query now returns the entities nearest that entity, as a search that names
+`similarity` does, instead of embedding the URN text. Like that search, it fails when the entity cannot
+anchor it, for example when the entity has no stored embeddings. Any other query runs on `semantic` as
+before. A custom template whose parent is `semantic` inherits the route unless it sets its own `routes`.
+
+**Upgrade through the release that adds similarity**
+([#21391](https://github.com/datahub-project/datahub/pull/21391)) before you upgrade to this one. A
+GMS pod without similarity fails the route, so in a rolling upgrade straight from an earlier release, a
+URN query on `semantic` fails on the old pods until they are replaced.
+
+**Before rolling back** to a release without this route, restore the previous `semantic` template. A
+release without similarity fails a URN query on `semantic` while the route is stored. This replaces the
+version 18 note that a rollback to a release without similarity needs no extra step. While this release
+is still deployed:
+
+1. Run system update once with
+   `DATAHUB_SEARCH_TEMPLATES_REVISION='{"version":"v19-revert","mcps_location":"bootstrap_mcps/search-templates-semantic-revert.yaml","force":true}'`,
+   then unset the variable. `force` runs the revert even if it ran before, for example after a
+   re-apply.
+2. Check that the revert was written: `datahub get --urn "urn:li:searchTemplate:semantic" --aspect searchTemplateProperties`
+   shows an empty `routes` list. A revert the write validator rejects is only logged by system update.
+   Then roll back.
+
+A rollback to a release without the semantic search template contract also needs the version 17 revert
+described below. If you later upgrade to this release again, system update keeps the restored template,
+because version 19 already ran. To write the shipped templates again, run system update once with
+`DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable.
+
 ### Show Applications setting is hidden by default
 
 Applications are being deprioritized. The **Show Applications** setting on the **Settings > Appearance**
