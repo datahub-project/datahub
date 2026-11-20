@@ -267,7 +267,7 @@ def test_get_table_ddl_escapes_embedded_quotes_in_identifiers() -> None:
     )
 
 
-# SHOW returns text='' (not NULL) to roles that do not own the table.
+# Snowflake hides the definition from non-owner roles as an empty string (seen on a live account).
 @pytest.mark.parametrize("show_text", [None, ""])
 @pytest.mark.parametrize("is_dynamic", [True, False])
 def test_get_ddl_only_for_dynamic_interactive_table(
