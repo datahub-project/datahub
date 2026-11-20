@@ -7,6 +7,10 @@ title: "Deployment Environment Variables"
 The following is a summary of a few important environment variables which expose various levers which control how
 DataHub works.
 
+This page covers the **server**: GMS, the consumers and the frontend. For the variables the
+`datahub` CLI and the Python SDK read, see
+[Python SDK and CLI Environment Variables](../../metadata-ingestion/environment-variables.md).
+
 ---
 
 # DataHub Java Components

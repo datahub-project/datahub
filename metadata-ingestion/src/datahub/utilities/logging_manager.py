@@ -23,8 +23,22 @@ from typing import Deque, Iterator, Optional
 
 import click
 
+from datahub.configuration.env_var_registry import (
+    EnvVarGroup,
+    declare_env_var,
+)
 from datahub.configuration.env_vars import get_no_color, get_suppress_logging_manager
 from datahub.utilities.tee_io import TeeIO
+
+declare_env_var(
+    name="DATAHUB_LOG_CONFIG_FILE",
+    type=str,
+    group=EnvVarGroup.LOGGING,
+    description=(
+        "Path to a Python logging fileConfig ini. When set, it replaces DataHub's own logging "
+        "setup entirely -- the escape hatch for fitting CLI output to an existing log pipeline."
+    ),
+)
 
 BASE_LOGGING_FORMAT = (
     "[%(asctime)s] %(levelname)-8s {%(name)s:%(lineno)d} - %(message)s"

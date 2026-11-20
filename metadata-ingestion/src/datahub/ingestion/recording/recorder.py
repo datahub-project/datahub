@@ -22,6 +22,11 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from datahub.configuration.env_var_registry import (
+    EnvVarGroup,
+    EnvVarTier,
+    declare_env_var,
+)
 from datahub.ingestion.recording.archive import (
     DB_DIR,
     HTTP_DIR,
@@ -35,6 +40,23 @@ from datahub.ingestion.recording.config import (
 from datahub.ingestion.recording.db_proxy import QueryRecorder
 from datahub.ingestion.recording.http_recorder import HTTPRecorder
 from datahub.ingestion.recording.patcher import ModulePatcher
+
+declare_env_var(
+    name="INGESTION_ARTIFACT_DIR",
+    type=str,
+    group=EnvVarGroup.RECORDING,
+    description="Directory recordings are written to when S3 upload is off. Defaults to a temporary directory.",
+)
+declare_env_var(
+    name="DATAHUB_S3_RECORDINGS_BUCKET",
+    type=str,
+    group=EnvVarGroup.RECORDING,
+    tier=EnvVarTier.EXPERIMENTAL,
+    description=(
+        "S3 bucket recordings are uploaded to. An override for testing; this is expected to come "
+        "from server config in future."
+    ),
+)
 
 logger = logging.getLogger(__name__)
 

@@ -769,37 +769,21 @@ in [Selection order](#selection-order).
 - `DATAHUB_PROFILE` - Select a named connection for this shell or session.
 - `DATAHUB_SKIP_CONFIG` (default `false`) - Set to `true` to skip loading saved connection files. Cannot be combined with `--profile`; `DATAHUB_PROFILE` is ignored when it is set.
 - `DATAHUB_GMS_URL` (default `http://localhost:8080`) - Set to a URL of GMS instance
-- `DATAHUB_GMS_HOST` (default `localhost`) - Set to a host of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
-- `DATAHUB_GMS_PORT` (default `8080`) - Set to a port of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
-- `DATAHUB_GMS_PROTOCOL` (default `http`) - Set to a protocol like `http` or `https`. Prefer using `DATAHUB_GMS_URL` to set the URL.
 - `DATAHUB_GMS_TOKEN` (default `None`) - Used for communicating with DataHub Cloud.
-- `DATAHUB_CLIENT_CERT_PATH` (default `None`) - Path to a PEM file containing the client certificate to present when GMS sits behind a proxy that requires mutual TLS (mTLS). The file may be a combined PEM (cert + private key) if `DATAHUB_CLIENT_KEY_PATH` is not set. Applies to **all** outbound HTTPS from the CLI / Python SDK — `datahub init`, `datahub ingest`, the `datahub-rest` sink, and any `DataHubGraph` client.
-- `DATAHUB_CLIENT_KEY_PATH` (default `None`) - Path to a PEM file containing the private key matching `DATAHUB_CLIENT_CERT_PATH`. Required only when the cert and key live in separate files (e.g. the kubernetes `tls`-secret layout, where `tls.crt` and `tls.key` are mounted side by side).
-- `DATAHUB_USERNAME` (default `None`) - Username for generating access tokens via `datahub init`. Used with `DATAHUB_PASSWORD` for non-interactive authentication.
-- `DATAHUB_PASSWORD` (default `None`) - Password for generating access tokens via `datahub init`. Used with `DATAHUB_USERNAME` for non-interactive authentication.
-- `DATAHUB_TELEMETRY_ENABLED` (default `true`) - Set to `false` to disable telemetry. If CLI is being run in an environment with no access to public internet then this should be disabled.
-- `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
-- `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI. This exposes sensitive information in logs, enabling on production instances should be avoided especially if UI ingestion is in use as logs can be made available for runs through the UI.
-- `DATAHUB_VERSION` (default `quickstart`) - Set to a specific version to run quickstart with the particular version of docker images (`quickstart`, a release `v*`, or a commit pin `sha-<short_sha>`).
-- `DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH` (default unset) - Only for cases where column-level lineage aspects grow too large. Set it to N (at least `1`) to cut `transformOperation` in fine-grained lineage to its first N characters followed by `...`; values of at most N + 3 characters are kept unchanged. With `incremental_lineage`, changing the value leaves entries stored under the old value until a run with `incremental_lineage: false`.
-- `ACTIONS_VERSION` (default `quickstart`) - Set to a specific version to run quickstart with that image tag of `datahub-actions` container.
-- `DATAHUB_ACTIONS_IMAGE` (default `acryldata/datahub-actions`) - Set to `-slim` to run a slimmer actions container without pyspark/deequ features.
-- `DATAHUB_RECORDING_PASSWORD` - Password for encrypting/decrypting recording archives. Used by `--record` and `--replay` commands.
-- `INGESTION_ARTIFACT_DIR` - Directory to save recordings when S3 upload is disabled. If not set, recordings are saved to a temp directory.
-- `DATAHUB_REPORT_FAILURE_SAMPLE_SIZE` / `DATAHUB_REPORT_WARNING_SAMPLE_SIZE` / `DATAHUB_REPORT_INFO_SAMPLE_SIZE` (default `10`) - How many failure/warning/info entries to retain and show in the **final** report. Recipe flags: `report_failure_sample_size`, `report_warning_sample_size`, `report_info_sample_size`.
-- `DATAHUB_PROGRESS_REPORT_MAX_FAILURES` / `DATAHUB_PROGRESS_REPORT_MAX_WARNINGS` / `DATAHUB_PROGRESS_REPORT_MAX_INFOS` (default `10`) - How many entries to display in the **interim** 60-second progress reports. The final report is unaffected. Recipe flags: `progress_report_max_failures`, `progress_report_max_warnings`, `progress_report_max_infos`.
-- `DATAHUB_CALLER` (default: auto-detected) - Override the caller label sent in the User-Agent header to GMS. The CLI auto-detects common callers (e.g. coding agents, CI systems), but you can set this explicitly for custom tools or to distinguish environments (e.g. `airflow-prod-etl`).
+- `DATAHUB_USERNAME` / `DATAHUB_PASSWORD` (default `None`) - Used together to generate an access
+  token non-interactively.
 
 ```shell
 DATAHUB_SKIP_CONFIG=false
 DATAHUB_GMS_URL=http://localhost:8080
 DATAHUB_GMS_TOKEN=
-DATAHUB_TELEMETRY_ENABLED=true
-DATAHUB_TELEMETRY_TIMEOUT=10
-DATAHUB_DEBUG=false
-DATAHUB_REPORT_FAILURE_SAMPLE_SIZE=10
-DATAHUB_REPORT_WARNING_SAMPLE_SIZE=10
 ```
+
+These are the variables `init` itself cares about. The CLI and Python SDK read many more —
+connection and OAuth settings, sink and emitter tuning, logging, reporting and connector-specific
+switches. See
+[Environment Variables](../metadata-ingestion/environment-variables.md) for the full reference,
+including each variable's type, default and accepted values.
 
 ### container
 
