@@ -83,8 +83,9 @@ public class SemanticSearchAcrossEntitiesResolver
     final List<String> entityNames =
         getSearchEntityNames(context.getOperationContext(), input.getTypes());
 
-    // The query text only feeds the embedding provider (kNN); it never reaches a query_string
-    // clause, so it is passed as typed. Escaping "/" would change the embedded text.
+    // The query text feeds the embedding provider (kNN), or, when it is an entity URN the semantic
+    // template routes to similarity, names the anchor. It never reaches a query_string clause, so
+    // it is passed as typed. Escaping "/" would change the embedded text.
     final String query = input.getQuery();
     // A blank query embeds to a fixed sentinel vector under the classical provider, so kNN would
     // return arbitrary nearest documents instead of failing. Reject it before any service call.

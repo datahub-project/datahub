@@ -2525,6 +2525,61 @@ public class ESSearchDAOVectorRetrievalTest {
   }
 
   /**
+   * A routed anchor whose type is enabled and advertised but whose profile this system cannot serve
+   * is a configuration fault, not a bad request: it fails closed as unavailable, not as noAnchor.
+   */
+  @Test
+  public void testARoutedAnchorWithAnUnavailableProfileIsNotNoAnchor() throws Exception {
+    SearchTemplateFixtures.readShipped().forEach(harness::store);
+    knnReturns(hits(0.95));
+    semanticSearch.setEnabledEntities(Set.of("document", "dataset"));
+    EmbeddingProfile elsewhere =
+        new EmbeddingProfile(
+            "dataset_profile",
+            EmbeddingProfile.TEXT_CHUNKS,
+            null,
+            "cosine",
+            Set.of("dataset"),
+            Set.of("someStore"));
+    SearchTemplateCoordinator coordinator =
+        coordinator(
+            new SearchTemplateGates(
+                new EmbeddingProfileRegistry(
+                    List.of(cosine(), elsewhere),
+                    Map.of("document", MODEL_KEY, "dataset", "dataset_profile")),
+                semanticSearch,
+                false,
+                SearchTemplateGates.ADVERTISED,
+                Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset"))));
+    OperationContext searching = pinned(context(DOCUMENT, f -> {}, coordinator), SEMANTIC_URN);
+
+    SearchTemplateFailClosedException failure =
+        expectThrows(
+            SearchTemplateFailClosedException.class,
+            () ->
+                dao(null, embedding())
+                    .search(
+                        searching,
+                        DOCUMENT,
+                        "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)",
+                        null,
+                        null,
+                        0,
+                        10,
+                        List.of()));
+
+    assertFalse(failure instanceof SearchTemplateNoAnchorException, failure.toString());
+    assertVectorOutcome(SearchTemplateVectorRetrieval.UNAVAILABLE);
+    verify(metrics, never())
+        .incrementMicrometer(
+            SearchTemplateMetrics.VECTOR_RETRIEVAL,
+            1,
+            "outcome",
+            SearchTemplateVectorRetrieval.NO_ANCHOR);
+    verify(client, never()).searchKnn(any(), any());
+  }
+
+  /**
    * Bind reads a routed anchor as the rung does, so a structured-prefix or escaped-slash URN that
    * the viewer may not see is refused at bind, before the result cache, without being read.
    */

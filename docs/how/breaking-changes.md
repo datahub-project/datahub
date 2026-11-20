@@ -27,7 +27,10 @@ with an entity URN as the query now returns the entities nearest that entity, as
 search, it fails when the entity cannot anchor it, for example when the entity has no stored
 embeddings; semantic search reports that as a bad request (`BAD_REQUEST`). In OSS only Document entities have an
 embedding profile, so the URN of any other entity type now fails the search, counted as `noAnchor`,
-instead of being embedded. The route covers every entity URN on purpose. Any other query runs on
+instead of being embedded. The route covers every entity URN on purpose. It reads everything after the
+entity type's colon as the key, so a query that starts with a URN and goes on with words, such as
+`urn:li:corpuser:jdoe recent dashboards`, is routed too and fails as `noAnchor` instead of being
+embedded. Any other query runs on
 `semantic` as before. A custom template whose parent is `semantic` inherits the route unless it sets its
 own `routes`.
 

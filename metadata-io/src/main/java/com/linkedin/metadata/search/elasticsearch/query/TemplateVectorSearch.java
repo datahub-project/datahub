@@ -187,8 +187,11 @@ final class TemplateVectorSearch {
       // scope assigns candidate types only, so it does not apply to the anchor.
       final Set<String> anchorProfiles = gates.profileIds(template, anchor.getEntityType(), system);
       if (anchorProfiles.size() != 1) {
-        throw SearchTemplateVectorRetrieval.noAnchor(
-            opContext, template, anchor + " has no embedding profile to search with");
+        throw SearchTemplateVectorRetrieval.anchorWithoutProfile(
+            opContext,
+            template,
+            anchor,
+            gates.anchorProfileFailure(template, anchor.getEntityType(), system));
       }
       profile = anchorProfiles.iterator().next();
       anchorVectors = anchorVectors(opContext, template, store, anchor, profile, deadlineNanos);

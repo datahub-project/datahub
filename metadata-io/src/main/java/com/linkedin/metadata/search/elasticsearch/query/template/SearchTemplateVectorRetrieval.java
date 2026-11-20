@@ -177,9 +177,10 @@ public final class SearchTemplateVectorRetrieval {
    * The entity a similarity query names, or null when the query is not an entity URN. Bind and the
    * rung both read the anchor here, as routing reads the query: a route that misses is tried again
    * without the structured prefix, so the prefix is dropped before the rest is trimmed. The GraphQL
-   * search resolvers escape each {@code /} as {@code \/}, so that escape is undone, for the anchor
-   * only. Rest.li, OpenAPI and SDK callers do not escape, so a literal {@code \/} in their query is
-   * read as {@code /} too.
+   * keyword search resolvers escape each {@code /} as {@code \/}, so that escape is undone, for the
+   * anchor only. The semantic search resolver passes the query as typed, so there the unescape
+   * changes nothing unless the query holds a literal {@code \/}. Rest.li, OpenAPI and SDK callers
+   * do not escape either, so a literal {@code \/} in their query is read as {@code /} too.
    */
   @Nullable
   public static Urn anchorUrn(@Nonnull String query) {
@@ -192,6 +193,39 @@ public final class SearchTemplateVectorRetrieval {
     } catch (URISyntaxException e) {
       return null;
     }
+  }
+
+  // Reasons an anchor selects no profile that are about its entity type, so the request is at fault
+  private static final Set<String> ENTITY_TYPE_REASONS =
+      Set.of(
+          SearchTemplateGates.ENTITY_NOT_ENABLED,
+          SearchTemplateGates.ENTITY_NOT_ADVERTISED,
+          EmbeddingProfileRegistry.NO_DEFAULT);
+
+  /**
+   * The failure for an anchor whose entity type selects no single embedding profile, given the
+   * reason from {@link SearchTemplateGates#anchorProfileFailure}. A reason about the entity type is
+   * {@link #noAnchor}. An unknown or unavailable profile, an empty selection, or several profiles
+   * is a fault of the template or the registry: it fails closed as {@link #UNAVAILABLE}, so it is
+   * not reported as a bad request.
+   */
+  @Nonnull
+  public static SearchTemplateFailClosedException anchorWithoutProfile(
+      @Nonnull OperationContext opContext,
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull Urn anchor,
+      @Nullable String reason) {
+    if (reason != null && ENTITY_TYPE_REASONS.contains(reason)) {
+      return noAnchor(opContext, template, anchor + " has no embedding profile to search with");
+    }
+    SearchTemplateMetrics.vectorRetrieval(opContext, UNAVAILABLE);
+    return new SearchTemplateFailClosedException(
+        "Search template "
+            + template.getUrn()
+            + " cannot resolve one embedding profile for "
+            + anchor.getEntityType()
+            + ": "
+            + reason);
   }
 
   /**
