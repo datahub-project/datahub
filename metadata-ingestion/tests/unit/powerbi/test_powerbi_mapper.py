@@ -5,7 +5,7 @@ containers, ownership, profiling, dashboard/report/app emission) without
 any HTTP: the mapper is driven from hand-built data classes.
 """
 
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from unittest import mock
 
 import pytest
@@ -452,6 +452,252 @@ def test_extract_lineage_skips_platforms_outside_dataset_type_mapping() -> None:
     workspace = make_workspace()
     mapper = make_mapper(config, workspace)
     dataset = _dataset(expression=_MSSQL_M_QUERY)
+
+    assert (
+        mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace) == []
+    )
+
+
+def _odbc_navigation_m_query(driver: str, levels: List[Tuple[str, str]]) -> str:
+    steps = [
+        f'Source = Odbc.DataSource("driver={{{driver}}};server=db-host;dsn=sales_dsn", '
+        "[HierarchicalNavigation=true])"
+    ]
+    previous = "Source"
+    for index, (name, kind) in enumerate(levels):
+        step = f"Step{index}"
+        steps.append(f'{step} = {previous}{{[Name="{name}",Kind="{kind}"]}}[Data]')
+        previous = step
+    return "let\n " + ",\n ".join(steps) + f"\nin\n {previous}"
+
+
+_DATABASE_SCHEMA_TABLE = [
+    ("SalesDB", "Database"),
+    ("dbo", "Schema"),
+    ("orders", "Table"),
+]
+
+
+@pytest.mark.parametrize(
+    "driver, levels, expected_upstream",
+    [
+        pytest.param(
+            "PostgreSQL Unicode",
+            _DATABASE_SCHEMA_TABLE,
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,salesdb.dbo.orders,PROD)",
+            id="postgres",
+        ),
+        pytest.param(
+            "ODBC Driver 17 for SQL Server",
+            _DATABASE_SCHEMA_TABLE,
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,salesdb.dbo.orders,PROD)",
+            id="mssql",
+        ),
+        pytest.param(
+            "IBM DB2 ODBC DRIVER",
+            _DATABASE_SCHEMA_TABLE,
+            "urn:li:dataset:(urn:li:dataPlatform:db2,salesdb.dbo.orders,PROD)",
+            id="db2",
+        ),
+        pytest.param(
+            "IBM INFORMIX ODBC DRIVER",
+            _DATABASE_SCHEMA_TABLE,
+            "urn:li:dataset:(urn:li:dataPlatform:informix,salesdb.dbo.orders,PROD)",
+            id="informix",
+        ),
+        pytest.param(
+            "Teradata Database ODBC Driver 17.20",
+            [("SalesDB", "Database"), ("orders", "Table")],
+            "urn:li:dataset:(urn:li:dataPlatform:teradata,salesdb.orders,PROD)",
+            id="teradata",
+        ),
+    ],
+)
+def test_extract_lineage_emits_odbc_navigation_upstream(
+    driver: str, levels: List[Tuple[str, str]], expected_upstream: str
+) -> None:
+    """ODBC upstreams carry the driver's platform name ("SQL Server", "IBM DB2",
+    "Teradata", ...), which is not a dataset_type_mapping key, so the default
+    mapping must not drop them."""
+    config = powerbi_config(extract_column_level_lineage=False)
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    dataset = _dataset(expression=_odbc_navigation_m_query(driver, levels))
+
+    mcps = mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace)
+
+    lineage = _aspects(mcps, UpstreamLineageClass)
+    assert [u.dataset for item in lineage for u in item.upstreams] == [
+        expected_upstream
+    ]
+
+
+@pytest.mark.parametrize(
+    "driver",
+    [
+        pytest.param("Sybase ASE ODBC Driver", id="sybase"),
+        pytest.param("Elasticsearch Driver", id="elasticsearch"),
+        pytest.param("Microsoft Excel Driver (*.xls, *.xlsx)", id="excel"),
+    ],
+)
+def test_extract_lineage_skips_odbc_only_platform_with_unmodeled_urn(
+    driver: str,
+) -> None:
+    """Only ODBC-only platforms whose navigation URN shape is modeled follow the
+    Odbc entry; for the others the URN would not join their own source, so the
+    default mapping keeps filtering them out."""
+    config = powerbi_config(extract_column_level_lineage=False)
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    dataset = _dataset(
+        expression=_odbc_navigation_m_query(driver, _DATABASE_SCHEMA_TABLE)
+    )
+
+    assert (
+        mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace) == []
+    )
+
+
+@pytest.mark.parametrize(
+    "dataset_type_mapping, expected_upstreams",
+    [
+        pytest.param(
+            {"MySQL": "mysql", "Odbc": "odbc"},
+            ["urn:li:dataset:(urn:li:dataPlatform:mysql,analytics.users,PROD)"],
+            id="target-mapped-athena-not",
+        ),
+        pytest.param(
+            {"Amazon Athena": "athena", "Odbc": "odbc"},
+            [],
+            id="athena-mapped-target-not",
+        ),
+    ],
+)
+def test_extract_lineage_athena_override_is_filtered_by_target_platform(
+    dataset_type_mapping: Dict[str, str], expected_upstreams: List[str]
+) -> None:
+    """An Athena override hands the upstream to the target platform, so the
+    dataset_type_mapping filter must judge it by that platform, not Athena."""
+    config = powerbi_config(
+        dataset_type_mapping=dataset_type_mapping,
+        athena_table_platform_override=[
+            {"database": "analytics", "table": "users", "platform": "mysql"}
+        ],
+        extract_column_level_lineage=False,
+    )
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    dataset = _dataset(
+        expression=_odbc_navigation_m_query(
+            "Simba Amazon Athena ODBC Driver",
+            [
+                ("AwsDataCatalog", "Database"),
+                ("analytics", "Schema"),
+                ("users", "Table"),
+            ],
+        )
+    )
+
+    mcps = mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace)
+
+    lineage = _aspects(mcps, UpstreamLineageClass)
+    assert [u.dataset for item in lineage for u in item.upstreams] == (
+        expected_upstreams
+    )
+
+
+def test_extract_lineage_skips_odbc_only_platform_when_odbc_is_not_mapped() -> None:
+    config = powerbi_config(
+        dataset_type_mapping={"PostgreSQL": "postgres"},
+        extract_column_level_lineage=False,
+    )
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    dataset = _dataset(
+        expression=_odbc_navigation_m_query(
+            "IBM DB2 ODBC DRIVER", _DATABASE_SCHEMA_TABLE
+        )
+    )
+
+    assert (
+        mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace) == []
+    )
+
+
+def test_extract_lineage_odbc_only_platform_takes_odbc_mapping_instance() -> None:
+    """An ODBC-only platform follows the Odbc dataset_type_mapping entry for the
+    filter, so it must take that entry's platform_instance too."""
+    config = powerbi_config(
+        dataset_type_mapping={"Odbc": {"platform_instance": "odbc_inst"}},
+        extract_column_level_lineage=False,
+    )
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    dataset = _dataset(
+        expression=_odbc_navigation_m_query(
+            "IBM DB2 ODBC DRIVER", _DATABASE_SCHEMA_TABLE
+        )
+    )
+
+    mcps = mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace)
+
+    lineage = _aspects(mcps, UpstreamLineageClass)
+    assert [u.dataset for item in lineage for u in item.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:db2,odbc_inst.salesdb.dbo.orders,PROD)"
+    ]
+
+
+def test_extract_lineage_mssql_over_odbc_follows_sql_mapping() -> None:
+    """The ODBC driver names MSSQL "SQL Server", but its dataset_type_mapping key
+    is "Sql": the ODBC upstream takes the Sql entry's platform_instance, as
+    Sql.Database does, not the Odbc entry's."""
+    config = powerbi_config(
+        dataset_type_mapping={
+            "Sql": {"platform_instance": "mssql_prod"},
+            "Odbc": {"platform_instance": "odbc_inst"},
+        },
+        extract_column_level_lineage=False,
+    )
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    dataset = _dataset(
+        expression=_odbc_navigation_m_query(
+            "ODBC Driver 17 for SQL Server", _DATABASE_SCHEMA_TABLE
+        )
+    )
+
+    mcps = mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace)
+
+    lineage = _aspects(mcps, UpstreamLineageClass)
+    assert [u.dataset for item in lineage for u in item.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,mssql_prod.salesdb.dbo.orders,PROD)"
+    ]
+
+
+@pytest.mark.parametrize(
+    "driver",
+    [
+        pytest.param("PostgreSQL Unicode", id="postgres"),
+        # "Amazon Redshift" matches its "AmazonRedshift" key once spaces are removed.
+        pytest.param("Amazon Redshift (x64)", id="redshift"),
+        # "SQL Server" is not a key, but MSSQL's own key "Sql" is.
+        pytest.param("ODBC Driver 17 for SQL Server", id="mssql"),
+    ],
+)
+def test_extract_lineage_known_platform_does_not_follow_odbc_mapping(
+    driver: str,
+) -> None:
+    """Only ODBC-only platforms fall back to the Odbc entry. A platform with its
+    own dataset_type_mapping key is filtered by that key, even over ODBC."""
+    config = powerbi_config(
+        dataset_type_mapping={"Odbc": {"platform_instance": "odbc_inst"}},
+        extract_column_level_lineage=False,
+    )
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    dataset = _dataset(
+        expression=_odbc_navigation_m_query(driver, _DATABASE_SCHEMA_TABLE)
+    )
 
     assert (
         mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace) == []

@@ -1,6 +1,19 @@
 import re
 from typing import Optional, Tuple, Union
 
+# Platforms reachable only over ODBC, so they have no SupportedDataPlatform member.
+# Each value is the platform name its standalone DataHub source registers.
+DB2_PLATFORM = "db2"
+INFORMIX_PLATFORM = "informix"
+TERADATA_PLATFORM = "teradata"
+# The ODBC-only platforms whose navigation URN shape OdbcLineage builds to match
+# their own DataHub source. Only these follow the Odbc dataset_type_mapping
+# entry; other ODBC-only platforms (Sybase, Elasticsearch, Excel, ...) keep
+# their lineage filtered out, since their URNs would not join.
+ODBC_ONLY_MODELED_PLATFORMS = frozenset(
+    {DB2_PLATFORM, INFORMIX_PLATFORM, TERADATA_PLATFORM}
+)
+
 server_patterns = [
     r"Server=([^:]+)[:][0-9]+/.*",
     r"SERVER=\{([^}]*)\}",
@@ -17,7 +30,11 @@ server_patterns = [
     r"Host=([^;]*)",
 ]
 
+# A braced value (dsn={My DSN}) is returned without its braces, as
+# server_patterns does, so the DSN keys every dsn_* mapping and the
+# server_to_platform_instance lookup with one spelling.
 dsn_patterns = [
+    r"DSN\s*=\s*\{([^}]*)\}",
     r"DSN\s*=\s*\"([^\"]+)\"",
     r"DSN\s*=\s*\'([^\']+)\'",
     r"DSN\s*=\s*([^;]+)",
@@ -28,14 +45,14 @@ platform_patterns = {
     "postgres": r"post(gre(s|sql)?|gres)",
     "mssql": r"(sql\s*server|mssql|sqlncli)",
     "oracle": r"oracle",
-    "db2": r"db2",
+    DB2_PLATFORM: r"db2",
     "sqlite": r"sqlite",
     "access": r"(access|\.mdb|\.accdb)",
     "excel": r"(excel|\.xls)",
     "firebird": r"firebird",
-    "informix": r"informix",
+    INFORMIX_PLATFORM: r"informix",
     "sybase": r"sybase",
-    "teradata": r"teradata",
+    TERADATA_PLATFORM: r"teradata",
     "hive": r"hive",
     "hadoop": r"hadoop",
     "snowflake": r"snowflake",
@@ -51,14 +68,14 @@ powerbi_platform_names = {
     "postgres": "PostgreSQL",
     "mssql": "SQL Server",
     "oracle": "Oracle",
-    "db2": "IBM DB2",
+    DB2_PLATFORM: "IBM DB2",
     "sqlite": "SQLite",
     "access": "Microsoft Access",
     "excel": "Microsoft Excel",
     "firebird": "Firebird",
-    "informix": "IBM Informix",
+    INFORMIX_PLATFORM: "IBM Informix",
     "sybase": "SAP Sybase",
-    "teradata": "Teradata",
+    TERADATA_PLATFORM: "Teradata",
     "hive": "Hive",
     "hadoop": "Hadoop",
     "snowflake": "Snowflake",
@@ -68,6 +85,16 @@ powerbi_platform_names = {
     "databricks": "Databricks",
     "elasticsearch": "Elasticsearch",
 }
+
+
+def fold_dsn_case(dsn: str) -> str:
+    """Case-fold a DSN name for case-insensitive comparison.
+
+    Uses lower(), not casefold(): for a DSN-only connect string the DSN is also the
+    server_to_platform_instance key, whose resolver folds with lower(), so every
+    DSN lookup must fold the same way or one DSN could match its dsn_* entries but
+    miss its platform_instance."""
+    return dsn.lower()
 
 
 def extract_driver(connection_string: str) -> Union[str, None]:

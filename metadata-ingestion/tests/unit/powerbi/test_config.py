@@ -1,3 +1,5 @@
+from typing import Dict
+
 import pytest
 from pydantic import ValidationError
 
@@ -89,6 +91,19 @@ class TestPowerBiConfig:
                 ),
                 id="dsn_omitted_field_defaults_to_empty_valid",
             ),
+            pytest.param(
+                {
+                    **base_config,
+                    "dsn_to_database_schema": {"dsn1": " database1 . schema1 "},
+                },
+                PowerBiDashboardSourceConfig(
+                    tenant_id="fake",
+                    client_id="foo",
+                    client_secret="bar",
+                    dsn_to_database_schema={"dsn1": "database1.schema1"},
+                ),
+                id="dsn_surrounding_whitespace_normalised",
+            ),
             # Invalid configurations
             pytest.param(
                 {
@@ -102,6 +117,16 @@ class TestPowerBiConfig:
                 {**base_config, "dsn_to_database_schema": ["not", "a", "dict"]},
                 ValidationError,
                 id="dsn_non_dict_type_invalid",
+            ),
+            pytest.param(
+                {**base_config, "dsn_to_database_schema": {"dsn1": "database."}},
+                ValueError,
+                id="dsn_trailing_dot_blank_schema_invalid",
+            ),
+            pytest.param(
+                {**base_config, "dsn_to_database_schema": {"dsn1": ".schema"}},
+                ValueError,
+                id="dsn_leading_dot_blank_database_invalid",
             ),
         ],
     )
@@ -214,6 +239,161 @@ class TestPowerBiConfig:
         }
         with pytest.raises(ValueError, match="is not a recognized DataHub platform"):
             PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    @pytest.mark.parametrize(
+        "second, valid",
+        [
+            ({"database": "sales", "table": "orders", "platform": "mysql"}, False),
+            (
+                {
+                    "database": "sales",
+                    "table": "orders",
+                    "platform": "postgres",
+                    "env": "DEV",
+                },
+                False,
+            ),
+            ({"database": "sales", "table": "orders", "platform": "postgres"}, True),
+            # A different DSN scope is a different entry, not a duplicate.
+            (
+                {
+                    "dsn": "other",
+                    "database": "sales",
+                    "table": "orders",
+                    "platform": "mysql",
+                },
+                True,
+            ),
+        ],
+        ids=["platform-conflict", "env-conflict", "same-target", "other-dsn"],
+    )
+    def test_athena_override_case_only_duplicates(
+        self, second: Dict[str, str], valid: bool
+    ) -> None:
+        """Override matching ignores case, so entries differing only in case
+        would otherwise resolve silently by list order."""
+        config_dict = {
+            **self.base_config,
+            "athena_table_platform_override": [
+                {"database": "Sales", "table": "Orders", "platform": "postgres"},
+                second,
+            ],
+        }
+        if valid:
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+        else:
+            with pytest.raises(ValidationError):
+                PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    @pytest.mark.parametrize(
+        "field, first, second",
+        [
+            ("dsn_to_platform_name", "mysql", "postgres"),
+            # "poſtgres" (long s) casefolds to "postgres", but the resolver maps
+            # it to no platform, so the two keys would resolve differently.
+            ("dsn_to_platform_name", "postgres", "poſtgres"),
+            ("dsn_to_database_schema", "sales.dbo", "other.dbo"),
+        ],
+    )
+    def test_dsn_keys_differing_only_in_case_with_conflicting_values_invalid(
+        self, field: str, first: str, second: str
+    ) -> None:
+        """DSN lookups ignore case, so conflicting values would resolve by dict order."""
+        config_dict = {**self.base_config, field: {"Prod": first, "PROD": second}}
+        with pytest.raises(ValidationError):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    @pytest.mark.parametrize(
+        "field, first, second",
+        [
+            ("dsn_to_platform_name", "mysql", "MySQL"),
+            # Both spellings normalise to the redshift platform.
+            ("dsn_to_platform_name", "Amazon Redshift", "AmazonRedshift"),
+            ("dsn_to_database_schema", "sales.dbo", " sales . dbo "),
+        ],
+    )
+    def test_dsn_keys_differing_only_in_case_with_same_value_allowed(
+        self, field: str, first: str, second: str
+    ) -> None:
+        """Recipes written for exact-case lookup listed each DSN spelling with the
+        same value; those must keep loading."""
+        config_dict = {**self.base_config, field: {"Prod": first, "PROD": second}}
+        PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    @pytest.mark.parametrize("lowercase, valid", [(True, True), (False, False)])
+    def test_dsn_database_schema_case_duplicates_follow_urn_lowercasing(
+        self, lowercase: bool, valid: bool
+    ) -> None:
+        """Values differing only in case build the same URN when lineage URNs are
+        lowercased, so they only conflict when lowercasing is off."""
+        config_dict = {
+            **self.base_config,
+            "convert_lineage_urns_to_lowercase": lowercase,
+            "dsn_to_database_schema": {"MyDsn": "Prod.Data", "MYDSN": "prod.data"},
+        }
+        if valid:
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+        else:
+            with pytest.raises(ValidationError):
+                PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    def test_dsn_database_schema_shape_error_wins_over_case_duplicate(self) -> None:
+        config_dict = {
+            **self.base_config,
+            "dsn_to_database_schema": {"DSN": "prod.", "dsn": "prod"},
+        }
+        with pytest.raises(ValidationError, match="must not be blank"):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    @pytest.mark.parametrize("platform_instance", ["", "   "])
+    def test_athena_override_blank_platform_instance_invalid(
+        self, platform_instance: str
+    ) -> None:
+        """A blank platform_instance would build a URN like '   .db.tbl'."""
+        config_dict = {
+            **self.base_config,
+            "athena_table_platform_override": [
+                {
+                    "database": "db",
+                    "table": "tbl",
+                    "platform": "mysql",
+                    "platform_instance": platform_instance,
+                }
+            ],
+        }
+        with pytest.raises(ValidationError):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    def test_athena_override_platform_instance_is_stripped(self) -> None:
+        config_dict = {
+            **self.base_config,
+            "athena_table_platform_override": [
+                {
+                    "database": "db",
+                    "table": "tbl",
+                    "platform": "mysql",
+                    "platform_instance": " mysql_prod ",
+                }
+            ],
+        }
+        config = PowerBiDashboardSourceConfig.model_validate(config_dict)
+        assert config.athena_table_platform_override[0].platform_instance == (
+            "mysql_prod"
+        )
+
+    def test_athena_override_env_is_validated(self) -> None:
+        def override_config(env: str) -> dict:
+            return {
+                **self.base_config,
+                "athena_table_platform_override": [
+                    {"database": "db", "table": "tbl", "platform": "mysql", "env": env}
+                ],
+            }
+
+        config = PowerBiDashboardSourceConfig.model_validate(override_config("prod"))
+        assert config.athena_table_platform_override[0].env == "PROD"
+        with pytest.raises(ValidationError):
+            PowerBiDashboardSourceConfig.model_validate(override_config("production"))
 
     def test_bigquery_external_query_unknown_platform_invalid(self):
         """Unknown external platform must be rejected at config validation."""
