@@ -6,6 +6,30 @@ from typing import Optional
 from pydantic import Field, SecretStr, model_validator
 
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.env_var_registry import (
+    EnvVarGroup,
+    declare_env_var,
+)
+
+declare_env_var(
+    name="DATAHUB_RECORDING_PASSWORD",
+    type=str,
+    group=EnvVarGroup.RECORDING,
+    secret=True,
+    description="Password used to encrypt and decrypt recording archives produced by `--record` and read by `--replay`.",
+)
+declare_env_var(
+    name="ADMIN_PASSWORD",
+    type=str,
+    group=EnvVarGroup.RECORDING,
+    secret=True,
+    deprecated=True,
+    replaced_by="DATAHUB_RECORDING_PASSWORD",
+    description=(
+        "Legacy fallback for DATAHUB_RECORDING_PASSWORD. Set the specific variable instead: this "
+        "name is generic enough to collide with an unrelated one already in the environment."
+    ),
+)
 
 # Marker used to replace secrets in stored recipes
 REPLAY_DUMMY_MARKER = "__REPLAY_DUMMY__"

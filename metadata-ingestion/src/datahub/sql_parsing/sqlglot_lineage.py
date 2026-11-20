@@ -42,6 +42,10 @@ from sqlglot.optimizer.scope import find_all_in_scope
 from sqlglot.schema import MappingSchema, Schema
 
 from datahub.cli.env_utils import get_boolean_env_variable
+from datahub.configuration.env_var_registry import (
+    EnvVarGroup,
+    declare_env_var,
+)
 from datahub.configuration.env_vars import (
     get_sql_agg_skip_joins,
     get_sql_lineage_timeout_seconds,
@@ -105,6 +109,26 @@ from datahub.utilities.cooperative_timeout import (
     interrupt_on_cooperative_deadline,
 )
 from datahub.utilities.ordered_set import OrderedSet
+
+declare_env_var(
+    name="SQL_LINEAGE_TIMEOUT_ENABLED",
+    type=bool,
+    group=EnvVarGroup.SQL,
+    default=True,
+    choices=["true", "1", "false", "0"],
+    description=(
+        "Whether the SQL_LINEAGE_TIMEOUT_SECONDS budget is enforced at all. Disable to let "
+        "column-level lineage generation run to completion however long it takes."
+    ),
+)
+declare_env_var(
+    name="DATAHUB_SQL_PARSER_TRACE",
+    type=bool,
+    group=EnvVarGroup.SQL,
+    default=False,
+    choices=["true", "1", "false", "0"],
+    description="Log the full sqlglot parse tree for every statement. Very verbose; for debugging lineage gaps.",
+)
 
 assert SQLGLOT_PATCHED
 

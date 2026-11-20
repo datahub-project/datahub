@@ -769,10 +769,8 @@ in [Selection order](#selection-order).
 - `DATAHUB_PROFILE` - Select a named connection for this shell or session.
 - `DATAHUB_SKIP_CONFIG` (default `false`) - Set to `true` to skip loading saved connection files. Cannot be combined with `--profile`; `DATAHUB_PROFILE` is ignored when it is set.
 - `DATAHUB_GMS_URL` (default `http://localhost:8080`) - Set to a URL of GMS instance
-- `DATAHUB_GMS_HOST` (default `localhost`) - Set to a host of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
-- `DATAHUB_GMS_PORT` (default `8080`) - Set to a port of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
-- `DATAHUB_GMS_PROTOCOL` (default `http`) - Set to a protocol like `http` or `https`. Prefer using `DATAHUB_GMS_URL` to set the URL.
 - `DATAHUB_GMS_TOKEN` (default `None`) - Used for communicating with DataHub Cloud.
+<<<<<<< HEAD
 - `DATAHUB_CLIENT_CERT_PATH` (default `None`) - Path to a PEM file containing the client certificate to present when GMS sits behind a proxy that requires mutual TLS (mTLS). The file may be a combined PEM (cert + private key) if `DATAHUB_CLIENT_KEY_PATH` is not set. Applies to **all** outbound HTTPS from the CLI / Python SDK — `datahub init`, `datahub ingest`, the `datahub-rest` sink, and any `DataHubGraph` client.
 - `DATAHUB_CLIENT_KEY_PATH` (default `None`) - Path to a PEM file containing the private key matching `DATAHUB_CLIENT_CERT_PATH`. Required only when the cert and key live in separate files (e.g. the kubernetes `tls`-secret layout, where `tls.crt` and `tls.key` are mounted side by side).
 - `DATAHUB_USERNAME` (default `None`) - Username for generating access tokens via `datahub init`. Used with `DATAHUB_PASSWORD` for non-interactive authentication.
@@ -790,18 +788,18 @@ in [Selection order](#selection-order).
 - `DATAHUB_REPORT_FAILURE_SAMPLE_SIZE` / `DATAHUB_REPORT_WARNING_SAMPLE_SIZE` / `DATAHUB_REPORT_INFO_SAMPLE_SIZE` (default `10`) - How many failure/warning/info entries to retain and show in the **final** report. Recipe flags: `report_failure_sample_size`, `report_warning_sample_size`, `report_info_sample_size`.
 - `DATAHUB_PROGRESS_REPORT_MAX_FAILURES` / `DATAHUB_PROGRESS_REPORT_MAX_WARNINGS` / `DATAHUB_PROGRESS_REPORT_MAX_INFOS` (default `10`) - How many entries to display in the **interim** 60-second progress reports. The final report is unaffected. Recipe flags: `progress_report_max_failures`, `progress_report_max_warnings`, `progress_report_max_infos`.
 - `DATAHUB_CALLER` (default: auto-detected) - Override the caller label sent in the User-Agent header to GMS. The CLI auto-detects common callers (e.g. coding agents, CI systems), but you can set this explicitly for custom tools or to distinguish environments (e.g. `airflow-prod-etl`).
+=======
+- `DATAHUB_USERNAME` / `DATAHUB_PASSWORD` (default `None`) - Used together to generate an access
+  token non-interactively.
+>>>>>>> 24d31ee726 (docs(ingest): add a generated environment variable reference for the CLI and SDK)
 
 ```shell
 DATAHUB_SKIP_CONFIG=false
 DATAHUB_GMS_URL=http://localhost:8080
 DATAHUB_GMS_TOKEN=
-DATAHUB_TELEMETRY_ENABLED=true
-DATAHUB_TELEMETRY_TIMEOUT=10
-DATAHUB_DEBUG=false
-DATAHUB_REPORT_FAILURE_SAMPLE_SIZE=10
-DATAHUB_REPORT_WARNING_SAMPLE_SIZE=10
 ```
 
+<<<<<<< HEAD
 ### Custom logging configuration
 
 Set `DATAHUB_LOG_CONFIG_FILE` to the path of a `fileConfig` file to replace the CLI's default logging setup. The example below writes JSON logs to stderr using `python-json-logger`, which is installed with the CLI:
@@ -838,6 +836,13 @@ DataHub masks registered secrets (recipe secrets and every `${VAR}` a recipe ref
 - **Formatters**: the standard `logging.Formatter` and `python-json-logger`.
 
 Other handler classes, such as ones that send log records over a socket, HTTP or to a third-party service, are not supported. They may work, but DataHub does not guarantee that secrets are masked in what they send.
+=======
+These are the variables `init` itself cares about. The CLI and Python SDK read many more —
+connection and OAuth settings, sink and emitter tuning, logging, reporting and connector-specific
+switches. See
+[Environment Variables](../metadata-ingestion/environment-variables.md) for the full reference,
+including each variable's type, default and accepted values.
+>>>>>>> 24d31ee726 (docs(ingest): add a generated environment variable reference for the CLI and SDK)
 
 ### container
 

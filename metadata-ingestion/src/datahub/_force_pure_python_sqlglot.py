@@ -78,10 +78,10 @@ class _PurePythonSqlglotFinder(MetaPathFinder):
 
 
 def _sqlglot_c_disabled() -> bool:
-    # This env var is deliberately read here and NOT registered in
-    # datahub.configuration.env_vars: this module is the only consumer, and it
-    # runs at interpreter startup (via .pth) before env_vars — which pulls in
-    # pydantic and the rest of the datahub package — can be safely imported.
+    # Read here rather than through an env_vars accessor: this module runs at
+    # interpreter startup (via .pth) before env_vars — which pulls in pydantic and
+    # the rest of the datahub package — can be safely imported. The variable is
+    # still declared for the docs, via register_env_var in env_vars.py.
     return os.getenv("DATAHUB_SQLGLOT_DISABLE_C", "").strip().lower() not in (
         "",
         "0",

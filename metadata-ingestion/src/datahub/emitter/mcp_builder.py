@@ -4,6 +4,10 @@ from pydantic.fields import Field
 from pydantic.main import BaseModel
 
 from datahub.cli.env_utils import get_boolean_env_variable
+from datahub.configuration.env_var_registry import (
+    EnvVarGroup,
+    declare_env_var,
+)
 from datahub.emitter.mce_builder import (
     ALL_ENV_TYPES,
     Aspect,
@@ -45,6 +49,19 @@ from datahub.specific.aspect_helpers.structured_properties import (
     HasStructuredPropertiesPatch,
 )
 from datahub.utilities.str_enum import StrEnum
+
+declare_env_var(
+    name="DATAHUB_INCLUDE_ENV_IN_CONTAINER_PROPERTIES",
+    type=bool,
+    group=EnvVarGroup.MISC,
+    default=True,
+    choices=["true", "1", "false", "0"],
+    deprecated=True,
+    description=(
+        "Compatibility switch for servers older than 0.14.1, which could not accept the env "
+        "field in container properties. Leave unset unless ingesting into such a server."
+    ),
+)
 
 # In https://github.com/datahub-project/datahub/pull/11214, we added a
 # new env field to container properties. However, populating this field
