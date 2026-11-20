@@ -41,15 +41,16 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import org.mockito.InOrder;
 import org.mockito.invocation.Invocation;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /**
- * The graph references to an entity can be read before the entity is deleted and removed from that
- * list afterwards, when the graph no longer has the edges. Every other kind of reference is found
- * and removed as when the graph is read.
+ * The graph references to an entity are removed page by page while the entity still has its edges,
+ * before the entity is deleted. Every other kind of reference is then found and removed as when the
+ * graph is read.
  */
 public class DeleteEntityServiceGraphReferrersTest {
   private static final TagUrn DELETED_TAG = new TagUrn("deleted");
@@ -106,39 +107,77 @@ public class DeleteEntityServiceGraphReferrersTest {
             });
   }
 
+  /**
+   * One page is applied before the next is read, and only the graph is touched: the entity stays
+   * and the non-graph references are left to the caller.
+   */
   @Test
-  public void getGraphReferrersReadsEveryPage() {
-    graphPage(
-        DELETED_TAG,
-        null,
-        page("p2", referrer("TaggedWith", DATASET), referrer("TaggedWith", OTHER_DATASET)));
-    graphPage(DELETED_TAG, "p2", page(null, referrer("TaggedWith", CHART)));
+  public void deleteGraphReferencesAppliesOnePageBeforeReadingTheNext() throws Exception {
+    graphPage(DELETED_TAG, null, page("p2", referrer("TaggedWith", DATASET)));
+    graphPage(DELETED_TAG, "p2", page(null, referrer("TaggedWith", OTHER_DATASET)));
 
-    final List<RelatedEntities> referrers =
-        deleteEntityService.getGraphReferrers(opContext, DELETED_TAG);
+    deleteEntityService.deleteGraphReferences(opContext, DELETED_TAG);
 
-    assertEquals(
-        referrers.stream().map(RelatedEntities::getUrn).collect(Collectors.toList()),
-        List.of(DATASET.toString(), OTHER_DATASET.toString(), CHART.toString()));
-    assertEquals(
-        referrers.stream().map(RelatedEntities::getRelationshipType).collect(Collectors.toSet()),
-        Set.of("TaggedWith"));
-    verifyNoInteractions(entityService, searchService);
+    final InOrder order = inOrder(graphService, entityService);
+    order
+        .verify(graphService)
+        .scrollRelatedEntities(
+            any(OperationContext.class),
+            nullable(Set.class),
+            any(Filter.class),
+            nullable(Set.class),
+            any(Filter.class),
+            anySet(),
+            any(),
+            anyList(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            nullable(Long.class),
+            nullable(Long.class));
+    order
+        .verify(entityService)
+        .getEntityV2(any(OperationContext.class), anyString(), eq(DATASET), anySet());
+    order
+        .verify(graphService)
+        .scrollRelatedEntities(
+            any(OperationContext.class),
+            nullable(Set.class),
+            any(Filter.class),
+            nullable(Set.class),
+            any(Filter.class),
+            anySet(),
+            any(),
+            anyList(),
+            eq("p2"),
+            anyString(),
+            anyInt(),
+            nullable(Long.class),
+            nullable(Long.class));
+    order
+        .verify(entityService)
+        .getEntityV2(any(OperationContext.class), anyString(), eq(OTHER_DATASET), anySet());
+    assertEquals(writes.size(), 1);
+    assertEquals(tagsWritten(writes.get(0)), List.of(KEPT_TAG));
+    verify(entityService, never()).deleteUrn(any(), any());
+    verifyNoInteractions(searchService);
   }
 
-  /** Read while the edge exists; the graph has none by the time the references are removed. */
+  /**
+   * Graph references removed first, the entity's edges then gone: the rest of the cleanup, run with
+   * no graph references left, does not read the graph again.
+   */
   @Test
-  public void theReferencesReadBeforeAreRemovedThoughTheGraphNoLongerHasThem() {
+  public void theRestOfTheCleanupSkipsTheGraph() {
     graphPage(DELETED_TAG, null, page(null, referrer("TaggedWith", DATASET)), page(null));
 
-    final List<RelatedEntities> referrers =
-        deleteEntityService.getGraphReferrers(opContext, DELETED_TAG);
+    deleteEntityService.deleteGraphReferences(opContext, DELETED_TAG);
     final DeleteReferencesResponse response =
-        deleteEntityService.deleteReferencesTo(opContext, DELETED_TAG, referrers);
+        deleteEntityService.deleteReferencesTo(opContext, DELETED_TAG, List.of());
 
     assertEquals(writes.size(), 1);
     assertEquals(tagsWritten(writes.get(0)), List.of(KEPT_TAG));
-    assertEquals(response.getTotal(), Integer.valueOf(1));
+    assertEquals(response.getTotal(), Integer.valueOf(0));
     verify(graphService, times(1))
         .scrollRelatedEntities(
             any(OperationContext.class),

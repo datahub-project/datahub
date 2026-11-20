@@ -19,7 +19,6 @@ import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.entity.DeleteCeiling;
 import com.linkedin.metadata.entity.DeleteEntityService;
@@ -33,7 +32,6 @@ import com.linkedin.metadata.entity.ebean.batch.AttributedActorHeaders;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.event.EventProducer;
-import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
@@ -248,9 +246,8 @@ public class JavaEntityClientTest {
   }
 
   /**
-   * Declined: the entity is deleted now and the references when the caller runs them (a failure is
-   * run again), from the graph referrers read before the delete; the combined delete is offered
-   * once and the references never on their own.
+   * Declined: nothing is deleted until the caller runs the cleanup. That reads graph references,
+   * then deletes the entity, then the other references, and retries those. Offered once.
    */
   @Test
   void testDeleteEntityThenReferencesDeclinedRunsBothHereAfterOneOffer() throws Exception {
@@ -275,16 +272,7 @@ public class JavaEntityClientTest {
                         ChangeType.DELETE,
                         true,
                         0))));
-    List<RelatedEntities> referrers =
-        List.of(
-            new RelatedEntities(
-                "TaggedWith",
-                "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,PROD)",
-                urn.toString(),
-                RelationshipDirection.INCOMING,
-                null));
-    when(_deleteEntityService.getGraphReferrers(opContext, urn)).thenReturn(referrers);
-    when(_deleteEntityService.deleteReferencesTo(opContext, urn, referrers))
+    when(_deleteEntityService.deleteReferencesTo(opContext, urn, List.of()))
         .thenThrow(new IllegalArgumentException("transient"))
         .thenReturn(null);
 
@@ -292,13 +280,15 @@ public class JavaEntityClientTest {
         getJavaEntityClient(hardDeleteService(true, dispatcher))
             .deleteEntityThenReferences(opContext, urn);
 
-    InOrder order = inOrder(_deleteEntityService, _entityService);
-    order.verify(_deleteEntityService).getGraphReferrers(opContext, urn);
-    order.verify(_entityService).deleteUrn(opContext, urn, ceiling);
+    verify(_entityService, never()).deleteUrn(any(), eq(urn), any(DeleteCeiling.class));
+    verifyNoInteractions(_deleteEntityService);
     references.run();
     verify(dispatcher, times(1)).dispatch(any(), any());
     verify(dispatcher).dispatch(opContext, HardDeleteRequest.entityAndReferences(urn, ceiling));
-    verify(_deleteEntityService, times(2)).deleteReferencesTo(opContext, urn, referrers);
+    final InOrder inOrder = inOrder(_deleteEntityService, _entityService);
+    inOrder.verify(_deleteEntityService).deleteGraphReferences(opContext, urn);
+    inOrder.verify(_entityService).deleteUrn(opContext, urn, ceiling);
+    inOrder.verify(_deleteEntityService, times(2)).deleteReferencesTo(opContext, urn, List.of());
     verify(_deleteEntityService, never()).deleteReferencesTo(opContext, urn, false);
   }
 

@@ -148,8 +148,8 @@ public class DeleteEntityService {
    * references removed from {@code graphReferrers} instead of the graph as it is now. Every other
    * reference is found and removed as there.
    *
-   * @param graphReferrers what {@link #getGraphReferrers(OperationContext, Urn)} read, before the
-   *     entity was deleted
+   * @param graphReferrers the graph references still to remove; empty after {@link
+   *     #deleteGraphReferences(OperationContext, Urn)} has removed them
    */
   public DeleteReferencesResponse deleteReferencesTo(
       @Nonnull OperationContext opContext,
@@ -159,39 +159,38 @@ public class DeleteEntityService {
   }
 
   /**
-   * The entities holding a graph reference to {@code urn}, with the relationship of each: what
-   * {@link #deleteReferencesTo(OperationContext, Urn, boolean)} visits in the graph, every page
-   * read now. Reads only.
-   *
-   * <p>Once the delete of the entity's key is processed, the graph no longer has these edges; a
-   * caller that deletes the entity and then its references reads them first and passes them to
-   * {@link #deleteReferencesTo(OperationContext, Urn, List)}.
-   *
-   * <p>Each item keeps only what removing the reference needs: the referring urn and the
-   * relationship name (the deleted urn is one shared string), roughly 200-300 bytes each, so
-   * 100,000 referrers hold about 25 MB.
+   * Removes the graph references other entities hold to {@code urn}, one page at a time. The page
+   * is discarded once its references are removed, so the referrers are not held as one list. The
+   * entity itself is left in place; a caller deletes it after this returns, while the edges are
+   * still the ones this read.
    */
-  @Nonnull
-  public List<RelatedEntities> getGraphReferrers(
-      @Nonnull OperationContext opContext, @Nonnull final Urn urn) {
-    final String deletedUrn = urn.toString();
-    final List<RelatedEntities> referrers = new ArrayList<>();
-    String scrollId = null;
-    do {
-      final RelatedEntitiesScrollResult page = scrollGraphReferrers(opContext, urn, scrollId);
-      page.getEntities()
-          .forEach(
-              referrer ->
-                  referrers.add(
-                      new RelatedEntities(
-                          referrer.getRelationshipType(),
-                          referrer.getUrn(),
-                          deletedUrn,
-                          RelationshipDirection.INCOMING,
-                          null)));
-      scrollId = page.getScrollId();
-    } while (scrollId != null);
-    return referrers;
+  public void deleteGraphReferences(@Nonnull OperationContext opContext, @Nonnull final Urn urn) {
+    try (CascadeOperationContext cascade =
+        CascadeOperationContext.begin(_metricUtils, "deleteGraphReferences", urn, -1)) {
+      RelatedEntitiesScrollResult scrollResult = scrollGraphReferrers(opContext, urn, null);
+      int totalProcessed = 0;
+      while (true) {
+        if (!scrollResult.getEntities().isEmpty()) {
+          log.info(
+              "Processing batch of {} graph references (total processed: {}, total: {})",
+              scrollResult.getEntities().size(),
+              totalProcessed,
+              scrollResult.getNumResults());
+          for (RelatedEntities entity : scrollResult.getEntities()) {
+            deleteReference(opContext, urn, entity, cascade);
+            cascade.recordEntityProcessed();
+          }
+          totalProcessed += scrollResult.getEntities().size();
+        }
+        final String nextScrollId = scrollResult.getScrollId();
+        if (nextScrollId == null) {
+          break;
+        }
+        scrollResult = scrollGraphReferrers(opContext, urn, nextScrollId);
+      }
+      log.info(
+          "Graph reference cleanup complete for {}: {} references processed", urn, totalProcessed);
+    }
   }
 
   /**
