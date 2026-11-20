@@ -46,6 +46,62 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class HardDeleteService {
+  /**
+   * The references still to remove after {@link #deleteReferencesThenEntity(OperationContext, Urn,
+   * Function)} has deleted the entity, or decided not to. {@link #choice()} is known then. {@link
+   * Choice#PENDING} is an entity that was already gone. {@link HardDeleteService#HANDED_OFF} is
+   * {@link Choice#HANDED_OFF}: nothing was deleted here and nothing is left to run.
+   */
+  public static final class ReferenceCleanup implements Runnable {
+    /** What an in-process entity-and-references delete did about the referrers. */
+    public enum Choice {
+      /**
+       * The entity was already gone. {@link #run()} only cleans its references, or does nothing
+       * when those were taken elsewhere.
+       */
+      PENDING,
+      /**
+       * Incoming graph edges were at most the limit: they were removed, then the entity. {@link
+       * #run()} removes the references that are not graph edges.
+       */
+      REFERENCES_THEN_ENTITY,
+      /** Incoming graph edges were over the limit: only the entity was hard-deleted. */
+      ENTITY_ONLY,
+      /** The delete was taken by another process, which also cleans the references. */
+      HANDED_OFF
+    }
+
+    private final Choice choice;
+    private final Runnable body;
+
+    private ReferenceCleanup(final Choice choice, final Runnable body) {
+      this.choice = choice;
+      this.body = body;
+    }
+
+    /** An absent entity. {@link #choice()} stays {@link Choice#PENDING}. */
+    static ReferenceCleanup pending(final Runnable work) {
+      return new ReferenceCleanup(Choice.PENDING, work);
+    }
+
+    @Nonnull
+    public Choice choice() {
+      return choice;
+    }
+
+    @Override
+    public void run() {
+      body.run();
+    }
+  }
+
+  /**
+   * What {@link #deleteReferencesThenEntity(OperationContext, Urn, Function)} returns when the
+   * entity delete was taken elsewhere: nothing was deleted here and nothing is left to run.
+   */
+  public static final ReferenceCleanup HANDED_OFF =
+      new ReferenceCleanup(ReferenceCleanup.Choice.HANDED_OFF, () -> {});
+
   private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
 
   private final EntityService<?> entityService;
@@ -53,22 +109,32 @@ public class HardDeleteService {
   private final TimeseriesAspectService timeseriesAspectService;
   private final ReliableHardDelete reliableHardDelete;
   @Nullable private final HardDeleteDispatcher dispatcher;
+  private final int graphReferenceCleanupLimit;
 
   /**
    * @param dispatcher null runs every delete here
+   * @param graphReferenceCleanupLimit most incoming graph edges removed before the entity when the
+   *     delete runs here. Above it, only the entity is hard-deleted. {@code 0} never cleans
+   *     references here. Negative is rejected.
    */
   public HardDeleteService(
       @Nonnull final EntityService<?> entityService,
       @Nonnull final DeleteEntityService deleteEntityService,
       @Nonnull final TimeseriesAspectService timeseriesAspectService,
       @Nonnull final ReliableHardDelete reliableHardDelete,
-      @Nullable final HardDeleteDispatcher dispatcher) {
+      @Nullable final HardDeleteDispatcher dispatcher,
+      final int graphReferenceCleanupLimit) {
     this.entityService = Objects.requireNonNull(entityService, "entityService");
     this.deleteEntityService = Objects.requireNonNull(deleteEntityService, "deleteEntityService");
     this.timeseriesAspectService =
         Objects.requireNonNull(timeseriesAspectService, "timeseriesAspectService");
     this.reliableHardDelete = Objects.requireNonNull(reliableHardDelete, "reliableHardDelete");
     this.dispatcher = dispatcher;
+    if (graphReferenceCleanupLimit < 0) {
+      throw new IllegalArgumentException(
+          "graph-reference-cleanup-limit must be at least 0, was " + graphReferenceCleanupLimit);
+    }
+    this.graphReferenceCleanupLimit = graphReferenceCleanupLimit;
   }
 
   /**
@@ -113,17 +179,25 @@ public class HardDeleteService {
   }
 
   /**
-   * Hard-deletes the entity, then hands back the delete of the references other entities hold to
-   * it, for the caller to run where it runs that cleanup. The entity delete runs before this
-   * returns and its failure is thrown, so references to an entity that stays are left alone. When
-   * the entity does not exist, only its references are offered.
+   * Removes the graph references other entities hold to the entity, then hard-deletes the entity,
+   * and hands back the cleanup of the references that are not graph edges. Deleting the entity
+   * first drops its graph edges, so those references are removed before it. At most {@code
+   * graph-reference-cleanup-limit} incoming graph edges are removed, then the entity is deleted,
+   * before this returns. Above the limit the entity is hard-deleted and the referrers are left: the
+   * key delete drops the graph edges, and walking that many referrers here is not worth it. {@link
+   * ReferenceCleanup#choice()} reports which one happened and is known when this returns. {@link
+   * ReferenceCleanup#run()} only removes the remaining references, so a caller can run it where it
+   * runs reference cleanup today. A failure of the count, the graph pages or the entity delete is
+   * thrown here and leaves the entity in place. When the entity does not exist, only its references
+   * are offered, and the cleanup only cleans those, without a count.
    *
-   * @param runHere runs the reference cleanup when it stays in this process, the way the caller
-   *     runs it today
-   * @return the reference cleanup left to run; does nothing when it was taken elsewhere
+   * @param runHere runs the non-graph reference cleanup when it stays in this process, the way the
+   *     caller runs reference cleanup today
+   * @return the cleanup left to run; {@link #HANDED_OFF} when the delete was taken elsewhere, and a
+   *     no-op when only the references of an absent entity were
    */
   @Nonnull
-  public Runnable deleteEntityThenReferences(
+  public ReferenceCleanup deleteReferencesThenEntity(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull
@@ -131,13 +205,41 @@ public class HardDeleteService {
     final Optional<DeleteCeiling> versions = capture(opContext, urn);
     if (versions.isPresent()
         && offered(opContext, HardDeleteRequest.entityAndReferences(urn, versions.get()))) {
-      return () -> {};
+      return HANDED_OFF;
     }
-    deleteHere(opContext, urn, versions);
     if (versions.isEmpty() && offered(opContext, HardDeleteRequest.references(urn))) {
-      return () -> {};
+      // The entity was already gone here; only its references were taken.
+      return ReferenceCleanup.pending(() -> {});
     }
-    return () -> runHere.apply(() -> deleteEntityService.deleteReferencesTo(opContext, urn, false));
+    // capture() is empty both when the entity is gone and when nothing needed the versions. Only
+    // the first is an absent entity: with no dispatcher and the bounded delete off, the entity was
+    // not read and is deleted unbounded below.
+    if (versions.isEmpty() && (dispatcher != null || reliableHardDelete.isEnabled())) {
+      return ReferenceCleanup.pending(
+          () -> runHere.apply(() -> deleteEntityService.deleteReferencesTo(opContext, urn, false)));
+    }
+    // The key delete drops every graph edge. A failed count leaves the entity in place.
+    final int referrers = deleteEntityService.countGraphReferrers(opContext, urn);
+    // 0 disables cleanup outright. Otherwise at most the limit still cleans.
+    if (graphReferenceCleanupLimit > 0 && referrers <= graphReferenceCleanupLimit) {
+      deleteEntityService.deleteGraphReferences(opContext, urn);
+      deleteHere(opContext, urn, versions);
+      return new ReferenceCleanup(
+          ReferenceCleanup.Choice.REFERENCES_THEN_ENTITY,
+          () ->
+              runHere.apply(
+                  () -> deleteEntityService.deleteReferencesTo(opContext, urn, List.of())));
+    }
+    // Above the limit the key delete drops the edges, and walking the referrers here is the work
+    // this limit refuses.
+    log.info(
+        "Graph reference cleanup skipped for {}: {} referrers, limit {}."
+            + " Hard-deleting the entity only.",
+        urn,
+        referrers,
+        graphReferenceCleanupLimit);
+    deleteHere(opContext, urn, versions);
+    return new ReferenceCleanup(ReferenceCleanup.Choice.ENTITY_ONLY, () -> {});
   }
 
   /**

@@ -904,6 +904,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "entityClient.restli.ingest.batchSize",
           "entityClient.restli.ingest.batchThreadKeepAlive",
           "entityClient.retryInterval",
+          "hardDelete.graph-reference-cleanup-limit",
           "entityService.deleteReferenceWriteLimit",
           "entityService.impl",
           "entityService.retention.applyOnBootstrap",

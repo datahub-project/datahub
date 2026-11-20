@@ -2,9 +2,11 @@ package com.linkedin.metadata.entity;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -14,6 +16,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
@@ -191,93 +194,270 @@ public class HardDeleteServiceTest {
     verify(dispatcher, never()).dispatchOneOfMany(any(), any());
   }
 
-  // ---- deleteEntityThenReferences(op, urn, runHere)
+  // ---- deleteReferencesThenEntity(op, urn, runHere)
 
+  /** The entity is gone, and the choice is final, before the caller runs the cleanup. */
   @Test
-  public void deleteEntityThenReferencesWithoutDispatcherDeletesNowAndHandsBackTheReferences() {
-    final Runnable references =
-        service(true, null).deleteEntityThenReferences(opContext, URN, Supplier::get);
+  public void deleteReferencesThenEntityDeletesTheEntityBeforeReturning() {
+    final HardDeleteService.ReferenceCleanup references =
+        service(true, null).deleteReferencesThenEntity(opContext, URN, Supplier::get);
 
-    verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
-    verifyNoInteractions(deleteEntityService);
+    final InOrder inOrder = inOrder(deleteEntityService, entityService);
+    inOrder.verify(deleteEntityService).countGraphReferrers(opContext, URN);
+    inOrder.verify(deleteEntityService).deleteGraphReferences(opContext, URN);
+    inOrder.verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
+    assertEquals(
+        references.choice(), HardDeleteService.ReferenceCleanup.Choice.REFERENCES_THEN_ENTITY);
+
     references.run();
-    verify(deleteEntityService).deleteReferencesTo(opContext, URN, false);
+
+    inOrder.verify(deleteEntityService).deleteReferencesTo(opContext, URN, List.of());
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean());
   }
 
   @Test
-  public void deleteEntityThenReferencesWithTheFlagOffDeletesUnbounded() {
-    service(false, null).deleteEntityThenReferences(opContext, URN, Supplier::get).run();
+  public void deleteReferencesThenEntityWithTheFlagOffDeletesUnbounded() {
+    final Runnable references =
+        service(false, null).deleteReferencesThenEntity(opContext, URN, Supplier::get);
 
-    verify(entityService).deleteUrn(any(), eq(URN));
-    verify(deleteEntityService).deleteReferencesTo(opContext, URN, false);
+    final InOrder inOrder = inOrder(deleteEntityService, entityService);
+    inOrder.verify(deleteEntityService).countGraphReferrers(opContext, URN);
+    inOrder.verify(deleteEntityService).deleteGraphReferences(opContext, URN);
+    inOrder.verify(entityService).deleteUrn(any(), eq(URN));
+    verify(entityService, never()).deleteUrn(any(), eq(URN), any(DeleteCeiling.class));
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
+
+    references.run();
+
+    inOrder.verify(deleteEntityService).deleteReferencesTo(opContext, URN, List.of());
   }
 
   @Test
-  public void deleteEntityThenReferencesTakenRunsNothingHere() {
+  public void deleteReferencesThenEntityTakenRunsNothingHere() {
     when(dispatcher.dispatch(any(), any())).thenReturn(true);
 
-    service(true, dispatcher).deleteEntityThenReferences(opContext, URN, Supplier::get).run();
+    final Runnable references =
+        service(true, dispatcher).deleteReferencesThenEntity(opContext, URN, Supplier::get);
+    references.run();
 
+    assertSame(references, HardDeleteService.HANDED_OFF);
+    assertEquals(
+        ((HardDeleteService.ReferenceCleanup) references).choice(),
+        HardDeleteService.ReferenceCleanup.Choice.HANDED_OFF);
     verify(dispatcher).dispatch(opContext, HardDeleteRequest.entityAndReferences(URN, CAPTURED));
     verifyNoDelete();
     verifyNoInteractions(deleteEntityService);
   }
 
-  /** Declined: both run here; the references go through the caller's runner, never re-offered. */
+  /** Declined: the entity is deleted here; the remaining references go through the caller. */
   @Test
-  public void deleteEntityThenReferencesDeclinedRunsBothHereAfterOneOffer() {
+  public void deleteReferencesThenEntityDeclinedRunsBothHereAfterOneOffer() {
     final List<String> ranBy = new ArrayList<>();
 
-    service(true, dispatcher)
-        .deleteEntityThenReferences(
-            opContext,
-            URN,
-            cleanup -> {
-              ranBy.add("caller");
-              return cleanup.get();
-            })
-        .run();
+    final Runnable references =
+        service(true, dispatcher)
+            .deleteReferencesThenEntity(
+                opContext,
+                URN,
+                cleanup -> {
+                  ranBy.add("caller");
+                  return cleanup.get();
+                });
 
     verify(dispatcher, times(1)).dispatch(any(), any());
     verify(dispatcher).dispatch(opContext, HardDeleteRequest.entityAndReferences(URN, CAPTURED));
-    verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
-    verify(deleteEntityService).deleteReferencesTo(opContext, URN, false);
+    final InOrder inOrder = inOrder(deleteEntityService, entityService);
+    inOrder.verify(deleteEntityService).countGraphReferrers(opContext, URN);
+    inOrder.verify(deleteEntityService).deleteGraphReferences(opContext, URN);
+    inOrder.verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
+    assertEquals(ranBy, List.of());
+
+    references.run();
+
+    inOrder.verify(deleteEntityService).deleteReferencesTo(opContext, URN, List.of());
     assertEquals(ranBy, List.of("caller"));
   }
 
   @Test
-  public void deleteEntityThenReferencesWithTheFlagOffIsStillOffered() {
+  public void deleteReferencesThenEntityWithTheFlagOffIsStillOffered() {
     when(dispatcher.dispatch(any(), any())).thenReturn(true);
 
-    service(false, dispatcher).deleteEntityThenReferences(opContext, URN, Supplier::get).run();
+    service(false, dispatcher).deleteReferencesThenEntity(opContext, URN, Supplier::get).run();
 
     verify(dispatcher).dispatch(opContext, HardDeleteRequest.entityAndReferences(URN, CAPTURED));
     verifyNoDelete();
   }
 
-  /** PARTIAL throws before the references are handed out, as today. */
+  /** A graph-page failure leaves the entity, and does not run the rest of the cleanup. */
   @Test
-  public void deleteEntityThenReferencesPartialLeavesTheReferences() {
+  public void deleteReferencesThenEntityGraphPageFailureSkipsTheEntityDelete() {
+    doThrow(new IllegalStateException("scroll failed"))
+        .when(deleteEntityService)
+        .deleteGraphReferences(opContext, URN);
+
+    expectThrows(
+        IllegalStateException.class,
+        () -> service(true, null).deleteReferencesThenEntity(opContext, URN, Supplier::get));
+    verifyNoDelete();
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean());
+  }
+
+  /** The entity delete fails after the graph pages. Non-graph references are left in place. */
+  @Test
+  public void deleteReferencesThenEntityPartialLeavesTheNonGraphReferences() {
     when(entityService.deleteUrn(any(), eq(URN), any(DeleteCeiling.class)))
         .thenReturn(aspectDeleted(URN));
 
     expectThrows(
         IllegalStateException.class,
-        () -> service(true, dispatcher).deleteEntityThenReferences(opContext, URN, Supplier::get));
-    verifyNoInteractions(deleteEntityService);
+        () -> service(true, dispatcher).deleteReferencesThenEntity(opContext, URN, Supplier::get));
+    verify(deleteEntityService).deleteGraphReferences(opContext, URN);
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean());
   }
 
   /** An absent entity is handled here as today; its references are still offered. */
   @Test
-  public void deleteEntityThenReferencesOfAnAbsentEntityOffersOnlyTheReferences() {
+  public void deleteReferencesThenEntityOfAnAbsentEntityOffersOnlyTheReferences() {
     when(entityService.captureDeleteCeiling(any(), eq(URN))).thenReturn(Optional.empty());
     when(dispatcher.dispatch(opContext, HardDeleteRequest.references(URN))).thenReturn(true);
 
-    service(true, dispatcher).deleteEntityThenReferences(opContext, URN, Supplier::get).run();
+    final Runnable references =
+        service(true, dispatcher).deleteReferencesThenEntity(opContext, URN, Supplier::get);
+    references.run();
 
+    // Only the references were taken: the entity was already gone here, so not HANDED_OFF.
+    assertNotSame(references, HardDeleteService.HANDED_OFF);
     verify(dispatcher, times(1)).dispatch(any(), any());
     verify(entityService, never()).deleteUrn(any(), eq(URN), any(DeleteCeiling.class));
     verifyNoInteractions(deleteEntityService);
+  }
+
+  /** An absent entity that stays here only cleans references. The graph is not paged first. */
+  @Test
+  public void deleteReferencesThenEntityOfAnAbsentEntityOnlyCleansReferences() {
+    when(entityService.captureDeleteCeiling(any(), eq(URN))).thenReturn(Optional.empty());
+
+    final Runnable references =
+        service(true, dispatcher).deleteReferencesThenEntity(opContext, URN, Supplier::get);
+    verifyNoDelete();
+    verifyNoInteractions(deleteEntityService);
+    references.run();
+
+    verify(deleteEntityService).deleteReferencesTo(opContext, URN, false);
+    verify(deleteEntityService, never()).deleteGraphReferences(any(), any());
+    verify(deleteEntityService, never()).countGraphReferrers(any(), any());
+    verifyNoDelete();
+  }
+
+  /** One referrer is under the limit: graph references, then the entity, then the rest. */
+  @Test
+  public void deleteReferencesThenEntityUnderTheLimitCleansThenDeletes() {
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(1);
+
+    final HardDeleteService.ReferenceCleanup references =
+        service(true, null).deleteReferencesThenEntity(opContext, URN, Supplier::get);
+
+    final InOrder inOrder = inOrder(deleteEntityService, entityService);
+    inOrder.verify(deleteEntityService).countGraphReferrers(opContext, URN);
+    inOrder.verify(deleteEntityService).deleteGraphReferences(opContext, URN);
+    inOrder.verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
+    assertEquals(
+        references.choice(), HardDeleteService.ReferenceCleanup.Choice.REFERENCES_THEN_ENTITY);
+
+    references.run();
+
+    inOrder.verify(deleteEntityService).deleteReferencesTo(opContext, URN, List.of());
+  }
+
+  /** Exactly the limit still cleans. */
+  @Test
+  public void deleteReferencesThenEntityAtTheLimitCleansThenDeletes() {
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(5000);
+
+    final HardDeleteService.ReferenceCleanup references =
+        service(true, null).deleteReferencesThenEntity(opContext, URN, Supplier::get);
+
+    verify(deleteEntityService).deleteGraphReferences(opContext, URN);
+    verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
+    assertEquals(
+        references.choice(), HardDeleteService.ReferenceCleanup.Choice.REFERENCES_THEN_ENTITY);
+
+    references.run();
+
+    verify(deleteEntityService).deleteReferencesTo(opContext, URN, List.of());
+  }
+
+  /** One more than the limit: the entity is hard-deleted and the referrers are left. */
+  @Test
+  public void deleteReferencesThenEntityOverTheLimitDeletesTheEntityOnly() {
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(5001);
+
+    final HardDeleteService.ReferenceCleanup references =
+        service(true, null).deleteReferencesThenEntity(opContext, URN, Supplier::get);
+
+    verify(deleteEntityService).countGraphReferrers(opContext, URN);
+    verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
+    verify(deleteEntityService, never()).deleteGraphReferences(any(), any());
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean());
+    assertEquals(references.choice(), HardDeleteService.ReferenceCleanup.Choice.ENTITY_ONLY);
+
+    references.run();
+
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
+  }
+
+  /** A limit of 0 never cleans references, even when nothing refers to the entity. */
+  @Test
+  public void deleteReferencesThenEntityWithAZeroLimitDeletesTheEntityOnly() {
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(0);
+
+    final HardDeleteService.ReferenceCleanup references =
+        service(true, null, 0).deleteReferencesThenEntity(opContext, URN, Supplier::get);
+
+    verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
+    verify(deleteEntityService, never()).deleteGraphReferences(any(), any());
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
+    assertEquals(references.choice(), HardDeleteService.ReferenceCleanup.Choice.ENTITY_ONLY);
+
+    references.run();
+
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
+  }
+
+  /** A failed count leaves the entity, and does not remove references. */
+  @Test
+  public void deleteReferencesThenEntityCountFailureLeavesTheEntity() {
+    when(deleteEntityService.countGraphReferrers(opContext, URN))
+        .thenThrow(new IllegalStateException("count failed"));
+
+    expectThrows(
+        IllegalStateException.class,
+        () -> service(true, null).deleteReferencesThenEntity(opContext, URN, Supplier::get));
+    verifyNoDelete();
+    verify(deleteEntityService, never()).deleteGraphReferences(any(), any());
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void graphReferenceCleanupLimitRejectsANegativeValue() {
+    expectThrows(
+        IllegalArgumentException.class,
+        () ->
+            new HardDeleteService(
+                entityService,
+                deleteEntityService,
+                timeseriesAspectService,
+                new ReliableHardDelete(entityService, true),
+                null,
+                -1));
   }
 
   // ---- deleteEntityAndTimeseries(op, urn, aspects, start, end)
@@ -649,12 +829,20 @@ public class HardDeleteServiceTest {
 
   private HardDeleteService service(
       final boolean reliableHardDelete, final HardDeleteDispatcher hardDeleteDispatcher) {
+    return service(reliableHardDelete, hardDeleteDispatcher, 5000);
+  }
+
+  private HardDeleteService service(
+      final boolean reliableHardDelete,
+      final HardDeleteDispatcher hardDeleteDispatcher,
+      final int graphReferenceCleanupLimit) {
     return new HardDeleteService(
         entityService,
         deleteEntityService,
         timeseriesAspectService,
         new ReliableHardDelete(entityService, reliableHardDelete),
-        hardDeleteDispatcher);
+        hardDeleteDispatcher,
+        graphReferenceCleanupLimit);
   }
 
   private void stubTimeseriesCount(final String aspect, final long count) {

@@ -170,7 +170,7 @@ public class OwnershipTypeService extends BaseService {
                 urn, Constants.STATUS_ASPECT_NAME, statusAspect),
             false);
       } else if (deleteReferences) {
-        final var references = this.entityClient.deleteEntityThenReferences(opContext, urn);
+        final var references = this.entityClient.deleteReferencesThenEntity(opContext, urn);
         references.run();
       } else {
         this.entityClient.deleteEntity(opContext, urn);
