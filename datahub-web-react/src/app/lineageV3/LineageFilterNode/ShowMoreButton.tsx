@@ -1,5 +1,5 @@
 import { CaretDoubleDown } from '@phosphor-icons/react/dist/csr/CaretDoubleDown';
-import React, { useCallback, useContext, useMemo } from 'react';
+import React, { JSX, useCallback, useContext, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 

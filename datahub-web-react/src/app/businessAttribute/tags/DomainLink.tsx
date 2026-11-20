@@ -1,5 +1,5 @@
 import { Tag } from 'antd';
-import React from 'react';
+import React, { JSX } from 'react';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 

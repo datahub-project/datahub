@@ -1,5 +1,5 @@
 import yaml from 'js-yaml';
-import React, { useEffect, useState } from 'react';
+import React, { JSX, useEffect, useState } from 'react';
 import { Route, Switch } from 'react-router';
 
 import { DEFAULT_LOAD_TIMEOUT_MS, MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';

@@ -1,5 +1,5 @@
 import DOMPurify from 'dompurify';
-import React from 'react';
+import React, { JSX } from 'react';
 
 import BusinessAttributeDescriptionField from '@app/businessAttribute/BusinessAttributeDescriptionField';
 

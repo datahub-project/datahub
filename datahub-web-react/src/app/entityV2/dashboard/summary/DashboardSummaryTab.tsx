@@ -1,5 +1,5 @@
 import { Divider } from 'antd';
-import React from 'react';
+import React, { JSX } from 'react';
 import styled from 'styled-components';
 
 import EmbedPreview from '@app/entityV2/chart/summary/EmbedPreview';

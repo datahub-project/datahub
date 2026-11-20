@@ -9,7 +9,9 @@ export interface LinkPropsDefaults {
     rel: string;
 }
 
-export interface LinkProps extends Partial<LinkPropsDefaults>, Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'color'> {}
+export interface LinkProps
+    extends Partial<LinkPropsDefaults>,
+        Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'color' | 'target' | 'rel'> {}
 
 export interface LinkStyleProps {
     color: ColorOptions;

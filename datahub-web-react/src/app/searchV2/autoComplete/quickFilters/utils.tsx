@@ -1,5 +1,5 @@
 import i18next from 'i18next';
-import React from 'react';
+import React, { JSX } from 'react';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';

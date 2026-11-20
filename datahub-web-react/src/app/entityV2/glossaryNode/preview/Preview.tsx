@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { JSX, useMemo } from 'react';
 
 import { PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';

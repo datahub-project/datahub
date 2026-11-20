@@ -1,5 +1,5 @@
 import { Loader } from '@components';
-import React from 'react';
+import React, { JSX } from 'react';
 import styled from 'styled-components';
 
 import { getParentDomains } from '@app/domainV2/utils';

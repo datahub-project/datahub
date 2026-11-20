@@ -1,5 +1,5 @@
 import { Typography } from 'antd';
-import React from 'react';
+import React, { JSX } from 'react';
 import styled from 'styled-components';
 
 import { StatusOverTimeAssertionResultChart } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/StatusOverTimeAssertionResultChart';

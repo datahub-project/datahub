@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { JSX, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import RowCountGraph from '@app/entityV2/shared/graphs/RowCountGraph';

@@ -1,5 +1,5 @@
 import { useReactiveVar } from '@apollo/client';
-import React, { Suspense } from 'react';
+import React, { JSX, Suspense } from 'react';
 import { Route, RouteProps, Switch, useLocation } from 'react-router-dom';
 
 import { useTrackPageView } from '@app/analytics';

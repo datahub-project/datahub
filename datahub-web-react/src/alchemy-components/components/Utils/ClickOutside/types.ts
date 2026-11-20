@@ -1,7 +1,7 @@
 export type ClickOutsideCallback = (event: MouseEvent) => void;
 
 export interface ClickOutsideOptions {
-    wrappers?: React.RefObject<Element>[];
+    wrappers?: React.RefObject<Element | null>[];
     outsideSelector?: string; // Selector for elements that should trigger `onClickOutside`
     ignoreSelector?: string; // Selector for elements that should be ignored
     ignoreWrapper?: boolean; // Enable to ignore click outside the wrapper

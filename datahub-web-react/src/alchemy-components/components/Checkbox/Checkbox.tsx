@@ -44,10 +44,12 @@ export const Checkbox = ({
     ...props
 }: CheckboxProps) => {
     const [checked, setChecked] = useState(isChecked || false);
-
-    useEffect(() => {
+    // Sync during render: an effect lags, and React 19 would undo the click with the stale value
+    const [syncedIsChecked, setSyncedIsChecked] = useState(isChecked);
+    if (isChecked !== syncedIsChecked) {
+        setSyncedIsChecked(isChecked);
         setChecked(isChecked || false);
-    }, [isChecked]);
+    }
 
     // A native checkbox reports its own state, so it takes no aria-checked; partial selection is the
     // input's indeterminate property, which has no attribute and is announced as "mixed".
@@ -59,7 +61,8 @@ export const Checkbox = ({
     const onClick = useCallback(
         (e: React.MouseEvent) => {
             e.stopPropagation();
-            e.preventDefault();
+            // Cancelling a click on the input itself (e.g. Space) would revert its toggle
+            if (e.target !== inputRef.current) e.preventDefault();
             if (!isDisabled) {
                 setChecked(!checked);
                 setIsChecked?.(!checked);

@@ -46,7 +46,9 @@ export default function BooleanMoreFilterMenu({ menuOption, onUpdate, style }: P
     return (
         <DropdownMenu data-testid="boolean-filter-dropdown" style={style}>
             <ScrollableContent>
-                {React.cloneElement(menuOption as React.ReactElement, { style: STYLE_NO_SHADOW })}
+                {React.cloneElement(menuOption as React.ReactElement<{ style?: React.CSSProperties }>, {
+                    style: STYLE_NO_SHADOW,
+                })}
             </ScrollableContent>
             <StyledButton type="text" onClick={onUpdate} data-testid="boolean-update-filters">
                 {tc('update')}

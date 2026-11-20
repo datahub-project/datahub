@@ -26,7 +26,7 @@ interface InfiniteScrollNestedSelectProps<OptionType extends NestedSelectOption 
     options: OptionType[];
     loading?: boolean;
     hasMore?: boolean;
-    scrollRef?: ((node?: Element | null) => void) | React.RefObject<HTMLDivElement>;
+    scrollRef?: ((node?: Element | null) => void) | React.RefObject<HTMLDivElement | null>;
 }
 
 /**

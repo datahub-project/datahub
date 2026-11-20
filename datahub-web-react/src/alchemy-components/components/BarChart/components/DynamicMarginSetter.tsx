@@ -3,7 +3,7 @@ import { RefObject, useContext, useEffect, useMemo } from 'react';
 
 interface DynamicMarginSetterProps {
     setMargin: (margin: Margin) => void;
-    wrapperRef: RefObject<HTMLDivElement>;
+    wrapperRef: RefObject<HTMLDivElement | null>;
     minimalMargin?: Partial<Margin>;
     // for a case when component is not wrapped with XYChart
     currentMargin?: Partial<Margin>;

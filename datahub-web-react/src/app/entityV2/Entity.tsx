@@ -1,4 +1,5 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
+import type { JSX } from 'react';
 
 import { EntitySidebarSection, EntitySidebarTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 import { FetchedEntity } from '@app/lineageV3/types';

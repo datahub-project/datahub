@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { JSX } from 'react';
 import { useTheme } from 'styled-components';
 
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
