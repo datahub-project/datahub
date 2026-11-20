@@ -12,7 +12,6 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.expectThrows;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.template.StringArray;
@@ -525,32 +524,43 @@ public class SemanticEntitySearchServiceTest {
   }
 
   @Test
-  public void testRequireSupportedV3EngineChecksOpenSearchVersion() throws IOException {
-    assertThrows(
-        IllegalStateException.class,
-        () ->
-            SemanticEntitySearchService.requireSupportedV3Engine(
-                entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_2, "2.19.3")));
-    assertThrows(
-        IllegalStateException.class,
-        () ->
-            SemanticEntitySearchService.requireSupportedV3Engine(
-                entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "3.4.0")));
-    // An unreadable version refuses too, naming the version it got rather than asking for 3.5
-    IllegalStateException unknown =
-        expectThrows(
-            IllegalStateException.class,
-            () ->
-                SemanticEntitySearchService.requireSupportedV3Engine(
-                    entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "unknown")));
-    assertTrue(unknown.getMessage().contains("unknown"), unknown.getMessage());
+  public void testRequireSupportedV3EngineUsesTheSharedEngineFloor() throws IOException {
+    SemanticEntitySearchService.requireSupportedV3Engine(
+        entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_2, "2.19.3"));
+    SemanticEntitySearchService.requireSupportedV3Engine(
+        entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "3.4.0"));
+    SemanticEntitySearchService.requireSupportedV3Engine(
+        entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "unknown"));
+    SemanticEntitySearchService.requireSupportedV3Engine(
+        entityIndex(true, true), shimFor(SearchEngineType.ELASTICSEARCH_8, "unknown"));
     SemanticEntitySearchService.requireSupportedV3Engine(
         entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "3.5.0"));
     SemanticEntitySearchService.requireSupportedV3Engine(
         entityIndex(true, true), shimFor(SearchEngineType.ELASTICSEARCH_9, "9.1.5"));
-    // Keyword reads off, with V2 on, keeps semantic search on the V2 indices
     SemanticEntitySearchService.requireSupportedV3Engine(
-        entityIndex(true, false), shimFor(SearchEngineType.OPENSEARCH_2, "2.19.3"));
+        entityIndex(true, false), shimFor(SearchEngineType.OPENSEARCH_2, "2.16.0"));
+    EntityIndexConfiguration lucene = entityIndex(true, true);
+    lucene.getSemanticSearch().getModels().values().forEach(model -> model.setKnnEngine("lucene"));
+    SemanticEntitySearchService.requireSupportedV3Engine(
+        lucene, shimFor(SearchEngineType.OPENSEARCH_2, "2.17.0"));
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            SemanticEntitySearchService.requireSupportedV3Engine(
+                entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_2, "2.17.0")));
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            SemanticEntitySearchService.requireSupportedV3Engine(
+                entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_2, "2.16.9")));
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            SemanticEntitySearchService.requireSupportedV3Engine(
+                entityIndex(true, true), shimFor(SearchEngineType.ELASTICSEARCH_8, "8.17.0")));
+    assertTrue(
+        SemanticEntitySearchService.supportsV3SemanticFilters(
+            shimFor(SearchEngineType.OPENSEARCH_2, "2.19.3")));
   }
 
   private static SearchClientShim<?> shimFor(SearchEngineType engineType, String version)

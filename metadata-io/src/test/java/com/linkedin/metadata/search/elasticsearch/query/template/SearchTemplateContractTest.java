@@ -62,13 +62,19 @@ public class SearchTemplateContractTest {
   }
 
   @Test
-  public void testShippedTemplatesDeclareVersionOneAndSystemIds() {
+  public void testShippedTemplatesDeclareTheirContractAndSystemIds() {
     Set<String> loaded = new LinkedHashSet<>();
     for (String urn : SearchTemplateBootstrap.urns()) {
       String id = UrnUtils.getUrn(urn).getEntityKey().get(0);
       loaded.add(id);
       SearchTemplateProperties shipped = SearchTemplateBootstrap.get(urn);
-      assertEquals(shipped.getApiVersion().intValue(), SearchTemplateCapabilities.API_VERSION);
+      // Only a template that sets a semantic field declares the semantic contract
+      assertEquals(
+          shipped.getApiVersion().intValue(),
+          shipped.hasRetrieval()
+              ? SearchTemplateCapabilities.SEMANTIC_API_VERSION
+              : SearchTemplateCapabilities.API_VERSION,
+          urn);
       assertFalse(shipped.hasCapabilities());
       collectTags(section(shipped)).forEach(this::assertDeclaredName);
       assertTrue(!shipped.isEditable() || SEARCH_TEMPLATE_SYSTEM_IDS.contains(id), urn);
@@ -149,14 +155,22 @@ public class SearchTemplateContractTest {
         SearchTemplateException.class,
         () ->
             SearchTemplateCapabilities.requireSupported(
-                version, false, SearchTemplateComponentRegistry.empty()));
+                version,
+                false,
+                false,
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none()));
 
     MergedSearchTemplate capability = merged().capabilities(List.of("merge")).build();
     expectThrows(
         SearchTemplateException.class,
         () ->
             SearchTemplateCapabilities.requireSupported(
-                capability, false, true, SearchTemplateComponentRegistry.empty()));
+                capability,
+                false,
+                true,
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none()));
   }
 
   @Test

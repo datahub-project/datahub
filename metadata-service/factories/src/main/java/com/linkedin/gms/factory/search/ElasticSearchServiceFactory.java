@@ -25,8 +25,10 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateC
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateDocumentSource;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
 import com.linkedin.metadata.search.hybrid.HybridCandidateMerger;
@@ -131,6 +133,10 @@ public class ElasticSearchServiceFactory {
       @Qualifier("embeddingProvider")
           final ObjectProvider<EmbeddingProvider> embeddingProviderProvider,
       final SearchClusterRegistry searchClusterRegistry) {
+    // One query embedding service, so a vector rung and the reranker share its recent embeddings
+    final HybridQueryEmbeddingService queryEmbedding =
+        vectorQueryEmbedding(
+            elasticSearchConfiguration.getEntityIndex(), embeddingProviderProvider::getIfAvailable);
     return new ESSearchDAO(
         elasticSearchConfiguration.getSearch().isPointInTimeCreationEnabled(),
         elasticSearchConfiguration,
@@ -142,7 +148,39 @@ public class ElasticSearchServiceFactory {
         hybridSearchResultReranker(
             elasticSearchConfiguration.getEntityIndex(),
             embeddingProviderProvider::getIfAvailable,
-            () -> searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3)));
+            () -> searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3),
+            queryEmbedding),
+        queryEmbedding);
+  }
+
+  /**
+   * The query embedding a search template vector rung uses, or null when this process cannot run
+   * one: it needs V3 semantic read, semantic search, a real embedding provider, and the active
+   * model's mapping. Hybrid read, which gates keywordRerank, does not gate it.
+   */
+  @Nullable
+  static HybridQueryEmbeddingService vectorQueryEmbedding(
+      @Nullable final EntityIndexConfiguration entityIndex,
+      @Nonnull final Supplier<EmbeddingProvider> embeddingProvider) {
+    if (!SemanticEntitySearchService.shouldReadSemanticV3(entityIndex)) {
+      return null;
+    }
+    final SemanticSearchConfiguration semanticSearch = entityIndex.getSemanticSearch();
+    final EmbeddingProvider provider = embeddingProvider.get();
+    if (provider == null || provider instanceof NoOpEmbeddingProvider) {
+      return null;
+    }
+    final String modelId =
+        semanticSearch.getEmbeddingProvider() != null
+            ? semanticSearch.getEmbeddingProvider().getModelId()
+            : null;
+    final String modelKey =
+        SemanticEntitySearchServiceFactory.deriveModelEmbeddingKeyFromModelId(modelId);
+    final ModelEmbeddingConfig model =
+        semanticSearch.getModels() != null ? semanticSearch.getModels().get(modelKey) : null;
+    return model == null || model.getVectorDimension() <= 0
+        ? null
+        : new HybridQueryEmbeddingService(provider, modelId, modelKey, model.getVectorDimension());
   }
 
   /**
@@ -155,7 +193,8 @@ public class ElasticSearchServiceFactory {
   static HybridSearchResultReranker hybridSearchResultReranker(
       @Nullable final EntityIndexConfiguration entityIndex,
       @Nonnull final Supplier<EmbeddingProvider> embeddingProvider,
-      @Nonnull final Supplier<SearchClientShim<?>> searchV3Client) {
+      @Nonnull final Supplier<SearchClientShim<?>> searchV3Client,
+      @Nullable final HybridQueryEmbeddingService sharedQueryEmbedding) {
     if (entityIndex == null
         || entityIndex.getV3() == null
         || !entityIndex.getV3().isEnabled()
@@ -197,11 +236,23 @@ public class ElasticSearchServiceFactory {
     final SearchClientShim<?> client = searchV3Client.get();
     SemanticEntitySearchService.requireSupportedV3Engine(entityIndex, client);
     return new HybridSearchResultReranker(
-        new HybridQueryEmbeddingService(provider, modelId, modelKey, model.getVectorDimension()),
+        // Every check above implies the vector rung's, so the shared service exists here
+        sharedQueryEmbedding != null
+            ? sharedQueryEmbedding
+            : new HybridQueryEmbeddingService(
+                provider, modelId, modelKey, model.getVectorDimension()),
         new V3HybridKnnRequestBuilder(semanticSearch),
         new HybridScoreMapBuilder(
             new HybridVectorScoreNormalizer(client.getEngineType(), model.getSpaceType())),
         new HybridCandidateMerger(new HybridLexicalScoreNormalizer(), new HybridScoreCombiner()));
+  }
+
+  // The OSS hybrid read flag. keywordRerank reranks only with it, as today's reranker does.
+  private static boolean hybridReadEnabled(@Nullable final EntityIndexConfiguration entityIndex) {
+    return entityIndex != null
+        && entityIndex.getV3() != null
+        && entityIndex.getV3().isEnabled()
+        && entityIndex.getV3().isHybridReadEnabled();
   }
 
   private static IllegalStateException hybridConfigurationError(@Nonnull final String detail) {
@@ -226,13 +277,34 @@ public class ElasticSearchServiceFactory {
     return new SearchTemplateComponentRegistry(components);
   }
 
+  /**
+   * Embedding profiles the semantic templates resolve. The Document default is the embeddings map
+   * key that semantic search derives from the configured model, so it names the stored vectors.
+   */
+  @Bean
+  protected EmbeddingProfileRegistry embeddingProfileRegistry(
+      final ElasticSearchConfiguration elasticSearchConfiguration) {
+    final SemanticSearchConfiguration semanticSearch =
+        elasticSearchConfiguration.getEntityIndex() == null
+            ? null
+            : elasticSearchConfiguration.getEntityIndex().getSemanticSearch();
+    final String modelId =
+        semanticSearch == null || semanticSearch.getEmbeddingProvider() == null
+            ? null
+            : semanticSearch.getEmbeddingProvider().getModelId();
+    return EmbeddingProfileRegistry.fromSemanticSearch(
+        semanticSearch,
+        SemanticEntitySearchServiceFactory.deriveModelEmbeddingKeyFromModelId(modelId));
+  }
+
   @Bean
   @Nullable
   protected SearchTemplateCoordinator searchTemplateCoordinator(
       final ElasticSearchConfiguration elasticSearchConfiguration,
       @Nullable final CustomSearchConfiguration customSearchConfiguration,
       @Qualifier("searchTemplateLadderExecutor") final ExecutorService searchTemplateLadderExecutor,
-      final SearchTemplateComponentRegistry searchTemplateComponentRegistry) {
+      final SearchTemplateComponentRegistry searchTemplateComponentRegistry,
+      final EmbeddingProfileRegistry embeddingProfileRegistry) {
     if (searchTemplateLoader == null) {
       return null;
     }
@@ -243,7 +315,13 @@ public class ElasticSearchServiceFactory {
         customSearchConfiguration,
         searchTemplateLoader,
         searchTemplateLadderExecutor,
-        searchTemplateComponentRegistry);
+        searchTemplateComponentRegistry,
+        SearchTemplateGates.of(
+            embeddingProfileRegistry,
+            elasticSearchConfiguration.getEntityIndex() == null
+                ? null
+                : elasticSearchConfiguration.getEntityIndex().getSemanticSearch(),
+            hybridReadEnabled(elasticSearchConfiguration.getEntityIndex())));
   }
 
   @Bean(name = "searchTemplateLadderExecutor", destroyMethod = "shutdown")

@@ -108,6 +108,9 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         baseFilter, maybeResolvedView.getDefinition().getFilter())
                     : baseFilter;
 
+            // Whether the caller's own filter, with its view, has a criterion before the defaults
+            final boolean callerFiltered = FilterUtils.hasCriterion(combinedFilter);
+
             // Add default entity filters (e.g. showInGlobalContext for documents).
             combinedFilter =
                 DefaultEntityFiltersUtil.applyDefaultEntityFilters(
@@ -120,7 +123,8 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         .getOperationContext()
                         .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags)
                         .withCallerOptionalFilterFields(
-                            DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter)),
+                            DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
+                        .withCallerFiltered(callerFiltered),
                     finalEntities,
                     sanitizedQuery,
                     combinedFilter,

@@ -58,9 +58,15 @@
     name: Fulltext
     description: "Complete text query. Matches analyzed fields, a name prefix, and an exact name, and adds clauses for synonyms, identifiers, dotted names, and long phrases. A query of four or more tokens also scores a description that contains every term and a description that contains a share of them."
     dialect: ELASTICSEARCH
-    apiVersion: 1
+    apiVersion: 2
     editable: false
     matchedFields: true
+    # With hybrid read on, rescores the rows in the keyword window whose entity type semantic
+    # search covers. Other rows keep their places, and the keyword total and facets stand. No
+    # floor: blendFloor is unset. Each entity type uses its default embedding profile.
+    retrieval:
+      combine: keywordRerank
+    knn: '{"others": "keepKeywordPlaces"}'
     query: |
       {{=<% %>=}}
       {
@@ -590,6 +596,8 @@
     apiVersion: 1
     editable: false
     parent: urn:li:searchTemplate:fulltext
+    # Leaves retrieval and knn unset on purpose: it inherits the fulltext keywordRerank and its
+    # blend, so the keyword surface reranks the same way whichever of the two rungs serves.
     query: |
       {{=<% %>=}}
       {
@@ -1625,3 +1633,39 @@
         }
       }
       <%={{ }}=%>
+- entityUrn: urn:li:searchTemplate:semantic
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Semantic
+    description: "Semantic search. Embeds the query and retrieves one window of nearest neighbors for the requested entity types that semantic search covers, inside the caller's filter and the default search filters. The page, the total, and the facets cover those neighbors. An entity type that semantic search does not cover is left out, and a request with no such type returns no results."
+    dialect: ELASTICSEARCH
+    apiVersion: 2
+    editable: false
+    # One kNN window, sized like the semantic search page window. No candidateCap, no floor, and no
+    # next. Each entity type uses its default embedding profile.
+    retrieval:
+      combine: vector
+    routes: []
+- entityUrn: urn:li:searchTemplate:similarity
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Similarity
+    description: "Entities similar to the one the query names by URN. Every stored chunk vector of that entity is a query vector, and a neighbor scores its best cosine. The neighbors are retrieved inside the caller's filter and the default search filters, and the entity itself is left out. Up to 500 neighbors are retrieved, and those below a cosine of 0.8 are dropped. An entity with no stored vectors fails the search."
+    dialect: ELASTICSEARCH
+    apiVersion: 2
+    editable: false
+    # The anchor's entity type selects the embedding profile. A requested entity type outside it is
+    # left out. No next and no keyword fallback.
+    retrieval:
+      combine: vector
+      querySource: anchorEntity
+      candidateCap: 500
+      minSimilarity: 0.8
+      anchor:
+        urnParameter: raw
+        excludeSelf: true
+    routes: []

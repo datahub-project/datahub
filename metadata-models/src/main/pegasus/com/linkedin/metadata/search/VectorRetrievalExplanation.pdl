@@ -1,0 +1,95 @@
+namespace com.linkedin.metadata.search
+
+/**
+ * How the served template's vector rung (combine: vector) retrieved a search result.
+ */
+record VectorRetrievalExplanation {
+
+  /**
+   * served, empty (no hit survived), pastWindow (the page starts past the surviving hits), or
+   * noEligibleEntities (no requested entity type passes the entity gates).
+   */
+  outcome: string
+
+  /**
+   * The embedding profile the kNN request queried.
+   */
+  profile: optional string
+
+  /**
+   * The store that served the neighbors: elasticsearch or opensearch for the DataHub index, else the
+   * external store's configured name.
+   */
+  store: optional string
+
+  /**
+   * Milliseconds the external store's search call took. Absent on the DataHub index.
+   */
+  adapterLatencyMillis: optional long
+
+  /**
+   * Hits an external store returned that hydration on the DataHub index dropped: deleted, hidden,
+   * outside the filter there, or not viewable by the caller.
+   */
+  removedByHydration: int = 0
+
+  /**
+   * Requested entity types the kNN request searched.
+   */
+  entityTypes: array[string] = []
+
+  /**
+   * Requested entity types left out of the vector leg, each as entityType:reason.
+   */
+  excludedEntityTypes: array[string] = []
+
+  /**
+   * Neighbors requested: the template's candidateCap, clamped to the store's maximum, or the window
+   * semantic search fetches for the page when the template sets no cap.
+   */
+  k: optional int
+
+  /**
+   * The template's candidateCap, set when it exceeded the store's maximum and k was clamped to it.
+   */
+  clampedCandidateCap: optional int
+
+  /**
+   * Hits the store returned, before any floor.
+   */
+  candidates: optional int
+
+  /**
+   * The raw cosine floor in effect: retrieval.minSimilarity, else semanticSearch.minSimilarity.
+   */
+  minSimilarity: optional float
+
+  /**
+   * Why the floor inherited from semanticSearch.minSimilarity was not applied: profileNotCosine,
+   * when the profile's metric is not cosine and a raw cosine floor means nothing.
+   */
+  minSimilaritySkipped: optional string
+
+  /**
+   * Hits below minSimilarity. They are dropped and the window is not refilled.
+   */
+  belowMinSimilarity: int = 0
+
+  /**
+   * Hits below the deprecated SearchFlags.minScore. They are dropped and the window is not
+   * refilled.
+   */
+  belowMinScore: int = 0
+
+  /**
+   * The caller's filter and the default search filters ran inside the vector search, so neighbors
+   * were retrieved inside them. False on an external store without preFilter, where hydration
+   * applies the default search filters after retrieval.
+   */
+  filterInVectorSearch: boolean = false
+
+  /**
+   * Deprecated inputs this search used, each with its replacement.
+   */
+  deprecations: array[string] = []
+}

@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.search;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -19,6 +20,8 @@ import com.linkedin.gms.factory.entity.update.indices.UpdateIndicesStrategyFacto
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.SearchClusterIndexSettings;
+import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -27,6 +30,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexMigrationSta
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SearchV3CutoverStamp;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -167,7 +171,7 @@ public class SearchV3ReadHoldTest {
     ElasticSearchConfiguration config = v3Reads();
     SearchClusterRegistry registry = mock(SearchClusterRegistry.class);
     SearchClientShim<?> failing = mock(SearchClientShim.class);
-    when(failing.indexExists(any(), any(), any())).thenThrow(new IOException("down"));
+    when(failing.getIndex(any(), any(), any())).thenThrow(new IOException("down"));
     doReturn(failing).when(registry).clientFor(SearchComponent.SEARCH_V2);
     doReturn(mock(SearchClientShim.class)).when(registry).clientFor(SearchComponent.SEARCH_V3);
     SearchV3ReadHold failingHold =
@@ -175,6 +179,123 @@ public class SearchV3ReadHoldTest {
 
     assertThrows(IllegalStateException.class, () -> failingHold.applyTo(config));
     assertFalse(config.getEntityIndex().getV2().isEnabled());
+  }
+
+  @Test
+  public void testEveryListedV2PrefixIsPaired() throws Exception {
+    ElasticSearchConfiguration config = v3Reads();
+    Stubbed stubbed =
+        stub(null, true, Map.of("_meta", Map.of("migration", "complete")), Map.of(), List.of());
+    when(stubbed.v2Client.getIndex(any(), any(), any()))
+        .thenReturn(listing("datasetindex_v2", "acme_datasetindex_v2"));
+
+    stubbed.hold.applyTo(config);
+
+    verify(stubbed.v2Client)
+        .getIndex(
+            any(),
+            argThat(
+                (GetIndexRequest request) ->
+                    request.indicesOptions().allowNoIndices()
+                        && request.indicesOptions().ignoreUnavailable()
+                        && request.indicesOptions().expandWildcardsClosed()),
+            any());
+    verify(stubbed.v2Client, times(2)).putIndexMapping(any(), any(PutMappingRequest.class), any());
+  }
+
+  @Test
+  public void testCamelCaseEntityNameStillYieldsItsNamespaceToken() throws Exception {
+    ElasticSearchConfiguration config = v3Reads();
+    SearchClusterRegistry registry = mock(SearchClusterRegistry.class);
+    when(registry.allConnections()).thenReturn(List.of());
+    SearchClientShim<?> v2Client = mock(SearchClientShim.class);
+    SearchClientShim<?> v3Client = mock(SearchClientShim.class);
+    GetMappingsResponse emptyMapping = mappings("index", Map.of());
+    GetMappingsResponse completeMapping =
+        mappings("datajobindex_v3", Map.of("_meta", Map.of("migration", "complete")));
+    CountResponse oneDocument = countOf(1);
+    when(v2Client.getIndex(any(), any(), any())).thenReturn(listing("acme_datajobindex_v2"));
+    when(v2Client.indexExists(any(), any(), any()))
+        .thenAnswer(
+            invocation ->
+                "acme_datajobindex_v2"
+                    .equals(((GetIndexRequest) invocation.getArgument(1)).indices()[0]));
+    when(v2Client.getIndexMapping(any(), any(), any())).thenReturn(emptyMapping);
+    when(v2Client.putIndexMapping(any(), any(), any())).thenReturn(null);
+    when(v3Client.indexExists(any(), any(), any())).thenReturn(true);
+    when(v3Client.getIndexMapping(any(), any(), any())).thenReturn(completeMapping);
+    when(v3Client.count(any(), any(), any())).thenReturn(oneDocument);
+    doReturn(v2Client).when(registry).clientFor(SearchComponent.SEARCH_V2);
+    doReturn(v3Client).when(registry).clientFor(SearchComponent.SEARCH_V3);
+
+    IndexConvention convention = mock(IndexConvention.class);
+    when(convention.getEntityIndexName(any(), any())).thenReturn("datajobindex_v2");
+    when(convention.getEntityIndexNameV3(any(), any())).thenReturn("datajobindex_v3");
+    when(convention.getPrefix(any())).thenReturn(java.util.Optional.empty());
+    when(convention.getPrefix(any(), any())).thenReturn(java.util.Optional.empty());
+    EntitySpec dataJob = mock(EntitySpec.class);
+    when(dataJob.getName()).thenReturn("dataJob");
+    when(dataJob.getSearchGroup()).thenReturn("dataJob");
+    EntityRegistry entities = mock(EntityRegistry.class);
+    when(entities.getEntitySpecs()).thenReturn(Map.of("dataJob", dataJob));
+
+    new SearchV3ReadHold(registry, convention, entities, null, false).applyTo(config);
+
+    verify(v2Client)
+        .putIndexMapping(
+            any(),
+            argThat(
+                (PutMappingRequest request) -> "acme_datajobindex_v2".equals(request.indices()[0])),
+            any());
+  }
+
+  @Test
+  public void testEqualV3PrefixOverlayStillSharesOneV3Index() throws Exception {
+    ElasticSearchConfiguration config = v3Reads();
+    config.setClusters(
+        Map.of(
+            "primary",
+            SearchClusterSettings.builder()
+                .index(SearchClusterIndexSettings.builder().prefix("prod").build())
+                .build()));
+    SearchClusterRegistry registry = mock(SearchClusterRegistry.class);
+    when(registry.allConnections()).thenReturn(List.of());
+    SearchClientShim<?> v2Client = mock(SearchClientShim.class);
+    SearchClientShim<?> v3Client = mock(SearchClientShim.class);
+    GetMappingsResponse emptyMapping = mappings("index", Map.of());
+    GetMappingsResponse completeMapping =
+        mappings("prod_datasetindex_v3", Map.of("_meta", Map.of("migration", "complete")));
+    CountResponse oneDocument = countOf(1);
+    when(v2Client.getIndex(any(), any(), any()))
+        .thenReturn(listing("prod_datasetindex_v2", "acme_datasetindex_v2"));
+    when(v2Client.indexExists(any(), any(), any())).thenReturn(true);
+    when(v2Client.getIndexMapping(any(), any(), any())).thenReturn(emptyMapping);
+    when(v2Client.putIndexMapping(any(), any(), any())).thenReturn(null);
+    when(v3Client.indexExists(any(), any(), any())).thenReturn(true);
+    when(v3Client.getIndexMapping(any(), any(), any())).thenReturn(completeMapping);
+    when(v3Client.count(any(), any(), any())).thenReturn(oneDocument);
+    doReturn(v2Client).when(registry).clientFor(SearchComponent.SEARCH_V2);
+    doReturn(v3Client).when(registry).clientFor(SearchComponent.SEARCH_V3);
+
+    IndexConvention convention = mock(IndexConvention.class);
+    when(convention.getEntityIndexName(any(), eq("dataset"))).thenReturn("prod_datasetindex_v2");
+    when(convention.getEntityIndexNameV3(any(), any())).thenReturn("prod_datasetindex_v3");
+    when(convention.getPrefix(any())).thenReturn(java.util.Optional.of("prod"));
+    when(convention.getPrefix(any(), any())).thenReturn(java.util.Optional.of("prod"));
+    new SearchV3ReadHold(registry, convention, entityRegistry(), null, false).applyTo(config);
+
+    verify(v3Client, times(1))
+        .indexExists(
+            any(),
+            argThat(
+                (GetIndexRequest request) -> "prod_datasetindex_v3".equals(request.indices()[0])),
+            any());
+    verify(v3Client, never())
+        .indexExists(
+            any(),
+            argThat(
+                (GetIndexRequest request) -> "acme_datasetindex_v3".equals(request.indices()[0])),
+            any());
   }
 
   @Test
@@ -759,6 +880,7 @@ public class SearchV3ReadHoldTest {
     SearchClientShim<?> v2Client = mock(SearchClientShim.class);
     SearchClientShim<?> v3Client = mock(SearchClientShim.class);
     when(v2Client.indexExists(any(), any(), any())).thenReturn(v2Exists);
+    when(v2Client.getIndex(any(), any(), any())).thenReturn(listing());
     when(v3Client.indexExists(any(), any(), any())).thenReturn(v2Exists);
     GetMappingsResponse v2Mappings = mappings("datasetindex_v2", v2Mapping);
     when(v2Client.getIndexMapping(any(), any(), any())).thenReturn(v2Mappings);
@@ -812,7 +934,13 @@ public class SearchV3ReadHoldTest {
     IndexConvention convention = mock(IndexConvention.class);
     when(convention.getEntityIndexName(any(), any())).thenReturn("datasetindex_v2");
     when(convention.getEntityIndexNameV3(any(), any())).thenReturn("datasetindex_v3");
+    when(convention.getPrefix(any())).thenReturn(java.util.Optional.empty());
+    when(convention.getPrefix(any(), any())).thenReturn(java.util.Optional.empty());
     return convention;
+  }
+
+  private static GetIndexResponse listing(String... indexNames) {
+    return new GetIndexResponse(indexNames, Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
   }
 
   private static EntityRegistry entityRegistry() {
@@ -837,6 +965,8 @@ public class SearchV3ReadHoldTest {
     when(convention.getEntityIndexNameV3(any(), eq("primary"))).thenReturn("primaryindex_v3");
     when(convention.getEntityIndexNameV3(any(), eq("dataset"))).thenReturn("datasetindex_v3");
     when(convention.getEntityIndexNameV3(any(), eq("chart"))).thenReturn("chartindex_v3");
+    when(convention.getPrefix(any())).thenReturn(java.util.Optional.empty());
+    when(convention.getPrefix(any(), any())).thenReturn(java.util.Optional.empty());
     EntitySpec dataset = mock(EntitySpec.class);
     when(dataset.getName()).thenReturn("dataset");
     when(dataset.getSearchGroup()).thenReturn(shared ? "primary" : "dataset");
@@ -851,6 +981,7 @@ public class SearchV3ReadHoldTest {
     SearchClientShim<?> v2Client = mock(SearchClientShim.class);
     SearchClientShim<?> v3Client = mock(SearchClientShim.class);
     when(v2Client.indexExists(any(), any(), any())).thenReturn(true);
+    when(v2Client.getIndex(any(), any(), any())).thenReturn(listing());
     when(v3Client.indexExists(any(), any(), any())).thenReturn(true);
     GetMappingsResponse empty = mappings("index", Map.of());
     when(v2Client.getIndexMapping(any(), any(), any())).thenReturn(empty);
@@ -916,6 +1047,8 @@ public class SearchV3ReadHoldTest {
     when(convention.getEntityIndexName(any(), eq("chart"))).thenReturn("chartindex_v2");
     when(convention.getEntityIndexNameV3(any(), eq("dataset"))).thenReturn("datasetindex_v3");
     when(convention.getEntityIndexNameV3(any(), eq("chart"))).thenReturn("chartindex_v3");
+    when(convention.getPrefix(any())).thenReturn(java.util.Optional.empty());
+    when(convention.getPrefix(any(), any())).thenReturn(java.util.Optional.empty());
     EntitySpec dataset = mock(EntitySpec.class);
     when(dataset.getName()).thenReturn("dataset");
     when(dataset.getSearchGroup()).thenReturn("dataset");
@@ -930,6 +1063,7 @@ public class SearchV3ReadHoldTest {
     SearchClientShim<?> v2Client = mock(SearchClientShim.class);
     SearchClientShim<?> v3Client = mock(SearchClientShim.class);
     when(v2Client.indexExists(any(), any(), any())).thenReturn(true);
+    when(v2Client.getIndex(any(), any(), any())).thenReturn(listing());
     when(v3Client.indexExists(any(), any(), any()))
         .thenAnswer(
             invocation -> {

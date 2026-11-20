@@ -14,9 +14,12 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.KeywordRerankExplanation;
 import com.linkedin.datahub.graphql.generated.ScrollResults;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.generated.VectorRetrievalExplanation;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.MatchedFieldArray;
@@ -102,6 +105,125 @@ public class UrnSearchResultsMapperTest {
 
     assertEquals(mapped.getSearchResults().size(), 2);
     assertEquals(mapped.getTotal(), 2);
+  }
+
+  @Test
+  public void testKeywordRerankExplanationIsMapped() throws Exception {
+    SearchResult backend = backendResult(new SearchEntityArray());
+    backend
+        .getMetadata()
+        .setKeywordRerank(
+            new com.linkedin.metadata.search.KeywordRerankExplanation()
+                .setOutcome("keptKeywordOrder")
+                .setReason("timeout")
+                .setEligibleRows(40)
+                .setIneligibleRows(60)
+                .setDeprecations(new StringArray("SearchFlags.minScore")));
+
+    KeywordRerankExplanation mapped = UrnSearchResultsMapper.map(null, backend).getKeywordRerank();
+
+    assertEquals(mapped.getOutcome(), "keptKeywordOrder");
+    assertEquals(mapped.getReason(), "timeout");
+    assertEquals(mapped.getEligibleRows().intValue(), 40);
+    assertEquals(mapped.getIneligibleRows().intValue(), 60);
+    assertEquals(mapped.getDeprecations(), List.of("SearchFlags.minScore"));
+    // Without an explanation the field stays unset.
+    assertNull(
+        UrnSearchResultsMapper.map(null, backendResult(new SearchEntityArray()))
+            .getKeywordRerank());
+  }
+
+  @Test
+  public void testAppliedKeywordRerankMapsWithoutItsOptionalFields() throws Exception {
+    // An applied rerank has no reason, and a window that was never scored has no row counts.
+    SearchResult backend = backendResult(new SearchEntityArray());
+    backend
+        .getMetadata()
+        .setKeywordRerank(
+            new com.linkedin.metadata.search.KeywordRerankExplanation().setOutcome("applied"));
+
+    KeywordRerankExplanation mapped = UrnSearchResultsMapper.map(null, backend).getKeywordRerank();
+
+    assertEquals(mapped.getOutcome(), "applied");
+    assertNull(mapped.getReason());
+    assertNull(mapped.getEligibleRows());
+    assertNull(mapped.getIneligibleRows());
+    assertEquals(mapped.getDeprecations(), List.of());
+  }
+
+  @Test
+  public void testVectorRetrievalExplanationIsMapped() throws Exception {
+    SearchResult backend = backendResult(new SearchEntityArray());
+    backend
+        .getMetadata()
+        .setVectorRetrieval(
+            new com.linkedin.metadata.search.VectorRetrievalExplanation()
+                .setOutcome("served")
+                .setProfile("text_embedding_3_small")
+                .setStore("external")
+                .setAdapterLatencyMillis(42L)
+                .setRemovedByHydration(2)
+                .setEntityTypes(new StringArray("document"))
+                .setExcludedEntityTypes(new StringArray("dataset:entityNotEnabled"))
+                .setK(1000)
+                .setClampedCandidateCap(5000)
+                .setCandidates(12)
+                .setMinSimilarity(0.8f)
+                .setMinSimilaritySkipped("profileNotCosine")
+                .setBelowMinSimilarity(3)
+                .setBelowMinScore(1)
+                .setFilterInVectorSearch(true)
+                .setDeprecations(new StringArray("SearchFlags.minScore")));
+
+    VectorRetrievalExplanation mapped =
+        UrnSearchResultsMapper.map(null, backend).getVectorRetrieval();
+
+    assertEquals(mapped.getOutcome(), "served");
+    assertEquals(mapped.getProfile(), "text_embedding_3_small");
+    assertEquals(mapped.getStore(), "external");
+    assertEquals(mapped.getAdapterLatencyMillis().longValue(), 42L);
+    assertEquals(mapped.getRemovedByHydration(), 2);
+    assertEquals(mapped.getEntityTypes(), List.of("document"));
+    assertEquals(mapped.getExcludedEntityTypes(), List.of("dataset:entityNotEnabled"));
+    assertEquals(mapped.getK().intValue(), 1000);
+    assertEquals(mapped.getClampedCandidateCap().intValue(), 5000);
+    assertEquals(mapped.getCandidates().intValue(), 12);
+    assertEquals(mapped.getMinSimilarity(), 0.8f);
+    assertEquals(mapped.getMinSimilaritySkipped(), "profileNotCosine");
+    assertEquals(mapped.getBelowMinSimilarity(), 3);
+    assertEquals(mapped.getBelowMinScore(), 1);
+    assertTrue(mapped.getFilterInVectorSearch());
+    assertEquals(mapped.getDeprecations(), List.of("SearchFlags.minScore"));
+    assertNull(
+        UrnSearchResultsMapper.map(null, backendResult(new SearchEntityArray()))
+            .getVectorRetrieval());
+  }
+
+  @Test
+  public void testNativeVectorRetrievalMapsWithoutTheExternalStoreFields() throws Exception {
+    // A rung on the DataHub index calls no adapter, so explain has no latency or hydration counts
+    SearchResult backend = backendResult(new SearchEntityArray());
+    backend
+        .getMetadata()
+        .setVectorRetrieval(
+            new com.linkedin.metadata.search.VectorRetrievalExplanation()
+                .setOutcome("served")
+                .setProfile("text_embedding_3_small")
+                .setEntityTypes(new StringArray("document"))
+                .setExcludedEntityTypes(new StringArray())
+                .setK(100)
+                .setCandidates(3)
+                .setFilterInVectorSearch(true)
+                .setDeprecations(new StringArray()));
+
+    VectorRetrievalExplanation mapped =
+        UrnSearchResultsMapper.map(null, backend).getVectorRetrieval();
+
+    assertEquals(mapped.getOutcome(), "served");
+    assertNull(mapped.getStore());
+    assertNull(mapped.getAdapterLatencyMillis());
+    assertEquals(mapped.getRemovedByHydration(), 0);
+    assertEquals(mapped.getCandidates().intValue(), 3);
   }
 
   @Test

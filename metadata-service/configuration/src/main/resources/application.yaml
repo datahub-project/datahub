@@ -339,7 +339,9 @@ datahub:
           hysteresisPercent: 5
         hazelcast:
           evictionPolicy: MAX_SIZE
-          maxSizePerNode: 32
+          # Hazelcast uses 271 partitions. A PER_NODE cap below that is clamped to about one entry
+          # per partition, so two components in one partition evict each other.
+          maxSizePerNode: ${ENTITY_GRAPH_CACHE_HAZELCAST_MAX_SIZE_PER_NODE:542}
           maxSizePolicy: PER_NODE
           heapMaxSizePercent: 0
           ttlSeconds: 0
@@ -1067,6 +1069,9 @@ elasticsearch:
     semanticSearch:
       enabled: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED:false}
       enabledEntities: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES:document}
+      # Raw cosine floor, from -1 to 1, for search template vector rungs that leave
+      # retrieval.minSimilarity unset. Unset means no floor.
+      minSimilarity: ${ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY:}
       # Multi-model configuration: map of model name to embedding config
       # Example with multiple models:
       # models:
@@ -1801,6 +1806,10 @@ devTooling:
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
   consumerGroupSuffix: ${SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX:}
+  # How many sibling links a sibling-group walk follows from its starting dataset (siblingGroups,
+  # "Composed of", count-only lineage). Typical groups are 1-2 hops deep; a group deeper than this
+  # is reported as truncated. Values below 1 fall back to the default.
+  maxGroupHops: ${SIBLINGS_MAX_GROUP_HOPS:5}
 updateIndices:
   enabled: ${ENABLE_UPDATE_INDICES_HOOK:true}
   consumerGroupSuffix: ${UPDATE_INDICES_CONSUMER_GROUP_SUFFIX:}
@@ -2179,6 +2188,7 @@ featureFlags:
   nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
   schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true} # Enables fetching for schema field entities from the database when we hydrate them on schema fields
   businessAttributeEntityEnabled: ${BUSINESS_ATTRIBUTE_ENTITY_ENABLED:false} # Enables business attribute entity which can be associated with field of dataset
+  showApplicationsFeatureToggle: ${SHOW_APPLICATIONS_FEATURE_TOGGLE:false} # Shows the "Show Applications" toggle on the Appearance settings page. Applications are deprioritized, so the toggle is hidden by default
   dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:true} # Enables the Data Contracts feature (Tab) in the UI
   alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false} # Enables alternate MCP validation flow
   themeV2Enabled: ${THEME_V2_ENABLED:true} # Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be false for this to have any effect.
@@ -2390,6 +2400,11 @@ graphQL:
     maxParentDepth: ${GRAPHQL_QUERY_MAX_PARENT_DEPTH:50}
     # Relationship resolution cap per request (cycle/unbounded protection)
     maxVisitedUrns: ${GRAPHQL_QUERY_MAX_VISITED_URNS:20000}
+    # Max datasets per siblingGroups request; 0 (the default) turns the query off, which hides
+    # "Show siblings" in search and keeps the dataset "Composed of" list as before. Each request walks
+    # up to 1,000 members per dataset and, with view authorization on, view-checks every member:
+    # test at your scale before enabling. The search UI sends up to 30 urns (its largest page).
+    maxSiblingGroupUrns: ${GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS:0}
     slowQueryThresholdMs: ${GRAPHQL_QUERY_SLOW_QUERY_THRESHOLD_MS:1000}
     # Stream the JSON response to the socket instead of buffering it as one String (bounds GMS heap
     # on large fan-out responses). Opt-in kill switch; default off preserves the buffered behavior.

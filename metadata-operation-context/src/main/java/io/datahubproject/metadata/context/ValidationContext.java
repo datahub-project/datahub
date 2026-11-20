@@ -15,8 +15,15 @@ public class ValidationContext implements ContextInterface {
   // validation)
   private final boolean isRemediationDeletion;
 
+  // Flag to indicate this is an ingestion rollback deletion (skip validators that guard ordinary
+  // deletes, since a rollback removes rows in no particular order)
+  private final boolean isRollbackDeletion;
+
   @Override
   public Optional<Integer> getCacheKeyComponent() {
-    return Optional.of((alternateValidation ? 1 : 0) + (isRemediationDeletion ? 2 : 0));
+    return Optional.of(
+        (alternateValidation ? 1 : 0)
+            + (isRemediationDeletion ? 2 : 0)
+            + (isRollbackDeletion ? 4 : 0));
   }
 }

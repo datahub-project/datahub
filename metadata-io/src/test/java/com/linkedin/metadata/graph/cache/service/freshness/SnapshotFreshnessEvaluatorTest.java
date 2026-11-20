@@ -5,6 +5,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.PopulationStrategy;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.RebuildExecution;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ScopeMode;
 import com.linkedin.metadata.graph.cache.CacheStatus;
@@ -13,6 +14,7 @@ import com.linkedin.metadata.graph.cache.config.EntityGraphModel.EntityGraphDefi
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.EntityGraphScope;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot;
 import com.linkedin.metadata.graph.cache.store.EntityGraphDistributedStore;
+import com.linkedin.metadata.graph.cache.store.EntityGraphOperationalStatus;
 import org.testng.annotations.Test;
 
 public class SnapshotFreshnessEvaluatorTest {
@@ -55,6 +57,105 @@ public class SnapshotFreshnessEvaluatorTest {
     when(distributedStore.getSnapshot(CACHE_KEY)).thenReturn(null);
 
     assertTrue(evaluator.expandBlocked(definition, CACHE_KEY, TraversalDirection.FORWARD));
+  }
+
+  @Test
+  public void expandBlockedAllowsStaleScheduledFullSnapshot() {
+    EntityGraphDistributedStore distributedStore = mock(EntityGraphDistributedStore.class);
+    SnapshotFreshnessEvaluator evaluator = new SnapshotFreshnessEvaluator(distributedStore);
+    EntityGraphDefinition definition =
+        EntityGraphDefinition.builder()
+            .graphId("domain")
+            .scope(EntityGraphScope.builder().mode(ScopeMode.FULL).build())
+            .populationStrategy(PopulationStrategy.SCHEDULED)
+            .rebuildExecution(RebuildExecution.SYNC)
+            .populationIntervalSeconds(60)
+            .build();
+    when(distributedStore.getStatus(CACHE_KEY)).thenReturn(CacheStatus.ACTIVE);
+    when(distributedStore.hasServableSnapshot(CACHE_KEY)).thenReturn(true);
+    when(distributedStore.getSnapshot(CACHE_KEY))
+        .thenReturn(snapshot(System.currentTimeMillis() - 120_000L));
+
+    assertFalse(evaluator.expandBlocked(definition, CACHE_KEY, TraversalDirection.FORWARD));
+  }
+
+  @Test
+  public void expandBlockedAllowsStalePartialSnapshotWhenConfigured() {
+    EntityGraphDistributedStore distributedStore = mock(EntityGraphDistributedStore.class);
+    SnapshotFreshnessEvaluator evaluator = new SnapshotFreshnessEvaluator(distributedStore);
+    EntityGraphDefinition definition =
+        definition(ScopeMode.PARTIAL, RebuildExecution.STALE_WHILE_REVALIDATE, 60);
+    when(distributedStore.getStatus(CACHE_KEY)).thenReturn(CacheStatus.ACTIVE);
+    when(distributedStore.hasServableSnapshot(CACHE_KEY)).thenReturn(true);
+    when(distributedStore.getSnapshot(CACHE_KEY))
+        .thenReturn(snapshot(System.currentTimeMillis() - 120_000L));
+
+    assertFalse(evaluator.expandBlocked(definition, CACHE_KEY, TraversalDirection.FORWARD));
+  }
+
+  @Test
+  public void expandBlockedBlocksBuildingTombstone() {
+    EntityGraphDistributedStore distributedStore = mock(EntityGraphDistributedStore.class);
+    SnapshotFreshnessEvaluator evaluator = new SnapshotFreshnessEvaluator(distributedStore);
+    EntityGraphDefinition definition =
+        definition(ScopeMode.PARTIAL, RebuildExecution.STALE_WHILE_REVALIDATE, 60);
+    when(distributedStore.getStatus(CACHE_KEY)).thenReturn(CacheStatus.BUILDING);
+    when(distributedStore.hasServableSnapshot(CACHE_KEY)).thenReturn(false);
+    when(distributedStore.getSnapshot(CACHE_KEY))
+        .thenReturn(snapshot(System.currentTimeMillis() - 120_000L));
+
+    assertTrue(evaluator.expandBlocked(definition, CACHE_KEY, TraversalDirection.FORWARD));
+  }
+
+  @Test
+  public void expandBlockedStillBlocksStaleSyncPartialSnapshot() {
+    EntityGraphDistributedStore distributedStore = mock(EntityGraphDistributedStore.class);
+    SnapshotFreshnessEvaluator evaluator = new SnapshotFreshnessEvaluator(distributedStore);
+    EntityGraphDefinition definition = definition(ScopeMode.PARTIAL, RebuildExecution.SYNC, 60);
+    when(distributedStore.getStatus(CACHE_KEY)).thenReturn(CacheStatus.ACTIVE);
+    when(distributedStore.getSnapshot(CACHE_KEY))
+        .thenReturn(snapshot(System.currentTimeMillis() - 120_000L));
+
+    assertTrue(evaluator.expandBlocked(definition, CACHE_KEY, TraversalDirection.FORWARD));
+  }
+
+  @Test
+  public void shouldSkipRebuildWhileRefreshSuppressionIsActive() {
+    EntityGraphDistributedStore distributedStore = mock(EntityGraphDistributedStore.class);
+    SnapshotFreshnessEvaluator evaluator = new SnapshotFreshnessEvaluator(distributedStore);
+    EntityGraphDefinition definition =
+        definition(ScopeMode.PARTIAL, RebuildExecution.STALE_WHILE_REVALIDATE, 60);
+    when(distributedStore.getRebuildSuppression(CACHE_KEY))
+        .thenReturn(
+            EntityGraphOperationalStatus.of(CacheStatus.COOLDOWN, System.currentTimeMillis()));
+
+    assertTrue(evaluator.shouldSkipRebuild(CacheStatus.ACTIVE, CACHE_KEY, definition));
+  }
+
+  @Test
+  public void shouldSkipRebuildAfterSuppressionExpires() {
+    EntityGraphDistributedStore distributedStore = mock(EntityGraphDistributedStore.class);
+    SnapshotFreshnessEvaluator evaluator = new SnapshotFreshnessEvaluator(distributedStore);
+    EntityGraphDefinition definition =
+        definition(ScopeMode.PARTIAL, RebuildExecution.STALE_WHILE_REVALIDATE, 60);
+    when(distributedStore.getRebuildSuppression(CACHE_KEY))
+        .thenReturn(
+            EntityGraphOperationalStatus.of(
+                CacheStatus.COOLDOWN, System.currentTimeMillis() - 120_000L));
+
+    assertFalse(evaluator.shouldSkipRebuild(CacheStatus.ACTIVE, CACHE_KEY, definition));
+  }
+
+  @Test
+  public void shouldSkipRebuildWhileOverLimitSuppressionRemains() {
+    EntityGraphDistributedStore distributedStore = mock(EntityGraphDistributedStore.class);
+    SnapshotFreshnessEvaluator evaluator = new SnapshotFreshnessEvaluator(distributedStore);
+    EntityGraphDefinition definition =
+        definition(ScopeMode.PARTIAL, RebuildExecution.STALE_WHILE_REVALIDATE, 60);
+    when(distributedStore.getRebuildSuppression(CACHE_KEY))
+        .thenReturn(EntityGraphOperationalStatus.of(CacheStatus.OVER_LIMIT));
+
+    assertTrue(evaluator.shouldSkipRebuild(CacheStatus.ACTIVE, CACHE_KEY, definition));
   }
 
   private static EntityGraphDefinition definition(

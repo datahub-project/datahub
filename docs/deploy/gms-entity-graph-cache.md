@@ -34,7 +34,7 @@ For bundled `domain` with `population.strategy: SCHEDULED` and `intervalSeconds:
 **Operational implications:**
 
 - VBAC policy evaluation, search filter rewriters, and GraphQL hierarchy reads may use a hierarchy that lags async ingestion by up to `population.intervalSeconds`.
-- After the interval elapses, the scheduled rebuild runs on `entity-graph-scheduler`; until it completes, stale `ACTIVE` snapshots remain **`STALE_SERVABLE`** (reads continue on the previous snapshot). While status is `BUILDING`, reads return **`Miss(STALE_BLOCKED)`** and callers fall back to aspect walks or `GraphRetriever` scroll.
+- After the interval elapses, cached reads of a scheduled FULL graph keep serving the previous snapshot, both while it is still `ACTIVE` and while the scheduler holds `BUILDING`. Tombstones, a missing snapshot, and insufficient coverage still miss. `rebuildExecution: BACKGROUND` does not do this: those reads stay `Miss(STALE_BLOCKED)` until the new snapshot is fresh.
 
 **Runbook:** If domain expansion looks wrong immediately after bulk async ingest, wait for the next scheduled rebuild (at most `population.intervalSeconds`), confirm a rebuild completed (fresh `builtAtMillis`), or diagnose with `SearchFlags.skipCache=true` on search paths. Override `population.intervalSeconds` via `entity-graph-cache.yaml` or `ENTITY_GRAPH_CACHE_CONFIG_JSON` (see [Environment Variables — Entity graph cache](./environment-vars.md#entity-graph-cache)).
 
@@ -137,7 +137,7 @@ Production ships a reference **PARTIAL** graph for container nesting reads. The 
 | Build source | `graph` (bidirectional `IsPartOf` on container entities)                                                         |
 | Scope        | `PARTIAL`, `maxDepth: 12`                                                                                        |
 | Edges        | `container → container` only                                                                                     |
-| Population   | `LAZY`, `intervalSeconds: 1200` (20 minutes)                                                                     |
+| Population   | `LAZY`, `intervalSeconds: 1200`, `rebuildExecution: STALE_WHILE_REVALIDATE`                                      |
 | Bounds       | `maxVertices: 5000`, `maxEdges: 7500` (per WCC — raise via `ENTITY_GRAPH_CACHE_CONFIG_JSON` for large platforms) |
 | Near cache   | Off — inherits global `eviction.nearCache.partial`                                                               |
 
@@ -221,7 +221,7 @@ datahub:
           hysteresisPercent: 5
         hazelcast:
           evictionPolicy: MAX_SIZE
-          maxSizePerNode: 32
+          maxSizePerNode: 542
           maxSizePolicy: PER_NODE
           heapMaxSizePercent: 0
           ttlSeconds: 0
@@ -282,20 +282,20 @@ Example overlay to raise glossary depth or component bounds:
 
 ### Graph fields
 
-| Field                              | Required                     | Notes                                                                                                                                                                  |
-| ---------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`                          | Yes                          | Disabled graphs are omitted from the registry (no snapshot, no scheduler). Built-in graphs may be disabled via overlay without failing startup. Live fallbacks remain. |
-| `buildSource`                      | **Yes**                      | `primary`, `graph`, or `search` — sole build path (see [Terminology — buildSource](#buildsource-required-on-every-graph))                                              |
-| `edges[]` or `lineage`             | One mode                     | Mutually exclusive triplet vs lineage edge discovery                                                                                                                   |
-| `scope.mode`                       | Yes                          | `FULL` or `PARTIAL`                                                                                                                                                    |
-| `scope.maxDepth`                   | **Required > 0 for PARTIAL** | Per-direction BFS cap during **PARTIAL build** and in-memory read traversal (explicit in config only — **no default**). **Invalid for FULL** — use `bounds` instead.   |
-| `population.strategy`              | **Yes**                      | `LAZY` or `SCHEDULED`                                                                                                                                                  |
-| `population.rebuildExecution`      | No                           | `SYNC` (default), `BACKGROUND` (LAZY + FULL only — async rebuild, expand fail-closed until fresh)                                                                      |
-| `population.intervalSeconds`       | No                           | Staleness / COOLDOWN retry / SCHEDULED interval (default 300; bundled `domain` uses 600; bundled `glossary` uses 1200)                                                 |
-| `bounds.maxVertices` / `maxEdges`  | No                           | Build caps (defaults 10000 / 15000; bundled `domain` uses 500 / 750; bundled `glossary` uses 30000 / 45000)                                                            |
-| `bindings.*`                       | No                           | Custom call-site wiring — see [Known graphs and bindings](#known-graphs-and-bindings)                                                                                  |
-| `scroll.batchSize`                 | No                           | Build scroll page size (default 500)                                                                                                                                   |
-| `entityTypes` + `relationshipType` | No                           | Triplet shorthand — mutually exclusive with `lineage`                                                                                                                  |
+| Field                              | Required                     | Notes                                                                                                                                                                                                                                                                 |
+| ---------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                          | Yes                          | Disabled graphs are omitted from the registry (no snapshot, no scheduler). Built-in graphs may be disabled via overlay without failing startup. Live fallbacks remain.                                                                                                |
+| `buildSource`                      | **Yes**                      | `primary`, `graph`, or `search` — sole build path (see [Terminology — buildSource](#buildsource-required-on-every-graph))                                                                                                                                             |
+| `edges[]` or `lineage`             | One mode                     | Mutually exclusive triplet vs lineage edge discovery                                                                                                                                                                                                                  |
+| `scope.mode`                       | Yes                          | `FULL` or `PARTIAL`                                                                                                                                                                                                                                                   |
+| `scope.maxDepth`                   | **Required > 0 for PARTIAL** | Per-direction BFS cap during **PARTIAL build** and in-memory read traversal (explicit in config only — **no default**). **Invalid for FULL** — use `bounds` instead.                                                                                                  |
+| `population.strategy`              | **Yes**                      | `LAZY` or `SCHEDULED`                                                                                                                                                                                                                                                 |
+| `population.rebuildExecution`      | No                           | `SYNC` (default), `BACKGROUND` (LAZY + FULL only — async rebuild, expand fail-closed until fresh), `STALE_WHILE_REVALIDATE` (LAZY + PARTIAL only — serve the previous component and rebuild it in the background). Bundled `container` uses `STALE_WHILE_REVALIDATE`. |
+| `population.intervalSeconds`       | No                           | Staleness / COOLDOWN retry / SCHEDULED interval (default 300; bundled `domain` uses 600; bundled `glossary` uses 1200)                                                                                                                                                |
+| `bounds.maxVertices` / `maxEdges`  | No                           | Build caps (defaults 10000 / 15000; bundled `domain` uses 500 / 750; bundled `glossary` uses 30000 / 45000)                                                                                                                                                           |
+| `bindings.*`                       | No                           | Custom call-site wiring — see [Known graphs and bindings](#known-graphs-and-bindings)                                                                                                                                                                                 |
+| `scroll.batchSize`                 | No                           | Build scroll page size (default 500)                                                                                                                                                                                                                                  |
+| `entityTypes` + `relationshipType` | No                           | Triplet shorthand — mutually exclusive with `lineage`                                                                                                                                                                                                                 |
 
 #### Lineage graph examples
 
@@ -347,7 +347,7 @@ Operators define **which graphs exist** (edges, `buildSource`, scope, population
 
 **PARTIAL reuse:** different root sets in the same cached WCC share one snapshot. **Multi-root / multi-WCC:** roots spanning disconnected components are resolved separately, unioned into one **ephemeral** in-memory view for that request — no merged Hazelcast key is published.
 
-**PARTIAL limitations:** when traversal coverage for the requested direction is incomplete, expand **fails closed** (`GraphReadResult.Miss`) and call sites use live fallback. Multi-root PARTIAL requests also fail closed when **any** root is not `ACTIVE` or lacks sufficient coverage — see [PARTIAL components](#partial-components).
+**PARTIAL limitations:** when traversal coverage for the requested direction is incomplete, expand **fails closed** (`GraphReadResult.Miss`) and call sites use live fallback. Multi-root PARTIAL requests also fail closed when **any** root is not servable or lacks sufficient coverage. `SYNC` requires `ACTIVE`. `STALE_WHILE_REVALIDATE` also serves a stored snapshot while that key is `BUILDING`. See [PARTIAL components](#partial-components).
 
 **Read-time expand:** walks edges already materialized in the snapshot. **`scope.maxDepth` does not apply to FULL reads** — FULL graphs are size-limited at build by `bounds.*`; exceeding `bounds` yields **`OVER_LIMIT`** (no snapshot cached). **PARTIAL reads** are capped at configured `scope.maxDepth` (including incremental/on-demand builds). Call sites may pass an explicit per-call `maxDepth` (e.g. GraphQL direct children = `1`); on PARTIAL graphs explicit depths are clamped to `scope.maxDepth`. `EntityGraphCache.USE_DEFINITION_MAX_DEPTH` means walk the full materialized snapshot for FULL, or `scope.maxDepth` for PARTIAL. Tombstone states (`OVER_LIMIT`, `COOLDOWN`, `INVALID`) return `GraphReadResult.Miss(TOMBSTONE)`. When the per-call **`limit`** is exceeded, GMS returns **`Miss(TRUNCATED)`** without marking the snapshot over limit.
 
@@ -355,7 +355,19 @@ Operators define **which graphs exist** (edges, `buildSource`, scope, population
 
 **Seed coverage (all scopes):** when **any** requested seed URN is absent from the materialized snapshot, `expand()` returns **`Miss(ABSENT)`** so callers fall back to the live graph (or aspect walk). A partial HIT that expands only present seeds would under-restrict VBAC / policy ancestor expansion and hierarchy reads for newly created or re-parented roots still outside the snapshot. PARTIAL multi-root requests also fail closed earlier when any root is not cache-ready (see [PARTIAL components](#partial-components)).
 
-**LAZY rebuild latency:** missing or stale keys rebuild on the request thread when `rebuildExecution` is `SYNC` (default). **`SCHEDULED`** rebuilds run on `entity-graph-scheduler` (bundled `domain@search`). **`BACKGROUND`** (LAZY + FULL only) enqueues async rebuild — cached reads return **`Miss(STALE_BLOCKED)`** until fresh. While another pod holds `BUILDING`, **FULL**-scope cached reads may still serve the previous `ACTIVE` snapshot until sync invalidation removes stale vertices or drops the graph.
+**LAZY rebuild latency:** missing or stale keys rebuild on the request thread when `rebuildExecution` is `SYNC` (default). **`SCHEDULED`** rebuilds run on `entity-graph-scheduler` (bundled `domain@search` and `membership@graph`). A scheduled FULL read serves the previous snapshot after `intervalSeconds`, including before the scheduler claims `BUILDING`. **`BACKGROUND`** (LAZY + FULL only) enqueues an async rebuild and cached reads return **`Miss(STALE_BLOCKED)`** until fresh. **`STALE_WHILE_REVALIDATE`** (LAZY + PARTIAL only; bundled `container`) serves the previous component snapshot and rebuilds that same partial component in the background. It does not build a FULL graph. A missing snapshot, and a failure tombstone, still rebuild on the request thread. A `BUILDING` tombstone misses `STALE_BLOCKED`. A failed refresh does not tombstone a snapshot that is already stored: reads keep that component, and the next rebuild waits out `intervalSeconds` after a transient failure, or until invalidation after `OVER_LIMIT` / `INVALID`, including when the refresh throws a configuration exception. Turn it off by overlaying `rebuildExecution: SYNC` for `container` via `ENTITY_GRAPH_CACHE_CONFIG_JSON`. Scheduled FULL refreshes keep a stored snapshot the same way.
+
+**Cache metrics** (tagged with `graphId`):
+
+| Metric                                 | Tags                                                                       |
+| -------------------------------------- | -------------------------------------------------------------------------- |
+| `entity.graph.cache.read`              | `outcome` `hit`, `stale_hit`, or `miss`; `reason` always (`none` on a hit) |
+| `entity.graph.cache.rebuild.started`   | `execution` `sync`, `stale_while_revalidate`, `background`, or `scheduled` |
+| `entity.graph.cache.rebuild.completed` | same `execution` tag                                                       |
+| `entity.graph.cache.rebuild.failed`    | same `execution` tag                                                       |
+| `entity.graph.cache.rebuild.duration`  | same `execution` tag                                                       |
+| `entity.graph.cache.rebuild.enqueued`  | `execution` `background` or `stale_while_revalidate`                       |
+| `entity.graph.cache.entries`           | `graphId` `full` or `container`; sampled on the memory-pressure interval   |
 
 ### Traversal coverage
 
@@ -383,7 +395,7 @@ GMS also starts that instance for access-token revocation when the graph cache i
 | `entityGraphSnapshots.<graphId>` | PARTIAL-scope snapshots — one key per WCC component                                                                                                                                                                 |
 | `entityGraphStatus`              | Operational state: `BUILDING`, `COOLDOWN`, `OVER_LIMIT`, `INVALID`, failure markers. **`ACTIVE` lives on the snapshot**, not here. **No size eviction** — evicting operational entries can mask in-flight rebuilds. |
 
-Rebuilds claim a per-key **`BUILDING` lease** (`tryClaimRebuild`); successful publishes write **`ACTIVE` on the snapshot** and clear the lease. Failed builds write **failure tombstones** — `COOLDOWN` retries after `population.intervalSeconds`; `OVER_LIMIT` / `INVALID` wait for invalidation or config change. Snapshot IMap updates evict matching keys from **`EntityGraphLocalViewCache`** on each pod via `EntryListener`.
+Rebuilds claim a per-key **`BUILDING` lease** (`tryClaimRebuild`); successful publishes write **`ACTIVE` on the snapshot** and clear the lease. Failed builds write **failure tombstones** — `COOLDOWN` retries after `population.intervalSeconds`; `OVER_LIMIT` / `INVALID` wait for invalidation or config change. A failed refresh of a graph that serves its previous snapshot (`STALE_WHILE_REVALIDATE`, scheduled FULL) leaves that snapshot in place and records retry suppression on a side `entityGraphStatus` key (`{cacheKey}:rebuild-suppress`) instead of a tombstone. Snapshot IMap updates evict matching keys from **`EntityGraphLocalViewCache`** on each pod via `EntryListener`.
 
 ### Near cache, local views, and memory pressure
 
@@ -445,7 +457,7 @@ Graph edges are indexed by **relationship aspect name** (e.g. `domainProperties`
 | `OVER_LIMIT`          | No drop (see note below)            | No drop                             | **FULL:** remove vertex; may clear OVER_LIMIT if under `maxVertices`; **PARTIAL:** no-op |
 | `INVALID`             | No-op                               | No-op                               | No-op                                                                                    |
 
-Sync **create** and sync **update** to relationship aspects (e.g. `domainProperties` parent reassignment, `nativeGroupMembership`) drop the whole graph when status is `ABSENT`, `ACTIVE`, `COOLDOWN`, or `BUILDING`. Cold-cache (`ABSENT`) drops bump the per-graph invalidation generation so in-flight lazy rebuilds cannot publish stale partial snapshots before the sync write is visible. **`SCHEDULED` graphs do not rebuild on read** — only `entity-graph-scheduler` runs periodic rebuilds; after sync invalidation, cached reads **miss** and membership call sites fall back to batched ES graph scroll until the next scheduled rebuild. Sync **delete** on FULL graphs removes the vertex surgically (including during `BUILDING`) and **preserves full traversal coverage** so expand continues to serve the remaining snapshot until rebuild. Writes without the sync gate (async MCE/MAE, non-UI REST ingest) are not invalidated — they rely on `population.intervalSeconds` staleness until a sync-gated write or scheduled rebuild refreshes the snapshot.
+Sync **create** and sync **update** to relationship aspects (e.g. `domainProperties` parent reassignment, `nativeGroupMembership`) drop the whole graph when status is `ABSENT`, `ACTIVE`, `COOLDOWN`, or `BUILDING`. Cold-cache (`ABSENT`) drops bump the per-graph invalidation generation so in-flight lazy rebuilds cannot publish stale partial snapshots before the sync write is visible. **`SCHEDULED` graphs do not rebuild on read** — only `entity-graph-scheduler` runs periodic rebuilds; after sync invalidation, cached reads **miss** and membership call sites fall back to batched ES graph scroll until the next scheduled rebuild. Sync **delete** on FULL graphs removes the vertex surgically (including during `BUILDING`) and **preserves full traversal coverage** so expand continues to serve the remaining snapshot until rebuild. An `OVER_LIMIT` entry on `{cacheKey}:rebuild-suppress` is cleared on that same under-bounds delete. Writes without the sync gate (async MCE/MAE, non-UI REST ingest) are not invalidated — they rely on `population.intervalSeconds` staleness until a sync-gated write or scheduled rebuild refreshes the snapshot.
 
 **`OVER_LIMIT` and sync create:** `handleCreateInvalidation` only drops graphs when status is `ACTIVE` or `COOLDOWN`. Sync creates while `OVER_LIMIT` do **not** drop the graph. Callers already fail-closed or fall back when status is not `ACTIVE`. Recovery: raise `bounds.maxVertices` / `bounds.maxEdges` via `ENTITY_GRAPH_CACHE_CONFIG_JSON`, then manually drop the graph in Hazelcast or wait for ops intervention — see [Environment Variables — Entity graph cache](./environment-vars.md#entity-graph-cache).
 

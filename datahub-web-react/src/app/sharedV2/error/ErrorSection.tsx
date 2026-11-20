@@ -1,4 +1,3 @@
-import { Image, Typography } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
@@ -13,10 +12,25 @@ const Section = styled.div`
     margin-left: 60px;
 `;
 
-const TitleText = styled(Typography.Text)`
+// The routes' error fallback loads with the app shell, so it uses plain elements: antd's Image and
+// Typography would pull their preview, tooltip and editable-input code into the eager bundle
+const Logo = styled.img`
+    width: 40px;
+`;
+
+const TitleText = styled.span`
     font-size: 18px;
+    font-weight: 600;
     margin-left: 8px;
     color: ${(props) => props.theme.colors.textSecondary};
+`;
+
+const Title = styled.h2`
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.35;
+    margin-bottom: 0.5em;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const TitleSection = styled.div`
@@ -72,11 +86,11 @@ export const ErrorSection = (): JSX.Element => {
         <Section>
             <div>
                 <TitleSection>
-                    <Image src={themeLogo} preview={false} style={{ width: 40 }} />
-                    <TitleText strong>{themeConfig.content.title}</TitleText>
+                    <Logo src={themeLogo} alt="" />
+                    <TitleText>{themeConfig.content.title}</TitleText>
                 </TitleSection>
                 <MessageSection>
-                    <Typography.Title level={2}>{t('section.title')}</Typography.Title>
+                    <Title>{t('section.title')}</Title>
                     <DetailParagraph color="textSecondary">{t('section.description')}</DetailParagraph>
                 </MessageSection>
                 <div>
