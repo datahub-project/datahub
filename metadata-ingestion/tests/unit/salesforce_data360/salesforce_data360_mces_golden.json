@@ -1,0 +1,536 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__ContactPointEmail__dlm,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:salesforce"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793008800000,
+        "runId": "salesforce-data360-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__ContactPointEmail__dlm,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "ssot__ContactPointEmail__dlm",
+            "platform": "urn:li:dataPlatform:salesforce",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "ssot__Id__c",
+                    "nullable": false,
+                    "label": "Contact Point Email Id",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Text",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "ssot__PartyId__c",
+                    "nullable": false,
+                    "label": "Party",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "ssot__EmailAddress__c",
+                    "nullable": false,
+                    "label": "Email Address",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Email",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "ssot__LastModifiedDate__c",
+                    "nullable": false,
+                    "label": "Last Modified Date",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "DateTime",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ],
+            "primaryKeys": [
+                "ssot__Id__c"
+            ],
+            "foreignKeys": [
+                {
+                    "name": "ContactPointEmail_PartyId_map_Individual_Id_N_1",
+                    "foreignFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__Individual__dlm,PROD),ssot__Id__c)"
+                    ],
+                    "sourceFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__ContactPointEmail__dlm,PROD),ssot__PartyId__c)"
+                    ],
+                    "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__Individual__dlm,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793008800000,
+        "runId": "salesforce-data360-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__ContactPointEmail__dlm,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "category": "PROFILE",
+                "creationType": "Standard",
+                "isEnabled": "true",
+                "dataSpaceName": "default"
+            },
+            "name": "Contact Point Email",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793008800000,
+        "runId": "salesforce-data360-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__ContactPointEmail__dlm,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Data Model Object"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793008800000,
+        "runId": "salesforce-data360-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__Individual__dlm,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:salesforce"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793008800000,
+        "runId": "salesforce-data360-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__Individual__dlm,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "ssot__Individual__dlm",
+            "platform": "urn:li:dataPlatform:salesforce",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "ssot__Id__c",
+                    "nullable": false,
+                    "label": "Individual Id",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Text",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "ssot__FirstName__c",
+                    "nullable": false,
+                    "label": "First Name",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "ssot__BirthDate__c",
+                    "nullable": false,
+                    "label": "Birth Date",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "Date",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ],
+            "primaryKeys": [
+                "ssot__Id__c"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793008800000,
+        "runId": "salesforce-data360-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__Individual__dlm,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "category": "PROFILE",
+                "creationType": "Standard",
+                "isEnabled": "true",
+                "dataSpaceName": "default"
+            },
+            "name": "Individual",
+            "description": "A person known to the business.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793008800000,
+        "runId": "salesforce-data360-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__Individual__dlm,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Data Model Object"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793008800000,
+        "runId": "salesforce-data360-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,Loyalty_Member__dlm,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:salesforce"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793008800000,
+        "runId": "salesforce-data360-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,Loyalty_Member__dlm,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Loyalty_Member__dlm",
+            "platform": "urn:li:dataPlatform:salesforce",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Id__c",
+                    "nullable": false,
+                    "label": "Id",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Text",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "Individual_Id__c",
+                    "nullable": false,
+                    "label": "Individual Id",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Preferred_Email_Id__c",
+                    "nullable": false,
+                    "label": "Preferred Email Id",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Points__c",
+                    "nullable": false,
+                    "label": "Points",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Opted_In__c",
+                    "nullable": false,
+                    "label": "Opted In",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "Boolean",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Card_Image__c",
+                    "nullable": false,
+                    "label": "Card Image",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "Blob",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ],
+            "primaryKeys": [
+                "Id__c"
+            ],
+            "foreignKeys": [
+                {
+                    "name": "Individual_Id_map_Loyalty_Member_Individual_Id_1_N",
+                    "foreignFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__Individual__dlm,PROD),ssot__Id__c)"
+                    ],
+                    "sourceFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,Loyalty_Member__dlm,PROD),Individual_Id__c)"
+                    ],
+                    "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__Individual__dlm,PROD)"
+                },
+                {
+                    "name": "Loyalty_Member_Preferred_Email_Id_map_ContactPointEmail_Id_N_1",
+                    "foreignFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__ContactPointEmail__dlm,PROD),ssot__Id__c)"
+                    ],
+                    "sourceFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,Loyalty_Member__dlm,PROD),Preferred_Email_Id__c)"
+                    ],
+                    "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__ContactPointEmail__dlm,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793008800000,
+        "runId": "salesforce-data360-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,Loyalty_Member__dlm,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "category": "OTHER",
+                "creationType": "Custom",
+                "isEnabled": "false",
+                "dataSpaceName": "default"
+            },
+            "name": "Loyalty Member",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793008800000,
+        "runId": "salesforce-data360-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,Loyalty_Member__dlm,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Data Model Object"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793008800000,
+        "runId": "salesforce-data360-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,Loyalty_Member__dlm,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793008800000,
+        "runId": "salesforce-data360-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__ContactPointEmail__dlm,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793008800000,
+        "runId": "salesforce-data360-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,ssot__Individual__dlm,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793008800000,
+        "runId": "salesforce-data360-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

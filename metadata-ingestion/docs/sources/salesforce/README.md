@@ -6,8 +6,9 @@ The DataHub integration for Salesforce covers metadata entities and operational 
 
 ## Concept Mapping
 
-| Source Concept  | DataHub Concept                                           | Notes                     |
-| --------------- | --------------------------------------------------------- | ------------------------- |
-| `Salesforce`    | [Data Platform](../../metamodel/entities/dataPlatform.md) |                           |
-| Standard Object | [Dataset](../../metamodel/entities/dataset.md)            | subtype "Standard Object" |
-| Custom Object   | [Dataset](../../metamodel/entities/dataset.md)            | subtype "Custom Object"   |
+| Source Concept  | DataHub Concept                                           | Notes                       |
+| --------------- | --------------------------------------------------------- | --------------------------- |
+| `Salesforce`    | [Data Platform](../../metamodel/entities/dataPlatform.md) |                             |
+| Standard Object | [Dataset](../../metamodel/entities/dataset.md)            | subtype "Standard Object"   |
+| Custom Object   | [Dataset](../../metamodel/entities/dataset.md)            | subtype "Custom Object"     |
+| Data 360 DMO    | [Dataset](../../metamodel/entities/dataset.md)            | subtype "Data Model Object" |

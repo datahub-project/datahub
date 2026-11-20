@@ -1,0 +1,26 @@
+{
+  "currentPageUrl": "/services/data/v64.0/ssot/data-model-objects/ssot__ContactPointEmail__dlm/relationships?dataspace=default&limit=500",
+  "totalSize": 2,
+  "relationships": [
+    {
+      "name": "ContactPointEmail_PartyId_map_Individual_Id_N_1",
+      "cardinality": "ManyToOne",
+      "status": "ACTIVE",
+      "creationType": "Standard",
+      "sourceObject": {"name": "ssot__ContactPointEmail__dlm", "label": "Contact Point Email"},
+      "sourceField": {"name": "ssot__PartyId__c", "label": "Party", "type": "MktDataModelField"},
+      "targetObject": {"name": "ssot__Individual__dlm", "label": "Individual"},
+      "targetField": {"name": "ssot__Id__c", "label": "Individual Id", "type": "MktDataModelField"}
+    },
+    {
+      "name": "ContactPointEmail_PartyId_map_AbnExperiment_Id_N_1",
+      "cardinality": "ManyToOne",
+      "status": "INACTIVE",
+      "creationType": "Standard",
+      "sourceObject": {"name": "ssot__ContactPointEmail__dlm", "label": "Contact Point Email"},
+      "sourceField": {"name": "ssot__PartyId__c", "label": "Party", "type": "MktDataModelField"},
+      "targetObject": {"name": "ssot__AbnExperiment__dlm", "label": "Experiment"},
+      "targetField": {"name": "ssot__Id__c", "label": "Experiment Id", "type": "MktDataModelField"}
+    }
+  ]
+}

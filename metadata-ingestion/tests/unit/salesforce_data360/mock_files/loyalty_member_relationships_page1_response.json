@@ -1,0 +1,17 @@
+{
+  "currentPageUrl": "/services/data/v64.0/ssot/data-model-objects/Loyalty_Member__dlm/relationships?dataspace=default&limit=500",
+  "nextPageUrl": "/services/data/v64.0/ssot/data-model-objects/Loyalty_Member__dlm/relationships?dataspace=default&limit=500&offset=1",
+  "totalSize": 2,
+  "relationships": [
+    {
+      "name": "Individual_Id_map_Loyalty_Member_Individual_Id_1_N",
+      "cardinality": "OneToMany",
+      "status": "ACTIVE",
+      "creationType": "Custom",
+      "sourceObject": {"name": "ssot__Individual__dlm", "label": "Individual"},
+      "sourceField": {"name": "ssot__Id__c", "label": "Individual Id", "type": "MktDataModelField"},
+      "targetObject": {"name": "Loyalty_Member__dlm", "label": "Loyalty Member"},
+      "targetField": {"name": "Individual_Id__c", "label": "Individual Id", "type": "MktDataModelField"}
+    }
+  ]
+}
