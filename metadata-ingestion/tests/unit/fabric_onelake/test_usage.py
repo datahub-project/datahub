@@ -5,6 +5,7 @@ import pytest
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.fabric.onelake.config import FabricUsageConfig
+from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SQL_APP_NAME
 from datahub.ingestion.source.fabric.onelake.models import FabricQueryInsightsRow
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceReport
 from datahub.ingestion.source.fabric.onelake.usage import FabricUsageExtractor
@@ -22,6 +23,7 @@ def make_row(
     login_name: str | None = "alice@example.com",
     start_time: datetime | None = None,
     status: str = "Succeeded",
+    program_name: str | None = None,
 ) -> FabricQueryInsightsRow:
     return FabricQueryInsightsRow(
         start_time=start_time or QUERY_TS,
@@ -30,6 +32,7 @@ def make_row(
         command=command,
         login_name=login_name,
         row_count=1,
+        program_name=program_name,
     )
 
 
@@ -281,6 +284,24 @@ def test_handle_row_skips_user_filtered_by_email_pattern() -> None:
 
     aggregator.add_observed_query.assert_not_called()
     assert report.num_usage_queries_skipped.get("user_filtered") == 1
+
+
+@pytest.mark.parametrize(
+    "program_name, counted",
+    [(FABRIC_SQL_APP_NAME, False), ("SSMS", True), (None, True)],
+)
+def test_handle_row_skips_only_the_connectors_own_queries(
+    program_name: str | None, counted: bool
+) -> None:
+    extractor, aggregator, report = make_extractor()
+
+    extractor._handle_row(
+        make_row(program_name=program_name), WORKSPACE_ID, ITEM_ID, ITEM_DISPLAY_NAME
+    )
+
+    assert aggregator.add_observed_query.called == counted
+    skipped = report.num_usage_queries_skipped.get("datahub_ingestion_query", 0)
+    assert skipped == (0 if counted else 1)
 
 
 def test_handle_row_lowercases_login_name_in_user_urn() -> None:
