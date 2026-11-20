@@ -294,6 +294,26 @@ DataHub extracts lineage when a query reads from a Snowflake Stream. Coverage de
 
 The Stream entity itself is also extracted as a top-level dataset; the lineage above is in addition to that.
 
+#### Tags Written by DataHub
+
+When DataHub Cloud's Snowflake Metadata Sync automation writes tags, glossary terms or structured properties back to Snowflake as Snowflake tags, it records each Snowflake tag it created as a platform resource that names the DataHub entity it stands for. Ingestion reads these records and treats DataHub as the source of truth for those tags:
+
+- Ingestion never takes them from Snowflake. Snowflake's tag views can lag by hours, so a tag just removed or added in DataHub would otherwise be undone.
+- Where ingestion replaces an asset's tags or structured properties as a whole (tags on databases, schemas and tables; structured properties in `upsert` write mode), it keeps the ones DataHub currently holds for these tags. If DataHub can't be read for an asset, its tags or properties are left unchanged for that run and a warning is reported.
+- No DataHub tags, column tags or structured property definitions are created from them.
+- An asset whose Snowflake tags are all DataHub's still has its tags or structured properties written whole, so a tag removed in Snowflake is dropped as before.
+- Stale-entity removal never soft-deletes these records, or the DataHub tags kept on assets this way.
+
+The Snowflake tag propagation action in `datahub-actions` sets tags the same way but records no platform resources, so its tags are still ingested as nested tags such as `test_db.public.pii:urn:li:tag:pii`.
+
+If the records can't be loaded, the run reports a failure and skips Snowflake tags: tags and structured properties on databases, schemas and tables are left unchanged, and column tags are carried over from DataHub.
+
+Every other Snowflake tag is ingested as before. Records are loaded once at the start of each run, and a Snowflake tag with no record then is looked up again directly, once per run, so a tag DataHub writes to Snowflake during a run is recognised in the same run. Before writing its own records at the end of a run, ingestion reads them again and leaves alone any that DataHub created or took over in the meantime. The records are looked up and written through the DataHub graph, so this needs a DataHub connection (`datahub_api`, or the `datahub-rest` sink). Without one, every Snowflake tag is ingested as a native tag.
+
+Duplicate tags that earlier ingestion runs created from these Snowflake tags (for example `test_db.public.pii:high` next to `pii`) stay on assets until you remove them; ingestion does not clean them up.
+
+Snowflake tag names and values are matched without regard to case, so DataHub tags that differ only in case (for example `PII` and `pii`) written to the same Snowflake tag and value are treated as one. The platform instance is matched exactly as configured, with its case.
+
 #### Materialized Views
 
 Materialized views come from `SHOW VIEWS` and are marked as materialized in their view properties. Their last-modified time comes from `SHOW MATERIALIZED VIEWS`: the newest base-table change the view holds (`refreshed_on` or `compacted_on`), or the creation time when the data has not changed since. It needs the same access as `SHOW VIEWS`, and no warehouse.

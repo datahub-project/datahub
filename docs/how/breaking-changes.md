@@ -15,6 +15,14 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Show Applications setting is hidden by default
+
+Applications are being deprioritized. The **Show Applications** setting on the **Settings > Appearance**
+page is now hidden by default ([PR #21432](https://github.com/datahub-project/datahub/pull/21432)),
+so admins can no longer turn Applications on from the UI. If your organization already turned
+Applications on, they stay visible, and existing Applications are not deleted. To bring the setting
+back, set `SHOW_APPLICATIONS_FEATURE_TOGGLE=true` on GMS.
+
 ### CLI initialization from scripts
 
 When you run `datahub init` without an interactive terminal, it now stops if an existing
@@ -43,6 +51,21 @@ the answer must set the structured property the prompt asks for. An assigned use
 answer that property without **Edit Entity Properties**. The audit stamp stays that user. A user
 who is not assigned still needs the property privilege. **Manage Documentation Forms** does not
 grant the answer.
+
+### Custom github-documents sources
+
+The shared code of the `github-documents` source moved to `datahub.ingestion.source.repository_documents`, so a GitLab source can reuse it ([PR #21230](https://github.com/datahub-project/datahub/pull/21230)). The documents recipes import are unchanged. Except for the report titles and the `document_mapping` and `hierarchy` settings below, this only affects Python code that subclasses `GitHubDocumentsSource` or imports its modules:
+
+- `_build_document` now takes `repo_path` and `is_directory` instead of `github_path`. A subclass that overrides it must use the new parameters, or it fails with a `TypeError` on the first document.
+- `_build_github_external_url` is replaced by `_build_external_url(owner_repo, branch, path, *, is_directory)`. A subclass that overrides the old method, for example to point links at GitHub Enterprise, must override the new one: the old method is no longer called, so links silently fall back to github.com.
+- To change how OKF frontmatter is mapped, override the new `_map_okf` method. Patching `map_okf` in `github_documents_source` no longer works, because that module no longer uses it.
+- `get_latest_commit_sha` on a repository client now returns `None`, not `"unknown"`, when the branch cannot be resolved. A custom client must do the same.
+- The report warnings `github-tree-truncated`, `github-files-truncated` and `github-file-not-read` are now titled `Repository tree truncated`, `Matching files truncated by max_files` and `Repository file not read`. Update any alerting that matches the old titles.
+- The `document_mapping` and `hierarchy` settings were never used by this source and are deprecated. A recipe that sets them still runs, with a warning; remove them from the recipe.
+- These old import paths still work but are deprecated, and will be removed in a later release. Importing any of them raises a `FutureWarning`. Import from `repository_documents` instead:
+  - The `github_documents.okf_*`, `github_hierarchy` and `github_documents_report` modules.
+  - In `github_api`: `GitHubFileInfo`, `RepositoryDocumentsClient`, `MAX_FILE_SIZE_BYTES`, `collect_intermediate_directories`, `normalize_document_id`, and the `make_*_source_id` and `resolve_parent_dir_source_id` helpers.
+  - In `github_documents_source`: `EXTRACTION_ALGO_VERSION`, `LAST_EXPORTED_CONTENT_HASH_KEY`, `PROP_IMPORT_SOURCE_ID`, `compute_file_content_hash` and `compute_source_hash`.
 
 ### Filtering policies with more than one filter group ([#21412](https://github.com/datahub-project/datahub/pull/21412))
 
@@ -127,6 +150,13 @@ If you later upgrade to this release again, system update keeps the restored tem
 version 18 already ran. To write the shipped templates again, run system update once with
 `DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable.
 
+### Parent Data Product is now checked on every API
+
+Setting a Data Product's parent through OpenAPI, Rest.li or YAML now fails if the parent doesn't exist
+or isn't a Data Product, as it already did in the UI and GraphQL ([PR #21307](https://github.com/datahub-project/datahub/pull/21307)).
+Create parents before their children. Existing products are unaffected unless their parent is changed.
+To turn the check off, set `metadataChangeProposal.validation.dataProductProperties.parent.enabled` to `false`.
+
 <!--
 
 ## <version number>
@@ -201,6 +231,9 @@ Requirements:
 
 - [#21363](https://github.com/datahub-project/datahub/pull/21363) **(Ingestion / Vertex AI)** An `env` under `platform_instance_map` that is not a valid environment (for example `PRDO`) now fails the run at start with `env must be one of ...`. Before, it was accepted and the lineage links to that platform's datasets pointed at an environment that does not exist. Lower-case values such as `prod` are still accepted and give the same dataset URNs as before.
   **Action:** if the run fails at start with this message, correct the `env` of the listed platform to a valid environment such as `PROD` or `DEV`; the error message lists them all.
+
+- [#21239](https://github.com/datahub-project/datahub/pull/21239) **(Ingestion / Vertex AI)** A project listed in `project_ids` (or set in the deprecated `project_id`) that the connector cannot read now fails the run, after the other projects finish. This includes a project with the Vertex AI API turned off, which was a warning before. A project found by discovery (`project_labels` or `project_id_pattern` without `project_ids`) with the API turned off, or with no Vertex AI role, still gives a warning, and its earlier entities are now kept instead of being soft-deleted, except its experiment folders, which can be soft-deleted while the error lasts (warning "Experiment folders not kept while unreadable") and come back on the first run that reads them. An error in the connector itself, rather than one from Google, keeps them too. Entities the connector could not read in a run are kept, and a failed run pauses soft-deletion for every project. A listed project also fails the run when one resource type cannot be read on every run, for example experiments for a service account without ML Metadata permissions; everything else, models included, is still written. A configured region that Google does not list as a Vertex AI location (a typo), or that cannot be checked, now fails the run before any project is read, discovered projects included; regions that Google lists but the installed SDK does not yet support are skipped with a warning.
+  **Action:** if a listed project fails, enable the Vertex AI API and grant the service account a Vertex AI role such as `roles/aiplatform.viewer`, or remove the project from `project_ids`. If one resource type fails, grant the permission the report names or set the switch it names, such as `include_experiments: false`. If a configured region fails the run, correct or remove it, or grant `aiplatform.locations.list`. To silence the warning for a discovered project you do not want, grant the role or exclude it with `project_id_pattern`.
 
 - [#21219](https://github.com/datahub-project/datahub/pull/21219) **(Ingestion / Qlik Sense)** On Qlik Sense Enterprise, QVD datasets are now placed in `Folder` containers that follow their file path (server or share, then each folder), and are browsed under those folders instead of the path split at its dots. Their URNs, schemas and lineage are unchanged. **Action:** update any bookmark or saved browse path that pointed at the old QVD hierarchy.
 

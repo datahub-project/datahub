@@ -55,10 +55,10 @@ export function Menu({ children, items, open, onOpenChange, ...props }: React.Pr
         if (open === false) setOpenKeys([]);
     }, [open]);
 
-    const handleOpenChange = useCallback(
-        (isOpen: boolean) => {
+    const handleOpenChange = useCallback<NonNullable<MenuProps['onOpenChange']>>(
+        (isOpen, info) => {
             if (!isOpen) setOpenKeys([]);
-            onOpenChange?.(isOpen);
+            onOpenChange?.(isOpen, info);
         },
         [onOpenChange],
     );

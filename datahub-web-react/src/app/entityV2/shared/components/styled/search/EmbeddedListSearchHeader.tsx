@@ -48,9 +48,11 @@ const ImpactAnalysisWarning = styled.div`
 `;
 
 const StyledButton = styled(Button)`
-    margin-left: auto;
-    color: ${(props) => props.theme.colors.iconWarning};
-    padding: 0;
+    && {
+        margin-left: auto;
+        color: ${(props) => props.theme.colors.iconWarning};
+        padding: 0;
+    }
 `;
 
 type Props = {
