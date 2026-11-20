@@ -25,10 +25,9 @@ from datahub.ingestion.source.elastic_search import (
     ElasticsearchSourceConfig,
     ElasticsearchSourceReport,
     ElasticToSchemaFieldConverter,
-    _api_key_authorization,
-    _AwsConfigCredentials,
     collapse_urn,
 )
+from datahub.ingestion.source.elastic_search_common import _AwsConfigCredentials
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 logger = logging.getLogger(__name__)
@@ -2579,16 +2578,7 @@ def test_composable_template_structure() -> None:
     assert "aliases" in raw_index_metadata["template"]
 
 
-def test_api_key_authorization_encodes_id_key_pair() -> None:
-    # base64("id:key") == "aWQ6a2V5"
-    assert _api_key_authorization(("id", "key")) == "ApiKey aWQ6a2V5"
-
-
-def test_api_key_authorization_passes_through_encoded_string() -> None:
-    assert _api_key_authorization("already-encoded") == "ApiKey already-encoded"
-
-
-@patch("datahub.ingestion.source.elastic_search.OpenSearch")
+@patch("datahub.ingestion.source.elastic_search_common.OpenSearch")
 def test_api_key_list_sets_authorization_header(mock_opensearch: Any) -> None:
     ElasticsearchSource.create(
         {"host": "localhost:9200", "api_key": ["id", "key"]},
@@ -2598,7 +2588,7 @@ def test_api_key_list_sets_authorization_header(mock_opensearch: Any) -> None:
     assert kwargs["headers"] == {"Authorization": "ApiKey aWQ6a2V5"}
 
 
-@patch("datahub.ingestion.source.elastic_search.OpenSearch")
+@patch("datahub.ingestion.source.elastic_search_common.OpenSearch")
 def test_no_api_key_omits_authorization_header(mock_opensearch: Any) -> None:
     ElasticsearchSource.create(
         {"host": "localhost:9200"},
@@ -2608,7 +2598,7 @@ def test_no_api_key_omits_authorization_header(mock_opensearch: Any) -> None:
     assert "headers" not in kwargs
 
 
-@patch("datahub.ingestion.source.elastic_search.OpenSearch")
+@patch("datahub.ingestion.source.elastic_search_common.OpenSearch")
 def test_index_apis_use_keyword_only_opensearch_3_api(mock_opensearch: Any) -> None:
     client = mock_opensearch.return_value
     client.indices = create_autospec(IndicesClient, instance=True)
@@ -2699,7 +2689,7 @@ def test_aws_role_with_key_id_but_no_secret_is_accepted() -> None:
     )
 
 
-@patch("datahub.ingestion.source.elastic_search.OpenSearch")
+@patch("datahub.ingestion.source.elastic_search_common.OpenSearch")
 def test_aws_config_signs_requests_with_sigv4(
     mock_opensearch: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2868,7 +2858,7 @@ def test_aws_credential_refresh_escalates_once_credentials_expire() -> None:
     assert failure_reported_at == first_failure_at + 300
 
 
-@patch("datahub.ingestion.source.elastic_search.OpenSearch")
+@patch("datahub.ingestion.source.elastic_search_common.OpenSearch")
 def test_aws_config_without_credentials_fails_at_startup(mock_opensearch: Any) -> None:
     no_credentials = MagicMock(spec=boto3.Session)
     no_credentials.get_credentials.return_value = None
@@ -2883,7 +2873,7 @@ def test_aws_config_without_credentials_fails_at_startup(mock_opensearch: Any) -
     mock_opensearch.assert_not_called()
 
 
-@patch("datahub.ingestion.source.elastic_search.OpenSearch")
+@patch("datahub.ingestion.source.elastic_search_common.OpenSearch")
 def test_aws_config_unknown_profile_fails_at_startup(mock_opensearch: Any) -> None:
     with pytest.raises(ConfigurationError):
         ElasticsearchSource.create(
