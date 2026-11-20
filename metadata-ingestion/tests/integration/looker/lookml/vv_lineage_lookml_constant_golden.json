@@ -250,6 +250,9 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
+                    "globalTags": {
+                        "tags": []
+                    },
                     "isPartOfKey": true
                 }
             ],
@@ -479,6 +482,9 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
+                    "globalTags": {
+                        "tags": []
+                    },
                     "isPartOfKey": true
                 },
                 {
@@ -493,6 +499,9 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
+                    "globalTags": {
+                        "tags": []
+                    },
                     "isPartOfKey": false
                 }
             ],
