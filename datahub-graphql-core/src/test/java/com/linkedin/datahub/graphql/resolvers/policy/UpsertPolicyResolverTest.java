@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authorization.AuthorizerChain;
@@ -21,6 +22,7 @@ import com.linkedin.datahub.graphql.generated.ActorFilterInput;
 import com.linkedin.datahub.graphql.generated.PolicyState;
 import com.linkedin.datahub.graphql.generated.PolicyType;
 import com.linkedin.datahub.graphql.generated.PolicyUpdateInput;
+import com.linkedin.datahub.graphql.generated.ResourceFilterInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -31,8 +33,16 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
+import com.linkedin.policy.DataHubResourceFilter;
+import com.linkedin.policy.PolicyMatchCondition;
+import com.linkedin.policy.PolicyMatchCriterion;
+import com.linkedin.policy.PolicyMatchCriterionArray;
+import com.linkedin.policy.PolicyMatchFilter;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -169,5 +179,87 @@ public class UpsertPolicyResolverTest {
     // Sanity check that the fields actually present on the input still get applied.
     assertEquals(
         persistedInfo.getPrivileges(), new StringArray("EDIT_ENTITY_TAGS", "EDIT_ENTITY_DOCS"));
+  }
+
+  @Test
+  public void testUpdatePolicyFromUiKeepsPrivilegeConstraints() throws Exception {
+    // What graphql-java hands the resolver for a UI save: `resources` without the key.
+    final DataHubPolicyInfo persistedInfo = updateConstrainedPolicy(Map.of("allResources", true));
+    assertEquals(
+        persistedInfo.getResources().getPrivilegeConstraints().getCriteria().get(0).getValues(),
+        new StringArray("urn:li:tag:pii"));
+  }
+
+  @Test
+  public void testUpdatePolicyWithExplicitNullClearsPrivilegeConstraints() throws Exception {
+    final Map<String, Object> rawResources = new HashMap<>();
+    rawResources.put("allResources", true);
+    rawResources.put("privilegeConstraints", null);
+    final DataHubPolicyInfo persistedInfo = updateConstrainedPolicy(rawResources);
+    assertFalse(persistedInfo.getResources().hasPrivilegeConstraints());
+  }
+
+  /** Updates a policy stored with a tag constraint, sending {@code rawResources} as input. */
+  private DataHubPolicyInfo updateConstrainedPolicy(final Map<String, Object> rawResources)
+      throws Exception {
+    final PolicyMatchFilter constraints =
+        new PolicyMatchFilter()
+            .setCriteria(
+                new PolicyMatchCriterionArray(
+                    new PolicyMatchCriterion()
+                        .setField("TAG")
+                        .setValues(new StringArray("urn:li:tag:pii"))
+                        .setCondition(PolicyMatchCondition.NOT_EQUALS)));
+    final DataHubPolicyInfo existingInfo = new DataHubPolicyInfo();
+    existingInfo.setDisplayName("Tag editors");
+    existingInfo.setType("METADATA");
+    existingInfo.setState("ACTIVE");
+    existingInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    existingInfo.setActors(new DataHubActorFilter().setAllUsers(true));
+    existingInfo.setResources(
+        new DataHubResourceFilter().setAllResources(true).setPrivilegeConstraints(constraints));
+
+    final EntityResponse existingResponse = new EntityResponse();
+    existingResponse.setUrn(UrnUtils.getUrn(POLICY_URN));
+    existingResponse.setAspects(
+        new EnvelopedAspectMap(
+            Map.of(
+                "dataHubPolicyInfo",
+                new EnvelopedAspect().setValue(new Aspect(existingInfo.data())))));
+    when(entityClient.getV2(
+            eq(operationContext), eq("dataHubPolicy"), eq(UrnUtils.getUrn(POLICY_URN)), any()))
+        .thenReturn(existingResponse);
+    when(entityClient.ingestProposal(
+            eq(operationContext), any(MetadataChangeProposal.class), eq(false)))
+        .thenReturn(POLICY_URN);
+
+    final ActorFilterInput actorInput = new ActorFilterInput();
+    actorInput.setAllUsers(true);
+    actorInput.setAllGroups(false);
+    actorInput.setResourceOwners(false);
+    final ResourceFilterInput resourcesInput = new ResourceFilterInput();
+    resourcesInput.setAllResources(true);
+    final PolicyUpdateInput input = new PolicyUpdateInput();
+    input.setType(PolicyType.METADATA);
+    input.setName("Tag editors");
+    input.setState(PolicyState.ACTIVE);
+    input.setPrivileges(List.of("EDIT_ENTITY_TAGS"));
+    input.setActors(actorInput);
+    input.setResources(resourcesInput);
+
+    final Map<String, Object> rawInput = Map.of("name", "Tag editors", "resources", rawResources);
+    when(environment.getArgument("urn")).thenReturn(POLICY_URN);
+    when(environment.getArgument("input")).thenReturn(rawInput);
+    resolverUtils.when(() -> bindArgument(rawInput, PolicyUpdateInput.class)).thenReturn(input);
+
+    resolver.get(environment).get();
+
+    final ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(entityClient).ingestProposal(eq(operationContext), proposalCaptor.capture(), eq(false));
+    return GenericRecordUtils.deserializeAspect(
+        proposalCaptor.getValue().getAspect().getValue(),
+        proposalCaptor.getValue().getAspect().getContentType(),
+        DataHubPolicyInfo.class);
   }
 }

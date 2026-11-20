@@ -23,8 +23,10 @@ import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
 import java.net.URISyntaxException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -67,21 +69,22 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
   }
 
   /**
-   * Whether GraphQL can't show this policy truthfully: its resource filter has a match condition
-   * this version doesn't know (written by a newer version before a rollback). A guessed condition
-   * would be saved back by the policy editor and change what the policy matches, so the policy is
-   * left out instead, and the skip is logged. Always false when unknown enum values aren't
-   * tolerated, so mapping throws as before.
+   * Whether GraphQL can't show this policy truthfully: its resource filter or privilege constraints
+   * have a match condition this version doesn't know (written by a newer version before a
+   * rollback). A guessed condition would be saved back by the policy editor and change what the
+   * policy matches, so the policy is left out instead, and the skip is logged. Always false when
+   * unknown enum values aren't tolerated, so mapping throws as before.
    */
   public static boolean isUnrepresentable(
       @Nonnull final DataHubPolicyInfo info, @Nonnull final Object subject) {
-    if (!handling().toleratesUnknownEnum()
-        || !info.hasResources()
-        || !info.getResources().hasFilter()) {
+    if (!handling().toleratesUnknownEnum() || !info.hasResources()) {
       return false;
     }
+    final DataHubResourceFilter resources = info.getResources();
     final boolean unknownCondition =
-        info.getResources().getFilter().getCriteria().stream()
+        Stream.of(resources.getFilter(), resources.getPrivilegeConstraints())
+            .filter(Objects::nonNull)
+            .flatMap(filter -> filter.getCriteria().stream())
             .anyMatch(
                 criterion ->
                     UnknownEnumValues.mapOrNull(
@@ -136,8 +139,10 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
     return result;
   }
 
-  private static ResourceFilter mapResources(
-      @Nullable QueryContext context, final DataHubResourceFilter resourceFilter) {
+  /** Shared with {@code DataHubPolicyMapper} so both read paths expose the same fields. */
+  @Nonnull
+  public static ResourceFilter mapResources(
+      @Nullable final QueryContext context, @Nonnull final DataHubResourceFilter resourceFilter) {
     final ResourceFilter result = new ResourceFilter();
     result.setAllResources(resourceFilter.isAllResources());
     if (resourceFilter.hasType()) {
@@ -148,6 +153,9 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
     }
     if (resourceFilter.hasFilter()) {
       result.setFilter(mapFilter(context, resourceFilter.getFilter()));
+    }
+    if (resourceFilter.hasPrivilegeConstraints()) {
+      result.setPrivilegeConstraints(mapFilter(context, resourceFilter.getPrivilegeConstraints()));
     }
     return result;
   }
