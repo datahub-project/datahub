@@ -387,6 +387,17 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
     }
   }
 
+  /** Records whether the caller's own filter had a criterion; see {@link SearchContext}. */
+  public OperationContext withCallerFiltered(boolean callerFiltered) {
+    try {
+      return toBuilder()
+          .searchContext(getSearchContext().toBuilder().callerFiltered(callerFiltered).build())
+          .build(getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   /**
    * Records the template chosen for this invocation. Selection does not read this field. Replaces
    * any template recorded by a previous query on the copied context.

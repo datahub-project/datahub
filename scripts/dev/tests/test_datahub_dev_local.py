@@ -24,7 +24,7 @@ def entry(tmp_path: Path) -> dict[str, object]:
         "worktree_path": str(tmp_path),
         "mode": "local",
         "local_owner": local.OWNER,
-        "opensearch_dir": str(local.SHARED_OPENSEARCH_DIR),
+        "opensearch_dir": str(local.shared_opensearch_dir("3")),
         "slot": 0,
         "ports": local.local_ports(0),
         "local_options": {"processes": 1, "no_auth": False},
@@ -441,7 +441,7 @@ def test_start_passes_env_file_and_refreshes_profiles(
         "metadata-service/gms-lite/bin/gms-lite-stack.py",
         "metadata-service/war/build/libs/war.war",
         "datahub-upgrade/build/libs/datahub-upgrade.jar",
-        "metadata-service/opensearch-embedded/build/install/opensearch-embedded/bin/opensearch-embedded",
+        "metadata-service/opensearch-embedded/build/install/opensearch-embedded-os3/bin/opensearch-embedded",
     ]
     for artifact in artifacts:
         path = repo / artifact
@@ -456,7 +456,7 @@ def test_start_passes_env_file_and_refreshes_profiles(
         env_file = Path(command[command.index("--env-file") + 1])
         assert env_file == data_dir / "env-overrides.env" and env_file.exists()
         assert command[command.index("--shared-opensearch-dir") + 1] == str(
-            local.SHARED_OPENSEARCH_DIR
+            local.shared_opensearch_dir("3")
         )
         ready_stack(data_dir, processes=1)
         return process
@@ -505,7 +505,7 @@ def test_nuke_deletes_only_own_prefixes_and_keeps_shared_node(
     (data_dir / ".gms-lite").touch()
     manager = Mock()
     manager.status.return_value = {"running": True, "healthy": True, "port": 1234}
-    monkeypatch.setattr(local, "opensearch_manager", lambda: manager)
+    monkeypatch.setattr(local, "opensearch_manager", lambda *args: manager)
     delete = Mock()
     monkeypatch.setattr(local, "delete_prefixes", delete)
     assert local.cmd_nuke_local("abc123", local.local_ports(0), keep_data=True) == 0
@@ -570,7 +570,7 @@ def test_fresh_clears_data_and_retains_instance_record(
         "metadata-service/gms-lite/bin/gms-lite-stack.py",
         "metadata-service/war/build/libs/war.war",
         "datahub-upgrade/build/libs/datahub-upgrade.jar",
-        "metadata-service/opensearch-embedded/build/install/opensearch-embedded/bin/opensearch-embedded",
+        "metadata-service/opensearch-embedded/build/install/opensearch-embedded-os3/bin/opensearch-embedded",
     ]:
         path = repo / artifact
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -708,7 +708,7 @@ def test_status_requires_enabled_frontend(
     )
     manager = Mock()
     manager.status.return_value = {"healthy": False}
-    monkeypatch.setattr(local, "opensearch_manager", lambda: manager)
+    monkeypatch.setattr(local, "opensearch_manager", lambda *args: manager)
     assert local.cmd_status_local("abc123", local.local_ports(0)) == (
         0 if expected else 1
     )
@@ -735,7 +735,7 @@ def test_wait_keeps_polling_until_frontend_is_healthy(
     )
     manager = Mock()
     manager.status.return_value = {"healthy": False}
-    monkeypatch.setattr(local, "opensearch_manager", lambda: manager)
+    monkeypatch.setattr(local, "opensearch_manager", lambda *args: manager)
     sleep = Mock()
     monkeypatch.setattr(dev.time, "sleep", sleep)
     assert dev.cmd_wait(argparse.Namespace(timeout=30)) == 0
@@ -777,3 +777,105 @@ def test_occupied_frontend_blocks_start_before_changing_data(
         assert local.cmd_start_local(0, ports, "abc123", tmp_path, fresh=True) == 1
         assert local._occupied_stack_port(ports, 1, no_frontend=True) is None
     assert sentinel.exists()
+
+
+@pytest.mark.parametrize("major", ["2", "3"])
+def test_start_records_major_and_restart_ignores_changed_default(
+    monkeypatch: pytest.MonkeyPatch, major: str
+) -> None:
+    monkeypatch.setattr(dev, "WORKTREE_ID", "abc123")
+    monkeypatch.setattr(dev, "_is_port_free", lambda port: True)
+    monkeypatch.setattr(local, "cmd_start_local", Mock(return_value=0))
+    parser = dev.build_parser()
+    assert (
+        dev.cmd_start(
+            parser.parse_args(
+                ["start", "--local", "--opensearch", major, "--no-frontend"]
+            )
+        )
+        == 0
+    )
+    monkeypatch.setenv("EMBEDDED_OPENSEARCH_VERSION", "3" if major == "2" else "2")
+    assert dev.cmd_start(parser.parse_args(["start", "--local"])) == 0
+    record = local.read_instance_record("abc123")
+    assert record == dev._get_instance()
+    assert record["opensearch_version"] == major
+    assert record["opensearch_dir"] == str(local.shared_opensearch_dir(major))
+
+
+def test_legacy_stack_keeps_three_and_switch_requires_fresh(
+    entry: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    register(entry)
+    monkeypatch.setattr(dev, "WORKTREE_ID", "abc123")
+    start = Mock(return_value=0)
+    monkeypatch.setattr(local, "cmd_start_local", start)
+    monkeypatch.setattr(local, "launch_frontend", Mock(return_value=0))
+    parser = dev.build_parser()
+    assert dev.cmd_start(parser.parse_args(["start", "--local"])) == 0
+    assert dev._get_instance()["opensearch_version"] == "3"
+    before = dev.INSTANCES_FILE.read_bytes()
+    start.reset_mock()
+    assert (
+        dev.cmd_start(parser.parse_args(["start", "--local", "--opensearch", "2"])) == 1
+    )
+    assert "--fresh" in capsys.readouterr().err
+    assert dev.INSTANCES_FILE.read_bytes() == before
+    start.assert_not_called()
+    nuke = Mock(return_value=0)
+    monkeypatch.setattr(local, "cmd_nuke_local", nuke)
+    assert (
+        dev.cmd_start(
+            parser.parse_args(["start", "--local", "--opensearch", "2", "--fresh"])
+        )
+        == 0
+    )
+    nuke.assert_called_once_with(
+        "abc123", {**entry["ports"], "gms-0": 8080}, keep_data=False
+    )
+    assert dev._get_instance()["opensearch_version"] == "2"
+
+
+@pytest.mark.parametrize("major", ["2", "3"])
+def test_cleanup_and_status_follow_recorded_node(
+    entry: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+    major: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    entry.update(
+        opensearch_version=major, opensearch_dir=str(local.shared_opensearch_dir(major))
+    )
+    data_dir = register(entry)
+    (data_dir / ".gms-lite").touch()
+    manager = Mock()
+    manager.status.return_value = {
+        "healthy": True,
+        "running": True,
+        "port": 1234,
+        "major": major,
+    }
+    factory = Mock(return_value=manager)
+    monkeypatch.setattr(local, "opensearch_manager", factory)
+    monkeypatch.setattr(
+        local, "shard_inventory", lambda port: (local.ShardUsage(0, 2000), {})
+    )
+    delete = Mock()
+    monkeypatch.setattr(local, "delete_prefixes", delete)
+    local.cmd_status_local("abc123", local.local_ports(0))
+    assert json.loads(capsys.readouterr().out)["opensearch"]["major"] == major
+    assert local.cmd_nuke_local("abc123", local.local_ports(0), keep_data=False) == 0
+    assert factory.call_args_list == [call(major), call(major)]
+    delete.assert_called_once_with(1234, [local.index_prefix(data_dir, "gms-0")])
+
+
+def test_invalid_default_does_not_reserve_a_stack(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("EMBEDDED_OPENSEARCH_VERSION", "4")
+    assert dev.cmd_start(dev.build_parser().parse_args(["start", "--local"])) == 1
+    assert "must be 2 or 3" in capsys.readouterr().err
+    assert dev._get_instance() is None
+    assert not local.LOCAL_DATA_ROOT.exists()

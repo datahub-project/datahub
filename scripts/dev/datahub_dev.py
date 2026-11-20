@@ -565,6 +565,136 @@ def _http_get(url: str, timeout: int = 5) -> Tuple[int, str]:
         return -1, str(e)
 
 
+# Host cloud-session settings that Compose declares without a value (pass-through) or interpolates.
+# Compose reads only this process's environment for both, so values saved with `env set` are
+# promoted here; a value already in the shell wins. Unset or empty names stay absent, which leaves
+# each SDK on its own default chain instead of an empty profile or project.
+_PROMOTED_ENV_KEYS: Tuple[str, ...] = (
+    "AWS_PROFILE",
+    "AWS_REGION",
+    "BEDROCK_EMBEDDING_AWS_REGION",
+    "BEDROCK_AWS_REGION",
+    "CLOUDSDK_ACTIVE_CONFIG_NAME",
+    "CLOUDSDK_CORE_PROJECT",
+    "GOOGLE_CLOUD_PROJECT",
+    "VERTEX_AI_PROJECT_ID",
+    "VERTEX_AI_LOCATION",
+    "GOOGLE_APPLICATION_CREDENTIALS",
+)
+
+_warned_messages: Set[str] = set()
+
+
+def _warn_once(msg: str) -> None:
+    if msg not in _warned_messages:
+        _warned_messages.add(msg)
+        _log(msg)
+
+
+def _promote_dev_env_file_values(env: Dict[str, str]) -> None:
+    saved: Dict[str, str] = {}
+    for line in DEV_ENV_FILE.read_text().splitlines():
+        key, sep, value = line.strip().partition("=")
+        if sep and key in _PROMOTED_ENV_KEYS:
+            saved.setdefault(key, value)
+    for key, value in saved.items():
+        if key not in env and value:
+            env[key] = value
+
+
+def _empty_aws_mount_source() -> str:
+    placeholder = DATAHUB_DEV_DIR / "empty-aws"
+    (placeholder / "sso" / "cache").mkdir(parents=True, exist_ok=True)
+    return str(placeholder)
+
+
+def _empty_gcloud_mount_source() -> str:
+    placeholder = DATAHUB_DEV_DIR / "empty-gcloud"
+    placeholder.mkdir(parents=True, exist_ok=True)
+    return str(placeholder)
+
+
+def _aws_dir_has_credentials(aws_dir: Path) -> bool:
+    return (aws_dir / "config").is_file() or (aws_dir / "credentials").is_file()
+
+
+def _is_unwritable_and_empty(directory: Path) -> bool:
+    try:
+        return not os.access(directory, os.W_OK) and not any(directory.iterdir())
+    except OSError:
+        return False
+
+
+def _set_cloud_config_mount_sources(env: Dict[str, str]) -> None:
+    # Compose bind-mounts ~/.aws, ~/.aws/sso/cache and ~/.config/gcloud. Docker creates a missing
+    # source as a root-owned directory on the host, so point Compose at an empty placeholder instead.
+    home = Path(env.get("HOME") or Path.home())
+    if "DATAHUB_DEV_AWS_DIR" not in env:
+        aws_dir = home / ".aws"
+        if not aws_dir.is_dir():
+            env["DATAHUB_DEV_AWS_DIR"] = _empty_aws_mount_source()
+        elif not os.access(aws_dir, os.W_OK):
+            # Writability, not mkdir. Docker's sso/cache mount leaves a root-owned ~/.aws that
+            # already contains sso/cache, so mkdir(exist_ok=True) succeeds and says nothing about
+            # whether the directory can be used.
+            if _aws_dir_has_credentials(aws_dir):
+                _warn_once(
+                    f"⚠️  {aws_dir} is not writable; mounting it anyway. "
+                    "SSO token refresh inside debug containers will fail until it is writable."
+                )
+            else:
+                _warn_once(
+                    f"⚠️  {aws_dir} is not writable and has no AWS config or credentials; "
+                    "mounting an empty placeholder instead. Remove that directory if Docker created it."
+                )
+                env["DATAHUB_DEV_AWS_DIR"] = _empty_aws_mount_source()
+        else:
+            try:
+                # Pre-create the SSO cache so Docker does not create that sub-mount source as root.
+                (aws_dir / "sso" / "cache").mkdir(parents=True, exist_ok=True)
+            except OSError:
+                # The directory is writable but a subdirectory still cannot be created.
+                if _aws_dir_has_credentials(aws_dir):
+                    _warn_once(
+                        f"⚠️  Cannot create {aws_dir}/sso/cache; mounting {aws_dir} anyway. "
+                        "SSO token refresh inside debug containers will fail until it is writable."
+                    )
+                else:
+                    _warn_once(
+                        f"⚠️  {aws_dir} is not writable and has no AWS config or credentials; "
+                        "mounting an empty placeholder instead. Remove that directory if Docker created it."
+                    )
+                    env["DATAHUB_DEV_AWS_DIR"] = _empty_aws_mount_source()
+    if "DATAHUB_DEV_GCLOUD_DIR" not in env:
+        gcloud_dir = home / ".config" / "gcloud"
+        if not gcloud_dir.is_dir():
+            env["DATAHUB_DEV_GCLOUD_DIR"] = _empty_gcloud_mount_source()
+        elif _is_unwritable_and_empty(gcloud_dir):
+            _warn_once(
+                f"⚠️  {gcloud_dir} is empty and not writable, which is what Docker leaves behind "
+                "when it creates the mount source as root; mounting an empty placeholder instead. "
+                "Remove that directory so `gcloud auth application-default login` can use it."
+            )
+            env["DATAHUB_DEV_GCLOUD_DIR"] = _empty_gcloud_mount_source()
+
+
+def _check_gcp_credentials_file(env: Dict[str, str]) -> None:
+    # Compose mounts the key file at its host path, so the path must be absolute and exist;
+    # a missing source would become a root-owned directory on the host.
+    creds = env.get("GOOGLE_APPLICATION_CREDENTIALS")
+    if not creds:
+        return
+    path = os.path.abspath(os.path.expanduser(creds))
+    if os.path.isfile(path):
+        env["GOOGLE_APPLICATION_CREDENTIALS"] = path
+    else:
+        del env["GOOGLE_APPLICATION_CREDENTIALS"]
+        _warn_once(
+            f"⚠️  GOOGLE_APPLICATION_CREDENTIALS={creds} is not a file; not mounting it. "
+            "Fix the path, or clear it with `env set GOOGLE_APPLICATION_CREDENTIALS=`."
+        )
+
+
 def _dev_env() -> Dict[str, str]:
     """Return a copy of os.environ with DATAHUB_LOCAL_COMMON_ENV and
     COMPOSE_PROJECT_NAME injected.
@@ -573,19 +703,17 @@ def _dev_env() -> Dict[str, str]:
     - DATAHUB_LOCAL_COMMON_ENV: the per-branch env file read by docker compose profiles
     - COMPOSE_PROJECT_NAME: the per-worktree project name read by Gradle's docker-compose
       plugin and by docker compose itself
+    - the host AWS/GCP session settings and mount sources for the debug containers
     """
     env = os.environ.copy()
     if not DEV_ENV_FILE.exists():
         DEV_ENV_FILE.touch()
-    # AWS_PROFILE is declared as pass-through in Compose so it is absent—not an empty profile
-    # name—when unconfigured. Promote the datahub-dev value for Compose interpolation/pass-through.
-    if "AWS_PROFILE" not in env:
-        for line in DEV_ENV_FILE.read_text().splitlines():
-            if line.startswith("AWS_PROFILE="):
-                profile = line.split("=", 1)[1]
-                if profile:
-                    env["AWS_PROFILE"] = profile
-                break
+    _promote_dev_env_file_values(env)
+    _set_cloud_config_mount_sources(env)
+    _check_gcp_credentials_file(env)
+    # Gradle's loadCommonEnvFile reads the env file again; it skips these names so the values
+    # decided above are the ones Compose sees.
+    env["DATAHUB_DEV_PROMOTED_ENV_KEYS"] = ",".join(_PROMOTED_ENV_KEYS)
     env["DATAHUB_LOCAL_COMMON_ENV"] = str(DEV_ENV_FILE)
     # Only inject if not already set (respects explicit user override)
     env.setdefault("COMPOSE_PROJECT_NAME", COMPOSE_PROJECT)
@@ -1927,6 +2055,21 @@ def _cmd_start_local(args: argparse.Namespace) -> int:
                 "ERROR: this worktree has an unmanaged or Docker registry entry; use a different worktree"
             )
             return 1
+        major = getattr(args, "opensearch", None)
+        if major is None:
+            try:
+                major = local.resolve_major(instance)
+            except (RuntimeError, ValueError) as error:
+                _log(f"ERROR: {error}")
+                return 1
+        changing_major = instance is not None and major != local.recorded_major(
+            instance
+        )
+        if changing_major and not getattr(args, "fresh", False):
+            _log(
+                "ERROR: changing an existing stack's OpenSearch major requires --fresh"
+            )
+            return 1
         recorded = instance.get("local_options", {}) if instance else {}
         options = {
             "processes": getattr(args, "processes", None)
@@ -1943,10 +2086,14 @@ def _cmd_start_local(args: argparse.Namespace) -> int:
             _log("ERROR: --processes must be between 1 and 999")
             return 1
         if instance and local.stack_running(WORKTREE_ID, instance["ports"]):
-            if options != recorded or getattr(args, "fresh", False):
+            if options != recorded or getattr(args, "fresh", False) or changing_major:
                 _log(
                     "ERROR: local stack is running or starting; stop it before changing options"
                 )
+                return 1
+        if changing_major:
+            # Delete indices on the OLD node before publishing the new engine selection.
+            if local.cmd_nuke_local(WORKTREE_ID, instance["ports"], keep_data=False):
                 return 1
         if instance is None:
             try:
@@ -1958,11 +2105,16 @@ def _cmd_start_local(args: argparse.Namespace) -> int:
                 "worktree_path": str(REPO_ROOT),
                 "mode": "local",
                 "local_owner": local.OWNER,
-                "opensearch_dir": str(local.SHARED_OPENSEARCH_DIR),
+                "opensearch_dir": str(local.shared_opensearch_dir(major)),
                 "slot": slot,
                 "ports": local.local_ports(slot),
                 "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             }
+        instance = {
+            **instance,
+            "opensearch_version": major,
+            "opensearch_dir": str(local.shared_opensearch_dir(major)),
+        }
         claimed_ports = {
             port
             for key, entry in registry["instances"].items()
@@ -2017,6 +2169,9 @@ def cmd_start(args: argparse.Namespace) -> int:
     if getattr(args, "local", False) or (instance and instance.get("mode") == "local"):
         return _cmd_start_local(args)
 
+    if getattr(args, "opensearch", None) is not None:
+        _log("ERROR: --opensearch requires --local")
+        return 1
     # Proxy to remote machine when a runner is configured.
     if RUNNER:
         return _cmd_start_remote(args)
@@ -2420,7 +2575,12 @@ def build_parser() -> argparse.ArgumentParser:
     start_p.add_argument(
         "--local",
         action="store_true",
-        help="Run GMS locally on H2 and shared OpenSearch 3, without Docker",
+        help="Run GMS locally on H2 and shared OpenSearch, without Docker",
+    )
+    start_p.add_argument(
+        "--opensearch",
+        choices=("2", "3"),
+        help="Embedded OpenSearch major in local mode (default: recorded value or module default)",
     )
     start_p.add_argument(
         "--processes",

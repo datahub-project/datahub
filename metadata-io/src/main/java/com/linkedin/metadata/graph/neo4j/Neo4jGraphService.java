@@ -596,7 +596,7 @@ public class Neo4jGraphService implements GraphService {
               destFilter.propertyMap,
               whereClause);
     }
-    log.info(baseStatementString);
+    log.debug(baseStatementString);
 
     final String returnNodes =
         "RETURN dest, type(r)"; // Return both related entity and the relationship type.
@@ -1171,7 +1171,7 @@ public class Neo4jGraphService implements GraphService {
               destFilter.propertyMap,
               whereClause);
     }
-    log.info(baseStatementString);
+    log.debug(baseStatementString);
 
     final String returnNodes =
         "RETURN dest, src, type(r)"; // Return both related entity and the relationship type.
@@ -1203,7 +1203,7 @@ public class Neo4jGraphService implements GraphService {
                         relationshipDirection,
                         null));
     final int totalCount = runQuery(countStatement).single().get(0).asInt();
-    log.info("Total Related Entities: {}", totalCount);
+    log.debug("Total Related Entities: {}", totalCount);
     String nextScrollId = null;
     if (relatedEntities.size() == count) {
       String pitId = Integer.toString(offset + count);

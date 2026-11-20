@@ -233,6 +233,7 @@ jobs:
         uses: ./.github/actions/setup-toolchain
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         with:
+          node: true
           python: false
       - name: Populate yarn cache
         if: steps.yarn-cache.outputs.cache-hit != 'true'
@@ -321,6 +322,7 @@ jobs:
         uses: ./.github/actions/setup-toolchain
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         with:
+          node: true
           python: false
       - name: Populate yarn cache
         if: steps.yarn-cache.outputs.cache-hit != 'true'
@@ -369,6 +371,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           java: ${{ steps.uv-cache.outputs.cache-hit != 'true' || steps.yarn-cache.outputs.cache-hit != 'true' }}
           python: ${{ steps.uv-cache.outputs.cache-hit != 'true' }}
           gradle: ${{ steps.uv-cache.outputs.cache-hit != 'true' || steps.yarn-cache.outputs.cache-hit != 'true' }}

@@ -275,7 +275,8 @@ public class SearchTemplateGoldenTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     OperationContext interactive =
         coordinator.bind(
             harness.opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES),
@@ -317,7 +318,8 @@ public class SearchTemplateGoldenTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     ObjectNode root = SearchTemplateFixtures.JSON.createObjectNode();
     ObjectNode shipped = root.putObject("shipped");
     for (SearchClientShim.SearchEngineType engine :

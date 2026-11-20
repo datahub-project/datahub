@@ -72,9 +72,9 @@ function scrubUrlAttributes(element: Element): void {
 }
 
 /**
- * Markdown to sanitized HTML for the read-only surface. Mention spans stay static
- * (no urn lookup). File spans stay in the HTML so the read-only view can mount a
- * file card for them.
+ * Markdown to sanitized HTML for the read-only surface. Mention and file spans stay
+ * in the HTML so the read-only view can mount the host's mention view and a file
+ * card for them.
  */
 export function toReadOnlyHtml(markdown: string): string {
     const sanitized = markdownToHtml(markdown, DOMPurify.sanitize);

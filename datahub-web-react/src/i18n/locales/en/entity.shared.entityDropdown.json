@@ -21,6 +21,7 @@
     "createGlossary.title": "Create {{entityName}}",
     "delete.cantDeleteChild": "Can't delete {{entityName}} with child entities.",
     "delete.cantDeleteSubDomain": "Can't delete {{entityName}} with sub-domain entities.",
+    "delete.cantDeleteWithChildDataProducts": "Data Products with child Data Products can't be deleted.",
     "delete.confirmContent": "Are you sure you want to remove this {{entityName}}?",
     "delete.confirmTitle": "Delete {{entityName}}",
     "delete.error": "Failed to delete: \n {{errorMessage}}",

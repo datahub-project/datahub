@@ -475,7 +475,12 @@ Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start
 ### Docker-free stack
 
 Run `scripts/dev/datahub-dev.sh start --local` with JDK 25 to launch GMS on H2,
-in-memory queues and a shared OpenSearch 3 node. Use `--processes N` for isolated
+in-memory queues and a shared OpenSearch node. Select `--opensearch 2|3`; new stacks
+use `EMBEDDED_OPENSEARCH_VERSION` or `embeddedOpenSearchDefault` in root `gradle.properties`
+(currently 3). Restarts retain the recorded major; changing it requires `--fresh`.
+Unmarked legacy stacks retain 3. Each major uses `~/.datahub/local/opensearch-<major>/`;
+never use the unversioned `~/.datahub/local/opensearch/` directory. Status shows the
+major, and cleanup follows it. Use `--processes N` for isolated
 GMS instances, `--fresh` to reset this stack's data, `--auth` / `--no-auth` to enable
 or disable auth (omitting both keeps the recorded setting), and `--skip-build`
 to require existing artifacts (built jars are reused automatically).

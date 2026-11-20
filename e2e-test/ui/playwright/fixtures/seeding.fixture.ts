@@ -61,6 +61,7 @@ import {
   ingestComplexAspects,
   withArtifactLock,
   writeJsonAtomic,
+  waitForSeededWritesToSettle,
   type Mcp,
 } from '../helpers/seeder-utils';
 import { createLogger, type DataHubLogger } from '../utils/logger';
@@ -265,8 +266,8 @@ async function ingestMcps(
     // The state file's mere existence is the fixture's signal that data is safe
     // to read; writing it any earlier let workers that reuse it proceed against
     // not-yet-indexed data.
-    logger.info('waiting 15s for search index to catch up before marking seed complete');
-    await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
+    const settled = await waitForSeededWritesToSettle(apiContext, gmsBaseUrl);
+    logger.info('seeded writes settled', settled);
 
     // Write state file so other workers (and next runs) skip re-seeding.
     // Written even on partial failures (when throwOnFailure=false) so we don't retry endlessly.
@@ -339,7 +340,7 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
       await use();
     },
     // Generous ceiling: worst case one worker produces token + global + feature,
-    // each with ingest + a 15s ES index wait under withArtifactLock.
+    // each with ingest + a settle wait (up to 30s) under withArtifactLock.
     { auto: true, scope: 'worker', timeout: 180_000 },
   ],
 });

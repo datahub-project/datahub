@@ -4,7 +4,7 @@ import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react-swc';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PluginOption, ProxyOptions, defineConfig, loadEnv } from 'vite';
+import { PluginOption, ProxyOptions, UserConfig, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
 import { configDefaults } from 'vitest/config';
@@ -144,20 +144,13 @@ function substituteBasePathForDev(): PluginOption {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(async ({ mode }) => {
+export default defineConfig(async ({ mode }): Promise<UserConfig> => {
     const { viteStaticCopy } = await import('vite-plugin-static-copy');
 
     // Via https://stackoverflow.com/a/66389044.
     const env = loadEnv(mode, process.cwd(), '');
     process.env = { ...process.env, ...env };
     const isCI = process.env.CI === 'true';
-
-    let antThemeConfig: any;
-    if (process.env.ANT_THEME_CONFIG) {
-        const themeConfigFile = `./src/conf/theme/${process.env.ANT_THEME_CONFIG}`;
-        // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
-        antThemeConfig = require(themeConfigFile);
-    }
 
     // common extra logging setup for proxies
     const proxyDebugConfig = (proxy, options) => {
@@ -294,8 +287,6 @@ export default defineConfig(async ({ mode }) => {
             target: 'esnext',
             minify: 'esbuild',
             reportCompressedSize: false,
-            // Limit number of worker threads to reduce CPU pressure
-            workers: 3, // default is number of CPU cores
             rollupOptions: {
                 output: {
                     // Emit source maps without inlined sourcesContent. The original source text is
@@ -327,16 +318,6 @@ export default defineConfig(async ({ mode }) => {
             proxy: proxyOptions,
             // Vite 6 types `https` as TLS options; an empty object enables HTTPS like `true` did.
             https: isHttps ? {} : undefined,
-        },
-        css: {
-            preprocessorOptions: {
-                less: {
-                    javascriptEnabled: true,
-                    // Override antd theme variables.
-                    // https://4x.ant.design/docs/react/customize-theme#Ant-Design-Less-variables
-                    modifyVars: antThemeConfig,
-                },
-            },
         },
         test: {
             // scripts/*.test.mjs uses node:test and is run from the frontend-build job.

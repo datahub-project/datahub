@@ -43,6 +43,10 @@ public final class SearchTemplateContextVariables {
   public static final String ID_FIELDS = "idFields";
   public static final String ID_FIELDS_JSON = "idFieldsJson";
   public static final String LIGHT_FIELDS_JSON = "lightFieldsJson";
+  public static final String HAS_DEFAULT_QUERY_FIELDS = "hasDefaultQueryFields";
+  public static final String HAS_DEFAULT_FIELDS_WITHOUT_IDENTITY =
+      "hasDefaultFieldsWithoutIdentity";
+  public static final String HAS_LIGHT_FIELDS = "hasLightFields";
   public static final String LIGHT_OPERATOR = "lightOperator";
   public static final String ENTITY_NAME_FIELD = "entityNameField";
   public static final String NAME_KEYWORD = "nameKeyword";
@@ -57,6 +61,10 @@ public final class SearchTemplateContextVariables {
   public static final String PLATFORM_FIELD = "platformField";
   public static final String COLUMN_NAME_FIELD = "columnNameField";
   public static final String ID_KEYWORD = "idKeyword";
+  public static final String EMAIL_FIELDS = "emailFields";
+  public static final String EMAIL_FIELDS_JSON = "emailFieldsJson";
+  public static final String EMAIL_KEYWORD = "emailKeyword";
+  public static final String EMAIL_TEXT = "emailText";
   public static final String URN_EXACT_FIELD = "urnExactField";
   public static final String URN_FOLDED_FIELD = "urnFoldedField";
   public static final String URN_PARSED_FIELD = "urnParsedField";
@@ -154,7 +162,12 @@ public final class SearchTemplateContextVariables {
           QUALIFIED_NAME_FIELDS_JSON,
           ID_FIELDS,
           ID_FIELDS_JSON,
+          EMAIL_FIELDS,
+          EMAIL_FIELDS_JSON,
           LIGHT_FIELDS_JSON,
+          HAS_DEFAULT_QUERY_FIELDS,
+          HAS_DEFAULT_FIELDS_WITHOUT_IDENTITY,
+          HAS_LIGHT_FIELDS,
           LIGHT_OPERATOR,
           ENTITY_NAME_FIELD,
           NAME_KEYWORD,
@@ -169,6 +182,8 @@ public final class SearchTemplateContextVariables {
           PLATFORM_FIELD,
           COLUMN_NAME_FIELD,
           ID_KEYWORD,
+          EMAIL_KEYWORD,
+          EMAIL_TEXT,
           URN_EXACT_FIELD,
           URN_FOLDED_FIELD,
           URN_PARSED_FIELD,

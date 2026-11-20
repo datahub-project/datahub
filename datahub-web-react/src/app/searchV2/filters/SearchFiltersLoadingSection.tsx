@@ -1,17 +1,10 @@
-import { Skeleton } from 'antd';
+import { Skeleton } from '@components';
 import * as React from 'react';
 import styled from 'styled-components';
 
 const Container = styled.div`
     display: flex;
-`;
-
-const CardSkeleton = styled(Skeleton.Input)`
-    && {
-        padding: 2px 12px 2px 0px;
-        height: 32px;
-        border-radius: 8px;
-    }
+    gap: 12px;
 `;
 
 interface Props {
@@ -21,8 +14,9 @@ interface Props {
 export default function SearchFiltersLoadingSection({ noOfLoadingSkeletons = 4 }: Props) {
     return (
         <Container>
-            {Array.from({ length: noOfLoadingSkeletons }).map(() => (
-                <CardSkeleton active size="default" />
+            {Array.from({ length: noOfLoadingSkeletons }).map((_, index) => (
+                // eslint-disable-next-line react/no-array-index-key -- static placeholders
+                <Skeleton.Input key={index} active height={32} width={120} />
             ))}
         </Container>
     );
