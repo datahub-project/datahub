@@ -23,7 +23,7 @@ from typing import (
 
 import sqlalchemy.dialects.postgresql.base
 from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import Connection, make_url
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.row import Row
 from sqlalchemy.exc import NoSuchTableError, ProgrammingError
@@ -374,6 +374,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self.config: SQLCommonConfig = config
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
+        # Connections that dropped and could not be re-opened (see
+        # recover_lost_connection), and the object most recently started on the
+        # inspector's connection, which is the one a drop is reported against.
+        self._unreachable_sql_connections: Set[Connection] = set()
+        self._sql_object_in_progress: Optional[str] = None
         self.profile_metadata_info: ProfileMetadata = ProfileMetadata()
 
         self.classification_handler = ClassificationHandler(self.config, self.report)
@@ -584,27 +589,32 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from self.gen_schema_containers(schema=schema, database=database)
 
+        context = f"{database}.{schema}"
         if self.config.include_tables:
-            yield from self.loop_tables(inspector, schema, self.config)
+            if self.recover_lost_connection(inspector, context=context):
+                yield from self.loop_tables(inspector, schema, self.config)
 
         if self.config.include_views:
-            yield from self.loop_views(inspector, schema, self.config)
+            if self.recover_lost_connection(inspector, context=context):
+                yield from self.loop_views(inspector, schema, self.config)
 
         if getattr(self.config, "include_stored_procedures", False):
+            if not self.recover_lost_connection(inspector, context=context):
+                return
             try:
                 yield from self.loop_stored_procedures(inspector, schema, self.config)
             except NotImplementedError as e:
                 self.report.warning(
                     title="Stored procedures not supported",
                     message="The current SQL dialect does not support stored procedures.",
-                    context=f"{database}.{schema}",
+                    context=context,
                     exc=e,
                 )
             except Exception as e:
                 self.report.failure(
                     title="Failed to list stored procedures for schema",
                     message="An error occurred while listing procedures for the schema.",
-                    context=f"{database}.{schema}",
+                    context=context,
                     exc=e,
                 )
 
@@ -620,6 +630,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self._add_default_options(sql_config)
 
         for inspector in self.get_inspectors():
+            self._sql_object_in_progress = None
             db_name = self.get_db_name(inspector)
             yield from self.get_database_level_workunits(
                 inspector=inspector,
@@ -634,6 +645,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     schema=schema,
                     database=db_name,
                 )
+
+            # A drop while reading this database's last object, whose error was
+            # handled inside its processing, would otherwise only ever be a
+            # warning, and stale-entity removal would delete that object.
+            self.recover_lost_connection(inspector, context=db_name)
 
         # Generate workunit for aggregated SQL parsing results
         yield from self._generate_aggregator_workunits()
@@ -770,6 +786,61 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         return None
 
+    def recover_lost_connection(self, inspector: Inspector, context: str) -> bool:
+        """Re-open the inspector's connection if the database dropped it.
+
+        Under SQLAlchemy 2.0 every statement runs inside a transaction the
+        connection begins on its own. When the database or the network drops the
+        connection (a restart, an idle-session or firewall timeout, Oracle's
+        ORA-03113), SQLAlchemy invalidates it, and every later statement fails with
+        "Can't reconnect until invalid transaction is rolled back" until rollback()
+        is called. Without this, one drop fails every remaining table, view and
+        procedure in the run. Rolling back and reconnecting lets the run carry on,
+        as it did under SQLAlchemy 1.4.
+
+        Call it before reading each object, with ``context`` naming that object,
+        and again from the object's error handler. A drop is reported against the
+        object that was being read when it happened, as a failure rather than a
+        warning: that object still exists, and a warning alone would let
+        stale-entity removal delete it.
+
+        Returns False when the connection could not be re-opened; later calls for
+        the same connection then return False at once, so callers skip the rest of
+        the database instead of waiting out a connect timeout per object.
+        """
+        connection = getattr(inspector, "bind", None)
+        if not isinstance(connection, Connection):
+            return True
+        if connection in self._unreachable_sql_connections:
+            return False
+        lost_object = self._sql_object_in_progress or context
+        self._sql_object_in_progress = context
+        if not connection.invalidated:
+            return True
+        try:
+            connection.rollback()
+            # rollback() does not reconnect; reading .connection does.
+            _ = connection.connection
+        except Exception as e:
+            self._unreachable_sql_connections.add(connection)
+            self.report.failure(
+                title="Database connection lost",
+                message="The database connection dropped while this was being read "
+                "and could not be re-opened, so the rest of this database was "
+                "skipped (see objects_skipped_after_connection_loss).",
+                context=lost_object,
+                exc=e,
+            )
+            return False
+        self.report.failure(
+            title="Database connection lost",
+            message="The database connection dropped while this was being read, so "
+            "it is missing or incomplete in this run. The connection was re-opened "
+            "and the rest of the run carried on.",
+            context=lost_object,
+        )
+        return True
+
     def loop_tables(
         self,
         inspector: Inspector,
@@ -800,6 +871,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         self.report.report_dropped(dataset_name)
                         continue
 
+                    if not self.recover_lost_connection(
+                        inspector, context=dataset_name
+                    ):
+                        self.report.objects_skipped_after_connection_loss += 1
+                        continue
                     try:
                         yield from self._process_table(
                             dataset_name,
@@ -815,6 +891,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                             context=f"{schema}.{table}",
                             exc=e,
                         )
+                        self.recover_lost_connection(inspector, context=dataset_name)
             except Exception as e:
                 self.report.failure(
                     "Error processing tables",
@@ -1205,6 +1282,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     self.report.report_dropped(dataset_name)
                     continue
 
+                if not self.recover_lost_connection(inspector, context=dataset_name):
+                    self.report.objects_skipped_after_connection_loss += 1
+                    continue
                 try:
                     yield from self._process_view(
                         dataset_name=dataset_name,
@@ -1219,6 +1299,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         context=f"{schema}.{view}",
                         exc=e,
                     )
+                    self.recover_lost_connection(inspector, context=dataset_name)
         except Exception as e:
             self.report.failure(
                 "Error processing views",
@@ -1471,6 +1552,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             ProfilerRequest,
         )
 
+        if not self.recover_lost_connection(inspector, context=schema):
+            return
         tables_seen: Set[str] = set()
         profile_candidates = None  # Default value if profile candidates not available.
         if (

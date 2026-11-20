@@ -584,6 +584,15 @@ class DorisSource(MySQLSource):
             )
         return True
 
+    def recover_lost_connection(self, inspector: Inspector, context: str) -> bool:
+        # A drop while a table or view is read is handled by
+        # _skip_on_lost_connection, which reconnects at once, so the shared check
+        # only sees drops outside that (such as while listing a database's tables).
+        # A database Doris already gave up on stays Doris's to skip and count.
+        if inspector.bind in self._unreachable_connections:
+            return True
+        return super().recover_lost_connection(inspector, context)
+
     def get_platform(self) -> str:
         return "doris"
 

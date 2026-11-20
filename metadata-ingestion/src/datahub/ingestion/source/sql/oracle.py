@@ -1771,6 +1771,10 @@ class OracleSource(SQLAlchemySource):
 
         # Process materialized views if enabled
         if self.config.include_materialized_views:
+            if not self.recover_lost_connection(
+                inspector, context=f"{database}.{schema}"
+            ):
+                return
             try:
                 yield from self.loop_materialized_views(inspector, schema, self.config)
             except Exception as e:
@@ -2175,6 +2179,11 @@ class OracleSource(SQLAlchemySource):
                 self.report.report_dropped(dataset_name)
                 continue
 
+            if not self.recover_lost_connection(inspector, context=dataset_name):
+                self.report.objects_skipped_after_connection_loss += 1
+                continue
+            # _process_materialized_view reports its own errors, so one view that
+            # fails (including over a dropped connection) doesn't stop the rest.
             yield from self._process_materialized_view(
                 dataset_name=dataset_name,
                 inspector=inspector,

@@ -15,9 +15,9 @@ from unittest import mock
 
 import pytest
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.exc import NoSuchTableError, ProgrammingError
+from sqlalchemy.exc import NoSuchTableError, OperationalError, ProgrammingError
 from sqlalchemy.pool import NullPool, QueuePool, StaticPool
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeEngine
@@ -1302,3 +1302,111 @@ def test_two_tier_connection_url_log_masks_a_re_encoded_uri_password() -> None:
     output = log.getvalue()
     assert REDACTED_PREFIX in output, output
     assert "Str0ng" not in output, output
+
+
+CHILD_TABLE = "testdb.main.child"
+PARENT_TABLE = "testdb.main.parent"
+CHILD_VIEW = "testdb.main.child_view"
+
+
+def _drop_connection_while_reading(
+    monkeypatch: pytest.MonkeyPatch, method: str, dataset: str
+) -> None:
+    """Invalidate the inspector's connection while `dataset` is read, as a dropped
+    database connection does; the read itself then fails or is swallowed by the
+    source exactly as it would after a real drop."""
+    original = getattr(SQLAlchemySource, method)
+
+    def reading(
+        self: SQLAlchemySource, *args: Any, **kwargs: Any
+    ) -> Iterable[MetadataWorkUnit]:
+        # _process_table passes (dataset_name, inspector, ...) positionally and
+        # _process_view by keyword.
+        name = kwargs.get("dataset_name", args[0] if args else None)
+        inspector = kwargs.get("inspector", args[1] if len(args) > 1 else None)
+        if name == dataset:
+            assert isinstance(inspector, Inspector)
+            assert isinstance(inspector.bind, Connection)
+            inspector.bind.invalidate()
+        yield from original(self, *args, **kwargs)
+
+    monkeypatch.setattr(SQLAlchemySource, method, reading)
+
+
+def _lost_connection_contexts(source: SQLAlchemySource) -> List[str]:
+    return [
+        context
+        for failure in source.report.failures
+        if failure.title == "Database connection lost"
+        # A context carrying the exception is "<object> <class ...>: <message>".
+        for context in (c.split(" ", 1)[0] for c in failure.context)
+    ]
+
+
+def test_dropped_connection_fails_only_the_object_being_read(
+    sqlite_db: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # child is read first, and the connection drops during it.
+    _drop_connection_while_reading(monkeypatch, "_process_table", CHILD_TABLE)
+    source = _sqlite_source(sqlite_db)
+
+    aspects = aspects_by_urn(source.get_workunits_internal())
+
+    # Reported as a failure against child, so stale-entity removal keeps it...
+    assert _lost_connection_contexts(source) == [CHILD_TABLE]
+    # ...and the rest of the run carries on over the re-opened connection.
+    assert PARENT_URN in aspects
+    assert VIEW_URN in aspects
+    assert source.report.objects_skipped_after_connection_loss == 0
+
+
+def test_dropped_connection_on_last_object_is_still_a_failure(
+    sqlite_db: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The view is the last object read; nothing comes after it to notice the drop.
+    _drop_connection_while_reading(monkeypatch, "_process_view", CHILD_VIEW)
+    source = _sqlite_source(sqlite_db)
+
+    list(source.get_workunits_internal())
+
+    assert _lost_connection_contexts(source) == [CHILD_VIEW]
+
+
+def test_unreachable_database_is_reported_once_and_skipped(
+    sqlite_db: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _drop_connection_while_reading(monkeypatch, "_process_table", CHILD_TABLE)
+    connect_attempts: List[None] = []
+
+    def unreachable(self: Engine) -> Any:
+        connect_attempts.append(None)
+        raise OperationalError("connect", {}, Exception("database unreachable"))
+
+    original_rollback = Connection.rollback
+
+    def rollback_then_block_reconnects(self: Connection) -> None:
+        original_rollback(self)
+        monkeypatch.setattr(Engine, "raw_connection", unreachable)
+
+    monkeypatch.setattr(Connection, "rollback", rollback_then_block_reconnects)
+    source = _sqlite_source(sqlite_db)
+
+    aspects = aspects_by_urn(source.get_workunits_internal())
+
+    # One reconnect attempt, one failure, and everything after it skipped
+    # without waiting out a connect timeout per object.
+    assert len(connect_attempts) == 1
+    assert _lost_connection_contexts(source) == [CHILD_TABLE]
+    assert source.report.objects_skipped_after_connection_loss == 1
+    assert PARENT_URN not in aspects
+
+
+def test_recover_lost_connection_leaves_healthy_connection_alone(
+    sqlite_db: str,
+) -> None:
+    source = _sqlite_source(sqlite_db)
+
+    aspects = aspects_by_urn(source.get_workunits_internal())
+
+    assert {CHILD_URN, PARENT_URN, VIEW_URN} <= set(aspects)
+    assert not _lost_connection_contexts(source)

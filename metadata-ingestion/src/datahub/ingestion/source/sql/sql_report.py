@@ -57,6 +57,9 @@ class SQLSourceReport(
     DetailedProfilerReportMixin,
 ):
     tables_scanned: int = 0
+    # Objects not read because the database connection dropped and could not be
+    # re-opened; see SQLAlchemySource.recover_lost_connection.
+    objects_skipped_after_connection_loss: int = 0
     views_scanned: int = 0
     entities_profiled: int = 0
     filtered: LossyList[str] = field(default_factory=LossyList)
