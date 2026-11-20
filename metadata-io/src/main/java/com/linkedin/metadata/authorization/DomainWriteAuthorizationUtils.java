@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
-import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.datahub.authorization.AuthUtil;
@@ -201,23 +200,7 @@ public final class DomainWriteAuthorizationUtils {
   @Nonnull
   public static com.linkedin.metadata.authorization.ApiOperation resolveApiOperation(
       @Nonnull ChangeType changeType, boolean entityExists) {
-    switch (changeType) {
-      case CREATE_ENTITY:
-        return entityExists ? UPDATE : CREATE;
-      case CREATE:
-        return UPDATE;
-      case PATCH:
-        // PATCH on a missing entity is a create; Edit Domain must not suffice.
-        return entityExists ? UPDATE : CREATE;
-      case UPSERT:
-      case UPDATE:
-      case RESTATE:
-        return entityExists ? UPDATE : CREATE;
-      case DELETE:
-        return com.linkedin.metadata.authorization.ApiOperation.DELETE;
-      default:
-        return UPDATE;
-    }
+    return AuthUtil.resolveEntityWriteOperation(changeType, entityExists);
   }
 
   /**

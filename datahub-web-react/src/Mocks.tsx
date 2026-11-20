@@ -78,6 +78,7 @@ const entityPrivileges: EntityPrivileges = {
     canEditSchemaFieldTags: true,
     canEditSchemaFieldGlossaryTerms: true,
     canEditSchemaFieldDescription: true,
+    canEditSchemaFieldProperties: true,
     canEditQueries: true,
     canEditEmbed: true,
     canManageEntity: true,
