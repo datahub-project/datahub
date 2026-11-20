@@ -78,8 +78,16 @@ class SnowflakeObjectDomain(StrEnum):
 # so `.capitalize()` on the enum value would not match the case-sensitive SQL filter.
 INTERACTIVE_TABLE_ACCESS_HISTORY_DOMAIN = "Interactive Table"
 
-# sqlglot cannot parse CREATE INTERACTIVE TABLE; rewriting the keyword to TABLE makes it parse.
-INTERACTIVE_TABLE_RE = re.compile(r"\binteractive\s+table\b", re.IGNORECASE)
+# sqlglot cannot parse CREATE INTERACTIVE TABLE; dropping INTERACTIVE makes it parse. Anchored to
+# CREATE so a comment or string mentioning "interactive table" ahead of the statement is left alone.
+INTERACTIVE_TABLE_CREATE_RE = re.compile(
+    r"\b(create\s+(?:or\s+replace\s+)?)interactive\s+(table)\b", re.IGNORECASE
+)
+TARGET_LAG_RE = re.compile(r"\btarget_lag\b", re.IGNORECASE)
+
+
+def rewrite_interactive_table_create(sql: str) -> str:
+    return INTERACTIVE_TABLE_CREATE_RE.sub(r"\1\2", sql, count=1)
 
 
 # The plural keyword naming an object class in a SHOW statement, e.g. `SHOW DYNAMIC TABLES`.

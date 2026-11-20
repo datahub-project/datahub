@@ -443,6 +443,18 @@ def test_register_interactive_dynamic_definition_passes_show_text() -> None:
     )
 
 
+def test_register_interactive_is_dynamic_alone_uses_view_definition() -> None:
+    gen = _schema_gen_with_mocks()
+    table = _interactive_with_definition(
+        "INT_DYN", definition=STATIC_DDL, target_lag=None, is_dynamic=True
+    )
+    gen._register_interactive_table_upstreams(table, DB, SCHEMA)
+
+    aggregator = cast(MagicMock, gen.aggregator)
+    aggregator.add_view_definition.assert_called_once()
+    aggregator.add_observed_query.assert_not_called()
+
+
 def test_register_interactive_dynamic_get_ddl_form_uses_view_definition() -> None:
     gen = _schema_gen_with_mocks()
     table = _interactive_with_definition(

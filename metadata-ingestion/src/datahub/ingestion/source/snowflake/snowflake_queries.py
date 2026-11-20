@@ -29,8 +29,10 @@ from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.snowflake.constants import (
-    INTERACTIVE_TABLE_RE,
+    INTERACTIVE_TABLE_CREATE_RE,
+    TARGET_LAG_RE,
     SnowflakeObjectDomain,
+    rewrite_interactive_table_create,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
@@ -638,16 +640,19 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         """Parseable text for a CTAS into an interactive table, else None.
 
         ACCESS_HISTORY leaves objects_modified empty for CREATE INTERACTIVE TABLE ... AS SELECT
-        (observed live), so the target is only recoverable by parsing the query text.
+        (observed live), so the target is only recoverable by parsing the query text. A
+        TARGET_LAG create is skipped: that table's lineage comes from its definition, and the
+        dynamic-table refresh suppression cannot match a row with no objects_modified.
         """
         if (
             snowflake_query_type != CREATE_TABLE_AS_SELECT_QUERY_TYPE
             or objects_modified
-            or INTERACTIVE_TABLE_RE.search(query_text) is None
+            or INTERACTIVE_TABLE_CREATE_RE.search(query_text) is None
+            or TARGET_LAG_RE.search(query_text) is not None
         ):
             return None
         self.report.num_interactive_table_ctas_observed += 1
-        return INTERACTIVE_TABLE_RE.sub("TABLE", query_text, count=1)
+        return rewrite_interactive_table_create(query_text)
 
     @staticmethod
     def _classify_audit_log_objects(
