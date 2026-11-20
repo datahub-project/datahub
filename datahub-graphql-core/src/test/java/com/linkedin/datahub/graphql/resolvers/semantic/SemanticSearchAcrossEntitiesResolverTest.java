@@ -1033,6 +1033,8 @@ public class SemanticSearchAcrossEntitiesResolverTest {
         DefaultEntityFiltersUtil.applyDefaultEntityFilters(
             null, Collections.singletonList("document"), null, mockQueryContext));
     assertFalse(searching.getValue().getSearchContext().getCallerFiltered());
+    // A URN query the template routes to similarity holds its anchor to the same defaults
+    assertEquals(searching.getValue().getSearchContext().getAnchorFilter(), filter.getValue());
     assertEquals(
         result.getFacets().stream().map(FacetMetadata::getField).toList(),
         Collections.singletonList("platform"));

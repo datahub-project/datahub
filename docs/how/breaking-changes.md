@@ -34,6 +34,12 @@ embedded. Any other query runs on
 `semantic` as before. A custom template whose parent is `semantic` inherits the route unless it sets its
 own `routes`.
 
+In GraphQL search, an entity can anchor a similarity search, routed or named, only if search would
+show it to the user. A document that is not published, or not shown in global context, cannot anchor one,
+whatever entity types the search asks for, unless the request sets `includeHiddenLifecycleStages`. A
+user who can manage documents can still anchor on an unpublished document that has no lifecycle
+stage. Rest.li and OpenAPI searches do not change.
+
 A GMS pod without similarity fails the route. In a rolling upgrade from a release without similarity
 ([#21391](https://github.com/datahub-project/datahub/pull/21391)), a URN query on `semantic` fails on
 the old pods from the time system update writes version 19 until those pods are replaced. Upgrading

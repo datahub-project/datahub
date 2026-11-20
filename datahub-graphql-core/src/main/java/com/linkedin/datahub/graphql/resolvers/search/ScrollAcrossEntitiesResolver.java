@@ -124,7 +124,9 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags)
                         .withCallerOptionalFilterFields(
                             DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
-                        .withCallerFiltered(callerFiltered),
+                        .withCallerFiltered(callerFiltered)
+                        .withAnchorFilter(
+                            DefaultEntityFiltersUtil.anchorFilter(searchFlags, context)),
                     finalEntities,
                     sanitizedQuery,
                     combinedFilter,

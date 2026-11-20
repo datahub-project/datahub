@@ -92,7 +92,11 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
 
             BrowseResultV2 browseResults =
                 _entityClient.browseV2(
-                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags)
+                        .withAnchorFilter(
+                            DefaultEntityFiltersUtil.anchorFilter(searchFlags, context)),
                     entityNames,
                     pathStr,
                     effectiveFilter,

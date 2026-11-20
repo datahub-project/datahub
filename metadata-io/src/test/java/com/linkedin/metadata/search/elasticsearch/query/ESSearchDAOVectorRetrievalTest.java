@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.atMostOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
@@ -2483,6 +2484,102 @@ public class ESSearchDAOVectorRetrievalTest {
   }
 
   /**
+   * A GraphQL search holds the anchor to the document defaults it records as the anchor filter, so
+   * a document the viewer could not find by search fails as noAnchor before its vectors are read or
+   * a kNN request is sent: one in a lifecycle stage other than published, a legacy one whose state
+   * is unpublished, and one kept out of global context. Managing documents lifts only the legacy
+   * unpublished clause. The caller's own filter still does not apply to the anchor, and without an
+   * anchor filter, as on Rest.li and OpenAPI or with includeHiddenLifecycleStages, each serves.
+   */
+  @Test
+  public void testAnAnchorTheDocumentDefaultsLeaveOutFailsAsNoAnchor() throws Exception {
+    store(similarity(r -> {}));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+    String sales = "urn:li:domain:sales";
+    // How the store holds the anchor, by the text of the clause that leaves it out
+    Map<String, String> leftOutBy =
+        Map.of(
+            "a stage other than published", "urn:li:lifecycleStageType:PUBLISHED",
+            "a legacy unpublished state", "UNPUBLISHED",
+            "out of global context", "showInGlobalContext");
+    for (Map.Entry<String, String> anchor : leftOutBy.entrySet()) {
+      // The anchor is also outside the caller's filter, which must not matter
+      doAnswer(
+              invocation -> {
+                String source = invocation.<SearchRequest>getArgument(1).source().toString();
+                return keywordResponse(
+                    source.contains(anchor.getValue()) || source.contains(sales) ? 0 : 1);
+              })
+          .when(client)
+          .search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT));
+      for (boolean canManageDocuments : List.of(false, true)) {
+        OperationContext searching =
+            context(DOCUMENT, f -> {})
+                .withAnchorFilter(publishedDocumentDefault(canManageDocuments));
+        Filter caller = withDocumentDefaults(filter("domains", sales), canManageDocuments);
+        clearInvocations(client, harness.retriever, metrics);
+        if (canManageDocuments && anchor.getValue().equals("UNPUBLISHED")) {
+          assertEquals(
+              urns(similarWithin(searching, caller)),
+              List.of("urn:li:document:d0"),
+              anchor.getKey());
+          continue;
+        }
+
+        assertThrows(
+            SearchTemplateFailClosedException.class, () -> similarWithin(searching, caller));
+        verify(harness.retriever, never())
+            .getLatestAspectObject(
+                any(),
+                eq(UrnUtils.getUrn(ANCHOR)),
+                eq(SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME));
+        verify(client, never()).searchKnn(any(), any());
+        assertVectorOutcome(SearchTemplateVectorRetrieval.NO_ANCHOR);
+      }
+
+      assertEquals(
+          urns(
+              similarWithin(
+                  context(DOCUMENT, f -> f.setIncludeHiddenLifecycleStages(true)),
+                  filter("domains", sales))),
+          List.of("urn:li:document:d0"),
+          anchor.getKey());
+    }
+  }
+
+  /**
+   * The anchor filter is read on the same fields as the neighbors' filter: the anchor check renders
+   * the document defaults as the kNN request does, so a field path one of them reads is the one the
+   * other reads.
+   */
+  @Test
+  public void testTheAnchorCheckRendersTheDocumentDefaultsAsTheKnnRequestDoes() throws Exception {
+    store(similarity(r -> {}));
+    anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
+    knnReturns(hits(0.95));
+    for (boolean canManageDocuments : List.of(false, true)) {
+      Filter defaults = publishedDocumentDefault(canManageDocuments);
+      clearInvocations(client);
+
+      similarWithin(context(DOCUMENT, f -> {}).withAnchorFilter(defaults), defaults);
+
+      SearchRequest probe = anchorProbe();
+      Map<String, Object> anchorFilter =
+          ((BoolQueryBuilder) probe.source().query())
+              .filter().stream()
+                  .filter(clause -> clause.toString().contains("showInGlobalContext"))
+                  .map(ESUtils::filterMap)
+                  .findFirst()
+                  .orElseThrow();
+      assertEquals(
+          should(anchorFilter),
+          should(knnRequest().filter().orElseThrow()),
+          String.valueOf(canManageDocuments));
+    }
+  }
+
+  /**
    * On the semantic search surface the shipped semantic template routes an entity URN to
    * similarity, so semantic search serves the anchor's neighbors. A URN whose type has no embedding
    * profile, here any type but Document, fails as noAnchor, the error callers report as a bad
@@ -2693,6 +2790,12 @@ public class ESSearchDAOVectorRetrievalTest {
     return dao(null, embedding()).search(searching, entities, ANCHOR, null, null, 0, 10, List.of());
   }
 
+  /** Documents similar to the anchor, inside {@code filter}. */
+  private SearchResult similarWithin(OperationContext searching, Filter filter) {
+    return dao(null, embedding())
+        .search(searching, DOCUMENT, ANCHOR, filter, null, 0, 10, List.of());
+  }
+
   /** The anchor's semanticContent: one chunk per vector under the profile. */
   private void anchorHas(String anchor, String profile, long generatedAt, float[]... chunks) {
     EmbeddingChunkArray stored = new EmbeddingChunkArray();
@@ -2727,6 +2830,24 @@ public class ESSearchDAOVectorRetrievalTest {
     return request != null
         && request.source().size() == 0
         && request.source().toString().contains(ANCHOR);
+  }
+
+  /** The one anchor probe the search sent. */
+  private SearchRequest anchorProbe() throws IOException {
+    ArgumentCaptor<SearchRequest> requests = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(client, atLeastOnce())
+        .search(any(OperationContext.class), requests.capture(), eq(RequestOptions.DEFAULT));
+    List<SearchRequest> probes =
+        requests.getAllValues().stream()
+            .filter(ESSearchDAOVectorRetrievalTest::isAnchorProbe)
+            .toList();
+    assertEquals(probes.size(), 1);
+    return probes.get(0);
+  }
+
+  /** The OR branches of a filter map. */
+  private static Object should(Map<String, Object> filter) {
+    return ((Map<?, ?>) filter.get("bool")).get("should");
   }
 
   private void chunkFinds(float[] chunk, KnnSearchResponse.Hit... found) throws IOException {

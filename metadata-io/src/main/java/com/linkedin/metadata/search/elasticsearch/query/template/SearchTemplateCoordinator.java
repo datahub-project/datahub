@@ -15,8 +15,12 @@ import com.linkedin.metadata.config.search.VectorStoreConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
 import com.linkedin.metadata.search.embedding.EmbeddingProfile;
@@ -54,6 +58,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -832,10 +837,12 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
    * Whether this viewer may anchor a similarity search on {@code anchor}: view authorization lets
    * them see it, and the default search filters keep it, so it is not soft-deleted and not in a
    * hidden lifecycle stage unless the request opts in with {@code includeSoftDeleted} or {@code
-   * includeHiddenLifecycleStages}. These are the filters every neighbor passes. The caller's filter
-   * selects neighbors, not the anchor, so it does not apply. The store lookup must finish by the
-   * deadline. Bind checks this before it reads the anchor and before the result cache, and the rung
-   * reuses that answer.
+   * includeHiddenLifecycleStages}. It must also pass the search context's anchor filter, the
+   * document defaults a GraphQL resolver adds, so a document the viewer could not find by search
+   * cannot anchor one. These are the filters every neighbor passes. The caller's filter selects
+   * neighbors, not the anchor, so it does not apply. The store lookup must finish by the deadline.
+   * Bind checks this before it reads the anchor and before the result cache, and the rung reuses
+   * that answer.
    */
   public boolean anchorUsable(
       @Nonnull OperationContext opContext, @Nonnull Urn anchor, long deadlineNanos)
@@ -845,6 +852,12 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     }
     final EntityIndexConfiguration entityIndex = elasticSearchConfiguration.getEntityIndex();
     final List<String> entityType = List.of(anchor.getEntityType());
+    final BoolQueryBuilder query =
+        QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("urn", anchor.toString()));
+    final Filter anchorFilter = opContext.getSearchContext().getAnchorFilter();
+    if (anchorFilter != null) {
+      query.filter(anchorFilterQuery(opContext, anchorFilter));
+    }
     // The shards stop at the deadline too, and a timed-out response fails the check below
     final long remainingMillis =
         Math.max(1, TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime()));
@@ -856,12 +869,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
                     .timeout(TimeValue.timeValueMillis(remainingMillis))
                     .query(
                         ESUtils.applyDefaultSearchFilters(
-                            opContext,
-                            entityType,
-                            null,
-                            QueryBuilders.boolQuery()
-                                .filter(QueryBuilders.termQuery("urn", anchor.toString())),
-                            entityIndex)));
+                            opContext, entityType, null, query, entityIndex)));
     final SearchResponse response =
         within(
             () ->
@@ -872,6 +880,27 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
       throw new IOException("The anchor check reported a timed-out or failed shard");
     }
     return response.getHits().getTotalHits() != null && response.getHits().getTotalHits().value > 0;
+  }
+
+  // Each OR branch is rendered as the neighbors' filter renders it, on the same Search V3 fields,
+  // so the anchor and its neighbors read the same paths. Not through buildFilterQuery, which would
+  // add the latest-version clause the anchor check does not apply. The defaults name no field a
+  // filter rewriter expands.
+  @Nonnull
+  private static QueryBuilder anchorFilterQuery(
+      @Nonnull OperationContext opContext, @Nonnull Filter anchorFilter) {
+    final BoolQueryBuilder query = QueryBuilders.boolQuery().minimumShouldMatch(1);
+    for (ConjunctiveCriterion branch : anchorFilter.getOr()) {
+      query.should(
+          ESUtils.buildConjunctiveFilterQuery(
+              branch,
+              false,
+              opContext.getSearchContext().getSearchableFieldTypes(),
+              opContext,
+              QueryFilterRewriteChain.EMPTY,
+              V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver()));
+    }
+    return query;
   }
 
   /**

@@ -6,6 +6,7 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
@@ -108,6 +109,17 @@ public class SearchContext implements ContextInterface {
    * OpenAPI, which cannot set it: every filter criterion is then the caller's.
    */
   @Nullable private final Boolean callerFiltered;
+
+  /**
+   * A filter a similarity anchor must pass besides the default search filters. GraphQL search
+   * resolvers set it to the document defaults they add, on their own and whatever types the request
+   * searches, so a viewer cannot anchor a search on a document they could not find by search. Null
+   * when the entry point sets none, as on Rest.li and OpenAPI. Not part of {@link
+   * #getCacheKeyComponent()}: bind checks the anchor before the result cache and stamps its answer
+   * into the template's cache identity, and the filter derives from the flags and the actor, which
+   * are in the key.
+   */
+  @Nullable private final Filter anchorFilter;
 
   /**
    * Search V3 template surface ({@code searchEntities}, {@code scrollEntities}, ...). Selection
@@ -261,6 +273,7 @@ public class SearchContext implements ContextInterface {
           this.prioritizedDatahubEntityTypes,
           this.callerOptionalFilterFields,
           this.callerFiltered,
+          this.anchorFilter,
           this.searchSurface,
           this.resolvedSearchTemplate,
           this.skipTemplateExecution);

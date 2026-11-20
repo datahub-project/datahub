@@ -236,7 +236,8 @@ public class SemanticSearchAcrossEntitiesResolver
             .withSearchFlags(flags -> searchFlags)
             .withCallerOptionalFilterFields(
                 DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
-            .withCallerFiltered(callerFiltered);
+            .withCallerFiltered(callerFiltered)
+            .withAnchorFilter(DefaultEntityFiltersUtil.anchorFilter(searchFlags, context));
     SearchResult result;
     try {
       result =

@@ -182,6 +182,19 @@ public class DefaultEntityFiltersUtil {
     return addDefaultEntityFilters(baseFilter, entityTypes, true, canManageDocs);
   }
 
+  /**
+   * The document defaults on their own, as {@link #applyDefaultEntityFilters} adds them to a search
+   * that includes documents. Search resolvers record these on the search context for a similarity
+   * anchor to pass, whatever types the request searches: a request without documents adds no
+   * defaults but can still name a document as its anchor. Null when the request sets {@code
+   * includeHiddenLifecycleStages}.
+   */
+  @Nullable
+  public static Filter anchorFilter(
+      @Nullable SearchFlags searchFlags, @Nonnull QueryContext context) {
+    return applyDefaultEntityFilters(null, List.of(DOCUMENT_ENTITY_NAME), searchFlags, context);
+  }
+
   /** Field names from caller-owned optional OR branches. */
   @Nonnull
   public static Set<String> callerOptionalFilterFields(@Nullable Filter filter) {

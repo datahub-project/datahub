@@ -131,7 +131,9 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         .withSearchFlags(flags -> searchFlags)
                         .withCallerOptionalFilterFields(
                             DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
-                        .withCallerFiltered(callerFiltered),
+                        .withCallerFiltered(callerFiltered)
+                        .withAnchorFilter(
+                            DefaultEntityFiltersUtil.anchorFilter(searchFlags, context)),
                     finalEntities,
                     sanitizedQuery,
                     combinedFilter,

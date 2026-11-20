@@ -111,7 +111,9 @@ public class AggregateAcrossEntitiesResolver
                         .getOperationContext()
                         .withSearchSurface(SearchTemplateSurfaces.AGGREGATE_ENTITIES)
                         .withSearchFlags(flags -> searchFlags)
-                        .withCallerFiltered(callerFiltered),
+                        .withCallerFiltered(callerFiltered)
+                        .withAnchorFilter(
+                            DefaultEntityFiltersUtil.anchorFilter(searchFlags, context)),
                     finalEntities,
                     sanitizedQuery,
                     effectiveFilter,
