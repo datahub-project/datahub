@@ -92,8 +92,9 @@ other rows keep their places. With hybrid read off, keyword results do not chang
 whose parent is `fulltext` inherits the rerank, unless it sets its own `knn` that names a `field`:
 that `knn` keeps the reading it had before, so one with only `field` is still the earlier document
 rerank. The new
-`urn:li:searchTemplate:semantic` retrieves by vector. A search uses it only when it names it in the
-`searchTemplate` search flag; semantic search (`semanticSearchAcrossEntities`) does not change.
+`urn:li:searchTemplate:semantic` retrieves by vector. A search uses it when it names it in the
+`searchTemplate` search flag. Semantic search (`semanticSearchAcrossEntities`) uses it only behind
+its own switch; see "Semantic search can run the semantic search template".
 Version 18 adds `urn:li:searchTemplate:similarity` and the `similarity` capability. A search that
 names `similarity` in the `searchTemplate` flag, with an entity URN as the query, returns the documents
 nearest that entity. `semantic` does not change: its URN route ships in a later release, once every GMS
@@ -129,6 +130,49 @@ The `semantic` and `similarity` templates stay stored, and the earlier release d
 If you later upgrade to this release again, system update keeps the restored templates, because
 version 18 already ran. To write the shipped templates again, run system update once with
 `DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable.
+
+### Semantic search can run the semantic search template
+
+Semantic search (`semanticSearchAcrossEntities`) can now run `urn:li:searchTemplate:semantic` through a
+new `semanticSearch` template surface. It is off by default, and nothing changes while it is off. To
+turn it on, set `SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH=active` on GMS, and
+`SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH_PERCENT` to serve it to only some users. A blank or missing
+setting keeps it off, whatever `SEARCH_V3_TEMPLATES_ROLLOUT` says. The switch takes effect on
+Elasticsearch 8.18 or later and OpenSearch 3.5 or later. On older OpenSearch, or when GMS cannot read
+the OpenSearch version (reading it needs the `cluster:monitor/main` permission), semantic search stays
+on its own kNN search, and GMS logs a warning. GMS reads an unreadable version again at most once a
+minute, so granting the permission needs no restart. GMS keeps a version it has read until it restarts,
+so after upgrading OpenSearch to 3.5 or later, restart GMS for the switch to take effect. With it on:
+
+- Only documents have an embedding profile in this release, so semantic search through the template
+  returns documents only. Other entity types in `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` return
+  nothing, and a request for only those types returns an empty page. Keep the switch off if semantic
+  search serves other entity types for you.
+- Documents follow the same defaults as keyword search: only published documents shown in global
+  context come back, unless the request sets `includeHiddenLifecycleStages`. A user who can manage
+  documents also gets unpublished documents that have no lifecycle stage.
+- As in keyword search, soft-deleted entities and entities in a hidden lifecycle stage are left out
+  unless the request sets `includeSoftDeleted` or `includeHiddenLifecycleStages`.
+- `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY`, when set, drops results below that cosine. The
+  legacy semantic search applies only the `minScore` search flag.
+- The facets count the results semantic search found, not every document that matches the filter.
+- The query embedding and the vector search share a budget of two seconds, where the legacy semantic
+  search sets no timeout. A slow embedding fails as `DEADLINE_EXCEEDED`, and a vector search that
+  runs past the budget fails the search, which the keyword fallback below does not cover.
+- With the search cache on, results are cached per user and query for the cache's lifetime. The
+  legacy semantic search was never cached.
+- A query that cannot be embedded fails with an error that names the reason, instead of a generic
+  server error: `timeout` as `DEADLINE_EXCEEDED`; `rejected`, `reserveExhausted`, or
+  `budgetExhausted` as `SERVICE_UNAVAILABLE`; and `failed` as a server error. Set the new
+  `keywordFallbackOnEmbeddingFailure` search flag to get keyword search results instead. The results'
+  `keywordFallback` field then names the reason.
+- A configuration that would answer with keyword results, such as a `semanticSearch` slot that points at
+  a keyword template, fails the search instead.
+
+A new `minSimilarity` search flag sets a raw cosine floor on vector results. It can raise the floor a
+template or `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY` sets, and never lower it. While the switch is
+off or does not take effect, semantic search rejects the flag. **Action:** none. Before you turn the
+switch on, check that clients expect the document defaults and facet counts above.
 
 ### Parent Data Product is now checked on every API
 
