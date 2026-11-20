@@ -144,7 +144,7 @@ usage_operations:
       GraphQL entity-root queries (dataset, dashboard, getDataset, etc.); also
       timeseries aspect values, entity timeline and schema blame/version history
       (/openapi/v2/timeline/v1), usage/analytics (GraphQL analytics.graphql, Rest.li
-      UsageStats query), external events poll, and Rest.li AspectResource getCount. Map search/lineage GraphQL ops to search_query or lineage_query when
+      UsageStats query), external events poll, entity counts (/openapi/v1/entities/counts and /{entityType}/count), and Rest.li AspectResource getCount. Map search/lineage GraphQL ops to search_query or lineage_query when
       recognized by operation name or root field. Audit log search (POST
       /openapi/v1/events/audit/search) is search_query (Elasticsearch). Entity GraphQL
       reads remain metadata_query.

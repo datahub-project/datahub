@@ -13,6 +13,7 @@ import com.linkedin.metadata.systemmetadata.PlatformEntityCountResult;
 import com.linkedin.metadata.systemmetadata.PlatformEntityCounts;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.v1.models.entities.EntityCountsResponseDto;
 import io.datahubproject.openapi.v1.models.entities.EntityTypeCountResponseDto;
@@ -140,8 +141,8 @@ public class EntityCountsController {
     Authentication authentication = AuthenticationContext.getAuthentication();
     return systemOperationContext.asSession(
         RequestContext.builder()
-            .buildOpenapi(
-                authentication.getActor().toUrnStr(), request, operationName, entityNames),
+            .buildOpenapi(authentication.getActor().toUrnStr(), request, operationName, entityNames)
+            .withUsageOperation(UsageOperation.METADATA_QUERY),
         authorizerChain,
         authentication);
   }
