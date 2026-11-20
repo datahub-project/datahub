@@ -100,9 +100,14 @@ class WebsocketConnection:
         app_id: str,
         timeout: Optional[float] = None,
     ) -> "WebsocketConnection":
+        # Qlik Cloud also sends push notifications, such as OnConnected and
+        # session events, between replies. Matching replies by id skips them;
+        # reading the next message instead would pair each later request with
+        # the reply to the one before it.
         return cls(
             f"wss://{tenant_hostname}/app/{app_id}",
             header={"Authorization": f"Bearer {api_key}"},
+            match_response_id=True,
             timeout=timeout,
         )
 

@@ -900,13 +900,60 @@ def test_sql_with_an_unset_variable_names_it(mock_api_cls: MagicMock) -> None:
     assert "vYear" in str(warning.context)
 
 
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT * FROM orders_$(v$(vRegion))",
+        "SELECT * FROM orders WHERE day > $(=Date(Today()))",
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_sql_with_an_unnamed_variable_shows_the_sql(
+    mock_api_cls: MagicMock, sql: str
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-cloud"),
+    )
+
+    source._parse_script_table(
+        "app-1",
+        ScriptTable(label="Orders", sql=sql),
+        ResolvedConnection(platform="postgres", env="PROD"),
+    )
+
+    [warning] = source.reporter.warnings
+    assert sql in str(warning.context)
+
+
 @patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
-def test_engine_message_without_result_names_the_request(
+def test_cloud_push_notifications_do_not_shift_replies(
     mock_connect: MagicMock,
 ) -> None:
     mock_connect.return_value.recv.side_effect = [
         '{"jsonrpc": "2.0", "method": "OnConnected", "params": {}}',
+        '{"jsonrpc": "2.0", "id": 1, "result": {"qReturn": {"qHandle": 1}}}',
         '{"jsonrpc": "2.0", "method": "OnSessionTimedOut", "params": {}}',
+        '{"jsonrpc": "2.0", "id": 2, "result": {"qLayout": {"title": "a"}}}',
+        '{"jsonrpc": "2.0", "id": 3, "result": {"qLayout": {"title": "b"}}}',
+    ]
+    connection = WebsocketConnection.for_cloud("tenant.example.com", "key", "app-1")
+
+    connection.websocket_send_request(method="OpenDoc")
+    first = connection.websocket_send_request(method="GetLayout")
+    second = connection.websocket_send_request(method="GetLayout")
+
+    # A notification read as a reply would hand each layout to the next request.
+    assert first == {"qLayout": {"title": "a"}}
+    assert second == {"qLayout": {"title": "b"}}
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_engine_reply_without_result_names_the_request(
+    mock_connect: MagicMock,
+) -> None:
+    mock_connect.return_value.recv.side_effect = [
+        '{"jsonrpc": "2.0", "id": 1, "method": "OnSessionTimedOut"}',
     ]
     connection = WebsocketConnection.for_cloud("tenant.example.com", "key", "app-1")
 
