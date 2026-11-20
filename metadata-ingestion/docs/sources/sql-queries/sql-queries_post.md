@@ -62,7 +62,7 @@ Notes:
 
 - `connection` takes the same settings as the `elasticsearch` source, so username/password, API key, mutual TLS and AWS IAM (SigV4) authentication through `connection.aws_config` are all available. `connection.aws_config` is separate from the top-level `aws_config`, which is only used to read an `s3://` `query_file`.
 - Every run reads every matching document. Use `query_filter` to limit the time range, for example to the period since the previous run.
-- Documents whose mapped `query` field is empty or absent are skipped, so an index that mixes query records with non-query events (such as connect/disconnect audit entries) can be read directly without a filter. If no document has a value there, the run fails, because that almost always means `field_mappings.query` names the wrong field. A mapped optional field that no document has is reported as a warning.
+- Documents whose mapped `query` field is empty or absent are skipped, so an index that mixes query records with non-query events (such as connect/disconnect audit entries) can be read directly without a filter. If no document has a value there, the run fails, because that almost always means `field_mappings.query` names the wrong field. A mapped optional field that no document has is reported as a warning. On an index where most documents are not queries, add a `query_filter` that selects the query events to cut the volume read.
 - When a `timestamp` field is mapped, records are read in ascending timestamp order so session temporary-table lineage resolves correctly.
 - Requests time out after `request_timeout_seconds` (60 by default) and are retried `max_retries` times after a timeout or connection error.
 

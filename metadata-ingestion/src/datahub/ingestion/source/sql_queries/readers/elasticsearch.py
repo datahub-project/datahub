@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 Hit = Dict[str, Any]
 
+TIMESTAMP_UNMAPPED_TYPE = "date"
+
 
 class ElasticsearchQueryLogReader(MappedQueryLogReader[Hit]):
     """Reads query records from an Elasticsearch/OpenSearch index.
@@ -32,15 +34,28 @@ class ElasticsearchQueryLogReader(MappedQueryLogReader[Hit]):
 
     def build_query(self) -> Dict[str, Any]:
         mappings = self.es_config.field_mappings
-        filters: List[Dict[str, Any]] = [{"exists": {"field": mappings.query}}]
+        # No exists filter on the query field: a wrong field_mappings.query
+        # would then match nothing and look like an empty index. Reading the
+        # documents lets the run fail with "No records had SQL" instead.
+        filters: List[Dict[str, Any]] = []
         if self.es_config.query_filter:
             filters.append(self.es_config.query_filter)
         query: Dict[str, Any] = {"query": {"bool": {"filter": filters}}}
         # The aggregator resolves session temp tables from earlier statements, so
         # records must arrive in ascending timestamp order. _doc is a stable
         # tiebreaker so records sharing a timestamp keep a deterministic order.
+        # unmapped_type keeps an index that lacks the field (e.g. a new daily
+        # index in an "audit-*" pattern) from failing the whole search.
         if mappings.timestamp is not None:
-            query["sort"] = [{mappings.timestamp: {"order": "asc"}}, {"_doc": "asc"}]
+            query["sort"] = [
+                {
+                    mappings.timestamp: {
+                        "order": "asc",
+                        "unmapped_type": TIMESTAMP_UNMAPPED_TYPE,
+                    }
+                },
+                {"_doc": "asc"},
+            ]
         return query
 
     def _read_records(self) -> Iterable[Hit]:
