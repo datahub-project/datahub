@@ -452,6 +452,106 @@ FROM source_db.dbo.source_table
     )
 
 
+_INSERT_COLUMN_LIST_SCHEMAS = {
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src,PROD)": {
+        "x": "VARCHAR",
+        "y": "NUMBER",
+    },
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src2,PROD)": {
+        "p": "VARCHAR",
+        "q": "NUMBER",
+    },
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.tgt,PROD)": {
+        "a": "VARCHAR",
+        "b": "NUMBER",
+    },
+}
+
+
+@pytest.mark.parametrize(
+    "shape, sql, schemas",
+    [
+        pytest.param(
+            "swapped_names",
+            "INSERT INTO my_db.my_schema.tgt (a, b) SELECT b, a FROM my_db.my_schema.tgt2",
+            None,
+            id="swapped_names",
+        ),
+        pytest.param(
+            "different_names",
+            "INSERT INTO my_db.my_schema.tgt (a, b) SELECT x, y FROM my_db.my_schema.src",
+            _INSERT_COLUMN_LIST_SCHEMAS,
+            id="different_names",
+        ),
+        pytest.param(
+            "insert_overwrite",
+            "INSERT OVERWRITE INTO my_db.my_schema.tgt (b, a) SELECT y, x FROM my_db.my_schema.src",
+            _INSERT_COLUMN_LIST_SCHEMAS,
+            id="insert_overwrite",
+        ),
+        pytest.param(
+            "duplicate_select_names",
+            "INSERT INTO my_db.my_schema.tgt (a, b) SELECT s.x, s2.x "
+            "FROM my_db.my_schema.src s JOIN my_db.my_schema.src s2 ON s.y = s2.y",
+            _INSERT_COLUMN_LIST_SCHEMAS,
+            id="duplicate_select_names",
+        ),
+        pytest.param(
+            "union",
+            "INSERT INTO my_db.my_schema.tgt (a, b) SELECT x, y FROM my_db.my_schema.src "
+            "UNION ALL SELECT p, q FROM my_db.my_schema.src2",
+            _INSERT_COLUMN_LIST_SCHEMAS,
+            id="union",
+        ),
+        pytest.param(
+            "select_star_with_schema",
+            "INSERT INTO my_db.my_schema.tgt (a, b) SELECT * FROM my_db.my_schema.src",
+            _INSERT_COLUMN_LIST_SCHEMAS,
+            id="select_star_with_schema",
+        ),
+        pytest.param(
+            "select_star_without_schema",
+            "INSERT INTO my_db.my_schema.tgt (a, b) SELECT * FROM my_db.my_schema.src",
+            None,
+            id="select_star_without_schema",
+        ),
+        pytest.param(
+            "count_mismatch",
+            "INSERT INTO my_db.my_schema.tgt (a) SELECT x, y FROM my_db.my_schema.src",
+            _INSERT_COLUMN_LIST_SCHEMAS,
+            id="count_mismatch",
+        ),
+        pytest.param(
+            # Snowflake folds the quoted target name like the rest of the query, so it
+            # still resolves to the target schema's declared casing.
+            "quoted_mixed_case_target",
+            'INSERT INTO my_db.my_schema.tgt_mixed ("CamelCase", b) '
+            "SELECT x, y FROM my_db.my_schema.src",
+            {
+                **_INSERT_COLUMN_LIST_SCHEMAS,
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.tgt_mixed,PROD)": {
+                    "CamelCase": "VARCHAR",
+                    "b": "NUMBER",
+                },
+            },
+            id="quoted_mixed_case_target",
+        ),
+    ],
+)
+def test_insert_column_list_maps_positionally(
+    shape: str,
+    sql: str,
+    schemas: Optional[Dict[str, Dict[str, str]]],
+) -> None:
+    # The i-th SELECT output feeds the i-th listed target column, whatever it is named.
+    assert_sql_result(
+        sql,
+        dialect="snowflake",
+        schemas=schemas,
+        expected_file=RESOURCE_DIR / f"test_insert_column_list_{shape}.json",
+    )
+
+
 def test_select_with_full_col_name() -> None:
     # In this case, `widget` is a struct column.
     # This also tests the `default_db` functionality.
