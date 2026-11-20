@@ -107,6 +107,12 @@ describe('selectReportNote', () => {
         assert.match(note, /Boot-only: no GMS/);
     });
 
+    it('describes the signed-in shell stub', () => {
+        const note = selectReportNote({ mode: 'ab-local', authMode: 'stub', stubApi: true });
+        assert.match(note, /Signed-in shell/);
+        assert.match(note, /Recorded GraphQL/);
+    });
+
     it('describes local builds against a real backend', () => {
         const note = selectReportNote({ mode: 'ab-local', authMode: 'authenticated', stubApi: false });
         assert.match(note, /Local builds served against one backend/);
