@@ -1,0 +1,704 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de57305537f32d5f3651c920814c9b4e",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:16f8b50981fd53a773ebd1fc57a850fd"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462222,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de57305537f32d5f3651c920814c9b4e",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "sigma",
+                "dataModelId": "aa000000-0000-0000-0000-000000000002",
+                "dataModelUrlId": "union-dm-urlid",
+                "path": "Test Workspace"
+            },
+            "name": "Union DM",
+            "created": {
+                "time": 1704067200000
+            },
+            "lastModified": {
+                "time": 1704153600000
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462222,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de57305537f32d5f3651c920814c9b4e",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462222,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de57305537f32d5f3651c920814c9b4e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sigma"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462222,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de57305537f32d5f3651c920814c9b4e",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Sigma Data Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462222,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de57305537f32d5f3651c920814c9b4e",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:16f8b50981fd53a773ebd1fc57a850fd",
+                    "urn": "urn:li:container:16f8b50981fd53a773ebd1fc57a850fd"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462222,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchA,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462223,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchA,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataModelId": "aa000000-0000-0000-0000-000000000002",
+                "dataModelUrlId": "union-dm-urlid",
+                "elementId": "unionBranchA",
+                "type": "table"
+            },
+            "name": "Orders A",
+            "qualifiedName": "Union DM/Orders A",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462223,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchA,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Sigma Data Model Element"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462223,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchA,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Orders A",
+            "platform": "urn:li:dataPlatform:sigma",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Order Id",
+                    "nullable": false,
+                    "description": "Order Id",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "unknown",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462223,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchA,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:de57305537f32d5f3651c920814c9b4e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462223,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchA,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:16f8b50981fd53a773ebd1fc57a850fd",
+                    "urn": "urn:li:container:16f8b50981fd53a773ebd1fc57a850fd"
+                },
+                {
+                    "id": "urn:li:container:de57305537f32d5f3651c920814c9b4e",
+                    "urn": "urn:li:container:de57305537f32d5f3651c920814c9b4e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462223,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchB,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462224,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchB,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataModelId": "aa000000-0000-0000-0000-000000000002",
+                "dataModelUrlId": "union-dm-urlid",
+                "elementId": "unionBranchB",
+                "type": "table"
+            },
+            "name": "Orders B",
+            "qualifiedName": "Union DM/Orders B",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462224,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchB,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Sigma Data Model Element"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462224,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchB,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Orders B",
+            "platform": "urn:li:dataPlatform:sigma",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Order Id",
+                    "nullable": false,
+                    "description": "Order Id",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "unknown",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462224,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchB,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:de57305537f32d5f3651c920814c9b4e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462224,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchB,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:16f8b50981fd53a773ebd1fc57a850fd",
+                    "urn": "urn:li:container:16f8b50981fd53a773ebd1fc57a850fd"
+                },
+                {
+                    "id": "urn:li:container:de57305537f32d5f3651c920814c9b4e",
+                    "urn": "urn:li:container:de57305537f32d5f3651c920814c9b4e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462224,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionElem01,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462226,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionElem01,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataModelId": "aa000000-0000-0000-0000-000000000002",
+                "dataModelUrlId": "union-dm-urlid",
+                "elementId": "unionElem01",
+                "type": "table"
+            },
+            "name": "All Orders",
+            "qualifiedName": "Union DM/All Orders",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462226,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionElem01,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Sigma Data Model Element"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462226,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionElem01,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "All Orders",
+            "platform": "urn:li:dataPlatform:sigma",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Order Id",
+                    "nullable": false,
+                    "description": "Order Id",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "unknown",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462227,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionElem01,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:de57305537f32d5f3651c920814c9b4e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462227,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionElem01,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchA,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchB,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchA,PROD),Order Id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionElem01,PROD),Order Id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionBranchB,PROD),Order Id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionElem01,PROD),Order Id)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462227,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000002.unionElem01,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:16f8b50981fd53a773ebd1fc57a850fd",
+                    "urn": "urn:li:container:16f8b50981fd53a773ebd1fc57a850fd"
+                },
+                {
+                    "id": "urn:li:container:de57305537f32d5f3651c920814c9b4e",
+                    "urn": "urn:li:container:de57305537f32d5f3651c920814c9b4e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462227,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:16f8b50981fd53a773ebd1fc57a850fd",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "sigma",
+                "workspaceId": "bb000000-0000-0000-0000-000000000002"
+            },
+            "name": "Test Workspace",
+            "created": {
+                "time": 1704067200000
+            },
+            "lastModified": {
+                "time": 1704067200000
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462227,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:16f8b50981fd53a773ebd1fc57a850fd",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462228,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:16f8b50981fd53a773ebd1fc57a850fd",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sigma"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462228,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:16f8b50981fd53a773ebd1fc57a850fd",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Sigma Workspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462228,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:16f8b50981fd53a773ebd1fc57a850fd",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791168462228,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

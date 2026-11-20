@@ -1,0 +1,15 @@
+{
+    "query_type": "UNKNOWN",
+    "query_type_props": {},
+    "query_fingerprint": "5cd6ada6255faa344eb93cbe3e60beac2f26ee61cee4ebd8b3d4d8effd26e42a",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.src,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": null,
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "COPY INTO @stg/out FROM src"
+    }
+}

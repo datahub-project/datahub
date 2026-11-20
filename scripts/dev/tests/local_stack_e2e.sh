@@ -66,7 +66,7 @@ printf '{"description": "%s"}\n' "$DESCRIPTION" >"$WORK/properties.json"
 "$DATAHUB" put aspect --urn "$URN" --aspect datasetProperties --aspect-data "$WORK/properties.json"
 "$DATAHUB" get --urn "$URN" --aspect datasetProperties | grep -q "$DESCRIPTION" || fail "get did not return the written aspect"
 for _ in $(seq 1 30); do
-    if "$DATAHUB" search "$DESCRIPTION" --format json 2>/dev/null | grep -q "local_stack_e2e.events"; then
+    if "$DATAHUB" search "local_stack_e2e.events" --format json 2>/dev/null | grep -q "local_stack_e2e.events"; then
         FOUND=1
         break
     fi

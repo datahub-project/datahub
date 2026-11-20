@@ -16,7 +16,7 @@ const Header = styled.div`
 const Body = styled.div``;
 
 const HeaderSkeleton = styled(Skeleton.Input)`
-    && {
+    &&& {
         padding: 0px 12px 12px 0px;
         height: 60px;
         border-radius: 8px;
@@ -29,7 +29,7 @@ const CardWrapper = styled.div`
 `;
 
 const CardSkeleton = styled(Skeleton.Input)`
-    && {
+    &&& {
         padding: 0px 12px 12px 0px;
         height: 60px;
         border-radius: 8px;

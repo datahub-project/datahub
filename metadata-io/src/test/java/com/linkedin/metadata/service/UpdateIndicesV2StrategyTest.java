@@ -145,6 +145,28 @@ public class UpdateIndicesV2StrategyTest {
   }
 
   @Test
+  public void testIsEnabledFollowsTheLiveConfigObject() {
+    EntityIndexVersionConfiguration live = new EntityIndexVersionConfiguration();
+    live.setEnabled(false);
+    UpdateIndicesV2Strategy liveStrategy =
+        new UpdateIndicesV2Strategy(
+            live,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            null,
+            mock(IndexConvention.class),
+            true,
+            mockMappingsBuilder,
+            null);
+
+    assertFalse(liveStrategy.isEnabled());
+    live.setEnabled(true);
+    assertTrue(liveStrategy.isEnabled());
+  }
+
+  @Test
   public void testUpdateSearchIndices_Success() throws Exception {
     // Setup mocks
     when(searchDocumentTransformer.transformAspect(

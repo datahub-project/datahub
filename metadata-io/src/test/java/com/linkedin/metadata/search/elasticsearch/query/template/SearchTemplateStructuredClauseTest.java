@@ -44,7 +44,8 @@ public class SearchTemplateStructuredClauseTest extends SearchTemplateFixture {
                 null,
                 loader,
                 ForkJoinPool.commonPool(),
-                SearchTemplateComponentRegistry.empty())
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none())
             .bind(opContext, "customer orders");
     String rendered =
         new SearchTemplateRenderer(loader, new SearchConfiguration(), null)
@@ -71,7 +72,8 @@ public class SearchTemplateStructuredClauseTest extends SearchTemplateFixture {
                 null,
                 loader,
                 ForkJoinPool.commonPool(),
-                SearchTemplateComponentRegistry.empty())
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none())
             .bind(opContext, "customer orders");
     String rendered =
         new SearchTemplateRenderer(loader, new SearchConfiguration(), null)

@@ -62,7 +62,8 @@ public final class SearchTemplateRequestApplier {
     this.v3SearchQueryBuilder = v3SearchQueryBuilder;
   }
 
-  public void apply(
+  /** Returns whether the template's own sort orders the request. */
+  public boolean apply(
       @Nonnull OperationContext opContext,
       @Nonnull SearchSourceBuilder searchSourceBuilder,
       @Nonnull SearchFlags searchFlags,
@@ -90,6 +91,7 @@ public final class SearchTemplateRequestApplier {
       aggregations(opContext, searchFlags, facets, template)
           .forEach(searchSourceBuilder::aggregation);
     }
+    boolean templateSort = false;
     if (template != null
         && template.rescore() != null
         && relevanceSort(sortCriteria)
@@ -100,11 +102,12 @@ public final class SearchTemplateRequestApplier {
       searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
       searchSourceBuilder.sort(new FieldSortBuilder("urn").order(SortOrder.ASC));
     } else {
-      sort(opContext, searchSourceBuilder, sortCriteria, template);
+      templateSort = sort(opContext, searchSourceBuilder, sortCriteria, template);
     }
     if (!countOnly && !scroll && Boolean.TRUE.equals(searchFlags.isGetSuggestions())) {
       ESUtils.buildNameSuggestions(searchSourceBuilder, input, "name");
     }
+    return templateSort;
   }
 
   @Nonnull
@@ -153,7 +156,8 @@ public final class SearchTemplateRequestApplier {
     return new ArrayList<>(byName.values());
   }
 
-  private void sort(
+  /** Returns whether the template's own sort was applied. A section that renders empty is not. */
+  private boolean sort(
       @Nonnull OperationContext opContext,
       @Nonnull SearchSourceBuilder searchSourceBuilder,
       @Nullable List<SortCriterion> sortCriteria,
@@ -172,7 +176,7 @@ public final class SearchTemplateRequestApplier {
       if (!namesUrn) {
         searchSourceBuilder.sort(new FieldSortBuilder("urn").order(SortOrder.ASC));
       }
-      return;
+      return true;
     }
     ESUtils.buildSortOrder(
         searchSourceBuilder,
@@ -181,6 +185,7 @@ public final class SearchTemplateRequestApplier {
         v3SearchFieldResolver,
         opContext,
         opContext.getAspectRetriever());
+    return false;
   }
 
   /**

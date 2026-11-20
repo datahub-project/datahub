@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from datahub.ingestion.source.confluence.confluence_config import (
+from datahub.ingestion.source.confluence.config import (
     ConfluenceSourceConfig,
 )
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
