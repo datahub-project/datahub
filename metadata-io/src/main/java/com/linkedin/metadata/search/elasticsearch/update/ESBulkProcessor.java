@@ -6,8 +6,11 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Getter;
@@ -34,6 +37,8 @@ public class ESBulkProcessor implements Closeable {
   private static final String ES_SUBMIT_REINDEX_METRIC = "reindex_submit";
   private static final String ES_REINDEX_SUCCESS_METRIC = "reindex_success";
   private static final String ES_REINDEX_FAILED_METRIC = "reindex_failed";
+  private static final Duration DEFAULT_CLOSE_TIMEOUT = Duration.ofSeconds(30);
+  private static final int MAX_LOGGED_PENDING_ITEMS = 1000;
 
   public static ESBulkProcessor.ESBulkProcessorBuilder builder(
       SearchClientShim<?> searchClient, MetricUtils metricUtils) {
@@ -53,6 +58,9 @@ public class ESBulkProcessor implements Closeable {
   @Builder.Default private Integer itemRequeueMaxAttempts = 3;
   @Builder.Default private Boolean ackAfterTransfer = false;
   @Builder.Default private Integer ackAfterTransferTimeoutSeconds = 60;
+
+  /** Upper bound {@link #close()} waits for in-flight bulks before closing the processors. */
+  @Getter @Builder.Default private Duration closeTimeout = DEFAULT_CLOSE_TIMEOUT;
 
   /**
    * HTTP {@link RequestOptions} for by-query operations (delete/update-by-query, async submit,
@@ -80,6 +88,7 @@ public class ESBulkProcessor implements Closeable {
       Integer itemRequeueMaxAttempts,
       Boolean ackAfterTransfer,
       Integer ackAfterTransferTimeoutSeconds,
+      Duration closeTimeout,
       @Nonnull RequestOptions byQueryRequestOptions,
       WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
       MetricUtils metricUtils) {
@@ -98,6 +107,7 @@ public class ESBulkProcessor implements Closeable {
     this.ackAfterTransfer = ackAfterTransfer != null ? ackAfterTransfer : false;
     this.ackAfterTransferTimeoutSeconds =
         ackAfterTransferTimeoutSeconds != null ? ackAfterTransferTimeoutSeconds : 60;
+    this.closeTimeout = closeTimeout != null ? closeTimeout : DEFAULT_CLOSE_TIMEOUT;
     this.byQueryRequestOptions = byQueryRequestOptions;
     this.writeRequestRefreshPolicy = writeRequestRefreshPolicy;
     searchClient.configureBulkProcessorWriteOptions(
@@ -143,6 +153,7 @@ public class ESBulkProcessor implements Closeable {
     this.itemRequeueMaxAttempts = view.itemRequeueMaxAttempts;
     this.ackAfterTransfer = view.ackAfterTransfer;
     this.ackAfterTransferTimeoutSeconds = view.ackAfterTransferTimeoutSeconds;
+    this.closeTimeout = view.closeTimeout;
     this.byQueryRequestOptions = view.byQueryRequestOptions;
     this.writeRequestRefreshPolicy = view.writeRequestRefreshPolicy;
     this.metricUtils = view.metricUtils;
@@ -283,8 +294,59 @@ public class ESBulkProcessor implements Closeable {
 
   @Override
   public void close() throws IOException {
-    flush();
-    searchClient.closeBulkProcessor();
+    close(closeTimeout);
+  }
+
+  /**
+   * Waits up to {@code budget} for every pending bulk to reach a terminal outcome, then closes the
+   * native processors. The wait must finish before the client closes: the native close does not
+   * wait for a bulk already on the wire, and closing the client aborts it. On timeout the pending
+   * items are logged as unconfirmed and the processors are closed anyway, so shutdown never hangs.
+   * A no-op if another processor sharing this client already closed it.
+   */
+  public void close(@Nonnull Duration budget) {
+    if (!searchClient.claimBulkProcessorClose()) {
+      log.debug("Bulk processors for this client are already closing; skipping");
+      return;
+    }
+    try {
+      searchClient.flushAndAwaitBulkTransfer(Math.max(0, budget.toMillis()));
+      long failures = searchClient.drainBulkTransferFailures();
+      if (failures > 0) {
+        log.error(
+            "Closing bulk processor with {} unrecovered item failure(s); those writes were not"
+                + " applied",
+            failures);
+      }
+    } catch (TimeoutException e) {
+      logUnconfirmedOnClose(budget);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      log.error(
+          "Interrupted while waiting for in-flight bulk writes on close; {} item(s) unconfirmed",
+          searchClient.pendingBulkWriteCount());
+    } catch (RuntimeException e) {
+      log.error("Failed to drain bulk writes on close", e);
+    } finally {
+      searchClient.closeBulkProcessor();
+    }
+  }
+
+  private void logUnconfirmedOnClose(@Nonnull Duration budget) {
+    List<String> pending = searchClient.pendingBulkItems();
+    List<String> logged =
+        pending.size() > MAX_LOGGED_PENDING_ITEMS
+            ? pending.subList(0, MAX_LOGGED_PENDING_ITEMS)
+            : pending;
+    log.error(
+        "Timed out after {} waiting for in-flight bulk writes on close; {} item(s) unconfirmed and"
+            + " may not have been applied. Pending index/id (may be partial, {} listed of {}"
+            + " tracked): {}",
+        budget,
+        searchClient.pendingBulkWriteCount(),
+        logged.size(),
+        pending.size(),
+        logged);
   }
 
   public void flush() {

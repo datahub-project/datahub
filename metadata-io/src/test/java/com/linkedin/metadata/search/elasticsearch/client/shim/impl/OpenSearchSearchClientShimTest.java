@@ -1,6 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -12,6 +14,9 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchConnectionPoolMetrics;
+import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
+import com.linkedin.metadata.search.elasticsearch.update.BulkWriteResultTracker;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.ShimConfiguration;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -25,6 +30,11 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.RequestLine;
 import org.apache.http.StatusLine;
@@ -34,11 +44,13 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.message.BasicStatusLine;
 import org.apache.http.util.EntityUtils;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.DocWriteResponse;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.settings.ClusterGetSettingsRequest;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
+import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.explain.ExplainRequest;
 import org.opensearch.action.get.GetRequest;
@@ -53,6 +65,7 @@ import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
+import org.opensearch.client.ResponseListener;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.ResizeRequest;
@@ -62,6 +75,7 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.reindex.UpdateByQueryRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
@@ -636,6 +650,126 @@ public class OpenSearchSearchClientShimTest {
     ArgumentCaptor<Request> sent = ArgumentCaptor.forClass(Request.class);
     org.mockito.Mockito.verify(restClient).performRequest(sent.capture());
     assertEquals(sent.getValue().getEndpoint(), "/_bulk");
+  }
+
+  private static final String ONE_ITEM_BULK_BODY =
+      "{\"took\":5,\"errors\":false,\"items\":[{\"index\":{\"_index\":\"idx\",\"_id\":\"1\","
+          + "\"_version\":1,\"result\":\"created\",\"status\":201,"
+          + "\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},"
+          + "\"_seq_no\":0,\"_primary_term\":1}}]}";
+
+  @DataProvider(name = "openSearchEngines")
+  public Object[][] openSearchEngines() {
+    return new Object[][] {{SearchEngineType.OPENSEARCH_2}, {SearchEngineType.OPENSEARCH_3}};
+  }
+
+  private static OpenSearchSearchClientShim shimFor(
+      RestClient restClient, SearchEngineType engineType) {
+    ShimConfiguration config = mock(ShimConfiguration.class);
+    when(config.getEngineType()).thenReturn(engineType);
+    return OpenSearchSearchClientShim.forTest(restClient, config);
+  }
+
+  /** Captures the async bulk call without answering it, leaving the bulk on the wire. */
+  private static AtomicReference<ResponseListener> holdAsyncBulk(RestClient restClient) {
+    AtomicReference<ResponseListener> inFlight = new AtomicReference<>();
+    doAnswer(
+            invocation -> {
+              inFlight.set(invocation.getArgument(1));
+              return null;
+            })
+        .when(restClient)
+        .performRequestAsync(any(Request.class), any(ResponseListener.class));
+    return inFlight;
+  }
+
+  private static ESBulkProcessor asyncProcessor(OpenSearchSearchClientShim shim, Duration close) {
+    return ESBulkProcessor.builder(shim, mock(MetricUtils.class))
+        .async(true)
+        .bulkRequestsLimit(10)
+        .bulkFlushPeriod(3600)
+        .numRetries(0)
+        .closeTimeout(close)
+        .build();
+  }
+
+  @Test(dataProvider = "openSearchEngines")
+  public void closeWaitsForInFlightBulkBeforeClientCloses(SearchEngineType engineType)
+      throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    AtomicReference<ResponseListener> inFlight = holdAsyncBulk(restClient);
+    OpenSearchSearchClientShim shim = shimFor(restClient, engineType);
+    ESBulkProcessor processor = asyncProcessor(shim, Duration.ofSeconds(30));
+
+    shim.addBulk(OP, "urn:li:test:1", new IndexRequest("idx").id("1").source(Map.of("f", "v")));
+    processor.flush();
+    assertNotNull(inFlight.get(), "the bulk should be on the wire");
+
+    ExecutorService executor = Executors.newSingleThreadExecutor();
+    try {
+      Future<?> closing = executor.submit(() -> processor.close(Duration.ofSeconds(30)));
+      assertThrows(
+          TimeoutException.class,
+          () -> closing.get(300, java.util.concurrent.TimeUnit.MILLISECONDS));
+
+      inFlight.get().onSuccess(jsonResponse(200, ONE_ITEM_BULK_BODY));
+      closing.get(10, java.util.concurrent.TimeUnit.SECONDS);
+    } finally {
+      executor.shutdownNow();
+    }
+
+    assertEquals(shim.getBulkWriteResultTracker().getPendingItems(), 0);
+    assertEquals(shim.getBulkWriteResultTracker().getUnrecoveredTransferFailures(), 0L);
+    shim.close();
+    InOrder order = inOrder(restClient);
+    order.verify(restClient).performRequestAsync(any(Request.class), any(ResponseListener.class));
+    order.verify(restClient).close();
+  }
+
+  @Test(dataProvider = "openSearchEngines")
+  public void closeTimeoutReturnsAndAbortedBulkIsCountedUnrecovered(SearchEngineType engineType)
+      throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    AtomicReference<ResponseListener> inFlight = holdAsyncBulk(restClient);
+    OpenSearchSearchClientShim shim = shimFor(restClient, engineType);
+    ESBulkProcessor processor = asyncProcessor(shim, Duration.ofMillis(200));
+
+    shim.addBulk(OP, "urn:li:test:1", new IndexRequest("idx").id("1").source(Map.of("f", "v")));
+    processor.flush();
+
+    long start = System.nanoTime();
+    processor.close();
+    assertTrue(Duration.ofNanos(System.nanoTime() - start).compareTo(Duration.ofSeconds(5)) < 0);
+    assertEquals(
+        shim.getBulkWriteResultTracker().getPendingItems(),
+        1,
+        "an unanswered bulk must not be reported as applied");
+
+    shim.close();
+    inFlight.get().onFailure(new IOException("connection closed"));
+
+    assertEquals(shim.getBulkWriteResultTracker().getPendingItems(), 0);
+    assertEquals(shim.getBulkWriteResultTracker().getUnrecoveredTransferFailures(), 1L);
+  }
+
+  @Test(dataProvider = "openSearchEngines")
+  public void transportFailureAfterCloseIsUnrecoveredAndDoesNotThrow(SearchEngineType engineType) {
+    OpenSearchSearchClientShim shim = shimFor(mock(RestClient.class), engineType);
+    shim.generateAsyncBulkProcessor(
+        WriteRequest.RefreshPolicy.NONE, mock(MetricUtils.class), 10, 3600L, 1L, 0, 1);
+    shim.closeBulkProcessor();
+
+    BulkWriteResultTracker tracker = shim.getBulkWriteResultTracker();
+    tracker.recordEnqueued(1);
+    BulkListener listener =
+        new BulkListener(null, mock(MetricUtils.class), null, tracker, shim.bulkItemRequeueSupport);
+    BulkRequest request =
+        new BulkRequest().add(new IndexRequest("idx").id("1").source(Map.of("f", "v")));
+
+    listener.afterBulk(1L, request, new IOException("connection closed"));
+
+    assertEquals(tracker.getPendingItems(), 0);
+    assertEquals(tracker.getUnrecoveredTransferFailures(), 1L);
   }
 
   @Test
