@@ -49,6 +49,7 @@ from datahub.ingestion.source.sql.teradata import (
     get_schema_foreign_keys,
     get_schema_pk_constraints,
     optimized_get_columns,
+    optimized_get_foreign_keys,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
@@ -920,6 +921,162 @@ class TestSchemaFunctionRetry:
             get_schema_foreign_keys(None, mock_conn, "db1")
 
         assert mock_conn.execute.call_count == 1
+
+
+class TestOptimizedGetForeignKeys:
+    """Regression tests for optimized_get_foreign_keys (issue #20532).
+
+    The grouper function inside optimized_get_foreign_keys previously returned a
+    plain dict, which is not hashable and caused ``TypeError: unhashable type: 'dict'``
+    when groupby_unsorted tried to use it as a dictionary key.  The fix changes the
+    grouper to return a hashable tuple instead.
+    """
+
+    def _make_fk_row(
+        self,
+        index_name,
+        index_id,
+        parent_db,
+        parent_table,
+        child_col,
+        parent_col,
+        child_table,
+    ):
+        """Build a SimpleNamespace that mimics a Teradata FK result-set row."""
+        return SimpleNamespace(
+            IndexName=index_name,
+            IndexID=index_id,
+            ParentDB=parent_db,
+            ParentTable=parent_table,
+            ChildKeyColumn=child_col,
+            ParentKeyColumn=parent_col,
+            ChildTable=child_table,
+        )
+
+    def _make_source(self):
+        """Return a minimal TeradataSource-like object with the required helpers."""
+        source = MagicMock(spec=TeradataSource)
+        source.default_schema_name = "test_schema"
+        # normalize_name should just lowercase the column name
+        source.normalize_name = str.lower
+        return source
+
+    def test_single_fk_no_unhashable_error(self):
+        """A table with one foreign key must not raise TypeError."""
+        get_schema_foreign_keys.cache_clear()
+        source = self._make_source()
+        row = self._make_fk_row(
+            index_name="fk_child_parent",
+            index_id=1,
+            parent_db="test_schema",
+            parent_table="parent_table",
+            child_col="ParentID",
+            parent_col="ParentID",
+            child_table="child_table",
+        )
+        source.get_schema_foreign_keys = MagicMock(return_value={"child_table": [row]})
+
+        # Should NOT raise TypeError: unhashable type: 'dict'
+        result = optimized_get_foreign_keys(
+            source,
+            connection=MagicMock(),
+            table_name="child_table",
+            schema="test_schema",
+        )
+
+        assert len(result) == 1
+        fk = result[0]
+        assert fk["name"] == "fk_child_parent"
+        assert fk["referred_table"] == "parent_table"
+        assert fk["referred_schema"] == "test_schema"
+        assert fk["constrained_columns"] == ["parentid"]
+        assert fk["referred_columns"] == ["parentid"]
+
+    def test_null_index_name_falls_back_to_index_id(self):
+        """When IndexName is None the FK name should fall back to str(IndexID)."""
+        get_schema_foreign_keys.cache_clear()
+        source = self._make_source()
+        row = self._make_fk_row(
+            index_name=None,
+            index_id=42,
+            parent_db="test_schema",
+            parent_table="parent_table",
+            child_col="ParentID",
+            parent_col="ParentID",
+            child_table="child_table",
+        )
+        source.get_schema_foreign_keys = MagicMock(return_value={"child_table": [row]})
+
+        result = optimized_get_foreign_keys(
+            source,
+            connection=MagicMock(),
+            table_name="child_table",
+            schema="test_schema",
+        )
+
+        assert len(result) == 1
+        assert result[0]["name"] == "42"
+
+    def test_multiple_fks_grouped_correctly(self):
+        """Multiple FKs on the same table must be returned as separate entries."""
+        get_schema_foreign_keys.cache_clear()
+        source = self._make_source()
+        row1 = self._make_fk_row(
+            "fk1", 1, "s", "parent_a", "ColA", "ColA", "child_table"
+        )
+        row2 = self._make_fk_row(
+            "fk2", 2, "s", "parent_b", "ColB", "ColB", "child_table"
+        )
+        source.get_schema_foreign_keys = MagicMock(
+            return_value={"child_table": [row1, row2]}
+        )
+
+        result = optimized_get_foreign_keys(
+            source,
+            connection=MagicMock(),
+            table_name="child_table",
+            schema="test_schema",
+        )
+
+        assert len(result) == 2
+        names = {fk["name"] for fk in result}
+        assert names == {"fk1", "fk2"}
+
+    def test_composite_fk_columns_collected(self):
+        """A composite FK (multiple rows, same IndexName) must collect all columns."""
+        get_schema_foreign_keys.cache_clear()
+        source = self._make_source()
+        row1 = self._make_fk_row(
+            "fk_composite", 1, "s", "parent", "ColA", "ColA", "child"
+        )
+        row2 = self._make_fk_row(
+            "fk_composite", 1, "s", "parent", "ColB", "ColB", "child"
+        )
+        source.get_schema_foreign_keys = MagicMock(return_value={"child": [row1, row2]})
+
+        result = optimized_get_foreign_keys(
+            source, connection=MagicMock(), table_name="child", schema="test_schema"
+        )
+
+        assert len(result) == 1
+        fk = result[0]
+        assert sorted(fk["constrained_columns"]) == ["cola", "colb"]
+        assert sorted(fk["referred_columns"]) == ["cola", "colb"]
+
+    def test_no_fks_returns_empty_list(self):
+        """A table without foreign keys must return an empty list without error."""
+        get_schema_foreign_keys.cache_clear()
+        source = self._make_source()
+        source.get_schema_foreign_keys = MagicMock(return_value={})
+
+        result = optimized_get_foreign_keys(
+            source,
+            connection=MagicMock(),
+            table_name="no_fk_table",
+            schema="test_schema",
+        )
+
+        assert result == []
 
 
 class TestMemoryEfficiency:
