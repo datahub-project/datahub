@@ -2,7 +2,7 @@ import dataclasses
 import json
 import logging
 import pathlib
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import click
 from docgen_types import Plugin
@@ -107,12 +107,16 @@ class ConnectorRegistry:
         }
 
 
-def generate_connector_registry() -> ConnectorRegistry:
+def generate_connector_registry(
+    plugin_names: Optional[List[str]] = None,
+) -> ConnectorRegistry:
     """Generate a comprehensive registry of connector metadata across all plugins."""
 
     plugin_details: Dict[str, Dict] = {}
 
-    for plugin_name in sorted(source_registry.mapping.keys()):
+    for plugin_name in sorted(
+        plugin_names if plugin_names is not None else source_registry.mapping.keys()
+    ):
         if plugin_name in DENY_LIST:
             logger.info(f"Skipping {plugin_name} as it is on the deny list")
             continue
@@ -222,7 +226,9 @@ def save_connector_registry(registry: ConnectorRegistry, output_dir: str) -> Non
 
         package_names.append(package_name)
 
-    # Generate manifest file
+    # Keep packages that only exist on disk (e.g. outside a --source run, or whose
+    # plugins all failed to load) so the manifest never hides an existing file.
+    package_names.extend(set(existing_package_data) - set(package_names))
     manifest_dict = {"packages": sorted(package_names)}
     manifest_file = output_path / "manifest.json"
     write_manifest = should_write_json_file(
@@ -258,32 +264,29 @@ def generate_connector_registry_cli(
 
     logger.info("Starting connector registry generation...")
 
-    if source:
-        if source not in source_registry.mapping:
-            logger.error(f"Source '{source}' not found in registry")
-            return
-        original_mapping = source_registry.mapping.copy()
-        source_registry.mapping = {source: original_mapping[source]}  # type: ignore[misc]
+    if source and source not in source_registry.mapping:
+        logger.error(f"Source '{source}' not found in registry")
+        return
 
-    try:
-        registry = generate_connector_registry()
-        save_connector_registry(registry, output_dir)
+    registry = generate_connector_registry([source] if source else None)
+    if source and not registry.plugin_details:
+        logger.error(
+            f"Source '{source}' produced no connector details; leaving registry unchanged"
+        )
+        return
+    save_connector_registry(registry, output_dir)
 
-        # Show package breakdown
-        package_registries = registry.group_by_package()
+    # Show package breakdown
+    package_registries = registry.group_by_package()
 
-        print("Connector Registry Generation Complete")
-        print("======================================")
-        print(f"Total connectors processed: {len(registry.plugin_details)}")
-        print(f"Packages found: {len(package_registries)}")
-        for package_name in sorted(package_registries.keys()):
-            connector_count = len(package_registries[package_name].plugin_details)
-            print(f"  - {package_name}: {connector_count} connectors")
-        print(f"Output directory: {output_dir}/connector_registry")
-
-    finally:
-        if source:
-            source_registry.mapping = original_mapping  # type: ignore[misc]
+    print("Connector Registry Generation Complete")
+    print("======================================")
+    print(f"Total connectors processed: {len(registry.plugin_details)}")
+    print(f"Packages found: {len(package_registries)}")
+    for package_name in sorted(package_registries.keys()):
+        connector_count = len(package_registries[package_name].plugin_details)
+        print(f"  - {package_name}: {connector_count} connectors")
+    print(f"Output directory: {output_dir}/connector_registry")
 
 
 if __name__ == "__main__":
