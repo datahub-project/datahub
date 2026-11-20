@@ -113,14 +113,19 @@ public class HardDeleteService {
   }
 
   /**
-   * Hard-deletes the entity, then hands back the delete of the references other entities hold to
-   * it, for the caller to run where it runs that cleanup. The entity delete runs before this
-   * returns and its failure is thrown, so references to an entity that stays are left alone. When
-   * the entity does not exist, only its references are offered.
+   * Hands back the delete of the entity and of the references other entities hold to it, for the
+   * caller to run where it runs that cleanup. This returns without scrolling the graph or deleting
+   * the entity, so a caller that runs the result asynchronously does not wait on a scroll that can
+   * time out. The returned runnable reads graph referrers one page at a time and removes those
+   * references, then deletes the entity, then the references that are not graph edges. The entity
+   * is still here when this returns, and a failure of the page loop is thrown from the runnable,
+   * which leaves the entity in place. When the entity does not exist, only its references are
+   * offered, and the runnable only cleans those.
    *
-   * @param runHere runs the reference cleanup when it stays in this process, the way the caller
-   *     runs it today
-   * @return the reference cleanup left to run; does nothing when it was taken elsewhere
+   * @param runHere runs the non-graph reference cleanup when it stays in this process, the way the
+   *     caller runs reference cleanup today
+   * @return the cleanup left to run; does nothing when the delete was taken elsewhere, or when only
+   *     the references of an absent entity were
    */
   @Nonnull
   public Runnable deleteEntityThenReferences(
@@ -133,11 +138,24 @@ public class HardDeleteService {
         && offered(opContext, HardDeleteRequest.entityAndReferences(urn, versions.get()))) {
       return () -> {};
     }
-    deleteHere(opContext, urn, versions);
     if (versions.isEmpty() && offered(opContext, HardDeleteRequest.references(urn))) {
+      // The entity was already gone here; only its references were taken.
       return () -> {};
     }
-    return () -> runHere.apply(() -> deleteEntityService.deleteReferencesTo(opContext, urn, false));
+    // capture() is empty both when the entity is gone and when nothing needed the versions. Only
+    // the first is an absent entity: with no dispatcher and the bounded delete off, the entity was
+    // not read and is deleted unbounded inside the runnable.
+    if (versions.isEmpty() && (dispatcher != null || reliableHardDelete.isEnabled())) {
+      return () ->
+          runHere.apply(() -> deleteEntityService.deleteReferencesTo(opContext, urn, false));
+    }
+    return () -> {
+      // The key delete drops every graph edge. Read and remove those references first, one page at
+      // a time, and leave the entity in place when that read fails.
+      deleteEntityService.deleteGraphReferences(opContext, urn);
+      deleteHere(opContext, urn, versions);
+      runHere.apply(() -> deleteEntityService.deleteReferencesTo(opContext, urn, List.of()));
+    };
   }
 
   /**

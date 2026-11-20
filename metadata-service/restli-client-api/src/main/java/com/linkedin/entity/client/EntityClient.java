@@ -502,9 +502,12 @@ public interface EntityClient {
       throws RemoteInvocationException;
 
   /**
-   * Hard delete an entity, then hand back the delete of all references to it, for the caller to run
-   * where it ran {@link #deleteEntityReferences}. The entity delete runs before this returns and
-   * its failure is thrown, so references to an entity that stays are left alone.
+   * Hand back the delete of an entity and of the references to it, for the caller to run where it
+   * ran {@link #deleteEntityReferences}. This default deletes the entity before returning and
+   * throws that failure here, so the cleanup it returns only removes references. A caller that can
+   * defer the entity delete returns without removing it: the cleanup then reads graph references
+   * one page at a time, removes them, deletes the entity, and then removes the other references,
+   * and the entity-delete failure is thrown from {@link ReferencesCleanup#run()}.
    */
   @Nonnull
   default ReferencesCleanup deleteEntityThenReferences(

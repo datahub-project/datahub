@@ -54,6 +54,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -245,8 +246,8 @@ public class JavaEntityClientTest {
   }
 
   /**
-   * Declined: the entity is deleted now and the references when the caller runs them, with today's
-   * code; the combined delete is offered once and the references never on their own.
+   * Declined: nothing is deleted until the caller runs the cleanup. That reads graph references,
+   * then deletes the entity, then the other references, and retries those. Offered once.
    */
   @Test
   void testDeleteEntityThenReferencesDeclinedRunsBothHereAfterOneOffer() throws Exception {
@@ -271,7 +272,7 @@ public class JavaEntityClientTest {
                         ChangeType.DELETE,
                         true,
                         0))));
-    when(_deleteEntityService.deleteReferencesTo(opContext, urn, false))
+    when(_deleteEntityService.deleteReferencesTo(opContext, urn, List.of()))
         .thenThrow(new IllegalArgumentException("transient"))
         .thenReturn(null);
 
@@ -279,12 +280,16 @@ public class JavaEntityClientTest {
         getJavaEntityClient(hardDeleteService(true, dispatcher))
             .deleteEntityThenReferences(opContext, urn);
 
-    verify(_entityService).deleteUrn(opContext, urn, ceiling);
+    verify(_entityService, never()).deleteUrn(any(), eq(urn), any(DeleteCeiling.class));
     verifyNoInteractions(_deleteEntityService);
     references.run();
     verify(dispatcher, times(1)).dispatch(any(), any());
     verify(dispatcher).dispatch(opContext, HardDeleteRequest.entityAndReferences(urn, ceiling));
-    verify(_deleteEntityService, times(2)).deleteReferencesTo(opContext, urn, false);
+    final InOrder inOrder = inOrder(_deleteEntityService, _entityService);
+    inOrder.verify(_deleteEntityService).deleteGraphReferences(opContext, urn);
+    inOrder.verify(_entityService).deleteUrn(opContext, urn, ceiling);
+    inOrder.verify(_deleteEntityService, times(2)).deleteReferencesTo(opContext, urn, List.of());
+    verify(_deleteEntityService, never()).deleteReferencesTo(opContext, urn, false);
   }
 
   /** Taken: nothing runs here, now or when the caller runs the cleanup. */
