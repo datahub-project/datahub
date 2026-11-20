@@ -47,11 +47,14 @@ def guard_read_errors(
 
 def tolerant_query_entries(
     records: Iterable[RecordT],
-    to_entry: Callable[[RecordT], QueryEntry],
+    to_entry: Callable[[RecordT], Optional[QueryEntry]],
     report: SqlQueriesSourceReport,
     context_of: Callable[[RecordT], Optional[str]],
 ) -> Iterator[QueryEntry]:
-    """Convert records to QueryEntry, skipping and counting malformed ones."""
+    """Convert records to QueryEntry, skipping and counting malformed ones.
+
+    to_entry returns None for a record with no SQL, which is counted separately.
+    """
     for record in records:
         try:
             entry = to_entry(record)
@@ -77,6 +80,9 @@ def tolerant_query_entries(
                 logger.warning(
                     f"{report.num_entries_failed} query entries have failed to parse"
                 )
+            continue
+        if entry is None:
+            report.num_entries_skipped_no_query += 1
             continue
         report.num_entries_processed += 1
         if report.num_entries_processed % PROGRESS_LOG_INTERVAL == 0:
