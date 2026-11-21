@@ -6,7 +6,7 @@ description: "Search V3 design: a template-based query builder on shared, unifie
 
 Search V2 and Search V2.5 stay as they are until they are deprecated.
 
-Search V3 templates change ranking once `SEARCH_V3_TEMPLATES_ENABLED` and Search V3 keyword read are on. Until then, `search_config.yaml` and the Java query builder still apply. Turning the flag on needs a GMS restart. Editing a template body does not. The enable and disable switches are listed in [Environment Variables](../deploy/environment-vars.md#search-v3-feature-switches).
+Search V3 templates change ranking when Search V3 keyword read and `SEARCH_V3_TEMPLATES_ENABLED` are on, which is the shipped default. Setting the flag to `false` restores `search_config.yaml` and the Java query builder. Changing the flag needs a GMS restart. Editing a template body does not. The enable and disable switches are listed in [Environment Variables](../deploy/environment-vars.md#search-v3-feature-switches).
 
 Search V3 is a template-based query builder on shared, unified fields. The builder renders a `searchTemplate`, addressed by URN, into the query. An operator changes relevance by writing that URN. A caller changes one request by selecting one.
 
@@ -55,7 +55,7 @@ A caller overrides the stored template for one request and does not write it. `S
 
 On a keyword rung, soft delete, hidden lifecycle stages, requested entity types, latest-version filtering, and view authorization wrap the rendered query. A template cannot widen what the caller is allowed to see. On a vector rung, soft delete and hidden lifecycle stages are inside the kNN request, and view authorization is applied after the top-k. See [Vector retrieval](#vector-retrieval). Paging and the result cache stay in the service. System templates are editable only by the system actor.
 
-The service does not classify the query in code. The surface, the engine, and the fulltext flag select a seed template. The seed's ordered routes then match the trimmed query, and the first match wins. A query that matches none stays on the seed unless the seed sets a default target. An empty query or `*`, with no caller URN, selects list and runs on the API the caller used. It does not force scroll. A caller-supplied URN is the entry, and its merged routes still run. Fully qualified name and deep path are shape flags. A quoted query is exact and requires the phrase. A single term with no spaces is not exact. Column search matches the column name. A structured `/q` query uses the shared field names, which the caller reads from the schema. The route tables are in [Selection](#selection).
+The service does not classify the query in code. The surface, the engine, and the fulltext flag select a seed template. The seed's ordered routes then match the trimmed query, and the first match wins. A query that matches none stays on the seed unless the seed sets a default target. An empty query or `*`, with no caller URN, selects `listUrn` on the `search` seed and `list` on `searchLight` and `structured`, and runs on the API the caller used. It does not force scroll. A caller-supplied URN is the entry, and its merged routes still run. Fully qualified name and deep path are shape flags. A quoted query is exact and requires the phrase. A single term with no spaces is not exact. Column search matches the column name. A structured `/q` query uses the shared field names, which the caller reads from the schema. The route tables are in [Selection](#selection).
 
 The template body chooses a placeholder. The service computes the variations. The template does not supply a rewrite. See [Query variations](#query-variations).
 
@@ -194,10 +194,15 @@ Each fragment is rewritten for structured-property definition URNs, then rendere
 | `sort`                    | Sort                                             |
 | `boosts`                  | List-membership weights                          |
 | `fieldValueScores`        | Numeric field and property scores                |
+| `fieldFactors`            | Numeric factors inside the function score        |
+| `termWeights`             | Term weights inside the function score           |
 | `entityTypeBoosts`        | Entity-type weights                              |
 | `queryFragments`          | Query holes                                      |
+| `component`               | A named component                                |
+| `rankingSignals`          | Stored ranking signals                           |
+| `rankingFormula`          | A stored ranking formula                         |
 
-After parent merge, a ranking preset other than `none`, a window sizer other than `fixed`, a semantic shape whose capability this build does not advertise, a bridge, and a merge join fail the search. See [Embedding profiles and gates](#embedding-profiles-and-gates). A `knn` with only `field` and no `combine` runs through document rerank when the request includes the Document entity; without it the search fails rather than drop that section. A `knn` with both `model` and `field` and no `combine` is read as keywordRerank, which keeps keyword order when it cannot rerank. On scroll, `next` is unread, so a `next` this release cannot run does not fail the scroll. On a search, it does. Scroll still skips the sections that a cursor cannot continue. See [Search and scroll](#search-and-scroll) and [Document rerank](#document-rerank).
+After parent merge, a ranking preset other than `none` or a window sizer other than `fixed` fails the search when the ranking stores no signals. A semantic shape whose capability this build does not advertise, a bridge, and a merge join fail the search. See [Embedding profiles and gates](#embedding-profiles-and-gates). A `knn` with only `field` and no `combine` runs through document rerank when the request includes the Document entity; without it the search fails rather than drop that section. A `knn` with both `model` and `field` and no `combine` is read as keywordRerank, which keeps keyword order when it cannot rerank. On scroll, `next` is unread, so a `next` this release cannot run does not fail the scroll. On a search, it does. Scroll still skips the sections that a cursor cannot continue. See [Search and scroll](#search-and-scroll) and [Document rerank](#document-rerank).
 
 ### Field weights
 
@@ -430,7 +435,7 @@ The same template URN serves both. On scroll the ladder section is left unread, 
 
 `includeExplain` and `searchType` apply to the query that was served on either API. System filters and view authorization wrap the keyword query on either API. Scroll runs the composed keyword query, including whole-value terms and name-and-value clauses, and still drops rescore, ranking, and knn. See [Name and value](#name-and-value).
 
-An empty query or `*`, with no `SearchFlags.searchTemplate`, selects the list query and runs on the API the caller used. It does not force scroll. That query has no `next`, so a search does not walk, and scroll does not follow `next`. Scroll still drops `rescore`, `ranking`, and `knn`. A caller `sortCriteria` is the list order. An explicit template URN skips that selection. Its merged routes still run, and on a search the ladder runs after routing finishes. See [Selection](#selection).
+An empty query or `*`, with no `SearchFlags.searchTemplate`, selects `listUrn` on the `search` seed and `list` on `searchLight` and `structured`, and runs on the API the caller used. It does not force scroll. That query has no `next`, so a search does not walk, and scroll does not follow `next`. Scroll still drops `rescore`, `ranking`, and `knn`. A caller `sortCriteria` is the list order. An explicit template URN skips that selection. Its merged routes still run, and on a search the ladder runs after routing finishes. See [Selection](#selection).
 
 ### Query sequence
 
@@ -460,46 +465,51 @@ System filters, the caller's filter, and view authorization wrap every keyword r
 
 ### Selection
 
-A caller-supplied template URN is the entry. Its merged `routes` still run, so naming a child of a seed follows the routes that child inherited. An explicit empty `routes` list is what pins one template. On a search, the ladder then follows `next`. Scroll does not. Otherwise the surface, the engine, and the fulltext flag select a seed, and that seed's routes choose the template. Lineage search uses the same seed as entity search. The graph walk adds a URN filter outside the template. Browse text uses the `search` router. Browse path, depth, and group aggregation stay in Java. `fulltext=false` selects the structured seed, because that flag is not part of the query text. Both seeds carry the identity and list routes.
+A caller-supplied template URN is the entry. Its merged `routes` still run, so naming a child of a seed follows the routes that child inherited. An explicit empty `routes` list is what pins one template. On a search, the ladder then follows `next`. Scroll does not. Otherwise the surface, the engine, and the fulltext flag select a seed, and that seed's routes choose the template. Lineage search uses the same seed as entity search. The graph walk adds a URN filter outside the template. Browse text uses the `search` router. Browse path, depth, and group aggregation stay in Java. `fulltext=false` selects the structured seed, because that flag is not part of the query text. `search`, `searchLight`, and `structured` each carry the identity route and an empty-query route. `search` sends that query to `listUrn`. `searchLight` and `structured` send it to `list`.
 
 Routes match the trimmed query as the search receives it: GraphQL keyword search escapes `/` as `\/` first, and semantic search and the Rest.li and OpenAPI search APIs pass the query as typed. Each pattern is a full-string match, so a prefix consumes the rest of the query. The first match wins. A route may also set `match` conditions. It matches only when its pattern matches and every condition holds, and otherwise the next route is tried. The conditions read the full request: `entityTypes` holds when every requested entity type is in the list, and `surfaces` when the request's surface is. `semanticEligible` holds when its value equals whether every requested type is enabled for semantic search, and `anySemanticEligible` when its value equals whether at least one is. Eligibility reads `semanticSearch.enabledEntities` alone, not the other entity gates. A condition this release does not know fails the search when its route's pattern matches. A query that matches none stays on the current template unless that template sets a default target, so a seed does not need a catch-all `.*` route. The structured prefix is the characters `\/q `, including the leading backslash. Identity, list, and the structured routes precede the quoted route.
 
-On the search seed, a miss stays unless that seed sets a default target.
+On the `search` seed, a miss follows `defaultRoute` to `fulltext`.
 
-| Order | Pattern                                  | Template                                |
-| ----- | ---------------------------------------- | --------------------------------------- |
-| 1     | `(?i)^(?:urn:.*\|(?:s3\|gs\|hdfs)://.*)` | `urn:li:searchTemplate:identity`        |
-| 2     | `^$`                                     | `urn:li:searchTemplate:list`            |
-| 3     | `^\*$`                                   | `urn:li:searchTemplate:list`            |
-| 4     | `^\\/q ["'].+["']$`                      | `urn:li:searchTemplate:structuredExact` |
-| 5     | `^\\/q .*`                               | `urn:li:searchTemplate:structured`      |
-| 6     | `^["'].+["']$`                           | `urn:li:searchTemplate:exact`           |
+| Order | Pattern                                                              | Template                                |
+| ----- | -------------------------------------------------------------------- | --------------------------------------- |
+| 1     | `(?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*\|(?:s3\|gs\|hdfs):\\?/\\?/.*)` | `urn:li:searchTemplate:identity`        |
+| 2     | `^\*?$`                                                              | `urn:li:searchTemplate:listUrn`         |
+| 3     | `^\\/q ["'].+["']$`                                                  | `urn:li:searchTemplate:structuredExact` |
+| 4     | `^\\/q .*`                                                           | `urn:li:searchTemplate:structured`      |
+| 5     | `^["'].+["']$`                                                       | `urn:li:searchTemplate:exact`           |
 
-On the structured seed, a miss stays unless that seed sets a default target. With `fulltext=false`, one unquoted token stays on that seed.
+`searchLight` uses the same patterns, except an empty query or `*` selects `list`. A miss follows `defaultRoute` to `light`.
 
-| Order | Pattern                                  | Template                                |
-| ----- | ---------------------------------------- | --------------------------------------- |
-| 1     | `(?i)^(?:urn:.*\|(?:s3\|gs\|hdfs)://.*)` | `urn:li:searchTemplate:identity`        |
-| 2     | `^$`                                     | `urn:li:searchTemplate:list`            |
-| 3     | `^\*$`                                   | `urn:li:searchTemplate:list`            |
-| 4     | `^\\/q ["'].+["']$`                      | `urn:li:searchTemplate:structuredExact` |
-| 5     | `^["'].+["']$`                           | `urn:li:searchTemplate:structuredExact` |
+| Order | Pattern                                                              | Template                                |
+| ----- | -------------------------------------------------------------------- | --------------------------------------- |
+| 1     | `(?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*\|(?:s3\|gs\|hdfs):\\?/\\?/.*)` | `urn:li:searchTemplate:identity`        |
+| 2     | `^\*?$`                                                              | `urn:li:searchTemplate:list`            |
+| 3     | `^\\/q ["'].+["']$`                                                  | `urn:li:searchTemplate:structuredExact` |
+| 4     | `^\\/q .*`                                                           | `urn:li:searchTemplate:structured`      |
+| 5     | `^["'].+["']$`                                                       | `urn:li:searchTemplate:exact`           |
+
+On the structured seed, a miss stays. That seed sets no default route. With `fulltext=false`, one unquoted token stays on that seed.
+
+| Order | Pattern                                                              | Template                                |
+| ----- | -------------------------------------------------------------------- | --------------------------------------- |
+| 1     | `(?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*\|(?:s3\|gs\|hdfs):\\?/\\?/.*)` | `urn:li:searchTemplate:identity`        |
+| 2     | `^\*?$`                                                              | `urn:li:searchTemplate:list`            |
+| 3     | `^(?:\\/q )?["'].+["']$`                                             | `urn:li:searchTemplate:structuredExact` |
 
 An empty `routes` list pins the template. A hop to a pinned template does not route again.
 
 ```yaml
 routes:
-  - queryRegex: (?i)^(?:urn:.*|(?:s3|gs|hdfs)://.*)
+  - queryRegex: (?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*|(?:s3|gs|hdfs):\\?/\\?/.*)
     template: urn:li:searchTemplate:identity
-  - queryRegex: ^$
-    template: urn:li:searchTemplate:list
-  - queryRegex: ^\*$
-    template: urn:li:searchTemplate:list
+  - queryRegex: ^\*?$
+    template: urn:li:searchTemplate:listUrn
 ```
 
 A route target may itself have routes, so an operator can insert another router without a client change. Patterns are RE2. Java-only lookarounds and backreferences from a legacy `queryRegex` are rejected. Write time compiles each pattern, checks its length, checks the list length, checks that the target exists and uses the same dialect, and rejects a route whose target is the template being written. Bind time fails the search when a hop repeats a URN or spends the hop budget. Two routers may point at each other when no one query can follow both patterns. Parent cycles stay on the parent chain and use the existing depth of five. They are not route hops.
 
-Fully qualified name is not a route. `fullyQualifiedName` and `deepPath` are shape flags. The old exploratory tier is a later ladder rung. A template with no `next` is the last rung. A deployment that wants strict-then-broad writes a child, sets `next`, and points the slot at the child. An empty query or `*` selects list and runs on the API the caller used, so that path does not force scroll and does not walk. On a search, after routing, the walk follows `next` when the chosen template has one. See [Search and scroll](#search-and-scroll).
+Fully qualified name is not a route. `fullyQualifiedName` and `deepPath` are shape flags. The old exploratory tier is a later ladder rung. A template with no `next` is the last rung. A deployment that wants strict-then-broad writes a child, sets `next`, and points the slot at the child. An empty query or `*` selects `listUrn` on the `search` seed and `list` on `searchLight` and `structured`, and runs on the API the caller used, so that path does not force scroll and does not walk. On a search, after routing, the walk follows `next` when the chosen template has one. See [Search and scroll](#search-and-scroll).
 
 A quoted query selects exact, and that query requires the phrase. A single term with no spaces is not exact. It stays on the seed. Whole-value identity selects `identity`.
 
