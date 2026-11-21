@@ -5,6 +5,7 @@ import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollec
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.search.QueryEmbeddingException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
 import graphql.PublicApi;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
@@ -26,8 +27,8 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
 
   /**
    * Priority (first match wins via cause walk): {@link QueryEmbeddingException} → {@link
-   * DataHubGraphQLException} → metadata-io's {@code ValidationException} → {@link
-   * ValidationException} → {@link IllegalArgumentException} → {@link
+   * SearchTemplateNoAnchorException} → {@link DataHubGraphQLException} → metadata-io's {@code
+   * ValidationException} → {@link ValidationException} → {@link IllegalArgumentException} → {@link
    * DatabaseTransactionConflictException} → {@link LineageTimeoutException} → {@link
    * IllegalStateException} → {@link ActorAccessException} → {@link RuntimeException} → fallback.
    * Conflict must stay above {@code RuntimeException} because {@code
@@ -59,6 +60,21 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       }
       return completedResult(
           extractErrorMessage(queryEmbeddingException), code, path, sourceLocation);
+    }
+
+    // A similarity search whose query names no entity it can use as its anchor, from any resolver
+    // that passes SearchFlags.searchTemplate or reaches similarity through a route. The request,
+    // not the service, is at fault. Before the DataHubGraphQLException branch, so the bad request
+    // a resolver throws for it is logged the same way.
+    SearchTemplateNoAnchorException noAnchorException =
+        findFirstThrowableCauseOfClass(exception, SearchTemplateNoAnchorException.class);
+    if (noAnchorException != null) {
+      log.warn("Failed to execute: {}", noAnchorException.getMessage());
+      return completedResult(
+          extractErrorMessage(noAnchorException),
+          DataHubGraphQLErrorCode.BAD_REQUEST,
+          path,
+          sourceLocation);
     }
 
     DataHubGraphQLException graphQLException =
