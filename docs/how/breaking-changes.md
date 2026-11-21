@@ -218,6 +218,14 @@ or isn't a Data Product, as it already did in the UI and GraphQL ([PR #21307](ht
 Create parents before their children. Existing products are unaffected unless their parent is changed.
 To turn the check off, set `metadataChangeProposal.validation.dataProductProperties.parent.enabled` to `false`.
 
+### A Data Product's parent can no longer be one of its descendants
+
+Setting a Data Product's parent through OpenAPI, Rest.li, YAML or the Python SDK now fails if the new
+parent is one of the product's own descendants, as it already did in the UI and GraphQL. Previously
+the write succeeded and left a loop of Data Products with no root. Move the descendant elsewhere
+first, in the same request or an earlier one. Existing products are unaffected unless their parent is
+changed. The same setting as above turns this check off.
+
 <!--
 
 ## <version number>
