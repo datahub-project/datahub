@@ -176,9 +176,8 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
   private static final Urn UNPUBLISHED_DOCUMENT =
       UrnUtils.getUrn("urn:li:document:quarterly-draft");
   private static final String SEMANTIC_TEMPLATE = "urn:li:searchTemplate:semantic";
-  // Also as near the query, owned by OWNER, and in review: a lifecycle stage other than published
-  // or
-  // draft, which a test hides from search
+  // Also as near the query, owned by OWNER, and in review: a lifecycle stage other than
+  // published or draft, which a test hides from search
   private static final Urn IN_REVIEW_DOCUMENT = UrnUtils.getUrn("urn:li:document:in-review-notes");
   private static final Urn IN_REVIEW = UrnUtils.getUrn("urn:li:lifecycleStageType:IN_REVIEW");
   private static final Urn OWNER = UrnUtils.getUrn("urn:li:corpuser:owner");
@@ -777,7 +776,12 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
    * clause decided.
    */
   @Test
-  public void testTheDocumentDefaultsDecideWhichDocumentsCanAnchorSimilarity() {
+  public void testTheDocumentDefaultsDecideWhichDocumentsCanAnchorSimilarity() throws IOException {
+    if (!engineCanServeTheSemanticTemplate()) {
+      // Before 3.5, OpenSearch applies the kNN entity type filter at chunk scope, where it
+      // matches nothing
+      throw new SkipException("Similarity finds no neighbors on OpenSearch before 3.5");
+    }
     Filter viewer = documentDefaults(false);
     Filter manager = documentDefaults(true);
 
