@@ -6141,6 +6141,7 @@ class TestCheckpointHashWithinARun:
     URN = "urn:li:document:revert"
     TEXT_A = "Original body text of the document."
     TEXT_B = "Edited body text of the document."
+    TEXT_BODY_BEFORE = "Earlier body text of the document."
     JOB_NAME = "document_chunking"
 
     @pytest.fixture
@@ -6154,7 +6155,7 @@ class TestCheckpointHashWithinARun:
         )
 
     def _checkpointing_handler(
-        self, previous_hashes: dict[str, str]
+        self, previous_hashes: dict[str, str], ignore_new_state: bool = False
     ) -> DocumentChunkingStateHandler:
         previous_state = DocumentChunkingCheckpointState(
             document_state={
@@ -6163,7 +6164,9 @@ class TestCheckpointHashWithinARun:
             }
         )
         handler = TestStateStorage._make_state_handler(
-            stateful_ingestion=DocumentChunkingStatefulIngestionConfig(enabled=True),
+            stateful_ingestion=DocumentChunkingStatefulIngestionConfig(
+                enabled=True, ignore_new_state=ignore_new_state
+            ),
             last_checkpoint=Checkpoint(
                 job_name=self.JOB_NAME,
                 pipeline_name="test-pipeline",
@@ -6188,6 +6191,17 @@ class TestCheckpointHashWithinARun:
                 1_000, str(version)
             ),
         }
+
+    @staticmethod
+    def _with_previous_body(event: dict[str, Any], body: str) -> dict[str, Any]:
+        """The MCL's previous documentInfo value, in the Avro union form the event carries."""
+        event["previousAspectValue"] = {
+            "com.linkedin.pegasus2avro.mxe.GenericAspect": {
+                "value": json.dumps({"contents": {"text": body}}),
+                "contentType": "application/json",
+            }
+        }
+        return event
 
     def _embedded_texts(
         self, source: DataHubDocumentsSource, events: list[dict[str, Any]]
@@ -6288,6 +6302,116 @@ class TestCheckpointHashWithinARun:
             embedded = self._embedded_texts(
                 source, [self._event(self.URN, self.TEXT_A, version=2, title="Renamed")]
             )
+
+        assert embedded == []
+
+    def test_body_edit_under_override_with_lagging_marker_is_embedded(
+        self, ctx, mock_graph
+    ):
+        """The override keeps the embedded text at A while the body moves. The watched
+        body key moved past the profile, so the profile is re-embedded even though the
+        text is unchanged and the marker has not landed yet."""
+        with mock_graph as mock_graph_cls:
+            source = self._source_with_stuck_marker(ctx, mock_graph_cls)
+            source.state_handler = self._checkpointing_handler(
+                {self.URN: source._calculate_text_hash(self.TEXT_A)}
+            )
+            stuck = mock_graph_cls.return_value.get_entities.side_effect
+
+            def get_entities(
+                entity_name: str,
+                urns: list[str],
+                aspects: Optional[list[str]] = None,
+                with_system_metadata: bool = False,
+            ) -> dict[str, dict[str, Any]]:
+                if aspects == ["semanticText"]:
+                    return {
+                        urn: {
+                            "semanticText": (
+                                _StoredAspect({"text": self.TEXT_A}),
+                                _system_metadata(1_000, "1"),
+                            )
+                        }
+                        for urn in urns
+                    }
+                return stuck(entity_name, urns, aspects, with_system_metadata)
+
+            mock_graph_cls.return_value.get_entities.side_effect = get_entities
+
+            embedded = self._embedded_texts(
+                source,
+                [
+                    self._with_previous_body(
+                        self._event(self.URN, self.TEXT_B, version=2),
+                        self.TEXT_BODY_BEFORE,
+                    )
+                ],
+            )
+
+        assert embedded == [self.TEXT_A]
+
+    def test_title_only_edit_with_an_unchanged_body_is_not_embedded(
+        self, ctx, mock_graph
+    ):
+        """A previous value with the same body means the watched text did not move."""
+        with mock_graph as mock_graph_cls:
+            source = self._source_with_stuck_marker(ctx, mock_graph_cls)
+            source.state_handler = self._checkpointing_handler(
+                {self.URN: source._calculate_text_hash(self.TEXT_A)}
+            )
+
+            embedded = self._embedded_texts(
+                source,
+                [
+                    self._with_previous_body(
+                        self._event(self.URN, self.TEXT_A, version=2, title="Renamed"),
+                        self.TEXT_A,
+                    )
+                ],
+            )
+
+        assert embedded == []
+
+    def test_revert_in_the_same_run_is_embedded_when_new_state_is_ignored(
+        self, ctx, mock_graph
+    ):
+        """With ignore_new_state the run keeps no checkpoint of its own. The reverting event
+        matches the previous run's hash, so only its previous body shows the text moved."""
+        with mock_graph as mock_graph_cls:
+            source = self._source_with_stuck_marker(ctx, mock_graph_cls)
+            source.state_handler = self._checkpointing_handler(
+                {self.URN: source._calculate_text_hash(self.TEXT_A)},
+                ignore_new_state=True,
+            )
+
+            embedded = self._embedded_texts(
+                source,
+                [
+                    self._with_previous_body(
+                        self._event(self.URN, self.TEXT_B, version=2), self.TEXT_A
+                    ),
+                    self._with_previous_body(
+                        self._event(self.URN, self.TEXT_A, version=3), self.TEXT_B
+                    ),
+                ],
+            )
+
+        assert embedded == [self.TEXT_B, self.TEXT_A]
+
+    @pytest.mark.parametrize("previous", ["not json", "[1, 2]"])
+    def test_unreadable_previous_value_leaves_the_hash_decision(
+        self, ctx, mock_graph, previous
+    ):
+        """A previous value that is not an aspect object must not fail the event loop."""
+        with mock_graph as mock_graph_cls:
+            source = self._source_with_stuck_marker(ctx, mock_graph_cls)
+            source.state_handler = self._checkpointing_handler(
+                {self.URN: source._calculate_text_hash(self.TEXT_A)}
+            )
+            event = self._event(self.URN, self.TEXT_A, version=2, title="Renamed")
+            event["previousAspectValue"] = previous
+
+            embedded = self._embedded_texts(source, [event])
 
         assert embedded == []
 

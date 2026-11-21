@@ -635,6 +635,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
+        # Whether this write changed the text a profile watches. The marker that records the
+        # change can lag this event, so the event is judged from its own previous value too.
+        watched_text_moved = self._watched_text_moved(
+            aspect_name, aspect_dict, event.get("previousAspectValue")
+        )
+
         # Tokens of the aspect versions the embedded text is read from, by aspect
         # name. The event's own aspect is a read of that version. A delete has no
         # system metadata of its own, so its token comes from the version it removed.
@@ -750,7 +756,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             self.config.incremental.enabled
             and not self.config.incremental.force_reprocess
         ):
-            if not self._should_process(entity_urn, text, self._refresh_due(semantic)):
+            if not self._should_process(
+                entity_urn, text, watched_text_moved or self._refresh_due(semantic)
+            ):
                 logger.debug(f"Skipping document {entity_urn} (unchanged content hash)")
                 self.report.report_document_skipped_unchanged()
                 return
@@ -976,6 +984,34 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         if model_key is None:
             return False
         return refresh_due(profile_state(semantic, model_key), marker_tokens(semantic))
+
+    def _watched_text_moved(
+        self, aspect_name: str, aspect: Mapping[str, Any], previous_value: Any
+    ) -> bool:
+        """Whether this write changed the text a profile watches, judged from the MCL's
+        previous value. A title or other unwatched edit leaves the watched text unchanged.
+
+        The marker that records a watched edit can land after this event, and an unchanged
+        embedded text matches the checkpoint hash. The event would then be skipped and the
+        profile would stay not current. A write without a previous value is not judged here,
+        so the marker and hash decide as before.
+        """
+        if previous_value is None:
+            return False
+        try:
+            previous = self._parse_mcl_aspect(previous_value)
+            if aspect_name == "documentInfo":
+                return (previous.get("contents") or {}).get("text") != (
+                    aspect.get("contents") or {}
+                ).get("text")
+            if aspect_name == "semanticText":
+                return previous.get("text") != aspect.get("text")
+        except Exception as e:
+            logger.warning(
+                f"Failed to read the previous {aspect_name} value: {e}; "
+                "the marker and hash decide."
+            )
+        return False
 
     @staticmethod
     def _carried_override_token(
