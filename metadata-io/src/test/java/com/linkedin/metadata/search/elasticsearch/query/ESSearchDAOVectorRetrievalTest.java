@@ -2528,7 +2528,7 @@ public class ESSearchDAOVectorRetrievalTest {
       for (boolean canManageDocuments : List.of(false, true)) {
         OperationContext searching =
             context(DOCUMENT, f -> {})
-                .withAnchorFilter(publishedDocumentDefault(canManageDocuments));
+                .withAnchorFilter(publishedDocumentDefault(canManageDocuments, true));
         Filter caller = withDocumentDefaults(filter("domains", sales), canManageDocuments);
         clearInvocations(client, harness.retriever, metrics);
         if (canManageDocuments && anchor.getValue().equals("UNPUBLISHED")) {
@@ -2571,7 +2571,7 @@ public class ESSearchDAOVectorRetrievalTest {
     store(similarity(r -> {}));
     anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
     knnReturns(hits(0.95));
-    Filter beside = publishedDocumentDefault(false);
+    Filter beside = publishedDocumentDefault(false, true);
     beside.getOr().add(valuelessBranch());
     Map<String, Filter> unusable =
         Map.of(
@@ -2604,7 +2604,7 @@ public class ESSearchDAOVectorRetrievalTest {
     assertEquals(
         urns(
             similar(
-                context(DOCUMENT, f -> {}).withAnchorFilter(publishedDocumentDefault(false)),
+                context(DOCUMENT, f -> {}).withAnchorFilter(publishedDocumentDefault(false, true)),
                 DOCUMENT)),
         List.of("urn:li:document:d0"));
   }
@@ -2638,7 +2638,7 @@ public class ESSearchDAOVectorRetrievalTest {
       for (boolean canManageDocuments : List.of(false, true)) {
         for (Filter anchorFilter :
             List.of(
-                publishedDocumentDefault(canManageDocuments),
+                publishedDocumentDefault(canManageDocuments, true),
                 DocumentSearchFilterUtils.buildCombinedFilter(
                     List.of(), viewer, true, canManageDocuments))) {
           clearInvocations(client);
