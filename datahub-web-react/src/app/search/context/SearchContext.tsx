@@ -6,6 +6,8 @@ type SearchContextType = {
     setSelectedSortOption: (sortOption: string) => void;
     isFullViewCard: boolean;
     setIsFullViewCard: (isFullViewCard: boolean) => void;
+    isSearchSettled: boolean;
+    markSearchSettled: () => void;
 };
 
 const DEFAULT_CONTEXT = {
@@ -14,6 +16,8 @@ const DEFAULT_CONTEXT = {
     isFullViewCard: false,
     setSelectedSortOption: (_: string) => null,
     setIsFullViewCard: (_: boolean) => null,
+    isSearchSettled: false,
+    markSearchSettled: () => null,
 };
 
 export const SearchContext = React.createContext<SearchContextType>(DEFAULT_CONTEXT);

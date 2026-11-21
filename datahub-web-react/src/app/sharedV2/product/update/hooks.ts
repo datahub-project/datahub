@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { useIsSearchStartupReleased } from '@app/searchV2/useIsSearchStartupReleased';
 import { checkShouldSkipWelcomeModal } from '@app/sharedV2/localStorageUtils';
 import { useAppConfig } from '@app/useAppConfig';
 
@@ -28,9 +29,11 @@ export function useIsProductAnnouncementEnabled() {
  */
 export function useGetLatestProductAnnouncementData() {
     const { i18n } = useTranslation();
+    const isSearchStartupReleased = useIsSearchStartupReleased();
     const { data, loading, error } = useGetLatestProductUpdateQuery({
         variables: { locale: i18n.language },
         fetchPolicy: 'cache-first',
+        skip: !isSearchStartupReleased,
     });
 
     // Return null if loading, error, or no data

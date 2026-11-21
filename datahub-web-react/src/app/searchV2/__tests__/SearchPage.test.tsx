@@ -3,7 +3,9 @@ import { MockedProvider } from '@apollo/client/testing';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { Route } from 'react-router';
+import { vi } from 'vitest';
 
+import { SearchContext } from '@app/search/context/SearchContext';
 import { SearchPage } from '@app/searchV2/SearchPage';
 import { PageRoutes } from '@conf/Global';
 import { mocksWithSearchFlagsOff } from '@src/Mocks';
@@ -59,5 +61,47 @@ describe('SearchPage', () => {
         expect(tableauPlatformValue).toBeInTheDocument();
         const bigqueryPlatformValue = queryByTestId('active-filter-value-platform-urn:li:dataPlatform:bigquery');
         expect(bigqueryPlatformValue).not.toBeInTheDocument();
+    });
+    describe('reporting that the search settled', () => {
+        function renderWithSettledSpy(mocks: typeof mocksWithSearchFlagsOff) {
+            const markSearchSettled = vi.fn();
+            render(
+                <MockedProvider
+                    mocks={mocks}
+                    addTypename
+                    cache={new InMemoryCache({ possibleTypes: possibleTypesResult.possibleTypes })}
+                >
+                    <TestPageContainer initialEntries={[URL]}>
+                        <SearchContext.Provider
+                            value={{
+                                query: 'test',
+                                selectedSortOption: undefined,
+                                setSelectedSortOption: () => null,
+                                isFullViewCard: false,
+                                setIsFullViewCard: () => null,
+                                isSearchSettled: false,
+                                markSearchSettled,
+                            }}
+                        >
+                            <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
+                        </SearchContext.Provider>
+                    </TestPageContainer>
+                </MockedProvider>,
+            );
+            return markSearchSettled;
+        }
+
+        it('waits for the results request to finish', async () => {
+            const markSearchSettled = renderWithSettledSpy(mocksWithSearchFlagsOff);
+            expect(markSearchSettled).not.toHaveBeenCalled();
+
+            await waitFor(() => expect(markSearchSettled).toHaveBeenCalled());
+        });
+
+        it('reports it settled when the results request fails', async () => {
+            const markSearchSettled = renderWithSettledSpy([]);
+
+            await waitFor(() => expect(markSearchSettled).toHaveBeenCalled());
+        });
     });
 });

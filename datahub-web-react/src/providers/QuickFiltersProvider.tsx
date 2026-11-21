@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { useIsSearchStartupReleased } from '@app/searchV2/useIsSearchStartupReleased';
 import { QuickFiltersContext } from '@providers/QuickFiltersContext';
 
 import { useGetQuickFiltersQuery } from '@graphql/quickFilters.generated';
@@ -9,25 +10,24 @@ import { QuickFilter } from '@types';
 export default function QuickFiltersProvider({ children }: { children: React.ReactNode }) {
     const userContext = useUserContext();
     const viewUrn = userContext.localState?.selectedViewUrn;
+    const isSearchStartupReleased = useIsSearchStartupReleased();
 
-    const { data, refetch } = useGetQuickFiltersQuery({ variables: { input: { viewUrn } } });
+    // Variables change with the selected view, which re-runs the query. The result is rendered
+    // in the search bar dropdown only, so it can wait for the first /search results.
+    const { data } = useGetQuickFiltersQuery({
+        variables: { input: { viewUrn } },
+        skip: !isSearchStartupReleased,
+        fetchPolicy: 'cache-and-network',
+    });
     const [quickFilters, setQuickFilters] = useState<QuickFilter[] | null>(null);
     const [selectedQuickFilter, setSelectedQuickFilter] = useState<QuickFilter | null>(null);
 
     useEffect(() => {
-        if (data && data.getQuickFilters && quickFilters === null) {
-            setQuickFilters(data.getQuickFilters.quickFilters as QuickFilter[]);
+        const latestQuickFilters = data?.getQuickFilters?.quickFilters;
+        if (latestQuickFilters) {
+            setQuickFilters(latestQuickFilters as QuickFilter[]);
         }
-    }, [data, quickFilters]);
-
-    // refetch and update quick filters whenever viewUrn changes
-    useEffect(() => {
-        refetch({ input: { viewUrn } }).then((result) => {
-            if (result.data.getQuickFilters?.quickFilters) {
-                setQuickFilters(result.data.getQuickFilters.quickFilters as QuickFilter[]);
-            }
-        });
-    }, [viewUrn, refetch]);
+    }, [data]);
 
     return (
         <QuickFiltersContext.Provider

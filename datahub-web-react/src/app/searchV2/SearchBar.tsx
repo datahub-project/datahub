@@ -18,6 +18,7 @@ import SectionHeader, { EntityTypeLabel } from '@app/searchV2/autoComplete/Secti
 import QuickFilters from '@app/searchV2/autoComplete/quickFilters/QuickFilters';
 import Skeleton from '@app/searchV2/searchBarV2/components/Skeleton';
 import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
+import { useIsSearchStartupReleased } from '@app/searchV2/useIsSearchStartupReleased';
 import useSearchViewAll from '@app/searchV2/useSearchViewAll';
 import { combineSiblingsInAutoComplete } from '@app/searchV2/utils/combineSiblingsInAutoComplete';
 import { EXACT_SEARCH_PREFIX, SEARCH_BAR_CLASS_NAME } from '@app/searchV2/utils/constants';
@@ -208,6 +209,9 @@ export const SearchBar = ({
 
     useEffect(() => setSelected(initialQuery), [initialQuery]);
 
+    const isSearchStartupReleased = useIsSearchStartupReleased();
+    // Recommendations only fill the dropdown that opens when the bar is used, so they can wait
+    // for the first /search results unless the user opens the bar sooner.
     const { data: recommendationData } = useListRecommendationsQuery({
         variables: {
             input: {
@@ -218,7 +222,7 @@ export const SearchBar = ({
                 limit: 1,
             },
         },
-        skip: hideRecommendations || !userUrn,
+        skip: hideRecommendations || !userUrn || !(isSearchStartupReleased || isFocused || isDropdownVisible),
     });
 
     const quickFilterAutoCompleteOption = useMemo(() => {

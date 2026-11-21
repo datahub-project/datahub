@@ -30,15 +30,15 @@ export default function AppProviders({ children }: Props) {
                                 <BrowserTitleProvider>
                                     <EducationStepsProvider>
                                         <OnboardingTourProvider>
-                                            <QuickFiltersProvider>
-                                                <SearchContextProvider>
+                                            <SearchContextProvider>
+                                                <QuickFiltersProvider>
                                                     <ReloadableProvider>
                                                         <HomePageProvider>
                                                             <NavBarProvider>{children}</NavBarProvider>
                                                         </HomePageProvider>
                                                     </ReloadableProvider>
-                                                </SearchContextProvider>
-                                            </QuickFiltersProvider>
+                                                </QuickFiltersProvider>
+                                            </SearchContextProvider>
                                         </OnboardingTourProvider>
                                     </EducationStepsProvider>
                                 </BrowserTitleProvider>

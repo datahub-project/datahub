@@ -21,6 +21,7 @@ import useOptions from '@app/searchV2/searchBarV2/hooks/useOptions';
 import { useSearchBarData } from '@app/searchV2/searchBarV2/hooks/useSearchBarData';
 import useSelectOption from '@app/searchV2/searchBarV2/hooks/useSelectOption';
 import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
+import { useIsSearchStartupReleased } from '@app/searchV2/useIsSearchStartupReleased';
 import { MIN_CHARACTER_COUNT_FOR_SEARCH, SEARCH_BAR_CLASS_NAME } from '@app/searchV2/utils/constants';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
@@ -95,13 +96,15 @@ export const SearchBarV2 = ({
     const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } =
         useAppliedFilters(filtersFromQueryParams);
     const { hasSelectedView, clearSelectedView } = useSelectedView();
+    const isSearchBarActive = isSearchInputFocused || isDropdownVisible;
+    const isSearchStartupReleased = useIsSearchStartupReleased();
     const {
         entitiesWithMatchedFields,
         facets,
         loading: isDataLoading,
         searchAPIVariant,
     } = useSearchBarData(searchQuery, appliedFilters, {
-        isActive: isSearchInputFocused || isDropdownVisible,
+        isActive: isSearchBarActive,
         initialQuery: initialQuery || '',
         hasUserTyped,
     });
@@ -124,7 +127,9 @@ export const SearchBarV2 = ({
         shouldCombineSiblings,
         isSearching,
         showAutoCompleteResults,
-        hideRecommendations,
+        // Recommendations only fill the dropdown that opens when the bar is used, so they
+        // can wait for the first /search results unless the user opens the bar sooner.
+        hideRecommendations || !(isSearchStartupReleased || isSearchBarActive),
     );
 
     const clearQueryAndFilters = useCallback(() => {

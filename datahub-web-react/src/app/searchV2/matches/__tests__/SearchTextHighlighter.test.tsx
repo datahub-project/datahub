@@ -35,6 +35,8 @@ function renderHighlighter(query: string, text: string) {
                         isFullViewCard: false,
                         setSelectedSortOption: () => null,
                         setIsFullViewCard: () => null,
+                        isSearchSettled: false,
+                        markSearchSettled: () => null,
                     }}
                 >
                     <SearchResultProvider

@@ -7,6 +7,7 @@ import { HALF_SECOND_IN_MS, MAX_ROWS_BEFORE_DEBOUNCE } from '@app/entityV2/share
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { filterViews } from '@app/entityV2/view/select/utils';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entityV2/view/utils';
+import { useIsSearchStartupReleased } from '@app/searchV2/useIsSearchStartupReleased';
 import { PageRoutes } from '@conf/Global';
 
 import { useListGlobalViewsQuery, useListMyViewsQuery } from '@graphql/view.generated';
@@ -123,6 +124,12 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
      * along with all public views.
      */
 
+    // The lists are only needed to name the selected view or to fill the open dropdown, so with
+    // neither they can wait for the first /search results.
+    const isSearchStartupReleased = useIsSearchStartupReleased();
+    const needsViewsNow = !!userContext.localState?.selectedViewUrn || (isOpen ?? isInternalOpen);
+    const skipViews = !(isSearchStartupReleased || needsViewsNow);
+
     const { data: privateViewsData } = useListMyViewsQuery({
         variables: {
             start: 0,
@@ -130,6 +137,7 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
             viewType: DataHubViewType.Personal,
         },
         fetchPolicy: 'cache-first',
+        skip: skipViews,
     });
 
     // Fetch Public Views
@@ -139,6 +147,7 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
             count: DEFAULT_LIST_VIEWS_PAGE_SIZE,
         },
         fetchPolicy: 'cache-first',
+        skip: skipViews,
     });
 
     // Possibility to control open/close state by parents components

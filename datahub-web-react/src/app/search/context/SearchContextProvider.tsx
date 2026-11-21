@@ -26,6 +26,11 @@ export default function SearchContextProvider({ children }: { children: React.Re
         localStorage.setItem('isFullViewCard', value.toString());
     }, []);
 
+    // Latches once the first /search results request has settled, so startup queries held
+    // behind it (see useIsSearchStartupReleased) are never held again for this page load.
+    const [isSearchSettled, setIsSearchSettled] = useState(false);
+    const markSearchSettled = useCallback(() => setIsSearchSettled(true), []);
+
     return (
         <SearchContext.Provider
             value={{
@@ -34,6 +39,8 @@ export default function SearchContextProvider({ children }: { children: React.Re
                 isFullViewCard,
                 setSelectedSortOption,
                 setIsFullViewCard,
+                isSearchSettled,
+                markSearchSettled,
             }}
         >
             {children}

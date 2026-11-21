@@ -17,6 +17,7 @@ import SearchFiltersSection from '@app/searchV2/filters/SearchFiltersSection';
 import useFilterMode from '@app/searchV2/filters/useFilterMode';
 import useSearchFilterAnalytics from '@app/searchV2/filters/useSearchFilterAnalytics';
 import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
+import { useReportSearchSettled } from '@app/searchV2/useIsSearchStartupReleased';
 import { useIsSearchViewReady } from '@app/searchV2/useIsSearchViewReady';
 import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from '@app/searchV2/useSearchAndBrowseVersion';
 import { ENTITY_SUB_TYPE_FILTER_FIELDS, UnionType } from '@app/searchV2/utils/constants';
@@ -92,6 +93,7 @@ export const SearchPage = () => {
     // A skipped query reports loading=false. Stay in the loading state until the view is
     // resolved so the page does not paint unfiltered results.
     const loading = searchLoading || !isViewReady;
+    useReportSearchSettled(!loading);
 
     const total = data?.searchAcrossEntities?.total || 0;
 
