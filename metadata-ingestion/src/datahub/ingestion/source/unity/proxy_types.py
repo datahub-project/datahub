@@ -62,6 +62,7 @@ DATA_TYPE_REGISTRY: dict = {
     ColumnTypeName.MAP: MapTypeClass,
     ColumnTypeName.CHAR: StringTypeClass,
     ColumnTypeName.NULL: NullTypeClass,
+    ColumnTypeName.VARIANT: RecordTypeClass,
 }
 
 
