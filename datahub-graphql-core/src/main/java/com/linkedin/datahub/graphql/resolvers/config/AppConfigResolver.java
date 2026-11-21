@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.ApplicationConfig;
 import com.linkedin.datahub.graphql.generated.EntityProfileConfig;
 import com.linkedin.datahub.graphql.generated.QueriesTabConfig;
 import com.linkedin.metadata.config.*;
+import com.linkedin.metadata.config.search.SemanticProfilesConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.service.SettingsService;
@@ -335,6 +336,16 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             semanticSearchConfig.setEnabled(_semanticSearchConfiguration.isEnabled());
             semanticSearchConfig.setEnabledEntities(
                 new java.util.ArrayList<>(_semanticSearchConfiguration.getEnabledEntities()));
+            semanticSearchConfig.setSemanticContentPatchSupported(true);
+            final SemanticProfilesConfiguration profiles =
+                _semanticSearchConfiguration.getProfiles();
+            semanticSearchConfig.setGenerationEnabled(
+                profiles != null && profiles.isGenerationEnabled());
+            // Startup requires every active entry to name the same service profile.
+            semanticSearchConfig.setServiceProfileKey(
+                profiles == null || profiles.getActive() == null
+                    ? null
+                    : profiles.getActive().values().stream().findFirst().orElse(null));
 
             // Build EmbeddingConfig from server's embedding provider configuration
             if (_semanticSearchConfiguration.getEmbeddingProvider() != null) {
@@ -348,6 +359,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
               // Derive and set canonical model embedding key
               final String modelEmbeddingKey = deriveModelEmbeddingKey(providerConfig.getModelId());
               embeddingConfig.setModelEmbeddingKey(modelEmbeddingKey);
+              embeddingConfig.setSemanticContentPatchSupported(true);
 
               // Populate provider-specific configuration
               if ("aws-bedrock".equalsIgnoreCase(providerConfig.getType())

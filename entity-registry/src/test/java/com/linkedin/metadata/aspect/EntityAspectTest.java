@@ -318,6 +318,27 @@ public class EntityAspectTest {
   }
 
   @Test
+  public void testLegacyRowWithoutSystemMetadataIsObservedAtItsCreationTime() {
+    long createdOnMillis = 1_000L;
+    EntityAspect legacyRow =
+        EntityAspect.builder()
+            .urn(TEST_URN)
+            .aspect(TEST_ASPECT)
+            .version(1L)
+            .metadata(TEST_METADATA)
+            .createdOn(new Timestamp(createdOnMillis))
+            .createdBy(TEST_CREATED_BY)
+            .build();
+
+    SystemMetadata systemMetadata =
+        EntityAspect.EntitySystemAspect.builder()
+            .forUpdate(entityRegistry.getEntitySpec(DATASET_ENTITY_NAME), null, legacyRow)
+            .getSystemMetadata();
+
+    assertEquals(systemMetadata.getLastObserved(), createdOnMillis);
+  }
+
+  @Test
   public void testGetSystemMetadataFromEntityAspect() {
     // Create an EntityAspect with specific systemMetadata
     String systemMetadataJson = "{\"lastObserved\":9876543210,\"runId\":\"test-run-id\"}";

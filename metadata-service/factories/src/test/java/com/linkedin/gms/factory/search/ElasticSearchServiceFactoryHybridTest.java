@@ -130,17 +130,15 @@ public class ElasticSearchServiceFactoryHybridTest {
     providerConfiguration.getOpenai().setModel("text-embedding-3-small");
     ModelEmbeddingConfig model = new ModelEmbeddingConfig();
     model.setVectorDimension(1536);
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(true);
+    semanticSearch.setEnabledEntities(Set.of("document"));
+    semanticSearch.setModels(new HashMap<>(Map.of("text_embedding_3_small", model)));
+    semanticSearch.setEmbeddingProvider(providerConfiguration);
     return EntityIndexConfiguration.builder()
         .v2(EntityIndexVersionConfiguration.builder().enabled(true).build())
         .v3(v3Builder.build())
-        .semanticSearch(
-            new SemanticSearchConfiguration(
-                true,
-                Set.of("document"),
-                new HashMap<>(Map.of("text_embedding_3_small", model)),
-                providerConfiguration,
-                null,
-                null))
+        .semanticSearch(semanticSearch)
         .build();
   }
 }

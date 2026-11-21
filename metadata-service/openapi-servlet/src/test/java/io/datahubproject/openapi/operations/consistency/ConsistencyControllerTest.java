@@ -898,6 +898,82 @@ public class ConsistencyControllerTest extends AbstractTestNGSpringContextTests 
 
   @Test
   @SuppressWarnings("unchecked")
+  public void testCheckToFixIssuesPreservesIssueMetadata() throws Exception {
+    CheckResult checkResult =
+        CheckResult.builder()
+            .entitiesScanned(1)
+            .issuesFound(1)
+            .issues(
+                List.of(
+                    ConsistencyIssue.builder()
+                        .entityUrn(TEST_URN_1)
+                        .entityType("assertion")
+                        .checkId("semantic-content-index-mismatch")
+                        .fixType(ConsistencyFixType.RESTORE_INDICES)
+                        .description("Search V3 semanticContent fields differ from primary storage")
+                        .metadata(Map.of("aspects", "semanticContent"))
+                        .build()))
+            .build();
+
+    when(mockConsistencyService.checkBatch(
+            any(OperationContext.class), any(CheckBatchRequest.class)))
+        .thenReturn(checkResult);
+
+    ConsistencyCheckRequest checkRequest = new ConsistencyCheckRequest();
+    checkRequest.setEntityType("assertion");
+
+    String checkJson =
+        mockMvc
+            .perform(
+                MockMvcRequestBuilders.post("/openapi/operations/consistency/check")
+                    .content(objectMapper.writeValueAsString(checkRequest))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(
+                MockMvcResultMatchers.jsonPath("$.issues[0].metadata.aspects")
+                    .value("semanticContent"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    io.datahubproject.openapi.operations.consistency.models.ConsistencyIssue[] apiIssues =
+        objectMapper.treeToValue(
+            objectMapper.readTree(checkJson).get("issues"),
+            io.datahubproject.openapi.operations.consistency.models.ConsistencyIssue[].class);
+
+    ArgumentCaptor<List<ConsistencyIssue>> issuesCaptor = ArgumentCaptor.forClass(List.class);
+    when(mockConsistencyService.fixIssues(
+            any(OperationContext.class), issuesCaptor.capture(), eq(false)))
+        .thenReturn(
+            ConsistencyFixResult.builder()
+                .dryRun(false)
+                .totalProcessed(1)
+                .entitiesFixed(1)
+                .entitiesFailed(0)
+                .fixDetails(List.of())
+                .build());
+
+    ConsistencyFixIssuesRequest fixRequest = new ConsistencyFixIssuesRequest();
+    fixRequest.setIssues(List.of(apiIssues));
+    fixRequest.setDryRun(false);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/operations/consistency/fix-issues")
+                .content(objectMapper.writeValueAsString(fixRequest))
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk());
+
+    List<ConsistencyIssue> captured = issuesCaptor.getValue();
+    assertEquals(captured.size(), 1);
+    assertEquals(captured.get(0).getFixType(), ConsistencyFixType.RESTORE_INDICES);
+    assertEquals(captured.get(0).getMetadata(), Map.of("aspects", "semanticContent"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
   public void testToServiceIssueConversionWithNullRelatedUrns() throws Exception {
     // Test that toServiceIssue correctly handles null relatedUrns
     ConsistencyFixResult fixResult =

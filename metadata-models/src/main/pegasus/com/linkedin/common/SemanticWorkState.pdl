@@ -1,0 +1,11 @@
+namespace com.linkedin.common
+
+/**
+ * Outstanding work for an embedding profile, independent of whether vectors are stored.
+ */
+enum SemanticWorkState {
+  NONE
+  PENDING
+  BUDGET_DEFERRED
+  QUARANTINED
+}

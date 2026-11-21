@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -36,6 +37,7 @@ public class ConsistencyIssue {
                 ? issue.getRelatedUrns().stream().map(Urn::toString).collect(Collectors.toList())
                 : null)
         .details(issue.getDetails())
+        .metadata(issue.getMetadata())
         .build();
   }
 
@@ -81,4 +83,8 @@ public class ConsistencyIssue {
   @Schema(description = "Additional details about the issue")
   @Nullable
   private String details;
+
+  @Schema(description = "Additional check-specific metadata for fix reconstruction")
+  @Nullable
+  private Map<String, String> metadata;
 }

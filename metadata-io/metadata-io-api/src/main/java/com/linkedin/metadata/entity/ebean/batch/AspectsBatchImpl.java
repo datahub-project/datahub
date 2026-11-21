@@ -121,6 +121,16 @@ public class AspectsBatchImpl implements AspectsBatch {
                   final SystemAspect latest =
                       latestAspects.getOrDefault(urnStr, Map.of()).get(item.getAspectName());
 
+                  if (latest == null
+                      && item instanceof MCPItem
+                      && ((MCPItem) item).requiresExistingAspect()) {
+                    log.info(
+                        "Skipped {} for {}: If-Match * and the aspect does not exist",
+                        item.getAspectName(),
+                        urnStr);
+                    return null;
+                  }
+
                   final ChangeItemImpl upsertItem;
                   if (item instanceof ChangeItemImpl) {
                     upsertItem = (ChangeItemImpl) item;
@@ -137,6 +147,7 @@ public class AspectsBatchImpl implements AspectsBatch {
                   return AspectsBatch.incrementBatchVersion(
                       upsertItem, latestAspects, nextVersions, databaseUpsert);
                 })
+            .filter(Objects::nonNull)
             .collect(Collectors.toCollection(LinkedList::new));
 
     // Apply write hooks before side effects
@@ -399,14 +410,17 @@ public class AspectsBatchImpl implements AspectsBatch {
         this.items = Collections.emptyList();
       }
 
-      // Defense in depth: non-system writers must not retain reserved appSource=systemUpdate.
-      // Auth validators no longer trust that stamp; stripping prevents other consumers from
-      // treating client-supplied provenance as a system-upgrade signal.
+      // A non-system writer must not keep appSource=systemUpdate, semanticApply, or
+      // aspectCreated. Auth validators no longer trust the app-source stamp, the refresh hook
+      // treats semanticApply as a system apply that already set current, and aspectCreated is
+      // server-owned.
       if (operationContext == null || !operationContext.isSystemAuth()) {
         for (BatchItem item : this.items) {
           SystemMetadata systemMetadata = item.getSystemMetadata();
-          if (SystemMetadataUtils.stripReservedAppSource(systemMetadata)
-              && item instanceof MCPItem) {
+          boolean strippedAppSource = SystemMetadataUtils.stripReservedAppSource(systemMetadata);
+          boolean strippedApply = SystemMetadataUtils.stripSemanticApply(systemMetadata);
+          boolean strippedCreated = SystemMetadataUtils.stripAspectCreated(systemMetadata);
+          if ((strippedAppSource || strippedApply || strippedCreated) && item instanceof MCPItem) {
             ((MCPItem) item).setSystemMetadata(systemMetadata);
           }
         }

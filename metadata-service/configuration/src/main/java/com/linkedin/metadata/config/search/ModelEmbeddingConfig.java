@@ -36,4 +36,12 @@ public class ModelEmbeddingConfig {
    * index size.
    */
   private int m = 16;
+
+  /**
+   * Named content binding from {@code semanticSearch.profiles.bindings}. Defaults to document text.
+   */
+  private String binding = "documentText";
+
+  /** When true, generation rejects non-apply writes of this profile's vectors. */
+  private boolean serviceOwned = false;
 }

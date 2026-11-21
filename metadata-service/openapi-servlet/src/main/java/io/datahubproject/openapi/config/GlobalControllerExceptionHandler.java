@@ -32,6 +32,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
@@ -88,6 +89,16 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   public static ResponseEntity<Map<String, String>> handleUrnException(Exception e) {
     return new ResponseEntity<>(
         Map.of("error", sanitizeExceptionMessage(e.getMessage())), HttpStatus.BAD_REQUEST);
+  }
+
+  // Missing or unbindable request parameters are checked exceptions, so they would otherwise reach
+  // the catch-all handler and be reported as 500. The exception's own status keeps a path variable
+  // missing from the URI template, which is a server mapping error, at 500.
+  @ExceptionHandler(ServletRequestBindingException.class)
+  public static ResponseEntity<Map<String, String>> handleRequestBindingException(
+      ServletRequestBindingException e) {
+    return new ResponseEntity<>(
+        Map.of("error", sanitizeExceptionMessage(e.getMessage())), e.getStatusCode());
   }
 
   @ExceptionHandler(APIThrottleException.class)

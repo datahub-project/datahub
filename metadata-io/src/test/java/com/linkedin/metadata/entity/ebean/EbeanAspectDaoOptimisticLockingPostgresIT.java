@@ -10,6 +10,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.util.RecordUtils;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
@@ -161,7 +162,12 @@ public class EbeanAspectDaoOptimisticLockingPostgresIT {
   @Test
   public void saveLatestAspectConditional_noOp_returnsSkippedNoop() {
     final String urn = "urn:li:corpuser:ol_noop_" + shortId();
-    final SystemMetadata sm = sysMeta("1");
+    // A stored row always carries aspectCreated. Seeding it keeps the stored and proposed system
+    // metadata equal, which the no-op check compares.
+    final SystemMetadata sm =
+        sysMeta("1")
+            .setAspectCreated(
+                new AuditStamp().setTime(FIXED_TS).setActor(UrnUtils.getUrn(CREATED_BY)));
     final String smJson = RecordUtils.toJsonString(sm);
     final String contentJson = RecordUtils.toJsonString(new Status());
     seedVersion0Json(urn, contentJson, smJson);

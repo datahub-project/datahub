@@ -606,9 +606,10 @@ if doc:
 ## End-to-End: Push, Index, and Verify
 
 This workflow covers pushing pre-refined documents, triggering semantic indexing, and confirming
-retrieval. By default, DataHub includes a built-in scheduled embedding job that runs every 15
-minutes to index new and updated documents. If you don't want to wait for the next scheduled run,
-you can trigger it on demand as shown below.
+retrieval. DataHub includes a built-in `datahub-documents` ingestion source that indexes new and
+updated documents. It does not run on a schedule unless you enable it with
+`DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES='{"enabled": true}'`, which schedules it every 15 minutes. You can
+also trigger it on demand as shown below.
 
 ### Step 1: Push Your Documents
 

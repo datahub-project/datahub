@@ -1137,6 +1137,24 @@ elasticsearch:
           spaceType: cosinesimil
           efConstruction: 128
           m: 16
+      # Which fields make a profile stale (triggers) and which further fields the embedding
+      # reads without making it stale (includes). A model entry selects a binding by name.
+      # An undeclared profile key uses defaultBinding. An external binding is never dirtied
+      # and declares neither. A binding with no triggers must set external: true.
+      # A defaultBinding or model binding that names no configured binding fails startup.
+      profiles:
+        generationEnabled: ${ELASTICSEARCH_SEMANTIC_GENERATION_ENABLED:false}
+        defaultBinding: documentText
+        bindings:
+          documentText:
+            triggers:
+              documentInfo:
+                - contents.text
+              semanticText:
+                - text
+            includes: {}
+          external:
+            external: true
       # Embedding provider configuration for generating query embeddings
       # Supports: "aws-bedrock", "openai", "cohere", "local", "vertex_ai", "onnx", or "classical"
       embeddingProvider:

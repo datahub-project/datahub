@@ -15,6 +15,25 @@ type SemanticSearchConfig {
   enabledEntities: [String!]!
 
   """
+  True when this server accepts a JSON Patch that updates one embeddings key and leaves the others.
+  Set even when embeddingConfig is absent. Older servers omit the field.
+  """
+  semanticContentPatchSupported: Boolean
+
+  """
+  True when this server generates embeddings for the active service profile. Older servers omit
+  the field, which clients read as false.
+  """
+  generationEnabled: Boolean
+
+  """
+  Embeddings key of the active service profile, the one profile this server generates when
+  generationEnabled is true. A writer skips only that key; a connector-owned key keeps embedding.
+  Null when no service profile is active. Older servers omit the field.
+  """
+  serviceProfileKey: String
+
+  """
   Embedding generation configuration (nullable when semantic search is disabled)
   """
   embeddingConfig: EmbeddingConfig
@@ -41,6 +60,12 @@ type EmbeddingConfig {
   Server-provided to ensure exact match between client (writing) and server (querying).
   """
   modelEmbeddingKey: String!
+
+  """
+  True when this server accepts a JSON Patch that updates one embeddings key and leaves the others.
+  Older servers omit the field; writers then replace the whole aspect.
+  """
+  semanticContentPatchSupported: Boolean
 
   """
   AWS Bedrock-specific configuration (only populated when provider is "aws-bedrock")

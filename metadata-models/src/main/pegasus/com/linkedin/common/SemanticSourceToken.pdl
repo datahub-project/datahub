@@ -1,0 +1,21 @@
+namespace com.linkedin.common
+
+/**
+ * One source aspect version that changed a watched path. Tokens are ordered by createdTime, then
+ * version. createdTime is the source aspect's creation time, so a deleted and recreated aspect,
+ * whose version numbers restart, still orders after every version of the deleted one.
+ */
+record SemanticSourceToken {
+
+  /**
+   * Creation time of the source aspect in milliseconds since epoch. Rows written before the
+   * server recorded a creation time use the change's audit time instead.
+   */
+  createdTime: long
+
+  /**
+   * Version of the source aspect that made the change. A delete records the deleted version plus
+   * one, so it orders after the last version it removed.
+   */
+  version: long
+}

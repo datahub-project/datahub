@@ -559,6 +559,14 @@ public class Constants {
   // Curated embedding-source text. A common aspect so any entity type can register it.
   public static final String SEMANTIC_TEXT_ASPECT_NAME = "semanticText";
 
+  public static final String SEMANTIC_CONTENT_ASPECT_NAME = "semanticContent";
+
+  /**
+   * System metadata property set on the write that applies embedding profile state. Stripped for
+   * non-system callers.
+   */
+  public static final String SEMANTIC_APPLY_PROPERTY = "semanticApply";
+
   public static final List<String> SKIP_REFERENCE_ASPECT =
       Arrays.asList("ownership", "status", "institutionalMemory");
 

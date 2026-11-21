@@ -15,6 +15,7 @@ import com.linkedin.metadata.config.search.SearchV3Configuration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.SemanticContentIndexFields;
 import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyIndexFields;
 import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
@@ -264,6 +265,21 @@ public class UpdateIndicesStrategyFactory {
   public StructuredPropertyIndexFields structuredPropertyIndexFields(
       @Nonnull ElasticSearchService elasticSearchService) {
     return new StructuredPropertyIndexFields(
+        (opContext, indexName, request) ->
+            elasticSearchService
+                .getIndexBuilder(indexName)
+                .getSearchClient()
+                .search(opContext, request, RequestOptions.DEFAULT));
+  }
+
+  /**
+   * Reads minimal semanticContent key fields a batch at a time from the V3 index being compared.
+   */
+  @Bean
+  @Nonnull
+  public SemanticContentIndexFields semanticContentIndexFields(
+      @Nonnull ElasticSearchService elasticSearchService) {
+    return new SemanticContentIndexFields(
         (opContext, indexName, request) ->
             elasticSearchService
                 .getIndexBuilder(indexName)
