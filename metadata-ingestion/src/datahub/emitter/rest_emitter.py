@@ -49,6 +49,10 @@ from datahub.configuration.common import (
     TraceTimeoutError,
     TraceValidationError,
 )
+from datahub.configuration.env_var_registry import (
+    EnvVarGroup,
+    declare_env_var,
+)
 from datahub.configuration.env_vars import (
     get_emit_mode,
     get_emitter_trace,
@@ -98,6 +102,27 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.caller_context import identify_caller
 from datahub.utilities.server_config_util import RestServiceConfig, ServiceFeature
+
+# Read inline in DataHubRestEmitter._build_session.
+declare_env_var(
+    name="DATAHUB_CLIENT_CERT_PATH",
+    type=str,
+    group=EnvVarGroup.CONNECTION,
+    description=(
+        "Path to a PEM file holding the client certificate to present when GMS sits behind a "
+        "proxy that requires mutual TLS. May be a combined cert+key PEM when "
+        "DATAHUB_CLIENT_KEY_PATH is unset. Applies to all outbound HTTPS from the CLI and SDK."
+    ),
+)
+declare_env_var(
+    name="DATAHUB_CLIENT_KEY_PATH",
+    type=str,
+    group=EnvVarGroup.CONNECTION,
+    description=(
+        "Path to the PEM private key matching DATAHUB_CLIENT_CERT_PATH. Needed only when the "
+        "certificate and key live in separate files, as in the Kubernetes tls secret layout."
+    ),
+)
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph

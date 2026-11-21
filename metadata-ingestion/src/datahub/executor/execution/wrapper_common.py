@@ -17,9 +17,33 @@ from typing import Any, Optional
 
 import yaml
 
+from datahub.configuration.env_var_registry import (
+    EnvVarGroup,
+    declare_env_var,
+)
 from datahub.masking.bootstrap import initialize_secret_masking
 from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
+
+declare_env_var(
+    name="DATAHUB_ENABLE_SECRET_MASKING",
+    type=bool,
+    group=EnvVarGroup.EXECUTOR,
+    default=True,
+    choices=["true", "false"],
+    description=(
+        "Whether the executor masks secrets in subprocess output. The executor sets this for the "
+        "ingestion subprocess; it is the positive counterpart of DATAHUB_DISABLE_SECRET_MASKING, "
+        "which the SDK reads. Turning masking off exposes credentials in run logs."
+    ),
+)
+declare_env_var(
+    name="EXECUTOR_TASK_MEMORY_LIMIT",
+    type=int,
+    group=EnvVarGroup.EXECUTOR,
+    type_label="integer (bytes)",
+    description="Address-space cap applied to each ingestion subprocess via RLIMIT_AS. Unset means no limit.",
+)
 
 
 def parse_bool_env(env_var: str, default: bool = True) -> bool:

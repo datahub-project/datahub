@@ -7,6 +7,24 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from datahub.configuration.env_var_registry import (
+    EnvVarGroup,
+    EnvVarTier,
+    declare_env_var,
+)
+
+declare_env_var(
+    name="DATAHUB_PGQUEUE_PRIORITY_BANDS",
+    type=str,
+    group=EnvVarGroup.MISC,
+    type_label="JSON",
+    tier=EnvVarTier.EXPERIMENTAL,
+    description=(
+        "Priority band definitions as JSON, overriding the built-in defaults. GMS-supplied config "
+        "takes precedence over this variable when available."
+    ),
+)
+
 MIN_PRIORITY = 0
 MAX_PRIORITY = 9
 DEFAULT_PRIORITY = 5

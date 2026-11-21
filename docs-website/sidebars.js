@@ -1454,6 +1454,11 @@ module.exports = {
             },
             "python-sdk/models",
             "python-sdk/urns",
+            {
+              type: "doc",
+              label: "Environment Variables",
+              id: "metadata-ingestion/environment-variables",
+            },
           ],
         },
       ],
@@ -1518,6 +1523,11 @@ module.exports = {
           className: "saasOnly",
         },
         { type: "doc", id: "docs/datahub_lite", label: "lite" },
+        {
+          type: "ref",
+          id: "metadata-ingestion/environment-variables",
+          label: "Environment Variables",
+        },
       ],
     },
     {

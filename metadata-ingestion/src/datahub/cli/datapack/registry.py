@@ -12,6 +12,17 @@ import requests
 
 from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.datapack.models import DataPackInfo, RegistryManifest
+from datahub.configuration.env_var_registry import (
+    EnvVarGroup,
+    declare_env_var,
+)
+
+declare_env_var(
+    name="DATAHUB_DATAPACK_REGISTRY_URL",
+    type=str,
+    group=EnvVarGroup.MISC,
+    description="Base URL the datapack registry is fetched from. Defaults to the public GitHub-hosted registry.",
+)
 
 logger = logging.getLogger(__name__)
 
