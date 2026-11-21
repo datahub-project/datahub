@@ -11,7 +11,7 @@ bound what those relations show. A query that escapes the gate is a security bug
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import Dict, FrozenSet, List, Literal, Optional, Set, Tuple
 
 import sqlglot
 from sqlglot import exp
@@ -30,6 +30,10 @@ INFORMATION_SCHEMA = "information_schema"
 # information_schema whole cannot forget them; where they do not exist,
 # withholding them changes nothing.
 SESSION_TEXT_RELATIONS: FrozenSet[str] = frozenset({"processlist", "innodb_trx"})
+
+# Prefixed to a name that must match no scope entry (a quoted name outside the
+# dialect's folded case, or a non-ASCII one): entries never hold a quote.
+_OTHER_CASE_MARK = '"'
 
 
 @dataclass(frozen=True)
@@ -73,6 +77,14 @@ class CatalogScope:
     # a reference is refused rather than misread.
     split_dotted_identifiers: bool = False
 
+    # The case the dialect folds unquoted identifiers to, where a quoted one is
+    # case-sensitive (Snowflake and Oracle fold to upper, Postgres and Redshift
+    # to lower). Quoted in any other case, a name is a different object from the
+    # catalog one of that name, so it matches no entry; matching is otherwise
+    # case-insensitive. None where the dialect resolves names case-insensitively
+    # whether quoted or not.
+    unquoted_case: Optional[Literal["upper", "lower"]] = None
+
     def permits_path(self, parts: List[str]) -> bool:
         """Whether a reference, given as its dotted path parts, is in scope.
 
@@ -83,9 +95,18 @@ class CatalogScope:
         table named like a dictionary view under any schema.
         """
         schema, relation = parts[-2], parts[-1]
+        if not (schema.isascii() and relation.isascii()):
+            # Every catalog name is ASCII, and Python's case mapping is wider
+            # than SQL's: a lookalike could lower-case onto an entry, or past an
+            # exclusion.
+            return False
         if schema.lower() in {s.lower() for s in self.schemas}:
             return relation.lower() not in {r.lower() for r in self.excluded_relations}
-        lowered = [part.lower() for part in parts]
+        # A non-ASCII part (a catalog part, under a three-part entry) matches nothing.
+        lowered = [
+            part.lower() if part.isascii() else _OTHER_CASE_MARK + part
+            for part in parts
+        ]
         for entry in self.relations:
             entry_parts = entry.lower().split(".")
             if len(entry_parts) < 2 or len(entry_parts) > len(lowered):
@@ -99,7 +120,9 @@ class CatalogScope:
         return self.permits_path([schema, relation])
 
     def permits_unqualified(self, relation: str) -> bool:
-        return relation.lower() in {r.lower() for r in self.relations if "." not in r}
+        return relation.isascii() and relation.lower() in {
+            r.lower() for r in self.relations if "." not in r
+        }
 
     def describe(self) -> str:
         """What to tell a caller whose reference was refused."""
@@ -549,6 +572,23 @@ def _visible_cte_names(table: exp.Table) -> Set[str]:
     return names
 
 
+def _as_matched(slot: object, piece: str, scope: CatalogScope) -> str:
+    """The piece as scope matching sees it (CatalogScope.unquoted_case)."""
+    if (
+        scope.unquoted_case is None
+        or not isinstance(slot, exp.Identifier)
+        or not slot.quoted
+    ):
+        return piece
+    folded = piece.upper() if scope.unquoted_case == "upper" else piece.lower()
+    # ASCII only: Python's case mapping is wider than SQL's. The Kelvin sign is
+    # its own upper case yet lower-cases to an ASCII "k", so a quoted name using
+    # it would pass as folded and then match an entry spelled with "k".
+    if piece.isascii() and piece == folded:
+        return piece
+    return _OTHER_CASE_MARK + piece
+
+
 def _check_table(table: exp.Table, scope: CatalogScope) -> bool:
     """Clear one table reference; True when it is a physical relation (a CTE
     reference parses as exp.Table but is not one)."""
@@ -562,8 +602,8 @@ def _check_table(table: exp.Table, scope: CatalogScope) -> bool:
 
     # Flattened: dialects disagree about which slot holds what
     # (CatalogScope.split_dotted_identifiers).
-    parts = [
-        piece
+    pieces = [
+        (slot, piece)
         for slot in (
             table.args.get("catalog"),
             table.args.get("db"),
@@ -571,6 +611,9 @@ def _check_table(table: exp.Table, scope: CatalogScope) -> bool:
         )
         for piece in _slot_pieces(slot, scope)
     ]
+    parts = [piece for _, piece in pieces]
+    # What scope matching compares; `parts` stays as written for messages.
+    matched = [_as_matched(slot, piece, scope) for slot, piece in pieces]
 
     if len(parts) < 2:
         name = parts[0] if parts else table.name
@@ -579,7 +622,7 @@ def _check_table(table: exp.Table, scope: CatalogScope) -> bool:
             return False
         # Some dialects expose their catalog unqualified (Oracle's public
         # synonyms such as `dba_tables`).
-        if scope.permits_unqualified(name):
+        if scope.permits_unqualified(matched[0] if matched else name):
             return True
         raise SqlScopeError(
             f"'{name}' is not schema-qualified, so it cannot be shown to be "
@@ -589,7 +632,7 @@ def _check_table(table: exp.Table, scope: CatalogScope) -> bool:
 
     rendered = ".".join(parts)
 
-    if not scope.permits_path(parts):
+    if not scope.permits_path(matched):
         raise SqlScopeError(
             f"'{rendered}' is outside the catalog metadata this probe may read; "
             f"this source permits {scope.describe()}"
