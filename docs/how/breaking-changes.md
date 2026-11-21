@@ -229,7 +229,7 @@ the named template, and the results' `keywordFallback` field names the reason. A
 retries these searches on a server error, retry on `SERVICE_UNAVAILABLE` and `DEADLINE_EXCEEDED`
 instead.
 
-### A similarity search that cannot use its anchor is a bad request
+### A similarity search that cannot use its anchor is a bad request ([#21495](https://github.com/datahub-project/datahub/pull/21495))
 
 A similarity search whose query names no entity it can use now fails as a bad request (`BAD_REQUEST`)
 on every GraphQL search, as it already did on semantic search, instead of a server error: for example a
@@ -237,7 +237,7 @@ search that names `urn:li:searchTemplate:similarity` in the `searchTemplate` sea
 names `urn:li:searchTemplate:semantic` with an entity URN as the query. **Action:** if a client retries
 these searches on a server error, do not retry a bad request.
 
-### Single-entity semantic search can run the semantic search template
+### Single-entity semantic search can run the semantic search template ([#21495](https://github.com/datahub-project/datahub/pull/21495))
 
 Single-entity semantic search (`semanticSearch`) now follows the same switch as
 `semanticSearchAcrossEntities` (`SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH`, above). It is off by
