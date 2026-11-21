@@ -26,7 +26,7 @@ The model is designed around four goals:
 
 New writers record a skip on the profile itself and leave `skipReason` and `skippedAt` unset.
 
-The aspect is schema version 2. Version 2 adds the optional fields described below. Readers that ignore unknown fields keep working, and no data migration is needed. A client that requires schema version 1 must accept version 2.
+The aspect is schema version 3. The optional fields described below are part of it. Readers that ignore unknown fields keep working, and no data migration is needed. A client that requires schema version 1 must accept version 3.
 
 ### EmbeddingModelData
 

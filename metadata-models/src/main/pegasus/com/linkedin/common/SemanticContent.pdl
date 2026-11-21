@@ -14,7 +14,7 @@ namespace com.linkedin.common
  */
 @Aspect = {
   "name": "semanticContent",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record SemanticContent {
 

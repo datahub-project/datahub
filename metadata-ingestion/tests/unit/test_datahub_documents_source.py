@@ -1511,6 +1511,12 @@ class TestStateStorage:
                 run_id="previous-run",
                 state=previous_state,
             ),
+            current_checkpoint=Checkpoint(
+                job_name="document_chunking",
+                pipeline_name="test-pipeline",
+                run_id="current-run",
+                state=DocumentChunkingCheckpointState(),
+            ),
         )
 
         assert handler.get_last_state() is None
@@ -6126,6 +6132,164 @@ def test_datahub_documents_does_not_embed_when_only_v3_enabled():
     assert resolved.provider is None
     query = fake_graph.execute_graphql.call_args.kwargs["query"]
     assert "entityIndexV3" in query
+
+
+class TestCheckpointHashWithinARun:
+    """A hash recorded earlier in a run must be visible to later events in the same
+    run, or an edit that is reverted before the run ends is skipped as unchanged."""
+
+    URN = "urn:li:document:revert"
+    TEXT_A = "Original body text of the document."
+    TEXT_B = "Edited body text of the document."
+    JOB_NAME = "document_chunking"
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    def _checkpointing_handler(
+        self, previous_hashes: dict[str, str]
+    ) -> DocumentChunkingStateHandler:
+        previous_state = DocumentChunkingCheckpointState(
+            document_state={
+                urn: {"content_hash": content_hash, "last_processed": "2026-11-01"}
+                for urn, content_hash in previous_hashes.items()
+            }
+        )
+        handler = TestStateStorage._make_state_handler(
+            stateful_ingestion=DocumentChunkingStatefulIngestionConfig(enabled=True),
+            last_checkpoint=Checkpoint(
+                job_name=self.JOB_NAME,
+                pipeline_name="test-pipeline",
+                run_id="previous-run",
+                state=previous_state,
+            ),
+        )
+        # The state provider builds the current checkpoint on first read, seeded
+        # from the last committed one.
+        state_provider = handler.state_provider
+        assert isinstance(state_provider, Mock)
+        state_provider.get_current_checkpoint.return_value = handler.create_checkpoint()
+        return handler
+
+    @staticmethod
+    def _event(urn: str, text: str, version: int, **extra: Any) -> dict[str, Any]:
+        return {
+            "entityUrn": urn,
+            "aspectName": "documentInfo",
+            "aspect": json.dumps({"contents": {"text": text}, **extra}),
+            "systemMetadata": TestRefreshMarkerTokens._mcl_system_metadata(
+                1_000, str(version)
+            ),
+        }
+
+    def _embedded_texts(
+        self, source: DataHubDocumentsSource, events: list[dict[str, Any]]
+    ) -> list[str]:
+        embedded: list[str] = []
+
+        def record(doc: dict[str, Any]) -> Any:
+            embedded.append(doc["text"])
+            yield from ()
+            return True
+
+        with patch.object(
+            source, "_process_document_with_throttle", side_effect=record
+        ):
+            for event in events:
+                list(source._process_single_event(event))
+        return embedded
+
+    def _source_with_stuck_marker(
+        self, ctx: PipelineContext, mock_graph_cls: Mock
+    ) -> DataHubDocumentsSource:
+        source = DataHubDocumentsSource(ctx, _make_config())
+        source.config.incremental.enabled = True
+        # The profile and the entity marker stay at v1 for every read, as when the
+        # marker update for the source edits has not been delivered yet.
+        v1 = {
+            "sources": {
+                "documentInfo#contents.text": {"createdTime": 1_000, "version": 1}
+            }
+        }
+        semantic = {
+            "embeddings": {"cohere_embed_v3": {"current": True, "refreshMarker": v1}},
+            "refreshMarker": v1,
+        }
+
+        def get_entities(
+            entity_name: str,
+            urns: list[str],
+            aspects: Optional[list[str]] = None,
+            with_system_metadata: bool = False,
+        ) -> dict[str, dict[str, Any]]:
+            if aspects == ["semanticContent"]:
+                return {
+                    urn: {
+                        "semanticContent": (
+                            _StoredAspect(semantic),
+                            _system_metadata(1_000, "1"),
+                        )
+                    }
+                    for urn in urns
+                }
+            return {}
+
+        mock_graph_cls.return_value.get_entities.side_effect = get_entities
+        source.chunking_source.get_model_embedding_key = Mock(  # type: ignore[method-assign]
+            return_value="cohere_embed_v3"
+        )
+        return source
+
+    def test_state_handler_returns_a_hash_recorded_this_run(self):
+        handler = self._checkpointing_handler(
+            {self.URN: "hash-a", "urn:li:document:untouched": "hash-u"}
+        )
+
+        assert handler.get_document_hash(self.URN) == "hash-a"
+        handler.update_document_state(self.URN, "hash-b", "2026-11-20")
+
+        assert handler.get_document_hash(self.URN) == "hash-b"
+        assert handler.get_document_hash("urn:li:document:untouched") == "hash-u"
+        assert handler.get_document_hash("urn:li:document:unknown") is None
+
+    def test_edit_reverted_in_the_same_run_is_embedded_again(self, ctx, mock_graph):
+        with mock_graph as mock_graph_cls:
+            source = self._source_with_stuck_marker(ctx, mock_graph_cls)
+            source.state_handler = self._checkpointing_handler(
+                {self.URN: source._calculate_text_hash(self.TEXT_A)}
+            )
+
+            embedded = self._embedded_texts(
+                source,
+                [
+                    self._event(self.URN, self.TEXT_B, version=2),
+                    self._event(self.URN, self.TEXT_A, version=3),
+                    self._event(self.URN, self.TEXT_A, version=4, title="Renamed"),
+                ],
+            )
+
+        # The title-only bump at v4 leaves the text where the last embed put it.
+        assert embedded == [self.TEXT_B, self.TEXT_A]
+
+    def test_title_only_edit_is_not_embedded(self, ctx, mock_graph):
+        with mock_graph as mock_graph_cls:
+            source = self._source_with_stuck_marker(ctx, mock_graph_cls)
+            source.state_handler = self._checkpointing_handler(
+                {self.URN: source._calculate_text_hash(self.TEXT_A)}
+            )
+
+            embedded = self._embedded_texts(
+                source, [self._event(self.URN, self.TEXT_A, version=2, title="Renamed")]
+            )
+
+        assert embedded == []
 
 
 _LINK_PATTERN_NAMES = (
