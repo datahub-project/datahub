@@ -168,7 +168,7 @@ If you later upgrade to this release again, system update keeps the restored tem
 version this release writes already ran. To write the shipped templates again, run system update once with
 `DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable.
 
-### Semantic search can run the semantic search template
+### Semantic search can run the semantic search template ([#21473](https://github.com/datahub-project/datahub/pull/21473))
 
 Semantic search (`semanticSearchAcrossEntities`) can now run `urn:li:searchTemplate:semantic` through a
 new `semanticSearch` template surface. It is off by default, and nothing changes while it is off. To
@@ -192,7 +192,9 @@ so after upgrading OpenSearch to 3.5 or later, restart GMS for the switch to tak
   unless the request sets `includeSoftDeleted` or `includeHiddenLifecycleStages`.
 - `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY`, when set, drops results below that cosine. The
   legacy semantic search applies only the `minScore` search flag.
-- The facets count the results semantic search found, not every document that matches the filter.
+- Facets come back by default, counted over the results semantic search found, which takes one more
+  search engine request per search. Set the `skipAggregates` search flag to skip that request. The
+  legacy semantic search returns no facets unless the request asks for structured property facets.
 - The query embedding and the vector search share a budget of two seconds, where the legacy semantic
   search sets no timeout. A slow embedding fails as `DEADLINE_EXCEEDED`, and a vector search that
   runs past the budget fails the search, which the keyword fallback below does not cover.
@@ -210,6 +212,22 @@ A new `minSimilarity` search flag sets a raw cosine floor on vector results. It 
 template or `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY` sets, and never lower it. While the switch is
 off or does not take effect, semantic search rejects the flag. **Action:** none. Before you turn the
 switch on, check that clients expect the document defaults and facet counts above.
+
+### Searches through a vector template report why the query could not be embedded ([#21493](https://github.com/datahub-project/datahub/pull/21493))
+
+Any GraphQL operation whose search runs a vector template, such as a search that names
+`urn:li:searchTemplate:semantic` in the `searchTemplate` search flag, now fails with the same errors as
+semantic search when the query cannot be embedded, instead of a generic server error:
+`DEADLINE_EXCEEDED` (`timeout`), `SERVICE_UNAVAILABLE` (`rejected`), or a server error (`failed`), with
+the reason in the message. A Vertex AI or Amazon Bedrock query embedding that is throttled now fails as
+`rejected` instead of `failed` or `timeout`, also on semantic search through the semantic search
+template: a throttle is not retried, since a retry would outlast the search's budget.
+`searchAcrossEntities` and `search` now honor the `keywordFallbackOnEmbeddingFailure` search flag: with
+it set, a query that cannot be embedded gets the keyword search results for the same request, without
+the named template, and the results' `keywordFallback` field names the reason. A search that names
+`urn:li:searchTemplate:similarity` embeds nothing, so it never falls back. **Action:** if a client
+retries these searches on a server error, retry on `SERVICE_UNAVAILABLE` and `DEADLINE_EXCEEDED`
+instead.
 
 ### Parent Data Product is now checked on every API
 

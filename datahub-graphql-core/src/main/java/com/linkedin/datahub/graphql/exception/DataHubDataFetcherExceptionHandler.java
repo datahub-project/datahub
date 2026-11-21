@@ -4,6 +4,7 @@ import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.graph.LineageTimeoutException;
+import com.linkedin.metadata.search.QueryEmbeddingException;
 import graphql.PublicApi;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
@@ -24,9 +25,10 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
   private static final String ERROR_SOURCE_VALIDATION = "VALIDATION";
 
   /**
-   * Priority (first match wins via cause walk): {@link DataHubGraphQLException} → metadata-io's
-   * {@code ValidationException} → {@link ValidationException} → {@link IllegalArgumentException} →
-   * {@link DatabaseTransactionConflictException} → {@link LineageTimeoutException} → {@link
+   * Priority (first match wins via cause walk): {@link QueryEmbeddingException} → {@link
+   * DataHubGraphQLException} → metadata-io's {@code ValidationException} → {@link
+   * ValidationException} → {@link IllegalArgumentException} → {@link
+   * DatabaseTransactionConflictException} → {@link LineageTimeoutException} → {@link
    * IllegalStateException} → {@link ActorAccessException} → {@link RuntimeException} → fallback.
    * Conflict must stay above {@code RuntimeException} because {@code
    * DatabaseTransactionConflictException} extends {@code RetryLimitReached} (a RuntimeException).
@@ -40,6 +42,24 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     Throwable exception = handlerParameters.getException();
     SourceLocation sourceLocation = handlerParameters.getSourceLocation();
     ResultPath path = handlerParameters.getPath();
+
+    // A search template's vector rung could not embed the query, from any resolver that passes
+    // SearchFlags.searchTemplate. First, so the typed error a resolver throws for it, which maps
+    // to the same code, is logged the same way, and before the IllegalArgumentException branch: a
+    // provider fault under it is not the caller's. A timeout or a throttle is expected under load,
+    // so it is a warning without the stack trace.
+    QueryEmbeddingException queryEmbeddingException =
+        findFirstThrowableCauseOfClass(exception, QueryEmbeddingException.class);
+    if (queryEmbeddingException != null) {
+      final DataHubGraphQLErrorCode code = QueryEmbeddingErrorCodes.of(queryEmbeddingException);
+      if (code == DataHubGraphQLErrorCode.SERVER_ERROR) {
+        log.error("Failed to execute", queryEmbeddingException);
+      } else {
+        log.warn("Failed to execute: {}", queryEmbeddingException.getMessage());
+      }
+      return completedResult(
+          extractErrorMessage(queryEmbeddingException), code, path, sourceLocation);
+    }
 
     DataHubGraphQLException graphQLException =
         findFirstThrowableCauseOfClass(exception, DataHubGraphQLException.class);
