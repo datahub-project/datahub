@@ -251,9 +251,9 @@ class TestCheckEsFieldPresence:
         results = ValidationPhase._check_es_field_presence(scenarios, es=es)
         assert results == []
         es.get_doc.assert_called_once()
-        # Verifies alias derivation: dashboard → dashboardindex_v2
+        # Verifies alias derivation: dashboard → dashboardindex_v3
         idx_arg = es.get_doc.call_args.args[0]
-        assert idx_arg == "dashboardindex_v2"
+        assert idx_arg == "dashboardindex_v3"
 
     def test_missing_field_emits_fail(self) -> None:
         es = MagicMock()
@@ -287,7 +287,7 @@ class TestCheckEsFieldPresence:
         results = ValidationPhase._check_es_field_presence(scenarios, es=es)
         assert results == []
         idx_arg = es.get_doc.call_args.args[0]
-        assert idx_arg == "datasetindex_v2"
+        assert idx_arg == "datasetindex_v3"
 
     def test_unknown_entity_type_emits_fail(self) -> None:
         es = MagicMock()

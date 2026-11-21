@@ -27,7 +27,7 @@ from ..mysql_client import MySQLClient
 
 log = logging.getLogger(__name__)
 
-_DEFAULT_ENTITY_INDEX_ALIAS = "dashboardindex_v2"
+_DEFAULT_ENTITY_INDEX_ALIAS = "dashboardindex_v3"
 _SYSTEM_METADATA_INDEX = "system_metadata_service_v1"
 # Aspect we drive the migration on; every gap/dual URN writes this aspect.
 _EMBED_ASPECT = "embed"

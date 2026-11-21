@@ -180,8 +180,8 @@ class ValidationPhase(Phase):
         return results
 
     _ENTITY_TYPE_TO_ES_ALIAS: dict[str, str] = {
-        "dashboard": "dashboardindex_v2",
-        "dataset": "datasetindex_v2",
+        "dashboard": "dashboardindex_v3",
+        "dataset": "datasetindex_v3",
     }
 
     @classmethod

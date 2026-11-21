@@ -33,8 +33,8 @@ _PLATFORMS_TO_REGISTER: tuple[str, ...] = ("test",)
 # Entity-type → ES alias mapping. Mirrors ValidationPhase's mapping so the
 # wait-for-drain step queries the same index the validators eventually do.
 _ENTITY_TYPE_TO_ES_ALIAS: dict[str, str] = {
-    "dashboard": "dashboardindex_v2",
-    "dataset": "datasetindex_v2",
+    "dashboard": "dashboardindex_v3",
+    "dataset": "datasetindex_v3",
 }
 
 # Default budget for waiting on MCL → ES propagation after seed writes.

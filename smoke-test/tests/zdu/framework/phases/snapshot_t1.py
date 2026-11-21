@@ -51,6 +51,10 @@ class SnapshotT1Phase(Phase):
                 snap.doc_counts[name] = self._es.get_doc_count(name)
             except Exception as exc:
                 log.warning("[snapshot_t1] doc count failed for %s: %s", name, exc)
+        try:
+            snap.index_names = self._es.list_indices(prefix="")
+        except Exception as exc:
+            log.warning("[snapshot_t1] index listing failed: %s", exc)
 
         ctx.snapshot_t1 = snap
         duration = time.monotonic() - t0

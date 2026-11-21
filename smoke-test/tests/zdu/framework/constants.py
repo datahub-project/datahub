@@ -78,6 +78,10 @@ DEFAULT_PROFILE: str = "debug"
 # there is no dual-write target regardless.
 ZDU_NEW_REVISION: str = "1"
 
+# TC-103's settings-only upgrade runs under its own revision so it does not
+# inherit revision 1's COMPLETED state and skip the pass.
+ZDU_SETTINGS_ONLY_REVISION: str = "2"
+
 GMS_SERVICE: str = PROFILE_SERVICES[DEFAULT_PROFILE].gms
 UPGRADE_SERVICE: str = PROFILE_SERVICES[DEFAULT_PROFILE].upgrade
 
