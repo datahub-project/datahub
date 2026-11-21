@@ -640,16 +640,23 @@ public class DataHubDataFetcherExceptionHandlerTest {
       throws ExecutionException, InterruptedException {
     // A similarity search whose anchor the request cannot use, as a resolver that wraps every
     // failure reports it
+    SearchTemplateNoAnchorException noAnchor =
+        new SearchTemplateNoAnchorException(
+            "Search template urn:li:searchTemplate:similarity finds similar entities, and the query"
+                + " is not an entity URN");
     DataHubGraphQLError error =
-        errorFor(
-            new RuntimeException(
-                "Failed to search documents",
-                new SearchTemplateNoAnchorException(
-                    "Search template urn:li:searchTemplate:similarity finds similar entities, and"
-                        + " the query is not an entity URN")));
+        errorFor(new RuntimeException("Failed to search documents", noAnchor));
 
     assertEquals(error.getErrorCode(), 400);
     assertTrue(error.getMessage().contains("the query is not an entity URN"));
+    // Ahead of the DataHubGraphQLException branch: a typed server error that carries the unusable
+    // anchor, as a failed keyword fallback does, is the caller's error too
+    assertEquals(
+        errorFor(
+                new DataHubGraphQLException(
+                    "Search failed", DataHubGraphQLErrorCode.SERVER_ERROR, noAnchor))
+            .getErrorCode(),
+        400);
   }
 
   private DataHubGraphQLError errorFor(Throwable exception)

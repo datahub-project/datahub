@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.semantic;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -385,15 +386,51 @@ public class SemanticSearchResolverTest {
             anyList());
     verify(mockSemanticSearchService, never())
         .semanticSearch(any(), anyList(), anyString(), any(), anyList(), anyInt(), anyInt());
-    // The document defaults keyword search adds, and no caller filter of its own
+    // The document defaults keyword search adds, and no caller filter of its own. This caller can
+    // manage documents, so unpublished documents without a lifecycle stage stay in
     Filter defaults = documentDefaults();
     assertEquals(filter.getValue(), defaults);
+    assertFalse(excludesUnpublished(filter.getValue()));
     assertFalse(searching.getValue().getSearchContext().getCallerFiltered());
     // A URN query the template routes to similarity holds its anchor to the same defaults
     assertEquals(searching.getValue().getSearchContext().getAnchorFilter(), defaults);
     assertEquals(
         result.getFacets().stream().map(FacetMetadata::getField).toList(),
         Collections.singletonList("platform"));
+  }
+
+  @Test
+  public void testAUserWhoCannotManageDocumentsGetsNoUnpublishedDocument() throws Exception {
+    QueryContext cannotManageDocuments = getMockDenyContext();
+    when(mockEnvironment.getContext()).thenReturn(cannotManageDocuments);
+    SearchInput input = new SearchInput();
+    input.setType(EntityType.DOCUMENT);
+    input.setQuery("quarterly revenue");
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockSemanticSearchService.isServedByTemplate(any())).thenReturn(true);
+    when(mockSemanticSearchService.semanticSearchAcrossEntitiesByTemplate(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList()))
+        .thenReturn(emptyResult());
+
+    resolver.get(mockEnvironment).get();
+
+    ArgumentCaptor<OperationContext> searching = ArgumentCaptor.forClass(OperationContext.class);
+    ArgumentCaptor<Filter> filter = ArgumentCaptor.forClass(Filter.class);
+    verify(mockSemanticSearchService)
+        .semanticSearchAcrossEntitiesByTemplate(
+            searching.capture(),
+            anyList(),
+            anyString(),
+            filter.capture(),
+            anyList(),
+            anyInt(),
+            any(),
+            anyList());
+    // Neither a result nor an anchor
+    assertTrue(excludesUnpublished(filter.getValue()), String.valueOf(filter.getValue()));
+    assertTrue(
+        excludesUnpublished(searching.getValue().getSearchContext().getAnchorFilter()),
+        String.valueOf(searching.getValue().getSearchContext().getAnchorFilter()));
   }
 
   @Test
@@ -537,6 +574,17 @@ public class SemanticSearchResolverTest {
             CompletionException.class, () -> resolver.get(mockEnvironment).join());
     assertTrue(failure.getCause() instanceof DataHubGraphQLException, failure.toString());
     return (DataHubGraphQLException) failure.getCause();
+  }
+
+  /** Whether a clause of {@code filter} leaves out documents whose state is UNPUBLISHED. */
+  private static boolean excludesUnpublished(Filter filter) {
+    return filter.getOr().stream()
+        .flatMap(clause -> clause.getAnd().stream())
+        .anyMatch(
+            criterion ->
+                "state".equals(criterion.getField())
+                    && Boolean.TRUE.equals(criterion.isNegated())
+                    && criterion.getValues().contains("UNPUBLISHED"));
   }
 
   /** The document defaults keyword search adds, for this caller. */

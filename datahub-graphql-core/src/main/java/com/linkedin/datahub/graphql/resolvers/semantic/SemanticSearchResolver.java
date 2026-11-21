@@ -115,19 +115,21 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
             final Filter filter =
                 ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
             if (servedByTemplate) {
-              return SemanticSearchAcrossEntitiesResolver.templateSearch(
-                  _semanticSearchService,
-                  _entityClient,
-                  context,
-                  List.of(entityName),
-                  query,
-                  filter,
-                  filter,
-                  searchFlags,
-                  Collections.emptyList(),
-                  start,
-                  count,
-                  Collections.emptyList());
+              // Semantic search on one entity type takes no view, so both filters are the request's
+              return SemanticSearchAcrossEntitiesResolver.templateSearch()
+                  .semanticSearchService(_semanticSearchService)
+                  .entityClient(_entityClient)
+                  .context(context)
+                  .entityNames(List.of(entityName))
+                  .query(query)
+                  .baseFilter(filter)
+                  .callerFilter(filter)
+                  .searchFlags(searchFlags)
+                  .sortCriteria(Collections.emptyList())
+                  .start(start)
+                  .count(count)
+                  .facets(Collections.emptyList())
+                  .search();
             }
 
             return UrnSearchResultsMapper.map(

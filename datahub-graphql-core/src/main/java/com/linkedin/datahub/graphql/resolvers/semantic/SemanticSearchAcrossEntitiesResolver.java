@@ -46,6 +46,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -152,19 +154,20 @@ public class SemanticSearchAcrossEntitiesResolver
                     : Collections.emptyList();
 
             if (servedByTemplate) {
-              return templateSearch(
-                  _semanticSearchService,
-                  _entityClient,
-                  context,
-                  finalEntities,
-                  query,
-                  baseFilter,
-                  finalFilter,
-                  searchFlags,
-                  sortCriteria,
-                  start,
-                  count,
-                  structuredPropertyFacets);
+              return templateSearch()
+                  .semanticSearchService(_semanticSearchService)
+                  .entityClient(_entityClient)
+                  .context(context)
+                  .entityNames(finalEntities)
+                  .query(query)
+                  .baseFilter(baseFilter)
+                  .callerFilter(finalFilter)
+                  .searchFlags(searchFlags)
+                  .sortCriteria(sortCriteria)
+                  .start(start)
+                  .count(count)
+                  .facets(structuredPropertyFacets)
+                  .search();
             }
 
             return UrnSearchResultsMapper.map(
@@ -208,14 +211,21 @@ public class SemanticSearchAcrossEntitiesResolver
 
   /**
    * Semantic search through the semantic search template, for this resolver and for single-entity
-   * semantic search, which passes its one entity type. As keyword search does, it adds the document
-   * defaults (the published-document default and placement) to the caller's filter, records whether
-   * that filter, with its view, had a criterion of its own, and keeps the default fields out of the
-   * facets. A query it could not embed is an error naming why, or, when the caller opted in, the
-   * keyword search results across the same entity types for the same request, marked with that
-   * reason.
+   * semantic search, which passes its one entity type. Callers name each argument through the
+   * {@code templateSearch()} builder and run it with {@code search()}. {@code baseFilter} is the
+   * caller's filter without its view and {@code callerFilter} the same filter with it, so without a
+   * view they are the same filter. As keyword search does, it adds the document defaults (the
+   * published-document default and placement) to the caller's filter, records whether that filter,
+   * with its view, had a criterion of its own, and keeps the default fields out of the facets. A
+   * query it could not embed is an error naming why, or, when the caller opted in, the keyword
+   * search results across the same entity types for the same request, marked with that reason.
    */
-  static SearchResults templateSearch(
+  @Builder(
+      builderClassName = "TemplateSearch",
+      builderMethodName = "templateSearch",
+      buildMethodName = "search",
+      access = AccessLevel.PACKAGE)
+  private static SearchResults searchByTemplate(
       final SemanticSearchService semanticSearchService,
       final com.linkedin.entity.client.EntityClient entityClient,
       final QueryContext context,

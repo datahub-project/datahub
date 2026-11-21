@@ -35,9 +35,9 @@ embedded. Any other query runs on
 own `routes`.
 
 In `searchAcrossEntities`, `aggregateAcrossEntities`, `scrollAcrossEntities`, `browseV2`,
-`semanticSearchAcrossEntities`, and `searchDocuments`, an entity can anchor a similarity search, routed
+`semanticSearchAcrossEntities`, `semanticSearch`, and `searchDocuments`, an entity can anchor a similarity search, routed
 or named, only if that search would show it to the user, except that with view authorization off a
-`searchDocuments` anchor is not held to the document READ check its results get. In the first five, a
+`searchDocuments` anchor is not held to the document READ check its results get. In the first six, a
 document that is not published, or not shown in global context, cannot anchor one, whatever entity
 types the search asks for, unless the request sets `includeHiddenLifecycleStages`. A user who can
 manage documents can still anchor on an unpublished document that has no lifecycle stage. In `searchDocuments`, a document can
@@ -244,10 +244,14 @@ Single-entity semantic search (`semanticSearch`) now follows the same switch as
 default, and nothing changes while it is off: `semanticSearch` keeps its own kNN search and rejects the
 `minSimilarity` search flag. With it on, `semanticSearch` runs `urn:li:searchTemplate:semantic` for its
 entity type, with every change listed above for `semanticSearchAcrossEntities`. Only documents have an
-embedding profile in this release, so `semanticSearch` for any other entity type returns an empty
-page. An entity URN as the query finds the entities nearest that entity, which the user must be allowed
-to see. The keyword fallback searches the same entity type with the document defaults, so it can return
-different results than the single-entity `search`, which adds no document defaults. **Action:** keep
+embedding profile in this release, so `semanticSearch` for any other entity type returns an empty page,
+or fails as a bad request (`BAD_REQUEST`) when its query is an entity URN that cannot anchor the
+search, such as the URN of an entity that is not a document. An entity URN as the query finds the
+entities nearest that entity, which is held to the same rules as on `semanticSearchAcrossEntities`
+(see the similarity route entry above): a document that is not published, or not shown in global
+context, cannot anchor the search unless the request sets `includeHiddenLifecycleStages`. The keyword
+fallback searches the same entity type with the document defaults, so it can return different results
+than the single-entity `search`, which adds no document defaults. **Action:** keep
 the switch off if clients call `semanticSearch` for entity types other than documents. Before you turn
 it on, check that clients of `semanticSearch` expect the document defaults and facets above.
 
