@@ -358,6 +358,37 @@ public class UpdateLogicalModelSchemaResolverTest {
 
   @SuppressWarnings("unchecked")
   @Test
+  public void testBreakingEditKeepsDatasetLinkOfChildWithNoColumnMappings() throws Exception {
+    SchemaMetadata existing =
+        SchemaMetadataUtils.buildSchemaMetadata(
+            "s", PLATFORM, List.of(col("a", SchemaFieldDataType.NUMBER)));
+    Urn childUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t,PROD)");
+
+    EntityClient client = mock(EntityClient.class);
+    GraphClient graph = mock(GraphClient.class);
+    when(client.getV2(any(), anyString(), eq(UrnUtils.getUrn(MODEL_URN)), anySet()))
+        .thenReturn(responseWith(existing));
+    // Child is linked at dataset level only: it has no column mappings to MODEL_URN, so the
+    // breaking edit takes nothing from it and must leave its dataset-level link alone.
+    stubChildMappings(client, Map.of(childUrn, Map.of()));
+    when(graph.getRelatedEntities(anyString(), anySet(), any(), anyInt(), anyInt(), anyString()))
+        .thenReturn(page(List.of(childUrn), 0, 1));
+
+    UpdateLogicalModelSchemaResolver resolver = new UpdateLogicalModelSchemaResolver(client, graph);
+    resolver
+        .get(env(getMockAllowContext(), input(List.of(col("c", SchemaFieldDataType.NUMBER)))))
+        .get();
+
+    ArgumentCaptor<List<MetadataChangeProposal>> captor = ArgumentCaptor.forClass(List.class);
+    verify(client, times(1)).batchIngestProposals(any(), captor.capture(), eq(false));
+    List<MetadataChangeProposal> sent = captor.getValue();
+
+    assertFalse(clearsDatasetLink(sent, childUrn), "expected dataset-level link preserved");
+    assertEquals(sent.size(), 1);
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
   public void testPaginationTerminatesOnUnderFullPageNotStaleTotal() throws Exception {
     SchemaMetadata existing =
         SchemaMetadataUtils.buildSchemaMetadata(
