@@ -27,10 +27,11 @@ from pyiceberg.exceptions import (
     ServerError,
 )
 from pyiceberg.io.pyarrow import PyArrowFileIO
-from pyiceberg.partitioning import PartitionSpec
+from pyiceberg.partitioning import PartitionField, PartitionSpec
 from pyiceberg.schema import Schema
 from pyiceberg.table import Table
 from pyiceberg.table.metadata import TableMetadataV2
+from pyiceberg.transforms import BucketTransform, DayTransform, IdentityTransform
 from pyiceberg.types import (
     BinaryType,
     BooleanType,
@@ -476,6 +477,72 @@ def test_iceberg_struct_to_schema_field(
     assert_field(
         schema_fields[1], field1.doc, field1.optional, expected_schema_field_type
     )
+
+
+def test_iceberg_partition_source_columns_marked_as_partitioning_key() -> None:
+    """
+    Partition source columns (including nested struct fields and transformed columns)
+    are flagged with isPartitioningKey; all other columns are left untouched.
+    """
+    schema = Schema(
+        NestedField(1, "id", LongType(), required=True),
+        NestedField(2, "ts", TimestampType(), required=False),
+        NestedField(
+            3,
+            "meta",
+            StructType(
+                NestedField(4, "region", StringType(), required=False),
+                NestedField(5, "other", StringType(), required=False),
+            ),
+            required=False,
+        ),
+        NestedField(6, "payload", StringType(), required=False),
+    )
+    partition_spec = PartitionSpec(
+        PartitionField(2, 1000, DayTransform(), "ts_day"),
+        PartitionField(4, 1001, IdentityTransform(), "region"),
+        PartitionField(1, 1002, BucketTransform(16), "id_bucket"),
+        spec_id=1,
+    )
+    iceberg_source_instance = with_iceberg_source()
+    schema_fields = iceberg_source_instance._get_schema_fields_for_schema(
+        schema, partition_spec
+    )
+    partitioning_keys = {
+        field.fieldPath for field in schema_fields if field.isPartitioningKey
+    }
+    assert partitioning_keys == {
+        "[version=2.0].[type=struct].[type=long].id",
+        "[version=2.0].[type=struct].[type=long].ts",
+        "[version=2.0].[type=struct].[type=struct].meta.[type=string].region",
+    }
+    for field in schema_fields:
+        if field.fieldPath not in partitioning_keys:
+            assert field.isPartitioningKey is None
+
+
+def test_iceberg_unpartitioned_table_has_no_partitioning_key() -> None:
+    schema = Schema(
+        NestedField(1, "id", LongType(), required=True),
+        NestedField(2, "ts", TimestampType(), required=False),
+    )
+    iceberg_source_instance = with_iceberg_source()
+    schema_fields = iceberg_source_instance._get_schema_fields_for_schema(
+        schema, PartitionSpec(spec_id=0)
+    )
+    assert all(field.isPartitioningKey is None for field in schema_fields)
+
+
+def test_iceberg_partition_spec_with_unknown_source_column_is_ignored() -> None:
+    schema = Schema(NestedField(1, "id", LongType(), required=True))
+    partition_spec = PartitionSpec(
+        PartitionField(99, 1000, IdentityTransform(), "missing"), spec_id=1
+    )
+    iceberg_source_instance = with_iceberg_source()
+    schema_fields = iceberg_source_instance._get_schema_fields_for_schema(
+        schema, partition_spec
+    )
+    assert all(field.isPartitioningKey is None for field in schema_fields)
 
 
 @pytest.mark.parametrize(
