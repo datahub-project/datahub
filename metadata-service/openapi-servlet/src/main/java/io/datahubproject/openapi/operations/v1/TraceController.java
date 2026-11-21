@@ -8,23 +8,26 @@ import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.config.messaging.KafkaOrPgQueueMessagingTransportCondition;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.systemmetadata.TraceService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
-import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.util.RequestInputUtil;
 import io.datahubproject.openapi.v1.models.TraceRequestV1;
 import io.datahubproject.openapi.v1.models.TraceResponseV1;
+import io.datahubproject.openapi.v1.models.TraceStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Conditional;
@@ -98,35 +101,33 @@ public class TraceController {
             authentication,
             true);
 
-    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
-        opContext, READ, traceRequestV1.keySet())) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr()
-              + " is unauthorized to "
-              + READ
-              + " as least one of the requested URNs.");
-    }
+    final Set<Urn> readableUrns =
+        new HashSet<>(
+            EntityAuthorizationUtils.filterAPIAuthorizedEntityUrns(
+                opContext, READ, traceRequestV1.keySet()));
+    final Map<Urn, Urn> requestedByTracedUrn = new HashMap<>();
+    LinkedHashMap<Urn, List<String>> normalizedInput = new LinkedHashMap<>();
+    traceRequestV1.forEach(
+        (urn, aspectNames) -> {
+          final Urn tracedUrn = readableUrns.contains(urn) ? urn : EntityUtils.toMissingUrn(urn);
+          requestedByTracedUrn.put(tracedUrn, urn);
+          normalizedInput.putIfAbsent(
+              tracedUrn,
+              RequestInputUtil.resolveAspectNames(
+                  opContext.getEntityRegistry(), urn, aspectNames, true));
+        });
 
-    LinkedHashMap<Urn, List<String>> normalizedInput =
-        traceRequestV1.entrySet().stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e ->
-                        RequestInputUtil.resolveAspectNames(
-                            opContext.getEntityRegistry(), e.getKey(), e.getValue(), true),
-                    (v1, v2) -> v1,
-                    LinkedHashMap::new));
-
-    return ResponseEntity.ok(
-        new TraceResponseV1(
-            traceService.trace(
-                opContext,
-                extractTraceId(traceId),
-                normalizedInput,
-                onlyIncludeErrors,
-                detailed,
-                skipCache)));
+    final Map<Urn, Map<String, TraceStatus>> traced =
+        traceService.trace(
+            opContext,
+            extractTraceId(traceId),
+            normalizedInput,
+            onlyIncludeErrors,
+            detailed,
+            skipCache);
+    final LinkedHashMap<Urn, Map<String, TraceStatus>> response = new LinkedHashMap<>();
+    traced.forEach((urn, statuses) -> response.put(requestedByTracedUrn.get(urn), statuses));
+    return ResponseEntity.ok(new TraceResponseV1(response));
   }
 
   private static String extractTraceId(String input) {

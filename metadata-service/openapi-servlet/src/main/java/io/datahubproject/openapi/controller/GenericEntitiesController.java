@@ -1,6 +1,5 @@
 package io.datahubproject.openapi.controller;
 
-import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.TIMESTAMP_MILLIS;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
@@ -44,7 +43,6 @@ import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
-import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchService;
@@ -150,31 +148,112 @@ public abstract class GenericEntitiesController<
       boolean withSystemMetadata,
       boolean expandEmpty)
       throws URISyntaxException {
-
-    LinkedHashMap<Urn, Map<AspectSpec, Long>> aspectSpecMap =
-        RequestInputUtil.resolveAspectSpecs(
-            entityRegistry,
-            urns.stream()
-                .map(
-                    urn ->
-                        Map.entry(
-                            urn,
-                            Optional.ofNullable(aspectNames).orElse(Set.of()).stream()
-                                .map(aspectName -> Map.entry(aspectName, 0L))
-                                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
-                .collect(
-                    Collectors.toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        (a, b) -> {
-                          throw new IllegalStateException("Duplicate key");
-                        },
-                        LinkedHashMap::new)),
-            0L,
-            expandEmpty);
-
     return buildEntityVersionedAspectList(
-        opContext, urns, aspectSpecMap, withSystemMetadata, expandEmpty);
+        opContext,
+        urns,
+        toLatestAspectSpecs(urns, aspectNames, expandEmpty),
+        withSystemMetadata,
+        expandEmpty);
+  }
+
+  /**
+   * {@link #buildEntityList} for caller-supplied urns: urns the actor may not read are answered by
+   * {@link #buildMissingEntityVersionedAspectList}, exactly as if they did not exist.
+   */
+  protected List<E> buildReadableEntityList(
+      @Nonnull OperationContext opContext,
+      List<Urn> urns,
+      @Nullable Set<String> aspectNames,
+      boolean withSystemMetadata,
+      boolean expandEmpty)
+      throws URISyntaxException {
+    return buildReadableEntityVersionedAspectList(
+        opContext,
+        urns,
+        toLatestAspectSpecs(urns, aspectNames, expandEmpty),
+        withSystemMetadata,
+        expandEmpty);
+  }
+
+  /** {@link #buildReadableEntityList} for explicit aspect versions. */
+  protected List<E> buildReadableEntityVersionedAspectList(
+      @Nonnull OperationContext opContext,
+      Collection<Urn> requestedUrns,
+      LinkedHashMap<Urn, Map<AspectSpec, Long>> urnAspectVersions,
+      boolean withSystemMetadata,
+      boolean expandEmpty)
+      throws URISyntaxException {
+    final Set<Urn> readableUrns =
+        new HashSet<>(
+            EntityAuthorizationUtils.filterAPIAuthorizedEntityUrns(opContext, READ, requestedUrns));
+    if (readableUrns.containsAll(requestedUrns)) {
+      return buildEntityVersionedAspectList(
+          opContext, requestedUrns, urnAspectVersions, withSystemMetadata, expandEmpty);
+    }
+
+    final List<Urn> deniedUrns =
+        requestedUrns.stream().filter(urn -> !readableUrns.contains(urn)).toList();
+    final List<E> entities = new ArrayList<>();
+    if (!readableUrns.isEmpty()) {
+      entities.addAll(
+          buildEntityVersionedAspectList(
+              opContext,
+              requestedUrns.stream().filter(readableUrns::contains).toList(),
+              subsetOf(urnAspectVersions, readableUrns),
+              withSystemMetadata,
+              expandEmpty));
+    }
+    entities.addAll(
+        buildMissingEntityVersionedAspectList(
+            opContext,
+            deniedUrns,
+            subsetOf(urnAspectVersions, new HashSet<>(deniedUrns)),
+            withSystemMetadata,
+            expandEmpty));
+
+    final Map<String, E> entitiesByUrn = new HashMap<>();
+    entities.forEach(entity -> entitiesByUrn.putIfAbsent(entity.getUrn(), entity));
+    return requestedUrns.stream()
+        .map(urn -> entitiesByUrn.get(urn.toString()))
+        .filter(Objects::nonNull)
+        .toList();
+  }
+
+  private static LinkedHashMap<Urn, Map<AspectSpec, Long>> subsetOf(
+      @Nonnull final LinkedHashMap<Urn, Map<AspectSpec, Long>> urnAspectVersions,
+      @Nonnull final Set<Urn> urns) {
+    final LinkedHashMap<Urn, Map<AspectSpec, Long>> subset = new LinkedHashMap<>();
+    urnAspectVersions.forEach(
+        (urn, aspectVersions) -> {
+          if (urns.contains(urn)) {
+            subset.put(urn, aspectVersions);
+          }
+        });
+    return subset;
+  }
+
+  private LinkedHashMap<Urn, Map<AspectSpec, Long>> toLatestAspectSpecs(
+      List<Urn> urns, @Nullable Set<String> aspectNames, boolean expandEmpty) {
+    return RequestInputUtil.resolveAspectSpecs(
+        entityRegistry,
+        urns.stream()
+            .map(
+                urn ->
+                    Map.entry(
+                        urn,
+                        Optional.ofNullable(aspectNames).orElse(Set.of()).stream()
+                            .map(aspectName -> Map.entry(aspectName, 0L))
+                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (a, b) -> {
+                      throw new IllegalStateException("Duplicate key");
+                    },
+                    LinkedHashMap::new)),
+        0L,
+        expandEmpty);
   }
 
   /**
@@ -195,6 +274,17 @@ public abstract class GenericEntitiesController<
       boolean withSystemMetadata,
       boolean expandEmpty)
       throws URISyntaxException;
+
+  /**
+   * What {@link #buildEntityVersionedAspectList} answers for urns that do not exist, built from the
+   * urns alone so that nothing is read from storage.
+   */
+  protected abstract List<E> buildMissingEntityVersionedAspectList(
+      @Nonnull OperationContext opContext,
+      Collection<Urn> requestedUrns,
+      LinkedHashMap<Urn, Map<AspectSpec, Long>> urnAspectVersions,
+      boolean withSystemMetadata,
+      boolean expandEmpty);
 
   protected abstract List<E> buildEntityList(
       OperationContext opContext,
@@ -319,50 +409,22 @@ public abstract class GenericEntitiesController<
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
             count);
 
-    SearchEntityArray authorizedEntities;
-    if (QUERY_ENTITY_NAME.equals(entityName)) {
-      // Query visibility varies per entity (subject-dataset scoped), unlike the uniform,
-      // type-level checks other entity types get below — so a mixed page must keep the queries
-      // the actor IS authorized to see rather than rejecting the whole page over the ones they
-      // aren't.
-      Set<Urn> queryUrns =
-          result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toSet());
-      Set<Urn> viewableQueryUrns =
-          EntityAuthorizationUtils.filterAPIAuthorizedQueryUrns(opContext, queryUrns);
-      authorizedEntities =
-          new SearchEntityArray(
-              result.getEntities().stream()
-                  .filter(e -> viewableQueryUrns.contains(e.getEntity()))
-                  .collect(Collectors.toList()));
-    } else {
-      if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
-        throw new UnauthorizedException(
-            authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
-      }
-      authorizedEntities = result.getEntities();
-    }
+    ScrollResult authorizedResult =
+        EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, result);
 
     Set<String> mergedAspects =
         ImmutableSet.<String>builder().addAll(aspects1).addAll(aspects2).build();
 
-    // Known limitation: totalCount is result.getNumEntities(), the search backend's raw,
-    // unfiltered candidate count. For QUERY_ENTITY_NAME, authorizedEntities can be a strict subset
-    // of result.getEntities() (denied queries dropped from this page), so a mixed page is
-    // reported with a total that includes queries the actor can't see, and the page itself can
-    // come back with fewer than `count` entities without that being reflected in the total.
-    // Recomputing an exact, authorized-only total would require scrolling to exhaustion (the
-    // pattern ListQueriesResolver uses for GraphQL) rather than a single page fetch; out of scope
-    // here — accepted and documented rather than implemented.
     return ResponseEntity.ok(
         buildScrollResult(
             opContext,
-            authorizedEntities,
+            authorizedResult.getEntities(),
             routeChainOnly(result),
             mergedAspects,
             withSystemMetadata,
             result.getScrollId(),
             true,
-            result.getNumEntities(),
+            authorizedResult.getNumEntities(),
             false));
   }
 
@@ -410,12 +472,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
-    }
-
-    return buildEntityList(
+    return buildReadableEntityList(
             opContext,
             List.of(urn),
             ImmutableSet.<String>builder().addAll(aspects1).addAll(aspects2).build(),
@@ -453,8 +510,7 @@ public abstract class GenericEntitiesController<
             true);
 
     if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(urn))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + EXISTS + " entities.");
+      return ResponseEntity.notFound().build();
     }
 
     return exists(opContext, urn, null, includeSoftDelete)
@@ -490,20 +546,19 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
-    }
-    denyUnauthorizedTimeseriesAspect(opContext, authentication, urn, entityName, aspectName);
     denyUnauthorizedSensitiveAspect(opContext, authentication, urn, aspectName);
+    if (!canViewTimeseriesAspect(opContext, urn, entityName, aspectName)) {
+      return ResponseEntity.notFound().header(NOT_FOUND_HEADER, "ENTITY").build();
+    }
 
     final List<E> resultList;
     if (version == 0) {
       resultList =
-          buildEntityList(opContext, List.of(urn), Set.of(aspectName), withSystemMetadata, true);
+          buildReadableEntityList(
+              opContext, List.of(urn), Set.of(aspectName), withSystemMetadata, true);
     } else {
       resultList =
-          buildEntityVersionedAspectList(
+          buildReadableEntityVersionedAspectList(
               opContext,
               List.of(urn),
               RequestInputUtil.resolveAspectSpecs(
@@ -553,12 +608,11 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(urn))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + EXISTS + " entities.");
-    }
-    denyUnauthorizedTimeseriesAspect(opContext, authentication, urn, entityName, aspectName);
     denyUnauthorizedSensitiveAspect(opContext, authentication, urn, aspectName);
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(urn))
+        || !canViewTimeseriesAspect(opContext, urn, entityName, aspectName)) {
+      return ResponseEntity.notFound().build();
+    }
 
     return lookupAspectSpec(urn, aspectName)
         .filter(aspectSpec -> exists(opContext, urn, aspectSpec.getName(), includeSoftDelete))
@@ -948,21 +1002,13 @@ public abstract class GenericEntitiesController<
     return lookupAspectSpec(urn, aspectName).map(AspectSpec::isTimeseries).orElse(false);
   }
 
-  protected void denyUnauthorizedTimeseriesAspect(
+  protected boolean canViewTimeseriesAspect(
       @Nonnull OperationContext opContext,
-      @Nonnull Authentication authentication,
       @Nonnull Urn urn,
       @Nonnull String entityName,
       @Nonnull String aspectName) {
-    if (isTimeseriesAspect(urn, aspectName)
-        && !TimeseriesAuthUtil.canViewAspect(opContext, urn, entityName, aspectName)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr()
-              + " is unauthorized to "
-              + READ
-              + " timeseries aspect "
-              + aspectName);
-    }
+    return !isTimeseriesAspect(urn, aspectName)
+        || TimeseriesAuthUtil.canViewAspect(opContext, urn, entityName, aspectName);
   }
 
   protected void denyUnauthorizedSensitiveAspect(

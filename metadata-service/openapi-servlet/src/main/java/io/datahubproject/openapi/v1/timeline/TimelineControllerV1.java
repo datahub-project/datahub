@@ -14,13 +14,13 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
-import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
@@ -98,13 +98,9 @@ public class TimelineControllerV1 {
             ImmutableList.of(
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.GET_TIMELINE_PRIVILEGE.getType()))));
-    if (restApiAuthorizationEnabled && !AuthUtil.isAuthorized(opContext, orGroup, resourceSpec)) {
-      throw new UnauthorizedException(
-          actorUrnStr + " is unauthorized to get the timeline for entity " + urn);
-    }
-    // Entity-level READ via the REST API authorization wrapper (independent of View Authorization).
-    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
-      throw new UnauthorizedException(actorUrnStr + " is unauthorized to view entity " + urn);
+    if ((restApiAuthorizationEnabled && !AuthUtil.isAuthorized(opContext, orGroup, resourceSpec))
+        || !EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
+      urn = EntityUtils.toMissingUrn(urn);
     }
     return ResponseEntity.ok(
         _timelineService.getTimeline(

@@ -86,7 +86,8 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                             ACTION_GET_TIMESERIES_STATS, entityName).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true);
 
-            if (!TimeseriesAuthUtil.canReadAggregatedStats(
+            if (!TimeseriesAuthUtil.isFilterFullyUrnScoped(filter)
+                && !TimeseriesAuthUtil.canReadAggregatedStats(
                     opContext, entityName, aspectName, filter)) {
                 throw new RestLiServiceException(
                         HttpStatus.S_403_FORBIDDEN,
@@ -109,9 +110,14 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
             resp.setGroupingBuckets(new GroupingBucketArray(Arrays.asList(groupingBuckets)));
           }
 
+          final Filter queryFilter =
+              TimeseriesAuthUtil.isFilterFullyUrnScoped(finalFilter)
+                  ? TimeseriesAuthUtil.withUnreadableUrnsAsMissing(
+                      opContext, entityName, aspectName, finalFilter)
+                  : finalFilter;
           GenericTable aggregatedStatsTable =
               timeseriesAspectService.getAggregatedStats(opContext,
-                  entityName, aspectName, aggregationSpecs, finalFilter, groupingBuckets);
+                  entityName, aspectName, aggregationSpecs, queryFilter, groupingBuckets);
           resp.setTable(aggregatedStatsTable);
           return resp;
         });
