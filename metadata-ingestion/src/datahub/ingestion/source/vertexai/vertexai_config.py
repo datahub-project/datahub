@@ -192,13 +192,13 @@ class VertexAIConfig(
     regions: List[str] = Field(
         default_factory=list,
         description=(
-            "List of Vertex AI regions to scan. If empty and discover_regions is false, falls back to 'region'."
+            "List of Vertex AI regions to scan. If empty and discover_regions is false, falls back to 'region'. When discover_regions is true and region discovery fails, the listed regions are read instead."
         ),
     )
     discover_regions: bool = Field(
         default=False,
         description=(
-            "If true, discover available Vertex AI regions per project and scan all."
+            "If true, discover available Vertex AI regions per project and scan all. If discovery fails, 'regions' (else 'region') are read instead."
         ),
     )
     bucket_uri: Optional[str] = Field(
@@ -313,6 +313,9 @@ class VertexAIConfig(
                 "Must specify at least one of: 'region' (deprecated), 'regions', or 'discover_regions=true'."
             )
         return self
+
+    def get_listed_regions(self) -> List[str]:
+        return self.regions or ([self.region] if self.region else [])
 
     def get_credentials(self) -> Optional[Dict[str, Any]]:
         if self.credential:
