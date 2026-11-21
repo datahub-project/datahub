@@ -34,6 +34,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SemanticSearchDisabledException;
 import com.linkedin.metadata.search.SemanticSearchService;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
@@ -82,8 +83,9 @@ public class SemanticSearchAcrossEntitiesResolver
     final List<String> entityNames =
         getSearchEntityNames(context.getOperationContext(), input.getTypes());
 
-    // The query text only feeds the embedding provider (kNN); it never reaches a query_string
-    // clause, so it is passed as typed. Escaping "/" would change the embedded text.
+    // The query text feeds the embedding provider (kNN), or, when it is an entity URN the semantic
+    // template routes to similarity, names the anchor. It never reaches a query_string clause, so
+    // it is passed as typed. Escaping "/" would change the embedded text.
     final String query = input.getQuery();
     // A blank query embeds to a fixed sentinel vector under the classical provider, so kNN would
     // return arbitrary nearest documents instead of failing. Reject it before any service call.
@@ -225,22 +227,31 @@ public class SemanticSearchAcrossEntitiesResolver
       final List<String> facets)
       throws RemoteInvocationException {
     final boolean callerFiltered = FilterUtils.hasCriterion(callerFilter);
-    final Filter filter =
-        DefaultEntityFiltersUtil.applyDefaultEntityFilters(
-            callerFilter, entityNames, searchFlags, context);
+    final DefaultEntityFiltersUtil.SearchFilters defaults =
+        DefaultEntityFiltersUtil.searchFilters(callerFilter, entityNames, searchFlags, context);
+    final Filter filter = defaults.filter();
     final OperationContext searching =
         context
             .getOperationContext()
             .withSearchFlags(flags -> searchFlags)
             .withCallerOptionalFilterFields(
                 DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
-            .withCallerFiltered(callerFiltered);
+            .withCallerFiltered(callerFiltered)
+            .withAnchorFilter(defaults.anchorFilter());
     SearchResult result;
     try {
       result =
           _semanticSearchService.semanticSearchAcrossEntitiesByTemplate(
               searching, entityNames, query, filter, sortCriteria, start, count, facets);
     } catch (RuntimeException e) {
+      // An entity URN routes to similarity. One that cannot anchor the search is a bad request,
+      // not a server failure; the message does not say whether the entity exists.
+      final SearchTemplateNoAnchorException noAnchor =
+          ExceptionUtils.throwableOfType(e, SearchTemplateNoAnchorException.class);
+      if (noAnchor != null) {
+        throw new DataHubGraphQLException(
+            noAnchor.getMessage(), DataHubGraphQLErrorCode.BAD_REQUEST, noAnchor);
+      }
       final QueryEmbeddingException failure =
           ExceptionUtils.throwableOfType(e, QueryEmbeddingException.class);
       if (failure == null) {

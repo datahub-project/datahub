@@ -8,12 +8,16 @@ import static io.datahubproject.test.search.SearchTestUtils.V2_V3_ENABLED_ENTITY
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.AuditStamp;
@@ -21,19 +25,27 @@ import com.linkedin.common.EmbeddingChunk;
 import com.linkedin.common.EmbeddingChunkArray;
 import com.linkedin.common.EmbeddingModelData;
 import com.linkedin.common.EmbeddingModelDataMap;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.SemanticContent;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.FloatArray;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.datahub.graphql.resolvers.knowledge.DocumentSearchFilterUtils;
 import com.linkedin.datahub.graphql.resolvers.search.DefaultEntityFiltersUtil;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.knowledge.DocumentContents;
 import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.knowledge.DocumentState;
 import com.linkedin.knowledge.DocumentStatus;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
@@ -78,6 +90,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateF
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateKeywordRerank;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateVectorRetrieval;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
@@ -95,6 +108,7 @@ import com.linkedin.metadata.search.hybrid.HybridVectorScoreNormalizer;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.service.LifecycleStageTypeService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
@@ -108,6 +122,7 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.test.metadata.aspect.batch.TestMCL;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
@@ -124,6 +139,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import org.mockito.AdditionalAnswers;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.client.RequestOptions;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
@@ -160,8 +176,15 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
   private static final Urn UNPUBLISHED_DOCUMENT =
       UrnUtils.getUrn("urn:li:document:quarterly-draft");
   private static final String SEMANTIC_TEMPLATE = "urn:li:searchTemplate:semantic";
+  // Also as near the query, owned by OWNER, and in review: a lifecycle stage other than
+  // published or draft, which a test hides from search
+  private static final Urn IN_REVIEW_DOCUMENT = UrnUtils.getUrn("urn:li:document:in-review-notes");
+  private static final Urn IN_REVIEW = UrnUtils.getUrn("urn:li:lifecycleStageType:IN_REVIEW");
+  private static final Urn OWNER = UrnUtils.getUrn("urn:li:corpuser:owner");
 
   private final List<String> createdIndices = new ArrayList<>();
+  // Each document's semanticContent as written, which a similarity anchor's vectors are read from
+  private final Map<Urn, SemanticContent> semanticContents = new HashMap<>();
   private OperationContext opContext;
   private ElasticSearchConfiguration config;
   private SemanticSearchConfiguration semanticSearch;
@@ -355,6 +378,26 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
             "Draft of the quarterly results",
             "Quarterly results not yet shared",
             new float[] {1f, 0f, 0f, 0f}));
+    List<MCLItem> inReview =
+        new ArrayList<>(
+            document(
+                IN_REVIEW_DOCUMENT,
+                DocumentState.UNPUBLISHED,
+                "Team notes in review",
+                "Notes the team is still reviewing",
+                new float[] {1f, 0f, 0f, 0f}));
+    // Its key aspect is already among the document's events
+    events(
+            IN_REVIEW_DOCUMENT,
+            new Status().setLifecycleStage(IN_REVIEW),
+            new Ownership()
+                .setOwners(
+                    new OwnerArray(
+                        new Owner().setOwner(OWNER).setType(OwnershipType.TECHNICAL_OWNER))))
+        .stream()
+        .skip(1)
+        .forEach(inReview::add);
+    batch.put(IN_REVIEW_DOCUMENT, inReview);
     // With the semantic configuration the writer lifts document vectors to the root embeddings
     UpdateIndicesV3Strategy.builder()
         .v3Config(entityIndex.getV3())
@@ -725,6 +768,158 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
         .withSearchFlags(flags -> flags.setIncludeExplain(true));
   }
 
+  /**
+   * Similarity on a real index, where the anchor check renders the document defaults on this
+   * engine's own fields. For a viewer who cannot manage documents, a published anchor serves its
+   * neighbors, and an unpublished one fails as noAnchor. A viewer who can manage documents has no
+   * unpublished clause in the defaults, so the same unpublished anchor serves, which shows that
+   * clause decided.
+   */
+  @Test
+  public void testTheDocumentDefaultsDecideWhichDocumentsCanAnchorSimilarity() throws IOException {
+    if (!engineCanServeTheSemanticTemplate()) {
+      // Before 3.5, OpenSearch applies the kNN entity type filter at chunk scope, where it
+      // matches nothing
+      throw new SkipException("Similarity finds no neighbors on OpenSearch before 3.5");
+    }
+    Filter viewer = documentDefaults(false);
+    Filter manager = documentDefaults(true);
+
+    SearchResult published = similar(NEAR_DOCUMENT, viewer);
+    assertEquals(
+        published.getMetadata().getVectorRetrieval().getOutcome(),
+        SearchTemplateVectorRetrieval.SERVED);
+    assertTrue(urns(published).contains(FORECAST_SEMANTIC_MATCH), urns(published).toString());
+    assertFalse(urns(published).contains(NEAR_DOCUMENT), urns(published).toString());
+    assertFalse(urns(published).contains(UNPUBLISHED_DOCUMENT), urns(published).toString());
+
+    expectThrows(
+        SearchTemplateNoAnchorException.class, () -> similar(UNPUBLISHED_DOCUMENT, viewer));
+
+    SearchResult managed = similar(UNPUBLISHED_DOCUMENT, manager);
+    assertTrue(
+        urns(managed).containsAll(List.of(NEAR_DOCUMENT, FORECAST_SEMANTIC_MATCH)),
+        urns(managed).toString());
+  }
+
+  /**
+   * Document search's visibility rule names the lifecycle stage, so it takes the place of the
+   * hidden-stage clause for the anchor as it does for the results: with in review hidden from
+   * search, the owner's document in review still anchors document search. The document defaults
+   * admit no document in a stage other than published, so, hidden or not, they still refuse it.
+   */
+  @Test
+  public void testAnOwnersDocumentInAHiddenStageAnchorsDocumentSearch() {
+    LifecycleStageTypeService stages = mock(LifecycleStageTypeService.class);
+    when(stages.getHiddenStageUrns(anySet())).thenReturn(Set.of(IN_REVIEW.toString()));
+    LifecycleStageTypeService previous = ESUtils.getLifecycleStageTypeService();
+    ESUtils.setLifecycleStageTypeService(stages);
+    try {
+      SearchResult owned =
+          similar(
+              IN_REVIEW_DOCUMENT,
+              DocumentSearchFilterUtils.buildCombinedFilter(
+                  List.of(), List.of(OWNER.toString()), true, false));
+      assertTrue(urns(owned).contains(FORECAST_SEMANTIC_MATCH), urns(owned).toString());
+      assertFalse(urns(owned).contains(UNPUBLISHED_DOCUMENT), urns(owned).toString());
+
+      // Another viewer's rule does not admit the owner's document in review
+      expectThrows(
+          SearchTemplateNoAnchorException.class,
+          () ->
+              similar(
+                  IN_REVIEW_DOCUMENT,
+                  DocumentSearchFilterUtils.buildCombinedFilter(
+                      List.of(), List.of("urn:li:corpuser:not-the-owner"), true, false)));
+
+      for (boolean canManageDocuments : List.of(false, true)) {
+        expectThrows(
+            SearchTemplateNoAnchorException.class,
+            () -> similar(IN_REVIEW_DOCUMENT, documentDefaults(canManageDocuments)));
+      }
+    } finally {
+      ESUtils.setLifecycleStageTypeService(previous);
+    }
+  }
+
+  /** The document defaults as the GraphQL resolvers add them for documents. */
+  private static Filter documentDefaults(boolean canManageDocuments) {
+    return DefaultEntityFiltersUtil.addDefaultEntityFilters(
+        null, List.of("document"), true, canManageDocuments);
+  }
+
+  /**
+   * The documents similar to {@code anchor} through the shipped similarity template, with {@code
+   * visibility} as the request filter and as the anchor filter, as a GraphQL resolver sends it when
+   * the caller sets no filter of their own.
+   */
+  private SearchResult similar(Urn anchor, Filter visibility) {
+    Map<String, SearchTemplateProperties> catalog = new HashMap<>();
+    for (String urn : SearchTemplateBootstrap.urns()) {
+      catalog.put(urn, SearchTemplateBootstrap.get(urn));
+    }
+    SearchTemplateConfiguration templates = new SearchTemplateConfiguration();
+    templates.setEnabled(true);
+    SearchTemplateFixtures.setShippedLimits(templates);
+    // The DataHub index's store reads an anchor's vectors from its stored semanticContent
+    AspectRetriever stored =
+        mock(AspectRetriever.class, AdditionalAnswers.delegatesTo(opContext.getAspectRetriever()));
+    semanticContents.forEach(
+        (urn, content) ->
+            doReturn(new Aspect(content.data()))
+                .when(stored)
+                .getLatestAspectObject(
+                    any(),
+                    eq(urn),
+                    eq(SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME)));
+    OperationContext searching =
+        opContext.toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .graphRetriever(opContext.getRetrieverContext().getGraphRetriever())
+                    .aspectRetriever(stored)
+                    .cachingAspectRetriever(
+                        opContext.getRetrieverContext().getCachingAspectRetriever())
+                    .searchRetriever(opContext.getRetrieverContext().getSearchRetriever())
+                    .build())
+            .build(opContext.getSessionActorContext(), false)
+            .withSearchTemplateRuntime(
+                new SearchTemplateCoordinator(
+                    config.toBuilder()
+                        .search(
+                            config.getSearch().toBuilder()
+                                .v3(new SearchV3Configuration().setTemplates(templates))
+                                .build())
+                        .build(),
+                    null,
+                    new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH, catalog),
+                    ForkJoinPool.commonPool(),
+                    SearchTemplateComponentRegistry.empty(),
+                    SearchTemplateGates.of(
+                        EmbeddingProfileRegistry.fromSemanticSearch(semanticSearch, MODEL_KEY),
+                        semanticSearch,
+                        true)))
+            .withSearchFlags(
+                flags ->
+                    flags
+                        .setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:similarity"))
+                        .setIncludeExplain(true))
+            .withAnchorFilter(visibility);
+    // Similarity embeds nothing, so it needs no query embedding service
+    return new ESSearchDAO(
+            false,
+            config,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            false,
+            TEST_SEARCH_SERVICE_CONFIG,
+            new Sha256UrnEntityDocumentIdHasher(),
+            null,
+            null)
+        .search(
+            searching, List.of("document"), anchor.toString(), visibility, null, 0, 10, List.of());
+  }
+
   private static List<Double> scores(SearchResult result) {
     return result.getEntities().stream().map(SearchEntity::getScore).collect(Collectors.toList());
   }
@@ -746,6 +941,10 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
             .setGeneratedAt(0L)
             .setTotalChunks(chunkVectors.length)
             .setChunks(chunks);
+    SemanticContent semanticContent =
+        new SemanticContent()
+            .setEmbeddings(new EmbeddingModelDataMap(Map.of(MODEL_KEY, embedding)));
+    semanticContents.put(urn, semanticContent);
     return events(
         urn,
         new DocumentInfo()
@@ -754,8 +953,7 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
             .setContents(new DocumentContents().setText(text))
             .setCreated(created)
             .setLastModified(created),
-        new SemanticContent()
-            .setEmbeddings(new EmbeddingModelDataMap(Map.of(MODEL_KEY, embedding))));
+        semanticContent);
   }
 
   @Test
