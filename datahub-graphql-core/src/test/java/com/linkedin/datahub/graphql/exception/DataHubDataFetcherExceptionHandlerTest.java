@@ -11,6 +11,7 @@ import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollec
 import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.search.QueryEmbeddingException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
@@ -632,6 +633,23 @@ public class DataHubDataFetcherExceptionHandlerTest {
                     new IllegalArgumentException("Illegal character in path")))
             .getErrorCode(),
         500);
+  }
+
+  @Test
+  public void testHandleSearchTemplateNoAnchorExceptionAsBadRequest()
+      throws ExecutionException, InterruptedException {
+    // A similarity search whose anchor the request cannot use, as a resolver that wraps every
+    // failure reports it
+    DataHubGraphQLError error =
+        errorFor(
+            new RuntimeException(
+                "Failed to search documents",
+                new SearchTemplateNoAnchorException(
+                    "Search template urn:li:searchTemplate:similarity finds similar entities, and"
+                        + " the query is not an entity URN")));
+
+    assertEquals(error.getErrorCode(), 400);
+    assertTrue(error.getMessage().contains("the query is not an entity URN"));
   }
 
   private DataHubGraphQLError errorFor(Throwable exception)

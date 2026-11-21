@@ -33,7 +33,6 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SemanticSearchDisabledException;
 import com.linkedin.metadata.search.SemanticSearchService;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
@@ -49,7 +48,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 
 /**
  * Resolver responsible for resolving 'semanticSearchAcrossEntities' field of the Query type.
@@ -237,36 +235,23 @@ public class SemanticSearchAcrossEntitiesResolver
                 DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
             .withCallerFiltered(callerFiltered)
             .withAnchorFilter(defaults.anchorFilter());
-    final SearchResult result;
-    try {
-      result =
-          QueryEmbeddingFailures.searchWithKeywordFallback(
-              searching,
-              opContext ->
-                  _semanticSearchService.semanticSearchAcrossEntitiesByTemplate(
-                      opContext, entityNames, query, filter, sortCriteria, start, count, facets),
-              // The keyword search the same request runs, as keyword search escapes it
-              opContext ->
-                  _entityClient.searchAcrossEntities(
-                      opContext,
-                      entityNames,
-                      ResolverUtils.escapeForwardSlash(query),
-                      filter,
-                      start,
-                      count,
-                      sortCriteria,
-                      facets));
-    } catch (RuntimeException e) {
-      // An entity URN routes to similarity. One that cannot anchor the search is a bad request,
-      // not a server failure; the message does not say whether the entity exists.
-      final SearchTemplateNoAnchorException noAnchor =
-          ExceptionUtils.throwableOfType(e, SearchTemplateNoAnchorException.class);
-      if (noAnchor != null) {
-        throw new DataHubGraphQLException(
-            noAnchor.getMessage(), DataHubGraphQLErrorCode.BAD_REQUEST, noAnchor);
-      }
-      throw e;
-    }
+    final SearchResult result =
+        QueryEmbeddingFailures.searchWithKeywordFallback(
+            searching,
+            opContext ->
+                _semanticSearchService.semanticSearchAcrossEntitiesByTemplate(
+                    opContext, entityNames, query, filter, sortCriteria, start, count, facets),
+            // The keyword search the same request runs, as keyword search escapes it
+            opContext ->
+                _entityClient.searchAcrossEntities(
+                    opContext,
+                    entityNames,
+                    ResolverUtils.escapeForwardSlash(query),
+                    filter,
+                    start,
+                    count,
+                    sortCriteria,
+                    facets));
     return UrnSearchResultsMapper.map(
         context, DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(result));
   }

@@ -229,6 +229,14 @@ the named template, and the results' `keywordFallback` field names the reason. A
 retries these searches on a server error, retry on `SERVICE_UNAVAILABLE` and `DEADLINE_EXCEEDED`
 instead.
 
+### A similarity search that cannot use its anchor is a bad request
+
+A similarity search whose query names no entity it can use now fails as a bad request (`BAD_REQUEST`)
+on every GraphQL search, as it already did on semantic search, instead of a server error: for example a
+search that names `urn:li:searchTemplate:similarity` in the `searchTemplate` search flag, or one that
+names `urn:li:searchTemplate:semantic` with an entity URN as the query. **Action:** if a client retries
+these searches on a server error, do not retry a bad request.
+
 ### Parent Data Product is now checked on every API
 
 Setting a Data Product's parent through OpenAPI, Rest.li or YAML now fails if the parent doesn't exist

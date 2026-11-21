@@ -1642,11 +1642,12 @@ public class ESSearchDAOVectorRetrievalTest {
         expectThrows(SearchTemplateFailClosedException.class, () -> search(DOCUMENT, null, 0, 10));
     assertNull(ExceptionUtils.throwableOfType(knn, QueryEmbeddingException.class));
 
-    // Similarity embeds nothing, so its failures never are
+    // Similarity embeds nothing, so its failures never are. An anchor it cannot use is typed, so
+    // a caller can report it as a bad request
     store(similarity(r -> {}));
-    SearchTemplateFailClosedException noAnchor =
+    SearchTemplateNoAnchorException noAnchor =
         expectThrows(
-            SearchTemplateFailClosedException.class,
+            SearchTemplateNoAnchorException.class,
             () -> similar(context(DOCUMENT, f -> {}), DOCUMENT));
     assertNull(ExceptionUtils.throwableOfType(noAnchor, QueryEmbeddingException.class));
   }

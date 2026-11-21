@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.exception.QueryEmbeddingErrorCodes;
 import com.linkedin.metadata.search.QueryEmbeddingException;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
@@ -19,7 +20,8 @@ import org.apache.commons.lang3.function.FailableFunction;
  * keyword search through a template the caller names, such as {@code semantic}. A query the rung
  * could not embed is an error naming why, or, when the caller set {@code
  * SearchFlags.keywordFallbackOnEmbeddingFailure}, the keyword search results for the same request,
- * marked with that reason. Similarity embeds nothing, so it never falls back.
+ * marked with that reason. Similarity embeds nothing, so it never falls back, and an anchor it
+ * cannot use is a bad request.
  */
 @Slf4j
 public final class QueryEmbeddingFailures {
@@ -27,10 +29,10 @@ public final class QueryEmbeddingFailures {
   private QueryEmbeddingFailures() {}
 
   /**
-   * Runs {@code search} with {@code searching}. A query it could not embed fails typed, or, when
-   * the caller opted in, is answered by {@code keywordSearch} without the template the caller
-   * named, which may be the vector template that just failed. Any other failure propagates as it
-   * was.
+   * Runs {@code search} with {@code searching}. A similarity anchor the request cannot use is a bad
+   * request. A query it could not embed fails typed, or, when the caller opted in, is answered by
+   * {@code keywordSearch} without the template the caller named, which may be the vector template
+   * that just failed. Any other failure propagates as it was.
    *
    * @param keywordSearch null when only {@code search} can serve the request: a keyword search that
    *     named no template would run the same vector rung again, which a slot or route chose
@@ -47,6 +49,14 @@ public final class QueryEmbeddingFailures {
     try {
       return search.apply(searching);
     } catch (RuntimeException e) {
+      // The request, not the service, is at fault; the message does not say whether the entity
+      // exists
+      final SearchTemplateNoAnchorException noAnchor =
+          ExceptionUtils.throwableOfType(e, SearchTemplateNoAnchorException.class);
+      if (noAnchor != null) {
+        throw new DataHubGraphQLException(
+            noAnchor.getMessage(), DataHubGraphQLErrorCode.BAD_REQUEST, noAnchor);
+      }
       final QueryEmbeddingException failure =
           ExceptionUtils.throwableOfType(e, QueryEmbeddingException.class);
       if (failure == null) {
