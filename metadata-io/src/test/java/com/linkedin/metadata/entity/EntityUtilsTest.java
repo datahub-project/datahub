@@ -18,12 +18,14 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.ebean.DuplicateKeyException;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -434,6 +436,68 @@ public class EntityUtilsTest {
             opContext, txContext, aspectDao, latestAspects, urnAspects);
 
     assertTrue(result.isEmpty());
+  }
+
+  @Test
+  public void testCalculateNextVersions_DuplicateKeyFallbackKeepsATokenAboveTheColumnMax() {
+    // A rollback leaves the latest row at column 0 with a system metadata version above every
+    // stored column. The value handed to incrementBatchVersion is that version, so the assigned
+    // version is one past it. A second aspect in the same batch keeps its own token.
+    TransactionContext txContext = duplicateKeyFallbackContext();
+    AspectDao aspectDao = mock(AspectDao.class);
+    String urn = "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)";
+    when(aspectDao.getNextVersions(any(), eq(txContext), any(), eq(true)))
+        .thenReturn(
+            Map.of(urn, Map.of(STATUS_ASPECT_NAME, 1L, DATA_PRODUCT_PROPERTIES_ASPECT_NAME, 1L)));
+
+    Map<String, Map<String, Long>> result =
+        EntityUtils.calculateNextVersions(
+            opContext,
+            txContext,
+            aspectDao,
+            Map.of(
+                urn,
+                Map.of(
+                    STATUS_ASPECT_NAME, latestRowWithToken(7L),
+                    DATA_PRODUCT_PROPERTIES_ASPECT_NAME, latestRowWithToken(20L))),
+            Map.of(urn, Set.of(STATUS_ASPECT_NAME, DATA_PRODUCT_PROPERTIES_ASPECT_NAME)));
+
+    assertEquals(result.get(urn).get(STATUS_ASPECT_NAME).longValue(), 7L);
+    assertEquals(result.get(urn).get(DATA_PRODUCT_PROPERTIES_ASPECT_NAME).longValue(), 20L);
+  }
+
+  @Test
+  public void testCalculateNextVersions_DuplicateKeyFallbackUsesTheColumnWhenItIsAhead() {
+    TransactionContext txContext = duplicateKeyFallbackContext();
+    AspectDao aspectDao = mock(AspectDao.class);
+    String urn = "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)";
+    when(aspectDao.getNextVersions(any(), eq(txContext), any(), eq(true)))
+        .thenReturn(Map.of(urn, Map.of(STATUS_ASPECT_NAME, 11L)));
+
+    Map<String, Map<String, Long>> result =
+        EntityUtils.calculateNextVersions(
+            opContext,
+            txContext,
+            aspectDao,
+            Map.of(urn, Map.of(STATUS_ASPECT_NAME, latestRowWithToken(7L))),
+            Map.of(urn, Set.of(STATUS_ASPECT_NAME)));
+
+    assertEquals(result.get(urn).get(STATUS_ASPECT_NAME).longValue(), 11L);
+  }
+
+  private static TransactionContext duplicateKeyFallbackContext() {
+    TransactionContext txContext = TransactionContext.empty();
+    for (int i = 0; i < TransactionContext.DUPLICATE_KEY_MAX_VERSION_FALLBACK_AFTER_FAILURES; i++) {
+      txContext.addException(new DuplicateKeyException("dup" + i, null));
+    }
+    return txContext;
+  }
+
+  private static SystemAspect latestRowWithToken(long token) {
+    SystemAspect latest = mock(SystemAspect.class);
+    when(latest.getVersion()).thenReturn(0L);
+    when(latest.getSystemMetadataVersion()).thenReturn(Optional.of(token));
+    return latest;
   }
 
   private static class MockRecordTemplate extends com.linkedin.data.template.RecordTemplate {

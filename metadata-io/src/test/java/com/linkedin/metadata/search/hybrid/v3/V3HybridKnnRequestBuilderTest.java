@@ -11,6 +11,7 @@ import static org.testng.Assert.assertThrows;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SemanticProfilesConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -120,7 +121,8 @@ public class V3HybridKnnRequestBuilderTest {
             Map.of(MODEL_KEY, new ModelEmbeddingConfig()),
             null,
             null,
-            null);
+            null,
+            new SemanticProfilesConfiguration());
     V3HybridKnnRequestBuilder rerank = new V3HybridKnnRequestBuilder(config);
     EntityRegistry registry = TestOperationContexts.defaultEntityRegistry();
     EntitySpec dataset = spy(registry.getEntitySpec("dataset"));
@@ -195,6 +197,7 @@ public class V3HybridKnnRequestBuilderTest {
         Map.of(MODEL_KEY, new ModelEmbeddingConfig()),
         null,
         null,
-        null);
+        null,
+        new SemanticProfilesConfiguration());
   }
 }

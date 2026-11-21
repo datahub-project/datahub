@@ -106,6 +106,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.opensearch.index.reindex.BulkByScrollTask;
 import org.opensearch.index.reindex.ReindexRequest;
+import org.opensearch.script.Script;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortBuilders;
@@ -2879,6 +2880,7 @@ public class ESIndexBuilder {
             .setSlices(slices)
             .setSourceBatchSize(lBatchSize)
             .setRequestsPerSecond(requestsPerSecond);
+    applyRetiredEmbeddingRemoval(opContext, reindexRequest, sourceIndices, destinationIndex);
 
     RequestOptions requestOptions =
         ESUtils.buildReindexTaskRequestOptions(
@@ -3073,6 +3075,84 @@ public class ESIndexBuilder {
     return new TaskStatusResult(results, failedTaskIds);
   }
 
+  /**
+   * Drops the embedding profiles of removed models from a V3 reindex. The destination is built from
+   * the target mappings, so a profile the source maps and the destination does not is retired. A
+   * reindex that does not run leaves those vectors in the live index until one does. Semantic
+   * search off leaves {@code embeddings} out of the target, which is not a removed model: those
+   * stored profiles stay in the copy.
+   */
+  private void applyRetiredEmbeddingRemoval(
+      @Nonnull OperationContext opContext,
+      @Nonnull ReindexRequest reindexRequest,
+      @Nonnull String[] sourceIndices,
+      @Nonnull String destinationIndex)
+      throws IOException {
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    List<String> v3Sources = new ArrayList<>();
+    for (String sourceIndex : sourceIndices) {
+      // Backing indices (datasetindex_v3_<timestamp>) are what an in-place reindex copies. The
+      // alias check alone misses them.
+      if (indexConvention.isV3EntityIndexOrBackingType(sourceIndex)) {
+        v3Sources.add(sourceIndex);
+      }
+    }
+    if (v3Sources.isEmpty()) {
+      return;
+    }
+    Map<String, Object> destinationMappings = indexMappings(opContext, destinationIndex);
+    // An empty read is not a mapping that defines no profiles. Treating it as one would drop
+    // every profile from the copy.
+    if (!(destinationMappings.get(PROPERTIES) instanceof Map)) {
+      log.warn(
+          "Reindex to {} skips retired embedding removal because the destination mappings could"
+              + " not be read",
+          destinationIndex);
+      return;
+    }
+    // Semantic search off omits embeddings from the target. That is not a list of removed models,
+    // so the stored profiles stay. While it is on, a target with no embeddings object means every
+    // model was removed, and those profiles are retired below.
+    if (!RetiredEmbeddingProfiles.declaresEmbeddings(destinationMappings)
+        && !semanticSearchEnabled()) {
+      return;
+    }
+    Set<String> retired = new TreeSet<>();
+    for (String sourceIndex : v3Sources) {
+      retired.addAll(
+          RetiredEmbeddingProfiles.retiredKeys(
+              indexMappings(opContext, sourceIndex), destinationMappings));
+    }
+    Script removal = RetiredEmbeddingProfiles.removalScript(retired);
+    if (removal != null) {
+      log.info(
+          "Reindex {} -> {} drops retired embedding profiles {}",
+          v3Sources,
+          destinationIndex,
+          retired);
+      reindexRequest.setScript(removal);
+    }
+  }
+
+  private boolean semanticSearchEnabled() {
+    if (config.getEntityIndex() == null || config.getEntityIndex().getSemanticSearch() == null) {
+      return false;
+    }
+    return config.getEntityIndex().getSemanticSearch().isEnabled();
+  }
+
+  private Map<String, Object> indexMappings(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) throws IOException {
+    return searchClient
+        .getIndexMapping(opContext, new GetMappingsRequest().indices(indexName), requestOptionsLong)
+        .mappings()
+        .values()
+        .stream()
+        .findFirst()
+        .map(MappingMetadata::getSourceAsMap)
+        .orElse(Map.of());
+  }
+
   private Map<String, Object> submitReindex(
       @Nonnull OperationContext opContext,
       String[] sourceIndices,
@@ -3104,6 +3184,7 @@ public class ESIndexBuilder {
     if (sourceFilterQuery != null) {
       reindexRequest.setSourceQuery(sourceFilterQuery);
     }
+    applyRetiredEmbeddingRemoval(opContext, reindexRequest, sourceIndices, destinationIndex);
     RequestOptions requestOptions =
         requestOptionsLong.toBuilder()
             .addHeader(

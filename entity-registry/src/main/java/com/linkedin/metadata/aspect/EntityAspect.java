@@ -262,6 +262,10 @@ public class EntityAspect {
                           .orElse(null),
                       SetMode.IGNORE_NULL);
         }
+        if (this.systemMetadata == null && this.auditStamp != null) {
+          this.systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+        }
+        SystemMetadataUtils.backfillAspectCreatedFromRow(this.systemMetadata, this.auditStamp);
       }
     }
 

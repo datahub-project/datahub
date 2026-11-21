@@ -135,10 +135,15 @@ class DocumentChunkingStateHandler(
         return None
 
     def get_document_hash(self, document_urn: str) -> Optional[str]:
-        """Get the stored content hash for a document."""
-        state = self.get_last_state()
-        if state and document_urn in state.document_state:
-            return state.document_state[document_urn].get("content_hash")
+        """Get the stored content hash for a document.
+
+        A hash recorded earlier in this run wins over the previous run's. Otherwise an
+        event that reverts an edit made earlier in the same run (text A, then B, then
+        A) matches the previous run's hash and is skipped, leaving B's embedding.
+        """
+        for state in (self.get_current_state(), self.get_last_state()):
+            if state and document_urn in state.document_state:
+                return state.document_state[document_urn].get("content_hash")
         return None
 
     def update_document_state(

@@ -25,6 +25,11 @@ public class BulkListener implements BulkProcessor.Listener {
   private static final String METRIC_LWW_EXHAUSTED = "bulk_item_lww_exhausted";
   private static final String METRIC_TRANSFER_FAILURE = "bulk_item_transfer_failure";
   private static final String METRIC_CREATE_EXISTS = "bulk_item_create_exists";
+  // Untagged: counts every bulk item that hits a missing document, not only semanticContent
+  // update-only writes. During a migration fill, update-only writes into the target are expected to
+  // miss, so a nonzero count there is not by itself a fault.
+  private static final String METRIC_UPDATE_MISSING_DOCUMENT =
+      "search.semantic.update_missing_document";
 
   public static BulkListener getInstance(MetricUtils metricUtils) {
     return INSTANCES.computeIfAbsent("null", p -> new BulkListener(null, metricUtils, null, null));
@@ -184,6 +189,7 @@ public class BulkListener implements BulkProcessor.Listener {
           executionId,
           buildBulkRequestSummary(request),
           failure);
+      incrementMetric(METRIC_UPDATE_MISSING_DOCUMENT, request.numberOfActions());
       if (tracker != null) {
         tracker.recordCompleted(request.numberOfActions());
       }
@@ -252,6 +258,7 @@ public class BulkListener implements BulkProcessor.Listener {
             "Skipping document_missing_exception for index [{}] id [{}]",
             item.getIndex(),
             item.getId());
+        incrementMetric(METRIC_UPDATE_MISSING_DOCUMENT);
         if (requeueSupport != null && writeRequest != null) {
           requeueSupport.clearAttempts(writeRequest);
         }

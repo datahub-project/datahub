@@ -1,0 +1,12 @@
+namespace com.linkedin.common
+
+/**
+ * Forward-only record of each content source's last change.
+ * The map key is a watch key: the aspect name when a profile watches the whole aspect, or
+ * "aspect#path" when it watches one path of it, so profiles watching different paths of one
+ * aspect keep separate clocks. The value names the source aspect version that changed that path.
+ * A later change keeps the larger token.
+ */
+record SemanticRefreshMarker {
+  sources: map[string, SemanticSourceToken] = { }
+}

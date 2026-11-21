@@ -204,6 +204,7 @@ public class EbeanSystemAspect implements SystemAspect {
               ebeanAspectV2.getCreatedBy(),
               ebeanAspectV2.getCreatedOn().getTime(),
               ebeanAspectV2.getCreatedFor());
+      SystemMetadataUtils.backfillAspectCreatedFromRow(this.systemMetadata, this.auditStamp);
       return build();
     }
 
