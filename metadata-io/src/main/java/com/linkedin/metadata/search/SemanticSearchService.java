@@ -252,8 +252,9 @@ public class SemanticSearchService {
     if (entitiesToSearch.isEmpty()) {
       return getEmptySearchResult(from, size);
     }
-    // The surface's slot sits under the fulltext seed. The query only feeds the embedding, so
-    // semantic search has no structured form here either.
+    // The surface's slot sits under the fulltext seed. The query feeds the embedding, or names the
+    // anchor when it is an entity URN that the semantic template routes to similarity, so semantic
+    // search has no structured form here either.
     SearchResult result =
         cachingEntitySearchService.search(
             opContext

@@ -44,7 +44,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.opentelemetry.context.Context;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -188,8 +187,11 @@ final class TemplateVectorSearch {
       // scope assigns candidate types only, so it does not apply to the anchor.
       final Set<String> anchorProfiles = gates.profileIds(template, anchor.getEntityType(), system);
       if (anchorProfiles.size() != 1) {
-        throw SearchTemplateVectorRetrieval.noAnchor(
-            opContext, template, anchor + " has no embedding profile to search with");
+        throw SearchTemplateVectorRetrieval.anchorWithoutProfile(
+            opContext,
+            template,
+            anchor,
+            gates.anchorProfileFailure(template, anchor.getEntityType(), system));
       }
       profile = anchorProfiles.iterator().next();
       anchorVectors = anchorVectors(opContext, template, store, anchor, profile, deadlineNanos);
@@ -609,18 +611,18 @@ final class TemplateVectorSearch {
     }
   }
 
-  /** The anchor URN, the whole trimmed query. A query that is not a URN fails the search. */
+  /** The anchor URN the query names, read as bind reads it. A query that is not a URN fails. */
   @Nonnull
   private static Urn anchor(
       @Nonnull OperationContext opContext,
       @Nonnull MergedSearchTemplate template,
       @Nonnull String input) {
-    try {
-      return Urn.createFromString(input.trim());
-    } catch (URISyntaxException e) {
+    final Urn anchor = SearchTemplateVectorRetrieval.anchorUrn(input);
+    if (anchor == null) {
       throw SearchTemplateVectorRetrieval.noAnchor(
           opContext, template, "the query is not an entity URN");
     }
+    return anchor;
   }
 
   /**
