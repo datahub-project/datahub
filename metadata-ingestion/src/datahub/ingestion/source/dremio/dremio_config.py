@@ -214,7 +214,7 @@ class DremioSourceConfig(
         description="Regex patterns for tables to profile",
     )
     profiling: ProfileConfig = Field(
-        default=ProfileConfig(),
+        default_factory=ProfileConfig,
         description="Configuration for profiling",
     )
 
