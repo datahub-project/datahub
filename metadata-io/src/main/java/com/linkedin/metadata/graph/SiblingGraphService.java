@@ -205,6 +205,11 @@ public class SiblingGraphService {
         : 0);
   }
 
+  private static boolean isPartial(@Nullable EntityLineageResult entityLineageResult) {
+    return entityLineageResult != null
+        && Boolean.TRUE.equals(entityLineageResult.isPartial(GetMode.NULL));
+  }
+
   /**
    * Counts an entity's one-hop lineage without fetching edges. {@code total} is the number of
    * distinct neighbours of the entity and, unless {@code separateSiblings}, of its siblings: a
@@ -591,6 +596,10 @@ public class SiblingGraphService {
     combinedLineageResult.setCount(uniqueFilteredRelationships.size());
     combinedLineageResult.setFiltered(
         numFiltered + getFiltered(existingResult) + getFiltered(entityLineageResult));
+    if (entityLineageResult.hasPartial()
+        || (existingResult != null && existingResult.hasPartial())) {
+      combinedLineageResult.setPartial(isPartial(entityLineageResult) || isPartial(existingResult));
+    }
     return ValidationUtils.validateEntityLineageResult(
         opContext, combinedLineageResult, _entityService, includeGhostEntities);
   }
