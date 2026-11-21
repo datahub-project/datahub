@@ -218,6 +218,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # because FileBackedDict.__len__ binds one SQL variable per in-memory
         # key and can exceed SQLite's variable limit.
         self._report_sql_cache_entries = 0
+        # True once this project's caches were released, so the release
+        # ahead of the semantic model and the one at the project boundary
+        # count as one reset.
+        self._project_caches_released = False
         # (project id, report id) -> derived metric definitions, or None once
         # every definition endpoint failed for it.
         self._report_derived_metric_cache: Dict[
@@ -364,7 +368,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     def _reset_project_caches(self) -> None:
         """Drop caches keyed by project once the project is done, so memory and
-        temporary disk track the largest project rather than the whole run."""
+        temporary disk track the largest project rather than the whole run.
+        Releasing an already-released project is a no-op."""
+        if self._project_caches_released:
+            return
+        self._project_caches_released = True
         self.report.report_cache_entries("report_sql", self._report_sql_cache_entries)
         self.report.report_cache_entries(
             "dataset_object", len(self._dataset_object_cache)
@@ -505,6 +513,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def _process_project(self, project: Project) -> Iterable[MetadataWorkUnit]:
+        self._project_caches_released = False
         source_warehouses = self._get_project_source_warehouses(project.id)
         # Warehouse/model-table lookups are deferred until an allowed dashboard/report
         # needs them, so fully-filtered projects don't pay for those API calls.
@@ -545,7 +554,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project: Project,
         lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
-        model_tables = lineage_context.model_tables
+        # The semantic model reads none of the dashboard and report caches,
+        # and fetches one metric model per catalog metric (tens of thousands
+        # in a large project). Release the caches first so that work does not
+        # stack on top of everything the dashboards left in memory.
+        self._reset_project_caches()
+        model_tables = lineage_context.model_tables_retrying_failure()
         if not model_tables:
             self.report.warning(
                 title="MicroStrategy Semantic Model Unavailable",
@@ -2625,6 +2639,23 @@ class _LazyProjectLineage:
                 lambda: self._source._fetch_project_model_tables(self._project_id),
             )
         return self._model_tables
+
+    def model_tables_retrying_failure(self) -> Optional[List[Dict[str, object]]]:
+        """model_tables, fetched once more if the earlier fetch failed.
+
+        The first fetch happens when the first dashboard needs lineage; the
+        semantic model only runs after every dashboard, often hours later.
+        Without this, one slow answer at the start of a run drops the whole
+        semantic model, and the run then trips the stale-entity fail-safe.
+        """
+        if self._model_tables_resolved and self._model_tables is None:
+            logger.info(
+                "Retrying the model tables fetch for the semantic model "
+                "(project=%s); the earlier fetch failed",
+                self._project_id,
+            )
+            self._model_tables_resolved = False
+        return self.model_tables
 
     @property
     def model_lineage_index(self) -> Optional[ModelLineageIndex]:

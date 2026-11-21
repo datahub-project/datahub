@@ -66,6 +66,12 @@ _METRIC_MODEL_RETRYABLE_STATUS_CODES = _RETRYABLE_STATUS_CODES - {500}
 # stall ingestion for minutes per request.
 _MAX_RETRY_DELAY_SECONDS = 60
 
+# The first /api/model/tables page normally answers in seconds, but a busy
+# Modeling service has been seen to miss four 30-second timeouts in a row.
+# Everything model-based in the project (model lineage, the semantic model)
+# hangs on that one call, so it gets a longer floor than timeout_seconds.
+_MODEL_TABLES_MIN_TIMEOUT_SECONDS = 120
+
 
 class MicroStrategyAPIError(RuntimeError):
     """An API call failed. `status_code` and `url` are set when the failure
@@ -456,6 +462,9 @@ class MicroStrategyClient:
             "/api/model/tables",
             project_id=project_id,
             params=params,
+            timeout_seconds=max(
+                self.config.timeout_seconds, _MODEL_TABLES_MIN_TIMEOUT_SECONDS
+            ),
         )
         return ModelTablesResponse.model_validate(
             payload if isinstance(payload, dict) else {}

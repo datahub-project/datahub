@@ -1,3 +1,5 @@
+import logging
+import time
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
@@ -25,6 +27,7 @@ from datahub.ingestion.source.microstrategy.lineage import (
 )
 from datahub.ingestion.source.microstrategy.models import normalize_object_id
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.telemetry import peak_rss_mb
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -61,6 +64,57 @@ _INVERT_CARDINALITY: Dict[str, str] = {
 }
 
 _SEMANTIC_MODEL_ID = "schema"
+
+# Log semantic-model metric progress at least this often, by count, as well
+# as every progress_log_interval_seconds.
+_METRIC_PROGRESS_EVERY = 1000
+
+logger = logging.getLogger(__name__)
+
+
+class _MetricProgress:
+    """Progress lines for the per-metric model fetches, which in a large
+    project run for over an hour and otherwise log nothing at all."""
+
+    def __init__(
+        self,
+        *,
+        project_id: str,
+        total: int,
+        every_seconds: float,
+        report: MicroStrategyReport,
+    ) -> None:
+        self._project_id = project_id
+        self._total = total
+        self._every_seconds = every_seconds
+        self._report = report
+        self._started = time.perf_counter()
+        self._last_logged = self._started
+        self.done = 0
+        self.failed = 0
+
+    def step(self) -> None:
+        """Count one metric as started, logging when an interval is due."""
+        if self.done and (
+            self.done % _METRIC_PROGRESS_EVERY == 0
+            or time.perf_counter() - self._last_logged >= self._every_seconds
+        ):
+            self.log()
+        self.done += 1
+
+    def log(self) -> None:
+        self._last_logged = time.perf_counter()
+        self._report.peak_rss_mb = peak_rss_mb()
+        logger.info(
+            "Semantic model metrics: %d/%d in %.0fs, %d failed; peak RSS %s MB "
+            "(project=%s)",
+            self.done,
+            self._total,
+            self._last_logged - self._started,
+            self.failed,
+            self._report.peak_rss_mb,
+            self._project_id,
+        )
 
 
 @dataclass
@@ -144,15 +198,6 @@ class MicroStrategySemanticModelMapper:
             project_id, model_urn, tables, project_container_key
         )
         relationships = self._relationships(project_id, tables, attribute_table_aliases)
-        metrics = list(
-            self._metrics(
-                project_id=project_id,
-                model_urn=model_urn,
-                fact_table_aliases=fact_table_aliases,
-                attribute_table_aliases=attribute_table_aliases,
-                alias_to_dataset=alias_to_dataset,
-            )
-        )
 
         model = SemanticModel(
             platform=MICROSTRATEGY_PLATFORM,
@@ -168,12 +213,23 @@ class MicroStrategySemanticModelMapper:
         yield from model.as_workunits()
         for dataset in datasets:
             yield from dataset.as_workunits()
-        for metric in metrics:
+        # Metrics stream straight to the sink: a large project has tens of
+        # thousands, and holding them all until the last one is built kept
+        # every one of them in memory at once.
+        metrics_emitted = 0
+        for metric in self._metrics(
+            project_id=project_id,
+            model_urn=model_urn,
+            fact_table_aliases=fact_table_aliases,
+            attribute_table_aliases=attribute_table_aliases,
+            alias_to_dataset=alias_to_dataset,
+        ):
             yield from metric.as_workunits()
+            metrics_emitted += 1
 
         self.report.report_semantic_model_emitted()
         self.report.report_semantic_model_datasets_emitted(len(datasets))
-        self.report.report_semantic_model_metrics_emitted(len(metrics))
+        self.report.report_semantic_model_metrics_emitted(metrics_emitted)
         self.report.report_semantic_model_relationships_emitted(len(relationships))
 
     def _container_aspects(
@@ -594,11 +650,19 @@ class MicroStrategySemanticModelMapper:
                 exc=error,
             )
             return
+        progress = _MetricProgress(
+            project_id=project_id,
+            total=len(metric_objects),
+            every_seconds=self.config.progress_log_interval_seconds,
+            report=self.report,
+        )
         for metric_object in metric_objects:
+            progress.step()
             metric_id = normalize_object_id(metric_object.id)
             try:
                 model = self.client.get_metric_model(project_id, metric_object.id)
             except MicroStrategyAPIError as error:
+                progress.failed += 1
                 self.report.report_metric_expression_api_failure()
                 self.report.report_failed_metric_model(metric_object.id)
                 self.report.warning(
@@ -665,6 +729,7 @@ class MicroStrategySemanticModelMapper:
                 upstream_datasets=upstream_dataset_urns,
                 derived_from=derived_from,
             )
+        progress.log()
 
     def _resolve_consolidation(
         self,
