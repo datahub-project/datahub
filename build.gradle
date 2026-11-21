@@ -113,7 +113,7 @@ buildscript {
   // Mockito inline mocks need byte-buddy + byte-buddy-agent matched and >= 1.17.5 (ASM 9.8) to
   // instrument Java 25 runtime classes; forced in the resolutionStrategy block below.
   ext.byteBuddyVersion = '1.18.11'
-  ext.openLineageVersion = '1.53.0'
+  ext.openLineageVersion = '1.55.0'
   ext.awsSdk2Version = '2.54.16'
   ext.micrometerVersion = '1.16.6'
   // CVE-2026-1002; CVE-2026-6860 / GHSA-3g76-f9xq-8vp6 (SNI cache growth); fabric8 kubernetes-httpclient-vertx
@@ -147,8 +147,15 @@ buildscript {
 
   // CVE-2026-111497 (Brotli out-of-bounds write), CVE-2026-106069 (TLS hostname bypass),
   // CVE-2026-105482 (dns.resolve NUL truncation): fixed in 22.23.4 (October 2026 security release)
+  // nodeVersion is only what the node-gradle plugin downloads when it downloads Node. CI installs
+  // Node itself (.github/actions/setup-toolchain) and uses that copy, which only has to share the
+  // major version; downloading a second copy adds ~30s per Node task and fails when nodejs.org flakes.
+  // An explicit -PuseSystemNode=<bool> (or ORG_GRADLE_PROJECT_useSystemNode) always wins.
   ext.nodeVersion = '22.23.4'
   ext.yarnVersion = '1.22.22'
+  ext.useSystemNode = project.hasProperty('useSystemNode')
+      ? project.getProperty('useSystemNode').toBoolean()
+      : System.getenv('CI') == 'true'
 
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
 
@@ -200,6 +207,7 @@ plugins {
   id 'com.avast.gradle.docker-compose' version '0.17.21'
   id "com.diffplug.spotless" version "7.0.4"
   id 'com.adarshr.test-logger' version '4.0.0'
+  id 'org.jreleaser' version '1.27.0'
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
@@ -477,7 +485,7 @@ project.ext.externalDependency = [
     'fabric8KubernetesClient': 'io.fabric8:kubernetes-client:7.4.0',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
-    'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.7',
+    'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.8',
     'wire': "com.squareup.wire:wire-compiler:${wireVersion}",
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'jline':'jline:jline:1.4.1',
@@ -773,8 +781,8 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "io.confluent:kafka-schema-types:${rootProject.ext.confluentSerdeVersion}"
     resolutionStrategy.force "org.jline:jline:${rootProject.ext.jlineVersion}"
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
-    resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981, CVE-2026-59739; overrides d2's 3.6.3
-    resolutionStrategy.force 'org.apache.zookeeper:zookeeper-jute:3.8.7'
+    resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981, CVE-2026-59739, CVE-2026-100235, CVE-2026-100252, CVE-2026-100300, CVE-2026-100302, CVE-2026-115448; overrides d2's 3.6.3
+    resolutionStrategy.force 'org.apache.zookeeper:zookeeper-jute:3.8.8'
     resolutionStrategy.force 'org.apache.thrift:libthrift:0.24.0' // CVE-2026-48586 (TZlibTransport zip-bomb DoS); transitive via jena-arq
     // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
     resolutionStrategy.eachDependency { details ->
@@ -923,6 +931,45 @@ allprojects {
   }
 }
 
+// With useSystemNode (the CI default), the node plugin runs whatever `node` is on PATH. Fail early,
+// with a fix in the message, if it is missing or on a different major version than nodeVersion,
+// rather than building with whatever the runner image happens to ship.
+if (rootProject.ext.useSystemNode) {
+  def expectedNodeMajor = rootProject.ext.nodeVersion.tokenize('.')[0]
+  def verifySystemNode = tasks.register('verifySystemNode') {
+    group = 'verification'
+    description = "Checks that the Node on PATH is major version ${expectedNodeMajor} (useSystemNode=true)."
+    doLast {
+      String found = null
+      try {
+        def node = providers.exec {
+          commandLine 'node', '--version'
+          ignoreExitValue = true
+        }
+        if (node.result.get().exitValue == 0) {
+          found = node.standardOutput.asText.get().trim()
+        }
+      } catch (Exception ignored) {
+        // node is not on PATH; reported below.
+      }
+      def foundMajor = found?.replaceFirst(/^v/, '')?.tokenize('.')?.getAt(0)
+      if (foundMajor != expectedNodeMajor) {
+        throw new GradleException(
+          "useSystemNode=true needs Node ${expectedNodeMajor}.x on PATH, but found ${found ?: 'no node'}.\n" +
+          "In CI, install it with .github/actions/setup-toolchain (node: true, node-version: '${expectedNodeMajor}').\n" +
+          "Or pass -PuseSystemNode=false to let Gradle download Node ${rootProject.ext.nodeVersion}.")
+      }
+    }
+  }
+  subprojects {
+    pluginManager.withPlugin('com.github.node-gradle.node') {
+      tasks.withType(com.github.gradle.node.task.BaseTask).configureEach {
+        dependsOn verifySystemNode
+      }
+    }
+  }
+}
+
 apply plugin: 'com.gorylenko.gradle-git-properties'
 
 def gitDescribe = providers.exec {
@@ -942,6 +989,7 @@ gitProperties {
 def gitPropertiesGenerated = false
 
 apply from: 'gradle/versioning/versioning-global.gradle'
+apply from: 'gradle/publishing/jreleaser.gradle'
 
 tasks.register("generateGitPropertiesGlobal", com.gorylenko.GenerateGitPropertiesTask) {
   doFirst {
@@ -987,7 +1035,9 @@ subprojects {
       return
     }
     // Wiring ratchet (gradle/wiring/README.md). datahub-frontend is Play/Guice, not Spring.
-    if (project.path != ':wiring-coverage' && project.path != ':datahub-frontend') {
+    // Embedded OpenSearch must keep its classpath independent of DataHub and Spring.
+    if (project.path != ':wiring-coverage' && project.path != ':datahub-frontend'
+        && project.path != ':metadata-service:opensearch-embedded') {
       project.apply from: rootProject.file('gradle/wiring/wiring-coverage.gradle')
     }
     /* TODO: evaluate ignoring jar timestamps for increased caching (compares checksum instead)
@@ -1002,8 +1052,11 @@ subprojects {
     // Spring Kafka 4.0 has Jackson 3 support but falls back to Jackson 2 when tools.jackson is absent.
     configurations.all {
       exclude group: 'biz.aQute.bnd', module: 'biz.aQute.bnd.annotation'
-      exclude group: 'tools.jackson.core'
-      exclude group: 'tools.jackson'
+      // OpenSearch 3.7's x-content needs Jackson 3 in its standalone process.
+      if (project.path != ':metadata-service:opensearch-embedded') {
+        exclude group: 'tools.jackson.core'
+        exclude group: 'tools.jackson'
+      }
     }
 
     dependencies {

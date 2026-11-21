@@ -9,8 +9,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Adds root {@code embeddings} (and provenance keyword/date fields) to document V3 mappings when
- * semantic search is enabled for that entity. Other V3 indices are unchanged.
+ * Adds root {@code embeddings} and provenance fields to every V3 index when semantic search is
+ * enabled for any entity. One mapping document is applied to every index, so the vector field is
+ * present on indices whose entities do not store vectors. Which entity types are embedded is
+ * decided when documents are written and when a query chooses its indices.
  */
 public class DocumentV3EmbeddingMappingContributor implements V3MappingContributor {
 
@@ -33,7 +35,8 @@ public class DocumentV3EmbeddingMappingContributor implements V3MappingContribut
   @Nonnull
   @Override
   public Map<String, Object> extraRootProperties(@Nonnull String indexKey) {
-    if (!SemanticEmbeddingMappings.isEnabledForEntity(semanticConfig, indexKey)) {
+    // indexKey is unused: the same embeddings object is applied to every V3 index.
+    if (!SemanticEmbeddingMappings.enabledForAnyEntity(semanticConfig)) {
       return Map.of();
     }
     Map<String, Object> extras = new HashMap<>();

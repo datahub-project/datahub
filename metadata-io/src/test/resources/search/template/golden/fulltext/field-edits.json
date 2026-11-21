@@ -152,6 +152,15 @@
                 }
               }
             }, {
+              "term" : {
+                "email" : {
+                  "_name" : "matchedField:email",
+                  "boost" : 100.0,
+                  "case_insensitive" : true,
+                  "value" : "customer orders"
+                }
+              }
+            }, {
               "simple_query_string" : {
                 "analyze_wildcard" : false,
                 "auto_generate_synonyms_phrase_query" : true,

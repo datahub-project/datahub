@@ -66,7 +66,9 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
     GitVersion gitVersion = mock(GitVersion.class);
     when(gitVersion.getVersion()).thenReturn("test");
     ESIndexBuilder builder =
-        spy(new ESIndexBuilder(searchClient, config, structPropConfig, Map.of(), gitVersion));
+        spy(
+            new ESIndexBuilder(
+                searchClient, config, structPropConfig, Map.of(), gitVersion, searchClient));
     doReturn(false).when(builder).isOpenSearch29OrHigher(any());
     return builder;
   }

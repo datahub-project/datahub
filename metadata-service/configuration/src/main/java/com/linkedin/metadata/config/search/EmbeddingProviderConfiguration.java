@@ -1,6 +1,8 @@
 package com.linkedin.metadata.config.search;
 
+import java.util.List;
 import java.util.Locale;
+import java.util.function.Function;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -86,6 +88,11 @@ public class EmbeddingProviderConfiguration {
     }
   }
 
+  private static String environmentValue(String name) {
+    String value = System.getenv(name);
+    return value == null || value.isBlank() ? System.getProperty(name) : value;
+  }
+
   /** AWS Bedrock-specific configuration. */
   @Data
   @NoArgsConstructor
@@ -93,9 +100,37 @@ public class EmbeddingProviderConfiguration {
   public static class BedrockConfig {
     /**
      * AWS region where Bedrock is available (e.g., "us-west-2", "us-east-1"). Required for
-     * aws-bedrock provider.
+     * aws-bedrock provider. A blank bound value counts as unset.
      */
     private String awsRegion = "us-west-2";
+
+    /**
+     * Spring binds through this setter. A blank value is unset, so the same chain as {@code
+     * application.yaml} decides: {@code BEDROCK_EMBEDDING_AWS_REGION}, then {@code
+     * BEDROCK_AWS_REGION}, then {@code AWS_REGION}, then {@code us-west-2}. Callers that read
+     * {@code getAwsRegion()} then see one resolved value.
+     */
+    public void setAwsRegion(String awsRegion) {
+      this.awsRegion = boundRegion(awsRegion, EmbeddingProviderConfiguration::environmentValue);
+    }
+
+    void setAwsRegion(String awsRegion, Function<String, String> environment) {
+      this.awsRegion = boundRegion(awsRegion, environment);
+    }
+
+    static String boundRegion(String configured, Function<String, String> environment) {
+      if (configured != null && !configured.isBlank()) {
+        return configured.trim();
+      }
+      for (String name :
+          List.of("BEDROCK_EMBEDDING_AWS_REGION", "BEDROCK_AWS_REGION", "AWS_REGION")) {
+        String value = environment.apply(name);
+        if (value != null && !value.isBlank()) {
+          return value.trim();
+        }
+      }
+      return "us-west-2";
+    }
 
     /**
      * Bedrock model ID for embeddings. Defaults to "cohere.embed-english-v3" (1024 dimensions).

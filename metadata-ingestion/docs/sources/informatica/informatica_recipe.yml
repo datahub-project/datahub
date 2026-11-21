@@ -80,7 +80,7 @@ source:
     # -------------------------------------------------------------------------
 
     # page_size: 200                 # v3 objects per page (max 200)
-    # export_batch_size: 1000        # mappings per export job (max 1000)
+    # export_batch_size: 1000        # mappings or taskflows per export job (max 1000)
     # export_poll_timeout_secs: 300  # seconds to wait for an export job
     # export_poll_interval_secs: 5   # seconds between export polls
 

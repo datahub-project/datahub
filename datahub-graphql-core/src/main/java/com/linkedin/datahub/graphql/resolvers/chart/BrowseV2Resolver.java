@@ -86,13 +86,17 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                     : inputFilter;
 
             // Add default entity filters (e.g. showInGlobalContext for documents)
-            effectiveFilter =
-                DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+            final DefaultEntityFiltersUtil.SearchFilters defaults =
+                DefaultEntityFiltersUtil.searchFilters(
                     effectiveFilter, entityNames, searchFlags, context);
+            effectiveFilter = defaults.filter();
 
             BrowseResultV2 browseResults =
                 _entityClient.browseV2(
-                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags)
+                        .withAnchorFilter(defaults.anchorFilter()),
                     entityNames,
                     pathStr,
                     effectiveFilter,

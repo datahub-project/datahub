@@ -41,19 +41,24 @@ public class PartialGraphScopeReadStrategy implements GraphScopeReadStrategy {
       partialBackend.ensureFreshForRoot(definition, source, root, direction);
     }
     if (!partialBackend.allRootsActive(definition, source, normalizedRoots)) {
-      return GraphReadResult.miss(
+      return miss(
+          definition,
           partialBackend.firstRootMissReason(definition, source, direction, normalizedRoots));
     }
 
     List<GraphComponentContext> components =
         partialBackend.resolveComponentContexts(definition, source, normalizedRoots);
     if (components.isEmpty()) {
-      return GraphReadResult.miss(
+      return miss(
+          definition,
           partialBackend.firstRootMissReason(definition, source, direction, normalizedRoots));
     }
-    return partialBackend
-        .shared()
-        .expandFromComponents(definition, direction, roots, limit, maxDepth, components);
+    GraphReadResult result =
+        partialBackend
+            .shared()
+            .expandFromComponents(definition, direction, roots, limit, maxDepth, components);
+    recordExpand(definition, source, direction, normalizedRoots, result);
+    return result;
   }
 
   /**
@@ -192,33 +197,77 @@ public class PartialGraphScopeReadStrategy implements GraphScopeReadStrategy {
     Optional<String> cacheKey =
         partialBackend.shared().findCacheKeyForSeeds(definition.getGraphId(), source, Set.of(seed));
     if (cacheKey.isEmpty()) {
-      return AncestorWalkResult.miss(ReadMissReason.ABSENT);
+      return walkMiss(definition, ReadMissReason.ABSENT);
     }
     partialBackend
         .shared()
         .ensureFreshKey(
             definition, source, cacheKey.get(), Set.of(seed), TraversalDirection.FORWARD);
-    AncestorWalkResult miss =
+    AncestorWalkResult freshnessMiss =
         partialBackend
             .shared()
             .walkMissFromFreshness(definition, cacheKey.get(), TraversalDirection.FORWARD);
-    if (miss != null) {
-      return miss;
+    if (freshnessMiss != null) {
+      partialBackend
+          .shared()
+          .recordCachedRead(definition, "miss", ((AncestorWalkResult.Miss) freshnessMiss).reason());
+      return freshnessMiss;
     }
     GraphComponentContext component =
         partialBackend.shared().resolveComponent(definition, cacheKey.get());
     if (component == null) {
-      return AncestorWalkResult.miss(ReadMissReason.ABSENT);
+      return walkMiss(definition, ReadMissReason.ABSENT);
     }
     if (!partialBackend
         .shared()
         .coverageSatisfies(definition, component.coverage(), TraversalDirection.FORWARD)) {
-      return AncestorWalkResult.miss(ReadMissReason.INSUFFICIENT_COVERAGE);
+      return walkMiss(definition, ReadMissReason.INSUFFICIENT_COVERAGE);
     }
-    return AncestorWalkResult.fromAncestors(
-        component
-            .view()
-            .orderedForwardAncestors(seed, GraphReadDepthResolver.resolve(definition, maxDepth)));
+    AncestorWalkResult hit =
+        AncestorWalkResult.fromAncestors(
+            component
+                .view()
+                .orderedForwardAncestors(
+                    seed, GraphReadDepthResolver.resolve(definition, maxDepth)));
+    partialBackend
+        .shared()
+        .recordCachedRead(
+            definition,
+            partialBackend.shared().isFresh(definition, cacheKey.get(), TraversalDirection.FORWARD)
+                ? "hit"
+                : "stale_hit",
+            null);
+    return hit;
+  }
+
+  @Nonnull
+  private GraphReadResult miss(
+      @Nonnull EntityGraphDefinition definition, @Nonnull ReadMissReason reason) {
+    partialBackend.shared().recordCachedRead(definition, "miss", reason);
+    return GraphReadResult.miss(reason);
+  }
+
+  private void recordExpand(
+      @Nonnull EntityGraphDefinition definition,
+      @Nonnull GraphSnapshotSource source,
+      @Nonnull TraversalDirection direction,
+      @Nonnull Set<String> roots,
+      @Nonnull GraphReadResult result) {
+    if (result.isMiss()) {
+      partialBackend
+          .shared()
+          .recordCachedRead(definition, "miss", ((GraphReadResult.Miss) result).reason());
+      return;
+    }
+    boolean fresh = partialBackend.allRootsCacheFresh(definition, source, direction, roots);
+    partialBackend.shared().recordCachedRead(definition, fresh ? "hit" : "stale_hit", null);
+  }
+
+  @Nonnull
+  private AncestorWalkResult walkMiss(
+      @Nonnull EntityGraphDefinition definition, @Nonnull ReadMissReason reason) {
+    partialBackend.shared().recordCachedRead(definition, "miss", reason);
+    return AncestorWalkResult.miss(reason);
   }
 
   @Nonnull

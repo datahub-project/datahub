@@ -291,6 +291,19 @@ export const QLIK_SPACE_DENY: FilterRecipeField = {
 };
 
 // The connector ingests owners unless the recipe sets ingest_owner: false.
+const includeSheetsAndChartsFieldPath = 'source.config.include_sheets_and_charts';
+export const QLIK_INCLUDE_SHEETS_AND_CHARTS: RecipeField = {
+    name: 'include_sheets_and_charts',
+    label: 'Include Sheets and Charts',
+    helper: "Ingest each app's sheets and charts",
+    tooltip:
+        "Ingest each app's sheets as dashboards and their charts. Turn off to keep only apps and their tables: each app dashboard then links only to its tables, and sheets and charts ingested earlier are removed when stale metadata removal is on. As they are usually most of the ingested entities, set stateful_ingestion.fail_safe_threshold to 100 in the recipe for that first run, or stale removal is skipped.",
+    type: FieldType.BOOLEAN,
+    fieldPath: includeSheetsAndChartsFieldPath,
+    rules: null,
+    getValueFromRecipeOverride: (recipe: any) => get(recipe, includeSheetsAndChartsFieldPath) !== false,
+};
+
 const ingestOwnerFieldPath = 'source.config.ingest_owner';
 export const QLIK_INGEST_OWNER: RecipeField = {
     name: 'ingest_owner',
@@ -305,17 +318,17 @@ export const QLIK_INGEST_OWNER: RecipeField = {
 };
 
 const maxWorkersFieldPath = 'source.config.max_workers';
-// Left unset by default: the connector reads 1 app at a time on Qlik Cloud, where every
-// open app's data is loaded, and 4 on-prem, where apps are opened without their data.
+// Left unset by default: the connector reads 1 app at a time when it loads app data, as on
+// Qlik Cloud and on-prem by default, and 4 on-prem when apps are opened without their data.
 export const QLIK_MAX_WORKERS: RecipeField = {
     name: 'max_workers',
     label: 'Max Workers',
-    helper: 'Apps read at the same time. Defaults to 1 on Qlik Cloud, 4 on-prem',
+    helper: 'Apps read at the same time. Defaults to 1, or 4 on-prem without app data',
     tooltip:
-        'Number of apps and datasets read at the same time, across all spaces and streams. Each app read holds one Engine session open. Defaults to 1 on Qlik Cloud, where every open app loads its data, and 4 on Qlik Sense Enterprise, where apps are opened without their data. Lower it if Qlik Cloud rate-limits the run.',
+        'Number of apps and datasets read at the same time, across all spaces and streams. Each app read holds one Engine session open. Defaults to 1, as every open app loads its data into Engine memory, and to 4 on Qlik Sense Enterprise when Read Data Model is turned off. Lower it if Qlik Cloud rate-limits the run.',
     type: FieldType.TEXT,
     fieldPath: maxWorkersFieldPath,
-    placeholder: '1 on Qlik Cloud, 4 on-prem',
+    placeholder: '1',
     rules: [integerRangeRule(1)],
     setValueOnRecipeOverride: (recipe: any, value: string) =>
         setIntegerValueOnRecipe(recipe, value, maxWorkersFieldPath),
@@ -345,6 +358,20 @@ export const QLIK_ON_PREM_INGEST_UNPUBLISHED_APPS: RecipeField = {
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.on_prem.ingest_unpublished_apps',
     rules: null,
+    dynamicHidden: isCloud,
+};
+
+const readDataModelFieldPath = 'source.config.on_prem.read_data_model';
+export const QLIK_ON_PREM_READ_DATA_MODEL: RecipeField = {
+    name: 'on_prem.read_data_model',
+    label: 'Read Data Model',
+    helper: 'Open apps with their data to read table fields and types',
+    tooltip:
+        'Open each app with its data to read its data model, which gives every table its fields and types, including tables loaded with LOAD * and from QVDs. Off by default, as it is much slower: the Engine keeps each app in memory until the app cache time set in the QMC has passed, and apps whose section access denies the service user their data cannot be read. Without it, table fields come only from the load script. Qlik Sense Enterprise on Windows only.',
+    type: FieldType.BOOLEAN,
+    fieldPath: readDataModelFieldPath,
+    rules: null,
+    getValueFromRecipeOverride: (recipe: any) => get(recipe, readDataModelFieldPath) === true,
     dynamicHidden: isCloud,
 };
 
@@ -436,21 +463,53 @@ const dataConnectionDetailFields = [
     DATA_CONNECTION_DEFAULT_SCHEMA,
 ];
 
-type DataConnectionMappingRow = Record<string, string | undefined>;
+type MappingRow = Record<string, string | undefined>;
 
 // Rows become keys of one mapping, so a repeated name would silently replace the earlier row.
-export const uniqueDataConnectionNamesRule = {
-    validator(_: unknown, rows: DataConnectionMappingRow[] | undefined) {
-        const names = (rows ?? []).map((row) => row?.[DATA_CONNECTION_NAME.name]).filter((name) => !!name);
+const uniqueKeysRule = (keyField: RecipeField, label: string) => ({
+    validator(_: unknown, rows: MappingRow[] | undefined) {
+        const names = (rows ?? []).map((row) => row?.[keyField.name]).filter((name) => !!name);
         const duplicate = names.find((name, index) => names.indexOf(name) !== index);
         if (duplicate) {
-            return Promise.reject(new Error(`Data Connection Name "${duplicate}" is used more than once`));
+            return Promise.reject(new Error(`${label} "${duplicate}" is used more than once`));
         }
         return Promise.resolve();
     },
-};
+});
 
-const dataConnectionMapFieldPath = 'source.config.data_connection_to_platform_instance';
+export const uniqueDataConnectionNamesRule = uniqueKeysRule(DATA_CONNECTION_NAME, 'Data Connection Name');
+
+// A recipe mapping of connection names to details, edited as one row per connection.
+const connectionMappingOverrides = (fieldPath: string, keyField: RecipeField, detailFields: RecipeField[]) => ({
+    getValueFromRecipeOverride: (recipe: any) => {
+        const value = get(recipe, fieldPath);
+        if (!value) return undefined;
+        return Object.keys(value).map((connectionName) => ({
+            [keyField.name]: connectionName,
+            ...Object.fromEntries(detailFields.map((f) => [f.name, value[connectionName]?.[f.name] ?? ''])),
+        }));
+    },
+    setValueOnRecipeOverride: (recipe: any, rows: MappingRow[] | undefined) => {
+        const named = (rows ?? []).filter((row) => !!row?.[keyField.name]);
+        if (!named.length) return setFieldValueOnRecipe(recipe, null, fieldPath);
+
+        const current = get(recipe, fieldPath) ?? {};
+        const formKeys = new Set(detailFields.map((f) => f.name));
+        const mapping: Record<string, Record<string, unknown>> = {};
+        named.forEach((row) => {
+            const name = row[keyField.name] as string;
+            // Settings the form has no field for, set in the YAML, are kept.
+            const kept = Object.fromEntries(Object.entries(current[name] ?? {}).filter(([key]) => !formKeys.has(key)));
+            // Empty inputs are left out so the connector infers or defaults them.
+            mapping[name] = {
+                ...kept,
+                ...Object.fromEntries(detailFields.filter((f) => !!row[f.name]).map((f) => [f.name, row[f.name]])),
+            };
+        });
+        return setFieldValueOnRecipe(recipe, mapping, fieldPath);
+    },
+});
+
 export const QLIK_DATA_CONNECTION_MAP: RecipeField = {
     name: 'data_connection_to_platform_instance',
     label: 'Data Connection Mapping',
@@ -459,31 +518,122 @@ export const QLIK_DATA_CONNECTION_MAP: RecipeField = {
         'Upstream platform details for each Qlik data connection, used to build lineage from load script SELECT statements. Only needed when they cannot be inferred from the connection, or when the upstream source uses a platform instance or a non-PROD env.',
     type: FieldType.DICT,
     buttonLabel: 'Add mapping',
-    fieldPath: dataConnectionMapFieldPath,
+    fieldPath: 'source.config.data_connection_to_platform_instance',
     keyField: DATA_CONNECTION_NAME,
     fields: dataConnectionDetailFields,
     rules: [uniqueDataConnectionNamesRule],
+    ...connectionMappingOverrides(
+        'source.config.data_connection_to_platform_instance',
+        DATA_CONNECTION_NAME,
+        dataConnectionDetailFields,
+    ),
+};
+
+const FILE_CONNECTION_NAME: RecipeField = {
+    ...DATA_CONNECTION_NAME,
+    tooltip:
+        'Name of the Azure Storage, Amazon S3 or Google Cloud Storage data connection as load scripts write it, for example Sales Space:Lake.',
+    placeholder: 'Sales Space:Lake',
+};
+
+const FILE_CONNECTION_STORAGE_URI: RecipeField = {
+    name: 'storage_uri',
+    label: 'Storage URI',
+    helper: 'abfss://, s3:// or gs:// URI of the files',
+    tooltip:
+        'Where the connection reads files from, for example abfss://container@account.dfs.core.windows.net/folder. Read from the data connection when empty, which needs the API key user to see the connection.',
+    type: FieldType.TEXT,
+    fieldPath: 'storage_uri',
+    placeholder: 'abfss://container@account.dfs.core.windows.net/folder',
+    rules: null,
+};
+
+const fileConnectionDetailFields = [
+    FILE_CONNECTION_STORAGE_URI,
+    {
+        ...DATA_CONNECTION_PLATFORM_INSTANCE,
+        tooltip: 'Platform instance used when ingesting the storage, so lineage joins its datasets.',
+        placeholder: 'datalake',
+    },
+    DATA_CONNECTION_ENV,
+];
+
+export const QLIK_FILE_CONNECTION_MAP: RecipeField = {
+    name: 'file_connection_to_storage',
+    label: 'File Connection Mapping',
+    helper: 'Map file data connections to their storage',
+    tooltip:
+        'Where the files of Azure Storage, Amazon S3 and Google Cloud Storage data connections are in DataHub, for lineage from the files apps load. Qlik Cloud only.',
+    type: FieldType.DICT,
+    buttonLabel: 'Add mapping',
+    fieldPath: 'source.config.file_connection_to_storage',
+    keyField: FILE_CONNECTION_NAME,
+    fields: fileConnectionDetailFields,
+    rules: [uniqueKeysRule(FILE_CONNECTION_NAME, 'Data Connection Name')],
+    dynamicHidden: isOnPrem,
+    ...connectionMappingOverrides(
+        'source.config.file_connection_to_storage',
+        FILE_CONNECTION_NAME,
+        fileConnectionDetailFields,
+    ),
+};
+
+const SCRIPT_VARIABLE_NAME: RecipeField = {
+    name: 'variable_name',
+    label: 'Variable Name',
+    helper: 'Load script variable, without $()',
+    tooltip: 'Name of a load script variable the connector cannot read, as the script writes it inside $().',
+    type: FieldType.TEXT,
+    fieldPath: 'variable_name',
+    placeholder: 'vSchema',
+    rules: [
+        { required: true, message: 'Variable Name is required' },
+        {
+            pattern: /^[^$()=\s](?:[^$()=]*[^$()=\s])?$/,
+            message: 'Enter the name alone, without $() or spaces around it',
+        },
+    ],
+};
+
+const SCRIPT_VARIABLE_VALUE: RecipeField = {
+    name: 'value',
+    label: 'Value',
+    helper: 'The value to use',
+    tooltip: 'The value the variable has when the app reloads.',
+    type: FieldType.TEXT,
+    fieldPath: 'value',
+    placeholder: 'sales',
+    rules: null,
+};
+
+const scriptVariablesFieldPath = 'source.config.script_variables';
+export const QLIK_SCRIPT_VARIABLES: RecipeField = {
+    name: 'script_variables',
+    label: 'Script Variables',
+    helper: 'Values for variables the connector cannot read',
+    tooltip:
+        "Values for load script variables the connector can't read, such as ones computed with LET, set in an included script, or deleted after the reload. Used in QVD and file paths, connection names, SQL and chart expressions. An app's own variables, as its last reload left them, take precedence.",
+    type: FieldType.DICT,
+    buttonLabel: 'Add variable',
+    fieldPath: scriptVariablesFieldPath,
+    keyField: SCRIPT_VARIABLE_NAME,
+    fields: [SCRIPT_VARIABLE_VALUE],
+    rules: [uniqueKeysRule(SCRIPT_VARIABLE_NAME, 'Variable Name')],
     getValueFromRecipeOverride: (recipe: any) => {
-        const value = get(recipe, dataConnectionMapFieldPath);
+        const value: Record<string, string> | undefined = get(recipe, scriptVariablesFieldPath);
         if (!value) return undefined;
-        return Object.keys(value).map((connectionName) => ({
-            [DATA_CONNECTION_NAME.name]: connectionName,
-            ...Object.fromEntries(
-                dataConnectionDetailFields.map((f) => [f.name, value[connectionName]?.[f.name] ?? '']),
-            ),
+        return Object.entries(value).map(([name, variableValue]) => ({
+            [SCRIPT_VARIABLE_NAME.name]: name,
+            [SCRIPT_VARIABLE_VALUE.name]: variableValue,
         }));
     },
-    setValueOnRecipeOverride: (recipe: any, rows: DataConnectionMappingRow[] | undefined) => {
-        const named = (rows ?? []).filter((row) => !!row?.[DATA_CONNECTION_NAME.name]);
-        if (!named.length) return setFieldValueOnRecipe(recipe, null, dataConnectionMapFieldPath);
-
-        const mapping: Record<string, DataConnectionMappingRow> = {};
-        named.forEach((row) => {
-            // Empty inputs are left out so the connector infers or defaults them.
-            mapping[row[DATA_CONNECTION_NAME.name] as string] = Object.fromEntries(
-                dataConnectionDetailFields.filter((f) => !!row[f.name]).map((f) => [f.name, row[f.name]]),
-            );
-        });
-        return setFieldValueOnRecipe(recipe, mapping, dataConnectionMapFieldPath);
+    setValueOnRecipeOverride: (recipe: any, rows: MappingRow[] | undefined) => {
+        const named = (rows ?? []).filter((row) => !!row?.[SCRIPT_VARIABLE_NAME.name]);
+        if (!named.length) return setFieldValueOnRecipe(recipe, null, scriptVariablesFieldPath);
+        // An empty value is kept: a variable can be set to nothing.
+        const variables = Object.fromEntries(
+            named.map((row) => [row[SCRIPT_VARIABLE_NAME.name] as string, row[SCRIPT_VARIABLE_VALUE.name] ?? '']),
+        );
+        return setFieldValueOnRecipe(recipe, variables, scriptVariablesFieldPath);
     },
 };

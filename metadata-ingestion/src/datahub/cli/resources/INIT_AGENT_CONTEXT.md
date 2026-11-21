@@ -1,103 +1,47 @@
-# DataHub Init CLI - Agent Context
+# DataHub init agent context
 
-Best practices for AI agents using `datahub init` to set up authentication.
+Always pass `--profile <name>` when initializing a connection.
 
-## What it does
+## DataHub CLI connection profiles
 
-Writes `~/.datahubenv` with the GMS URL and an access token. Run once before using any other
-CLI commands that require authentication.
+- Never run `datahub init` without `--profile <name>`. Name the profile after the instance (`acme`, `acme-staging`).
+- Never run `datahub profile use`; it changes the default for the user's other shells.
+- Pass `--profile <name>` on every command, unless the session already sets `DATAHUB_PROFILE`.
+- Before any write (`put`, `delete`, `ingest`, upserts), run `datahub profile current --format json` and confirm the server is the one the user asked for.
+- If a token has expired, re-run `datahub init --profile <same name>` with the same host. Do not create a new profile.
 
-## Quickstart (local instance)
-
-```bash
-# Default credentials on localhost — no --host, no --force needed
-datahub init --username datahub --password datahub
-```
-
-Non-interactive signals (credentials via flags or env vars) trigger all agent-friendly defaults
-automatically — no extra flags required.
-
-## Key defaults
-
-| Situation                               | Default behaviour                     |
-| --------------------------------------- | ------------------------------------- |
-| `--host` omitted + credentials provided | silently uses `http://localhost:8080` |
-| `--token-duration` omitted, localhost   | `ONE_MONTH`                           |
-| `--token-duration` omitted, remote host | `ONE_HOUR`                            |
-| Config file already exists, non-TTY     | silently overwrites (no prompt)       |
-| Config file already exists, TTY         | prompts for confirmation              |
-
-## Common scenarios
+## Initialize and inspect a connection
 
 ```bash
-# Local instance — minimal form
-datahub init --username datahub --password datahub
+datahub init --profile local --host http://localhost:8080 --username datahub --password datahub
+datahub --profile local profile current --format json
 
-# Local instance — explicit duration override
-datahub init --username datahub --password datahub --token-duration ONE_MONTH
-
-# Remote instance — always pass --host explicitly
-datahub init --host https://your-instance.acryl.io/gms --username alice --password secret
-
-# Already have a token — skip credential exchange
-datahub init --host https://your-instance.acryl.io/gms --token <your-token>
-
-# CI/CD — fully non-interactive via env vars
-export DATAHUB_GMS_URL=https://prod.example.com/gms
-export DATAHUB_GMS_TOKEN=<your-token>
-datahub init
+datahub init --profile acme --host https://acme.example.com/gms --token "<token>"
+datahub init --profile acme --oauth --host https://acme.example.com/gms
+datahub init --profile acme --sso --host https://acme.example.com/gms
 ```
 
-## SSO browser login
+Initialization writes `~/.datahub/profiles/<name>/.datahubenv`. It never changes the active profile.
+All existing authentication modes work with profiles. `--oauth` and `--sso` each exclude token and
+username/password flags. SSO requires the SSO package extra and a Playwright Chromium installation.
+Support login uses `--support` with `--sso` or `--oauth`. OAuth support login also requires `--ticket-id`.
 
-For DataHub instances using SSO (OIDC/SAML), use `--sso` to authenticate via browser:
+## Defaults and guardrails
 
-```bash
-# Opens browser — complete SSO, CLI captures session and generates token
-datahub init --sso --host https://your-instance.example.com/gms
+| Situation                                   | Behavior                                                        |
+| ------------------------------------------- | --------------------------------------------------------------- |
+| Host omitted with credentials               | Uses `http://localhost:8080`                                    |
+| Token duration omitted for localhost        | `ONE_MONTH`                                                     |
+| Token duration omitted for a remote host    | `ONE_HOUR`                                                      |
+| Existing profile, non-TTY, same server      | Refreshes credentials without prompting                         |
+| Existing profile, non-TTY, different server | Refuses, prints a separate-profile command. `--force` overrides |
+| Existing profile, TTY                       | Prompts for overwrite confirmation                              |
 
-# Custom token duration
-datahub init --sso --host https://your-instance.example.com/gms --token-duration ONE_MONTH
-```
+Pass the same host when refreshing a remote profile. CLI arguments override the existing init input
+variables `DATAHUB_GMS_URL`, `DATAHUB_GMS_TOKEN`, `DATAHUB_USERNAME`, and `DATAHUB_PASSWORD`.
+Connection environment variables are inputs to init, not its destination. Without an explicit name,
+init writes the profile selected by `DATAHUB_PROFILE`, then `current-profile`, then `default`.
 
-**Prerequisites** (one-time setup):
-
-```bash
-pip install 'acryl-datahub[sso]'   # or: uv pip install 'acryl-datahub[sso]'
-playwright install chromium
-```
-
-`--sso` is mutually exclusive with `--token`, `--username`, and `--password`.
-If Playwright is not installed, the command prints step-by-step install instructions and exits.
-
-### Support login (DataHub Cloud)
-
-For the support team debugging customer instances, add `--support` to use the
-`/support/authenticate` login path:
-
-```bash
-datahub init --sso --support --host https://customer.acryl.io/gms
-```
-
-`--support` requires `--sso`.
-
-## Environment variables
-
-| Variable            | CLI equivalent |
-| ------------------- | -------------- |
-| `DATAHUB_GMS_URL`   | `--host`       |
-| `DATAHUB_GMS_TOKEN` | `--token`      |
-| `DATAHUB_USERNAME`  | `--username`   |
-| `DATAHUB_PASSWORD`  | `--password`   |
-
-CLI flags take precedence over environment variables.
-
-## Available token durations
-
-`ONE_HOUR`, `ONE_DAY`, `ONE_WEEK`, `ONE_MONTH`, `THREE_MONTHS`, `SIX_MONTHS`, `ONE_YEAR`,
-`NO_EXPIRY`
-
-`NO_EXPIRY` requires the server to allow never-expiring tokens
-(`ACCESS_TOKEN_ALLOW_NO_EXPIRY=true`). That is disabled by default; use a finite duration
-unless your deployment has re-enabled never-expiry. Allowed finite durations are also
-controlled by `ACCESS_TOKEN_ALLOWED_DURATIONS` on the server.
+Durations: `ONE_HOUR`, `ONE_DAY`, `ONE_WEEK`, `ONE_MONTH`, `THREE_MONTHS`, `SIX_MONTHS`,
+`ONE_YEAR`, `NO_EXPIRY`. Server configuration determines which durations it allows. OAuth manages
+access token lifetime and refresh automatically.

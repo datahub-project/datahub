@@ -44,7 +44,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.opensearch.client.Request;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -84,7 +83,7 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
             .v3(
                 EntityIndexVersionConfiguration.builder()
                     .enabled(true)
-                    .semanticReadEnabled(true)
+                    .keywordReadEnabled(true)
                     .build())
             .semanticSearch(semanticSearch)
             .build();
@@ -157,12 +156,35 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
   }
 
   @Test
+  public void testSemanticSearchMatchesEveryOrGroup() {
+    // A view with "any of" rules sends one OR group per rule, next to the latest-version clause
+    // that every search filter carries.
+    assertEquals(
+        urns(
+            service.search(
+                opContext,
+                List.of("document"),
+                "query",
+                anyOf(filter("urn", NEAR_URN), filter("urn", FAR_URN)),
+                null,
+                0,
+                10)),
+        List.of(NEAR_URN, FAR_URN));
+    assertEquals(
+        urns(
+            service.search(
+                opContext,
+                List.of("document"),
+                "query",
+                anyOf(filter("urn", FAR_URN), filter("urn", FAR_URN)),
+                null,
+                0,
+                10)),
+        List.of(FAR_URN));
+  }
+
+  @Test
   public void testAspectFieldFilterMatchesV3Documents() {
-    if (!SemanticEntitySearchService.supportsV3SemanticFilters(getSearchClient())) {
-      throw new SkipException(
-          "DataHub refuses V3 semantic reads on OpenSearch before 3.5, where they are not"
-              + " validated; this test builds the service directly");
-    }
     // A domains filter reads the full URN field
     SearchResult byDomain =
         service.search(
@@ -247,6 +269,14 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
         .setOr(
             new ConjunctiveCriterionArray(
                 new ConjunctiveCriterion().setAnd(new CriterionArray(criterion))));
+  }
+
+  private static Filter anyOf(Filter... filters) {
+    ConjunctiveCriterionArray groups = new ConjunctiveCriterionArray();
+    for (Filter filter : filters) {
+      groups.addAll(filter.getOr());
+    }
+    return new Filter().setOr(groups);
   }
 
   private static List<String> urns(SearchResult result) {
