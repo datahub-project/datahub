@@ -334,6 +334,9 @@ class ScriptTable(BaseModel):
     # Set when the reshaping is a CrossTable on the statement that makes the
     # table, so its qualifier fields can still be traced.
     crosstable: Optional[CrossTable] = None
+    # Variables left in the SQL that the script sets at run time, such as loop
+    # or SUB parameters, which no recipe value replaces.
+    runtime_variables: List[str] = []
 
 
 class QvdReference(BaseModel):
@@ -1052,6 +1055,15 @@ class _ScriptParser(BaseModel):
                         mapping=mapping or self.pending_mapping,
                         reshaped=reshaped or self.pending_reshaped,
                         crosstable=crosstable,
+                        runtime_variables=sorted(
+                            {
+                                reference.group("name").strip()
+                                for reference in VARIABLE_REFERENCE_RE.finditer(
+                                    sql.group("sql")
+                                )
+                            }
+                            & self.flow.state.unknown
+                        ),
                     )
                 )
                 self.last_label = table_label

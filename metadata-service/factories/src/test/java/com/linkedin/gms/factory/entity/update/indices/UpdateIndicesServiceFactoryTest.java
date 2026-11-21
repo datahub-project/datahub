@@ -39,9 +39,11 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import org.mockito.ArgumentCaptor;
@@ -221,6 +223,14 @@ public class UpdateIndicesServiceFactoryTest {
     SearchClientShim<?> client = mock(SearchClientShim.class);
     when(client.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
     when(client.partialNgramConfig()).thenReturn(Es8SearchClientShim.PARTIAL_NGRAM_CONFIG);
+    try {
+      when(client.getIndex(any(), any(), any()))
+          .thenReturn(
+              new GetIndexResponse(
+                  new String[0], Map.of(), Map.of(), Map.of(), Map.of(), Map.of()));
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
     return client;
   }
 

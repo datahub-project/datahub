@@ -119,8 +119,10 @@ public final class SearchTemplateChecks {
       @Nullable Collection<EntitySpec> entitySpecs,
       @Nonnull SearchTemplateComponentRegistry registry) {
     SearchTemplateCapabilities.requireSemanticApiVersion(merged);
+    SearchTemplateGates.legacyProfileId(merged);
     run(
         true,
+        merged.isKnnInherited() && SearchTemplateCapabilities.keywordRerank(merged),
         compose(merged),
         maxLeafClauses,
         maxRoutes,
@@ -136,11 +138,13 @@ public final class SearchTemplateChecks {
   /**
    * The rules over sections a child inherits separately, on one merged template: the {@code knn}
    * shape by the effective combine, similarity with {@code knn} or {@code next}, the native
-   * embedding placeholders, {@code profiles} on a keyword rung, and ranking beside a {@code knn}
-   * that is not keywordRerank. A parent write runs them on each inheriting child.
+   * embedding placeholders, {@code profiles} on a keyword rung, ranking beside a {@code knn} that
+   * is not keywordRerank, and deprecated {@code model} and {@code field} names that disagree. A
+   * parent write runs them on each inheriting child.
    */
   public static void checkInheritedSections(@Nonnull MergedSearchTemplate merged) {
     SearchTemplateCapabilities.requireSemanticApiVersion(merged);
+    SearchTemplateGates.legacyProfileId(merged);
     SearchTemplateProperties composed = compose(merged);
     if (merged.getProfiles() != null) {
       SearchTemplateProfilesPolicy.check(merged.getProfiles());
@@ -348,6 +352,7 @@ public final class SearchTemplateChecks {
       @Nonnull SearchTemplateComponentRegistry registry) {
     run(
         false,
+        false,
         properties,
         maxLeafClauses,
         maxRoutes,
@@ -366,6 +371,7 @@ public final class SearchTemplateChecks {
    */
   private static void run(
       boolean merged,
+      boolean knnInherited,
       @Nonnull SearchTemplateProperties properties,
       int maxLeafClauses,
       int maxRoutes,
@@ -379,6 +385,7 @@ public final class SearchTemplateChecks {
     try {
       checkProperties(
           merged,
+          knnInherited,
           properties,
           maxLeafClauses,
           maxRoutes,
@@ -398,6 +405,7 @@ public final class SearchTemplateChecks {
 
   private static void checkProperties(
       boolean merged,
+      boolean knnInherited,
       @Nonnull SearchTemplateProperties properties,
       int maxLeafClauses,
       int maxRoutes,
@@ -503,8 +511,15 @@ public final class SearchTemplateChecks {
           properties.hasRetrieval() ? properties.getRetrieval() : null,
           merged || properties.hasRetrieval());
     }
-    if (renderedKnn != null && SearchTemplateJson.sortClauseCount(renderedSort) > 0) {
-      throw new SearchTemplateException("Search template knn cannot be combined with sort");
+    // A template that inherits a keywordRerank knn and adds a sort keeps keyword order on a sorted
+    // search, so an existing sorted child stays writable. Any other knn with a sort is rejected.
+    if (renderedKnn != null
+        && !knnInherited
+        && SearchTemplateJson.sortClauseCount(renderedSort) > 0) {
+      throw new SearchTemplateException(
+          "Search template knn cannot be combined with a sort that renders clauses at write time."
+              + " A sort that renders empty here is accepted: a query it orders keeps that order"
+              + " and is not reranked");
     }
     if (renderedQuery != null) {
       SearchTemplateJson.parseQuery(renderedQuery);

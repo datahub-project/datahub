@@ -969,6 +969,42 @@ public class SearchableAnnotationExtensionTest {
   }
 
   @Test
+  public void testV3HasValuesFalseKeepsTheBooleanOnV2Only() {
+    DataMap v3 = new DataMap();
+    v3.put("hasValues", false);
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldName", "inferredTags");
+    annotationMap.put("fieldType", "URN");
+    annotationMap.put("hasValuesFieldName", "hasTags");
+    annotationMap.put("v3", v3);
+
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "inferredTags", DataSchema.Type.STRING, "test context");
+
+    assertEquals(annotation.getHasValuesFieldName().get(), "hasTags");
+    assertTrue(annotation.resolvedForV3().getHasValuesFieldName().isEmpty());
+    assertTrue(annotation.resolvedForV3().indexedHasValuesFieldName().isEmpty());
+  }
+
+  @Test
+  public void testV3HasValuesFalseRejectsAnAdditionalV3Boolean() {
+    DataMap v3 = new DataMap();
+    v3.put("hasValues", false);
+    v3.put("searchLabel", "parent");
+    v3.put("hasValuesFieldName", "hasParent");
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "URN");
+    annotationMap.put("v3", v3);
+
+    assertThrows(
+        ModelValidationException.class,
+        () ->
+            SearchableAnnotation.fromPegasusAnnotationObject(
+                annotationMap, "parentNode", DataSchema.Type.STRING, "test context"));
+  }
+
+  @Test
   public void testV3LowercaseIsOptInForKeywords() {
     DataMap v3 = new DataMap();
     v3.put("lowercase", true);

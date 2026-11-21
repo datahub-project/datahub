@@ -449,17 +449,24 @@ public class ESUtils {
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nullable SearchFieldResolver v3FieldResolver) {
-    QueryBuilder qb =
+    return filterMap(
         ESUtils.buildFilterQuery(
             filter,
             isTimeseries,
             searchableFieldTypes,
             opContext,
             queryFilterRewriteChain,
-            v3FieldResolver);
+            v3FieldResolver));
+  }
 
+  /**
+   * Serializes a filter query for the low-level client the way {@link #buildFilterMap} does:
+   * optimized, with a top-level {@code bool}.
+   */
+  @Nonnull
+  public static Map<String, Object> filterMap(@Nonnull QueryBuilder filterQuery) {
     // Optimize and preserve filtering semantics (considerScore=false for filters)
-    qb = ESUtils.queryOptimize(qb, false);
+    QueryBuilder qb = ESUtils.queryOptimize(filterQuery, false);
 
     boolean wrapAsBool = !(qb instanceof BoolQueryBuilder);
 

@@ -27,6 +27,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.v3.StructuredQue
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.template.PostProcessComponent;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponents;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateContextVariables;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
@@ -261,7 +262,9 @@ public class SearchV3QueryBuilder {
       SearchTemplateJson.rejectForbidden(renderedSort, "sort");
       sorts = SearchTemplateJson.parseSort(renderedSort);
     }
-    if (template.getKnn() != null) {
+    // A keywordRerank blend never reaches the engine. Its rerank reads it later and keeps keyword
+    // order when it cannot, so an unreadable blend does not fail the search here.
+    if (template.getKnn() != null && !SearchTemplateCapabilities.keywordRerank(template)) {
       SearchTemplateJson.rejectForbidden(
           SearchTemplateMustache.render(rewrite(template.getKnn(), opContext, template), context),
           "knn");

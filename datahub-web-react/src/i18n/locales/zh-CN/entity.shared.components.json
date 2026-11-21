@@ -93,6 +93,7 @@
     "searchActions.glossaryTerms.addTitle": "添加术语",
     "searchActions.glossaryTerms.name": "术语",
     "searchActions.glossaryTerms.removeTitle": "移除术语",
+    "searchActions.noSelection": "请至少选择一个数据资产以使用此操作。",
     "searchActions.notSupported": "所选类型不支持此操作。",
     "searchActions.owners.addTitle": "添加所有者",
     "searchActions.owners.removeTitle": "移除所有者",

@@ -24,13 +24,25 @@ public class ResolvedSearchTemplate {
   private boolean knnApplied;
 
   /**
-   * True when the served rung declares {@code keywordRerank}. That rung owns the rerank of its
-   * keyword window, so the default entity hybrid reranker does not also run on it.
+   * URN of the served rung when it declares {@code keywordRerank}, else null. That rung owns the
+   * rerank of its keyword window, so the default entity hybrid reranker does not also run on it.
    */
-  private boolean templateRerank;
+  @Nullable private String templateRerank;
+
+  /**
+   * True when the served rung's own sort ordered the request, so its window is not in relevance
+   * order. Not part of the result-cache identity.
+   */
+  private boolean templateSortApplied;
 
   /** Templates visited by the route walk. Not part of the result-cache identity. */
   @Nonnull private final List<String> routeChain = new ArrayList<>();
+
+  /**
+   * The request inputs route conditions read (entity types, surface, and their semantic
+   * eligibility), set when a route with conditions fired. Part of the result-cache identity.
+   */
+  @Nullable private String routeMatch;
 
   /**
    * Engine slot that supplied the seed ({@code default}, {@code elasticsearch8}, {@code
@@ -45,10 +57,50 @@ public class ResolvedSearchTemplate {
   private boolean capabilityScroll;
   private boolean documentRerank;
 
+  /** Requested entity types, for the per-rung embedding profile checks. */
+  @Nullable private List<String> entityTypes;
+
+  /** Registry name of the engine serving this search, or null when it is not known. */
+  @Nullable private String searchSystem;
+
   /**
    * Reachable rungs and, when a body references them, the viewer. Rerank is appended separately.
    */
   @Nullable private String cacheIdentity;
+
+  /**
+   * A rung this search may reach retrieves by vector, so the search cache runs it once for the
+   * caller's page instead of in batches. Set at bind.
+   */
+  private boolean vectorReachable;
+
+  /**
+   * A vector rung failed and the ladder served its next rung, so the result is not cached and the
+   * next search tries the vector rung again. Not part of the cache identity.
+   */
+  private boolean skipResultCache;
+
+  /**
+   * A vector rung served the page, set by the walk. Semantic search serves no other page. Not part
+   * of the cache identity.
+   */
+  private boolean vectorServed;
+
+  /**
+   * The similarity anchor bind checked, and whether this viewer may use it: view authorization lets
+   * them see it, and the default search filters keep it. A similarity rung for that anchor reuses
+   * the answer either way. Unset when bind did not check it or the check did not finish, so the
+   * rung checks it. Not part of the cache identity.
+   */
+  @Nullable private String checkedAnchor;
+
+  private boolean checkedAnchorUsable;
+
+  /**
+   * When a selected similarity rung's anchor check and retrieval must finish, from {@link
+   * System#nanoTime()}, or 0 when bind did not start one. Not part of the cache identity.
+   */
+  private long vectorDeadlineNanos;
 
   public ResolvedSearchTemplate(
       @Nonnull String urn, long lastModified, @Nullable String intent, @Nullable String subIntent) {
@@ -72,6 +124,10 @@ public class ResolvedSearchTemplate {
     this.engineSlot = engineSlot;
   }
 
+  public void setRouteMatch(@Nullable String routeMatch) {
+    this.routeMatch = routeMatch;
+  }
+
   public void setKnn(boolean applied, float keywordWeight, float vectorWeight, int knnK) {
     this.knnApplied = applied;
     this.keywordWeight = keywordWeight;
@@ -79,17 +135,48 @@ public class ResolvedSearchTemplate {
     this.knnK = knnK;
   }
 
-  public void setTemplateRerank(boolean templateRerank) {
-    this.templateRerank = templateRerank;
+  public void setTemplateRerank(@Nullable String servedUrn) {
+    this.templateRerank = servedUrn;
   }
 
-  public void setExecutionCapabilities(boolean capabilityScroll, boolean documentRerank) {
+  public void setTemplateSortApplied(boolean applied) {
+    this.templateSortApplied = applied;
+  }
+
+  public void setExecutionCapabilities(
+      boolean capabilityScroll,
+      boolean documentRerank,
+      @Nullable List<String> entityTypes,
+      @Nullable String searchSystem) {
     this.capabilityScroll = capabilityScroll;
     this.documentRerank = documentRerank;
+    this.entityTypes = entityTypes == null ? null : List.copyOf(entityTypes);
+    this.searchSystem = searchSystem;
   }
 
   public void setCacheIdentity(@Nonnull String cacheIdentity) {
     this.cacheIdentity = cacheIdentity;
+  }
+
+  public void setVectorReachable(boolean vectorReachable) {
+    this.vectorReachable = vectorReachable;
+  }
+
+  public void setSkipResultCache(boolean skipResultCache) {
+    this.skipResultCache = skipResultCache;
+  }
+
+  public void setVectorServed(boolean vectorServed) {
+    this.vectorServed = vectorServed;
+  }
+
+  public void setAnchorCheck(@Nonnull String anchor, boolean usable) {
+    this.checkedAnchor = anchor;
+    this.checkedAnchorUsable = usable;
+  }
+
+  public void setVectorDeadlineNanos(long vectorDeadlineNanos) {
+    this.vectorDeadlineNanos = vectorDeadlineNanos;
   }
 
   /**

@@ -65,6 +65,10 @@ public class MergedSearchTemplate {
 
   @Nullable String rescore;
   @Nullable String knn;
+
+  /** True when {@code knn} comes from an ancestor rather than the template itself. */
+  boolean knnInherited;
+
   @Nullable SearchTemplateRanking ranking;
   @Nullable com.linkedin.search.template.SearchTemplateComponent component;
   @Nullable SearchTemplateRetrieval retrieval;
@@ -74,6 +78,12 @@ public class MergedSearchTemplate {
    * default.
    */
   @Nullable SearchTemplateProfiles profiles;
+
+  /**
+   * True when a template in the chain set {@code profiles}, a {@code useDefault} reset included. A
+   * reset merges to a null selection, and it still supersedes the deprecated model and field names.
+   */
+  @Builder.Default boolean profilesSet = false;
 
   /** Static entity scope. Null means the whole request. */
   @Nullable SearchTemplateScope scope;

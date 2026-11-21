@@ -50,6 +50,12 @@ This source extracts the following:
     of lineage at the workbook surface, the DM connector also stops
     hitting any `/lineage` endpoint — DM Containers, element Datasets,
     and `SchemaMetadata` are still emitted, but without `UpstreamLineage`.
+  - With lineage on, the connector also calls `/v2/dataModels/{id}/spec`
+    once per DM, to give each branch of a union element column lineage.
+    It needs no permission beyond reading the DM's elements. Set
+    `extract_data_model_spec_lineage: false` to skip the call. A 410, or
+    a 403/404 from 3 DMs before any call succeeds, stops it for the rest
+    of the run (`data_model_spec_skipped`).
   - The DM Container URN is keyed on `platform` and
     `platform_instance` but not `env`. Multi-environment deployments
     against the same tenant should set a distinct `platform_instance`

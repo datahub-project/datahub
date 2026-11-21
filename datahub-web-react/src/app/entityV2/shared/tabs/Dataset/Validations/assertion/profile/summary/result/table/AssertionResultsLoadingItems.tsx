@@ -7,7 +7,7 @@ import { getResultDotIcon } from '@app/entityV2/shared/tabs/Dataset/Validations/
 import { AssertionResultType } from '@types';
 
 const ItemSkeleton = styled(Skeleton.Input)`
-    && {
+    &&& {
         width: 100%;
         border-radius: 4px;
         background-color: ${(props) => props.theme.colors.bgSurface};

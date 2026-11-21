@@ -96,6 +96,7 @@
     "searchActions.glossaryTerms.addTitle": "Add Glossary Terms",
     "searchActions.glossaryTerms.name": "Glossary Terms",
     "searchActions.glossaryTerms.removeTitle": "Remove Glossary Terms",
+    "searchActions.noSelection": "Select at least one asset to use this action.",
     "searchActions.notSupported": "This action is not supported for the selected types.",
     "searchActions.owners.addTitle": "Add owners",
     "searchActions.owners.removeTitle": "Remove owners",
