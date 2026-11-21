@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 
 from datahub.ingestion.source.confluence.constants import (
     DISCARD_MACROS,
+    EMOTICON_NAMES,
     NAMESPACED_TAG_PATTERN,
     TASK_STATUS_COMPLETE,
     UNRESOLVED_USER_TEXT,
@@ -35,23 +36,42 @@ class UserRef(BaseModel):
         return not (self.account_id or self.userkey or self.username)
 
 
-UserResolver = Callable[[UserRef], Optional[str]]
+class ResolvedUser(BaseModel):
+    name: str
+    # The matching DataHub user, when there is one.
+    urn: Optional[str] = None
 
 
-def storage_to_markdown(html: str, user_resolver: Optional[UserResolver] = None) -> str:
+class JiraIssueRef(BaseModel):
+    key: str
+    server_id: Optional[str] = None
+    server_name: Optional[str] = None
+
+
+UserResolver = Callable[[UserRef], Optional[ResolvedUser]]
+JiraLinkResolver = Callable[[JiraIssueRef], Optional[str]]
+
+
+def storage_to_markdown(
+    html: str,
+    user_resolver: Optional[UserResolver] = None,
+    jira_resolver: Optional[JiraLinkResolver] = None,
+) -> str:
     """Convert a Confluence ``body.storage`` value to Markdown.
 
     Storage format keeps the meaning of many elements in attributes (a mention
     is ``<ri:user ri:account-id=...>`` with no text, a date is
     ``<time datetime=...>``), so each such element is rewritten to plain HTML
     before markdownify runs. ``user_resolver`` turns a mention into a display
-    name; without one, or when it returns None, a mention becomes ``@user``.
+    name, and a DataHub user mention when the user exists in DataHub; without
+    one, or when it returns None, a mention becomes ``@user``.
+    ``jira_resolver`` turns a Jira issue key into a link to the issue.
     """
     if not html or not html.strip():
         return ""
 
     soup = BeautifulSoup(html, "html.parser")
-    _StorageRewriter(soup, user_resolver).rewrite()
+    _StorageRewriter(soup, user_resolver, jira_resolver).rewrite()
     markdown = markdownify(
         str(soup),
         heading_style="ATX",
@@ -85,6 +105,23 @@ def _child(tag: Tag, name: str) -> Optional[Tag]:
     return found if isinstance(found, Tag) else None
 
 
+def _is_shortname(text: str) -> bool:
+    return len(text) > 2 and text.startswith(":") and text.endswith(":")
+
+
+def _emoji_from_id(emoji_id: str) -> str:
+    """Cloud stores an emoji's code points as hex joined by "-" (1f44d, or
+    1f468-200d-1f4bb for a sequence). Custom emoji have other ids."""
+    try:
+        return (
+            "".join(chr(int(part, 16)) for part in emoji_id.split("-"))
+            if emoji_id
+            else ""
+        )
+    except (ValueError, OverflowError):
+        return ""
+
+
 def _param(macro: Tag, name: str) -> str:
     for param in macro.find_all(StorageTag.PARAMETER, recursive=False):
         if isinstance(param, Tag) and _attr(param, StorageAttr.NAME) == name:
@@ -93,9 +130,15 @@ def _param(macro: Tag, name: str) -> str:
 
 
 class _StorageRewriter:
-    def __init__(self, soup: BeautifulSoup, user_resolver: Optional[UserResolver]):
+    def __init__(
+        self,
+        soup: BeautifulSoup,
+        user_resolver: Optional[UserResolver],
+        jira_resolver: Optional[JiraLinkResolver],
+    ):
         self.soup = soup
         self.user_resolver = user_resolver
+        self.jira_resolver = jira_resolver
 
     def rewrite(self) -> None:
         # Order matters: ADF fallbacks and placeholders are handled before
@@ -164,9 +207,7 @@ class _StorageRewriter:
             title = _param(macro, MacroParam.TITLE)
             self._replace_with_text(macro, f"[{title}]" if title else "")
         elif name == MacroName.JIRA:
-            # A single-issue macro has a key; a JQL table renders live results
-            # and has nothing authored to keep.
-            self._replace_with_text(macro, _param(macro, MacroParam.KEY))
+            self._rewrite_jira_macro(macro)
         else:
             # Formatting macros (panel, info, expand, ...) and unknown macros:
             # keep the authored body, drop the wrapper and its parameters.
@@ -178,6 +219,29 @@ class _StorageRewriter:
             else:
                 macro.replace_with(body)
                 body.unwrap()
+
+    def _rewrite_jira_macro(self, macro: Tag) -> None:
+        # A single-issue macro has a key; a JQL table renders live results
+        # and has nothing authored to keep.
+        key = _param(macro, MacroParam.KEY)
+        if not key:
+            macro.decompose()
+            return
+        url = None
+        if self.jira_resolver is not None:
+            url = self.jira_resolver(
+                JiraIssueRef(
+                    key=key,
+                    server_id=_param(macro, MacroParam.SERVER_ID) or None,
+                    server_name=_param(macro, MacroParam.SERVER) or None,
+                )
+            )
+        if url:
+            anchor = self.soup.new_tag("a", href=url)
+            anchor.string = key
+            macro.replace_with(anchor)
+        else:
+            macro.replace_with(NavigableString(key))
 
     def _rewrite_code_macro(self, macro: Tag) -> None:
         language = _param(macro, MacroParam.LANGUAGE)
@@ -226,7 +290,7 @@ class _StorageRewriter:
     def _rewrite_link(self, link: Tag) -> None:
         user = _child(link, StorageTag.USER)
         if user is not None:
-            self._replace_with_text(link, self._mention_text(user))
+            link.replace_with(self._mention(user))
             return
 
         body_text = self._link_body_text(link)
@@ -259,16 +323,24 @@ class _StorageRewriter:
             return rich.get_text(" ", strip=True)
         return ""
 
-    def _mention_text(self, user: Tag) -> str:
+    def _mention(self, user: Tag) -> Union[Tag, NavigableString]:
         ref = UserRef(
             account_id=_attr(user, StorageAttr.ACCOUNT_ID) or None,
             userkey=_attr(user, StorageAttr.USERKEY) or None,
             username=_attr(user, StorageAttr.USERNAME) or None,
         )
-        name = None
+        resolved = None
         if self.user_resolver is not None and not ref.is_empty():
-            name = self.user_resolver(ref)
-        return f"@{name}" if name else UNRESOLVED_USER_TEXT
+            resolved = self.user_resolver(ref)
+        if resolved is None:
+            return NavigableString(UNRESOLVED_USER_TEXT)
+        if resolved.urn is None:
+            return NavigableString(f"@{resolved.name}")
+        # DataHub's editor renders a link whose text starts with @ and whose
+        # target is a urn as a user mention.
+        anchor = self.soup.new_tag("a", href=resolved.urn)
+        anchor.string = f"@{resolved.name}"
+        return anchor
 
     def _rewrite_image(self, image: Tag) -> None:
         label = (
@@ -283,8 +355,16 @@ class _StorageRewriter:
         self._replace_with_text(image, f"[Image: {label}]" if label else "")
 
     def _emoticon_text(self, emoticon: Tag) -> str:
+        # Cloud stores the emoji itself as the fallback for Unicode emoji, but a
+        # :shortname: for Atlassian emoticons (id "atlassian-cross_mark"), so a
+        # shortname fallback is only used when nothing better is found.
         fallback = _attr(emoticon, StorageAttr.EMOJI_FALLBACK)
-        if fallback:
+        if fallback and not _is_shortname(fallback):
             return fallback
         name = _attr(emoticon, StorageAttr.NAME)
-        return f":{name}:" if name else ""
+        return (
+            _emoji_from_id(_attr(emoticon, StorageAttr.EMOJI_ID))
+            or EMOTICON_NAMES.get(name)
+            or fallback
+            or (f":{name}:" if name else "")
+        )

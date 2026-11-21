@@ -7,13 +7,17 @@ from datahub.ingestion.source.confluence.config import (
     ConfluenceSourceConfig,
 )
 from datahub.ingestion.source.confluence.constants import (
+    JIRA_SERVERS_PATH,
     PAGE_CONTENT_TYPE,
     PAGE_EXPAND,
     PAGE_PROBE_EXPAND,
+    VIEW_EXPAND,
 )
 from datahub.ingestion.source.confluence.models import (
     ConfluencePage,
     ConfluenceUser,
+    JiraServer,
+    JiraServerList,
     PageBatch,
     SpaceBatch,
 )
@@ -103,6 +107,34 @@ class ConfluenceClient:
         raw = self.api.get_page_by_id(page_id, expand=expand)
         pages = self._parse_pages([raw]) if raw else []
         return pages[0] if pages else None
+
+    def get_page_view(self, page_id: str) -> str:
+        """The page rendered as HTML, as Confluence shows it."""
+        raw = self.api.get_page_by_id(page_id, expand=VIEW_EXPAND) or {}
+        return ((raw.get("body") or {}).get("view") or {}).get("value") or ""
+
+    def list_jira_servers(self) -> JiraServerList:
+        response: Any = self.api.get(JIRA_SERVERS_PATH) or []
+        if not isinstance(response, list):
+            raise ValueError(f"Expected a list of Jira servers, got {type(response)}")
+        raw_servers: List[Any] = response
+        servers = []
+        for raw in raw_servers:
+            try:
+                servers.append(JiraServer.model_validate(raw))
+            except ValidationError as e:
+                # A broken application link often has no URL. Skip it and keep
+                # the rest, so its macros fall back to rendered pages alone.
+                self.report.warning(
+                    title="Skipped unreadable Jira server",
+                    message="Confluence listed a Jira server without an id or "
+                    "URL. Issue links for it are read from rendered pages.",
+                    context=str(raw.get("name") or raw.get("id"))
+                    if isinstance(raw, dict)
+                    else None,
+                    exc=e,
+                )
+        return JiraServerList(servers=servers, listed=len(raw_servers))
 
     def iter_child_pages(self, page_id: str) -> Iterator[ConfluencePage]:
         """Direct child pages, with the same expand as every other listing, so
