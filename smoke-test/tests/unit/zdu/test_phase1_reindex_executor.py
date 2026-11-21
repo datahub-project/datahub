@@ -180,6 +180,18 @@ class TestTC101PopulatedIndicesReindexed:
         assert result.status == "FAIL"
         assert "datasetindex_v3" in (result.actual_result or "")
 
+    def test_fails_when_populated_index_not_processed(
+        self, executor: Phase1ReindexExecutor
+    ) -> None:
+        # Docs at T0, but the upgrade never touched the index at all.
+        ctx = self._ctx(
+            {"datasetindex_v3": 3, "chartindex_v3": 2},
+            {"datasetindex_v3": _REINDEX_ENTRY},
+        )
+        result = executor.validate(_scenario(tc=101), ctx)
+        assert result.status == "FAIL"
+        assert "chartindex_v3" in (result.actual_result or "")
+
     def test_skips_without_t0_alias_counts(
         self, executor: Phase1ReindexExecutor
     ) -> None:
@@ -610,7 +622,7 @@ class TestTC109DocCountPreservation:
     def _snap(self, **counts: int):
         from tests.zdu.framework.context import SnapshotT0
 
-        return SnapshotT0(epoch_ms=0, doc_counts=dict(counts))
+        return SnapshotT0(epoch_ms=0, alias_doc_counts=dict(counts))
 
     def test_passes_when_all_counts_match(
         self, executor: Phase1ReindexExecutor
@@ -649,6 +661,26 @@ class TestTC109DocCountPreservation:
         result = executor.validate(_scenario(tc=109), ctx)
         assert result.status == "FAIL"
         assert "dashboardindex_v2" in (result.actual_result or "")
+
+    def test_fails_when_live_alias_lost_docs_but_retired_index_kept_them(
+        self, executor: Phase1ReindexExecutor
+    ) -> None:
+        # V3 retires the T0 physical index; it keeps its docs while the live
+        # alias serves the rebuilt one. Only the alias count shows the loss.
+        ctx = TestContext()
+        ctx.snapshot_t0 = SnapshotT0(
+            epoch_ms=0,
+            doc_counts={"datasetindex_v3_v1_9_0rc1-0_1795280860654": 3},
+            alias_doc_counts={"datasetindex_v3": 3},
+        )
+        ctx.snapshot_t1 = SnapshotT0(
+            epoch_ms=0,
+            doc_counts={"datasetindex_v3_v1_9_0rc1-0_1795280860654": 3},
+            alias_doc_counts={"datasetindex_v3": 1},
+        )
+        result = executor.validate(_scenario(tc=109), ctx)
+        assert result.status == "FAIL"
+        assert "datasetindex_v3" in (result.actual_result or "")
 
     def test_skips_when_t0_missing(self, executor: Phase1ReindexExecutor) -> None:
         ctx = TestContext()

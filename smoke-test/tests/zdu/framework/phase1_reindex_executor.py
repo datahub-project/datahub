@@ -101,8 +101,8 @@ def _validate_single_index_reindex(
             ),
         )
     t0_counts = ctx.snapshot_t0.alias_doc_counts
-    processed = {state.alias for state in ctx.upgrade_blocking.indices}
-    expected = {alias for alias in processed if t0_counts.get(alias, 0) > 0}
+    # Every alias with docs at T0, including any the upgrade never processed.
+    expected = {alias for alias, count in t0_counts.items() if count > 0}
     observed = classified[0]
     missing = sorted(expected - observed)
     empty_source_copies = sorted(
@@ -449,7 +449,9 @@ def _validate_doc_count_preservation(
     """TC-109 — no index loses docs across the upgrade.
 
     Asserts ``t1_count >= t0_count`` for every alias in
-    ``ctx.snapshot_t0.doc_counts``. ``t1 > t0`` is allowed because the
+    ``ctx.snapshot_t0.alias_doc_counts``. Counts are by alias because under
+    Search V3 the T0 physical index is retired by the reindex, and counting
+    it again would never see the live index. ``t1 > t0`` is allowed because the
     snapshot phases don't force ES refresh + Kafka MCL drain before
     capturing — some seed-emitted writes may land in ES *after* t0 but
     before t1, inflating t1 counts harmlessly. ``t1 < t0`` is the real
@@ -477,8 +479,16 @@ def _validate_doc_count_preservation(
             expected_to_fail=False,
             actual_result="snapshot_t1 not captured",
         )
-    t0 = ctx.snapshot_t0.doc_counts
-    t1 = ctx.snapshot_t1.doc_counts
+    t0 = ctx.snapshot_t0.alias_doc_counts
+    t1 = ctx.snapshot_t1.alias_doc_counts
+    if not t0:
+        return ValidationResult(
+            tc_number=scenario.tc_number,
+            name=scenario.name,
+            status="SKIP",
+            expected_to_fail=False,
+            actual_result="No alias doc counts captured at T0",
+        )
     losses: dict[str, tuple[int, int]] = {}
     for name, t0_count in t0.items():
         if name not in t1:

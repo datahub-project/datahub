@@ -267,13 +267,13 @@ class DataIntegritySnapshot:
     was lost across the rolling-restart + catch-up window.
 
     ``entity_index_presence[urn]`` is True iff the URN is searchable via
-    the entity index alias (``dashboardindex_v3``).
+    the Search V3 entity aliases (``*index_v3``).
     ``systemmetadata_counts[urn]`` is the number of aspect entries in
     ``system_metadata_service_v1`` keyed by that URN (typically 4 per
     URN: corresponding to the ZDU framework's seed aspects).
     """
 
-    entity_index_alias: str = "dashboardindex_v3"
+    entity_index_alias: str = "*index_v3"
     entity_index_presence: dict[str, bool] = field(default_factory=dict)
     systemmetadata_counts: dict[str, int] = field(default_factory=dict)
     # Suite C TC-401 — every gap/dual URN's embed aspect must be
