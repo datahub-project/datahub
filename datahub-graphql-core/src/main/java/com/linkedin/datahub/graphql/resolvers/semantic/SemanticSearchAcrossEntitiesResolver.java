@@ -153,6 +153,8 @@ public class SemanticSearchAcrossEntitiesResolver
 
             if (servedByTemplate) {
               return templateSearch(
+                  _semanticSearchService,
+                  _entityClient,
                   context,
                   finalEntities,
                   query,
@@ -205,13 +207,17 @@ public class SemanticSearchAcrossEntitiesResolver
   }
 
   /**
-   * Semantic search through the semantic search template. As keyword search does, it adds the
-   * document defaults (the published-document default and placement) to the caller's filter,
-   * records whether that filter, with its view, had a criterion of its own, and keeps the default
-   * fields out of the facets. A query it could not embed is an error naming why, or, when the
-   * caller opted in, the keyword search results for the same request, marked with that reason.
+   * Semantic search through the semantic search template, for this resolver and for single-entity
+   * semantic search, which passes its one entity type. As keyword search does, it adds the document
+   * defaults (the published-document default and placement) to the caller's filter, records whether
+   * that filter, with its view, had a criterion of its own, and keeps the default fields out of the
+   * facets. A query it could not embed is an error naming why, or, when the caller opted in, the
+   * keyword search results across the same entity types for the same request, marked with that
+   * reason.
    */
-  private SearchResults templateSearch(
+  static SearchResults templateSearch(
+      final SemanticSearchService semanticSearchService,
+      final com.linkedin.entity.client.EntityClient entityClient,
       final QueryContext context,
       final List<String> entityNames,
       final String query,
@@ -239,11 +245,11 @@ public class SemanticSearchAcrossEntitiesResolver
         QueryEmbeddingFailures.searchWithKeywordFallback(
             searching,
             opContext ->
-                _semanticSearchService.semanticSearchAcrossEntitiesByTemplate(
+                semanticSearchService.semanticSearchAcrossEntitiesByTemplate(
                     opContext, entityNames, query, filter, sortCriteria, start, count, facets),
             // The keyword search the same request runs, as keyword search escapes it
             opContext ->
-                _entityClient.searchAcrossEntities(
+                entityClient.searchAcrossEntities(
                     opContext,
                     entityNames,
                     ResolverUtils.escapeForwardSlash(query),

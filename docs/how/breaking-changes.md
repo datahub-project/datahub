@@ -237,6 +237,20 @@ search that names `urn:li:searchTemplate:similarity` in the `searchTemplate` sea
 names `urn:li:searchTemplate:semantic` with an entity URN as the query. **Action:** if a client retries
 these searches on a server error, do not retry a bad request.
 
+### Single-entity semantic search can run the semantic search template
+
+Single-entity semantic search (`semanticSearch`) now follows the same switch as
+`semanticSearchAcrossEntities` (`SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH`, above). It is off by
+default, and nothing changes while it is off: `semanticSearch` keeps its own kNN search and rejects the
+`minSimilarity` search flag. With it on, `semanticSearch` runs `urn:li:searchTemplate:semantic` for its
+entity type, with every change listed above for `semanticSearchAcrossEntities`. Only documents have an
+embedding profile in this release, so `semanticSearch` for any other entity type returns an empty
+page. An entity URN as the query finds the entities nearest that entity, which the user must be allowed
+to see. The keyword fallback searches the same entity type with the document defaults, so it can return
+different results than the single-entity `search`, which adds no document defaults. **Action:** keep
+the switch off if clients call `semanticSearch` for entity types other than documents. Before you turn
+it on, check that clients of `semanticSearch` expect the document defaults and facets above.
+
 ### Parent Data Product is now checked on every API
 
 Setting a Data Product's parent through OpenAPI, Rest.li or YAML now fails if the parent doesn't exist

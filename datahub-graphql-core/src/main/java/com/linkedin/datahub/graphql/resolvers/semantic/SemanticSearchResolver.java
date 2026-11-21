@@ -23,10 +23,12 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.GroupingCriterion;
 import com.linkedin.metadata.query.GroupingCriterionArray;
 import com.linkedin.metadata.query.GroupingSpec;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SemanticSearchDisabledException;
 import com.linkedin.metadata.search.SemanticSearchService;
 import graphql.schema.DataFetcher;
@@ -63,6 +65,7 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
   private static final int DEFAULT_COUNT = 10;
 
   private final SemanticSearchService _semanticSearchService;
+  private final EntityClient _entityClient;
 
   @Override
   @WithSpan
@@ -70,8 +73,9 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
     final QueryContext context = getQueryContext(environment);
     final SearchInput input = bindArgument(environment.getArgument("input"), SearchInput.class);
     final String entityName = EntityTypeMapper.getName(input.getType());
-    // The query text only feeds the embedding provider (kNN); it never reaches a query_string
-    // clause, so it is passed as typed. Escaping "/" would change the embedded text.
+    // The query text feeds the embedding provider (kNN), or, when it is an entity URN the semantic
+    // template routes to similarity, names the anchor. It never reaches a query_string clause, so
+    // it is passed as typed. Escaping "/" would change the embedded text.
     final String query = input.getQuery();
     // A blank query embeds to a fixed sentinel vector under the classical provider, so kNN would
     // return arbitrary nearest documents instead of failing. Reject it before any service call.
@@ -88,8 +92,10 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
     } else {
       searchFlags = applyDefaultSearchFlags(null, query, SEARCH_RESOLVER_DEFAULTS);
     }
-    // This search always runs the legacy kNN search
-    if (searchFlags.hasMinSimilarity()) {
+    // Decided once per request, by the same switch as semantic search across entities
+    final boolean servedByTemplate =
+        _semanticSearchService.isServedByTemplate(context.getOperationContext());
+    if (!servedByTemplate && searchFlags.hasMinSimilarity()) {
       throw new ValidationException(SemanticSearchAcrossEntitiesResolver.LEGACY_MIN_SIMILARITY);
     }
 
@@ -106,13 +112,31 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
                 count,
                 searchFlags);
 
+            final Filter filter =
+                ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+            if (servedByTemplate) {
+              return SemanticSearchAcrossEntitiesResolver.templateSearch(
+                  _semanticSearchService,
+                  _entityClient,
+                  context,
+                  List.of(entityName),
+                  query,
+                  filter,
+                  filter,
+                  searchFlags,
+                  Collections.emptyList(),
+                  start,
+                  count,
+                  Collections.emptyList());
+            }
+
             return UrnSearchResultsMapper.map(
                 context,
                 _semanticSearchService.semanticSearch(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     List.of(entityName),
                     query,
-                    ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters()),
+                    filter,
                     Collections.emptyList(),
                     start,
                     count));
@@ -121,6 +145,9 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
                 "Semantic search is disabled in this environment",
                 DataHubGraphQLErrorCode.BAD_REQUEST,
                 e);
+          } catch (DataHubGraphQLException e) {
+            // Already typed, as a query embedding failure is
+            throw e;
           } catch (Exception e) {
             log.error(
                 "Failed to execute semantic search: entity type {}, query {}, filters: {}, orFilters: {}, start: {}, count: {}, searchFlags: {}",
