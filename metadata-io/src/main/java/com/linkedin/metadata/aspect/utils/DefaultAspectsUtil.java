@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -76,21 +77,36 @@ public class DefaultAspectsUtil {
      * Removing provided key aspect from input batch, will be replaced with default key aspect if needed based on
      * whether it exists in the database.
      */
-    final Set<Urn> missingUrnsRequiredToExist =
-        missingUrnsRequiredToExist(opContext, inputBatch.getMCPItems(), entityService);
+    final Set<Urn> urnsWithExistingKeyAspects =
+        entityService.exists(
+            opContext,
+            inputBatch.getMCPItems().stream()
+                .filter(
+                    item ->
+                        SUPPORTED_TYPES.contains(item.getChangeType())
+                            || requiresExistingEntity(item))
+                .map(BatchItem::getUrn)
+                .collect(Collectors.toSet()),
+            true,
+            true);
+    final Predicate<BatchItem> kept =
+        item ->
+            !(item instanceof MCPItem mcpItem
+                && requiresExistingEntity(mcpItem)
+                && !urnsWithExistingKeyAspects.contains(mcpItem.getUrn()));
     List<BatchItem> result =
         inputBatch.getItems().stream()
             .filter(DefaultAspectsUtil::keyAspectExcludeFilter)
-            .filter(
-                item ->
-                    !(item instanceof MCPItem mcpItem
-                        && requiresExistingEntity(mcpItem)
-                        && missingUrnsRequiredToExist.contains(mcpItem.getUrn())))
+            .filter(kept)
             .collect(Collectors.toCollection(LinkedList::new));
     // Key aspect restored if needed
     List<MCPItem> additionalChanges =
         DefaultAspectsUtil.getAdditionalChanges(
-            opContext, inputBatch.getMCPItems(), entityService, enableBrowseV2);
+            opContext,
+            inputBatch.getMCPItems().stream().filter(kept).toList(),
+            urnsWithExistingKeyAspects,
+            entityService,
+            enableBrowseV2);
 
     // `result` was already validated upstream as part of original inputBatch;
     // Only additionalChanges needs validation here
@@ -115,37 +131,35 @@ public class DefaultAspectsUtil {
         .orElse(false);
   }
 
-  @Nonnull
-  private static Set<Urn> missingUrnsRequiredToExist(
-      @Nonnull OperationContext opContext,
-      @Nonnull Collection<MCPItem> batch,
-      @Nonnull EntityService<?> entityService) {
-    final Set<Urn> urns =
-        batch.stream()
-            .filter(DefaultAspectsUtil::requiresExistingEntity)
-            .map(BatchItem::getUrn)
-            .collect(Collectors.toSet());
-    if (urns.isEmpty()) {
-      return Collections.emptySet();
-    }
-    final Set<Urn> existing = entityService.exists(opContext, urns, true, true);
-    return urns.stream().filter(urn -> !existing.contains(urn)).collect(Collectors.toSet());
-  }
-
   public static List<MCPItem> getAdditionalChanges(
       @Nonnull OperationContext opContext,
       @Nonnull Collection<MCPItem> batch,
+      @Nonnull EntityService<?> entityService,
+      boolean browsePathV2) {
+    final Set<Urn> urns =
+        batch.stream()
+            .filter(item -> SUPPORTED_TYPES.contains(item.getChangeType()))
+            .map(BatchItem::getUrn)
+            .collect(Collectors.toSet());
+    return getAdditionalChanges(
+        opContext,
+        batch,
+        entityService.exists(opContext, urns, true, true),
+        entityService,
+        browsePathV2);
+  }
+
+  private static List<MCPItem> getAdditionalChanges(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<MCPItem> batch,
+      @Nonnull Set<Urn> urnsWithExistingKeyAspects,
       @Nonnull EntityService<?> entityService,
       boolean browsePathV2) {
 
     Map<Urn, List<MCPItem>> itemsByUrn =
         batch.stream()
             .filter(item -> SUPPORTED_TYPES.contains(item.getChangeType()))
-            .filter(item -> !requiresExistingEntity(item))
             .collect(Collectors.groupingBy(BatchItem::getUrn));
-
-    Set<Urn> urnsWithExistingKeyAspects =
-        entityService.exists(opContext, itemsByUrn.keySet(), true, true);
 
     // create default aspects when key aspect is missing
     return itemsByUrn.entrySet().stream()

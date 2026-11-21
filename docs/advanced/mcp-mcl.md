@@ -229,7 +229,8 @@ Writing an aspect to an entity that doesn't exist normally creates the entity. A
 existing entity, such as an automation reacting to an earlier event, can add the header `If-Entity-Exists: true` to the
 MCP. If the entity doesn't exist when the write is applied, the write is dropped without an exception and the entity is
 not created. This is checked against the entity's key aspect, so it applies even when the written aspect doesn't exist
-yet. Other writes to the same entity in the batch are unaffected and may still create it.
+yet. Other writes to the same entity in the batch are unaffected and may still create it, but the header write is still
+dropped, because existence is checked against the entity as it was before the batch.
 
 ### Synchronous ElasticSearch Updates
 
