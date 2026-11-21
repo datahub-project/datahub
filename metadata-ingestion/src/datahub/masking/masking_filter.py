@@ -15,7 +15,8 @@ Guarantees:
 import logging
 import re
 import sys
-from typing import Any, Dict, Optional, TextIO, Tuple
+import traceback
+from typing import Any, Dict, Iterator, List, Optional, Set, TextIO
 
 from datahub.masking.constants import (
     CIRCUIT_OPEN_MESSAGE,
@@ -31,6 +32,34 @@ from datahub.masking.logging_utils import (
 from datahub.masking.secret_registry import SecretRegistry
 
 logger = get_masking_safe_logger(__name__)
+_FORMATTER = logging.Formatter()
+
+
+class MaskedException(Exception):
+    """Stands in for a logged exception that cannot be shown as is."""
+
+
+def _linked_exception_texts(exc: BaseException) -> Iterator[str]:
+    """Yield what formatters and Sentry print for exc and its linked exceptions."""
+    seen: Set[int] = set()
+    pending: List[BaseException] = [exc]
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        for render in (
+            lambda e: "".join(traceback.format_exception_only(type(e), e)),
+            repr,
+            lambda e: getattr(e, "message", ""),
+            lambda e: getattr(e, "detail", ""),
+        ):
+            yield str(render(current))
+        members = getattr(current, "exceptions", None)
+        if not isinstance(members, (list, tuple)):
+            members = ()
+        linked = (current.__cause__, current.__context__, *members)
+        pending.extend(e for e in linked if isinstance(e, BaseException))
 
 
 class SecretMaskingFilter(logging.Filter):
@@ -159,40 +188,38 @@ class SecretMaskingFilter(logging.Filter):
             else:
                 return args
         except Exception as e:
-            # Fail-secure: never return unmasked args on error
-            logger.error(f"CRITICAL: Secret masking failed in args: {e}", exc_info=True)
+            logger.error(
+                "CRITICAL: Secret masking failed in args; output withheld. "
+                f"Cause: {type(e).__name__}"
+            )
             return (MASKING_ERROR_MESSAGE,)
 
-    def _mask_exception(self, exc_info: Optional[Tuple]) -> Optional[Tuple]:
-        """Mask secrets in exception information."""
-        if not exc_info:
-            return exc_info
-
+    def _mask_exception(self, record: logging.LogRecord) -> None:
+        """Set an unset exc_text to the masked traceback, and replace an exception
+        whose own texts hold a secret with a MaskedException without traceback.
+        Never modifies the caller's exception."""
         try:
-            exc_type, exc_value, exc_traceback = exc_info
-
-            # Mask exception message/args
-            if exc_value and hasattr(exc_value, "args") and exc_value.args:
-                masked_args = tuple(
-                    self.mask_text(arg) if isinstance(arg, str) else arg
-                    for arg in exc_value.args
-                )
-                # Create new exception instance with masked args
-                exc_value = type(exc_value)(*masked_args)
-
-            return (exc_type, exc_value, exc_traceback)
-
+            _, exc_value, tb = record.exc_info or (None, None, None)
+            if exc_value is None:
+                return
+            if not record.exc_text:
+                rendered = _FORMATTER.formatException((type(exc_value), exc_value, tb))
+                record.exc_text = self.mask_text(rendered)
+            texts = _linked_exception_texts(exc_value)
+            if all(self.mask_text(text) == text for text in texts):
+                return
+            summary = "".join(
+                traceback.format_exception_only(type(exc_value), exc_value)
+            )
+            stand_in = MaskedException(self.mask_text(summary.rstrip("\n")))
+            record.exc_info = (MaskedException, stand_in, None)
         except Exception as e:
-            # Fail-secure: never return unmasked exception on error
             logger.error(
-                f"CRITICAL: Secret masking failed in exception: {e}", exc_info=True
+                "CRITICAL: Secret masking failed in exception; output withheld. "
+                f"Cause: {type(e).__name__}"
             )
-            # Return a sanitized exception
-            return (
-                RuntimeError,
-                RuntimeError(MASKING_ERROR_MESSAGE),
-                None,
-            )
+            stand_in = MaskedException(MASKING_ERROR_MESSAGE)
+            record.exc_info = (MaskedException, stand_in, None)
 
     def _truncate_message(self, message: str) -> str:
         if not isinstance(message, str):
@@ -229,7 +256,7 @@ class SecretMaskingFilter(logging.Filter):
                 record.message = self.mask_text(record.message)
 
             if record.exc_info:
-                record.exc_info = self._mask_exception(record.exc_info)
+                self._mask_exception(record)
 
             if record.exc_text:
                 record.exc_text = self.mask_text(record.exc_text)
@@ -246,7 +273,9 @@ class SecretMaskingFilter(logging.Filter):
             if hasattr(record, "message"):
                 record.message = MASKING_ERROR_MESSAGE
             try:
-                sys.stderr.write(f"WARNING: Secret masking filter failed: {e}\n")
+                sys.stderr.write(
+                    f"WARNING: Secret masking filter failed: {type(e).__name__}\n"
+                )
                 sys.stderr.flush()
             except Exception:
                 pass
