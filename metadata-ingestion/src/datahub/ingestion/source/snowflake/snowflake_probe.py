@@ -116,9 +116,20 @@ class SnowflakeMetadataProbe(SqlCatalogPassthrough):
     # function, and the gate already refuses functions in FROM position. ACCOUNT_USAGE
     # is where the text-bearing views are relations rather than functions, so that
     # schema is admitted by named relation only.
+    #
+    # The two tag functions return one object's tag assignments -- the rows of
+    # ACCOUNT_USAGE.TAG_REFERENCES, without that view's lag of up to two hours, so
+    # a tag applied minutes ago can be confirmed. QUERY_HISTORY() and the schema's
+    # other table functions stay refused.
     catalog_scope = CatalogScope(
         schemas=frozenset({INFORMATION_SCHEMA}),
         relations=_ACCOUNT_USAGE_RELATIONS,
+        table_functions=frozenset(
+            {
+                f"{INFORMATION_SCHEMA}.tag_references",
+                f"{INFORMATION_SCHEMA}.tag_references_all_columns",
+            }
+        ),
     )
 
     def __init__(self, connection: Any) -> None:
