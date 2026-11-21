@@ -60,6 +60,9 @@ _OBJECT_ID_SEGMENT_RE = re.compile(r"/[0-9A-Fa-f]{32}(?=/|$)")
 _UUID_SEGMENT_RE = re.compile(
     r"/[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}(?=/|$)"
 )
+# Chapter, page and visualization keys are not object ids ("K36",
+# "W305FE...", "K83D..."), so they are replaced by position instead.
+_DOSSIER_KEY_SEGMENT_RE = re.compile(r"/(chapters|pages|visualizations)/[^/]+")
 
 # Per-dashboard wall-time buckets, upper bounds in seconds.
 _DASHBOARD_SECONDS_BUCKETS = (10, 30, 60, 120, 300, 600, 1800)
@@ -80,6 +83,7 @@ def endpoint_template(method: str, path: str) -> str:
     path = path.split("?", 1)[0]
     path = _OBJECT_ID_SEGMENT_RE.sub("/{id}", path)
     path = _UUID_SEGMENT_RE.sub("/{id}", path)
+    path = _DOSSIER_KEY_SEGMENT_RE.sub(r"/\1/{key}", path)
     return f"{method.upper()} {path}"
 
 

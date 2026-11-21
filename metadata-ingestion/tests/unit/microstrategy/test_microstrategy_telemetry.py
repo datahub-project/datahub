@@ -421,3 +421,27 @@ def test_report_serializes_telemetry_rounded() -> None:
     assert serialized["api_call_seconds"] == 0.123
     assert serialized["api_seconds_by_phase"] == {"x": 0.123}
     assert "_phase_stack" not in serialized
+
+
+def test_endpoint_template_replaces_dossier_chapter_and_visualization_keys() -> None:
+    # Visualization and chapter keys are not 32-hex object ids, and left in
+    # place they made one endpoint row per visualization.
+    base = f"/api/v2/dossiers/{_OBJECT_ID}/instances/{_INSTANCE_ID}"
+    expected = (
+        "GET /api/v2/dossiers/{id}/instances/{id}/chapters/{key}/visualizations/{key}"
+    )
+    assert (
+        endpoint_template("GET", f"{base}/chapters/K36/visualizations/K52") == expected
+    )
+    assert (
+        endpoint_template(
+            "GET",
+            f"{base}/chapters/W305FE5BF92C64F2CA6D26C8BE05DABA2/visualizations/"
+            "K83D395FF5640E145258BC2B1E1CA12FC",
+        )
+        == expected
+    )
+    assert (
+        endpoint_template("GET", f"{base}/chapters")
+        == "GET /api/v2/dossiers/{id}/instances/{id}/chapters"
+    )

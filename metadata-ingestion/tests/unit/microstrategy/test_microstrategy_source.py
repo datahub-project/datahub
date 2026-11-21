@@ -1274,6 +1274,74 @@ def test_model_tables_shared_between_lineage_and_semantic_model() -> None:
     assert fake_client.model_table_calls == 1
 
 
+class _FlakyModelTablesClient:
+    """Fails the first list_model_tables call, answers the rest."""
+
+    def __init__(self) -> None:
+        self.model_table_calls = 0
+
+    def list_model_tables(self, *args: Any, **kwargs: Any) -> ModelTablesResponse:
+        self.model_table_calls += 1
+        if self.model_table_calls == 1:
+            raise MicroStrategyAPIError("Read timed out. (read timeout=30)")
+        return ModelTablesResponse(
+            tables=[{"physicalTable": {"tableName": "T1"}, "attributes": []}],
+            total=1,
+        )
+
+
+def test_semantic_model_retries_a_failed_model_tables_fetch() -> None:
+    # The first fetch happens when the first dashboard needs lineage; one
+    # slow answer there used to drop the whole semantic model hours later.
+    source = _source({"emit_semantic_model_entities": True})
+    client = _FlakyModelTablesClient()
+    source.client = client  # type: ignore[assignment]
+    lineage_context = _LazyProjectLineage(source, "project-1", [])
+
+    assert lineage_context.model_tables is None
+    assert lineage_context.model_tables is None  # still one call
+    tables = lineage_context.model_tables_retrying_failure()
+
+    assert tables is not None and len(tables) == 1
+    assert client.model_table_calls == 2
+    # A successful fetch is not repeated.
+    assert lineage_context.model_tables_retrying_failure() == tables
+    assert client.model_table_calls == 2
+
+
+def test_semantic_model_runs_after_the_project_caches_are_released() -> None:
+    source = _source({"emit_semantic_model_entities": True})
+    source._metric_model_cache[("project-1", "metric-1")] = {}
+    caches_at_emit: List[int] = []
+
+    def fake_emit(**kwargs: Any) -> Iterator[Any]:
+        caches_at_emit.append(len(source._metric_model_cache))
+        return iter([])
+
+    class FakeLineageContext:
+        def model_tables_retrying_failure(self) -> List[Dict[str, object]]:
+            return [{"physicalTable": {"tableName": "T1"}}]
+
+        warehouse_context = None
+
+    with mock.patch(
+        "datahub.ingestion.source.microstrategy.source."
+        "MicroStrategySemanticModelMapper.emit",
+        side_effect=fake_emit,
+    ):
+        list(
+            source._process_project_semantic_model(
+                _PROJECT,
+                FakeLineageContext(),  # type: ignore[arg-type]
+            )
+        )
+    # The project boundary releases again; that must not count twice.
+    source._reset_project_caches()
+
+    assert caches_at_emit == [0]
+    assert source.report.cache_project_resets == 1
+
+
 def _assert_semantic_model_called_only_when_enabled(enabled: bool) -> None:
     project = Project.model_validate({"id": "project-1", "name": "Project 1"})
     source = _source(
