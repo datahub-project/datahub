@@ -223,6 +223,15 @@ Another form of conditional writes which considers the existence of an aspect or
 By default, a validation exception is thrown if the `CREATE`/`CREATE_ENTITY` constraint is violated. If the write operation
 should be dropped without considering it an exception, then add the following header: `If-None-Match: *` to the MCP.
 
+#### If-Entity-Exists
+
+Writing an aspect to an entity that doesn't exist normally creates the entity. A writer that only means to update an
+existing entity, such as an automation reacting to an earlier event, can add the header `If-Entity-Exists: true` to the
+MCP. If the entity doesn't exist when the write is applied, the write is dropped without an exception and the entity is
+not created. This is checked against the entity's key aspect, so it applies even when the written aspect doesn't exist
+yet. Other writes to the same entity in the batch are unaffected and may still create it, but the header write is still
+dropped, because existence is checked against the entity as it was before the batch.
+
 ### Synchronous ElasticSearch Updates
 
 The writes to the elasticsearch are asynchronous by default. A writer can add a custom header
