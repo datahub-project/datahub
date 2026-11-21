@@ -927,19 +927,22 @@ public class SearchableAnnotationExtensionTest {
   }
 
   @Test
-  public void testCopyToOtherRejectsSearchLabel() {
+  public void testCopyToOtherAllowsADifferentSearchLabel() {
     DataMap v3 = new DataMap();
     v3.put("copyToOther", true);
-    v3.put("searchLabel", "name");
+    v3.put("queryByDefault", false);
+    v3.put("searchLabel", "location");
     DataMap annotationMap = new DataMap();
-    annotationMap.put("fieldType", "URN");
+    annotationMap.put("fieldType", "TEXT_PARTIAL");
     annotationMap.put("v3", v3);
 
-    assertThrows(
-        ModelValidationException.class,
-        () ->
-            SearchableAnnotation.fromPegasusAnnotationObject(
-                annotationMap, "schemaField", DataSchema.Type.STRING, "test context"));
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "path", DataSchema.Type.STRING, "test context");
+
+    assertTrue(annotation.isCopyToOther());
+    assertEquals(annotation.resolvedForV3().getSearchLabel().get(), "location");
+    assertEquals(annotation.resolvedForV3().getFieldName(), "path");
   }
 
   @Test
@@ -963,6 +966,42 @@ public class SearchableAnnotationExtensionTest {
     assertEquals(resolved.getV3HasValuesFieldName().get(), "hasParent");
     assertEquals(resolved.indexedHasValuesFieldName().get(), "hasParentNode");
     assertEquals(resolved.indexedSharedHasValuesFieldName().get(), "hasParent");
+  }
+
+  @Test
+  public void testV3HasValuesFalseKeepsTheBooleanOnV2Only() {
+    DataMap v3 = new DataMap();
+    v3.put("hasValues", false);
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldName", "inferredTags");
+    annotationMap.put("fieldType", "URN");
+    annotationMap.put("hasValuesFieldName", "hasTags");
+    annotationMap.put("v3", v3);
+
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "inferredTags", DataSchema.Type.STRING, "test context");
+
+    assertEquals(annotation.getHasValuesFieldName().get(), "hasTags");
+    assertTrue(annotation.resolvedForV3().getHasValuesFieldName().isEmpty());
+    assertTrue(annotation.resolvedForV3().indexedHasValuesFieldName().isEmpty());
+  }
+
+  @Test
+  public void testV3HasValuesFalseRejectsAnAdditionalV3Boolean() {
+    DataMap v3 = new DataMap();
+    v3.put("hasValues", false);
+    v3.put("searchLabel", "parent");
+    v3.put("hasValuesFieldName", "hasParent");
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "URN");
+    annotationMap.put("v3", v3);
+
+    assertThrows(
+        ModelValidationException.class,
+        () ->
+            SearchableAnnotation.fromPegasusAnnotationObject(
+                annotationMap, "parentNode", DataSchema.Type.STRING, "test context"));
   }
 
   @Test

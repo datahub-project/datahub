@@ -1,17 +1,17 @@
 import { toast } from '@components';
 import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React, { useState } from 'react';
-import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
-import { formatAttributionOrigin, getAttributionOrigin, isExternal } from '@app/entity/shared/propagation/utils';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
+import { formatAttributionOrigin, getAttributionOrigin, isExternal } from '@app/entityV2/shared/propagation/utils';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import TagPill from '@app/sharedV2/tags/TagPill';
 import { TagProfileDrawer } from '@app/sharedV2/tags/TagProfileDrawer';
+import Highlight from '@app/sharedV2/text/Highlight';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useIsEmbeddedProfile } from '@src/app/sharedV2/useEmbeddedProfileLinkProps';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';

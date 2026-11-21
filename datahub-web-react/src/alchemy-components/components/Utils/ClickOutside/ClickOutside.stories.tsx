@@ -14,7 +14,7 @@ const meta = {
         layout: 'centered',
         badges: [BADGE.STABLE, 'readyForDesignReview'],
         docs: {
-            subtitle: 'This component allows to add autocompletion',
+            subtitle: 'Calls `onClickOutside` when a mousedown happens outside of its children.',
         },
     },
 

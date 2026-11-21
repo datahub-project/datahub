@@ -34,9 +34,10 @@ jobs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - uses: ./.github/actions/setup-toolchain
         with:
-          python-version: "3.11"
+          java: false
+          gradle: false
       - name: Install PyYAML
         run: pip install pyyaml
       - name: Check for force-all label
@@ -130,24 +131,16 @@ jobs:
       matrix: ${{ fromJson(needs.detect.outputs.matrix) }}
       fail-fast: false
     steps:
-      - name: Set up JDK 25
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
           python-version: ${{ matrix.python-version }}
-      # Restore always; save only from master (below) so PR runs stop minting per-PR
-      # copies of this shared key. Key hashes the manifests that actually determine the
-      # uv cache contents — the old '**/requirements.txt' matched 13 unrelated files and
-      # none of them.
+      # Restore-only: ci-cache-warmup.yml warm-metadata-ingestion-uv-cache writes this
+      # key on both cache backends from every default-branch push.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: uv-cache
         with:
           path: |
             ~/.cache/uv
@@ -249,17 +242,6 @@ jobs:
           source venv/bin/activate
           pytest tests/unit/snowflake/ \
             --junit-xml=test-results/junit.snowflake-preserve-column-case.xml
-      # Success-only, single matrix leg (parallel legs would race to reserve the same
-      # key). On master this workflow usually runs on Depot runners, where this save
-      # lands in Depot Cache instead of the GitHub cache — the reliably GitHub-hosted
-      # master writers for this key are documentation.yml and check-datahub-jars.yml.
-      - name: Save uv cache (master only)
-        if: github.ref == 'refs/heads/master' && matrix.command == 'testQuick' && matrix.python-version == '3.11' && steps.uv-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt') }}
       - name: Debug info
         if: always()
         run: |
@@ -393,18 +375,9 @@ jobs:
               echo "No Python files modified in metadata-ingestion, skipping plugin validation"
             fi
           fi
-      - name: Set up JDK 25
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         if: steps.check-changes.outputs.should_run == 'true'
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        if: steps.check-changes.outputs.should_run == 'true'
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        if: steps.check-changes.outputs.should_run == 'true'
-        with:
-          python-version: "3.11"
       - name: Configure fast APT mirror
         if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' && steps.check-changes.outputs.should_run == 'true' }}
         uses: ./.github/actions/configure-fast-apt-mirror
@@ -414,9 +387,6 @@ jobs:
       - name: Install package
         if: steps.check-changes.outputs.should_run == 'true'
         run: ./gradlew :metadata-ingestion:installDev
-      - name: Install uv
-        if: steps.check-changes.outputs.should_run == 'true'
-        run: pip install uv
       - name: Validate all plugin dependencies
         if: steps.check-changes.outputs.should_run == 'true'
         run: |

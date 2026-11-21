@@ -64,7 +64,12 @@ record ApplicationProperties includes CustomProperties, ExternalReference  {
   @Searchable = {
     "fieldName": "parentApplication",
     "fieldType": "URN",
-    "queryByDefault": false
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "parent",
+      "queryByDefault": false,
+      "hasValuesFieldName": "hasParent"
+    }
   }
   parentApplication: optional Urn
 }

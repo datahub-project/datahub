@@ -1,0 +1,1070 @@
+[
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics._repo-ef98c18f95ec22c9",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "github",
+                "github_repo": "example-org/analytics",
+                "github_branch": "main",
+                "is_repo_root_document": "true",
+                "import_source_id": "github.example-org.analytics._repo"
+            },
+            "title": "analytics",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://github.com/example-org/analytics/blob/main/",
+                "externalId": "example-org/analytics"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": ""
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics._repo-ef98c18f95ec22c9",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:github",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:github,example-org/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides._dir-fc9b09937d37e3c0",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "github",
+                "github_repo": "example-org/analytics",
+                "github_branch": "main",
+                "github_directory_path": "guides",
+                "is_folder_document": "true",
+                "import_source_id": "github.example-org.analytics.guides._dir"
+            },
+            "title": "guides",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://github.com/example-org/analytics/blob/main/guides",
+                "externalId": "guides"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": ""
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:github.example-org.analytics._repo-ef98c18f95ec22c9"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides._dir-fc9b09937d37e3c0",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:github",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:github,example-org/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides._dir-fc9b09937d37e3c0",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides._dir-fc9b09937d37e3c0",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "analytics",
+                    "urn": "urn:li:document:github.example-org.analytics._repo-ef98c18f95ec22c9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.broken-37da6e8b6e50998d",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "github",
+                "github_repo": "example-org/analytics",
+                "github_branch": "main",
+                "github_file_path": "guides/broken.md",
+                "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "import_source_id": "github.example-org.analytics.guides.broken",
+                "content_hash": "db536c4b7cc9f8c57987f6b3462e7304ab8d03ebac9d373f3f4f54376adb1d82",
+                "source_content_hash": "f865e4e22734769e1ea8e4d3671c755f13313f84a6d9a909ec3138f4e75dfd76",
+                "extraction_algo_version": "2",
+                "github_blob_sha": "2379207268f21baec301446363a89396d7e96d4c"
+            },
+            "title": "broken.md",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://github.com/example-org/analytics/blob/main/guides/broken.md",
+                "externalId": "guides/broken.md"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "---\ntype: Guide\nowners: [alice@example.com\n---\n# Broken frontmatter\n\nMalformed YAML must not prevent this document from being imported.\n"
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:github.example-org.analytics.guides._dir-fc9b09937d37e3c0"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.broken-37da6e8b6e50998d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:github",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:github,example-org/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.broken-37da6e8b6e50998d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.broken-37da6e8b6e50998d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "analytics",
+                    "urn": "urn:li:document:github.example-org.analytics._repo-ef98c18f95ec22c9"
+                },
+                {
+                    "id": "guides",
+                    "urn": "urn:li:document:github.example-org.analytics.guides._dir-fc9b09937d37e3c0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.mau-14570b78cc065e53",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "github",
+                "github_repo": "example-org/analytics",
+                "github_branch": "main",
+                "github_file_path": "guides/mau.md",
+                "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "import_source_id": "github.example-org.analytics.guides.mau",
+                "content_hash": "618b6ce523a5ca19616f00ba07bffe5916fc222e1cfb1266f95b63c66fffeb01",
+                "source_content_hash": "9eb59c7a38cde479bd3ab26d56ea814498aeb5cbfa5b82aef8860131124aa6b7",
+                "extraction_algo_version": "2",
+                "github_blob_sha": "ab354c614d205f21b831c77612fa615b2920f689"
+            },
+            "title": "Monthly active users",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://github.com/example-org/analytics/blob/main/guides/mau.md",
+                "externalId": "guides/mau.md"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "# Monthly active users\n\nCount distinct users with an event during the calendar month.\n"
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:github.example-org.analytics.guides._dir-fc9b09937d37e3c0"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.mau-14570b78cc065e53",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:github",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:github,example-org/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.mau-14570b78cc065e53",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.mau-14570b78cc065e53",
+    "changeType": "UPSERT",
+    "aspectName": "okfProperties",
+    "aspect": {
+        "json": {
+            "bundle": {
+                "location": "https://github.com/example-org/analytics",
+                "rootPath": ".",
+                "okfVersion": "0.2"
+            },
+            "conceptId": "guides/mau",
+            "declaredId": "guide:mau",
+            "type": "Guide",
+            "description": "How MAU is defined and which table to use.",
+            "status": "stable",
+            "staleAfter": 1790121600000,
+            "generated": {
+                "by": "reference_agent/model",
+                "at": 1781995985000
+            },
+            "verified": [
+                {
+                    "by": "human:alice",
+                    "at": 1782378000000
+                }
+            ],
+            "raw": "---\nid: guide:mau\ntype: Guide\ntitle: Monthly active users\ndescription: How MAU is defined and which table to use.\nstatus: stable\nstale_after: 2026-09-23T00:00:00Z\ngenerated: {by: reference_agent/model, at: 2026-06-20T22:53:05Z}\nverified: {by: human:alice, at: 2026-06-25T09:00:00Z}\nowners: [alice@example.com, \"urn:li:corpGroup:data-platform\"]\ntags: [metrics]\nglossary_terms: [\"urn:li:glossaryTerm:active-user-id\"]\naudience: analysts\ndepends_on: [\"table:events\"]\n---\n",
+            "revision": {
+                "ref": "main",
+                "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "blobSha": "ab354c614d205f21b831c77612fa615b2920f689"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.mau-14570b78cc065e53",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Guide"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.mau-14570b78cc065e53",
+    "changeType": "PATCH",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "arrayPrimaryKeys": {
+                "owners": [
+                    "owner",
+                    "type",
+                    "typeUrn",
+                    "attribution\u241fsource"
+                ]
+            },
+            "patch": [
+                {
+                    "op": "add",
+                    "path": "/owners/urn:li:corpuser:alice@example.com/TECHNICAL_OWNER//urn:li:dataHubIngestionSource:cli-1585131e06f6a1ebcf342373e886dced",
+                    "value": {
+                        "owner": "urn:li:corpuser:alice@example.com",
+                        "type": "TECHNICAL_OWNER",
+                        "attribution": {
+                            "time": 1767225600000,
+                            "actor": "urn:li:corpuser:__datahub_system",
+                            "source": "urn:li:dataHubIngestionSource:cli-1585131e06f6a1ebcf342373e886dced",
+                            "sourceDetail": {
+                                "origin": "okf",
+                                "bundle": "https://github.com/example-org/analytics",
+                                "rootPath": ".",
+                                "conceptId": "guides/mau",
+                                "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                                "key": "owners",
+                                "mappingVersion": "6"
+                            }
+                        }
+                    }
+                },
+                {
+                    "op": "add",
+                    "path": "/owners/urn:li:corpGroup:data-platform/TECHNICAL_OWNER//urn:li:dataHubIngestionSource:cli-1585131e06f6a1ebcf342373e886dced",
+                    "value": {
+                        "owner": "urn:li:corpGroup:data-platform",
+                        "type": "TECHNICAL_OWNER",
+                        "attribution": {
+                            "time": 1767225600000,
+                            "actor": "urn:li:corpuser:__datahub_system",
+                            "source": "urn:li:dataHubIngestionSource:cli-1585131e06f6a1ebcf342373e886dced",
+                            "sourceDetail": {
+                                "origin": "okf",
+                                "bundle": "https://github.com/example-org/analytics",
+                                "rootPath": ".",
+                                "conceptId": "guides/mau",
+                                "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                                "key": "owners",
+                                "mappingVersion": "6"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.mau-14570b78cc065e53",
+    "changeType": "PATCH",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "arrayPrimaryKeys": {
+                "tags": [
+                    "attribution\u241fsource",
+                    "tag"
+                ]
+            },
+            "patch": [
+                {
+                    "op": "add",
+                    "path": "/tags/urn:li:dataHubIngestionSource:cli-1585131e06f6a1ebcf342373e886dced/urn:li:tag:metrics",
+                    "value": {
+                        "tag": "urn:li:tag:metrics",
+                        "attribution": {
+                            "time": 1767225600000,
+                            "actor": "urn:li:corpuser:__datahub_system",
+                            "source": "urn:li:dataHubIngestionSource:cli-1585131e06f6a1ebcf342373e886dced",
+                            "sourceDetail": {
+                                "origin": "okf",
+                                "bundle": "https://github.com/example-org/analytics",
+                                "rootPath": ".",
+                                "conceptId": "guides/mau",
+                                "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                                "key": "tags",
+                                "mappingVersion": "6"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.mau-14570b78cc065e53",
+    "changeType": "PATCH",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "arrayPrimaryKeys": {
+                "terms": [
+                    "urn",
+                    "attribution\u241fsource"
+                ]
+            },
+            "patch": [
+                {
+                    "op": "add",
+                    "path": "/terms/urn:li:glossaryTerm:active-user-id/urn:li:dataHubIngestionSource:cli-1585131e06f6a1ebcf342373e886dced",
+                    "value": {
+                        "urn": "urn:li:glossaryTerm:active-user-id",
+                        "attribution": {
+                            "time": 1767225600000,
+                            "actor": "urn:li:corpuser:__datahub_system",
+                            "source": "urn:li:dataHubIngestionSource:cli-1585131e06f6a1ebcf342373e886dced",
+                            "sourceDetail": {
+                                "origin": "okf",
+                                "bundle": "https://github.com/example-org/analytics",
+                                "rootPath": ".",
+                                "conceptId": "guides/mau",
+                                "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                                "key": "glossary_terms",
+                                "mappingVersion": "6"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.mau-14570b78cc065e53",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "analytics",
+                    "urn": "urn:li:document:github.example-org.analytics._repo-ef98c18f95ec22c9"
+                },
+                {
+                    "id": "guides",
+                    "urn": "urn:li:document:github.example-org.analytics.guides._dir-fc9b09937d37e3c0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.no-type-d3abcf5598f08540",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "github",
+                "github_repo": "example-org/analytics",
+                "github_branch": "main",
+                "github_file_path": "guides/no-type.md",
+                "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "import_source_id": "github.example-org.analytics.guides.no-type",
+                "content_hash": "f6fc372a2f0454bccaa5d889a01835f59de10ee0b9fd6f289c56f73abe305dc0",
+                "source_content_hash": "54d4b321aa3c78175eb767694e052e47272e9a0483e92b6f65b5da84bbf1393c",
+                "extraction_algo_version": "2",
+                "github_blob_sha": "a489440ef2f01af8bd3993b3e488f184542f48d7"
+            },
+            "title": "no-type.md",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://github.com/example-org/analytics/blob/main/guides/no-type.md",
+                "externalId": "guides/no-type.md"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "---\ntitle: This title stays in the body\naudience: analysts\n---\n# Not an OKF concept\n\nFrontmatter without a type is imported verbatim.\n"
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:github.example-org.analytics.guides._dir-fc9b09937d37e3c0"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.no-type-d3abcf5598f08540",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:github",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:github,example-org/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.no-type-d3abcf5598f08540",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.no-type-d3abcf5598f08540",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "analytics",
+                    "urn": "urn:li:document:github.example-org.analytics._repo-ef98c18f95ec22c9"
+                },
+                {
+                    "id": "guides",
+                    "urn": "urn:li:document:github.example-org.analytics.guides._dir-fc9b09937d37e3c0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.plain-fd447750a33755ef",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "github",
+                "github_repo": "example-org/analytics",
+                "github_branch": "main",
+                "github_file_path": "guides/plain.md",
+                "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "import_source_id": "github.example-org.analytics.guides.plain",
+                "content_hash": "15d93d955bfa541350a4fd53e30fe3e5da7b6918ef1c985ad5697e030f0063ed",
+                "source_content_hash": "a2046a410e8b91feedd335d7fd83557bac959dce77fd37d958f739cc0d96c64e",
+                "extraction_algo_version": "2",
+                "github_blob_sha": "ce2c2b7a82b88acee2e9fdc65370d783af35a260"
+            },
+            "title": "plain.md",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://github.com/example-org/analytics/blob/main/guides/plain.md",
+                "externalId": "guides/plain.md"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "# Plain guide\n\nThis markdown document has no frontmatter.\n"
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:github.example-org.analytics.guides._dir-fc9b09937d37e3c0"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.plain-fd447750a33755ef",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:github",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:github,example-org/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.plain-fd447750a33755ef",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.guides.plain-fd447750a33755ef",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "analytics",
+                    "urn": "urn:li:document:github.example-org.analytics._repo-ef98c18f95ec22c9"
+                },
+                {
+                    "id": "guides",
+                    "urn": "urn:li:document:github.example-org.analytics.guides._dir-fc9b09937d37e3c0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.index-cc38dc8a34cf7503",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "github",
+                "github_repo": "example-org/analytics",
+                "github_branch": "main",
+                "github_file_path": "index.md",
+                "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "import_source_id": "github.example-org.analytics.index",
+                "content_hash": "f508de285142d8aff109d44cd1c90b1520235e1c254f30a74561f1c1dd89ba4b",
+                "source_content_hash": "d24e1eda7b902c65e6c79b531474938321706b1f74032b24f459914afdc655e9",
+                "extraction_algo_version": "2",
+                "github_blob_sha": "f45872f0101a221b869987f6b2e63f9c3b89207b"
+            },
+            "title": "index.md",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://github.com/example-org/analytics/blob/main/index.md",
+                "externalId": "index.md"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "---\nokf_version: \"0.2\"\n---\n# Analytics knowledge bundle\n\n- [Monthly active users](guides/mau.md)\n"
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:github.example-org.analytics._repo-ef98c18f95ec22c9"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics._repo-ef98c18f95ec22c9",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.index-cc38dc8a34cf7503",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:github",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:github,example-org/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.index-cc38dc8a34cf7503",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.log-42802d892ac538f9",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "github",
+                "github_repo": "example-org/analytics",
+                "github_branch": "main",
+                "github_file_path": "log.md",
+                "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "import_source_id": "github.example-org.analytics.log",
+                "content_hash": "560b9e4ebfa0f3c17386a5cb3a2b3cacf0a239a185e92aeb2e7d5827ed8b4d50",
+                "source_content_hash": "0288e1b6668d486e0b0638541186b70200f3bb435c3e7cce2c121e09458fc909",
+                "extraction_algo_version": "2",
+                "github_blob_sha": "d273b32ed24d7d0b67937f688ac5b32e2b826197"
+            },
+            "title": "log.md",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://github.com/example-org/analytics/blob/main/log.md",
+                "externalId": "log.md"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "---\ntype: Listing\n---\n# Bundle history\n\n- Add the monthly active users guide.\n"
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:github.example-org.analytics._repo-ef98c18f95ec22c9"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.index-cc38dc8a34cf7503",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "analytics",
+                    "urn": "urn:li:document:github.example-org.analytics._repo-ef98c18f95ec22c9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.log-42802d892ac538f9",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:github",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:github,example-org/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.log-42802d892ac538f9",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:github.example-org.analytics.log-42802d892ac538f9",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "analytics",
+                    "urn": "urn:li:document:github.example-org.analytics._repo-ef98c18f95ec22c9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "github-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "github-documents-golden"
+    }
+}
+]

@@ -17,6 +17,8 @@
 #   scope.maxDepth — required for PARTIAL only; per-direction BFS build cap and in-memory read cap (no default)
 #   population.strategy — LAZY (on-demand) | SCHEDULED (background rebuild; FULL only)
 #   population.intervalSeconds — LAZY staleness + COOLDOWN retry; SCHEDULED rebuild period (default 300)
+#   population.rebuildExecution — SYNC (default) | BACKGROUND (LAZY + FULL, fail-closed)
+#       | STALE_WHILE_REVALIDATE (LAZY + PARTIAL: serve the previous snapshot, rebuild that component in the background)
 #   bounds.maxVertices, bounds.maxEdges — build-time caps
 #   bindings.filterFields | policyFieldTypes — optional call-site wiring
 #   scroll.batchSize — build scroll page size (default 500)
@@ -85,6 +87,8 @@ graphs:
     population:
       strategy: LAZY
       intervalSeconds: 1200
+      # Serve the previous component while a partial rebuild runs. Overlay SYNC to compare cost.
+      rebuildExecution: STALE_WHILE_REVALIDATE
     bounds:
       # Container nesting only (no asset vertices); raise via ENTITY_GRAPH_CACHE_CONFIG_JSON if needed
       maxVertices: 5000

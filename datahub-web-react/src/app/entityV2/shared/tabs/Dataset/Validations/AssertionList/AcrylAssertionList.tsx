@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { SortingState } from '@components/components/Table/types';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { TableLoadingSkeleton } from '@app/entityV2/shared/TableLoadingSkeleton';
 import { AcrylAssertionListFilters } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListFilters';
 import { AcrylAssertionListTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListTable';

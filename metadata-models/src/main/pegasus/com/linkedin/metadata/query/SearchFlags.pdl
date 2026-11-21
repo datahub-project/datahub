@@ -131,20 +131,41 @@ record SearchFlags {
   searchType: optional string = "QUERY_THEN_FETCH"
 
   /**
-   * Minimum relevance score (inclusive) for results on the semantic (kNN) search path. Hits scoring
-   * below this floor are dropped, letting an agent abstain instead of returning weak matches. When
-   * null/unset, no floor is applied. Currently honored only by the semantic search path.
+   * Deprecated. Minimum engine kNN score (inclusive). On the cosine engines that hybrid read
+   * allows, the engine score is (1 + cosine) / 2, a normalized value from 0 to 1.
    *
-   * The value is compared against the engine's raw kNN relevance score (cosine-derived), which is
-   * not a normalized 0..1 value; its scale depends on the embedding model and search engine, so a
-   * suitable floor must be calibrated per deployment rather than assumed.
+   * On semantic search, a hit below this score is dropped, letting an agent abstain instead of
+   * returning weak matches. On document rerank, a row below it is not blended and keeps its
+   * keyword position; the row is not dropped. When null/unset, no floor is applied. Search
+   * templates add retrieval.minSimilarity, a raw cosine, on the vector leg and knn.blendFloor on
+   * rerank. Until this flag is removed, a hit or row must pass both it and those controls.
    */
   minScore: optional float
 
   /**
+   * Raw cosine floor, from -1 to 1, on the hits a vector rung (retrieval.combine: vector)
+   * retrieves. A hit below it is dropped and a hit at it is kept; the window is not refilled.
+   * With no floor in effect it sets one. With retrieval.minSimilarity, or else
+   * semanticSearch.minSimilarity, in effect it can only raise it: the higher of the two applies.
+   * A profile whose metric is not cosine rejects it. Only a vector rung reads it, as on semantic
+   * search through the semantic search template. Semantic search on its legacy path rejects it.
+   */
+  minSimilarity: optional float
+
+  /**
+   * Semantic search through the semantic search template answers a query it could not embed with
+   * an error naming why: timeout, rejected, reserveExhausted, budgetExhausted, or failed. With this
+   * flag set it serves keyword search results for the same request instead, and
+   * SearchResultMetadata.keywordFallback marks them with that reason. Those results cover every
+   * requested entity type, not only the ones semantic search covers. Only a failed query embedding
+   * falls back: a failed kNN or facet request, and similarity, still fail. Semantic search on its
+   * legacy path fails as it does without the flag.
+   */
+  keywordFallbackOnEmbeddingFailure: optional boolean = false
+
+  /**
    * Caller-selected search template URN. When set, selection skips classification, sub-intent,
-   * and engine lookup. The resolved template is not written back onto this field. The caller must
-   * have the MANAGE_SYSTEM_OPERATIONS privilege.
+   * and engine lookup. The resolved template is not written back onto this field.
    */
   searchTemplate: optional Urn
 }

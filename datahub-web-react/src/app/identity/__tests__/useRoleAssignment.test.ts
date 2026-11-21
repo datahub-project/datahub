@@ -1,7 +1,8 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NO_ROLE_URN, useRoleAssignment } from '@app/identity/useRoleAssignment';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const mockMutate = vi.fn();
 

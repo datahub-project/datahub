@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { StyledTag } from '@app/entity/shared/components/styled/StyledTag';
+import { StyledTag } from '@app/sharedV2/tags/tag/StyledTag';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, Tag } from '@types';

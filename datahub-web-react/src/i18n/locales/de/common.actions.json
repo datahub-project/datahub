@@ -88,6 +88,6 @@
     "documentationAdded": "Dokumentation hinzugefügt",
     "documentationRemoved": "Dokumentation entfernt",
     "documentationUpdated": "Dokumentation aktualisiert",
-    "showDiff": "Änderungen anzeigen",
-    "hideDiff": "Änderungen ausblenden"
+    "showDiff": "Unterschiede anzeigen",
+    "hideDiff": "Unterschiede ausblenden"
 }

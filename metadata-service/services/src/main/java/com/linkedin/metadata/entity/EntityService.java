@@ -10,6 +10,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -169,6 +170,15 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull final Set<String> aspectNames) {
     return getLatestAspects(opContext, urns, aspectNames, true);
   }
+
+  /**
+   * The latest stored aspect as readers see it (references to entity types this registry doesn't
+   * know removed), including whether it was written by a newer version, or empty when there is
+   * none.
+   */
+  @Nonnull
+  Optional<SystemAspect> getLatestSystemAspect(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String aspectName);
 
   Map<String, RecordTemplate> getLatestAspectsForUrn(
       @Nonnull OperationContext opContext,

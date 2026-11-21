@@ -16,6 +16,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
+import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.SearchInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -48,7 +49,6 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
   private static final SearchFlags SEARCH_RESOLVER_DEFAULTS =
       new SearchFlags()
           .setFulltext(true)
-          .setMaxAggValues(20)
           .setSkipCache(false)
           .setSkipAggregates(false)
           .setSkipHighlighting(false)
@@ -87,6 +87,10 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
       searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
     } else {
       searchFlags = applyDefaultSearchFlags(null, query, SEARCH_RESOLVER_DEFAULTS);
+    }
+    // This search always runs the legacy kNN search
+    if (searchFlags.hasMinSimilarity()) {
+      throw new ValidationException(SemanticSearchAcrossEntitiesResolver.LEGACY_MIN_SIMILARITY);
     }
 
     return GraphQLConcurrencyUtils.supplyAsync(

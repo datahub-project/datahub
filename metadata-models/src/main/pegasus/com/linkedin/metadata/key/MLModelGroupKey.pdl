@@ -7,12 +7,22 @@ import com.linkedin.common.FabricType
  * Key for an ML model group
  */
 @Aspect = {
-  "name": "mlModelGroupKey"
+  "name": "mlModelGroupKey",
+  "schemaVersion": 2
 }
 record MLModelGroupKey {
   /**
   * Standardized platform urn for the model group
   */
+  @Searchable = {
+    "fieldType": "URN",
+    "queryByDefault": false,
+    "enableAutocomplete": true,
+    "v3": {
+      "searchLabel": "platform",
+      "copyToOther": true
+    }
+  }
   platform: Urn
 
   /**
@@ -42,7 +52,14 @@ record MLModelGroupKey {
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "queryByDefault": false
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "origin",
+      "queryByDefault": false,
+      "mappings": [
+        { "type": "KEYWORD" }
+      ]
+    }
   }
   origin: FabricType
 }

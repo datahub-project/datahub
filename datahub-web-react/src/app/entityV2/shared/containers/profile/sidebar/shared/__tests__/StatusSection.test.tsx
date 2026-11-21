@@ -2,7 +2,7 @@ import { MockedProvider } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
 import React from 'react';
 
-import { EntityContext } from '@app/entity/shared/EntityContext';
+import { EntityContext } from '@app/entityV2/shared/EntityContext';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 

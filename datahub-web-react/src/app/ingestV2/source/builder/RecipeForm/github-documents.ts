@@ -3,6 +3,11 @@ import omit from 'lodash/omit';
 import set from 'lodash/set';
 
 import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
+import {
+    REPOSITORY_DOCUMENTS_BRANCH,
+    REPOSITORY_DOCUMENTS_FILE_EXTENSIONS,
+    REPOSITORY_DOCUMENTS_PATH_PREFIX,
+} from '@app/ingestV2/source/builder/RecipeForm/repository-documents';
 
 export const GITHUB_DOCUMENTS_TOKEN: RecipeField = {
     name: 'github_token',
@@ -15,6 +20,13 @@ export const GITHUB_DOCUMENTS_TOKEN: RecipeField = {
     required: true,
 };
 
+/** @deprecated Use REPOSITORY_DOCUMENTS_BRANCH. Kept for one release. */
+export const GITHUB_DOCUMENTS_BRANCH = REPOSITORY_DOCUMENTS_BRANCH;
+/** @deprecated Use REPOSITORY_DOCUMENTS_PATH_PREFIX. Kept for one release. */
+export const GITHUB_DOCUMENTS_PATH_PREFIX = REPOSITORY_DOCUMENTS_PATH_PREFIX;
+/** @deprecated Use REPOSITORY_DOCUMENTS_FILE_EXTENSIONS. Kept for one release. */
+export const GITHUB_DOCUMENTS_FILE_EXTENSIONS = REPOSITORY_DOCUMENTS_FILE_EXTENSIONS;
+
 export const GITHUB_DOCUMENTS_REPOSITORY: RecipeField = {
     name: 'repository',
     label: 'Repository',
@@ -24,38 +36,6 @@ export const GITHUB_DOCUMENTS_REPOSITORY: RecipeField = {
     placeholder: 'org/repo',
     rules: null,
     required: true,
-};
-
-export const GITHUB_DOCUMENTS_BRANCH: RecipeField = {
-    name: 'branch',
-    label: 'Branch',
-    tooltip: 'Git branch to read files from (defaults to main).',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.branch',
-    placeholder: 'main',
-    rules: null,
-    required: true,
-};
-
-export const GITHUB_DOCUMENTS_PATH_PREFIX: RecipeField = {
-    name: 'path_prefix',
-    label: 'Path prefix',
-    tooltip: 'Only ingest files under this path (for example, docs).',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.path_prefix',
-    placeholder: 'docs',
-    rules: null,
-};
-
-export const GITHUB_DOCUMENTS_FILE_EXTENSIONS: RecipeField = {
-    name: 'file_extensions',
-    label: 'File extensions',
-    tooltip: 'Include the leading dot (for example, .md).',
-    type: FieldType.LIST,
-    fieldPath: 'source.config.file_extensions',
-    placeholder: '.md',
-    buttonLabel: 'Add extension',
-    rules: null,
 };
 
 const createRepoRootDocumentFieldPath = 'source.config.create_repo_root_document';

@@ -1,5 +1,5 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { PageRoutes } from '@conf/Global';
 
 import { useDeleteApplicationMutation } from '@graphql/application.generated';

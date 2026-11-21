@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
@@ -24,6 +25,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
+import com.linkedin.metadata.aspect.plugins.validation.WriteRejectedException;
 import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.AspectSpec;
@@ -319,8 +321,22 @@ public class DeleteEntityService {
       String relationshipType,
       @Nullable CascadeOperationContext cascade) {
     final String relatedEntityName = relatedUrn.getEntityType();
-    final EntitySpec relatedEntitySpec =
-        opContext.getEntityRegistry().getEntitySpec(relatedEntityName);
+    final Optional<EntitySpec> maybeRelatedEntitySpec =
+        handling().entitySpecForData(opContext.getEntityRegistry(), relatedEntityName);
+    // While unknown data is tolerated, an entity type this build does not know (e.g. a referrer
+    // written by a newer build before a version rollback) cannot have its aspects edited here: skip
+    // it instead of failing the whole reference cleanup. Otherwise the lookup fails as before.
+    if (maybeRelatedEntitySpec.isEmpty()) {
+      handleError(
+          new DeleteEntityServiceError(
+              "Related entity type not found in entity registry",
+              DeleteEntityServiceErrorReason.ENTITY_REGISTRY_SPEC_NOT_FOUND,
+              ImmutableMap.of(
+                  "relatedEntityName", relatedEntityName, "relationshipType", relationshipType)),
+          cascade);
+      return Stream.empty();
+    }
+    final EntitySpec relatedEntitySpec = maybeRelatedEntitySpec.get();
     final Map<String, AspectSpec> aspectSpecs =
         getAspectSpecsReferringTo(urn.getEntityType(), relationshipType, relatedEntitySpec);
 
@@ -559,8 +575,9 @@ public class DeleteEntityService {
           settled =
               updateAspect(opContext, relatedUrn, aspectName, current, updated, version, cascade);
         } catch (RuntimeException e) {
-          // Inside a request a version mismatch is thrown as a validation failure; its type is not
-          // visible from this module, so the read below tells a mismatch from any other failure.
+          // Inside a request a version mismatch is thrown as a validation failure, the same type as
+          // a validator rejecting the write, so the read below tells a mismatch from any other
+          // failure.
           settled = false;
           rejection = e;
         }
@@ -580,6 +597,10 @@ public class DeleteEntityService {
       final long latestVersion = ConditionalWriteValidator.resolveAspectVersion(latest);
       final boolean versionMoved = latestVersion != version;
       if (!versionMoved && rejection != null) {
+        if (rejection instanceof WriteRejectedException) {
+          reportUpdateRejected(relatedUrn, aspectName, rejection, cascade);
+          return;
+        }
         throw rejection;
       }
       if (!versionMoved || writes >= _conditionalWriteLimit) {
@@ -641,16 +662,23 @@ public class DeleteEntityService {
     try {
       rollbackResult =
           _entityService.deleteAspect(opContext, urn.toString(), aspectName, conditions, true);
-    } catch (IllegalArgumentException e) {
-      // Delete-time guards can reject individual aspect deletions — e.g. the propertyDefinition
-      // of an ACTIVE structured property that references the deleted entity requires a prior
-      // soft delete. Leave that aspect in place and continue the cascade for the remaining
-      // references instead of aborting cleanup mid-loop.
+    } catch (IllegalArgumentException | WriteRejectedException e) {
+      // Delete-time guards and aspect validators can reject individual aspect deletions — e.g.
+      // the propertyDefinition of an ACTIVE structured property that references the deleted
+      // entity requires a prior soft delete, and an assertionInfo delete requires Edit Assertions
+      // on the asserted asset. Leave that aspect in place, report it, and continue the cascade for
+      // the remaining references instead of aborting cleanup mid-loop. Other failures propagate.
       log.warn(
           "Reference cleanup skipped deleting aspect {} of {}; the aspect was left in place: {}",
           aspectName,
           urn,
           e.getMessage());
+      handleError(
+          new DeleteEntityServiceError(
+              "Aspect delete rejected",
+              DeleteEntityServiceErrorReason.ASPECT_DELETE_FAILED,
+              ImmutableMap.of("urn", urn, "aspectName", aspectName)),
+          cascade);
       return true;
     }
     if (maxVersion != null && rollbackResult.isEmpty()) {
@@ -689,6 +717,8 @@ public class DeleteEntityService {
    * @param ifVersionMatch when set, the aspect is written only if it is still at this version
    * @return false when nothing was written and nothing reported: outside a request, a write whose
    *     version does not match is dropped rather than thrown
+   * @throws WriteRejectedException when {@code ifVersionMatch} is set and the write is rejected,
+   *     since that may be a version mismatch; an unconditional write's rejection is reported
    */
   private boolean updateAspect(
       @Nonnull OperationContext opContext,
@@ -720,13 +750,46 @@ public class DeleteEntityService {
         new AuditStamp()
             .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
-    final IngestResult ingestProposalResult =
-        _entityService.ingestProposal(opContext, proposal, auditStamp, false);
+    final IngestResult ingestProposalResult;
+    try {
+      ingestProposalResult = _entityService.ingestProposal(opContext, proposal, auditStamp, false);
+    } catch (WriteRejectedException e) {
+      if (ifVersionMatch != null) {
+        // A version mismatch is rejected the same way; writeIfUnchanged tells the two apart.
+        throw e;
+      }
+      reportUpdateRejected(urn, aspectName, e, cascade);
+      return true;
+    }
 
     if (ingestProposalResult != null && !ingestProposalResult.isSqlCommitted()) {
       reportUpdateFailed(prevAspect, newAspect, ImmutableMap.of("proposal", proposal), cascade);
     }
     return ingestProposalResult != null;
+  }
+
+  /**
+   * Aspect validators can reject a reference-removal upsert, e.g. an assertionInfo whose targets
+   * change requires Edit Assertions on the asserted asset, or the aspect left after the reference
+   * is stripped no longer passes validation. Leave that aspect in place, report it, and continue
+   * the cascade for the remaining references, as {@link #deleteAspect} does for a rejected delete.
+   */
+  private void reportUpdateRejected(
+      final Urn urn,
+      final String aspectName,
+      final RuntimeException rejection,
+      @Nonnull final CascadeOperationContext cascade) {
+    log.warn(
+        "Reference cleanup skipped updating aspect {} of {}; the aspect was left in place: {}",
+        aspectName,
+        urn,
+        rejection.getMessage());
+    handleError(
+        new DeleteEntityServiceError(
+            "Aspect update rejected",
+            DeleteEntityServiceErrorReason.MCP_PROCESSOR_FAILED,
+            ImmutableMap.of("urn", urn, "aspectName", aspectName)),
+        cascade);
   }
 
   private void reportUpdateFailed(

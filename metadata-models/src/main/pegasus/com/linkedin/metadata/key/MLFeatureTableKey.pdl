@@ -6,7 +6,8 @@ import com.linkedin.common.Urn
  * Key for an MLFeatureTable
  */
 @Aspect = {
-  "name": "mlFeatureTableKey"
+  "name": "mlFeatureTableKey",
+  "schemaVersion": 2
 }
 record MLFeatureTableKey {
   /**
@@ -15,6 +16,15 @@ record MLFeatureTableKey {
   @Relationship = {
     "name": "SourcePlatform",
     "entityTypes": [ "dataPlatform" ]
+  }
+  @Searchable = {
+    "fieldType": "URN",
+    "queryByDefault": false,
+    "enableAutocomplete": true,
+    "v3": {
+      "searchLabel": "platform",
+      "copyToOther": true
+    }
   }
   platform: Urn
 

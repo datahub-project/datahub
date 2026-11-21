@@ -70,7 +70,7 @@ public class V3SearchFieldModelTest {
             .supports("description", Intent.FULL_TEXT));
     assertEquals(document.exactPath("id", Intent.EXACT), "id");
     assertEquals(document.exactPath("domains.keyword", Intent.FILTER), "domains_urn");
-    assertEquals(document.exactPath("id", Intent.FILTER), "name");
+    assertEquals(document.exactPath("id", Intent.FILTER), "id");
     assertEquals(document.exactPath("title", Intent.FILTER), "name");
     assertEquals(document.exactPath("createdAt", Intent.RANGE), "sourceCreatedAt");
     assertEquals(document.exactPath("createdAt", Intent.SORT), "sourceCreatedAt");

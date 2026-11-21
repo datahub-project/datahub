@@ -27,12 +27,15 @@ export class BaseEntityPage extends BasePage {
   readonly entityNameLocator: Locator;
   readonly deprecationBadge: Locator;
   readonly threeDotMenu: Locator;
+  /** Entity name as rendered in the header (scoped to avoid the sidebar copy). */
+  readonly headerEntityName: Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
     this.entityNameLocator = page.getByTestId('entity-name');
     this.deprecationBadge = page.getByTestId('deprecation-badge');
     this.threeDotMenu = page.getByTestId('entity-header-dropdown');
+    this.headerEntityName = page.getByTestId('entity-header-test-id').getByTestId('entity-name-display');
   }
 
   // ── Navigation ────────────────────────────────────────────────────────────

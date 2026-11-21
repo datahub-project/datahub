@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { isLogicalModel, withLogicalModelHeaderItems } from '@app/entityV2/shared/logicalModels/logicalModels.utils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { EntityType } from '@types';
 

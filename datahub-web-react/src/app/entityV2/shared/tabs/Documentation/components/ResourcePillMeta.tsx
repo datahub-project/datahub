@@ -2,8 +2,7 @@ import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
-
+import AvatarPillWithLinkAndHover from '@app/sharedV2/avatar/AvatarPillWithLinkAndHover';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpGroup, CorpUser } from '@types';

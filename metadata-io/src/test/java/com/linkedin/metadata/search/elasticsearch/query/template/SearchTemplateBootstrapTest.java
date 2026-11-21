@@ -20,6 +20,8 @@ import com.linkedin.metadata.config.search.SearchTemplateSource;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateRetrieval;
+import com.linkedin.search.template.SearchTemplateSearchType;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
@@ -36,6 +38,10 @@ public class SearchTemplateBootstrapTest {
   private static final String STRUCTURED = "urn:li:searchTemplate:structured";
   private static final String ENTRY = "urn:li:searchTemplate:searchLight";
   private static final String SEARCH = "urn:li:searchTemplate:search";
+  private static final String FULLTEXT = "urn:li:searchTemplate:fulltext";
+  private static final String LIGHT = "urn:li:searchTemplate:light";
+  private static final String SEMANTIC = "urn:li:searchTemplate:semantic";
+  private static final String SIMILARITY = "urn:li:searchTemplate:similarity";
   private static final String PROPERTY = "urn:li:structuredProperty:retention";
   private static final String PROPERTY_QUERY =
       "{\"match\": {\"name\": \"{{query}} {{urn:li:structuredProperty:retention}}\"}}";
@@ -75,6 +81,21 @@ public class SearchTemplateBootstrapTest {
     expectThrows(
         SearchTemplateException.class,
         () -> loader.load(harness.opContext, "urn:li:searchTemplate:does-not-exist"));
+  }
+
+  @Test
+  public void testShippedListSkipsDfsAndTextTemplatesLeaveItUnset() {
+    SearchTemplateLoader loader = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
+    assertEquals(
+        loader.load(harness.opContext, "urn:li:searchTemplate:list").getSearchType(),
+        SearchTemplateSearchType.QUERY_THEN_FETCH);
+    assertEquals(
+        loader.load(harness.opContext, "urn:li:searchTemplate:listUrn").getSearchType(),
+        SearchTemplateSearchType.QUERY_THEN_FETCH);
+    assertNull(loader.load(harness.opContext, "urn:li:searchTemplate:fulltext").getSearchType());
+    assertNull(loader.load(harness.opContext, "urn:li:searchTemplate:light").getSearchType());
+    assertNull(loader.load(harness.opContext, "urn:li:searchTemplate:exact").getSearchType());
+    assertNull(loader.load(harness.opContext, "urn:li:searchTemplate:identity").getSearchType());
   }
 
   @Test
@@ -182,6 +203,195 @@ public class SearchTemplateBootstrapTest {
     assertFalse(error.getMessage().contains("leaf clauses"));
   }
 
+  /**
+   * fulltext reranks with the default blend and no floor, and light inherits that rerank rather
+   * than restating it. semantic is one vector window with no cap, floor, next, or route yet.
+   * similarity is the anchor's neighbors, 500 at most, above a cosine of 0.8, without the anchor
+   * itself. None selects an embedding profile or an entity scope, so each entity type resolves to
+   * its registry default.
+   */
+  @Test
+  public void testShippedKeywordTemplatesRerankAndSemanticRetrievesByVector() {
+    SearchTemplateLoader loader = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
+    MergedSearchTemplate fulltext = loader.load(harness.opContext, FULLTEXT);
+    MergedSearchTemplate light = loader.load(harness.opContext, LIGHT);
+    MergedSearchTemplate semantic = loader.load(harness.opContext, SEMANTIC);
+    MergedSearchTemplate similarity = loader.load(harness.opContext, SIMILARITY);
+
+    assertTrue(SearchTemplateCapabilities.keywordRerank(fulltext));
+    SearchTemplateRerankKnn blend = SearchTemplateJson.parseRerankKnn(fulltext.getKnn());
+    assertEquals(blend.others(), SearchTemplateRerankKnn.KEEP_KEYWORD_PLACES);
+    assertNull(blend.blendFloor());
+    assertNull(blend.model());
+    assertNull(blend.field());
+    assertEquals(blend.vectorWeight(), SearchTemplateRerankKnn.DEFAULT_VECTOR_WEIGHT);
+    assertTrue(SearchTemplateCapabilities.keywordRerank(light));
+    assertEquals(light.getRetrieval(), fulltext.getRetrieval());
+    assertEquals(light.getKnn(), fulltext.getKnn());
+    SearchTemplateProperties storedLight = SearchTemplateBootstrap.get(LIGHT);
+    assertFalse(storedLight.hasRetrieval());
+    assertFalse(storedLight.hasKnn());
+
+    assertTrue(SearchTemplateCapabilities.vectorRetrieval(semantic));
+    SearchTemplateRetrieval vector = semantic.getRetrieval();
+    assertNull(vector.getCandidateCap());
+    assertFalse(vector.hasMinSimilarity());
+    assertNull(vector.getOnFailure());
+    assertNull(semantic.getKnn());
+    assertNull(semantic.getLadder());
+    assertTrue(semantic.getRoutes().isEmpty());
+
+    assertTrue(SearchTemplateCapabilities.vectorRetrieval(similarity));
+    SearchTemplateRetrieval anchored = similarity.getRetrieval();
+    assertEquals(anchored.getQuerySource(), SearchTemplateCapabilities.QUERY_SOURCE_ANCHOR_ENTITY);
+    assertEquals(anchored.getCandidateCap().intValue(), 500);
+    assertEquals(anchored.getMinSimilarity(), 0.8f);
+    assertEquals(anchored.getAnchor().getUrnParameter(), "raw");
+    assertTrue(anchored.getAnchor().isExcludeSelf());
+    assertNull(similarity.getKnn());
+    assertNull(similarity.getLadder());
+    assertTrue(similarity.getRoutes().isEmpty());
+
+    for (MergedSearchTemplate template : List.of(fulltext, light, semantic, similarity)) {
+      assertNull(template.getProfiles(), template.getUrn());
+      assertFalse(template.isProfilesSet(), template.getUrn());
+      assertNull(template.getScope(), template.getUrn());
+      assertNull(SearchTemplateGates.legacyProfileId(template), template.getUrn());
+    }
+  }
+
+  /**
+   * The revert seed writes fulltext back without its keywordRerank sections, as the previous seed
+   * wrote it. Over the shipped templates, every template an earlier release can select then
+   * resolves to contract 1 with no retrieval or knn. semantic and similarity stay: no earlier
+   * release selects them.
+   */
+  @Test
+  public void testRevertSeedRestoresTheKeywordOnlyTemplates() {
+    Map<String, SearchTemplateProperties> revert =
+        SearchTemplateFixtures.readSeed("/bootstrap_mcps/search-templates-revert.yaml");
+    assertEquals(revert.keySet(), Set.of(FULLTEXT));
+    SearchTemplateProperties keywordOnly = SearchTemplateFixtures.readShipped().get(FULLTEXT);
+    keywordOnly.removeRetrieval();
+    keywordOnly.removeKnn();
+    keywordOnly.setApiVersion(SearchTemplateCapabilities.API_VERSION);
+    assertEquals(revert.get(FULLTEXT), keywordOnly);
+    SearchTemplateChecks.check(revert.get(FULLTEXT), 1024);
+
+    SearchTemplateFixtures.readShipped().forEach(harness::store);
+    revert.forEach(harness::store);
+    for (String urn : SearchTemplateBootstrap.urns()) {
+      if (SEMANTIC.equals(urn) || SIMILARITY.equals(urn)) {
+        continue;
+      }
+      MergedSearchTemplate merged = harness.loader.load(harness.opContext, urn);
+      assertEquals(merged.getApiVersion(), SearchTemplateCapabilities.API_VERSION, urn);
+      assertNull(merged.getRetrieval(), urn);
+      assertNull(merged.getKnn(), urn);
+    }
+  }
+
+  /**
+   * A custom child of fulltext that sets its own knn and no retrieval keeps the reading that knn
+   * had before: a knn with only a field is the legacy document rerank. A child that leaves knn
+   * unset inherits keywordRerank.
+   */
+  @Test
+  public void testChildKnnKeepsItsLegacyReadingUnderTheShippedRerank() {
+    SearchTemplateProperties legacy = child("Legacy");
+    legacy.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
+    harness.store("urn:li:searchTemplate:legacyChild", legacy);
+    harness.store("urn:li:searchTemplate:plainChild", child("Plain"));
+
+    MergedSearchTemplate legacyMerged =
+        harness.loader.load(harness.opContext, "urn:li:searchTemplate:legacyChild");
+    assertNull(SearchTemplateCapabilities.effectiveCombine(legacyMerged));
+    assertEquals(legacyMerged.getKnn(), legacy.getKnn());
+    assertFalse(legacyMerged.isKnnInherited());
+    MergedSearchTemplate plainMerged =
+        harness.loader.load(harness.opContext, "urn:li:searchTemplate:plainChild");
+    assertTrue(SearchTemplateCapabilities.keywordRerank(plainMerged));
+    assertTrue(plainMerged.isKnnInherited());
+  }
+
+  /**
+   * A child that sets its own keywordRerank combine, as the revert preflight asks, keeps the blend
+   * its parent chain sets, so its rerank does not fall back to the default blend.
+   */
+  @Test
+  public void testOwnKeywordRerankKeepsTheInheritedBlend() {
+    SearchTemplateProperties tuned = child("Tuned");
+    tuned.setKnn("{ \"vectorWeight\": 0.3, \"others\": \"keepKeywordPlaces\" }");
+    harness.store("urn:li:searchTemplate:tunedChild", tuned);
+    SearchTemplateProperties restated = child("Restated");
+    restated.setParent(UrnUtils.getUrn("urn:li:searchTemplate:tunedChild"));
+    restated.setApiVersion(SearchTemplateCapabilities.SEMANTIC_API_VERSION);
+    restated.setRetrieval(
+        new SearchTemplateRetrieval()
+            .setCombine(SearchTemplateCapabilities.COMBINE_KEYWORD_RERANK));
+    harness.store("urn:li:searchTemplate:restatedChild", restated);
+
+    MergedSearchTemplate merged =
+        harness.loader.load(harness.opContext, "urn:li:searchTemplate:restatedChild");
+    assertTrue(SearchTemplateCapabilities.keywordRerank(merged));
+    assertEquals(merged.getKnn(), tuned.getKnn());
+    assertTrue(merged.isKnnInherited());
+  }
+
+  /**
+   * A child's own retrieval drops only an inherited blend without a field. Under a parent whose knn
+   * names a field, a child that sets its own retrieval keeps that knn, the legacy document rerank.
+   */
+  @Test
+  public void testOwnRetrievalKeepsAnInheritedLegacyFieldKnn() {
+    SearchTemplateProperties legacy = child("Legacy");
+    legacy.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
+    harness.store("urn:li:searchTemplate:legacyChild", legacy);
+    SearchTemplateProperties keyword = child("Keyword");
+    keyword.setParent(UrnUtils.getUrn("urn:li:searchTemplate:legacyChild"));
+    keyword.setRetrieval(new SearchTemplateRetrieval().setMode("keyword"));
+    harness.store("urn:li:searchTemplate:keywordGrandchild", keyword);
+
+    MergedSearchTemplate merged =
+        harness.loader.load(harness.opContext, "urn:li:searchTemplate:keywordGrandchild");
+    assertEquals(merged.getKnn(), legacy.getKnn());
+    assertTrue(SearchTemplateCapabilities.legacyKnn(merged));
+  }
+
+  /**
+   * A child's own legacy field knn below a retrieval that sets keywordRerank drops only that
+   * combine. The rest of the retrieval, here its keyword mode, still applies to the child.
+   */
+  @Test
+  public void testOwnLegacyKnnDropsOnlyTheInheritedCombine() {
+    SearchTemplateProperties keyword = child("Keyword");
+    keyword.setApiVersion(SearchTemplateCapabilities.SEMANTIC_API_VERSION);
+    keyword.setRetrieval(
+        new SearchTemplateRetrieval()
+            .setMode("keyword")
+            .setCombine(SearchTemplateCapabilities.COMBINE_KEYWORD_RERANK));
+    harness.store("urn:li:searchTemplate:keywordChild", keyword);
+    SearchTemplateProperties legacy = child("Legacy");
+    legacy.setParent(UrnUtils.getUrn("urn:li:searchTemplate:keywordChild"));
+    legacy.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
+    harness.store("urn:li:searchTemplate:legacyGrandchild", legacy);
+
+    MergedSearchTemplate merged =
+        harness.loader.load(harness.opContext, "urn:li:searchTemplate:legacyGrandchild");
+    assertEquals(merged.getRetrieval(), new SearchTemplateRetrieval().setMode("keyword"));
+    assertEquals(merged.getKnn(), legacy.getKnn());
+    assertTrue(SearchTemplateCapabilities.legacyKnn(merged));
+  }
+
+  private static SearchTemplateProperties child(String name) {
+    SearchTemplateProperties properties = new SearchTemplateProperties();
+    properties.setName(name);
+    properties.setDialect(SearchTemplateDialect.ELASTICSEARCH);
+    properties.setEditable(true);
+    properties.setParent(UrnUtils.getUrn(FULLTEXT));
+    return properties;
+  }
+
   /** A quoted phrase of four or more tokens matches a description that contains every term. */
   @Test
   public void testQuotedLongPhraseMatchesDescription() throws Exception {
@@ -203,7 +413,9 @@ public class SearchTemplateBootstrapTest {
 
   /**
    * A compound synonym requires every word. The original one-token query stays lenient. Fulltext
-   * repeats each on the default fields and on qualifiedName, so a path query can drop the latter.
+   * repeats the synonym on the shared fields, name, and qualifiedName. Id and email stay literal. A
+   * single word skips the shared fields on the light query and keeps name and qualifiedName. The
+   * light query itself also matches id and email.
    */
   @Test
   public void testCompoundSynonymRequiresEveryToken() throws Exception {
@@ -211,14 +423,14 @@ public class SearchTemplateBootstrapTest {
     JsonNode fulltext =
         SearchTemplateFixtures.JSON.readTree(
             render(loader, "urn:li:searchTemplate:fulltext", "dataPlatform"));
-    assertClause(fulltext, "simple_query_string", "data platform", "default_operator", "and", 2);
-    assertClause(fulltext, "simple_query_string", "dataPlatform~2", "default_operator", "or", 2);
+    assertClause(fulltext, "simple_query_string", "data platform", "default_operator", "and", 3);
+    assertClause(fulltext, "simple_query_string", "dataPlatform~2", "default_operator", "or", 4);
 
     JsonNode light =
         SearchTemplateFixtures.JSON.readTree(
             render(loader, "urn:li:searchTemplate:light", "dataPlatform"));
-    assertClause(light, "multi_match", "data platform", "operator", "and", 1);
-    assertClause(light, "multi_match", "dataPlatform", "operator", "or", 1);
+    assertClause(light, "multi_match", "data platform", "operator", "and", 2);
+    assertClause(light, "multi_match", "dataPlatform", "operator", "or", 4);
   }
 
   private String render(SearchTemplateLoader loader, String urn) {

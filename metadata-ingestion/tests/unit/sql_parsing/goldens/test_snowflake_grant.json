@@ -1,0 +1,13 @@
+{
+    "query_type": "UNKNOWN",
+    "query_type_props": {},
+    "query_fingerprint": "aa603a0138e84a15d778770d201def91c49d669e2d459cbaaa341877e41e9345",
+    "in_tables": [],
+    "out_tables": [],
+    "column_lineage": null,
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "GRANT SELECT ON v TO ROLE r"
+    }
+}

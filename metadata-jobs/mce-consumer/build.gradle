@@ -45,6 +45,7 @@ dependencies {
     // kafka-clients OAUTHBEARER JWT validation is compileOnly upstream (KAFKA-20184)
     runtimeOnly externalDependency.jose4j
 
+    testImplementation testFixtures(project(':metadata-utils'))
     testImplementation externalDependency.testng
     testImplementation externalDependency.mockito
     testImplementation externalDependency.springBootTest

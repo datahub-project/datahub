@@ -19,6 +19,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.annotation.v3.FieldMapping;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
@@ -155,7 +156,8 @@ public class FieldTypeMapperTest {
         (Map<String, Object>)
             new V2MappingsBuilder(
                     EntityIndexConfiguration.builder().build(),
-                    FieldTypeMapper.DEFAULT_PARTIAL_NGRAM_CONFIG)
+                    FieldTypeMapper.DEFAULT_PARTIAL_NGRAM_CONFIG,
+                    ESUtils.KEYWORD_MAXLENGTH)
                 .getIndexMappings(registry, registry.getEntitySpec("dataset"))
                 .get("properties");
 
@@ -326,6 +328,17 @@ public class FieldTypeMapperTest {
     assertFalse(
         fields.get("text") instanceof Map
             && ((Map<?, ?>) fields.get("text")).containsKey("doc_values"));
+  }
+
+  @Test
+  public void testRichTextMappingHasNoKeywordParent() {
+    Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(FieldType.RICH_TEXT);
+    assertEquals(mapping.get("type"), "text");
+    assertEquals(mapping.get("analyzer"), "rich_text_delimited");
+    assertEquals(mapping.get("search_analyzer"), "query_rich_text_delimited");
+    assertFalse(mapping.containsKey("fields"));
+    assertFalse(mapping.containsKey("ignore_above"));
+    assertEquals(FieldTypeMapper.getElasticsearchTypeForFieldType(FieldType.RICH_TEXT), "text");
   }
 
   @Test

@@ -74,6 +74,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTestResult,
     parse_freshness_criteria,
 )
+from datahub.ingestion.source.dremio.dremio_naming import is_dremio_platform
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 from datahub.utilities.lossy_collections import LossyList
 
@@ -1210,6 +1211,19 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             gcs_connection=self.config.gcs_connection,
             concurrency=self.config.artifact_read_concurrency,
         )
+        # Only dbt Core honors include_database_name; dbt Cloud always keeps it.
+        if (
+            is_dremio_platform(self.config.target_platform)
+            and not self.config.include_database_name
+        ):
+            self.report.warning(
+                title="Dremio datasets can't be matched without the database name",
+                message="With `include_database_name: false`, dbt names Dremio datasets "
+                "without their space or source, so they don't match the datasets the "
+                "Dremio source ingests and their lineage is incomplete. Remove the "
+                "setting.",
+                context=f"target_platform={self.config.target_platform}",
+            )
 
     @classmethod
     def create(cls, config_dict, ctx):

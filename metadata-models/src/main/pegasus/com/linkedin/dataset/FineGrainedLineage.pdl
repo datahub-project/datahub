@@ -23,7 +23,11 @@ record FineGrainedLineage {
       "fieldName": "fineGrainedUpstreams",
       "fieldType": "URN",
       "hasValuesFieldName": "hasFineGrainedUpstreams",
-      "queryByDefault": false
+      "queryByDefault": false,
+      "v3": {
+        "searchLabel": "fineGrainedUpstreams",
+        "queryByDefault": false
+      }
     }
   }
   upstreams: optional array[Urn]

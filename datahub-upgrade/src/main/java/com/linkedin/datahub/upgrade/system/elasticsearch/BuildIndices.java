@@ -66,12 +66,13 @@ public class BuildIndices implements BlockingSystemUpgrade {
         ElasticSearchUpgradeUtils.createElasticSearchIndexedServices(
             graphService, entitySearchService, systemMetadataService, timeseriesAspectService);
 
-    if (configurationProvider.getStructuredProperties().isSystemUpdateEnabled()) {
-      _structuredProperties =
-          ElasticSearchUpgradeUtils.getActiveStructuredPropertiesDefinitions(aspectDao);
-    } else {
-      _structuredProperties = Set.of();
-    }
+    // Read now: the scale-down vote is the first step to use the definitions and counts a failure
+    // as "no reindex due", so a failed read must fail the run before that vote.
+    _structuredProperties =
+        Set.copyOf(
+            ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
+                    configurationProvider.getStructuredProperties(), aspectDao)
+                .get());
 
     _incrementalReindexEnabled =
         configurationProvider.getElasticSearch().getBuildIndices() != null
@@ -185,12 +186,12 @@ public class BuildIndices implements BlockingSystemUpgrade {
               baseElasticSearchComponents,
               indexedServices,
               configurationProvider,
-              _structuredProperties));
+              () -> _structuredProperties));
       steps.add(
           new BuildIndicesStep(indexedServices, _structuredProperties, configurationProvider));
       steps.add(
           new BuildIndicesPostStep(
-              baseElasticSearchComponents, indexedServices, _structuredProperties));
+              baseElasticSearchComponents, indexedServices, () -> _structuredProperties));
     }
     return steps;
   }

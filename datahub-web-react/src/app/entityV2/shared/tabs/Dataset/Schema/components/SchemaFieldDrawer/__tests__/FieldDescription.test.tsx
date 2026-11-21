@@ -11,7 +11,7 @@ import { SchemaField, SchemaFieldDataType } from '@types';
 
 const { mockUseEntityData } = vi.hoisted(() => ({ mockUseEntityData: vi.fn() }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useMutationUrn: () => 'urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)',
     useRefetch: () => vi.fn(),
     useEntityData: mockUseEntityData,

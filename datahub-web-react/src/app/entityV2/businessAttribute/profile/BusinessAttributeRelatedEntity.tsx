@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
 import { UnionType } from '@app/search/utils/constants';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 
 export default function BusinessAttributeRelatedEntity() {
     const { t } = useTranslation('entity.types');

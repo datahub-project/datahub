@@ -96,9 +96,14 @@
     "searchActions.glossaryTerms.addTitle": "Begriffe hinzufügen",
     "searchActions.glossaryTerms.name": "Begriffe",
     "searchActions.glossaryTerms.removeTitle": "Begriffe entfernen",
+    "searchActions.noSelection": "Wähle mindestens ein Asset aus, um diese Aktion zu verwenden.",
     "searchActions.notSupported": "Diese Aktion wird für die ausgewählten Typen nicht unterstützt.",
     "searchActions.owners.addTitle": "Owner hinzufügen",
     "searchActions.owners.removeTitle": "Owner entfernen",
     "searchActions.tags.addTitle": "Tags hinzufügen",
-    "searchActions.tags.removeTitle": "Tags entfernen"
+    "searchActions.tags.removeTitle": "Tags entfernen",
+    "structuredProperty.addMore": "+ Mehr hinzufügen",
+    "structuredProperty.selectPlaceholder": "Auswählen",
+    "viewAll.resultsIncomplete": "Ergebnisse sind möglicherweise unvollständig.",
+    "viewAll.searchAllAssets": "Alle aufgenommenen {{platform}}-Assets durchsuchen"
 }

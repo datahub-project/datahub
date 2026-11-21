@@ -8,7 +8,6 @@ import { FontWeightOptions, SizeOptions } from '@components/theme/config';
 
 import analytics, { EventType } from '@app/analytics';
 import { EXECUTION_REQUEST_STATUS_FAILURE, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
-import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import { TestConnectionResult } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/types';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { yamlToJson } from '@app/ingestV2/source/utils';
@@ -88,7 +87,6 @@ function TestConnectionButton({
     const [hasEmittedAnalytics, setHasEmittedAnalytics] = useState(false);
     const [createTestConnectionRequest, { data: requestData }] = useCreateTestConnectionRequestMutation();
     const [getIngestionExecutionRequest, { data: resultData, loading }] = useGetIngestionExecutionRequestLazyQuery();
-    const ingestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     useEffect(() => {
         if (requestData && requestData.createTestConnectionRequest) {
@@ -164,7 +162,6 @@ function TestConnectionButton({
                 type: EventType.IngestionTestConnectionClickEvent,
                 sourceType: getSourceTypeFromRecipeJson(recipeJson) || '',
                 sourceUrn: selectedSource?.urn,
-                ingestionOnboardingRedesignV1,
             });
 
             setIsLoading(true);
@@ -202,7 +199,6 @@ function TestConnectionButton({
             sourceUrn: selectedSource?.urn,
             hasCompleted,
             status,
-            ingestionOnboardingRedesignV1,
             durationMs: duration,
         });
         setDuration(undefined);

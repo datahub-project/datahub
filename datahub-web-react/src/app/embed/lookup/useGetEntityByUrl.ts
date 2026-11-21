@@ -1,5 +1,5 @@
 import { getExternalUrlCandidates, getExternalUrlContainTokens } from '@app/embed/lookup/utils';
-import { urlEncodeUrn } from '@app/entity/shared/utils';
+import { urlEncodeUrn } from '@app/entityV2/shared/utils';
 import { UnionType } from '@app/search/utils/constants';
 import { generateOrFilters } from '@app/search/utils/generateOrFilters';
 import { useEntityRegistry } from '@app/useEntityRegistry';

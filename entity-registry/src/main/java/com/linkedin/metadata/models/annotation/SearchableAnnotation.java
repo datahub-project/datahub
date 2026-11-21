@@ -28,6 +28,7 @@ public class SearchableAnnotation {
   private static final Set<FieldType> DEFAULT_QUERY_FIELD_TYPES =
       ImmutableSet.of(
           FieldType.TEXT,
+          FieldType.RICH_TEXT,
           FieldType.TEXT_PARTIAL,
           FieldType.WORD_GRAM,
           FieldType.URN,
@@ -132,9 +133,9 @@ public class SearchableAnnotation {
   Optional<Boolean> sourceDocValues;
 
   /**
-   * Copy this field's text into the shared field {@code other} and keep its own root. A {@code
-   * searchLabel} that names a different field replaces the root and cannot be combined with this. A
-   * label that is this field's own name can. A URN copies its parsed name.
+   * Copy this field's text into the shared field {@code other}. A {@code searchLabel} still names
+   * the shared root, including a label that differs from this field's name. A URN copies its parsed
+   * name.
    */
   boolean copyToOther;
 
@@ -153,6 +154,13 @@ public class SearchableAnnotation {
    * the keyword case-sensitive and does not map the subfield. V2 never reads this.
    */
   boolean v3Lowercase;
+
+  /**
+   * Whether Search V3 writes {@link #hasValuesFieldName}. False leaves that boolean to V2, so a
+   * source such as an inferred tag does not mark the entity's own {@code hasTags}. V2 never reads
+   * this.
+   */
+  boolean v3HasValues;
 
   /**
    * Constructor for annotations with no V3 overlay. Search V2 uses these settings. Search V3 leaves
@@ -213,7 +221,8 @@ public class SearchableAnnotation {
         Optional.empty(),
         false,
         Optional.empty(),
-        false);
+        false,
+        true);
   }
 
   /**
@@ -227,6 +236,7 @@ public class SearchableAnnotation {
         && v3IncludeSystemModifiedAt.isEmpty()
         && v3BoostScore.isEmpty()
         && v3QueryByDefault.isEmpty()
+        && v3HasValues
         && !queryByDefault) {
       return this;
     }
@@ -241,7 +251,7 @@ public class SearchableAnnotation {
         filterNameOverride,
         hasValuesFilterNameOverride,
         v3BoostScore.orElse(boostScore),
-        hasValuesFieldName,
+        v3HasValues ? hasValuesFieldName : Optional.empty(),
         numValuesFieldName,
         weightsPerFieldValue,
         fieldNameAliases,
@@ -264,7 +274,8 @@ public class SearchableAnnotation {
         sourceDocValues,
         copyToOther,
         v3HasValuesFieldName,
-        v3Lowercase);
+        v3Lowercase,
+        v3HasValues);
   }
 
   /**
@@ -378,7 +389,15 @@ public class SearchableAnnotation {
     BROWSE_PATH_V2,
     WORD_GRAM,
     DOUBLE,
-    MAP_ARRAY
+    MAP_ARRAY,
+    // Long analyzed text (document bodies, SQL). Unlike TEXT it has no keyword parent, so a value
+    // is not dropped by Lucene's 32,766-byte term limit.
+    RICH_TEXT,
+    // Map of value -> positive weight, indexed as an Elasticsearch rank_features field. Lets search
+    // rank a document by a weight that depends on which value matched (e.g. a per-value occurrence
+    // count), which boostScore (per-field), weightsPerFieldValue (global per value) and COUNT (one
+    // number per doc) cannot express. Backed by a map[string, <numeric>] field.
+    RANK_FEATURES
   }
 
   @Nonnull
@@ -468,15 +487,16 @@ public class SearchableAnnotation {
         v3Overlay
             .flatMap(overlay -> AnnotationUtils.getField(overlay, "lowercase", Boolean.class))
             .orElse(false);
-    if (copyToOther && v3SearchLabel.filter(label -> !label.isEmpty()).isPresent()) {
-      final String indexed = indexedFieldName(v3SearchLabel.get(), degree);
-      if (!indexed.equals(fieldName.orElse(schemaFieldName))) {
-        throw new ModelValidationException(
-            String.format(
-                "Failed to validate @%s annotation declared at %s: v3.copyToOther keeps this"
-                    + " field's root, and v3.searchLabel '%s' replaces it",
-                ANNOTATION_NAME, context, indexed));
-      }
+    final boolean v3HasValues =
+        v3Overlay
+            .flatMap(overlay -> AnnotationUtils.getField(overlay, "hasValues", Boolean.class))
+            .orElse(true);
+    if (!v3HasValues && v3HasValuesFieldName.isPresent()) {
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: v3.hasValues false cannot be"
+                  + " combined with v3.hasValuesFieldName",
+              ANNOTATION_NAME, context));
     }
     if (copyToOther && !canCopyToOther(resolvedFieldType)) {
       throw new ModelValidationException(
@@ -560,7 +580,8 @@ public class SearchableAnnotation {
         sourceDocValues,
         copyToOther,
         v3HasValuesFieldName,
-        v3Lowercase);
+        v3Lowercase,
+        v3HasValues);
   }
 
   /**

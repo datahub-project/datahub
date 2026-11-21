@@ -26,8 +26,17 @@ from datahub.ingestion.source.azure_data_factory.adf_probe import (
     source_for_probe,
 )
 from datahub.ingestion.source.common.subtypes import FlowContainerSubTypes
+from tests.unit.azure_data_factory.conftest import (
+    SUB,
+    dataset_resource,
+    factory_id,
+    hydrate,
+    linked_service_resource,
+    ls_ref,
+    raw,
+)
+from tests.unit.conftest import log_titles
 
-SUB = "00000000-0000-0000-0000-000000000000"
 PLANTED = "PLANTED-SECRET-VALUE"
 _BASE_RECIPE: Dict[str, Any] = {
     "subscription_id": SUB,
@@ -35,35 +44,16 @@ _BASE_RECIPE: Dict[str, Any] = {
 }
 
 
-def _raw(value: object) -> Any:
-    # ARM returns these properties as untyped JSON -- a connection string or a
-    # header arrives as a plain string -- so the SDK's declared types
-    # (MutableMapping, Key Vault references) don't describe what this fixture
-    # must imitate.
-    return value
-
-
-def _factory_id(rg: str, name: str) -> str:
-    return (
-        f"/subscriptions/{SUB}/resourceGroups/{rg}"
-        f"/providers/Microsoft.DataFactory/factories/{name}"
-    )
-
-
 def _factory(name: Optional[str], rg: str = "my-rg") -> adf.Factory:
     factory = adf.Factory(
         location="westeurope",
         global_parameters={
             "api_key": adf.GlobalParameterSpecification(
-                type="String", value=_raw(PLANTED)
+                type="String", value=raw(PLANTED)
             )
         },
     )
-    # name/id are readonly on the SDK model, so they are set after construction,
-    # which is how the deserializer populates them.
-    factory.name = name
-    factory.id = _factory_id(rg, name) if name else None
-    return factory
+    return hydrate(factory, name=name, id=factory_id(name, rg) if name else None)
 
 
 def _forbidden() -> Iterator[Any]:
@@ -262,12 +252,11 @@ def _pipeline(
         folder=adf.PipelineFolder(name=folder) if folder else None,
         parameters={
             "token": adf.ParameterSpecification(
-                type="String", default_value=_raw(PLANTED)
+                type="String", default_value=raw(PLANTED)
             )
         },
     )
-    pipeline.name = name
-    return pipeline
+    return hydrate(pipeline, name=name)
 
 
 def test_pipelines_include_ones_pipeline_pattern_would_exclude() -> None:
@@ -353,7 +342,7 @@ def _copy(name: str, source_ds: str, sink_ds: str) -> adf.CopyActivity:
         ],
         outputs=[adf.DatasetReference(type="DatasetReference", reference_name=sink_ds)],
         source=adf.AzureSqlSource(
-            sql_reader_query=_raw(f"SELECT * FROM t WHERE k = '{PLANTED}'")
+            sql_reader_query=raw(f"SELECT * FROM t WHERE k = '{PLANTED}'")
         ),
         sink=adf.AzureSqlSink(),
     )
@@ -363,8 +352,8 @@ def _web(name: str, depends_on: str) -> adf.WebActivity:
     return adf.WebActivity(
         name=name,
         method="GET",
-        url=_raw("https://example.invalid/hook"),
-        headers=_raw({"Authorization": f"Bearer {PLANTED}"}),
+        url=raw("https://example.invalid/hook"),
+        headers=raw({"Authorization": f"Bearer {PLANTED}"}),
         depends_on=[
             adf.ActivityDependency(
                 activity=depends_on, dependency_conditions=["Succeeded"]
@@ -450,17 +439,11 @@ def test_activities_report_factory_and_pipeline_as_parents() -> None:
     assert spec.kind == ADF_ACTIVITY_KIND
 
 
-def _linked_service(name: str, props: Any) -> adf.LinkedServiceResource:
-    resource = adf.LinkedServiceResource(properties=props)
-    resource.name = name
-    return resource
-
-
 def _blob_ls(name: str = "blob_ls") -> adf.LinkedServiceResource:
-    return _linked_service(
+    return linked_service_resource(
         name,
         adf.AzureBlobStorageLinkedService(
-            connection_string=_raw(
+            connection_string=raw(
                 f"DefaultEndpointsProtocol=https;AccountName=acct;AccountKey={PLANTED}"
             ),
             connect_via=adf.IntegrationRuntimeReference(
@@ -471,11 +454,11 @@ def _blob_ls(name: str = "blob_ls") -> adf.LinkedServiceResource:
 
 
 def _sql_ls(name: str = "sql_ls") -> adf.LinkedServiceResource:
-    return _linked_service(
+    return linked_service_resource(
         name,
         adf.AzureSqlDatabaseLinkedService(
-            connection_string=_raw("Server=tcp:example.invalid;Database=my_db;"),
-            password=_raw(adf.SecureString(value=PLANTED)),
+            connection_string=raw("Server=tcp:example.invalid;Database=my_db;"),
+            password=raw(adf.SecureString(value=PLANTED)),
         ),
     )
 
@@ -506,8 +489,8 @@ def test_an_unmapped_linked_service_type_reports_no_platform() -> None:
     client = _FakeClient()
     client.linked_services["my-factory"] = iter(
         [
-            _linked_service(
-                "odata_ls", adf.ODataLinkedService(url=_raw("https://x.invalid"))
+            linked_service_resource(
+                "odata_ls", adf.ODataLinkedService(url=raw("https://x.invalid"))
             )
         ]
     )
@@ -531,18 +514,6 @@ def test_linked_services_say_when_ingestion_will_not_read_them() -> None:
     assert any("include_lineage" in w for w in probe.warnings)
 
 
-def _dataset(name: str, props: Any) -> adf.DatasetResource:
-    resource = adf.DatasetResource(properties=props)
-    resource.name = name
-    return resource
-
-
-def _ls_ref(name: str) -> adf.LinkedServiceReference:
-    return adf.LinkedServiceReference(
-        type="LinkedServiceReference", reference_name=name
-    )
-
-
 def _factory_with_datasets(datasets: List[Any]) -> _FakeClient:
     client = _FakeClient()
     client.datasets["my-factory"] = iter(datasets)
@@ -551,12 +522,12 @@ def _factory_with_datasets(datasets: List[Any]) -> _FakeClient:
 
 
 def _orders_table() -> adf.DatasetResource:
-    return _dataset(
+    return dataset_resource(
         "orders_ds",
         adf.AzureSqlTableDataset(
-            linked_service_name=_ls_ref("sql_ls"),
-            schema_type_properties_schema=_raw("dbo"),
-            table=_raw("orders"),
+            linked_service_name=ls_ref("sql_ls"),
+            schema_type_properties_schema=raw("dbo"),
+            table=raw("orders"),
         ),
     )
 
@@ -579,20 +550,24 @@ def test_a_dataset_on_an_unmapped_linked_service_says_why_it_will_not_resolve() 
     client = _FakeClient()
     client.datasets["my-factory"] = iter(
         [
-            _dataset(
-                "feed_ds", adf.ODataResourceDataset(linked_service_name=_ls_ref("o"))
+            dataset_resource(
+                "feed_ds", adf.ODataResourceDataset(linked_service_name=ls_ref("o"))
             )
         ]
     )
     client.linked_services["my-factory"] = iter(
-        [_linked_service("o", adf.ODataLinkedService(url=_raw("https://x.invalid")))]
+        [
+            linked_service_resource(
+                "o", adf.ODataLinkedService(url=raw("https://x.invalid"))
+            )
+        ]
     )
     probe = _probe(client)
     [record] = probe.datasets("my-factory")
     assert record["urn"] is None
     assert "OData" in str(record["unresolved_reason"])
     # The connector's own report.warning() reaches the result through probe_report.
-    assert len(probe.probe_report.warnings) == 1
+    assert "Unmapped Linked Service Type" in log_titles(probe.probe_report.warnings)
 
 
 def test_a_dataset_whose_linked_services_could_not_be_listed_says_so() -> None:
@@ -607,13 +582,13 @@ def test_a_dataset_whose_linked_services_could_not_be_listed_says_so() -> None:
 
 
 def test_a_dataset_record_never_carries_request_headers() -> None:
-    http = _dataset(
+    http = dataset_resource(
         "api_ds",
         adf.HttpDataset(
-            linked_service_name=_ls_ref("blob_ls"),
-            relative_url=_raw("/v1/items"),
-            additional_headers=_raw(f"Authorization: Bearer {PLANTED}"),
-            request_body=_raw(PLANTED),
+            linked_service_name=ls_ref("blob_ls"),
+            relative_url=raw("/v1/items"),
+            additional_headers=raw(f"Authorization: Bearer {PLANTED}"),
+            request_body=raw(PLANTED),
         ),
     )
     out = _probe(_factory_with_datasets([http])).datasets("my-factory")

@@ -2,7 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Iterator, Optional
+from typing import Dict, Iterator, Optional, Set
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -175,6 +175,7 @@ class BaseFabricClient(ABC):
             Item dictionaries from each page's "value" array
         """
         request_params: Dict[str, str] = dict(params or {})
+        seen_tokens: Set[str] = set()
         page = 1
         while True:
             response = self.get(endpoint, params=request_params)
@@ -184,7 +185,9 @@ class BaseFabricClient(ABC):
             yield from items
 
             continuation_token = data.get("continuationToken")
-            if not continuation_token:
+            if not continuation_token or self._is_repeated_token(
+                endpoint, continuation_token, seen_tokens
+            ):
                 break
             request_params["continuationToken"] = continuation_token
             page += 1
@@ -206,6 +209,7 @@ class BaseFabricClient(ABC):
         Yields:
             Item dictionaries from each page's "value" array
         """
+        seen_tokens: Set[str] = set()
         page = 1
         while True:
             response = self.post(endpoint, json=body)
@@ -218,10 +222,29 @@ class BaseFabricClient(ABC):
             continuation_token = (
                 data.get("continuationToken") if isinstance(data, dict) else None
             )
-            if not continuation_token:
+            if not continuation_token or self._is_repeated_token(
+                endpoint, continuation_token, seen_tokens
+            ):
                 break
             body["continuationToken"] = continuation_token
             page += 1
+
+    def _is_repeated_token(
+        self, endpoint: str, continuation_token: str, seen_tokens: Set[str]
+    ) -> bool:
+        """Guard against a server that hands back a token it already issued:
+        following it would re-request the same page forever."""
+        if continuation_token in seen_tokens:
+            logger.warning(
+                f"{endpoint} returned a continuation token it already issued; "
+                f"stopping pagination to avoid an infinite loop"
+            )
+            self.report.report_parse_failure(
+                f"{endpoint}: repeated continuationToken, pagination stopped"
+            )
+            return True
+        seen_tokens.add(continuation_token)
+        return False
 
     def _list_workspaces_raw(self) -> Iterator[dict]:
         """List all accessible Fabric workspaces (raw data).

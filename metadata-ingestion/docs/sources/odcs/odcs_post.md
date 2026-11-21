@@ -197,6 +197,44 @@ never clears assets it did not add and the product is never stale-removed — dr
 via the DataProduct SDK. An asset the product already carries is promoted to an output port
 in place.
 
+#### Domains
+
+ODCS names a contract's data domain in the free-text `domain` field (there is no sub-domain
+field). With `emit_domain_association: true` the source sets that DataHub Domain on the
+contract's **logical `odcs` datasets**. Physical datasets are never touched, because their
+domain is often set by another connector or by hand.
+
+The value is resolved against DataHub in order:
+
+1. the value as an id: a full `urn:li:domain:...` value, or `urn:li:domain:<value>`, when a
+   domain exists under that urn;
+2. an exact, case-insensitive match on a domain's **name**. Domains created in the UI get
+   generated ids, so this is how a value like `Sales` finds them.
+
+A name carried by more than one domain (for example, same-named sub-domains under different
+parents) is ambiguous and skipped with a warning; set `domain` to the intended domain's id. A
+value that is a urn but not a plain Domain urn (another entity's urn, odd casing) is never
+read as an id.
+
+When nothing matches, ODCS **creates** the domain at `urn:li:domain:<value>`, named after its
+id (the value itself, or the id part of a full urn), with a description noting that the ODCS
+connector created it (`report.domains_created`). Creation needs a DataHub graph that has
+confirmed the domain is absent, and a value that forms a valid id. A value that cannot (for
+example, one containing commas or parentheses) must match an existing domain by name.
+Values that differ only in case reuse the domain created earlier in the same run. Set
+`verify_domain_exists: true` to report a missing domain instead of creating it. Unlike
+`verify_data_product_exists`, it defaults to `false`, because a domain is a simple grouping
+that is safe to create from a contract.
+
+ODCS never rewrites the name or description of an existing domain and never stale-removes a
+domain, even one it created. A failed lookup is reported (`report.domains_unresolved`),
+creates nothing, and leaves the datasets' current domain in place, so a transient error can
+neither produce a duplicate nor replace a domain. With a file sink there is no graph: the
+id-derived urn is set unverified with a warning, and nothing is created.
+
+With the option on, the contract owns the logical dataset's domain: dropping `domain` from a
+contract clears it on the next run. An unresolved value leaves the current domain in place.
+
 ### Limitations
 
 - ODCS v3.0, v3.1 and v3.2 only. Contracts reporting v2.x in `apiVersion` are skipped with a

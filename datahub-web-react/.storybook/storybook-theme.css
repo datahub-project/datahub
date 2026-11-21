@@ -36,6 +36,42 @@ body {
 	font-family: 'Mulish', sans-serif !important;
 }
 
+/* antd 4's antd.css set these base styles; antd 5's reset.css leaves them out */
+body {
+	color: rgba(0, 0, 0, 0.85);
+	font-size: 14px;
+	font-variant: tabular-nums;
+	line-height: 1.5715;
+	background-color: #fff;
+	font-feature-settings: 'tnum';
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	color: rgba(0, 0, 0, 0.85);
+}
+
+a {
+	color: #1890ff;
+	text-decoration: none;
+	background-color: transparent;
+	outline: none;
+	cursor: pointer;
+	transition: color 0.3s;
+}
+
+a:hover {
+	color: #40a9ff;
+}
+
+a:active {
+	color: #096dd9;
+}
+
 ::-webkit-scrollbar {
 	height: 8px;
 	width: 8px;

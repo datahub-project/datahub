@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { glossaryTermUrlPreservingTab } from '@app/entityV2/glossaryTerm/glossaryTermUrl';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/entityData';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';

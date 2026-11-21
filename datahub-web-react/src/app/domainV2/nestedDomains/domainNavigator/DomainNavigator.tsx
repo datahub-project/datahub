@@ -219,7 +219,7 @@ function DomainNavigatorInner({
     // Collapsed: local TreeContainer so the icon column can scroll.
     if (isSidebar) {
         if (isCollapsed) {
-            return <TreeContainer>{treeBody}</TreeContainer>;
+            return <TreeContainer $isCollapsed>{treeBody}</TreeContainer>;
         }
         return <>{treeBody}</>;
     }

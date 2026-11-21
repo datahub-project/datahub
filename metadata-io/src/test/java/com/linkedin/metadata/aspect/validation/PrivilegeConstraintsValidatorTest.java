@@ -42,6 +42,7 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
@@ -299,6 +300,7 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertNotNull(exception);
     Assert.assertTrue(
         exception.getMessage().contains("Unauthorized to modify one or more tag Urns"));
+    Assert.assertEquals(exception.getSubType(), ValidationSubType.AUTHORIZATION);
   }
 
   @Test
@@ -449,6 +451,7 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertNotNull(exception);
     Assert.assertTrue(
         exception.getMessage().contains("Unauthorized to modify one or more tag Urns"));
+    Assert.assertEquals(exception.getSubType(), ValidationSubType.AUTHORIZATION);
   }
 
   @Test
@@ -605,6 +608,7 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertNotNull(exception);
     Assert.assertTrue(
         exception.getMessage().contains("Unauthorized to modify one or more tag Urns"));
+    Assert.assertEquals(exception.getSubType(), ValidationSubType.AUTHORIZATION);
   }
 
   @Test
@@ -883,6 +887,7 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertNotNull(exception);
     Assert.assertTrue(
         exception.getMessage().contains("Unauthorized to modify one or more tag Urns"));
+    Assert.assertEquals(exception.getSubType(), ValidationSubType.AUTHORIZATION);
     // Pins that the PATCH was resolved: only the added tag reaches the authorization check.
     authUtilMockedStatic.verify(
         () ->
@@ -1391,15 +1396,16 @@ public class PrivilegeConstraintsValidatorTest {
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(false);
 
-    Assert.assertTrue(
+    Optional<AspectValidationException> denial =
         validator
             .validateProposedAspectsWithAuth(
                 OperationFingerprint.EMPTY,
                 Collections.singletonList(item),
                 retrieverContext,
                 mockAuthSession)
-            .findAny()
-            .isPresent());
+            .findAny();
+    Assert.assertTrue(denial.isPresent());
+    Assert.assertEquals(denial.get().getSubType(), ValidationSubType.AUTHORIZATION);
     // Pins that the PATCH was resolved: only the added tag reaches the authorization check.
     authUtilMockedStatic.verify(
         () ->

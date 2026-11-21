@@ -11,7 +11,7 @@ import { render } from '@utils/test-utils/customRender';
 import { EntityType, PolicyMatchCondition, PolicyType, ResourceFilter } from '@types';
 
 // Mock DomainNavigator completely since it uses GraphQL
-vi.mock('@app/domain/nestedDomains/domainNavigator/DomainNavigator', () => ({
+vi.mock('@app/domainV2/nestedDomains/domainNavigator/DomainNavigator', () => ({
     default: () => <div data-testid="mocked-domain-navigator">Domain Navigator</div>,
 }));
 

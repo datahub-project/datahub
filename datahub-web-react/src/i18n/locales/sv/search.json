@@ -148,7 +148,6 @@
     "searchBar.noResults.clearFilters": "rensa filter",
     "searchBar.noResults.clearFiltersAndView": "rensa filter och vald vy",
     "searchBar.noResults.clearView": "rensa vald vy",
-    "searchBar.noResults.defaultMessage": "Prova att justera din sökning för att hitta det du letar efter",
     "searchBar.noResults.orClearSuggestion": ", eller <clickable>{{clearText}}</clickable>.",
     "searchBar.placeholder": "Hitta tabeller, dashboards, personer och mer",
     "searchBar.placeholderWithShortcut": "{{message}} ({{shortcut}})",

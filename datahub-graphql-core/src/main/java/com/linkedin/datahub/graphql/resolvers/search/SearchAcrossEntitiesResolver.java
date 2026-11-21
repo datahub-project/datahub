@@ -105,6 +105,9 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         baseFilter, maybeResolvedView.getDefinition().getFilter())
                     : baseFilter;
 
+            // Whether the caller's own filter, with its view, has a criterion before the defaults
+            final boolean callerFiltered = FilterUtils.hasCriterion(combinedFilter);
+
             // Add default entity filters (e.g. showInGlobalContext for documents).
             combinedFilter =
                 DefaultEntityFiltersUtil.applyDefaultEntityFilters(
@@ -123,7 +126,12 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             // Execute search and remove default filter fields from aggregations
             SearchResult searchResult =
                 _entityClient.searchAcrossEntities(
-                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags)
+                        .withCallerOptionalFilterFields(
+                            DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
+                        .withCallerFiltered(callerFiltered),
                     finalEntities,
                     sanitizedQuery,
                     combinedFilter,

@@ -1,0 +1,35 @@
+"""
+An entity whose raw aspects can be fetched
+"""
+interface HasRawAspects {
+  """
+  Experimental API. For fetching extra entities that do not have custom UI code yet
+  """
+  aspects(input: AspectParams): [RawAspect]
+}
+
+extend type Api implements HasRawAspects
+extend type Application implements HasRawAspects
+extend type Assertion implements HasRawAspects
+extend type Chart implements HasRawAspects
+extend type Container implements HasRawAspects
+extend type CorpGroup implements HasRawAspects
+extend type CorpUser implements HasRawAspects
+extend type Dashboard implements HasRawAspects
+extend type DataFlow implements HasRawAspects
+extend type DataHubRole implements HasRawAspects
+extend type DataJob implements HasRawAspects
+extend type DataProduct implements HasRawAspects
+extend type Dataset implements HasRawAspects
+extend type Document implements HasRawAspects
+extend type Domain implements HasRawAspects
+extend type GlossaryNode implements HasRawAspects
+extend type GlossaryTerm implements HasRawAspects
+extend type MLFeature implements HasRawAspects
+extend type MLFeatureTable implements HasRawAspects
+extend type MLModel implements HasRawAspects
+extend type MLModelGroup implements HasRawAspects
+extend type MLPrimaryKey implements HasRawAspects
+extend type Notebook implements HasRawAspects
+extend type Repository implements HasRawAspects
+extend type Tag implements HasRawAspects

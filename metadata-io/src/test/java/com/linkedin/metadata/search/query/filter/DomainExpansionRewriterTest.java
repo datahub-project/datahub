@@ -35,6 +35,8 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel;
 import com.linkedin.metadata.search.elasticsearch.query.filter.DomainExpansionRewriter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
@@ -302,6 +304,55 @@ public class DomainExpansionRewriterTest
             testQuery),
         expectedRewrite,
         "Expected rewrite");
+  }
+
+  @Test
+  public void testTermsQueryRewriteExpandsSearchV3FilterField() {
+    String v3FilterField =
+        V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry())
+            .resolver()
+            .exactPath("domains", SearchFieldResolver.Intent.FILTER);
+    assertEquals(v3FilterField, "domains_urn");
+
+    when(mockGraphRetriever.scrollRelatedEntities(
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
+            eq(
+                QueryUtils.newDisjunctiveFilter(
+                    buildCriterion("urn", Condition.EQUAL, List.of(parentUrn)))),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
+            eq(EMPTY_FILTER),
+            eq(Set.of("IsPartOf")),
+            eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+            eq(Edge.EDGE_SORT_CRITERION),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                1,
+                1,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        "IsPartOf", childUrn, parentUrn, RelationshipDirection.INCOMING, null))));
+
+    TermsQueryBuilder testQuery = QueryBuilders.termsQuery(v3FilterField, parentUrn);
+    TermsQueryBuilder expectedRewrite =
+        QueryBuilders.termsQuery(v3FilterField, childUrn, parentUrn);
+
+    assertEquals(
+        getTestRewriter()
+            .rewrite(
+                opContext,
+                QueryFilterRewriterContext.builder()
+                    .condition(Condition.DESCENDANTS_INCL)
+                    .searchType(QueryFilterRewriterSearchType.STRUCTURED_SEARCH)
+                    .queryFilterRewriteChain(mock(QueryFilterRewriteChain.class))
+                    .build(false),
+                testQuery),
+        expectedRewrite,
+        "Expected Within to expand the Search V3 full-URN domain filter");
   }
 
   @Test

@@ -14,6 +14,8 @@ from typing import (
     List,
     NamedTuple,
     Optional,
+    Sequence,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -510,6 +512,19 @@ class AllowDenyPattern(ConfigModel):
         """
         return not self.deny and ".*" in self.allow
 
+    def with_deny(self, *rules: str) -> Self:
+        """A new pattern with `rules` added to the deny list, each listed once:
+        duplicates already in the deny list are collapsed too. Rebuilt rather
+        than mutated or model_copy'd: the copy would carry this instance's
+        compiled-regex caches.
+
+        The rebuild round-trips through `model_dump()`, so a subclass is only
+        preserved faithfully if its fields survive that: no excluded or
+        aliased fields.
+        """
+        deny = deduplicate_list([*self.deny, *rules])
+        return type(self).model_validate({**self.model_dump(), "deny": deny})
+
     def allowed(self, string: str) -> bool:
         if self.denied(string):
             return False
@@ -571,11 +586,37 @@ class Filters:
             Filters(DatasetSubTypes.SALESFORCE_CUSTOM_OBJECT),
         ] = Field(default=AllowDenyPattern.allow_all(), description="...")
 
+    `also_filters` names kinds this field is consulted for WITHOUT being the
+    field a caller would edit for them. Unity's table_pattern is checked for
+    every table-like kind, as its ingestion does, while `view_pattern` stays
+    the field a view's verdict reports and `--try-allow` edits:
+
+        table_pattern: Annotated[
+            AllowDenyPattern,
+            Filters(DatasetSubTypes.TABLE, also_filters=[DatasetSubTypes.VIEW]),
+        ] = Field(default=AllowDenyPattern.allow_all(), description="...")
+
+    Stacking Filters and naming `also_filters` answer different questions, so
+    they do not compete: a stacked kind makes this THE field for that kind,
+    and two fields claiming one kind that way is a declaration error. A kind
+    in `also_filters` adds this field to the set a verdict for that kind may
+    consult, which is what tells the probe whether the verdict could depend on
+    a container nobody named.
+
     `kind` is a DataHub subtype constant — a StrEnum member, hence a str. It is
     typed str so this module stays free of any ingestion imports.
     """
 
     kind: str
+    # A tuple, not a list: Filters is frozen and used as a dict key by the
+    # declaration walk, so it has to stay hashable.
+    also_filters: Tuple[str, ...] = ()
+
+    def __init__(self, kind: str, also_filters: Sequence[str] = ()) -> None:
+        # Written out so callers may pass a list, which reads better at the
+        # field than a one-element tuple's trailing comma.
+        object.__setattr__(self, "kind", kind)
+        object.__setattr__(self, "also_filters", tuple(also_filters))
 
 
 @dataclasses.dataclass(frozen=True)

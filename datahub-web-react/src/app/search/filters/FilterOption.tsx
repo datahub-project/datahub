@@ -3,7 +3,7 @@ import { Button, Checkbox } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { generateColor } from '@app/entity/shared/components/styled/StyledTag';
+import { generateColor } from '@app/entityV2/shared/components/styled/StyledTag';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import { IconSpacer, Label } from '@app/search/filters/styledComponents';
 import { FilterOptionType } from '@app/search/filters/types';
@@ -87,26 +87,28 @@ const LabelCountWrapper = styled.span`
 `;
 
 const ArrowButton = styled(Button)<{ isOpen: boolean }>`
-    margin-left: 4px;
-    background-color: transparent;
-    height: 24px;
-
-    svg {
-        height: 12px;
-        width: 12px;
-    }
-
-    &:hover,
-    &:focus,
-    &:active {
+    && {
+        margin-left: 4px;
         background-color: transparent;
-    }
+        height: 24px;
 
-    ${(props) =>
-        props.isOpen &&
-        `
-        transform: rotate(180deg);
-    `}
+        svg {
+            height: 12px;
+            width: 12px;
+        }
+
+        &:hover,
+        &:focus,
+        &:active {
+            background-color: transparent;
+        }
+
+        ${(props) =>
+            props.isOpen &&
+            `
+            transform: rotate(180deg);
+        `}
+    }
 `;
 
 const ParentWrapper = styled.div`

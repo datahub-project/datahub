@@ -1,9 +1,13 @@
 import React from 'react';
 
-import { AppConfig, PersonalSidebarSection, PoliciesConfig, SearchBarApi } from '@types';
+import { AppConfig, FeatureFlagsConfig, PersonalSidebarSection, PoliciesConfig, SearchBarApi } from '@types';
 
-export type AppConfigWithoutPolicyPrivileges = Omit<AppConfig, 'policiesConfig'> & {
+/** Feature flags the frontend queries. Deprecated fields are left out. */
+export type FeatureFlags = Omit<FeatureFlagsConfig, 'showIngestionPageRedesign' | 'ingestionOnboardingRedesignV1'>;
+
+export type AppConfigWithoutPolicyPrivileges = Omit<AppConfig, 'policiesConfig' | 'featureFlags'> & {
     policiesConfig: Omit<PoliciesConfig, 'platformPrivileges' | 'resourcePrivileges'>;
+    featureFlags: FeatureFlags;
 };
 
 export const DEFAULT_APP_CONFIG = {
@@ -77,12 +81,14 @@ export const DEFAULT_APP_CONFIG = {
         browserWebVitalsEnabled: false,
         businessAttributeEntityEnabled: false,
         dataContractsEnabled: false,
+        showApplicationsFeatureToggle: false,
         editableDatasetNameEnabled: false,
         themeV2Enabled: false,
         themeV2Default: false,
         themeV2Toggleable: false,
         themeDarkModeEnabled: false,
         showSeparateSiblings: false,
+        maxSiblingGroupUrns: 0,
         schemaFieldCLLEnabled: false,
         schemaFieldLineageIgnoreStatus: false,
         showManageStructuredProperties: false,
@@ -94,8 +100,6 @@ export const DEFAULT_APP_CONFIG = {
         showSearchBarAutocompleteRedesign: false,
         showManageTags: false,
         showIntroducePage: false,
-        showIngestionPageRedesign: false,
-        ingestionOnboardingRedesignV1: false,
         showLineageExpandMore: false,
         showLineageFilterNodes: false,
         showDefaultExternalLinks: true,
@@ -117,6 +121,7 @@ export const DEFAULT_APP_CONFIG = {
         multipleDataProductsPerAsset: false,
         showTestsInHealthIcon: false,
         i18nEnabled: true,
+        showGithubStarPrompt: false,
     },
     chromeExtensionConfig: {
         enabled: false,
