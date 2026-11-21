@@ -2209,6 +2209,33 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testRestatedSemanticContentWithoutPreviousCreatesAMissingDocument() throws Exception {
+    // A RESTATE from primary storage has no previous aspect, so its payload is every profile, not a
+    // diff. A document the index lacks must be created with those profiles. A diff-shaped write
+    // would be update-only and fail against the missing document, dropping the profiles.
+    when(mockAspectSpec.getName()).thenReturn("semanticContent");
+    when(mockEvent.getAspectName()).thenReturn("semanticContent");
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.RESTATE);
+    when(mockEvent.getPreviousRecordTemplate()).thenReturn(null);
+    when(searchDocumentTransformer.transformAspect(
+            eq(operationContext),
+            eq(testUrn),
+            eq(mockAspect),
+            eq(mockAspectSpec),
+            eq(false),
+            eq(mockAuditStamp)))
+        .thenReturn(Optional.of(searchDocument("restated")));
+
+    strategy.processBatch(operationContext, Map.of(testUrn, List.of(mockEvent)), true);
+
+    ArgumentCaptor<V3SearchDocumentWrite> writeCaptor =
+        ArgumentCaptor.forClass(V3SearchDocumentWrite.class);
+    verify(elasticSearchService).writeV3SearchDocument(eq(operationContext), writeCaptor.capture());
+    assertEquals(writeCaptor.getValue().kind(), V3SearchDocumentWrite.Kind.MERGE);
+    assertNull(writeCaptor.getValue().upsertSource());
+  }
+
+  @Test
   public void testSupersededBaselineEventDoesNotMakeTheWriteABaselineFill() throws Exception {
     RecordTemplate baselineAspect = org.mockito.Mockito.mock(RecordTemplate.class);
     RecordTemplate liveAspect = org.mockito.Mockito.mock(RecordTemplate.class);
