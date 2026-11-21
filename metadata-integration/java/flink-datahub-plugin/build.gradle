@@ -1,0 +1,71 @@
+plugins {
+    id("com.palantir.git-version") apply false
+}
+apply plugin: 'java'
+apply plugin: 'com.gradleup.shadow'
+apply plugin: 'signing'
+apply plugin: 'io.codearte.nexus-staging'
+apply plugin: 'maven-publish'
+apply from: '../versioning.gradle'
+
+jar.enabled = false
+
+project.archivesBaseName = 'datahub-'+project.name
+
+configurations {
+    provided
+    implementation.extendsFrom provided
+}
+
+ext {
+    flinkVersion = '1.20.1'
+    datahubVersion = '1.0.0rc13'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    annotationProcessor "org.projectlombok:lombok:1.18.30"
+    compileOnly "org.projectlombok:lombok:1.18.30"
+
+    compileOnly "org.apache.flink:flink-java:${flinkVersion}"
+    compileOnly 'org.slf4j:slf4j-simple:2.0.9'
+
+    implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
+
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+jar {
+    manifest {
+        attributes 'Built-By': System.getProperty('user.name'),
+                'Build-Jdk': System.getProperty('java.version')
+    }
+}
+
+shadowJar {
+    relocate 'org.apache.avro', 'com.checkout.shaded.org.apache.avro'
+    relocate 'io.confluent', 'com.checkout.shaded.io.confluent'
+    relocate 'org.apache.kafka', 'com.checkout.shaded.org.apache.kafka'
+    relocate 'com.fasterxml.jackson', 'com.checkout.shaded.jackson'
+    relocate 'com.google.common', 'com.checkout.shaded.com.google.common'
+    relocate 'org.apache.http', 'com.checkout.shaded.org.apache.http'
+    relocate 'com.linkedin.common', 'com.checkout.shaded.com.linkedin.common'
+    relocate 'datahub', 'com.checkout.shaded.datahub'
+
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+    exclude 'org/slf4j/impl/**', 'log4j.properties', 'log4j2.xml'
+
+    mergeServiceFiles()
+
+    zip64 = true
+}
+
+build.dependsOn shadowJar
+
+test {
+    useJUnitPlatform()
+}
