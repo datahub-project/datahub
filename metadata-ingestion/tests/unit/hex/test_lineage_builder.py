@@ -1167,11 +1167,10 @@ def test_build_from_queried_tables_snowflake_uppercase_urn_overrides_lowercase_d
     assert urns == [uppercase_urn]
 
 
-def test_build_from_queried_tables_mssql_case_preserved_urn_not_matched_by_resolver():
-    """Pins a known limitation: ``normalize_identifiers`` folds the tableName
-    before the resolver probes DataHub, so on case-folding dialects
-    (mssql/postgres/redshift) a case-preserved landed URN is not matched. A
-    future resolver-level fix must update this assertion explicitly."""
+def test_build_from_queried_tables_mssql_case_preserved_urn_matched_by_resolver():
+    """``normalize_identifiers`` folds the tableName before the resolver probes
+    DataHub; the resolver still matches the case-preserved registered URN on
+    case-insensitive platforms."""
     report = LineageBuilderReport()
     b = _builder(
         report=report,
@@ -1197,18 +1196,9 @@ def test_build_from_queried_tables_mssql_case_preserved_urn_not_matched_by_resol
     urns = b.build_from_queried_tables(
         [{"dataConnectionId": "conn-mssql", "tableName": "Orders"}]
     )
-    # Emitted URN is lowercased — the case-preserved landed URN is not matched,
-    # so the dataset edge dangles.
-    assert len(urns) == 1
-    assert urns[0] == make_dataset_urn_with_platform_instance(
-        platform="mssql",
-        name="mydb.dbo.orders",
-        platform_instance=None,
-        env="PROD",
-    )
-    # Miss is observable via the report counter.
-    assert report.queried_tables_unresolved_in_datahub == 1
-    assert list(report.queried_tables_unresolved_sample) == urns
+
+    assert urns == [landed_urn]
+    assert report.queried_tables_unresolved_in_datahub == 0
 
 
 def test_build_from_queried_tables_unresolved_counter_stays_zero_without_graph():
