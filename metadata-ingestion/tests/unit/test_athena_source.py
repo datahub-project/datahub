@@ -920,6 +920,33 @@ def test_get_column_type_array():
     assert isinstance(result.item_type, types.String)
 
 
+def test_get_column_type_nested_array():
+    # SQLAlchemy refuses ARRAY(ARRAY(...)); before the fix this raised
+    # "Do not nest ARRAY types" and the whole table lost its columns.
+    result = CustomAthenaRestDialect()._get_column_type(type_="array<array<string>>")
+
+    assert isinstance(result, types.ARRAY)
+    assert result.dimensions == 2
+    assert isinstance(result.item_type, types.String)
+
+
+def test_nested_array_of_struct_schema_fields() -> None:
+    # The shape of Overture Maps' divisions `hierarchies` column.
+    fields = _athena_schema_fields(
+        "hierarchies",
+        "array<array<struct<division_id:string,subtype:string,name:string>>>",
+    )
+
+    by_path = {f.fieldPath: f for f in fields}
+    root = (
+        "[version=2.0].[type=struct].[type=array].[type=array].[type=struct]"
+        ".hierarchies"
+    )
+    assert by_path[root].nativeDataType.startswith("array<array<")
+    assert f"{root}.[type=string].division_id" in by_path
+    assert f"{root}.[type=string].name" in by_path
+
+
 def test_get_column_type_map():
     result = CustomAthenaRestDialect()._get_column_type(type_="map<string,int>")
 
