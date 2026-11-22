@@ -40,6 +40,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -241,6 +243,9 @@ final class TemplateSearchExecutor {
           false);
     }
     String normalizedQuery = normalizeQuery(bound, input);
+    // The vector rungs attempted, so the served rung's kind needs no second template load.
+    // Parallel members run on the ladder executor.
+    final Set<String> vectorRungs = ConcurrentHashMap.newKeySet();
     SearchTemplateWalk.Served<SearchResult> served =
         SearchTemplateWalk.walk(
             bound,
@@ -271,6 +276,7 @@ final class TemplateSearchExecutor {
             (urn, assigned) -> {
               MergedSearchTemplate template = coordinator.loader().load(bound, urn);
               if (SearchTemplateCapabilities.vectorRetrieval(template)) {
+                vectorRungs.add(urn);
                 return vectorSearch.attempt(
                     bound, template, assigned, input, postFilters, from, size, facets);
               }
@@ -300,6 +306,7 @@ final class TemplateSearchExecutor {
     if (current != null) {
       current.setHighlightFields(served.highlights());
       current.setTemplateSortApplied(served.templateSort());
+      current.setVectorServed(served.urn() != null && vectorRungs.contains(served.urn()));
     }
     // Every sort records the served rung, so a keywordRerank search can report that its rerank does
     // not apply. Whether it applies is decided where the page is ranked.

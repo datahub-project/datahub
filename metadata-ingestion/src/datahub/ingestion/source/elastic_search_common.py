@@ -33,17 +33,9 @@ _MAX_REFRESH_BACKOFF_SECONDS = 240.0
 ApiKey = Union[Tuple[str, TransparentSecretStr], TransparentSecretStr]
 
 
-def _api_key_authorization(api_key: Union[Tuple[str, SecretStr], SecretStr]) -> str:
-    # An (id, api_key) pair is base64-encoded as "id:api_key"; a plain string is passed
-    # through as the already-encoded token.
-    if isinstance(api_key, tuple):
-        key_id, secret = api_key
-        token = base64.b64encode(
-            f"{key_id}:{secret.get_secret_value()}".encode()
-        ).decode()
-    else:
-        token = api_key.get_secret_value()
-    return f"ApiKey {token}"
+def _encode_api_key_pair(key_id: str, secret: SecretStr) -> str:
+    # Elasticsearch expects an (id, api_key) pair as base64("id:api_key").
+    return base64.b64encode(f"{key_id}:{secret.get_secret_value()}".encode()).decode()
 
 
 class ElasticsearchConnectionConfig(ConfigModel):
@@ -103,6 +95,17 @@ class ElasticsearchConnectionConfig(ConfigModel):
         default=None,
         description="AWS connection settings for IAM authentication against an Amazon OpenSearch Service domain. When set, every request is signed with AWS Signature Version 4 using the resolved credentials (explicit keys, profile, role assumption, or the default credential chain). aws_region, use_ssl: True and verify_certs: True are required. Cannot be combined with username/password or api_key, and aws_role cannot be combined with aws_profile or explicit keys. OpenSearch Serverless collections are not supported.",
     )
+
+    @field_validator("api_key", mode="after")
+    @classmethod
+    def encode_api_key_pair(cls, api_key: Optional[ApiKey]) -> Optional[ApiKey]:
+        # Secret masking and redaction only see SecretStr fields, not a secret
+        # inside a tuple, so the [id, api_key] form is stored as the encoded
+        # token it is sent as.
+        if isinstance(api_key, tuple):
+            key_id, secret = api_key
+            return TransparentSecretStr(_encode_api_key_pair(key_id, secret))
+        return api_key
 
     @field_validator("host", mode="after")
     @classmethod
@@ -183,8 +186,10 @@ class ElasticsearchConnectionConfig(ConfigModel):
         # sent as an Authorization header instead.
         extra_client_args: Dict[str, Any] = dict(client_kwargs)
         if self.api_key is not None:
+            # encode_api_key_pair has already turned a pair into its token.
+            assert isinstance(self.api_key, SecretStr)
             extra_client_args["headers"] = {
-                "Authorization": _api_key_authorization(self.api_key)
+                "Authorization": f"ApiKey {self.api_key.get_secret_value()}"
             }
         http_auth: Optional[Union[Tuple[str, str], Urllib3AWSV4SignerAuth]] = (
             self.http_auth

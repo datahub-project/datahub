@@ -176,14 +176,16 @@ class TestMapping:
 
 
 class TestQuery:
-    def test_query_filter_is_added_next_to_the_exists_filter(self) -> None:
+    def test_query_filter_and_tolerant_timestamp_sort(self) -> None:
         time_range = {"range": {"@timestamp": {"gte": "now-30d"}}}
         query = _reader(query_filter=time_range).build_query()
-        assert query["query"]["bool"]["filter"] == [
-            {"exists": {"field": "object"}},
-            time_range,
+        # No exists filter on the query field, so a wrong mapping reaches the
+        # "No records had SQL" check instead of looking like an empty index.
+        assert query["query"]["bool"]["filter"] == [time_range]
+        assert query["sort"] == [
+            {"@timestamp": {"order": "asc", "unmapped_type": "date"}},
+            {"_doc": "asc"},
         ]
-        assert query["sort"] == [{"@timestamp": {"order": "asc"}}, {"_doc": "asc"}]
 
     def test_no_timestamp_mapping_means_unordered_scroll(self) -> None:
         reader = _reader(field_mappings={"query": "object", "timestamp": None})
