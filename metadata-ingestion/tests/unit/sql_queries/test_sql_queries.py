@@ -772,6 +772,15 @@ class TestSqlQueriesSource:
         same = observed_for(QueryEntry(query="SELECT 1 FROM t", default_db="config_db"))
         assert same.query_hash is None
 
+        # Identifier case doesn't change what a name resolves to, so it must
+        # neither split a Query from the config default nor from another row.
+        upper = observed_for(
+            QueryEntry(query="SELECT 1 FROM t", default_db="CONFIG_DB")
+        )
+        assert upper.query_hash is None
+        a_upper = observed_for(QueryEntry(query="SELECT 1 FROM t", default_db="DB_A"))
+        assert a_upper.query_hash == a.query_hash
+
     def test_per_row_defaults_resolve_unqualified_tables(
         self, pipeline_context, query_file_with
     ):

@@ -45,6 +45,7 @@ import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -727,6 +728,60 @@ public class SearchAcrossEntitiesResolverTest {
             .map(context -> context.getSearchContext().getCallerFiltered())
             .collect(Collectors.toList()),
         List.of(false, true, true));
+  }
+
+  @Test
+  public static void testHoldsASimilarityAnchorToTheDocumentDefaults() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setNumEntities(0)
+                .setFrom(0)
+                .setPageSize(0)
+                .setMetadata(new SearchResultMetadata()));
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
+    SearchFlags hiddenStages = new SearchFlags();
+    hiddenStages.setIncludeHiddenLifecycleStages(true);
+
+    for (SearchAcrossEntitiesInput input :
+        ImmutableList.of(
+            new SearchAcrossEntitiesInput(
+                ImmutableList.of(EntityType.DOCUMENT), "q", 0, 10, null, null, null, null, null),
+            new SearchAcrossEntitiesInput(
+                ImmutableList.of(EntityType.DATASET), "q", 0, 10, null, null, null, null, null),
+            new SearchAcrossEntitiesInput(
+                ImmutableList.of(EntityType.DOCUMENT),
+                "q",
+                0,
+                10,
+                null,
+                null,
+                null,
+                hiddenStages,
+                null))) {
+      DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+      QueryContext mockContext = getMockAllowContext();
+      Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+      Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+      resolver.get(mockEnv).get();
+    }
+
+    // A search of datasets adds no defaults to its filter, but it can still name a document as its
+    // anchor, so the anchor is held to them. Only includeHiddenLifecycleStages lifts them.
+    ArgumentCaptor<OperationContext> contexts = ArgumentCaptor.forClass(OperationContext.class);
+    Mockito.verify(mockClient, Mockito.times(3))
+        .searchAcrossEntities(
+            contexts.capture(), any(), any(), any(), anyInt(), anyInt(), any(), any());
+    Assert.assertEquals(
+        contexts.getAllValues().stream()
+            .map(context -> context.getSearchContext().getAnchorFilter())
+            .collect(Collectors.toList()),
+        Arrays.asList(buildDocumentDefaultFilter(), buildDocumentDefaultFilter(), null));
   }
 
   private static ViewService initMockViewService(Urn viewUrn, DataHubViewInfo viewInfo) {

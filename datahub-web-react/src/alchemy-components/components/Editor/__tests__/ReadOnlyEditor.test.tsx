@@ -116,6 +116,38 @@ describe('read-only editor', () => {
         expect(srcset).toContain('/ok.png');
     });
 
+    it('keeps a raster data uri on an image and drops it everywhere else', () => {
+        const png = 'data:image/png;base64,iVBORw0KGgo=';
+        const doc = documentFor(
+            [
+                `<img src="${png}" alt="shot">`,
+                `<a href="${png}">not a link target</a>`,
+                '<img src="data:image/svg+xml;base64,PHN2Zz4=" alt="svg">',
+                '<img src="data:text/html;base64,PGh0bWw+" alt="html">',
+            ].join(''),
+        );
+        expect(doc.querySelector('img[alt="shot"]')?.getAttribute('src')).toBe(png);
+        expect(doc.querySelector('a')?.hasAttribute('href')).toBe(false);
+        expect(doc.querySelector('img[alt="svg"]')?.hasAttribute('src')).toBe(false);
+        expect(doc.querySelector('img[alt="html"]')?.hasAttribute('src')).toBe(false);
+    });
+
+    it('renders a markdown data image', () => {
+        const png = 'data:image/png;base64,iVBORw0KGgo=';
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Editor content={`![shot](${png})`} readOnly />
+            </ThemeProvider>,
+        );
+        expect(screen.getByRole('img', { name: 'shot' })).toHaveAttribute('src', png);
+    });
+
+    it('drops a data image larger than the cap', () => {
+        const png = `data:image/png;base64,${'A'.repeat(2_000_000)}`;
+        const doc = documentFor(`<img src="${png}" alt="huge">`);
+        expect(doc.querySelector('img')?.hasAttribute('src')).toBe(false);
+    });
+
     it('does not fetch a backslash url from a table background or an svg image', () => {
         const markup = [
             '<table background="/\\evil.example/x.png"><tr><td>x</td></tr></table>',

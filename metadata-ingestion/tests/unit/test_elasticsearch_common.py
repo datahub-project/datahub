@@ -7,27 +7,27 @@ from pydantic import SecretStr
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.elastic_search_common import (
     ElasticsearchConnectionConfig,
-    _api_key_authorization,
 )
+from datahub.masking.secret_registry import SecretRegistry
 
 
-def test_api_key_authorization_tuple_is_base64_encoded():
-    header = _api_key_authorization(("my-id", SecretStr("my-secret")))
-    assert header == f"ApiKey {base64.b64encode(b'my-id:my-secret').decode()}"
-
-
-def test_api_key_authorization_string_passed_through():
+def test_api_key_pair_is_stored_as_its_encoded_token():
+    config = ElasticsearchConnectionConfig(api_key=["my-id", "my-secret"])
+    assert isinstance(config.api_key, SecretStr)
     assert (
-        _api_key_authorization(SecretStr("already-encoded")) == "ApiKey already-encoded"
+        config.api_key.get_secret_value()
+        == base64.b64encode(b"my-id:my-secret").decode()
     )
 
 
-def test_api_key_is_masked_in_repr():
-    config = ElasticsearchConnectionConfig(api_key=["my-id", "my-secret"])
-    assert "my-secret" not in repr(config)
-
-    config = ElasticsearchConnectionConfig(api_key="encoded-token")
-    assert "encoded-token" not in repr(config)
+def test_api_key_is_masked() -> None:
+    for api_key in (["my-id", "my-secret"], "encoded-token"):
+        config = ElasticsearchConnectionConfig(api_key=api_key)
+        assert isinstance(config.api_key, SecretStr)
+        token = config.api_key.get_secret_value()
+        assert token not in repr(config)
+        assert token not in str(config.model_dump_redacted())
+        assert token in SecretRegistry.get_instance().get_all_secrets()
 
 
 def test_http_auth_pairs_username_with_password():
