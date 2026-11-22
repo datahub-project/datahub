@@ -108,9 +108,10 @@ class SqlAlchemyColumnToAvroConverter:
         if isinstance(column_type, types.ARRAY):
             array_type = column_type.item_type
             # a multi-dimensional ARRAY is an array of arrays, one level per dimension
-            if (column_type.dimensions or 1) > 1:
+            dimensions = column_type.dimensions or 1
+            if dimensions > 1:
                 array_type = types.ARRAY(
-                    column_type.item_type, dimensions=column_type.dimensions - 1
+                    column_type.item_type, dimensions=dimensions - 1
                 )
             items = cls.get_avro_type(column_type=array_type, nullable=nullable)
             item_native = (
