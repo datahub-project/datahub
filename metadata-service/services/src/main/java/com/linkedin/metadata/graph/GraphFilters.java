@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph;
 
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 
 import com.linkedin.metadata.models.registry.LineageRegistry;
@@ -69,10 +70,33 @@ public class GraphFilters {
         triplets.add(Pair.of(entityType, edge));
       }
     }
+    triplets.addAll(schemaFieldLineageTriplets(lineageRegistry));
     GraphFilters filters =
         new GraphFilters(EMPTY_FILTER, EMPTY_FILTER, null, null, Set.of(), INCOMING_FILTER);
     filters.setAllowedEdgeTriplets(triplets);
     return filters;
+  }
+
+  /**
+   * Column-level lineage (schemaField DownstreamOf schemaField). {@code fineGrainedLineages} has no
+   * {@code isLineage} annotation, so these edges are missing from the registry's lineage specs and
+   * are added here. Chart/dashboard {@code consumesField} edges are not: the scroll endpoint would
+   * orient them backwards.
+   */
+  private static Set<Pair<String, LineageRegistry.EdgeInfo>> schemaFieldLineageTriplets(
+      @Nonnull LineageRegistry lineageRegistry) {
+    return Stream.of(LineageDirection.UPSTREAM, LineageDirection.DOWNSTREAM)
+        .flatMap(
+            direction ->
+                lineageRegistry
+                    .getLineageRelationships(SCHEMA_FIELD_ENTITY_NAME, direction)
+                    .stream())
+        .filter(
+            edge ->
+                "DownstreamOf".equals(edge.getType())
+                    && SCHEMA_FIELD_ENTITY_NAME.equals(edge.getOpposingEntityType()))
+        .map(edge -> Pair.of(SCHEMA_FIELD_ENTITY_NAME.toLowerCase(), edge))
+        .collect(Collectors.toSet());
   }
 
   @Nonnull private Filter sourceEntityFilter;
