@@ -59,6 +59,8 @@ The v3 Export API is asynchronous; for very large orgs, the default `export_poll
 
 The connector emits a report warning titled "IDMC export job timed out" for each timed-out batch and records it under `export_jobs_failed`.
 
+Taskflow exports are slower than mapping exports, and `export_batch_size` applies to both. A timed-out Taskflow batch also reports "IDMC Taskflow batch export timed out": those Taskflows are still ingested, without their step DAGs. If you see it, lower `export_batch_size` (for example to 100). The connector doesn't retry the Taskflows in a failed batch one at a time, so a timeout doesn't turn into one export job per Taskflow.
+
 #### Add-On Bundles showing up
 
 IDMC ships several marketplace bundles (e.g. Cloud Data Integration templates). The connector filters these out automatically by checking `path.startswith("Add-On Bundles/")` or `updated_by == "bundle-license-notifier"`. If you see bundle mappings leaking through, open an issue with the offending object's path.

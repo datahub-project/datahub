@@ -50,6 +50,7 @@ public class DataHubUsageEventTypeTest {
     assertEquals(
         DataHubUsageEventType.WELCOME_TO_DATAHUB_MODAL_CLICK_VIEW_DOCUMENTATION_EVENT.getType(),
         "WelcomeToDataHubModalClickViewDocumentationEvent");
+    assertEquals(DataHubUsageEventType.GITHUB_STAR_CLICK_EVENT.getType(), "GithubStarClickEvent");
   }
 
   @Test

@@ -639,6 +639,12 @@ public class AggregateAcrossEntitiesResolverTest {
             .map(context -> context.getSearchContext().getCallerFiltered())
             .collect(Collectors.toList()),
         List.of(false, true));
+    // An aggregation counts a similarity rung's neighbors, so its anchor is held to the defaults
+    assertEquals(
+        contexts.getAllValues().stream()
+            .map(context -> context.getSearchContext().getAnchorFilter())
+            .collect(Collectors.toList()),
+        List.of(buildDocumentDefaultFilter(), buildDocumentDefaultFilter()));
   }
 
   private static ViewService initMockViewService(Urn viewUrn, DataHubViewInfo viewInfo) {

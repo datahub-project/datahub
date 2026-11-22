@@ -21,6 +21,7 @@ import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRetrieval;
+import com.linkedin.search.template.SearchTemplateRouteArray;
 import com.linkedin.search.template.SearchTemplateSearchType;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
@@ -42,6 +43,13 @@ public class SearchTemplateBootstrapTest {
   private static final String LIGHT = "urn:li:searchTemplate:light";
   private static final String SEMANTIC = "urn:li:searchTemplate:semantic";
   private static final String SIMILARITY = "urn:li:searchTemplate:similarity";
+  // The description version 18 wrote, before the URN route, which the semantic revert restores
+  private static final String VERSION_18_SEMANTIC_DESCRIPTION =
+      "Semantic search. Embeds the query and retrieves one window of nearest neighbors for the"
+          + " requested entity types that semantic search covers, inside the caller's filter and"
+          + " the default search filters. The page, the total, and the facets cover those"
+          + " neighbors. An entity type that semantic search does not cover is left out, and a"
+          + " request with no such type returns no results.";
   private static final String PROPERTY = "urn:li:structuredProperty:retention";
   private static final String PROPERTY_QUERY =
       "{\"match\": {\"name\": \"{{query}} {{urn:li:structuredProperty:retention}}\"}}";
@@ -205,10 +213,10 @@ public class SearchTemplateBootstrapTest {
 
   /**
    * fulltext reranks with the default blend and no floor, and light inherits that rerank rather
-   * than restating it. semantic is one vector window with no cap, floor, next, or route yet.
-   * similarity is the anchor's neighbors, 500 at most, above a cosine of 0.8, without the anchor
-   * itself. None selects an embedding profile or an entity scope, so each entity type resolves to
-   * its registry default.
+   * than restating it. semantic is one vector window with no cap, floor, or next, and one route
+   * that sends an entity URN to similarity. similarity is the anchor's neighbors, 500 at most,
+   * above a cosine of 0.8, without the anchor itself. None selects an embedding profile or an
+   * entity scope, so each entity type resolves to its registry default.
    */
   @Test
   public void testShippedKeywordTemplatesRerankAndSemanticRetrievesByVector() {
@@ -239,7 +247,11 @@ public class SearchTemplateBootstrapTest {
     assertNull(vector.getOnFailure());
     assertNull(semantic.getKnn());
     assertNull(semantic.getLadder());
-    assertTrue(semantic.getRoutes().isEmpty());
+    // A miss stays on semantic: no default target, and the one route has no conditions
+    assertEquals(semantic.getRoutes().size(), 1);
+    assertEquals(semantic.getRoutes().get(0).target(), SIMILARITY);
+    assertNull(semantic.getRoutes().get(0).match());
+    assertNull(semantic.getDefaultRoute());
 
     assertTrue(SearchTemplateCapabilities.vectorRetrieval(similarity));
     SearchTemplateRetrieval anchored = similarity.getRetrieval();
@@ -289,6 +301,27 @@ public class SearchTemplateBootstrapTest {
       assertNull(merged.getRetrieval(), urn);
       assertNull(merged.getKnn(), urn);
     }
+  }
+
+  /**
+   * The semantic revert seed writes semantic back as the previous seed wrote it, without the URN
+   * route and the description sentence that names it. Over the shipped templates, semantic then has
+   * no route, so a release without similarity embeds a URN query again.
+   */
+  @Test
+  public void testSemanticRevertSeedDropsTheUrnRoute() {
+    Map<String, SearchTemplateProperties> revert =
+        SearchTemplateFixtures.readSeed("/bootstrap_mcps/search-templates-semantic-revert.yaml");
+    assertEquals(revert.keySet(), Set.of(SEMANTIC));
+    SearchTemplateProperties unrouted = SearchTemplateFixtures.readShipped().get(SEMANTIC);
+    unrouted.setRoutes(new SearchTemplateRouteArray());
+    unrouted.setDescription(VERSION_18_SEMANTIC_DESCRIPTION);
+    assertEquals(revert.get(SEMANTIC), unrouted);
+    SearchTemplateChecks.check(revert.get(SEMANTIC), 1024);
+
+    SearchTemplateFixtures.readShipped().forEach(harness::store);
+    revert.forEach(harness::store);
+    assertTrue(harness.loader.load(harness.opContext, SEMANTIC).getRoutes().isEmpty());
   }
 
   /**

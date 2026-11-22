@@ -31,7 +31,7 @@ The tabs available depend on the asset type and the metadata that has been inges
 | **Properties**      | Custom and [Structured Properties](properties/overview.md).                                                                     |
 | **Queries**         | Popular and recent queries run against the asset. See [Dataset Usage and Query History](../dataset-usage-and-query-history.md). |
 | **Stats**           | Profiling statistics and usage over time.                                                                                       |
-| **Quality**         | [Assertions](../../managed-datahub/observe/assertions.md) and [Data Contracts](../../managed-datahub/observe/data-contract.md). |
+| **Quality**         | [Assertions](../../managed-datahub/observe/assertions.md).                                                                      |
 | **Governance**      | Results of [Metadata Tests](../../tests/metadata-tests.md).                                                                     |
 | **Incidents**       | Open and resolved [Incidents](../../incidents/incidents.md).                                                                    |
 
