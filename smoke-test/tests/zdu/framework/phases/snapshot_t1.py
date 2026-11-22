@@ -51,6 +51,18 @@ class SnapshotT1Phase(Phase):
                 snap.doc_counts[name] = self._es.get_doc_count(name)
             except Exception as exc:
                 log.warning("[snapshot_t1] doc count failed for %s: %s", name, exc)
+        # Under Search V3 the T0 doc_counts keys are timestamped physical
+        # indices, which the reindex retires. Re-count by alias so TC-109
+        # compares the index the alias serves now.
+        for alias in ctx.snapshot_t0.alias_doc_counts:
+            try:
+                snap.alias_doc_counts[alias] = self._es.get_doc_count(alias)
+            except Exception as exc:
+                log.warning("[snapshot_t1] doc count failed for %s: %s", alias, exc)
+        try:
+            snap.index_names = self._es.list_indices(prefix="")
+        except Exception as exc:
+            log.warning("[snapshot_t1] index listing failed: %s", exc)
 
         ctx.snapshot_t1 = snap
         duration = time.monotonic() - t0
@@ -66,6 +78,7 @@ class SnapshotT1Phase(Phase):
             duration_s=duration,
             details={
                 "doc_counts": snap.doc_counts,
+                "alias_doc_counts": snap.alias_doc_counts,
                 "epoch_ms": snap.epoch_ms,
             },
         )
