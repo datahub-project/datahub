@@ -19,6 +19,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNotSame;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -372,6 +373,53 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
               SearchTemplateRoutes.decide(template, "orders", NO_INPUTS).target()),
           urn);
     }
+  }
+
+  /**
+   * The shipped semantic template sends a query that is an entity URN, a lowercase urn:li, an
+   * entity type, a colon, and a key, to similarity. Any other query misses and stays on semantic.
+   */
+  @Test
+  public void testShippedSemanticRoutesAnEntityUrnToSimilarity() {
+    String semantic = "urn:li:searchTemplate:semantic";
+    String similarity = "urn:li:searchTemplate:similarity";
+    SearchTemplateSelector selector =
+        new SearchTemplateSelector(
+            templates,
+            new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH),
+            SearchTemplateGates.none());
+    OperationContext named =
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSearchTemplate(UrnUtils.getUrn(semantic)));
+
+    for (String urn :
+        List.of(
+            "urn:li:document:runbook",
+            "urn:li:glossaryTerm:pii",
+            "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)")) {
+      ResolvedSearchTemplate routed = selector.select(named, urn, true, null, REQUEST);
+      assertEquals(routed.getUrn(), similarity, urn);
+      assertEquals(routed.getRouteChain(), List.of(semantic, similarity), urn);
+    }
+    for (String query :
+        List.of(
+            "customer orders",
+            "URN:LI:document:runbook",
+            "urn:li:",
+            "urn:li:document",
+            "urn:li:document:")) {
+      ResolvedSearchTemplate stayed = selector.select(named, query, true, null, REQUEST);
+      assertEquals(stayed.getUrn(), semantic, query);
+      assertEquals(stayed.getRouteChain(), List.of(semantic), query);
+    }
+    // A miss is retried without the structured prefix, as on every template, so this also routes,
+    // and similarity drops the prefix from its anchor the same way
+    assertEquals(
+        selector.select(named, "\\/q urn:li:document:runbook", true, null, REQUEST).getUrn(),
+        similarity);
+    assertEquals(
+        SearchTemplateVectorRetrieval.anchorUrn("\\/q urn:li:document:runbook"),
+        UrnUtils.getUrn("urn:li:document:runbook"));
   }
 
   @Test
@@ -735,7 +783,7 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     SearchTemplateRoute bySurface = route(".*", SEARCH_TEMPLATE_EXACT_URN);
     bySurface.setMatch(
         new SearchTemplateRouteMatch()
-            .setSurfaces(new StringArray("searchEntities", "semanticSearch")));
+            .setSurfaces(new StringArray("searchEntities", "aggregateEntities")));
     SearchTemplateProperties router = body("Router", "{ \"match_all\": {} }", null);
     router.setApiVersion(2);
     router.setRoutes(routes(bySurface));
@@ -765,7 +813,7 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     String onSearch = cacheKey(coordinator, routed.withSearchSurface("searchEntities"));
     // Both surfaces fire the route to the same template, and the surface is not otherwise in the
     // search cache key, so the route's inputs are
-    assertNotEquals(onSearch, cacheKey(coordinator, routed.withSearchSurface("semanticSearch")));
+    assertNotEquals(onSearch, cacheKey(coordinator, routed.withSearchSurface("aggregateEntities")));
     assertNotEquals(onSearch, cacheKey(coordinator, pinned.withSearchSurface("searchEntities")));
   }
 
@@ -844,6 +892,42 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
         new StringArray(List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_FULLTEXT_URN)));
     SearchResult withoutExplain = handler.extractResult(routed, response, null, 0, 10);
     assertFalse(withoutExplain.getMetadata().hasRouteChain());
+  }
+
+  /**
+   * An explained page reports the route chain, so with includeExplain a template a route reached
+   * and the same template named directly do not share a cached page, even through a route with no
+   * match conditions.
+   */
+  @Test
+  public void testExplainKeysTheCacheOnTheRouteChain() {
+    installShippedRoutes();
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
+    OperationContext explained = opContext.withSearchFlags(flags -> flags.setIncludeExplain(true));
+    OperationContext routed = coordinator.bind(explained, "customer orders");
+    OperationContext pinned =
+        coordinator.bind(
+            explained.withSearchFlags(
+                flags ->
+                    flags
+                        .setFulltext(true)
+                        .setSearchTemplate(UrnUtils.getUrn(SEARCH_TEMPLATE_FULLTEXT_URN))),
+            "customer orders");
+
+    assertEquals(
+        routed.getSearchContext().getResolvedSearchTemplate().getRouteChain(),
+        List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_FULLTEXT_URN));
+    assertNull(routed.getSearchContext().getResolvedSearchTemplate().getRouteMatch());
+    assertNotEquals(
+        routed.getSearchContext().getResolvedSearchTemplate().cacheKeyComponent(),
+        pinned.getSearchContext().getResolvedSearchTemplate().cacheKeyComponent());
   }
 
   @Test

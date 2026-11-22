@@ -123,6 +123,19 @@ class TestReader:
 
         assert entry.query == "select 'x'"
 
+    def test_query_runs_verbatim(self, audit_db: AuditDb) -> None:
+        uri = audit_db([("2026-01-01 10:00:00", "select 1", "u", 1, "sales")])
+        # ":n" would be a missing bind parameter under text(), and "%" is
+        # significant to pyformat drivers when parameters are passed.
+        query = (
+            "SELECT * FROM audit WHERE user_name || ':n' != 'x:n' "
+            "AND sql_text LIKE '%1' -- :p"
+        )
+
+        (entry,) = _reader(uri, query=query).get_query_entries()
+
+        assert entry.query == "select 1"
+
     def test_columns_match_case_insensitively(self, audit_db: AuditDb) -> None:
         uri = audit_db([("2026-01-01 10:00:00", "select 1", "u", 1, "sales")])
         reader = _reader(uri, field_mappings={"query": "SQL_TEXT", "user": "User_Name"})
@@ -189,7 +202,7 @@ class TestReader:
     def test_streams_with_a_server_side_cursor(self) -> None:
         engine = MagicMock()
         conn = engine.connect.return_value.__enter__.return_value
-        result = conn.execution_options.return_value.execute.return_value
+        result = conn.execution_options.return_value.exec_driver_sql.return_value
         result.keys.return_value = ["sql_text"]
         result.mappings.return_value.yield_per.return_value = iter(
             [{"sql_text": "select 1"}]
@@ -210,7 +223,9 @@ class TestReader:
             assert [e.query for e in reader.get_query_entries()] == ["select 1"]
 
         assert create_engine.call_args.kwargs == {"pool_pre_ping": True}
-        conn.execution_options.assert_called_once_with(stream_results=True)
+        conn.execution_options.assert_called_once_with(
+            stream_results=True, no_parameters=True
+        )
         result.mappings.return_value.yield_per.assert_called_once_with(50)
 
 

@@ -210,7 +210,6 @@ The `outputPort` flag on asset associations is a forward-looking feature aligned
 - Support for marking data assets in a Data Product as private versus shareable
 - Support for declaring data lineage manually between Data Products
 - Support for declaring logical schemas for Data Products
-- Support for associating data contracts with Data Products
 - Support for semantic versioning of Data Products
 
 ### YAML-based Management

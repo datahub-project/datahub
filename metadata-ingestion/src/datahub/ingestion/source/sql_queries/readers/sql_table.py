@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import ArgumentError
 
@@ -55,10 +55,12 @@ class SqlTableQueryLogReader(MappedQueryLogReader[Row]):
         try:
             with engine.connect() as conn:
                 # stream_results + yield_per keep a server-side cursor so a large
-                # audit table isn't buffered into memory at once.
-                result = conn.execution_options(stream_results=True).execute(
-                    text(self.sql_config.query)
-                )
+                # audit table isn't buffered into memory at once. The query runs
+                # as driver SQL with no parameters, so text()'s ":name" bind
+                # syntax and DBAPI "%" formatting can't rewrite literals in it.
+                result = conn.execution_options(
+                    stream_results=True, no_parameters=True
+                ).exec_driver_sql(self.sql_config.query)
                 self._resolve_columns(list(result.keys()))
                 rows = result.mappings().yield_per(self.sql_config.batch_size)
                 for number, mapping in enumerate(rows, start=1):

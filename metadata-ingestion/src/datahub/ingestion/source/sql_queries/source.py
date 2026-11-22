@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, Optional, Union
+from typing import Iterable, Optional, Tuple, Union
 
 from typing_extensions import assert_never
 
@@ -61,6 +61,15 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 
 logger = logging.getLogger(__name__)
+
+
+def _casefold_pair(
+    db: Optional[str], schema: Optional[str]
+) -> Tuple[Optional[str], Optional[str]]:
+    return (
+        db.lower() if db is not None else None,
+        schema.lower() if schema is not None else None,
+    )
 
 
 @platform_name("SQL Queries", id="sql-queries")
@@ -317,16 +326,21 @@ class SqlQueriesSource(Source):
         aggregator's own fingerprint, so their Query URNs don't change. The pair
         is encoded with repr so an identifier containing a delimiter can't
         collide with a different pair.
+
+        Identifiers are compared case-insensitively: platforms fold unquoted
+        names to different cases (Snowflake upper, MSSQL lower) and DataHub
+        URNs are lower-cased for most platforms, so case alone must not split
+        one Query into two.
         """
-        if (default_db, default_schema) == (
-            self.config.default_db,
-            self.config.default_schema,
+        row_defaults = _casefold_pair(default_db, default_schema)
+        if row_defaults == _casefold_pair(
+            self.config.default_db, self.config.default_schema
         ):
             return None
         return get_query_fingerprint(
             query,
             platform=self.config.platform,
-            secondary_id=repr((default_db, default_schema)),
+            secondary_id=repr(row_defaults),
         )
 
     def is_temp_table(self, name: str) -> bool:
