@@ -17,7 +17,44 @@ the one you are on and the one you are moving to, not just the target.
 
 ### sql-queries source moved into a package
 
-The `sql-queries` source is now the package `datahub.ingestion.source.sql_queries` ([PR #20345](https://github.com/datahub-project/datahub/pull/20345)). Recipes are unchanged. Python code that imports from the old module must use the new paths, for example `datahub.ingestion.source.sql_queries.source.SqlQueriesSource` and `datahub.ingestion.source.sql_queries.config.SqlQueriesSourceConfig`. The report failures `Local file read error` and `S3 read error` are now both titled `Query file open error`; update any alerting that matches the old titles.
+The `sql-queries` source is now the package `datahub.ingestion.source.sql_queries` ([PR #20345](https://github.com/datahub-project/datahub/pull/20345)). Recipes are unchanged. Python code that imports from the old module must use the new paths, for example `datahub.ingestion.source.sql_queries.source.SqlQueriesSource` and `datahub.ingestion.source.sql_queries.config.SqlQueriesSourceConfig`. The report failures `Local file read error` and `S3 read error` are now both titled `Query file open error`; update any alerting that matches the old titles. A run where more query entries fail to parse than succeed now reports a `Most entries failed to parse` failure, so the run fails instead of finishing with per-entry warnings; fix or remove the malformed entries.
+
+### Semantic search template sends an entity URN to similarity ([#21474](https://github.com/datahub-project/datahub/pull/21474))
+
+System update now writes version 19 of the shipped search templates. `urn:li:searchTemplate:semantic`
+routes a query that is an entity URN (lowercase `urn:li:`, an entity type, a colon, and a key) to
+`urn:li:searchTemplate:similarity`. A search that names `semantic` in the `searchTemplate` search flag
+with an entity URN as the query now returns the entities nearest that entity, as a search that names
+`similarity` does, instead of embedding the URN text. The same holds for semantic search
+(`semanticSearchAcrossEntities`) when its template surface is on
+(`SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH=active`), since that surface selects `semantic`. Like that
+search, it fails when the entity cannot anchor it, for example when the entity has no stored
+embeddings; semantic search reports that as a bad request (`BAD_REQUEST`). In OSS only Document entities have an
+embedding profile, so the URN of any other entity type now fails the search, counted as `noAnchor`,
+instead of being embedded. The route covers every entity URN on purpose. It reads everything after the
+entity type's colon as the key, so a query that starts with a URN and goes on with words, such as
+`urn:li:corpuser:jdoe recent dashboards`, is routed too and fails as `noAnchor` instead of being
+embedded. Any other query runs on
+`semantic` as before. A custom template whose parent is `semantic` inherits the route unless it sets its
+own `routes`.
+
+In `searchAcrossEntities`, `aggregateAcrossEntities`, `scrollAcrossEntities`, `browseV2`,
+`semanticSearchAcrossEntities`, and `searchDocuments`, an entity can anchor a similarity search, routed
+or named, only if that search would show it to the user, except that with view authorization off a
+`searchDocuments` anchor is not held to the document READ check its results get. In the first five, a
+document that is not published, or not shown in global context, cannot anchor one, whatever entity
+types the search asks for, unless the request sets `includeHiddenLifecycleStages`. A user who can
+manage documents can still anchor on an unpublished document that has no lifecycle stage. In `searchDocuments`, a document can
+anchor one if it is published, or unpublished and owned by the user or one of their groups, or
+unpublished and the user can manage documents. A draft cannot, and neither can a document not shown in
+global context. Other GraphQL searches, Rest.li, and OpenAPI do not change.
+
+To remove the route on this release, so that a URN query on `semantic` is embedded again, run system
+update once with
+`DATAHUB_SEARCH_TEMPLATES_REVISION='{"version":"v19-revert","mcps_location":"bootstrap_mcps/search-templates-semantic-revert.yaml","force":true}'`,
+then unset the variable. Then check that
+`datahub get --urn "urn:li:searchTemplate:semantic" --aspect searchTemplateProperties` shows an empty
+`routes` list, since system update only logs a revert the write validator rejects.
 
 ### Show Applications setting is hidden by default
 
@@ -96,13 +133,14 @@ other rows keep their places. With hybrid read off, keyword results do not chang
 whose parent is `fulltext` inherits the rerank, unless it sets its own `knn` that names a `field`:
 that `knn` keeps the reading it had before, so one with only `field` is still the earlier document
 rerank. The new
-`urn:li:searchTemplate:semantic` retrieves by vector. A search uses it only when it names it in the
-`searchTemplate` search flag; semantic search (`semanticSearchAcrossEntities`) does not change.
+`urn:li:searchTemplate:semantic` retrieves by vector. A search uses it when it names it in the
+`searchTemplate` search flag. Semantic search (`semanticSearchAcrossEntities`) uses it only behind
+its own switch; see "Semantic search can run the semantic search template".
 Version 18 adds `urn:li:searchTemplate:similarity` and the `similarity` capability. A search that
 names `similarity` in the `searchTemplate` flag, with an entity URN as the query, returns the documents
-nearest that entity. `semantic` does not change: its URN route ships in a later release, once every GMS
-pod can run similarity. A rollback to a release without similarity needs no extra step, since that
-release fails `similarity` only when a search names it.
+nearest that entity. Version 18 does not change `semantic`; version 19 adds its URN route. With
+version 18 stored, a rollback to a release without similarity needs no extra step, since that release
+fails `similarity` only when a search names it.
 
 **Upgrade through the release that adds the semantic search template contract**
 ([#21359](https://github.com/datahub-project/datahub/pull/21359)) before you upgrade to this one. GMS
@@ -130,9 +168,52 @@ search fails on the new `fulltext`. While this release is still deployed:
 
 The `semantic` and `similarity` templates stay stored, and the earlier release does not use them.
 
-If you later upgrade to this release again, system update keeps the restored templates, because
-version 18 already ran. To write the shipped templates again, run system update once with
+If you later upgrade to this release again, system update keeps the restored templates, because the
+version this release writes already ran. To write the shipped templates again, run system update once with
 `DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable.
+
+### Semantic search can run the semantic search template
+
+Semantic search (`semanticSearchAcrossEntities`) can now run `urn:li:searchTemplate:semantic` through a
+new `semanticSearch` template surface. It is off by default, and nothing changes while it is off. To
+turn it on, set `SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH=active` on GMS, and
+`SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH_PERCENT` to serve it to only some users. A blank or missing
+setting keeps it off, whatever `SEARCH_V3_TEMPLATES_ROLLOUT` says. The switch takes effect on
+Elasticsearch 8.18 or later and OpenSearch 3.5 or later. On older OpenSearch, or when GMS cannot read
+the OpenSearch version (reading it needs the `cluster:monitor/main` permission), semantic search stays
+on its own kNN search, and GMS logs a warning. GMS reads an unreadable version again at most once a
+minute, so granting the permission needs no restart. GMS keeps a version it has read until it restarts,
+so after upgrading OpenSearch to 3.5 or later, restart GMS for the switch to take effect. With it on:
+
+- Only documents have an embedding profile in this release, so semantic search through the template
+  returns documents only. Other entity types in `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` return
+  nothing, and a request for only those types returns an empty page. Keep the switch off if semantic
+  search serves other entity types for you.
+- Documents follow the same defaults as keyword search: only published documents shown in global
+  context come back, unless the request sets `includeHiddenLifecycleStages`. A user who can manage
+  documents also gets unpublished documents that have no lifecycle stage.
+- As in keyword search, soft-deleted entities and entities in a hidden lifecycle stage are left out
+  unless the request sets `includeSoftDeleted` or `includeHiddenLifecycleStages`.
+- `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY`, when set, drops results below that cosine. The
+  legacy semantic search applies only the `minScore` search flag.
+- The facets count the results semantic search found, not every document that matches the filter.
+- The query embedding and the vector search share a budget of two seconds, where the legacy semantic
+  search sets no timeout. A slow embedding fails as `DEADLINE_EXCEEDED`, and a vector search that
+  runs past the budget fails the search, which the keyword fallback below does not cover.
+- With the search cache on, results are cached per user and query for the cache's lifetime. The
+  legacy semantic search was never cached.
+- A query that cannot be embedded fails with an error that names the reason, instead of a generic
+  server error: `timeout` as `DEADLINE_EXCEEDED`; `rejected`, `reserveExhausted`, or
+  `budgetExhausted` as `SERVICE_UNAVAILABLE`; and `failed` as a server error. Set the new
+  `keywordFallbackOnEmbeddingFailure` search flag to get keyword search results instead. The results'
+  `keywordFallback` field then names the reason.
+- A configuration that would answer with keyword results, such as a `semanticSearch` slot that points at
+  a keyword template, fails the search instead.
+
+A new `minSimilarity` search flag sets a raw cosine floor on vector results. It can raise the floor a
+template or `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY` sets, and never lower it. While the switch is
+off or does not take effect, semantic search rejects the flag. **Action:** none. Before you turn the
+switch on, check that clients expect the document defaults and facet counts above.
 
 ### Parent Data Product is now checked on every API
 
@@ -202,6 +283,9 @@ Requirements:
 - Helm Chart: (TBD)
 
 ### Breaking Changes
+
+- [#21472](https://github.com/datahub-project/datahub/pull/21472) **(Ingestion / Informatica)** A run that cannot list all projects, folders, Taskflows or Mapping Tasks now fails instead of finishing with a warning. Stale metadata removal is paused for that run, so objects it did not read are no longer soft-deleted. A folder or Taskflow that fails to process is still a warning, but what it ingested in the previous run is kept instead of soft-deleted. A Taskflow whose definition cannot be exported keeps its `orchestrate` job from the previous run. Datasets that appear only in Informatica lineage are no longer soft-deleted by this source, and a dataset another connector soft-deleted is no longer restored by it.
+  **Action:** if runs now fail, fix the permission or API error named in the report. Datasets this source soft-deleted before upgrading stay deleted until the connector that owns them ingests them again.
 
 - **(GMS / Search / Groups)** `corpGroupInfo.email` is now searchable. On Search V2 it is a keyword included in the default query. On Search V3 it is an exact keyword plus `text` and `stemmed` subfields under the `email` label. A group written before this change has no value there until it is written again. **Action:** run RestoreIndices for `corpGroup` so existing groups can be found by email.
 
