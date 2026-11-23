@@ -1,4 +1,5 @@
-from typing import Dict, List, Union, cast
+import pathlib
+from typing import Dict, List, Optional, Tuple, Type, Union, cast
 from unittest import mock
 
 from datahub.emitter import mce_builder
@@ -7,9 +8,14 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.csv_enricher import CSVEnricherConfig, CSVEnricherSource
 from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass,
+    OtherSchemaClass,
     OwnerClass,
     OwnershipSourceClass,
     OwnershipTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
     StructuredPropertiesClass,
     StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
@@ -230,7 +236,6 @@ def test_maybe_extract_structured_properties_requires_mapping():
 
     structured_properties = source.maybe_extract_structured_properties(
         row=row,
-        is_resource_row=True,
     )
     assert structured_properties == []
 
@@ -259,7 +264,6 @@ def test_maybe_extract_structured_properties_from_config_mapping():
 
     structured_properties = source.maybe_extract_structured_properties(
         row=row,
-        is_resource_row=True,
     )
 
     assert structured_properties == [
@@ -351,3 +355,131 @@ def test_get_workunits_internal_emits_structured_properties(tmp_path):
         ("urn:li:structuredProperty:io.acryl.test.classification", ("Sensitive",)),
         ("urn:li:structuredProperty:ownerTeam", ("Finance",)),
     }
+
+
+HIVE_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
+CLASSIFICATION_URN = "urn:li:structuredProperty:io.acryl.test.classification"
+
+
+def make_schema_metadata(field_paths: List[str]) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="test",
+        platform="urn:li:dataPlatform:hive",
+        version=0,
+        hash="",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=field_path,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="string",
+            )
+            for field_path in field_paths
+        ],
+    )
+
+
+def run_column_structured_properties(
+    tmp_path: pathlib.Path,
+    subresource: str,
+    graph: Optional[mock.MagicMock],
+) -> Tuple[CSVEnricherSource, List[MetadataChangeProposalWrapper]]:
+    csv_file = tmp_path / "column_structured_properties.csv"
+    csv_file.write_text(
+        "resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain,classification\n"
+        f'"{HIVE_DATASET_URN}",{subresource},,,,,,,Sensitive\n'
+    )
+    ctx = PipelineContext("test-run-id")
+    ctx.graph = graph
+    source = CSVEnricherSource(
+        CSVEnricherConfig(
+            filename=str(csv_file),
+            write_semantics="PATCH" if graph else "OVERRIDE",
+            delimiter=",",
+            array_delimiter="|",
+            structured_properties={"classification": "io.acryl.test.classification"},
+        ),
+        ctx,
+    )
+    structured_properties_mcps = [
+        wu.metadata
+        for wu in source.get_workunits_internal()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, StructuredPropertiesClass)
+    ]
+    return source, structured_properties_mcps
+
+
+def make_graph(
+    schema: Optional[SchemaMetadataClass],
+    existing: Optional[StructuredPropertiesClass] = None,
+) -> mock.MagicMock:
+    aspects: Dict[Type, object] = {
+        SchemaMetadataClass: schema,
+        StructuredPropertiesClass: existing,
+    }
+    graph = mock.MagicMock()
+    graph.get_aspect.side_effect = lambda entity_urn, aspect_type: aspects.get(
+        aspect_type
+    )
+    return graph
+
+
+def test_column_row_emits_structured_properties_on_schema_field(tmp_path):
+    source, mcps = run_column_structured_properties(tmp_path, "col_a", graph=None)
+
+    assert [mcp.entityUrn for mcp in mcps] == [
+        mce_builder.make_schema_field_urn(HIVE_DATASET_URN, "col_a")
+    ]
+    aspect = mcps[0].aspect
+    assert isinstance(aspect, StructuredPropertiesClass)
+    assert [(p.propertyUrn, p.values) for p in aspect.properties] == [
+        (CLASSIFICATION_URN, ["Sensitive"])
+    ]
+    assert source.report.num_schema_field_structured_properties_workunits_produced == 1
+
+
+def test_column_structured_properties_patch_merges_existing_values(tmp_path):
+    graph = make_graph(
+        schema=make_schema_metadata(["col_a"]),
+        existing=StructuredPropertiesClass(
+            properties=[
+                StructuredPropertyValueAssignmentClass(
+                    propertyUrn=CLASSIFICATION_URN, values=["Internal"]
+                )
+            ]
+        ),
+    )
+    _, mcps = run_column_structured_properties(tmp_path, "col_a", graph=graph)
+
+    assert len(mcps) == 1
+    aspect = mcps[0].aspect
+    assert isinstance(aspect, StructuredPropertiesClass)
+    assert aspect.properties[0].values == ["Internal", "Sensitive"]
+
+
+def test_column_structured_properties_resolves_v2_field_path(tmp_path):
+    v2_path = "[version=2.0].[type=struct].address.[type=string].zip"
+    graph = make_graph(schema=make_schema_metadata([v2_path]))
+    source, mcps = run_column_structured_properties(
+        tmp_path, "address.zip", graph=graph
+    )
+
+    assert [mcp.entityUrn for mcp in mcps] == [
+        mce_builder.make_schema_field_urn(HIVE_DATASET_URN, v2_path)
+    ]
+    assert not source.report.warnings
+
+
+def test_column_structured_properties_unmatched_path_falls_back_with_warning(
+    tmp_path,
+):
+    graph = make_graph(schema=make_schema_metadata(["col_a"]))
+    source, mcps = run_column_structured_properties(
+        tmp_path, "col_missing", graph=graph
+    )
+
+    assert [mcp.entityUrn for mcp in mcps] == [
+        mce_builder.make_schema_field_urn(HIVE_DATASET_URN, "col_missing")
+    ]
+    assert source.report.warnings

@@ -8,6 +8,7 @@ from urllib import parse
 import requests
 
 from datahub.configuration.common import ConfigurationError
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -43,6 +44,7 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    SchemaMetadataClass,
     StructuredPropertiesClass,
     StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
@@ -98,6 +100,7 @@ class CSVEnricherReport(SourceReport):
     num_editable_schema_metadata_workunits_produced: int = 0
     num_domain_workunits_produced: int = 0
     num_structured_properties_workunits_produced: int = 0
+    num_schema_field_structured_properties_workunits_produced: int = 0
 
 
 @platform_name("CSV Enricher")
@@ -124,6 +127,8 @@ class CSVEnricherSource(Source):
         self.report: CSVEnricherReport = CSVEnricherReport()
         # Map from entity urn to a list of SubResourceRow.
         self.editable_schema_metadata_map: Dict[str, List[SubResourceRow]] = {}
+        # Map from dataset urn to the field paths in its schemaMetadata.
+        self.schema_field_paths_cache: Dict[str, List[str]] = {}
         self.should_overwrite: bool = self.config.write_semantics == "OVERRIDE"
 
         if not self.should_overwrite:
@@ -345,11 +350,7 @@ class CSVEnricherSource(Source):
     def maybe_extract_structured_properties(
         self,
         row: Dict[str, str],
-        is_resource_row: bool,
     ) -> List[StructuredPropertyValueAssignmentClass]:
-        if not is_resource_row:
-            return []
-
         configured_mappings = self.config.structured_properties or {}
         if len(configured_mappings) <= 0:
             return []
@@ -364,7 +365,8 @@ class CSVEnricherSource(Source):
 
         property_values_by_urn: Dict[str, List[str | float]] = {}
         for column, raw_value in structured_property_columns.items():
-            value = raw_value.strip()
+            # csv.DictReader fills columns missing from a short row with None.
+            value = (raw_value or "").strip()
             if len(value) <= 0:
                 continue
 
@@ -442,6 +444,40 @@ class CSVEnricherSource(Source):
             entityUrn=entity_urn,
             aspect=current_structured_properties,
         ).as_workunit()
+
+    def resolve_schema_field_path(self, dataset_urn: str, field_path: str) -> str:
+        # The CSV holds simple paths, but schemaField urns must use the exact
+        # schemaMetadata fieldPath (possibly v2) to match what the UI reads.
+        if not self.ctx.graph:
+            return field_path
+
+        if dataset_urn not in self.schema_field_paths_cache:
+            schema_metadata = self.ctx.graph.get_aspect(
+                entity_urn=dataset_urn,
+                aspect_type=SchemaMetadataClass,
+            )
+            self.schema_field_paths_cache[dataset_urn] = (
+                [field.fieldPath for field in schema_metadata.fields]
+                if schema_metadata
+                else []
+            )
+
+        schema_field_paths = self.schema_field_paths_cache[dataset_urn]
+        if field_path in schema_field_paths:
+            return field_path
+        for schema_field_path in schema_field_paths:
+            if (
+                get_simple_field_path_from_v2_field_path(schema_field_path)
+                == field_path
+            ):
+                return schema_field_path
+
+        self.report.warning(
+            title="Column Not Found In Schema",
+            message="Column structured properties were written using the field path from the CSV as-is, because no matching field was found in the dataset's schema.",
+            context=f"resource={dataset_urn}, subresource={field_path}",
+        )
+        return field_path
 
     def get_resource_workunits(
         self,
@@ -755,7 +791,7 @@ class CSVEnricherSource(Source):
             tag_associations: List[TagAssociationClass] = self.maybe_extract_tags(row)
             owners: List[OwnerClass] = self.maybe_extract_owners(row, is_resource_row)
             structured_properties: List[StructuredPropertyValueAssignmentClass] = (
-                self.maybe_extract_structured_properties(row, is_resource_row)
+                self.maybe_extract_structured_properties(row)
             )
 
             domain: Optional[str] = (
@@ -794,6 +830,21 @@ class CSVEnricherSource(Source):
                         domain=domain,
                     )
                 )
+
+                if structured_properties:
+                    schema_field_urn = make_schema_field_urn(
+                        entity_urn,
+                        self.resolve_schema_field_path(entity_urn, row["subresource"]),
+                    )
+                    maybe_structured_properties_wu = (
+                        self.get_resource_structured_properties_work_unit(
+                            entity_urn=schema_field_urn,
+                            structured_properties=structured_properties,
+                        )
+                    )
+                    if maybe_structured_properties_wu:
+                        self.report.num_schema_field_structured_properties_workunits_produced += 1
+                        yield maybe_structured_properties_wu
 
         yield from self.get_sub_resource_work_units()
 
