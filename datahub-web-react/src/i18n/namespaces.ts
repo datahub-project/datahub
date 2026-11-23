@@ -47,6 +47,7 @@ export const NAMESPACES = [
     'misc',
     'modules',
     'onboarding',
+    'settings.environments',
     'settings.features',
     'settings.page',
     'settings.permissions',

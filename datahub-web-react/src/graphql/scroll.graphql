@@ -54,6 +54,7 @@ fragment downloadSearchResults on Entity {
     }
     ... on Dataset {
         origin
+        env
         uri
         platformNativeType
         properties {
@@ -226,9 +227,11 @@ fragment downloadSearchResults on Entity {
     }
     ... on MLModel {
         origin
+        env
     }
     ... on MLModelGroup {
         origin
+        env
     }
     ... on Tag {
         name

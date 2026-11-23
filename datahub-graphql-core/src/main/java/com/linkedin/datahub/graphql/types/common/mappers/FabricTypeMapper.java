@@ -20,10 +20,13 @@ public final class FabricTypeMapper {
     return FabricTypeNames.isBuiltIn(env) ? FabricType.valueOf(env) : FabricType.OTHER;
   }
 
-  /** The urn of the customFabricType behind a custom env; null for a built-in or absent env. */
+  /**
+   * The urn of the customFabricType behind a custom env; null for a built-in, absent or malformed
+   * env.
+   */
   @Nullable
   public static String customFabricTypeUrn(@Nullable String env) {
-    if (env == null || FabricTypeNames.isBuiltIn(env)) {
+    if (env == null || FabricTypeNames.isBuiltIn(env) || !FabricTypeNames.isWellFormed(env)) {
       return null;
     }
     return "urn:li:" + com.linkedin.metadata.Constants.CUSTOM_FABRIC_TYPE_ENTITY_NAME + ":" + env;

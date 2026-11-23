@@ -446,6 +446,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     name
     type
     origin
+    env
     uri
     lastIngested
     platform {
@@ -791,6 +792,7 @@ fragment nonRecursiveMLFeature on MLFeature {
             name
             type
             origin
+            env
             description
             uri
             platform {
@@ -877,6 +879,7 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
             name
             type
             origin
+            env
             description
             uri
             platform {
@@ -1091,6 +1094,7 @@ fragment schemaMetadataFields on SchemaMetadata {
             name
             type
             origin
+            env
             uri
             properties {
                 description
@@ -1120,6 +1124,7 @@ fragment nonRecursiveMLModel on MLModel {
     name
     description
     origin
+    env
     platform {
         ...platformFields
     }
@@ -1221,6 +1226,7 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     name
     description
     origin
+    env
     platform {
         ...platformFields
     }
@@ -1516,6 +1522,12 @@ fragment entityDisplayNameFields on Entity {
     type
     ... on HasName {
         name
+    }
+    ... on CustomFabricType {
+        id
+        properties {
+            displayName
+        }
     }
     ... on Dataset {
         properties {

@@ -461,6 +461,7 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     exists
     name
     origin
+    env
     uri
     platform {
         ...platformFields
@@ -527,6 +528,7 @@ fragment siblingSearchDatasetFields on Dataset {
     exists
     name
     origin
+    env
     platform {
         ...platformFields
     }
@@ -992,6 +994,7 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on MLModel {
         origin
+        env
         platform {
             ...platformFields
         }
@@ -1004,6 +1007,7 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on MLModelGroup {
         origin
+        env
         platform {
             ...platformFields
         }

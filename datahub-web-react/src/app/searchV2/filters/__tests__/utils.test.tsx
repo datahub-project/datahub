@@ -35,7 +35,7 @@ import {
 import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 import { renderHook } from '@utils/test-utils/renderHook';
 
-import { AggregationMetadata, EntityType, FilterOperator } from '@types';
+import { AggregationMetadata, CustomFabricType, EntityType, FilterOperator } from '@types';
 
 describe('filter utils - getNewFilters', () => {
     it('should get the correct list of filters when adding filters where the filter field did not already exist', () => {
@@ -230,6 +230,21 @@ describe('filter utils - getFilterIconAndLabel', () => {
 
         expect(icon).toMatchObject(<Folder size={12} weight="fill" />);
         expect(label).toBe('TESTING');
+    });
+
+    it('labels a custom environment with its display name, falling back to its id', () => {
+        const environment: CustomFabricType = {
+            urn: 'urn:li:customFabricType:PERF',
+            type: EntityType.CustomFabricType,
+            id: 'PERF',
+            properties: { displayName: 'Performance' },
+        };
+
+        const withoutDisplayName: CustomFabricType = { ...environment, properties: null };
+
+        expect(getFilterIconAndLabel('origin', 'PERF', mockEntityRegistry, environment).label).toBe('Performance');
+        expect(getFilterIconAndLabel('origin', 'PERF', mockEntityRegistry, withoutDisplayName).label).toBe('PERF');
+        expect(getFilterIconAndLabel('origin', 'PROD', mockEntityRegistry, null).label).toBe('PROD');
     });
 });
 

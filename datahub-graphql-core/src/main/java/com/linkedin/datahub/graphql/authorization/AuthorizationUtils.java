@@ -195,6 +195,12 @@ public class AuthorizationUtils {
         context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_SETTINGS);
   }
 
+  /** Whether the actor holds the platform Manage Environments privilege. */
+  public static boolean canManageCustomFabricTypes(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_CUSTOM_FABRIC_TYPES_PRIVILEGE);
+  }
+
   public static boolean canManageOwnershipTypes(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_OWNERSHIP_TYPES);

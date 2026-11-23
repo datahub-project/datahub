@@ -11,6 +11,10 @@ const ManagePolicies = lazyNamed(() => import('@app/permissions/policy/ManagePol
 const Preferences = lazyNamed(() => import('@app/settingsV2/Preferences'), 'Preferences');
 const ManagePermissions = lazyNamed(() => import('@app/permissions/ManagePermissions'), 'ManagePermissions');
 const ManageOwnership = lazyNamed(() => import('@app/entityV2/ownership/ManageOwnership'), 'ManageOwnership');
+const ManageEnvironments = lazyNamed(
+    () => import('@app/settingsV2/environments/ManageEnvironments'),
+    'ManageEnvironments',
+);
 const ManagePosts = lazyDefault(() => import('@app/settingsV2/posts/ManagePosts'));
 const Features = lazyNamed(() => import('@app/settingsV2/features/Features'), 'Features');
 
@@ -25,6 +29,7 @@ export const PATHS: SettingsPath[] = [
     { path: 'preferences', content: <Preferences /> },
     { path: 'permissions', content: <ManagePermissions /> },
     { path: 'ownership', content: <ManageOwnership /> },
+    { path: 'environments', content: <ManageEnvironments /> },
     { path: 'posts', content: <ManagePosts /> },
     { path: 'features', content: <Features /> },
     ...ADDITIONAL_PATHS,

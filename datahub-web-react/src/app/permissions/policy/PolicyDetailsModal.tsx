@@ -108,6 +108,8 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges, 
         getFieldCondition(resources?.filter, URN, RESOURCE_URN) || PolicyMatchCondition.Equals;
     const domains = getFieldValues(resources?.filter, 'DOMAIN') || [];
     const domainCondition = getFieldCondition(resources?.filter, 'DOMAIN') || PolicyMatchCondition.Equals;
+    const environments = getFieldValues(resources?.filter, 'ENV') || [];
+    const environmentCondition = getFieldCondition(resources?.filter, 'ENV') || PolicyMatchCondition.Equals;
     const containers = getFieldValues(resources?.filter, 'CONTAINER') || [];
     const containerCondition = getFieldCondition(resources?.filter, 'CONTAINER') || PolicyMatchCondition.Equals;
     const tags = getFieldValues(resources?.filter, 'TAG') || [];
@@ -348,6 +350,14 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges, 
                                         domainCondition,
                                         value.entity,
                                     ),
+                                )) || <Pill label={t('details.tagAll')} size="md" />}
+                        </div>
+                        <div>
+                            {renderFieldWithCondition(t('details.environmentsLabel'), environmentCondition)}
+                            <ThinDivider />
+                            {(environments?.length &&
+                                environments.map((value) =>
+                                    renderValueDisplay(value.value, environmentCondition, value.entity),
                                 )) || <Pill label={t('details.tagAll')} size="md" />}
                         </div>
                         <div>

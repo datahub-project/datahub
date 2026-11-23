@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
@@ -94,5 +95,38 @@ public class MapperUtilsTest {
     field.setName("testField");
     field.setValue(highlightValue);
     return field;
+  }
+
+  @Test
+  public void testEnvironmentFacetLinksOnlyCustomEnvironments() {
+    com.linkedin.metadata.search.AggregationMetadata origin =
+        new com.linkedin.metadata.search.AggregationMetadata()
+            .setName("origin")
+            .setDisplayName("Environment")
+            .setAggregations(new com.linkedin.data.template.LongMap())
+            .setFilterValues(
+                new com.linkedin.metadata.search.FilterValueArray(
+                    List.of(
+                        new com.linkedin.metadata.search.FilterValue()
+                            .setValue("PROD")
+                            .setFacetCount(3L),
+                        new com.linkedin.metadata.search.FilterValue()
+                            .setValue("MY_ENV")
+                            .setFacetCount(2L),
+                        new com.linkedin.metadata.search.FilterValue()
+                            .setValue("bad-env")
+                            .setFacetCount(1L))));
+
+    List<com.linkedin.datahub.graphql.generated.AggregationMetadata> values =
+        MapperUtils.mapFacet(null, origin).getAggregations();
+
+    assertNull(values.get(0).getEntity());
+    assertEquals(values.get(1).getEntity().getUrn(), "urn:li:customFabricType:MY_ENV");
+    assertEquals(values.get(1).getEntity().getType(), EntityType.CUSTOM_FABRIC_TYPE);
+    assertNull(values.get(2).getEntity());
+
+    // The same value in any other facet stays a plain value.
+    origin.setName("platformInstance");
+    assertNull(MapperUtils.mapFacet(null, origin).getAggregations().get(1).getEntity());
   }
 }

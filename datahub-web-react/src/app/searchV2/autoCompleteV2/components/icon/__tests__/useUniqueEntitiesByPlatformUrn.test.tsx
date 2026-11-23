@@ -17,6 +17,7 @@ function generateSampleEntity(urn: string, platformUrn: string): Dataset {
             urn: platformUrn,
         },
         origin: FabricType.Test,
+        env: 'TEST',
     };
 }
 
@@ -53,6 +54,7 @@ describe('useUniqueEntitiesByPlatformUrn', () => {
                 name: 'Test',
                 platform: { name: 'Test', type: 'DATA_PLATFORM', urn: 'platform1' },
                 origin: 'TEST',
+                env: 'TEST',
             },
             {
                 urn: 'dataset2',
@@ -60,6 +62,7 @@ describe('useUniqueEntitiesByPlatformUrn', () => {
                 name: 'Test',
                 platform: { name: 'Test', type: 'DATA_PLATFORM', urn: 'platform2' },
                 origin: 'TEST',
+                env: 'TEST',
             },
         ]);
     });
@@ -82,6 +85,7 @@ describe('useUniqueEntitiesByPlatformUrn', () => {
                 name: 'Test',
                 platform: { name: 'Test', type: 'DATA_PLATFORM', urn: 'platform1' },
                 origin: 'TEST',
+                env: 'TEST',
             },
             {
                 urn: 'dataset2',
@@ -89,6 +93,7 @@ describe('useUniqueEntitiesByPlatformUrn', () => {
                 name: 'Test',
                 platform: { name: 'Test', type: 'DATA_PLATFORM', urn: 'platform2' },
                 origin: 'TEST',
+                env: 'TEST',
             },
         ]);
     });

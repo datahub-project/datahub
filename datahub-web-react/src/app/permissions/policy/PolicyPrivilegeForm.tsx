@@ -7,6 +7,7 @@ import styled from 'styled-components/macro';
 import GlossarySelector from '@app/permissions/policy/GlossarySelector';
 import ContainersSelect from '@app/permissions/policy/PolicyPrivilegeForm/ContainersSelect';
 import DomainsSelect from '@app/permissions/policy/PolicyPrivilegeForm/DomainsSelect';
+import EnvironmentsSelect from '@app/permissions/policy/PolicyPrivilegeForm/EnvironmentsSelect';
 import PrivilegesSelect from '@app/permissions/policy/PolicyPrivilegeForm/PrivilegesSelect';
 import ResourceSelect from '@app/permissions/policy/PolicyPrivilegeForm/ResourceSelect';
 import ResourceTypeSelect from '@app/permissions/policy/PolicyPrivilegeForm/ResourceTypeSelect';
@@ -28,6 +29,7 @@ import {
 import StructuredPropertyResourceSelect from '@app/permissions/policy/structuredProperties/StructuredPropertyResourceSelect';
 import { useIsGlossaryBasedPoliciesEnabled } from '@app/sharedV2/hooks/useIsGlossaryBasedPoliciesEnabled';
 import { useIsStructuredPropertiesInPoliciesEnabled } from '@app/sharedV2/hooks/useIsStructuredPropertiesInPoliciesEnabled';
+import { useAppConfig } from '@app/useAppConfig';
 
 import { PolicyMatchCondition, PolicyType, ResourceFilter } from '@types';
 
@@ -76,6 +78,7 @@ export default function PolicyPrivilegeForm({
     const { t } = useTranslation('settings.permissions');
     const isGlossaryBasedPoliciesEnabled = useIsGlossaryBasedPoliciesEnabled();
     const isStructuredPropertiesInPoliciesEnabled = useIsStructuredPropertiesInPoliciesEnabled();
+    const customEnvironmentsEnabled = !!useAppConfig().config.featureFlags.customFabricTypesEnabled;
     const normalizedRef = useRef(false);
     const [conditions, setConditions] = useState<Record<string, PolicyMatchCondition>>({
         RESOURCE_TYPE: PolicyMatchCondition.Equals,
@@ -85,6 +88,7 @@ export default function PolicyPrivilegeForm({
         CONTAINER: PolicyMatchCondition.Equals,
         GLOSSARY: PolicyMatchCondition.Equals,
         STRUCTURED_PROPERTY: PolicyMatchCondition.Equals,
+        ENV: PolicyMatchCondition.Equals,
     });
 
     const updateCondition = (fieldType: string, condition: PolicyMatchCondition) => {
@@ -159,6 +163,7 @@ export default function PolicyPrivilegeForm({
             ['CONTAINER', FIELD_TYPES.CONTAINER, null],
             ['GLOSSARY', FIELD_TYPES.GLOSSARY, null],
             [FIELD_TYPES.STRUCTURED_PROPERTY, FIELD_TYPES.STRUCTURED_PROPERTY, null],
+            ['ENV', FIELD_TYPES.ENV, null],
         ];
 
         setConditions((prev) => {
@@ -194,6 +199,9 @@ export default function PolicyPrivilegeForm({
         (criterionValue) => criterionValue.value,
     );
     const containerSelectValue = getFieldValues(resources.filter, FIELD_TYPES.CONTAINER).map(
+        (criterionValue) => criterionValue.value,
+    );
+    const environmentSelectValue = getFieldValues(resources.filter, FIELD_TYPES.ENV).map(
         (criterionValue) => criterionValue.value,
     );
 
@@ -290,6 +298,19 @@ export default function PolicyPrivilegeForm({
         };
         const updatedDomains = domainUrns.map((urn) => createCriterionValueWithEntity(urn, null));
         const updatedFilter = setFieldValues(filter, FIELD_TYPES.DOMAIN, updatedDomains, conditions.DOMAIN);
+        setResources({
+            ...resources,
+            filter: updatedFilter,
+        });
+    };
+
+    // Handle environment selection changes
+    const onEnvironmentsChange = (environments: string[]) => {
+        const filter = resources.filter || {
+            criteria: [],
+        };
+        const updatedEnvironments = environments.map((env) => createCriterionValueWithEntity(env, null));
+        const updatedFilter = setFieldValues(filter, FIELD_TYPES.ENV, updatedEnvironments, conditions.ENV);
         setResources({
             ...resources,
             filter: updatedFilter,
@@ -442,6 +463,21 @@ export default function PolicyPrivilegeForm({
                         onConditionChange={handleConditionChange('DOMAIN')}
                         onDomainsChange={onDomainsChange}
                         resources={resources}
+                    />
+                </Form.Item>
+            )}
+            {showResourceFilterInput && (
+                <Form.Item label={<Text weight="bold">{t('privilegeForm.environmentsLabel')}</Text>}>
+                    <DescriptionParagraph type="p" color="textSecondary">
+                        <Trans t={t} i18nKey="privilegeForm.environmentsDescription" components={{ bold: <b /> }} />
+                    </DescriptionParagraph>
+                    <EnvironmentsSelect
+                        environmentSelectValue={environmentSelectValue}
+                        environmentCondition={conditions.ENV}
+                        onConditionChange={handleConditionChange('ENV')}
+                        onEnvironmentsChange={onEnvironmentsChange}
+                        resources={resources}
+                        customEnvironmentsEnabled={customEnvironmentsEnabled}
                     />
                 </Form.Item>
             )}

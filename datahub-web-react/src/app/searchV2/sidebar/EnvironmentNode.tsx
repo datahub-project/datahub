@@ -13,6 +13,7 @@ import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
 import useAggregationsQuery from '@app/searchV2/sidebar/useAggregationsQuery';
 import useSidebarAnalytics from '@app/searchV2/sidebar/useSidebarAnalytics';
 import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { getEnvironmentLabel } from '@app/sharedV2/customFabricType/customFabricType.utils';
 import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
 import { TREE_ROW_ENTITY_ICON_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import useToggle from '@app/sharedV2/useToggle';
@@ -25,6 +26,9 @@ const EnvironmentNode = ({ level }: Props) => {
     const isSelected = useIsEnvironmentSelected();
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useEnvironmentAggregation();
+    const environmentLabel = environmentAggregation
+        ? getEnvironmentLabel(environmentAggregation.value, environmentAggregation.entity)
+        : undefined;
     const { count } = environmentAggregation;
     const { trackToggleNodeEvent } = useSidebarAnalytics();
     const { isOpen, toggle } = useToggle({
@@ -54,8 +58,8 @@ const EnvironmentNode = ({ level }: Props) => {
                         <Stack size={TREE_ROW_ENTITY_ICON_SIZE} />
                     </BrowseRowIcon>
                 }
-                label={environmentAggregation?.value}
-                labelTitle={environmentAggregation?.value}
+                label={environmentLabel}
+                labelTitle={environmentLabel}
                 onSelect={onToggle}
                 onToggleExpand={onToggle}
             />

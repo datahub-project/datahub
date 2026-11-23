@@ -16,6 +16,7 @@ function generateSampleEntity(urn: string, platformUrn: string, isPrimary: boole
             urn: platformUrn,
         },
         origin: FabricType.Test,
+        env: 'TEST',
         siblings: {
             isPrimary,
             siblings,

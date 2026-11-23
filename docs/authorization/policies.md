@@ -67,6 +67,7 @@ Resources can be associated with the policy in a number of ways:
 4. **Domains** - Assets within specific domains
 5. **Containers** - Assets within specific containers (e.g., databases, schemas)
 6. **Glossary Terms or Term Groups** - Assets annotated with specific glossary terms or any term within a term group (see [Glossary-Based Policy Targeting](#glossary-based-policy-targeting) below)
+7. **Environments** - Assets in specific environments, such as `PROD` or a registered custom environment. Key-based assets (datasets, ML models) are matched by the environment in their URN; containers, pipelines and tasks by the environment in their properties
 
 :::note Important Note
 The associations in the list above are an _intersection_ or an _AND_ operation. For example, if the policy targets

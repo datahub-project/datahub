@@ -20,6 +20,7 @@ fragment incidentLinkedAssetPreview on Entity {
     }
     ... on Dataset {
         origin
+        env
         uri
         editableProperties {
             name
@@ -96,9 +97,11 @@ fragment incidentLinkedAssetPreview on Entity {
     }
     ... on MLModel {
         origin
+        env
     }
     ... on MLModelGroup {
         origin
+        env
     }
     ... on DataPlatform {
         ...nonConflictingPlatformFields

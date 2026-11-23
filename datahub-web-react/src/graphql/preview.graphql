@@ -39,6 +39,7 @@ fragment entityPreview on Entity {
     }
     ... on Dataset {
         origin
+        env
         uri
         platform {
             ...platformFields
@@ -220,12 +221,14 @@ fragment entityPreview on Entity {
     }
     ... on MLModel {
         origin
+        env
         platform {
             ...platformFields
         }
     }
     ... on MLModelGroup {
         origin
+        env
         platform {
             ...platformFields
         }

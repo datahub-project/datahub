@@ -7,10 +7,12 @@ import static com.linkedin.metadata.utils.SearchUtil.*;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.ExplainMatch;
 import com.linkedin.datahub.graphql.generated.ExtraProperty;
@@ -19,7 +21,9 @@ import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.SearchSuggestion;
+import com.linkedin.datahub.graphql.types.common.mappers.FabricTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.datahub.graphql.types.customfabrictype.CustomFabricTypeMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.search.SearchEntity;
@@ -28,6 +32,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
@@ -88,6 +93,19 @@ public class MapperUtils {
     }
   }
 
+  /** Facets whose values are environments (dataset key origin, aspect env). */
+  private static final Set<String> ENV_FACETS = Set.of("origin", "env");
+
+  /**
+   * The customFabricType behind a custom environment value, so the facet can show its display name;
+   * null for a built-in or malformed value.
+   */
+  @Nullable
+  private static Entity customFabricType(@Nullable String env) {
+    String urn = FabricTypeMapper.customFabricTypeUrn(env);
+    return urn == null ? null : CustomFabricTypeMapper.fromUrn(UrnUtils.getUrn(urn));
+  }
+
   public static FacetMetadata mapFacet(
       @Nullable final QueryContext context,
       com.linkedin.metadata.search.AggregationMetadata aggregationMetadata) {
@@ -105,6 +123,7 @@ public class MapperUtils {
     facetMetadata.setDisplayName(
         Optional.ofNullable(aggregationMetadata.getDisplayName())
             .orElse(aggregationMetadata.getName()));
+    final boolean isEnvFacet = ENV_FACETS.contains(aggregationMetadata.getName());
     facetMetadata.setAggregations(
         aggregationMetadata.getFilterValues().stream()
             .map(
@@ -112,9 +131,9 @@ public class MapperUtils {
                     new AggregationMetadata(
                         convertFilterValue(filterValue.getValue(), isEntityTypeFilter),
                         filterValue.getFacetCount(),
-                        filterValue.getEntity() == null
-                            ? null
-                            : UrnToEntityMapper.map(context, filterValue.getEntity()),
+                        filterValue.getEntity() != null
+                            ? UrnToEntityMapper.map(context, filterValue.getEntity())
+                            : isEnvFacet ? customFabricType(filterValue.getValue()) : null,
                         null))
             .collect(Collectors.toList()));
     return facetMetadata;
