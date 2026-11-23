@@ -1074,6 +1074,8 @@ def test_included_script_is_read_once_a_run_per_space() -> None:
     engine.websocket_send_request.side_effect = [
         {"qContent": "X: LOAD 1 AS a AUTOGENERATE 1;"},
         EngineError({"code": 5, "message": "Access denied"}),
+        ConnectionError("socket closed"),
+        {"qContent": "W: LOAD 3 AS a AUTOGENERATE 1;"},
         {"qContent": "Y: LOAD 2 AS a AUTOGENERATE 1;"},
         {},
     ]
@@ -1081,16 +1083,78 @@ def test_included_script_is_read_once_a_run_per_space() -> None:
     for _ in range(2):
         assert api._read_include(engine, "space-1", "lib://DataFiles/x.qvs")
         assert api._read_include(engine, "space-1", "lib://B:DataFiles/y.qvs") is None
+    # A failure other than the Engine's may pass, so it is read again.
+    assert api._read_include(engine, "space-1", "lib://DataFiles/w.qvs") is None
+    assert api._read_include(engine, "space-1", "lib://DataFiles/w.qvs")
     # A path without a space resolves in the reading app's space.
     assert api._read_include(engine, "space-2", "lib://DataFiles/x.qvs") == (
         "Y: LOAD 2 AS a AUTOGENERATE 1;"
     )
     assert api._read_include(engine, "space-2", "lib://DataFiles/z.qvs") is None
-    assert engine.websocket_send_request.call_count == 4
-    assert api.include_read_failures == [
+    assert engine.websocket_send_request.call_count == 6
+    assert [failure.split(": ")[0] for failure in api.include_read_failures] == [
         "lib://B:DataFiles/y.qvs",
+        "lib://DataFiles/w.qvs",
         "lib://DataFiles/z.qvs",
     ]
+
+
+_INCLUDED_LOADS = {
+    "lib://S:DataFiles/a.qvs": "A: LOAD * FROM [lib://S:Lake/a.csv];",
+    "lib://S:DataFiles/b.qvs": "B: LOAD * FROM [lib://S:Lake/b.csv];",
+    "lib://S:DataFiles/setter.qvs": "SET vF = 'lib://S:DataFiles/b.qvs';",
+}
+
+
+@pytest.mark.parametrize(
+    "script, loads",
+    [
+        (
+            "SET vF = 'lib://S:DataFiles/b.qvs';\n$(Include=$(vF));",
+            ["lib://S:Lake/b.csv"],
+        ),
+        (
+            "SET vF = 'lib://S:DataFiles/a.qvs';\n$(Include=$(vF));\n"
+            "SET vF = 'lib://S:DataFiles/b.qvs';\n$(Include=$(vF));",
+            [],
+        ),
+        (
+            "FOR EACH vF IN 'lib://S:DataFiles/a.qvs', 'lib://S:DataFiles/b.qvs'\n"
+            "$(Include=$(vF));\nNEXT vF",
+            [],
+        ),
+        (
+            "IF vRegion = 'EU' THEN\nSET vF = 'lib://S:DataFiles/b.qvs';\nEND IF\n"
+            "$(Include=$(vF));",
+            [],
+        ),
+        # Set once in the script and again by the script it includes.
+        (
+            "SET vF = 'lib://S:DataFiles/a.qvs';\n"
+            "$(Include=lib://S:DataFiles/setter.qvs);\n$(Include=$(vF));",
+            [],
+        ),
+    ],
+)
+def test_include_path_from_a_varying_variable_is_not_read(
+    script: str, loads: List[str]
+) -> None:
+    inlined = inline_includes(
+        script, {"vF": "'lib://S:DataFiles/b.qvs'"}, _INCLUDED_LOADS.get
+    )
+    parsed = parse_script(inlined)
+
+    assert [load.expanded for load in parsed.file_loads] == loads
+    assert parsed.has_includes == (not loads)
+
+
+def test_self_including_script_stops_at_the_depth_cap() -> None:
+    path = "lib://S:DataFiles/self.qvs"
+    files = {path: f"X: LOAD * FROM [lib://S:Lake/x.csv];\n$(Include={path});"}
+    parsed = parse_script(inline_includes(f"$(Include={path});", {}, files.get))
+
+    assert parsed.file_loads
+    assert parsed.has_includes
 
 
 @pytest.mark.parametrize(

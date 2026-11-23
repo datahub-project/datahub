@@ -1339,6 +1339,55 @@ class _ScriptParser(BaseModel):
         )
 
 
+def _varying_variables(script: str) -> Set[str]:
+    """Variables the script assigns more than once, or in an IF, SWITCH, loop
+    or SUB, so their value where the script reads them need not be the one
+    the app's last reload left."""
+    counts: Counter = Counter()
+    varying: Set[str] = set()
+    depth = 0
+    # An include left in place has no semicolon of its own, so it would hide
+    # the start of the statement after it.
+    text = INCLUDE_PATH_RE.sub(";", _strip_comments(script))
+    for statement in _split_statements(text):
+        while (control := CONTROL_RE.match(statement)) and control.end():
+            if control.group("forloop"):
+                variable = FOR_VARIABLE_RE.match(control.group("forloop"))
+                if variable:
+                    varying.add(variable.group("name"))
+            if any(
+                control.group(group)
+                for group in ("if", "switch", "sub", "forloop", "doloop")
+            ):
+                depth += 1
+            elif any(
+                control.group(group)
+                for group in ("endif", "endswitch", "endsub", "loopend")
+            ):
+                depth = max(depth - 1, 0)
+            statement = statement[control.end() :]
+        variable = VARIABLE_RE.match(statement)
+        if variable:
+            counts[variable.group("name")] += 1
+            if depth:
+                varying.add(variable.group("name"))
+    return varying | {name for name, count in counts.items() if count > 1}
+
+
+def _path_variables(path: str, variables: Dict[str, str]) -> Set[str]:
+    """The variables a path reads, also through the values of others."""
+    names: Set[str] = set()
+    pending = [path]
+    while pending:
+        for reference in VARIABLE_REFERENCE_RE.finditer(pending.pop()):
+            name = reference.group("name").strip()
+            if name not in names:
+                names.add(name)
+                if name in variables:
+                    pending.append(variables[name])
+    return names
+
+
 def inline_includes(
     script: str,
     app_variables: Dict[str, str],
@@ -1347,27 +1396,43 @@ def inline_includes(
     """The script with each $(Include) and $(Must_Include) replaced by the
     script of the file it names, as Qlik splices it in at reload, including
     the includes of that file. The path is expanded with the app's variables,
-    as its last reload left them. An include whose path doesn't expand, or
-    that `read` can't read, stays, so the script still counts as including
-    scripts that are not read."""
+    as its last reload left them. An include whose path doesn't expand, reads
+    a variable the script varies, or that `read` can't read, stays, so the
+    script still counts as including scripts that are not read."""
     variables = unquoted_values(app_variables)
+    varying = _varying_variables(script)
 
-    def inline(text: str, depth: int) -> str:
+    def inline(text: str, depth: int, used: Set[str]) -> str:
         def replace(match: "re.Match[str]") -> str:
-            path = _expand_nested_variables(match.group("path").strip(), variables)
-            if not LIB_PATH_RE.match(path) or "$(" in path:
+            raw_path = match.group("path").strip()
+            names = _path_variables(raw_path, variables)
+            path = _expand_nested_variables(raw_path, variables)
+            if (
+                not LIB_PATH_RE.match(path)
+                or "$(" in path
+                or not names.isdisjoint(varying)
+            ):
                 return match.group(0)
             content = read(path)
             if content is None:
                 return match.group(0)
-            return f"\n{inline(content, depth + 1)}\n"
+            used.update(names)
+            return f"\n{inline(content, depth + 1, used)}\n"
 
         if depth >= _MAX_INCLUDE_DEPTH:
             return text
         # A commented-out include is not run.
         return INCLUDE_PATH_RE.sub(replace, _strip_comments(text))
 
-    return inline(script, 0)
+    while True:
+        used: Set[str] = set()
+        inlined = inline(script, 0, used)
+        # Included scripts can vary a variable too, as can an include in a
+        # loop, so the variables read are checked again on the whole script.
+        newly_varying = (used & _varying_variables(inlined)) - varying
+        if not newly_varying:
+            return inlined
+        varying |= newly_varying
 
 
 def parse_script(

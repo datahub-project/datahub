@@ -392,22 +392,25 @@ class QlikAPI(QlikBaseAPI):
         """The script of a file an app includes, read by the Engine as a reload
         reads it. Needs Can view in the space holding the file."""
         key = f"{reader}|{path}"
-        if key not in self._include_contents:
-            content: Optional[str] = None
-            try:
-                response = websocket_connection.websocket_send_request(
-                    method="GetIncludeFileContent", params={"qPath": path}
-                ).get("qContent")
-                if isinstance(response, str):
-                    content = response
-                else:
-                    logger.debug(f"Included script {path} came back without text")
-            except Exception as e:
-                logger.debug(f"Unable to read included script {path}: {e}")
-            if content is None:
-                self.include_read_failures.append(path)
-            self._include_contents[key] = content
-        return self._include_contents[key]
+        if key in self._include_contents:
+            return self._include_contents[key]
+        try:
+            content = websocket_connection.websocket_send_request(
+                method="GetIncludeFileContent", params={"qPath": path}
+            ).get("qContent")
+        except EngineError as e:
+            self.include_read_failures.append(f"{path}: {e}")
+            self._include_contents[key] = None
+            return None
+        except Exception as e:
+            # Not cached, as a dropped websocket may read it for the next app.
+            self.include_read_failures.append(f"{path}: {e}")
+            return None
+        if not isinstance(content, str):
+            self.include_read_failures.append(f"{path}: no script text returned")
+            content = None
+        self._include_contents[key] = content
+        return content
 
     def _get_app(self, app_id: str, script_app: bool = False) -> App:
         errors = ReadErrors()

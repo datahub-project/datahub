@@ -3718,7 +3718,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 message="Apps include these scripts with $(Include) or "
                 "$(Must_Include), but they could not be read, so what they load "
                 "is missing from lineage, and the apps' lineage is only added to. "
-                "Give the API key's user Can view in the space holding each file.",
+                "Each entry gives the reason. An access error needs Can view for "
+                "the API key's user in the space holding the file.",
                 context=_bounded_list(sorted(set(self.qlik_api.include_read_failures))),
             )
         if self.reporter.unresolved_file_connections:

@@ -330,6 +330,65 @@ def test_denied_load_script_is_a_warning(mock_api_cls: MagicMock) -> None:
     ]
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unread_included_script_is_a_warning(mock_api_cls: MagicMock) -> None:
+    mock_api_cls.return_value.get_spaces.return_value = []
+    mock_api_cls.return_value.unread_items = []
+    mock_api_cls.return_value.failed_user_lookups = {}
+    mock_api_cls.return_value.lineage_read_failures = []
+    mock_api_cls.return_value.field_lineage_failures = []
+    mock_api_cls.return_value.opened_without_data = []
+    mock_api_cls.return_value.include_read_failures = [
+        "lib://Common:DataFiles/x.qvs: Access denied"
+    ]
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-cloud"),
+    )
+
+    list(source.get_workunits_internal())
+
+    assert "Unable to read included Qlik scripts" in [
+        warning.title for warning in source.reporter.warnings
+    ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_app_script_holds_the_scripts_it_includes(
+    mock_session_cls: MagicMock,
+    mock_websocket_cls: MagicMock,
+    mock_app_cls: MagicMock,
+) -> None:
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    app = _cloud_app()
+    mock_app_cls.model_validate.return_value = app
+    included = "Rates: LOAD * FROM [lib://Common:Lake/rates.csv];"
+
+    def engine_reply(method: str, params: object = None) -> Dict:
+        if method == "GetIncludeFileContent":
+            assert params == {"qPath": "lib://Common:DataFiles/x.qvs"}
+            return {"qContent": included}
+        return {"qLayout": {}}
+
+    engine = mock_websocket_cls.for_cloud.return_value
+    engine.websocket_send_request.side_effect = engine_reply
+    engine.get_script.return_value = "$(Include=lib://$(vCommon)DataFiles/x.qvs);"
+    with (
+        patch.object(api, "_get_app_sheets", return_value=[]),
+        patch.object(api, "_get_app_used_tables", return_value=[]),
+        patch.object(api, "get_table_lineage", return_value=[]),
+        patch.object(api, "_read_data_model", return_value=[]),
+        patch.object(api, "_read_variables", return_value={"vCommon": "'Common:'"}),
+    ):
+        api._get_app("app-1")
+
+    assert app.script is not None and included in app.script
+    assert "Include" not in app.script
+    assert api.include_read_failures == []
+
+
 def _data_connection(name: str, space: str, datasource: str) -> Dict[str, str]:
     return {"qName": name, "space": space, "datasourceID": datasource}
 
