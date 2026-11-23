@@ -140,6 +140,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     infer_data_connection,
     is_connector_sql,
     is_inline_connection,
+    merged_variables,
     parse_script,
     reads_unknown_fields,
     redact_connection,
@@ -1967,20 +1968,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _app_variables(self, app: App) -> Dict[str, str]:
-        # The app's own values, as its last reload left them, beat the recipe's.
-        # An expression definition (`=...`) the connector can't evaluate, or
-        # an empty one such as a variable cleared at the end of the script,
-        # leaves the recipe's value in place.
-        recipe = self.config.script_variables
-        return {
-            **recipe,
-            **{
-                name: value
-                for name, value in app.variables.items()
-                if not value.lstrip().startswith("=")
-                and (value.strip() or name not in recipe)
-            },
-        }
+        return merged_variables(self.config.script_variables, app.variables)
 
     def _file_source_resolver(
         self, app: App, parsed: ParsedScript

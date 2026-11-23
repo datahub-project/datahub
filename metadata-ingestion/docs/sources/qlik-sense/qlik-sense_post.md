@@ -80,7 +80,7 @@ Conditions are not evaluated:
 
 A script pulled in with `$(Include=...)` or `$(Must_Include=...)` is read into the app's script where it is included, together with the scripts it includes. It is read when:
 
-- its path is a `lib://` path that the app's variables expand. Those hold the values the app's last reload left, so a path that uses a variable the script sets more than once, or inside an `IF`, `SWITCH`, loop or `SUB`, is not read.
+- its path is a `lib://` path that the app's variables expand. Those hold the values the app's last reload left, over any `script_variables` in the recipe; an empty value or an `=` expression keeps the recipe's value. A path that uses a variable the script sets more than once, or inside an `IF`, `SWITCH`, loop or `SUB`, or that is a loop variable or `SUB` parameter, is not read.
 - the API key's user has **Can view** in the space that holds the file.
 - it is nested no more than 10 levels deep.
 

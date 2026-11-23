@@ -1437,6 +1437,11 @@ _INCLUDED_LOADS = {
             "$(Include=$(vF));",
             [],
         ),
+        (
+            "SUB LoadFile(vF)\n$(Include=$(vF));\nEND SUB\n"
+            "CALL LoadFile('lib://S:DataFiles/a.qvs');",
+            [],
+        ),
         # Set once in the script and again by the script it includes.
         (
             "SET vF = 'lib://S:DataFiles/a.qvs';\n"

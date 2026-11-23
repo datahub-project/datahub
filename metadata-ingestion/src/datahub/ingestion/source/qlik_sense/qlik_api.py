@@ -32,6 +32,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     SPACE_SEPARATOR,
     DataConnectionInfo,
     inline_includes,
+    merged_variables,
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import (
     EngineError,
@@ -454,7 +455,7 @@ class QlikAPI(QlikBaseAPI):
                 try:
                     app.script = inline_includes(
                         websocket_connection.get_script(),
-                        app.variables,
+                        merged_variables(self.config.script_variables, app.variables),
                         lambda path: self._read_include(
                             websocket_connection, reader, path
                         ),
