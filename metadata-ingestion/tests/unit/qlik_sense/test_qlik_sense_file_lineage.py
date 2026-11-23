@@ -15,6 +15,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     UnreadItem,
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import (
+    FilePlatform,
     FileStorage,
     file_storage_of_connection,
     file_storage_of_uri,
@@ -855,6 +856,73 @@ def test_stored_qvd_links_the_load_model_table_by_its_qri(
     assert writes[
         "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qvd/customers.qvd,PROD)"
     ] == ("not primary patch:" + make_dataset_urn("qlik-sense", customers_qri.lower()))
+
+
+def _model_table(name: str, alias: str, qri: str) -> Dict:
+    return {
+        "tableName": name,
+        "boxType": "blackbox",
+        "tableAlias": alias,
+        "dataconnectorName": "Sales SQL",
+        "connectionInfo": {"id": "conn-1", "sourceConnectorID": "sqlserver"},
+        "spaceId": "space-1",
+        "fields": [],
+        "tableQri": qri,
+    }
+
+
+def _store_app(tables: List[Dict]) -> App:
+    return App.model_validate(
+        {
+            "id": "app-1",
+            "qTitle": "Sales",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "space-1",
+            "script": STORE_SCRIPT,
+            "tables": tables,
+        }
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_stored_qvd_on_unknown_storage_reports_the_connection(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {},
+        {CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)},
+    )
+
+    assert (
+        list(
+            source._gen_file_store_lineage(
+                _store_app([]), parse_script(STORE_SCRIPT), {ORDERS}
+            )
+        )
+        == []
+    )
+    assert source.reporter.unresolved_file_connections == [CONNECTION]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_stored_label_naming_two_load_model_tables_links_neither(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source({}, {})
+    by_name = "qri:db:sqlserver://sales#dbo.Customers"
+    by_alias = "qri:db:sqlserver://sales#dbo.CustomersArchive"
+    app = _store_app(
+        [
+            _model_table("Customers", "AllCustomers", by_name),
+            _model_table("CustomersArchive", "Customers", by_alias),
+        ]
+    )
+    table_urns = {
+        make_dataset_urn("qlik-sense", qri.lower()) for qri in (by_name, by_alias)
+    }
+
+    assert source._stored_table_urn(app, "Customers", table_urns) is None
 
 
 @pytest.mark.parametrize(
