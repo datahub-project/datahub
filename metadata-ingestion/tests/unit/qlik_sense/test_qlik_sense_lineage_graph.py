@@ -446,12 +446,15 @@ def test_unlisted_dataset_is_named_from_the_upstream_graph(
         },
     )
     source = _source(mock_api_cls, DATASETS, items=_reader_and_writer(upstreams))
-    workunits = list(source.get_workunits_internal())
+    with patch.object(source.app_state, "add_urns") as add_urns:
+        workunits = list(source.get_workunits_internal())
     written, added = _lineage(workunits)
 
     # A QVD in a space the API key can't see joins the app storing it to the
     # app loading it; one listed in a space the recipe leaves out is not named.
     prices = _urn(UNLISTED_QVD)
+    # Emitted at the end of the run, so kept with the app that names it.
+    add_urns.assert_called_once_with("report-app", {prices})
     assert written[_urn("report-app.prices")] == [prices]
     assert added[prices] == [_urn("writer-app.out")]
     properties = next(

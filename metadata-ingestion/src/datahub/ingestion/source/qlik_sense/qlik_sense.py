@@ -1923,6 +1923,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # are separate datasets until its storage is mapped.
         urn = self._gen_qlik_dataset_urn(resource_qri.lower())
         self._graph_named_resources[urn] = label
+        self._app_end_of_run_urns.setdefault(app_id, set()).add(urn)
         self._graph_resource_writers.setdefault(urn, set()).update(
             upstreams.stored_from.get(table_qri, [])
         )
