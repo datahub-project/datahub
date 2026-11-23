@@ -685,7 +685,8 @@ plugins: Dict[str, Set[str]] = {
     | postgres_common
     | aws_common
     | {"sqlalchemy-cockroachdb>=2.0.0,<3.0.0"},
-    "csv-enricher": set(),
+    # smart-open backs the http(s) and s3 file systems used to read the CSV.
+    "csv-enricher": aws_common | {"smart-open[s3]>=5.2.1,<8.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common | cachetools_lib,
@@ -1455,6 +1456,7 @@ entry_points = {
         "s3 = datahub.ingestion.fs.s3_fs:S3FileSystem",
         "file = datahub.ingestion.fs.local_fs:LocalFileSystem",
         "http = datahub.ingestion.fs.http_fs:HttpFileSystem",
+        "https = datahub.ingestion.fs.http_fs:HttpFileSystem",
     ],
 }
 

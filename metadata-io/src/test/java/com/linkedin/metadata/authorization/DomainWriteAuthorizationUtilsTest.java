@@ -246,6 +246,44 @@ public class DomainWriteAuthorizationUtilsTest {
   }
 
   @Test
+  public void testIsAuthorizedDataProductDomainsEstablish_ignoresManageAllDataProducts() {
+    // MANAGE_ALL_DATA_PRODUCTS is covered by isAuthorizedDataProductDomainsWithManageAll, which the
+    // validator checks first.
+    AuthorizationSession session =
+        sessionAllowing(PoliciesConfig.MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE.getType());
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            session, DATA_PRODUCT_URN, domains(DOMAIN_X)));
+  }
+
+  @Test
+  public void testIsAuthorizedDataProductDomainsWithManageAll() {
+    AuthorizationSession session =
+        sessionAllowing(PoliciesConfig.MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE.getType());
+    // Set, change or clear: any set of domain URNs, including none.
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsWithManageAll(
+            session, DATA_PRODUCT_URN, domains(DOMAIN_Y)));
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsWithManageAll(
+            session, DATA_PRODUCT_URN, new Domains()));
+    // An unresolved proposal, a non-domain URN, or another entity type is not covered.
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsWithManageAll(
+            session, DATA_PRODUCT_URN, null));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsWithManageAll(
+            session, DATA_PRODUCT_URN, domains(DATASET_URN)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsWithManageAll(
+            session, DATASET_URN, domains(DOMAIN_X)));
+    // Without the privilege.
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsWithManageAll(
+            dataProductManagerSession(Set.of(DOMAIN_X)), DATA_PRODUCT_URN, domains(DOMAIN_X)));
+  }
+
+  @Test
   public void testIsAuthorizedDomainsEdit_dataProductFirstDomainsAllowedForDomainManager() {
     AuthorizationSession session = dataProductManagerSession(Set.of(DOMAIN_X));
     assertTrue(

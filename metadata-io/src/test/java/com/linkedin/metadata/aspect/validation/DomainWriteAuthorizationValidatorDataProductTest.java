@@ -132,6 +132,56 @@ public class DomainWriteAuthorizationValidatorDataProductTest {
         1);
   }
 
+  @Test
+  public void testFirstDomainsWriteAllowedWithOnlyManageAllDataProducts() {
+    // createDataProduct accepts MANAGE_ALL_DATA_PRODUCTS for a product in a Domain; rejecting its
+    // setDomain here would leave the product without a Domain and without an owner.
+    mockPersistedDomains(null);
+    AuthorizationSession manageAll = manageAllDataProducts();
+
+    assertEquals(validate(domainsItem(ChangeType.UPSERT, DOMAIN_X), manageAll).size(), 0);
+    assertEquals(
+        validator
+            .validatePreCommitAspectsWithAuth(
+                OperationFingerprint.EMPTY,
+                List.of(changeMCP(null, domains(DOMAIN_X))),
+                retrieverContext,
+                manageAll)
+            .count(),
+        0);
+  }
+
+  @Test
+  public void testManageAllDataProductsCanMoveAndClearDomains() {
+    // The Domain of a Data Product is optional: the platform privilege covers changing and
+    // removing it, not only setting the first one.
+    mockPersistedDomains(domains(DOMAIN_X));
+    AuthorizationSession manageAll = manageAllDataProducts();
+
+    assertEquals(validate(domainsItem(ChangeType.UPSERT, DOMAIN_Y), manageAll).size(), 0);
+    assertEquals(validate(clearDomainsItem(), manageAll).size(), 0);
+    assertEquals(
+        validator
+            .validatePreCommitAspectsWithAuth(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    changeMCP(domains(DOMAIN_X), domains(DOMAIN_Y)),
+                    changeMCP(domains(DOMAIN_X), new Domains().setDomains(new UrnArray()))),
+                retrieverContext,
+                manageAll)
+            .count(),
+        0);
+  }
+
+  @Test
+  public void testManageAllDataProductsRejectsANonDomainUrn() {
+    mockPersistedDomains(null);
+    Urn dataset = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
+
+    assertEquals(
+        validate(domainsItem(ChangeType.UPSERT, dataset), manageAllDataProducts()).size(), 1);
+  }
+
   private void mockPersistedDomains(Domains persisted) {
     Map<String, Aspect> aspects =
         persisted == null ? Map.of() : Map.of(DOMAINS_ASPECT_NAME, new Aspect(persisted.data()));
@@ -154,6 +204,16 @@ public class DomainWriteAuthorizationValidatorDataProductTest {
         .build();
   }
 
+  private TestMCP clearDomainsItem() {
+    return TestMCP.builder()
+        .urn(DATA_PRODUCT_URN)
+        .entitySpec(entitySpec)
+        .aspectSpec(domainsAspectSpec)
+        .recordTemplate(new Domains().setDomains(new UrnArray()))
+        .changeType(ChangeType.UPSERT)
+        .build();
+  }
+
   private static ChangeMCP changeMCP(Domains previous, Domains proposed) {
     ChangeMCP change = mock(ChangeMCP.class);
     when(change.getUrn()).thenReturn(DATA_PRODUCT_URN);
@@ -169,6 +229,24 @@ public class DomainWriteAuthorizationValidatorDataProductTest {
         .validateProposedAspectsWithAuth(
             OperationFingerprint.EMPTY, List.of(item), retrieverContext, session)
         .collect(Collectors.toList());
+  }
+
+  /** Grants the platform-wide {@code MANAGE_ALL_DATA_PRODUCTS} only, and nothing else. */
+  private static AuthorizationSession manageAllDataProducts() {
+    AuthorizationSession session = mock(AuthorizationSession.class);
+    when(session.authorize(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              boolean allowed =
+                  PoliciesConfig.MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE
+                      .getType()
+                      .equals(invocation.getArgument(0));
+              return new AuthorizationResult(
+                  null,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  null);
+            });
+    return session;
   }
 
   /** Grants {@code MANAGE_DATA_PRODUCTS} on the given domains only, and nothing else. */

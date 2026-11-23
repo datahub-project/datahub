@@ -51,6 +51,11 @@ class AthenaAdapter(PlatformAdapter):
         # Step 1: Handle custom SQL via temp view
         if context.custom_sql:
             context = self._create_temp_view_for_custom_sql(context)
+            # The rows profiled are the source's query, not the whole table.
+            # Athena always sends a partition label alongside, and that takes
+            # precedence in the label; reporting it keeps the record true even
+            # so, and correct if that ever stops holding.
+            context.applied.source_scoped = True
 
         # Step 2: Create SQLAlchemy table object
         if context.temp_view:

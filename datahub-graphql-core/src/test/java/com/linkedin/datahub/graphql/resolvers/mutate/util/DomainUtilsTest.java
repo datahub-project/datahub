@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.*;
 
+import com.datahub.authorization.AuthorizationResult;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -14,10 +15,12 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -30,6 +33,7 @@ public class DomainUtilsTest {
   private static final String GLOSSARY_TERM_URN =
       "urn:li:glossaryTerm:11115397daf94708a8822b8106cfd451";
   private static final String DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test,TEST)";
+  private static final String DATA_PRODUCT_URN = "urn:li:dataProduct:test-product";
 
   private EntityClient mockEntityClient;
 
@@ -62,6 +66,41 @@ public class DomainUtilsTest {
     assertTrue(
         DomainUtils.isAuthorizedToUpdateDomainsForEntity(
             allowContext, glossaryTermUrn, mockEntityClient));
+  }
+
+  @Test
+  public void testManageAllDataProductsCanUpdateDomainsOfDataProduct() {
+    assertTrue(
+        DomainUtils.isAuthorizedToUpdateDomainsForEntity(
+            manageAllDataProductsContext(), UrnUtils.getUrn(DATA_PRODUCT_URN), mockEntityClient));
+  }
+
+  @Test
+  public void testManageAllDataProductsDoesNotApplyToOtherEntities() {
+    assertFalse(
+        DomainUtils.isAuthorizedToUpdateDomainsForEntity(
+            manageAllDataProductsContext(), UrnUtils.getUrn(DATASET_URN), mockEntityClient));
+  }
+
+  @Test
+  public void testDataProductDomainsStillNeedAPrivilege() {
+    assertFalse(
+        DomainUtils.isAuthorizedToUpdateDomainsForEntity(
+            getMockDenyContext(), UrnUtils.getUrn(DATA_PRODUCT_URN), mockEntityClient));
+  }
+
+  /** Grants only MANAGE_ALL_DATA_PRODUCTS. */
+  private static QueryContext manageAllDataProductsContext() {
+    QueryContext context = Mockito.mock(QueryContext.class);
+    OperationContext operationContext = Mockito.mock(OperationContext.class);
+    Mockito.when(context.getOperationContext()).thenReturn(operationContext);
+    Mockito.when(operationContext.authorize(any(), any(), any()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
+    Mockito.when(
+            operationContext.authorize(
+                eq(PoliciesConfig.MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE.getType()), any(), any()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+    return context;
   }
 
   @Test
