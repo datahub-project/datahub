@@ -1,11 +1,16 @@
-from typing import Dict, List, Union, cast
+import io
+from typing import Dict, List, Optional, Union, cast
 from unittest import mock
 
+import pytest
+
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.csv_enricher import CSVEnricherConfig, CSVEnricherSource
 from datahub.metadata.schema_classes import (
+    EditableDatasetPropertiesClass,
     GlossaryTermAssociationClass,
     OwnerClass,
     OwnershipSourceClass,
@@ -351,3 +356,69 @@ def test_get_workunits_internal_emits_structured_properties(tmp_path):
         ("urn:li:structuredProperty:io.acryl.test.classification", ("Sensitive",)),
         ("urn:li:structuredProperty:ownerTeam", ("Finance",)),
     }
+
+
+CSV_WITH_DESCRIPTION = (
+    "resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain\n"
+    f'"{DATASET_URN}",,,,,,Remote description,\n'
+)
+
+
+def _read_descriptions(filename: str) -> List[Optional[str]]:
+    source = CSVEnricherSource(
+        CSVEnricherConfig(
+            filename=filename,
+            write_semantics="OVERRIDE",
+            delimiter=",",
+            array_delimiter="|",
+        ),
+        PipelineContext("test-run-id"),
+    )
+    descriptions = []
+    for wu in source.get_workunits_internal():
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        if isinstance(wu.metadata.aspect, EditableDatasetPropertiesClass):
+            descriptions.append(wu.metadata.aspect.description)
+    return descriptions
+
+
+def test_get_workunits_internal_reads_local_file_with_bom(tmp_path):
+    csv_file = tmp_path / "bom.csv"
+    csv_file.write_bytes(CSV_WITH_DESCRIPTION.encode("utf-8-sig"))
+
+    assert _read_descriptions(str(csv_file)) == ["Remote description"]
+
+
+@pytest.mark.parametrize(
+    "url", ["http://example.com/file.csv", "https://example.com/file.csv?sig=abc"]
+)
+def test_get_workunits_internal_reads_http_via_fs(url):
+    with mock.patch("datahub.ingestion.fs.http_fs.smart_open") as mock_smart_open:
+        mock_smart_open.open.return_value = io.BytesIO(
+            CSV_WITH_DESCRIPTION.encode("utf-8-sig")
+        )
+        assert _read_descriptions(url) == ["Remote description"]
+    mock_smart_open.open.assert_called_once_with(url, mode="rb", transport_params={})
+
+
+def test_get_workunits_internal_reads_s3_via_fs():
+    with (
+        mock.patch("datahub.ingestion.fs.s3_fs.boto3") as mock_boto3,
+        mock.patch("datahub.ingestion.fs.s3_fs.smart_open") as mock_smart_open,
+    ):
+        mock_smart_open.open.return_value = io.BytesIO(
+            CSV_WITH_DESCRIPTION.encode("utf-8")
+        )
+        assert _read_descriptions("s3://my-bucket/enrich.csv") == ["Remote description"]
+    mock_smart_open.open.assert_called_once_with(
+        "s3://my-bucket/enrich.csv",
+        mode="rb",
+        transport_params={"client": mock_boto3.client.return_value},
+    )
+
+
+def test_get_workunits_internal_remote_read_error_is_configuration_error():
+    with mock.patch("datahub.ingestion.fs.http_fs.smart_open") as mock_smart_open:
+        mock_smart_open.open.side_effect = OSError("404 Not Found")
+        with pytest.raises(ConfigurationError, match="Cannot read remote file"):
+            _read_descriptions("https://example.com/missing.csv")

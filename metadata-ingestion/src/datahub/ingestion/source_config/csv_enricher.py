@@ -8,7 +8,8 @@ from datahub.configuration.common import ConfigModel
 
 class CSVEnricherConfig(ConfigModel):
     filename: str = pydantic.Field(
-        description="File path or URL of CSV file to ingest."
+        description="Local path, http(s) URL, or s3:// path of the CSV file to ingest. "
+        "s3:// paths use the default AWS credential chain; presigned URLs work via https."
     )
     write_semantics: str = pydantic.Field(
         default="PATCH",
