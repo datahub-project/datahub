@@ -322,7 +322,9 @@ class QlikOnPremConfig(ConfigModel):
         "only loads BINARY from a .qvf file, which doesn't say which app it "
         "holds. A mapped BINARY load links the app's tables to that app's "
         "tables of the same name, with column lineage between their fields. "
-        "An unmapped one links them to the file instead. Paths match as the "
+        "An unmapped one links them to the file instead, unless the script "
+        "also creates tables it doesn't name or includes other scripts, when "
+        "they get no lineage. Paths match as the "
         "script names them, or as the file path they resolve to. Needs "
         "`read_data_model`, as the load script doesn't name the tables a "
         "BINARY load brings in.",
