@@ -2097,9 +2097,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         named by the connection and path, so the apps that write and read it
         still join. Only a connection named with its space is the same one in
         every app, and DataFiles hold Qlik's own datasets."""
-        if self._data_connections_unread():
-            # The connection may be one whose storage is known when listed.
-            return None
         space, _, name = connection.strip().partition(":")
         path = normalized_file_path(path)
         qualified = f"{space}:{name}/{path}"
@@ -2117,6 +2114,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _unmapped_storage_file_urn(self, connection: str, path: str) -> Optional[str]:
         """Reports a connection whose storage is unknown and names the file on
         it by the connection and path, when it can be."""
+        if self._data_connections_unread():
+            # Its storage may be known once listed; the unread listing is reported.
+            return None
         if connection not in self.reporter.unresolved_file_connections:
             self.reporter.unresolved_file_connections.append(connection)
         return self._unmapped_file_urn(connection, path)
@@ -3066,7 +3066,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 entityUrn=urn,
                 aspect=DatasetProperties(
                     name=name[: -len(QVD_EXTENSION)]
-                    if name.endswith(QVD_EXTENSION)
+                    if name.lower().endswith(QVD_EXTENSION)
                     else name,
                     qualifiedName=path,
                     customProperties={
