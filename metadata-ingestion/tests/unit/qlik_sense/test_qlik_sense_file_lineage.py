@@ -1172,36 +1172,81 @@ def test_included_scripts_are_read_into_the_script() -> None:
     ).has_includes
 
 
-def test_included_script_is_read_once_a_run_per_space() -> None:
+@pytest.mark.parametrize("separator", [";", ""])
+def test_include_with_a_variable_in_its_path_keeps_the_next_label(
+    separator: str,
+) -> None:
+    parsed = parse_script(
+        f"$(Include=lib://$(vPrefix)Common/x.qvs){separator}\n"
+        "Orders: LOAD *; SQL SELECT * FROM sales.orders;"
+    )
+
+    assert [table.label for table in parsed.tables] == ["Orders"]
+    assert parsed.has_includes
+
+
+def test_include_outside_a_lib_path_is_not_read() -> None:
+    files = {"common.qvs": "X: LOAD * FROM [lib://S:Lake/x.csv];"}
+    parsed = parse_script(inline_includes("$(Include=common.qvs);", {}, files.get))
+
+    assert not parsed.file_loads
+    assert parsed.has_includes
+
+
+def _include_api() -> QlikAPI:
     with patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session"):
-        api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+        return QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+
+
+def _engine(*replies: object) -> MagicMock:
     engine = MagicMock()
-    engine.websocket_send_request.side_effect = [
+    engine.websocket_send_request.side_effect = list(replies)
+    return engine
+
+
+def test_included_script_is_read_once_a_run_per_space() -> None:
+    api = _include_api()
+    engine = _engine(
         {"qContent": "X: LOAD 1 AS a AUTOGENERATE 1;"},
-        EngineError({"code": 5, "message": "Access denied"}),
-        ConnectionError("socket closed"),
-        {"qContent": "W: LOAD 3 AS a AUTOGENERATE 1;"},
         {"qContent": "Y: LOAD 2 AS a AUTOGENERATE 1;"},
-        {},
-    ]
+    )
 
     for _ in range(2):
-        assert api._read_include(engine, "space-1", "lib://DataFiles/x.qvs")
-        assert api._read_include(engine, "space-1", "lib://B:DataFiles/y.qvs") is None
-    # A failure other than the Engine's may pass, so it is read again.
-    assert api._read_include(engine, "space-1", "lib://DataFiles/w.qvs") is None
-    assert api._read_include(engine, "space-1", "lib://DataFiles/w.qvs")
+        assert api._read_include(engine, "space-1", "lib://DataFiles/x.qvs") == (
+            "X: LOAD 1 AS a AUTOGENERATE 1;"
+        )
     # A path without a space resolves in the reading app's space.
     assert api._read_include(engine, "space-2", "lib://DataFiles/x.qvs") == (
         "Y: LOAD 2 AS a AUTOGENERATE 1;"
     )
-    assert api._read_include(engine, "space-2", "lib://DataFiles/z.qvs") is None
-    assert engine.websocket_send_request.call_count == 6
-    assert [failure.split(": ")[0] for failure in api.include_read_failures] == [
-        "lib://B:DataFiles/y.qvs",
-        "lib://DataFiles/w.qvs",
-        "lib://DataFiles/z.qvs",
-    ]
+    assert engine.websocket_send_request.call_count == 2
+    assert api.include_read_failures == []
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [EngineError({"code": 5, "message": "Access denied"}), {}],
+)
+def test_include_the_engine_refuses_is_not_read_again(reply: object) -> None:
+    api = _include_api()
+    engine = _engine(reply)
+
+    for _ in range(2):
+        assert api._read_include(engine, "space-1", "lib://B:DataFiles/y.qvs") is None
+    assert engine.websocket_send_request.call_count == 1
+    assert len(api.include_read_failures) == 1
+
+
+def test_include_read_failing_outside_the_engine_is_read_again() -> None:
+    api = _include_api()
+    engine = _engine(
+        ConnectionError("socket closed"),
+        {"qContent": "W: LOAD 3 AS a AUTOGENERATE 1;"},
+    )
+
+    assert api._read_include(engine, "space-1", "lib://DataFiles/w.qvs") is None
+    assert api._read_include(engine, "space-1", "lib://DataFiles/w.qvs")
+    assert len(api.include_read_failures) == 1
 
 
 _INCLUDED_LOADS = {

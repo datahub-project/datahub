@@ -1,7 +1,7 @@
 import io
 import ssl
 from functools import partial
-from typing import Dict, List
+from typing import Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -388,6 +388,45 @@ def test_app_script_holds_the_scripts_it_includes(
     assert app.script is not None and included in app.script
     assert "Include" not in app.script
     assert api.include_read_failures == []
+
+
+@pytest.mark.parametrize("space_id, reads", [("space-1", 1), (None, 2)])
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_personal_apps_read_their_own_includes(
+    mock_session_cls: MagicMock,
+    mock_websocket_cls: MagicMock,
+    mock_app_cls: MagicMock,
+    space_id: Optional[str],
+    reads: int,
+) -> None:
+    # An unqualified path resolves in the app's space, and each personal app
+    # has its owner's.
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    mock_app_cls.model_validate.side_effect = lambda _: _cloud_app(spaceId=space_id)
+    include_reads: List[object] = []
+
+    def engine_reply(method: str, params: object = None) -> Dict:
+        if method == "GetIncludeFileContent":
+            include_reads.append(params)
+            return {"qContent": "Rates: LOAD * FROM [lib://DataFiles/rates.csv];"}
+        return {"qLayout": {}}
+
+    engine = mock_websocket_cls.for_cloud.return_value
+    engine.websocket_send_request.side_effect = engine_reply
+    engine.get_script.return_value = "$(Include=lib://DataFiles/x.qvs);"
+    with (
+        patch.object(api, "_get_app_sheets", return_value=[]),
+        patch.object(api, "_get_app_used_tables", return_value=[]),
+        patch.object(api, "get_table_lineage", return_value=[]),
+        patch.object(api, "_read_data_model", return_value=[]),
+        patch.object(api, "_read_variables", return_value={}),
+    ):
+        api._get_app("app-1")
+        api._get_app("app-2")
+
+    assert len(include_reads) == reads
 
 
 def _data_connection(name: str, space: str, datasource: str) -> Dict[str, str]:

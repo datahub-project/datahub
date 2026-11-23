@@ -51,7 +51,6 @@ FROM_TABLE_RE = re.compile(
     re.IGNORECASE,
 )
 QLIK_TABLE_NAME_LENGTH = 32
-INCLUDE_RE = re.compile(r"\$\(\s*(?:Must_)?Include\s*=[^)]*\)", re.IGNORECASE)
 # The path may be built from variables, such as lib://$(vPrefix)Common/x.qvs.
 INCLUDE_PATH_RE = re.compile(
     r"\$\(\s*(?:Must_)?Include\s*=(?P<path>(?:[^()]|\$\([^()]*\))*)\)",
@@ -1054,7 +1053,7 @@ class _ScriptParser(BaseModel):
                 state.set_variable(param, value)
 
     def _statement(self, statement: str) -> None:
-        statement, includes = INCLUDE_RE.subn("", statement)
+        statement, includes = INCLUDE_PATH_RE.subn("", statement)
         if includes:
             # The included script is not read, so it could have set anything.
             self.has_includes = True
@@ -1390,7 +1389,7 @@ def _varying_variables(script: str) -> Set[str]:
     """Variables the script assigns more than once, or in an IF, SWITCH, loop
     or SUB, so their value where the script reads them need not be the one
     the app's last reload left."""
-    counts: Counter = Counter()
+    counts: Counter[str] = Counter()
     varying: Set[str] = set()
     depth = 0
     # An include left in place has no semicolon of its own, so it would hide

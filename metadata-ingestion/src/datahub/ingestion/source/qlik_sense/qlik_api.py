@@ -446,12 +446,17 @@ class QlikAPI(QlikBaseAPI):
             app.lineage_graph_missing |= errors.lineage_graph_missing
             app.tables_read_failed = len(errors.messages) > read_errors
             if not app.tables or not all(table.tableQri for table in app.tables):
+                # A personal app's unqualified paths resolve in its owner's
+                # personal space, so its includes are cached apart.
+                reader = (
+                    app_id if app.spaceId == Constant.PERSONAL_SPACE_ID else app.spaceId
+                )
                 try:
                     app.script = inline_includes(
                         websocket_connection.get_script(),
                         app.variables,
                         lambda path: self._read_include(
-                            websocket_connection, app.spaceId or app_id, path
+                            websocket_connection, reader, path
                         ),
                     )
                 except Exception as e:
