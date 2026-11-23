@@ -16,6 +16,7 @@ from datahub.ingestion.api.incremental_lineage_helper import (
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.elastic_search_common import (
     ElasticsearchConnectionConfig,
 )
@@ -190,8 +191,121 @@ class SqlTableQuerySourceConfig(MappedQuerySourceConfig):
         return f"sql_table:{self.connection.scheme}"
 
 
+# udmSearch coerces any larger limit to this and returns no page token.
+SECOPS_MAX_EVENTS_PER_SEARCH = 10000
+
+
+class SecOpsQueryFieldMappings(QueryFieldMappings):
+    """Maps query-record fields to UDM event fields.
+
+    Paths are dotted and relative to the event's `udm` object, in the camelCase
+    form the Chronicle REST API returns (e.g. `metadata.eventTimestamp`). A path
+    that passes through a repeated field takes its first element.
+    """
+
+    query: str = Field(
+        description="UDM field holding the SQL query text. Where the statement lands "
+        "depends on the log type's parser, e.g. `target.process.commandLine` or "
+        "`additional.fields.statement`; check a sample event in UDM Search."
+    )
+    timestamp: Optional[str] = Field(
+        "metadata.eventTimestamp",
+        description="UDM field holding the query timestamp.",
+    )
+    user: Optional[str] = Field(
+        "principal.user.userid",
+        description="UDM field holding the executing user.",
+    )
+
+
+class SecOpsQuerySourceConfig(MappedQuerySourceConfig):
+    type: Literal["secops"] = Field(description="Selects the Google SecOps backend.")
+    project_id: str = Field(
+        description="Google Cloud project that the Google SecOps instance is bound to."
+    )
+    location: str = Field(
+        description="Region of the Google SecOps instance, e.g. `us`, `europe` or "
+        "`europe-west2`. Selects the `https://<location>-chronicle.googleapis.com` "
+        "endpoint unless `endpoint` is set."
+    )
+    instance_id: str = Field(
+        description="Google SecOps instance (customer) id, a GUID shown under "
+        "SIEM Settings > Profile."
+    )
+    endpoint: Optional[str] = Field(
+        None,
+        description="Override the Chronicle API base URL, e.g. for a private endpoint.",
+    )
+    credential: Optional[GCPCredential] = Field(
+        None,
+        description="Service account key with the `chronicle.events.udmSearch` "
+        "permission (e.g. the Chronicle API Viewer role). When omitted, Application "
+        "Default Credentials are used.",
+    )
+    udm_query: str = Field(
+        description="UDM Search query selecting the events that carry SQL, e.g. "
+        '`metadata.log_type = "GCP_CLOUDAUDIT" AND metadata.product_event_type = '
+        '"jobservice.jobcompleted"`. Scope it tightly: every matching event in the '
+        "time range is read."
+    )
+    field_mappings: SecOpsQueryFieldMappings = Field(
+        description="Maps query-record fields to UDM event fields."
+    )
+    window_minutes: int = Field(
+        60,
+        gt=0,
+        description="Length of each search window. udmSearch returns at most "
+        f"{SECOPS_MAX_EVENTS_PER_SEARCH} events per call and has no paging, so the "
+        "time range is read window by window, and a window that hits the cap is split "
+        "in half until it fits.",
+    )
+    min_window_seconds: int = Field(
+        1,
+        gt=0,
+        description="Smallest window to split down to. A window this short that still "
+        "hits the cap is read as is, its extra events are missed, and a warning is "
+        "reported.",
+    )
+    request_timeout_seconds: int = Field(
+        300, gt=0, description="Timeout for each udmSearch request."
+    )
+    max_retries: int = Field(
+        5,
+        ge=0,
+        description="How many times a udmSearch call is retried, with backoff, after "
+        "a rate-limit (429) or server (5xx) response or a connection error.",
+    )
+
+    @model_validator(mode="after")
+    def validate_window_sizes(self) -> "SecOpsQuerySourceConfig":
+        if self.min_window_seconds > self.window_minutes * 60:
+            raise ValueError(
+                "min_window_seconds cannot be larger than window_minutes * 60."
+            )
+        return self
+
+    @property
+    def label(self) -> str:
+        return f"secops:{self.instance_id}"
+
+    def api_base_url(self) -> str:
+        return (
+            self.endpoint or f"https://{self.location}-chronicle.googleapis.com"
+        ).rstrip("/")
+
+    def instance_name(self) -> str:
+        return (
+            f"projects/{self.project_id}/locations/{self.location}"
+            f"/instances/{self.instance_id}"
+        )
+
+
 QuerySourceConfig = Annotated[
-    Union[ElasticsearchQuerySourceConfig, SqlTableQuerySourceConfig],
+    Union[
+        ElasticsearchQuerySourceConfig,
+        SqlTableQuerySourceConfig,
+        SecOpsQuerySourceConfig,
+    ],
     Field(discriminator="type"),
 ]
 
@@ -208,8 +322,8 @@ class SqlQueriesSourceConfig(
     query_source: Optional[QuerySourceConfig] = Field(
         None,
         description="A non-file backend to read query records from "
-        "(elasticsearch or sql_table). Exactly one of query_file and query_source "
-        "must be set.",
+        "(elasticsearch, sql_table or secops). Exactly one of query_file and "
+        "query_source must be set.",
     )
 
     platform: str = Field(
@@ -217,7 +331,9 @@ class SqlQueriesSourceConfig(
     )
 
     usage: BaseUsageConfig = Field(
-        description="The usage config to use when generating usage statistics",
+        description="The usage config to use when generating usage statistics. "
+        "Its start_time and end_time also set the time range read from a secops "
+        "query_source.",
         default=BaseUsageConfig(),
     )
 

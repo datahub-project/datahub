@@ -1,0 +1,367 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,sales.order_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1790899200000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1790813520000,
+                        "actor": "urn:li:corpuser:etl@example.com"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,sales.orders,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:composite_4b5bd46296ccd84e661a9945a101b3f36d19fb0ae42a45cce3036d20649a4b5a"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790899200000,
+        "runId": "secops-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:composite_4b5bd46296ccd84e661a9945a101b3f36d19fb0ae42a45cce3036d20649a4b5a",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "create temporary table tmp_orders as select * from orders;\n\ninsert into order_summary select * from tmp_orders",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1790813520000,
+                "actor": "urn:li:corpuser:etl@example.com"
+            },
+            "lastModified": {
+                "time": 1790813520000,
+                "actor": "urn:li:corpuser:etl@example.com"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790899200000,
+        "runId": "secops-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:composite_4b5bd46296ccd84e661a9945a101b3f36d19fb0ae42a45cce3036d20649a4b5a",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:mysql,sales.orders,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:mysql,sales.order_summary,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790899200000,
+        "runId": "secops-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:composite_4b5bd46296ccd84e661a9945a101b3f36d19fb0ae42a45cce3036d20649a4b5a",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mysql"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790899200000,
+        "runId": "secops-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:composite_4b5bd46296ccd84e661a9945a101b3f36d19fb0ae42a45cce3036d20649a4b5a",
+    "changeType": "UPSERT",
+    "aspectName": "queryUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1790812800000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "queryCount": 1,
+            "uniqueUserCount": 1,
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:etl@example.com",
+                    "count": 1
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790899200000,
+        "runId": "secops-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,sales.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1790812800000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 1,
+            "totalSqlQueries": 1,
+            "topSqlQueries": [
+                "select * from customers"
+            ],
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:analyst@example.com",
+                    "count": 1,
+                    "userEmail": "analyst@example.com"
+                }
+            ],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790899200000,
+        "runId": "secops-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,sales.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1790812800000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 1,
+            "totalSqlQueries": 1,
+            "topSqlQueries": [
+                "create temporary table tmp_orders as select * from orders"
+            ],
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:etl@example.com",
+                    "count": 1,
+                    "userEmail": "etl@example.com"
+                }
+            ],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790899200000,
+        "runId": "secops-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,sales.tmp_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1790812800000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 1,
+            "totalSqlQueries": 1,
+            "topSqlQueries": [
+                "insert into order_summary select * from tmp_orders"
+            ],
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:etl@example.com",
+                    "count": 1,
+                    "userEmail": "etl@example.com"
+                }
+            ],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790899200000,
+        "runId": "secops-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,sales.order_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1790899200000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:etl@example.com",
+            "operationType": "INSERT",
+            "sourceType": "DATA_PLATFORM",
+            "lastUpdatedTimestamp": 1790813520000,
+            "queries": [
+                "urn:li:query:composite_4b5bd46296ccd84e661a9945a101b3f36d19fb0ae42a45cce3036d20649a4b5a"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790899200000,
+        "runId": "secops-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:e56b12127ea593f11064880c9a75570783e938bc97f33ecd218e61410053c477",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "select * from customers",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1790813580000,
+                "actor": "urn:li:corpuser:analyst@example.com"
+            },
+            "lastModified": {
+                "time": 1790813580000,
+                "actor": "urn:li:corpuser:analyst@example.com"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790899200000,
+        "runId": "secops-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:e56b12127ea593f11064880c9a75570783e938bc97f33ecd218e61410053c477",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:mysql,sales.customers,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790899200000,
+        "runId": "secops-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:e56b12127ea593f11064880c9a75570783e938bc97f33ecd218e61410053c477",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mysql"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790899200000,
+        "runId": "secops-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:e56b12127ea593f11064880c9a75570783e938bc97f33ecd218e61410053c477",
+    "changeType": "UPSERT",
+    "aspectName": "queryUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1790812800000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "queryCount": 1,
+            "uniqueUserCount": 1,
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:analyst@example.com",
+                    "count": 1
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790899200000,
+        "runId": "secops-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

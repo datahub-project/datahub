@@ -896,6 +896,8 @@ plugins: Dict[str, Set[str]] = {
     # module is imported whenever the source loads.
     | opensearch_common
     | sqlalchemy_lib  # powers the sql_table query_source backend
+    # google-auth signs udmSearch calls for the secops query_source backend.
+    | {"google-auth>=2.0.0,<3.0.0"}
     # cachetools is imported at module load via SQLAlchemyConnectionConfig ->
     # profiling config -> operation_config.
     | cachetools_lib

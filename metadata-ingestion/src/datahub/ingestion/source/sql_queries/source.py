@@ -21,6 +21,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql_queries.config import (
     ElasticsearchQuerySourceConfig,
+    SecOpsQuerySourceConfig,
     SqlQueriesSourceConfig,
     SqlTableQuerySourceConfig,
 )
@@ -33,6 +34,10 @@ from datahub.ingestion.source.sql_queries.readers.elasticsearch import (
     ElasticsearchQueryLogReader,
 )
 from datahub.ingestion.source.sql_queries.readers.file import FileQueryLogReader
+from datahub.ingestion.source.sql_queries.readers.secops import (
+    SecOpsQueryLogReader,
+    TimeWindow,
+)
 from datahub.ingestion.source.sql_queries.readers.sql_table import (
     SqlTableQueryLogReader,
 )
@@ -144,6 +149,15 @@ class SqlQueriesSource(Source):
             return ElasticsearchQueryLogReader(query_source, self.report)
         if isinstance(query_source, SqlTableQuerySourceConfig):
             return SqlTableQueryLogReader(query_source, self.report)
+        if isinstance(query_source, SecOpsQuerySourceConfig):
+            return SecOpsQueryLogReader(
+                query_source,
+                self.report,
+                time_range=TimeWindow(
+                    start=self.config.usage.start_time,
+                    end=self.config.usage.end_time,
+                ),
+            )
         assert_never(query_source)
 
     def _create_file_reader(self, query_file: str) -> FileQueryLogReader:
