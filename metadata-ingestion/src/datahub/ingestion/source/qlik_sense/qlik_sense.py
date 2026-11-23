@@ -95,6 +95,7 @@ from datahub.ingestion.source.qlik_sense.file_lineage import (
     FileStorage,
     file_dataset_urn,
     file_storage_of_uri,
+    normalized_file_path,
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
@@ -1951,7 +1952,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     ) -> str:
         return file_dataset_urn(
             storage,
-            path,
+            # As Qlik Cloud names it, so lineage joins whichever way it was read.
+            normalized_file_path(path),
             platform_instance=detail.platform_instance if detail else None,
             # An env the mapping leaves unset is the recipe's.
             env=detail.env

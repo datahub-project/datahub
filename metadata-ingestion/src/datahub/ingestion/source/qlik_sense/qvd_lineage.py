@@ -82,7 +82,7 @@ class QvdPathResolver:
         ):
             return None
         urn = self._by_connection(self.storage_urns, file.connection)
-        return urn(file.path.replace("\\", "/")) if urn else None
+        return urn(file.path) if urn else None
 
     def resolve(self, file: QvdReference) -> Optional[str]:
         if file.connection is None:
