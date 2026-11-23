@@ -71,7 +71,10 @@ RUN test -n "${RELEASE_VERSION}" && \
       sed -i "s/__version__ = .*$/__version__ = \"${RELEASE_VERSION}\"/" "$f"; \
     done
 
+# Building these source trees fetches their build requirements (setuptools, wheel) from the
+# same index as the lock install above, so it needs the same credentials.
 RUN --mount=type=cache,target=/home/datahub/.cache/uv,uid=1000,gid=1000 \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     uv pip install --no-deps /src/metadata-ingestion /src/datahub-core-mcp-tools /src/datahub-ai-service && \
     # The image scanner reads pip's vendored SBOM and reports packages that aren't installed.
     find $VIRTUAL_ENV -path '*/pip/_vendor/bom.cdx.json' -delete && \
