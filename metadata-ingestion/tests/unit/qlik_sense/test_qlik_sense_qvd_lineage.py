@@ -806,10 +806,22 @@ def test_expression_variable_is_not_expanded_in_a_qvd_path() -> None:
             id="SUB parameter from an expression",
         ),
         pytest.param(
-            "IF vEnv = 'A' THEN\nLET vTable = Lower('Orders' & vRegion);\nELSE\n"
-            "LET vTable = Lower('Hist' & vRegion);\nEND IF;\n"
-            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
-            id="LET in IF branches",
+            "IF vEnv = 'A' THEN\nLET vTable = Lower('Orders' & vRegion);\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\nEND IF;",
+            id="LET in the IF branch that reads it",
+        ),
+        pytest.param(
+            "IF vEnv = 'A' THEN\nSET vTable = 'Orders';\nELSE\n"
+            "SET vTable = 'Hist';\nEND IF;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\n"
+            "SET vTable = 'Old';",
+            id="IF branches that disagree, set again later",
+        ),
+        pytest.param(
+            "IF vRegion = 'EU' THEN\nIF vEnv = 'A' THEN\nSET vTable = 'Orders';\n"
+            "ELSE\nSET vTable = 'Hist';\nEND IF;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\nEND IF;",
+            id="IF branches that disagree, inside an outer IF",
         ),
         pytest.param(
             "LET vTable = Lower('Orders' & vRegion);\n"
@@ -897,6 +909,20 @@ def test_qvd_path_from_a_let_expression_takes_the_reload_value() -> None:
             "Orders.qvd",
             id="after a loop whose branches disagree",
         ),
+        pytest.param(
+            "IF vEnv = 'A' THEN\nLET vTable = Lower('Orders' & vRegion);\nELSE\n"
+            "LET vTable = Lower('Hist' & vRegion);\nEND IF;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            "Orders.qvd",
+            id="after LET in IF branches",
+        ),
+        pytest.param(
+            "IF vRegion = 'EU' THEN\nIF vEnv = 'A' THEN\nSET vTable = 'Orders';\n"
+            "ELSE\nSET vTable = 'Hist';\nEND IF;\nEND IF;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            "Orders.qvd",
+            id="after nested IF branches that disagree",
+        ),
     ],
 )
 def test_qvd_path_from_a_variable_known_at_that_point_resolves(
@@ -906,6 +932,20 @@ def test_qvd_path_from_a_variable_known_at_that_point_resolves(
     # the script first sets it, as variables persist between reloads.
     parsed = parse_script(script, app_variables={"vTable": "Orders"})
     assert [load.file.path for load in parsed.qvd_loads] == [path]
+
+
+def test_store_through_a_connection_prefix_set_in_branches_resolves() -> None:
+    parsed = parse_script(
+        "IF DocumentPath() LIKE '*Dev*' THEN\nSET vPrefix = 'Dev_';\nELSE\n"
+        "SET vPrefix = '';\nEND IF;\n"
+        "Orders: LOAD 1 AS id AUTOGENERATE 1;\n"
+        "STORE Orders INTO [lib://$(vPrefix)QVD Data/orders.qvd] (qvd);",
+        app_variables={"vPrefix": "Dev_"},
+    )
+    assert [store.file for store in parsed.qvd_stores] == [
+        QvdReference(connection="Dev_QVD Data", path="orders.qvd")
+    ]
+    assert not parsed.has_unresolved_store
 
 
 def test_loop_connection_prefix_is_not_an_unset_prefix() -> None:

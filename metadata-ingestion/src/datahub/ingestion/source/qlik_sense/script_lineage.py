@@ -637,16 +637,26 @@ class _ControlFlowTracker(BaseModel):
             if all(other.variables.get(name) == value for other in rest)
         }
         set_anywhere = {name for outcome in outcomes for name in outcome.variables}
+        unknown = set().union(*(outcome.unknown for outcome in outcomes)) | (
+            set_anywhere - variables.keys()
+        )
+        made_unknown = unknown - block.before.unknown
         if self.loops:
             # Like a variable set in the loop, it holds the app's value after.
-            self.loops[-1].update(set_anywhere - variables.keys())
+            self.loops[-1].update(made_unknown)
+        elif not self.blocks:
+            # Once its last assignment has run, a variable holds the value the
+            # branch taken in the app's last reload gave it, which is the app's.
+            # Inside an outer branch, that branch may not have run.
+            unknown.difference_update(
+                name for name in made_unknown if self._assigned_for_the_last_time(name)
+            )
         self.state = _BranchState(
             connection=first.connection
             if all(other.connection == first.connection for other in rest)
             else None,
             variables=variables,
-            unknown=set().union(*(outcome.unknown for outcome in outcomes))
-            | (set_anywhere - variables.keys()),
+            unknown=unknown,
         )
 
     def record_variable(self, statement: str, in_sub: bool = False) -> bool:

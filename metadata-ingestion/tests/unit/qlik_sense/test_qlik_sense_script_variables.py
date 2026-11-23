@@ -77,8 +77,8 @@ def test_fallback_values_fill_sql_until_the_script_sets_the_variable() -> None:
         ),
         pytest.param(
             "IF vEnv = 'prod' THEN\nSET vTable = 'a';\nELSE\nSET vTable = 'b';\n"
-            "END IF;\nT: SQL SELECT id FROM $(vTable);",
-            id="branches that disagree",
+            "END IF;\nT: SQL SELECT id FROM $(vTable);\nSET vTable = 'c';",
+            id="branches that disagree, set again later",
         ),
         pytest.param(
             "FOR EACH vT IN 'a', 'b'\nLET vTable = Upper(vT);\n"
@@ -126,6 +126,16 @@ def test_fallback_values_never_fill_a_variable_the_script_made_unknown(
     # The app keeps only the last value, so lineage from it would be wrong.
     sql = _sql(f"LIB CONNECT TO 'db';\n{script}", {"vTable": "b"})
     assert sql and set(sql) == {"SELECT id FROM $(vTable)"}
+
+
+def test_app_value_fills_a_variable_after_branches_that_disagree() -> None:
+    # The app's value is the one the branch its last reload took left.
+    assert _sql(
+        "LIB CONNECT TO 'db';\n"
+        "IF vEnv = 'prod' THEN\nSET vTable = 'a';\nELSE\nSET vTable = 'b';\n"
+        "END IF;\nT: SQL SELECT id FROM $(vTable);",
+        {"vTable": "b"},
+    ) == ["SELECT id FROM b"]
 
 
 def test_expression_values_are_not_expanded() -> None:
