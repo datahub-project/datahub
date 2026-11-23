@@ -1,6 +1,7 @@
 import { Button } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
 import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
@@ -135,6 +136,8 @@ export const EditableContent: React.FC<EditableContentProps> = ({
     const { canEditContents } = useDocumentPermissions(documentUrn);
     const { updateContents, updateRelatedEntities } = useUpdateDocument();
     const refetch = useRefetch();
+    const history = useHistory();
+    const isMouseDownOnLinkRef = useRef(false);
     // Extract mentions from content (currently unused, but hook needs to run)
     useExtractMentions(content);
 
@@ -281,6 +284,73 @@ export const EditableContent: React.FC<EditableContentProps> = ({
 
     useClickOutside(handleClickOutside, clickOutsideOptions);
 
+    // Intercept clicks on links when viewing (editor not focused for editing)
+    const handleMouseDownCapture = useCallback(
+        (event: React.MouseEvent<HTMLDivElement>) => {
+            const target = event.target as HTMLElement | null;
+            const anchor = target?.closest('a');
+            if (anchor && anchor.href && !isEditorFocused) {
+                // When clicking a link while viewing, prevent ProseMirror from focusing
+                // and entering edit mode so normal click navigation works.
+                isMouseDownOnLinkRef.current = true;
+                event.preventDefault();
+            } else {
+                isMouseDownOnLinkRef.current = false;
+            }
+        },
+        [isEditorFocused],
+    );
+
+    const handleEditorFocus = useCallback(() => {
+        if (!isMouseDownOnLinkRef.current) {
+            setIsEditorFocused(true);
+        }
+    }, []);
+
+    const handleEditorClick = useCallback(
+        (event: React.MouseEvent<HTMLDivElement>) => {
+            const target = event.target as HTMLElement | null;
+            const anchor = target?.closest('a');
+            if (!anchor || !anchor.href) {
+                isMouseDownOnLinkRef.current = false;
+                return;
+            }
+
+            // If the editor was viewing when the click began
+            if (!isEditorFocused || isMouseDownOnLinkRef.current) {
+                isMouseDownOnLinkRef.current = false;
+
+                // Let middle-click or Ctrl/Cmd-click open in background tab natively
+                if (event.button === 1 || event.ctrlKey || event.metaKey) {
+                    return;
+                }
+
+                try {
+                    const targetUrl = new URL(anchor.href, window.location.origin);
+                    const isSameOrigin = targetUrl.origin === window.location.origin;
+
+                    if (isSameOrigin && anchor.target !== '_blank') {
+                        event.preventDefault();
+                        history.push(targetUrl.pathname + targetUrl.search + targetUrl.hash);
+                        return;
+                    }
+                } catch {
+                    // Fall back if URL parsing fails
+                }
+
+                if (anchor.target === '_blank' || !anchor.href.startsWith(window.location.origin)) {
+                    event.preventDefault();
+                    window.open(anchor.href, '_blank', 'noopener,noreferrer');
+                }
+            } else if (event.ctrlKey || event.metaKey) {
+                // While editing, Cmd/Ctrl-click follows the link in a new tab
+                event.preventDefault();
+                window.open(anchor.href, '_blank', 'noopener,noreferrer');
+            }
+        },
+        [isEditorFocused, history],
+    );
+
     // Save before navigating away. Explicit save uses the discard confirmation instead.
     useEffect(() => {
         if (explicitSaveEnabled) {
@@ -387,7 +457,9 @@ export const EditableContent: React.FC<EditableContentProps> = ({
             <EditorSection
                 ref={editorSectionRef}
                 data-testid="document-editor-section"
-                onFocus={() => setIsEditorFocused(true)}
+                onFocus={handleEditorFocus}
+                onMouseDownCapture={handleMouseDownCapture}
+                onClick={handleEditorClick}
             >
                 {canEditContents ? (
                     <StyledEditor

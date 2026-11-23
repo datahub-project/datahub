@@ -7,10 +7,22 @@ import { EditableContent } from '@app/entityV2/document/summary/EditableContent'
 import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
-const { updateContents, updateRelatedEntities } = vi.hoisted(() => ({
+const { updateContents, updateRelatedEntities, mockPush } = vi.hoisted(() => ({
     updateContents: vi.fn().mockResolvedValue(true),
     updateRelatedEntities: vi.fn().mockResolvedValue(true),
+    mockPush: vi.fn(),
 }));
+
+vi.mock('react-router-dom', async () => {
+    const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+    return {
+        ...actual,
+        useHistory: () => ({
+            ...actual.useHistory(),
+            push: mockPush,
+        }),
+    };
+});
 
 vi.mock('@components/components/Editor', () => ({
     Editor: ({
@@ -122,6 +134,7 @@ describe('EditableContent', () => {
     beforeEach(() => {
         updateContents.mockClear();
         updateRelatedEntities.mockClear();
+        mockPush.mockClear();
         vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     });
 
@@ -184,5 +197,56 @@ describe('EditableContent', () => {
 
         expect(screen.getByRole('button', { name: 'Propose' })).toBeInTheDocument();
         expect(screen.getByTestId('document-save-button')).toBeInTheDocument();
+    });
+
+    it('navigates to same-origin asset links on click when viewing', () => {
+        renderEditor(false);
+
+        const editorSection = screen.getByTestId('document-editor-section');
+        const link = document.createElement('a');
+        link.href = '/dataset/urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)';
+        link.textContent = 'Linked Asset';
+        editorSection.appendChild(link);
+
+        fireEvent.mouseDown(link);
+        fireEvent.click(link);
+
+        expect(mockPush).toHaveBeenCalledWith('/dataset/urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)');
+        expect(screen.queryByTestId('document-save-bar')).not.toBeInTheDocument();
+    });
+
+    it('opens external links in a new tab when viewing', () => {
+        const windowOpenSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+        renderEditor(false);
+
+        const editorSection = screen.getByTestId('document-editor-section');
+        const link = document.createElement('a');
+        link.href = 'https://example.com/external-doc';
+        link.textContent = 'External Link';
+        editorSection.appendChild(link);
+
+        fireEvent.mouseDown(link);
+        fireEvent.click(link);
+
+        expect(windowOpenSpy).toHaveBeenCalledWith('https://example.com/external-doc', '_blank', 'noopener,noreferrer');
+        windowOpenSpy.mockRestore();
+    });
+
+    it('does not navigate on simple click when editor is focused for editing', () => {
+        renderEditor(false);
+
+        const editorSection = screen.getByTestId('document-editor-section');
+        const link = document.createElement('a');
+        link.href = '/dataset/urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)';
+        link.textContent = 'Linked Asset';
+        editorSection.appendChild(link);
+
+        // Focus the editor first (e.g. user clicked textarea to edit)
+        fireEvent.focus(editorSection);
+
+        fireEvent.mouseDown(link);
+        fireEvent.click(link);
+
+        expect(mockPush).not.toHaveBeenCalled();
     });
 });
