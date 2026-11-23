@@ -3472,6 +3472,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "and their table lineage is still read.",
                 context=_bounded_list(self.qlik_api.field_lineage_failures),
             )
+        if self.qlik_api.include_read_failures:
+            self.reporter.warning(
+                title="Unable to read included Qlik scripts",
+                message="Apps include these scripts with $(Include) or "
+                "$(Must_Include), but they could not be read, so what they load "
+                "is missing from lineage, and the apps' lineage is only added to. "
+                "Give the API key's user Can view in the space holding each file.",
+                context=_bounded_list(sorted(set(self.qlik_api.include_read_failures))),
+            )
         if self.reporter.unresolved_file_connections:
             self.reporter.warning(
                 title="Qlik file connections have no known storage",

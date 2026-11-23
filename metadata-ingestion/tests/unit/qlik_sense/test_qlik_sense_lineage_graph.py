@@ -212,6 +212,7 @@ def _source(
     api.lineage_read_failures = []
     api.field_lineage_failures = []
     api.opened_without_data = []
+    api.include_read_failures = []
     api.get_user_name.return_value = None
     api.list_datasets.return_value = datasets
     api.get_items.return_value = [

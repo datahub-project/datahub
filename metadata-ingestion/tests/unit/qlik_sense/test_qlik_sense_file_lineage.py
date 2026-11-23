@@ -20,13 +20,16 @@ from datahub.ingestion.source.qlik_sense.file_lineage import (
     file_storage_of_uri,
     qri_part_id,
 )
+from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import UNREAD_DATA_CONNECTIONS
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     DataConnectionInfo,
     FileLoad,
+    inline_includes,
     parse_script,
 )
+from datahub.ingestion.source.qlik_sense.websocket_connection import EngineError
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     MetadataChangeProposalClass,
@@ -1003,3 +1006,42 @@ def test_visible_connection_of_another_kind_does_not_block_the_file(
         )
         == "urn:li:dataset:(urn:li:dataPlatform:abs,lake/ref/regions.xlsx,PROD)"
     )
+
+
+def test_included_scripts_are_read_into_the_script() -> None:
+    files = {
+        "lib://Common:DataFiles/env.qvs": "SET vLake = 'lib://Sales Space:Lake/';\n"
+        "$(Include=lib://$(vCommon)DataFiles/loads.qvs);\n",
+        "lib://Common:DataFiles/loads.qvs": "Rates: LOAD * FROM [$(vLake)rates.csv];\n",
+    }
+    script = (
+        "$(Must_Include=lib://Common:DataFiles/env.qvs);\n"
+        "$(Include=lib://Common:DataFiles/missing.qvs);\n"
+    )
+    inlined = inline_includes(script, {"vCommon": "'Common:'"}, files.get)
+    parsed = parse_script(inlined)
+
+    assert [load.expanded for load in parsed.file_loads] == [
+        "lib://Sales Space:Lake/rates.csv"
+    ]
+    # The include that could not be read still leaves the script incomplete.
+    assert parsed.has_includes
+    assert not parse_script(
+        inline_includes(script.split("\n")[0], {"vCommon": "'Common:'"}, files.get)
+    ).has_includes
+
+
+def test_included_script_is_read_once_a_run() -> None:
+    with patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session"):
+        api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    engine = MagicMock()
+    engine.websocket_send_request.side_effect = [
+        {"qContent": "X: LOAD 1 AS a AUTOGENERATE 1;"},
+        EngineError({"code": 5, "message": "Access denied"}),
+    ]
+
+    for _ in range(2):
+        assert api._read_include(engine, "lib://A:DataFiles/x.qvs")
+        assert api._read_include(engine, "lib://B:DataFiles/y.qvs") is None
+    assert engine.websocket_send_request.call_count == 2
+    assert api.include_read_failures == ["lib://B:DataFiles/y.qvs"]

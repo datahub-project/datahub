@@ -1,6 +1,6 @@
 import re
 from collections import Counter
-from typing import AbstractSet, Dict, List, Optional, Set
+from typing import AbstractSet, Callable, Dict, List, Optional, Set
 
 from pydantic import BaseModel, Field
 
@@ -49,6 +49,13 @@ FROM_TABLE_RE = re.compile(
 )
 QLIK_TABLE_NAME_LENGTH = 32
 INCLUDE_RE = re.compile(r"\$\(\s*(?:Must_)?Include\s*=[^)]*\)", re.IGNORECASE)
+# The path may be built from variables, such as lib://$(vPrefix)Common/x.qvs.
+INCLUDE_PATH_RE = re.compile(
+    r"\$\(\s*(?:Must_)?Include\s*=(?P<path>(?:[^()]|\$\([^()]*\))*)\)",
+    re.IGNORECASE,
+)
+# Includes nested deeper than this are left unread, which also stops a cycle.
+_MAX_INCLUDE_DEPTH = 10
 VARIABLE_RE = re.compile(
     r"^(?P<kind>SET|LET)\s+(?P<name>[^\s=]+)\s*=(?P<value>.*)$",
     re.IGNORECASE | re.DOTALL,
@@ -1240,6 +1247,32 @@ class _ScriptParser(BaseModel):
                 fields=None if fields is not None and fields.keeps_all else fields,
             )
         )
+
+
+def inline_includes(
+    script: str,
+    app_variables: Dict[str, str],
+    read: Callable[[str], Optional[str]],
+    depth: int = 0,
+) -> str:
+    """The script with each $(Include) and $(Must_Include) replaced by the
+    script of the file it names, as Qlik splices it in at reload, including
+    the includes of that file. The path is expanded with the app's variables,
+    as its last reload left them. An include whose path doesn't expand, or
+    that `read` can't read, stays, so the script still counts as including
+    scripts that are not read."""
+    variables = unquoted_values(app_variables)
+
+    def replace(match: "re.Match[str]") -> str:
+        path = _expand_nested_variables(match.group("path").strip(), variables)
+        if depth >= _MAX_INCLUDE_DEPTH or not LIB_PATH_RE.match(path) or "$(" in path:
+            return match.group(0)
+        content = read(path)
+        if content is None:
+            return match.group(0)
+        return f"\n{inline_includes(content, app_variables, read, depth + 1)}\n"
+
+    return INCLUDE_PATH_RE.sub(replace, script)
 
 
 def parse_script(
