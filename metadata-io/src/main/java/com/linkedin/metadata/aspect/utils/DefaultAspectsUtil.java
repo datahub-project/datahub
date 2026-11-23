@@ -67,16 +67,6 @@ public class DefaultAspectsUtil {
       @Nonnull final AspectsBatch inputBatch,
       @Nonnull EntityService<?> entityService,
       boolean enableBrowseV2) {
-    /*
-     * 1. When deadlock occurs within the transaction the default entity key may need to be removed. This cannot happen
-     *    if the batch is fixed with a key aspect prior to the transaction.
-     * 2. The CreateIfNotExists validator makes decisions based on the presence of the key aspect which
-     *    is based on a database read. We cannot allow manual key aspects to trick the validator into
-     *    thinking the entity doesn't exist. This optimization avoids having to perform yet another read.
-     * 3. Technically key aspects should always be a CREATE_ENTITY if not exist operation preserving accurate entity creation timestamps
-     * Removing provided key aspect from input batch, will be replaced with default key aspect if needed based on
-     * whether it exists in the database.
-     */
     final Set<Urn> urnsWithExistingKeyAspects =
         entityService.exists(
             opContext,
@@ -94,6 +84,28 @@ public class DefaultAspectsUtil {
             !(item instanceof MCPItem mcpItem
                 && requiresExistingEntity(mcpItem)
                 && !urnsWithExistingKeyAspects.contains(mcpItem.getUrn()));
+    if (log.isDebugEnabled()) {
+      inputBatch.getMCPItems().stream()
+          .filter(kept.negate())
+          .forEach(
+              item ->
+                  log.debug(
+                      "Dropping {} write to {}: entity does not exist and {} is set",
+                      item.getAspectName(),
+                      item.getUrn(),
+                      Constants.IF_ENTITY_EXISTS_HEADER_NAME));
+    }
+
+    /*
+     * 1. When deadlock occurs within the transaction the default entity key may need to be removed. This cannot happen
+     *    if the batch is fixed with a key aspect prior to the transaction.
+     * 2. The CreateIfNotExists validator makes decisions based on the presence of the key aspect which
+     *    is based on a database read. We cannot allow manual key aspects to trick the validator into
+     *    thinking the entity doesn't exist. This optimization avoids having to perform yet another read.
+     * 3. Technically key aspects should always be a CREATE_ENTITY if not exist operation preserving accurate entity creation timestamps
+     * Removing provided key aspect from input batch, will be replaced with default key aspect if needed based on
+     * whether it exists in the database.
+     */
     List<BatchItem> result =
         inputBatch.getItems().stream()
             .filter(DefaultAspectsUtil::keyAspectExcludeFilter)

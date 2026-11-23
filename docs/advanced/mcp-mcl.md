@@ -232,6 +232,13 @@ not created. This is checked against the entity's key aspect, so it applies even
 yet. Other writes to the same entity in the batch are unaffected and may still create it, but the header write is still
 dropped, because existence is checked against the entity as it was before the batch.
 
+The header has no effect on timeseries aspects, such as `datasetProfile`. Writing one still creates the entity if it
+doesn't exist.
+
+With the default locking, the existence check locks the entity's key aspect inside the write transaction, so a
+concurrent hard delete can't land between the check and the write. With `OPTIMISTIC_LOCKING_ENABLED=true` the check
+takes no lock, so a hard delete that commits between the check and the write can still leave the written aspect behind.
+
 ### Synchronous ElasticSearch Updates
 
 The writes to the elasticsearch are asynchronous by default. A writer can add a custom header

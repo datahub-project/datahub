@@ -3362,9 +3362,12 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,ifEntityExistsMissing,PROD)");
 
     _entityServiceImpl.ingestAspects(
-        opContext, batchOf(ifEntityExistsTagPatch(entityUrn)), false, true);
+        opContext, batchOf(ifEntityExistsTagPatch(entityUrn)), true, true);
 
     assertFalse(_entityServiceImpl.exists(opContext, entityUrn, true));
+    verify(_mockProducer, never())
+        .produceMetadataChangeLog(
+            any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
   }
 
   @Test
