@@ -1,10 +1,11 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import React from 'react';
 import { ReactFlowProvider } from 'reactflow';
 
 import { useFitView, useIsExpanding, useLineageSettled } from '@app/lineageV3/LineageDisplay.hooks';
 import { FetchStatus, LineageEntity, LineageNodesContext, NodeContext } from '@app/lineageV3/common';
 import { entityNodeDefault } from '@app/lineageV3/queries/useSearchAcrossLineage';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -113,9 +114,9 @@ describe('useIsExpanding', () => {
         );
         node.fetchStatus = { ...node.fetchStatus, [LineageDirection.Upstream]: FetchStatus.LOADING };
         const nodes = new Map([[urn, node]]);
+        let displayVersion: [number, string[]] = [0, []];
         const { result, rerender } = renderHook(() => useIsExpanding(), {
-            initialProps: { displayVersion: [0, []] as [number, string[]] },
-            wrapper: ({ children, displayVersion }) => (
+            wrapper: ({ children }) => (
                 <LineageNodesContext.Provider value={{ nodes, displayVersion } as unknown as NodeContext}>
                     {children}
                 </LineageNodesContext.Provider>
@@ -124,7 +125,8 @@ describe('useIsExpanding', () => {
         expect(result.current).toBe(true);
 
         node.fetchStatus = { ...node.fetchStatus, [LineageDirection.Upstream]: FetchStatus.COMPLETE };
-        rerender({ displayVersion: [1, [urn]] });
+        displayVersion = [1, [urn]];
+        rerender();
         expect(result.current).toBe(false);
     });
 });
