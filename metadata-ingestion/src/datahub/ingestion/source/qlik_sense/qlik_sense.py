@@ -699,7 +699,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_recorded_app_workunit(self, app: App) -> Iterable[MetadataWorkUnit]:
         fingerprint = (
             self._salted_fingerprint(app.fingerprint)
-            if app.fingerprint and app.read_complete and not app.data_load_failed
+            if app.fingerprint
+            and app.read_complete
+            and not app.data_load_failed
+            # Its connection paths were unresolved, so it is read again next run.
+            and not self._data_connections_unread()
             else None
         )
         urns: Dict[str, None] = {}
@@ -1864,10 +1868,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return (
             app_id in self._apps_variables_unread
             or app_id in self._apps_file_paths_unknown
-            or any(
-                item.name == UNREAD_DATA_CONNECTIONS
-                for item in self.qlik_api.unread_items
-            )
+            or self._data_connections_unread()
+        )
+
+    def _data_connections_unread(self) -> bool:
+        return any(
+            item.name == UNREAD_DATA_CONNECTIONS for item in self.qlik_api.unread_items
         )
 
     def _app_variables(self, app: App) -> Dict[str, str]:
@@ -2819,9 +2825,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # QVDs the script writes can't be known, so their lineage is kept.
             self._apps_qvds_unknown[app.id] = "its load script could not be read"
             return lineage
-        if any(
-            item.name == UNREAD_DATA_CONNECTIONS for item in self.qlik_api.unread_items
-        ):
+        if self._data_connections_unread():
             # Without the folder connections, the lib:// QVDs it writes are
             # unknown.
             unknown_reason: Optional[str] = "data connections could not be listed"
