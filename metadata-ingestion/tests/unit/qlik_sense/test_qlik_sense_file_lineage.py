@@ -1406,7 +1406,8 @@ def test_unread_include_path_with_parentheses_forgets_the_connection() -> None:
         "$(Include=lib://Common:DataFiles/loads (v2).qvs);\n"
         "Orders: SQL SELECT * FROM sales.orders;"
     )
-    parsed = parse_script(inline_includes(script, {}, {}.get))
+    files: Dict[str, str] = {}
+    parsed = parse_script(inline_includes(script, {}, files.get))
 
     assert [(table.label, table.connection) for table in parsed.tables] == [
         ("Orders", None)
