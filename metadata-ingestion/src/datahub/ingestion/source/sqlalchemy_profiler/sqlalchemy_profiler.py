@@ -123,6 +123,16 @@ def _partition_spec_for(
             type=PartitionTypeClass.QUERY,
             partition=json.dumps(dict(limit=applied.limit, offset=applied.offset)),
         )
+    if applied.source_scoped:
+        # Narrowed by the source's own query, by an amount this layer cannot
+        # see -- vaguer than the branches above, and deliberately so. A capped
+        # or partition-filtered scan is still not a full-table profile, and
+        # labelling it FULL_TABLE also makes GenericProfiler publish the
+        # scanned COUNT(*) as the table's rowCount.
+        return PartitionSpecClass(
+            type=PartitionTypeClass.QUERY,
+            partition=json.dumps(dict(scope="source_query")),
+        )
     return PartitionSpecClass(
         type=PartitionTypeClass.FULL_TABLE, partition="FULL_TABLE_SNAPSHOT"
     )
@@ -1867,10 +1877,13 @@ class SQLAlchemyProfiler:
             self.report.warning(
                 title=f"Profiling: {name} was not applied",
                 message=f"This source did not apply profiling.{name} to this "
-                "asset, so the rows profiled are not bounded by it and the "
-                "profile is not labelled as bounded. A source applies no bound "
-                "while sampling takes precedence over it, when it does not "
-                "implement limit/offset, or for an offset with no limit.",
+                "asset, so the rows profiled are not bounded by it, and the "
+                "profile is labelled from whatever was applied instead -- the "
+                "full table, a sample, or a partition. A source applies no "
+                "bound while sampling takes precedence over it, when the "
+                "source supplied its own query (a partition filter or a row "
+                "cap), when it does not implement limit/offset, or for an "
+                "offset with no limit.",
                 context=(
                     f"Asset: {pretty_name}; platform={platform}; "
                     f"{name}={requested}; use_sampling={self.config.use_sampling}"

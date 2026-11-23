@@ -1927,6 +1927,30 @@ class TestPartitionSpecRendering:
                 PartitionTypeClass.PARTITION,
                 "20230906 LIMIT 100 OFFSET 25",
             ),
+            # Narrowed by the source's own query. The adapter cannot say by how
+            # much, but a capped or partition-filtered scan is not the full
+            # table -- and labelling it so would also hand GenericProfiler the
+            # scanned COUNT(*) as the table's rowCount.
+            (
+                None,
+                AppliedProfile(source_scoped=True),
+                PartitionTypeClass.QUERY,
+                '{"scope": "source_query"}',
+            ),
+            # A more specific reduction wins: the source's scope is implied by
+            # the sample drawn from it, and by the partition that names it.
+            (
+                None,
+                AppliedProfile(source_scoped=True, sample_percentage=1.5),
+                PartitionTypeClass.QUERY,
+                "SAMPLE",
+            ),
+            (
+                "20230906",
+                AppliedProfile(source_scoped=True),
+                PartitionTypeClass.PARTITION,
+                "20230906",
+            ),
         ],
     )
     def test_renders(

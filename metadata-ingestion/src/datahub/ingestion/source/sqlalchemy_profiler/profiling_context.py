@@ -38,6 +38,24 @@ class AppliedProfile:
     limit: Optional[int] = None
     offset: Optional[int] = None
 
+    source_scoped: bool = False
+    """The rows profiled are whatever the source's own `custom_sql` returned.
+
+    Set by an adapter that materializes `context.custom_sql` and profiles the
+    result. It says only *that* the scan was narrowed, never by how much: the
+    adapter is handed an opaque SQL string and genuinely cannot tell a row cap
+    from a partition predicate.
+
+    That vagueness is the layering as it stands, not a shortcut. `custom_sql`
+    is built in the source (see the PARTIALLY DEPRECATED note on
+    `ProfilingContext.custom_sql`), which knows exactly what it narrowed and
+    has no channel to say so. When that derivation moves down into the
+    adapters, this collapses into the precise fields above and can go.
+
+    Redundant when `ProfilingContext.partition` is set -- the partition id
+    already names the scope -- so the label ignores it there.
+    """
+
     _FIELDS = ("sample_percentage", "sample_rows", "limit", "offset")
 
     def __post_init__(self) -> None:

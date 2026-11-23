@@ -66,6 +66,11 @@ class BigQueryAdapter(PlatformAdapter):
             if bound:
                 context.applied.limit = self.config.limit
                 context.applied.offset = self.config.offset
+            elif context.custom_sql:
+                # The rows are whatever the source's query returned -- a
+                # partition filter, or a row cap on a table too big to profile
+                # whole. Which of the two, this layer cannot tell.
+                context.applied.source_scoped = True
 
         # Step 2: Sample large tables (and large partitions) into a temp table.
         if self.config.use_sampling:

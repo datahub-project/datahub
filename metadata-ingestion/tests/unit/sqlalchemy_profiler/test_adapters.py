@@ -1364,6 +1364,51 @@ class TestBigQueryAdapter:
 
         assert (result.applied.limit, result.applied.offset) == (100, 25)
 
+    @pytest.mark.parametrize("use_sampling", [True, False])
+    def test_the_source_s_own_query_is_reported_as_a_scope(
+        self, adapter, config, use_sampling
+    ):
+        # BigQuery sends custom_sql with no partition for a row cap on a large
+        # table, and for a partition scan it cannot label honestly. Reporting
+        # nothing there labelled the profile FULL_TABLE, which also made
+        # GenericProfiler publish the scanned COUNT(*) as the whole table's
+        # row count.
+        config.use_sampling = use_sampling
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="my_dataset",
+            table="my_table",
+            custom_sql="SELECT * FROM my_table LIMIT 1000",
+            pretty_name="test",
+        )
+
+        with (
+            patch.object(adapter, "_create_temp_table_for_query", return_value=context),
+            patch.object(adapter, "_setup_sampling", side_effect=lambda c, _conn: c),
+            patch.object(adapter, "_create_sqlalchemy_table", return_value=MagicMock()),
+        ):
+            result = adapter.setup_profiling(context, MagicMock())
+
+        assert result.applied.source_scoped is True
+
+    def test_a_table_profiled_whole_reports_no_scope(self, adapter, config):
+        # The counterpart: no custom_sql, no bound, no sample -- the one case
+        # that genuinely is a full-table profile.
+        config.use_sampling = False
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="my_dataset", table="my_table", pretty_name="test"
+        )
+
+        with patch.object(
+            adapter, "_create_sqlalchemy_table", return_value=MagicMock()
+        ):
+            result = adapter.setup_profiling(context, MagicMock())
+
+        assert result.applied.source_scoped is False
+
     @pytest.mark.parametrize(
         "use_sampling,custom_sql",
         [
