@@ -374,9 +374,6 @@ module.exports = {
         googleTagManager: {
           containerId: 'GTM-5M8T9HNN',
         },
-        gtag: {
-          trackingID: "G-H5QDNJNMHY",
-        },
       },
     ],
   ],
@@ -416,6 +413,14 @@ module.exports = {
           {
             from: '/docs/features/feature-guides/file-upload-download',
             to: '/docs/features/feature-guides/asset-profiles',
+          },
+          {
+            from: '/docs/managed-datahub/observe/data-contract',
+            to: '/docs/managed-datahub/observe/assertions',
+          },
+          {
+            from: '/docs/api/tutorials/data-contracts',
+            to: '/docs/api/tutorials/assertions',
           },
           {
             from: '/docs/posts',

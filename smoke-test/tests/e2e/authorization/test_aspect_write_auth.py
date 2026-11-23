@@ -16,6 +16,7 @@ from datahub.metadata.schema_classes import (
     DomainPropertiesClass,
     DomainsClass,
     MySqlDDLClass,
+    OwnershipClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
@@ -25,6 +26,7 @@ from tests.e2e.privileges.utils import (
     clear_polices,
     create_metadata_policy,
     create_user,
+    create_user_policy,
     is_graphql_auth_denied,
     remove_policy,
     remove_user,
@@ -149,7 +151,11 @@ def _schema_metadata_with_field(field_path: str = "col1") -> SchemaMetadataClass
     )
 
 
-ASPECT_WRITE_POLICY_PREFIXES = ["Test EDIT_ENTITY", "Test MANAGE_DATA_PRODUCTS"]
+ASPECT_WRITE_POLICY_PREFIXES = [
+    "Test EDIT_ENTITY",
+    "Test MANAGE_DATA_PRODUCTS",
+    "Test MANAGE_ALL_DATA_PRODUCTS",
+]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -958,3 +964,145 @@ def test_create_data_product_allowed_with_manage_data_products_on_domain(
         except Exception:
             logger.warning("Failed to delete %s during cleanup", expected_urn)
         remove_policy(policy_urn, admin_session)
+
+
+def test_create_data_product_in_domain_allowed_with_manage_all_data_products(
+    auth_session, graph_client
+):
+    """CreateDataProduct with a Domain succeeds with only platform MANAGE_ALL_DATA_PRODUCTS.
+
+    The resolver accepts the platform privilege, so the setDomain write that follows must be
+    accepted as well; otherwise the product is left without a Domain and without an owner.
+    """
+    admin_session = get_frontend_session()
+    policy_urn = create_user_policy(
+        TEST_USER_URN,
+        ["MANAGE_ALL_DATA_PRODUCTS"],
+        admin_session,
+        name=f"Test MANAGE_ALL_DATA_PRODUCTS create {_UNIQUE}",
+        description="Grant platform MANAGE_ALL_DATA_PRODUCTS for create in a domain",
+    )
+    wait_for_writes_to_sync(mcp_only=True)
+
+    data_product_id = f"auth-created-manage-all-{_UNIQUE}"
+    expected_urn = f"urn:li:dataProduct:{data_product_id}"
+    try:
+        res = _post_graphql_as_user_once(
+            TEST_USER_EMAIL,
+            TEST_USER_PASSWORD,
+            {
+                "query": CREATE_DATA_PRODUCT_MUTATION,
+                "variables": {
+                    "id": data_product_id,
+                    "domainUrn": TEST_DOMAIN_URN,
+                    "name": f"Created via manage all {_UNIQUE}",
+                    "description": "Data product created with platform privilege",
+                },
+            },
+        )
+        created = (res.get("data") or {}).get("createDataProduct") or {}
+        assert created.get("urn") == expected_urn, res
+
+        domains = graph_client.get_aspect(expected_urn, DomainsClass)
+        assert domains is not None and domains.domains == [TEST_DOMAIN_URN]
+        ownership = graph_client.get_aspect(expected_urn, OwnershipClass)
+        assert ownership is not None
+        assert TEST_USER_URN in [owner.owner for owner in ownership.owners]
+    finally:
+        try:
+            graph_client.hard_delete_entity(urn=expected_urn)
+        except Exception:
+            logger.warning("Failed to delete %s during cleanup", expected_urn)
+        remove_policy(policy_urn, admin_session)
+
+
+CREATE_DATA_PRODUCT_WITHOUT_DOMAIN_MUTATION = """
+mutation createDataProduct($id: String!, $name: String!) {
+  createDataProduct(input: { id: $id, properties: { name: $name } }) {
+    urn
+  }
+}
+"""
+
+SET_DOMAIN_MUTATION = """
+mutation setDomain($entityUrn: String!, $domainUrn: String!) {
+  setDomain(entityUrn: $entityUrn, domainUrn: $domainUrn)
+}
+"""
+
+UNSET_DOMAIN_MUTATION = """
+mutation unsetDomain($entityUrn: String!) {
+  unsetDomain(entityUrn: $entityUrn)
+}
+"""
+
+
+def _data_product_domains(graph_client, urn: str) -> list:
+    domains = graph_client.get_aspect(urn, DomainsClass)
+    return list(domains.domains) if domains else []
+
+
+def test_data_product_domain_changes_with_manage_all_data_products(
+    auth_session, graph_client
+):
+    """The Domain of a Data Product is optional, so MANAGE_ALL_DATA_PRODUCTS may set, change and
+    remove it."""
+    product_urn = graph_client.execute_graphql(
+        CREATE_DATA_PRODUCT_WITHOUT_DOMAIN_MUTATION,
+        {"id": f"auth-domain-changes-{_UNIQUE}", "name": f"Domain changes {_UNIQUE}"},
+    )["createDataProduct"]["urn"]
+    wait_for_writes_to_sync(mcp_only=True)
+
+    def as_user(query: str, variables: dict) -> dict:
+        return _post_graphql_as_user(
+            TEST_USER_EMAIL,
+            TEST_USER_PASSWORD,
+            {"query": query, "variables": variables},
+        )
+
+    admin_session = get_frontend_session()
+    try:
+        # Without the privilege the product's Domain cannot be set.
+        _assert_graphql_auth_denied(
+            as_user(
+                SET_DOMAIN_MUTATION,
+                {"entityUrn": product_urn, "domainUrn": TEST_DOMAIN_URN},
+            )
+        )
+        assert _data_product_domains(graph_client, product_urn) == []
+
+        policy_urn = create_user_policy(
+            TEST_USER_URN,
+            ["MANAGE_ALL_DATA_PRODUCTS"],
+            admin_session,
+            name=f"Test MANAGE_ALL_DATA_PRODUCTS domain changes {_UNIQUE}",
+            description="Grant platform MANAGE_ALL_DATA_PRODUCTS for data product domains",
+        )
+        wait_for_writes_to_sync(mcp_only=True)
+        try:
+            res = as_user(
+                SET_DOMAIN_MUTATION,
+                {"entityUrn": product_urn, "domainUrn": TEST_DOMAIN_URN},
+            )
+            assert (res.get("data") or {}).get("setDomain") is True, res
+            assert _data_product_domains(graph_client, product_urn) == [TEST_DOMAIN_URN]
+
+            res = as_user(
+                SET_DOMAIN_MUTATION,
+                {"entityUrn": product_urn, "domainUrn": CROSS_DOMAIN_URN},
+            )
+            assert (res.get("data") or {}).get("setDomain") is True, res
+            assert _data_product_domains(graph_client, product_urn) == [
+                CROSS_DOMAIN_URN
+            ]
+
+            res = as_user(UNSET_DOMAIN_MUTATION, {"entityUrn": product_urn})
+            assert (res.get("data") or {}).get("unsetDomain") is True, res
+            assert _data_product_domains(graph_client, product_urn) == []
+        finally:
+            remove_policy(policy_urn, admin_session)
+    finally:
+        try:
+            graph_client.hard_delete_entity(urn=product_urn)
+        except Exception:
+            logger.warning("Failed to delete %s during cleanup", product_urn)

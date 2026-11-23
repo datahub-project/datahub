@@ -116,6 +116,11 @@ type PlatformPrivileges {
   manageDomains: Boolean!
 
   """
+  Whether the user should be able to create, edit, and remove Data Products in any Domain
+  """
+  manageAllDataProducts: Boolean!
+
+  """
   Whether the user is able to manage UI-based ingestion
   """
   manageIngestion: Boolean!
