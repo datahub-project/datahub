@@ -29,6 +29,11 @@ export interface EmptyStateProps {
     action?: EmptyStateAction;
     /** Optional secondary action button */
     secondaryAction?: EmptyStateAction;
+    /**
+     * Custom controls rendered in the actions row after `action` / `secondaryAction`, for actions a plain
+     * button can't express (e.g. a dropdown trigger or a button that owns its own modal).
+     */
+    children?: React.ReactNode;
     /** Size variant controlling icon size and spacing */
     size?: EmptyStateSize;
     /** Additional CSS class */

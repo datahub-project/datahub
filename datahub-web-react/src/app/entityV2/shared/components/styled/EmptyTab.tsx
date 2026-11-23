@@ -11,13 +11,10 @@ const Container = styled.div<{ $compact?: boolean }>`
     padding: ${({ $compact }) => ($compact ? '0' : '40px')};
 `;
 
-// Callers pass their own controls (e.g. a button that opens a modal), which EmptyState's action props can't hold.
-const Actions = styled.div`
+const ActionsRow = styled.div`
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 16px;
-    margin-top: 16px;
 `;
 
 type Props = {
@@ -33,8 +30,9 @@ export const EmptyTab = ({ tab, hideImage, children }: Props) => {
                 title={EMPTY_MESSAGES[tab]?.title ?? ''}
                 description={EMPTY_MESSAGES[tab]?.description}
                 image={hideImage ? undefined : <LoadedImage src={NoDocs} alt="" width="86px" />}
-            />
-            {children && <Actions>{children}</Actions>}
+            >
+                {children && <ActionsRow>{children}</ActionsRow>}
+            </EmptyState>
         </Container>
     );
 };

@@ -1,6 +1,6 @@
 import { EmptyState } from '@components';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
@@ -9,6 +9,7 @@ import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { combineEntityDataWithSiblings } from '@app/entityV2/shared/siblingUtils';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
+import { CreateIncidentButton } from '@app/entityV2/shared/tabs/Incident/CreateIncidentButton';
 import { IncidentFilterContainer } from '@app/entityV2/shared/tabs/Incident/IncidentFilterContainer';
 import { IncidentListLoading } from '@app/entityV2/shared/tabs/Incident/IncidentListLoading';
 import { IncidentListTable } from '@app/entityV2/shared/tabs/Incident/IncidentListTable';
@@ -24,6 +25,10 @@ import { EntityPrivileges, Incident } from '@types';
 
 const ListEmptyState = styled(EmptyState)`
     padding: 48px 0;
+`;
+
+const TabEmptyState = styled(EmptyState)`
+    padding: 80px 20px;
 `;
 
 export const IncidentList = () => {
@@ -70,16 +75,18 @@ export const IncidentList = () => {
         setVisibleIncidents(filteredIncidentData);
     };
 
-    useEffect(() => {
+    const incidentsFromQuery = useMemo(() => {
         const combinedData = isSeparateSiblingsMode ? data : combineEntityDataWithSiblings(data);
-        const allIncidents =
-            (combinedData &&
-                (combinedData as any).entity?.incidents?.incidents?.map((incident) => incident as Incident)) ||
-            [];
+        return ((combinedData as any)?.entity?.incidents?.incidents?.map((incident) => incident as Incident) ||
+            []) as Incident[];
+    }, [data, isSeparateSiblingsMode]);
+
+    useEffect(() => {
+        const allIncidents = incidentsFromQuery;
         setAllIncidentData(allIncidents);
         getFilteredIncidents(allIncidents);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [data]);
+    }, [incidentsFromQuery]);
 
     useEffect(() => {
         // after filter change need to get filtered incidents
@@ -121,13 +128,28 @@ export const IncidentList = () => {
         return <ListEmptyState icon={Warning} title={t('list.empty')} size="sm" />;
     };
 
+    // With no incidents at all, the empty state stands in for the header and carries the Create action.
+    // Read from the query result rather than state, which only updates after an effect and would flash this.
+    const hasNoIncidents = !loading && incidentsFromQuery.length === 0;
+
     return (
         <>
-            <IncidentTitleContainer
-                privileges={privileges}
-                setShowIncidentBuilder={setShowIncidentBuilder}
-                setEntity={setEntity}
-            />
+            {hasNoIncidents && (
+                <TabEmptyState icon={Warning} title={t('list.empty')} description={t('list.emptyDescription')}>
+                    <CreateIncidentButton
+                        privileges={privileges}
+                        setShowIncidentBuilder={setShowIncidentBuilder}
+                        setEntity={setEntity}
+                    />
+                </TabEmptyState>
+            )}
+            {!hasNoIncidents && (
+                <IncidentTitleContainer
+                    privileges={privileges}
+                    setShowIncidentBuilder={setShowIncidentBuilder}
+                    setEntity={setEntity}
+                />
+            )}
             {allIncidentData?.length > 0 && !loading && (
                 <IncidentFilterContainer
                     filteredIncidents={visibleIncidents}
@@ -136,7 +158,7 @@ export const IncidentList = () => {
                     selectedFilters={selectedFilters}
                 />
             )}
-            {renderListTable()}
+            {!hasNoIncidents && renderListTable()}
             {showIncidentBuilder && (
                 <IncidentDetailDrawer
                     entity={entity}

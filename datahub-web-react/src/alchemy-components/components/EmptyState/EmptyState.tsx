@@ -60,6 +60,7 @@ export function EmptyState({
     image,
     action,
     secondaryAction,
+    children,
     size = 'default',
     className,
     style,
@@ -86,10 +87,11 @@ export function EmptyState({
                     </DescriptionText>
                 )}
             </TextWrapper>
-            {(action || secondaryAction) && (
+            {(action || secondaryAction || children) && (
                 <ActionsWrapper>
                     {action && <EmptyStateButton action={action} variant="filled" />}
                     {secondaryAction && <EmptyStateButton action={secondaryAction} variant="text" />}
+                    {children}
                 </ActionsWrapper>
             )}
         </Container>

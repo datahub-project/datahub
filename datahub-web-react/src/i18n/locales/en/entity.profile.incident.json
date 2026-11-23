@@ -33,6 +33,7 @@
     "list.created": "Created {{time}}",
     "list.createdBy": "Created {{time}} by <actor></actor>",
     "list.empty": "No incidents yet",
+    "list.emptyDescription": "Create an incident to flag and track a data issue on this asset.",
     "list.noAdditionalDetails": "No additional details",
     "list.reopen": "Reopen incident",
     "list.resolved": "Resolved {{time}}",
