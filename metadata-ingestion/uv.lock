@@ -356,6 +356,11 @@ confluence = [
     { name = "unstructured", extra = ["md"] },
     { name = "unstructured-ingest", extra = ["confluence"] },
 ]
+csv-enricher = [
+    { name = "boto3" },
+    { name = "botocore" },
+    { name = "smart-open", extra = ["s3"] },
+]
 cube = [
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
@@ -1768,6 +1773,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'aws-secret-manager'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'cockroachdb'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'confluence'", specifier = ">=1.35.0,<2.0.0" },
+    { name = "boto3", marker = "extra == 'csv-enricher'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'datahub-documents'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'datahub-pg-queue'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'dbt'", specifier = ">=1.35.0,<2.0.0" },
@@ -1806,6 +1812,7 @@ requires-dist = [
     { name = "botocore", marker = "extra == 'aws-secret-manager'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'cockroachdb'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'confluence'", specifier = "!=1.23.0,<2.0.0" },
+    { name = "botocore", marker = "extra == 'csv-enricher'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'datahub-documents'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'datahub-pg-queue'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'dbt'", specifier = "!=1.23.0,<2.0.0" },
@@ -2648,6 +2655,7 @@ requires-dist = [
     { name = "smart-open", extras = ["azure", "s3"], marker = "extra == 'integration-tests'", specifier = ">=5.2.1,<8.0.0" },
     { name = "smart-open", extras = ["gcs", "s3"], marker = "extra == 'gcs'", specifier = ">=5.2.1,<8.0.0" },
     { name = "smart-open", extras = ["gcs", "s3"], marker = "extra == 'gcs-slim'", specifier = ">=5.2.1,<8.0.0" },
+    { name = "smart-open", extras = ["s3"], marker = "extra == 'csv-enricher'", specifier = ">=5.2.1,<8.0.0" },
     { name = "smart-open", extras = ["s3"], marker = "extra == 's3'", specifier = ">=5.2.1,<8.0.0" },
     { name = "smart-open", extras = ["s3"], marker = "extra == 's3-slim'", specifier = ">=5.2.1,<8.0.0" },
     { name = "smart-open", extras = ["s3"], marker = "extra == 'sql-queries'", specifier = ">=5.2.1,<8.0.0" },
