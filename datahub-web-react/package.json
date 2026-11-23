@@ -74,7 +74,7 @@
         "graphql-tag": "2.10.3",
         "history": "^5.0.0",
         "html-to-image": "^1.11.11",
-        "i18next": "^23",
+        "i18next": "^26",
         "i18next-resources-to-backend": "^1",
         "js-cookie": "^2.2.1",
         "js-yaml": "^4.1.0",
