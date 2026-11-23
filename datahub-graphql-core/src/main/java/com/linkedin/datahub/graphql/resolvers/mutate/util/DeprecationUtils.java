@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
 import static com.linkedin.metadata.aspect.utils.DeprecationUtils.*;
 
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
@@ -13,6 +14,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -43,8 +45,13 @@ public class DeprecationUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DEPRECATION_PRIVILEGE.getType()))));
 
+    // An entity type whose API privilege map lets a manage privilege update it (e.g. Manage
+    // Environments for customFabricType) lets that privilege deprecate it too, as REST already
+    // does. For any other type, UPDATE is EDIT_ENTITY, which the groups above include.
     return AuthorizationUtils.isAuthorized(
-        context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
+            context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups)
+        || AuthUtil.isAuthorizedEntityUrns(
+            context.getOperationContext(), ApiOperation.UPDATE, List.of(entityUrn));
   }
 
   public static void updateDeprecationForResources(

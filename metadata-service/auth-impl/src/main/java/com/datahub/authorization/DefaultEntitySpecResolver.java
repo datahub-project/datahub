@@ -2,8 +2,10 @@ package com.datahub.authorization;
 
 import com.datahub.authentication.group.GroupService;
 import com.datahub.authorization.fieldresolverprovider.*;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.aspect.validation.FabricTypeNameFields;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -30,7 +32,12 @@ public class DefaultEntitySpecResolver implements ContextualEntitySpecResolver {
             new TagFieldResolverProvider(entityClient),
             new ContainerFieldResolverProvider(entityClient),
             new GlossaryFieldResolverProvider(entityClient),
-            new StructuredPropertyFieldResolverProvider(entityClient));
+            new StructuredPropertyFieldResolverProvider(entityClient),
+            new EnvFieldResolverProvider(
+                Suppliers.memoize(
+                    () ->
+                        FabricTypeNameFields.discover(systemOperationContext.getEntityRegistry())),
+                entityClient));
     this.systemOperationContext = systemOperationContext;
   }
 

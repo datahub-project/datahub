@@ -203,6 +203,12 @@ public class PoliciesConfig {
           "Manage Structured Properties",
           "Manage structured properties in your instance.");
 
+  public static final Privilege MANAGE_CUSTOM_FABRIC_TYPES_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_CUSTOM_FABRIC_TYPES",
+          "Manage Environments",
+          "Create, edit, deprecate and delete custom environments.");
+
   public static final Privilege MANAGE_DOCUMENTS_PRIVILEGE =
       Privilege.of("MANAGE_DOCUMENTS", "Manage Documents", "Manage documents in DataHub");
 
@@ -317,6 +323,7 @@ public class PoliciesConfig {
           MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE,
           MANAGE_CONNECTIONS_PRIVILEGE,
           MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE,
+          MANAGE_CUSTOM_FABRIC_TYPES_PRIVILEGE,
           MANAGE_DOCUMENTS_PRIVILEGE,
           VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE,
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
@@ -996,6 +1003,19 @@ public class PoliciesConfig {
               EDIT_ENTITY_PRIVILEGE,
               DELETE_ENTITY_PRIVILEGE));
 
+  public static final ResourcePrivileges CUSTOM_FABRIC_TYPE_PRIVILEGES =
+      ResourcePrivileges.of(
+          "customFabricType",
+          "Environments",
+          "Custom environments, beyond the built-in ones",
+          ImmutableList.of(
+              CREATE_ENTITY_PRIVILEGE,
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE));
+
   // ERModelRelationship Privileges
   public static final ResourcePrivileges ER_MODEL_RELATIONSHIP_PRIVILEGES =
       ResourcePrivileges.of(
@@ -1108,6 +1128,7 @@ public class PoliciesConfig {
           ER_MODEL_RELATIONSHIP_PRIVILEGES,
           BUSINESS_ATTRIBUTE_PRIVILEGES,
           STRUCTURED_PROPERTIES_PRIVILEGES,
+          CUSTOM_FABRIC_TYPE_PRIVILEGES,
           INGESTION_SOURCE_PRIVILEGES,
           VERSION_SET_PRIVILEGES,
           PLATFORM_INSTANCE_PRIVILEGES,
@@ -1522,6 +1543,41 @@ public class PoliciesConfig {
                           ApiOperation.EXISTS,
                           Disjunctive.disjoint(
                               MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE,
+                              EXISTS_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              SEARCH_PRIVILEGE))
+                      .build())
+              // Each operation is allowed by Manage Environments, or by the matching entity
+              // privilege, which a policy can scope to individual environments.
+              .put(
+                  Constants.CUSTOM_FABRIC_TYPE_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(
+                          ApiOperation.CREATE,
+                          Disjunctive.disjoint(
+                              CREATE_ENTITY_PRIVILEGE, MANAGE_CUSTOM_FABRIC_TYPES_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          Disjunctive.disjoint(
+                              VIEW_ENTITY_PAGE_PRIVILEGE, MANAGE_CUSTOM_FABRIC_TYPES_PRIVILEGE))
+                      .put(
+                          ApiOperation.UPDATE,
+                          Disjunctive.disjoint(
+                              EDIT_ENTITY_PRIVILEGE, MANAGE_CUSTOM_FABRIC_TYPES_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(
+                              DELETE_ENTITY_PRIVILEGE, MANAGE_CUSTOM_FABRIC_TYPES_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXECUTE,
+                          Disjunctive.disjoint(
+                              EXECUTE_ENTITY_PRIVILEGE, MANAGE_CUSTOM_FABRIC_TYPES_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          Disjunctive.disjoint(
+                              MANAGE_CUSTOM_FABRIC_TYPES_PRIVILEGE,
                               EXISTS_ENTITY_PRIVILEGE,
                               EDIT_ENTITY_PRIVILEGE,
                               DELETE_ENTITY_PRIVILEGE,

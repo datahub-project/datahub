@@ -91,6 +91,49 @@ public class AuthUtilTest {
             List.of(new ConjunctivePrivilegeGroup(List.of("MANAGE_POLICIES")))));
   }
 
+  /**
+   * A2: every operation on a customFabricType is allowed by Manage Environments, or by the matching
+   * entity privilege on that environment.
+   */
+  @Test
+  public void testCustomFabricTypeApiPrivileges() {
+    final Urn fabricTypeValue = UrnUtils.getUrn("urn:li:customFabricType:MY_ENV");
+    final Urn otherValue = UrnUtils.getUrn("urn:li:customFabricType:OTHER_ENV");
+    Authorizer authorizer =
+        mockAuthorizer(
+            Map.of(
+                TEST_AUTH_A.getActor().toUrnStr(),
+                Map.of("MANAGE_CUSTOM_FABRIC_TYPES", Set.of(fabricTypeValue, otherValue)),
+                TEST_AUTH_B.getActor().toUrnStr(),
+                Map.of(
+                    "CREATE_ENTITY", Set.of(fabricTypeValue),
+                    "EDIT_ENTITY", Set.of(fabricTypeValue),
+                    "DELETE_ENTITY", Set.of(fabricTypeValue))));
+    Authentication noGrants = new Authentication(new Actor(ActorType.USER, "testC"), "");
+
+    for (com.linkedin.metadata.authorization.ApiOperation operation :
+        List.of(CREATE, UPDATE, DELETE)) {
+      assertTrue(
+          AuthUtil.isAuthorizedEntityUrns(
+              TestAuthSession.from(TEST_AUTH_A, authorizer),
+              operation,
+              List.of(fabricTypeValue, otherValue)),
+          "MANAGE_CUSTOM_FABRIC_TYPES allows " + operation);
+      assertTrue(
+          AuthUtil.isAuthorizedEntityUrns(
+              TestAuthSession.from(TEST_AUTH_B, authorizer), operation, List.of(fabricTypeValue)),
+          "Entity privilege on the environment allows " + operation);
+      assertFalse(
+          AuthUtil.isAuthorizedEntityUrns(
+              TestAuthSession.from(TEST_AUTH_B, authorizer), operation, List.of(otherValue)),
+          "Entity privilege on one environment does not cover another for " + operation);
+      assertFalse(
+          AuthUtil.isAuthorizedEntityUrns(
+              TestAuthSession.from(noGrants, authorizer), operation, List.of(fabricTypeValue)),
+          "No privilege denies " + operation);
+    }
+  }
+
   @Test
   public void testIsAPIAuthorizedUrns() {
     Authorizer mockAuthorizer =
