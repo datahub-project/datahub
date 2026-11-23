@@ -8,7 +8,7 @@ Tests focus on:
 - Comparison between explicit and auto-discovery modes
 """
 
-from typing import Any, Dict
+from typing import Any, Callable, Dict, List, Optional
 from unittest import mock
 
 import pytest
@@ -24,6 +24,7 @@ from datahub.ingestion.source.dbt.dbt_cloud_models import (
     DBTCloudEnvironment,
     DBTCloudJob,
 )
+from datahub.ingestion.source.dbt.dbt_tests import select_test_results_to_emit
 
 
 @pytest.fixture
@@ -177,6 +178,115 @@ def mock_graphql_response_with_sources() -> Dict[str, Any]:
     }
 
 
+_EMPTY_JOB: Dict[str, List[Dict[str, Any]]] = {
+    "models": [],
+    "sources": [],
+    "seeds": [],
+    "snapshots": [],
+    "tests": [],
+    "exposures": [],
+    "semanticModels": [],
+}
+
+
+def _model_row(
+    *,
+    job_id: int,
+    run_id: int,
+    owner: str,
+    built: bool,
+    completed_at: Optional[str] = "2025-01-01T00:00:00Z",
+) -> Dict[str, Any]:
+    """A model as the job-scoped Discovery query returns it.
+
+    ``built=False`` gives the padding shape of a node the run did not
+    execute: no status, no timings, no compiled code.
+    """
+    return {
+        "uniqueId": "model.test_project.test_model",
+        "name": "test_model",
+        "description": "",
+        "resourceType": "model",
+        "database": "test_db",
+        "schema": "test_schema",
+        "alias": None,
+        "packageName": "test_project",
+        "columns": [],
+        "meta": {"owner": owner},
+        "tags": [],
+        "rawCode": "SELECT 1",
+        "rawSql": None,
+        "compiledCode": "SELECT 1" if built else None,
+        "compiledSql": None,
+        "materializedType": "table",
+        "status": "success" if built else None,
+        "error": None,
+        "skip": False,
+        "executeStartedAt": completed_at if built else None,
+        "executeCompletedAt": completed_at if built else None,
+        "runGeneratedAt": completed_at if built else None,
+        "dependsOn": [],
+        "jobId": job_id,
+        "runId": run_id,
+    }
+
+
+def _test_row(
+    *, job_id: int, run_id: int, status: str, completed_at: str
+) -> Dict[str, Any]:
+    return {
+        "uniqueId": "test.test_project.not_null_test_model_id",
+        "name": "not_null_test_model_id",
+        "description": "",
+        "resourceType": "test",
+        "meta": {},
+        "tags": [],
+        "state": None,
+        "columnName": "id",
+        "status": status,
+        "error": None,
+        "dependsOn": ["model.test_project.test_model", "macro.dbt.test_not_null"],
+        "fail": status == "fail",
+        "warn": False,
+        "skip": False,
+        "rawSql": None,
+        "rawCode": None,
+        "compiledSql": None,
+        "compiledCode": None,
+        "executeStartedAt": completed_at,
+        "executeCompletedAt": completed_at,
+        "runGeneratedAt": completed_at,
+        "jobId": job_id,
+        "runId": run_id,
+    }
+
+
+def _graphql_by_job(
+    responses: Dict[int, Dict[str, List[Dict[str, Any]]]],
+) -> Callable[..., Dict[str, Any]]:
+    """A ``_send_graphql_query`` stand-in answering per job and node type."""
+
+    def side_effect(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+        job_id = kwargs["variables"]["jobId"]
+        node_type = kwargs["query"].split("DatahubMetadataQuery_", 1)[1].split("(")[0]
+        return {"job": {node_type: responses[job_id].get(node_type, [])}}
+
+    return side_effect
+
+
+def _auto_discovery_source(**auto_discovery: Any) -> DBTCloudSource:
+    config = DBTCloudConfig(
+        access_url="https://test.getdbt.com",
+        token="dummy_token",
+        account_id=123456,
+        project_id=1234567,
+        auto_discovery=AutoDiscoveryConfig(enabled=True, **auto_discovery),
+        target_platform="snowflake",
+    )
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+    return DBTCloudSource(config, ctx)
+
+
 class TestAutoDiscoveryEndToEnd:
     """End-to-end tests for auto-discovery workflow."""
 
@@ -232,12 +342,12 @@ class TestAutoDiscoveryEndToEnd:
         for call in mock_graphql.call_args_list:
             assert call[1]["variables"]["runId"] is None
 
-        # Verify nodes were collected (2 models + 2 semantic models from 2 jobs)
-        assert len(nodes) == 4
+        # Both jobs return the same manifest; each node is ingested once.
+        assert len(nodes) == 2
 
         # Verify semantic models were parsed correctly
         semantic_models = [n for n in nodes if n.node_type == "semantic_model"]
-        assert len(semantic_models) == 2
+        assert len(semantic_models) == 1
 
         for sm in semantic_models:
             assert len(sm.columns) > 0
@@ -295,8 +405,8 @@ class TestAutoDiscoveryEndToEnd:
         # Execute
         nodes = next(source.load_projects()).nodes
 
-        # Should have nodes from jobs 100 and 300 only (2 models + 2 semantic models)
-        assert len(nodes) == 4
+        # Jobs 100 and 300 return the same manifest; each node is ingested once.
+        assert len(nodes) == 2
 
         # Verify warning was logged for job 200 failure
         # (This is implicit - the source continues without raising)
@@ -859,3 +969,174 @@ class TestSourceFreshnessExtraction:
         source_nodes = [n for n in nodes if n.node_type == "source"]
         assert len(source_nodes) == 2
         assert all(n.freshness_info is not None for n in source_nodes)
+
+
+class TestAutoDiscoveryNodeMerge:
+    """Reconciling copies of one node returned by several discovered jobs."""
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_metadata_comes_from_the_job_that_built_the_node(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+    ) -> None:
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        # The job that merely saw the model is listed last and has the newer
+        # run: with last-wins its stale owner replaced the real one.
+        mock_get_jobs.return_value = [
+            DBTCloudJob(id=100, generate_docs=True),
+            DBTCloudJob(id=200, generate_docs=True),
+        ]
+        mock_graphql.side_effect = _graphql_by_job(
+            {
+                100: {
+                    **_EMPTY_JOB,
+                    "models": [
+                        _model_row(job_id=100, run_id=10, owner="team_a", built=True)
+                    ],
+                },
+                200: {
+                    **_EMPTY_JOB,
+                    "models": [
+                        _model_row(job_id=200, run_id=20, owner="stale", built=False)
+                    ],
+                },
+            }
+        )
+        source = _auto_discovery_source()
+
+        (node,) = next(source.load_projects()).nodes
+
+        assert node.meta == {"owner": "team_a"}
+        assert source.report.auto_discovery_node_copies_seen == 2
+        assert source.report.auto_discovery_nodes_merged == 1
+        assert source.report.auto_discovery_padding_rows_dropped == 1
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_node_built_by_no_job_is_kept_and_reported(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+    ) -> None:
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = [
+            DBTCloudJob(id=100, generate_docs=True),
+            DBTCloudJob(id=200, generate_docs=True),
+        ]
+        mock_graphql.side_effect = _graphql_by_job(
+            {
+                100: {
+                    **_EMPTY_JOB,
+                    "models": [
+                        _model_row(job_id=100, run_id=10, owner="old", built=False)
+                    ],
+                },
+                200: {
+                    **_EMPTY_JOB,
+                    "models": [
+                        _model_row(job_id=200, run_id=20, owner="newer", built=False)
+                    ],
+                },
+            }
+        )
+        source = _auto_discovery_source()
+
+        (node,) = next(source.load_projects()).nodes
+
+        assert node.meta == {"owner": "newer"}
+        assert source.report.auto_discovery_nodes_not_built_by_any_job == 1
+        assert any(
+            w.title == "dbt Cloud node not built by any discovered job"
+            for w in source.report.warnings
+        )
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_test_results_from_every_job_are_kept(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+    ) -> None:
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = [
+            DBTCloudJob(id=100, generate_docs=True),
+            DBTCloudJob(id=200, generate_docs=True),
+        ]
+        mock_graphql.side_effect = _graphql_by_job(
+            {
+                100: {
+                    **_EMPTY_JOB,
+                    "tests": [
+                        _test_row(
+                            job_id=100,
+                            run_id=10,
+                            status="fail",
+                            completed_at="2025-01-02T00:00:00Z",
+                        )
+                    ],
+                },
+                200: {
+                    **_EMPTY_JOB,
+                    "tests": [
+                        _test_row(
+                            job_id=200,
+                            run_id=20,
+                            status="pass",
+                            completed_at="2025-01-01T00:00:00Z",
+                        )
+                    ],
+                },
+            }
+        )
+        source = _auto_discovery_source()
+
+        (node,) = next(source.load_projects()).nodes
+
+        assert {r.invocation_id for r in node.test_results} == {
+            "job100-run10",
+            "job200-run20",
+        }
+        (latest,) = select_test_results_to_emit(node.test_results, latest_only=True)
+        assert latest.invocation_id == "job100-run10"
+        assert source.report.auto_discovery_test_results_merged == 1
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_last_job_wins_restores_the_previous_behaviour(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+        mock_graphql_response: Dict[str, Any],
+    ) -> None:
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = [
+            DBTCloudJob(id=100, generate_docs=True),
+            DBTCloudJob(id=200, generate_docs=True),
+        ]
+        mock_graphql.return_value = mock_graphql_response
+        source = _auto_discovery_source(node_merge_strategy="last_job_wins")
+
+        nodes = next(source.load_projects()).nodes
+
+        # Every copy is passed through; the shared dbt code then keeps the
+        # last one per node.
+        assert len(nodes) == 4
+        assert source.report.auto_discovery_node_copies_seen == 0

@@ -250,6 +250,51 @@ class TestGetJobsForProject:
         assert jobs[1].generate_docs is False
 
     @mock.patch("datahub.ingestion.source.dbt.dbt_cloud.requests.get")
+    def test_get_jobs_follows_pagination(self, mock_get: mock.Mock) -> None:
+        """The jobs endpoint pages at 100; every page must be fetched."""
+
+        def page(start: int, count: int, total: int) -> mock.Mock:
+            response = mock.Mock()
+            response.status_code = 200
+            response.json.return_value = {
+                "data": [
+                    {"id": start + i, "generate_docs": True, "job_type": "scheduled"}
+                    for i in range(count)
+                ],
+                "extra": {"pagination": {"count": count, "total_count": total}},
+            }
+            return response
+
+        mock_get.side_effect = [page(0, 100, 150), page(100, 50, 150)]
+
+        jobs = DBTCloudSource._get_jobs_for_project(
+            "https://test.getdbt.com", "token", 123, 456, 789
+        )
+
+        assert [job.id for job in jobs] == list(range(150))
+        assert mock_get.call_count == 2
+        assert mock_get.call_args_list[1].kwargs["params"]["offset"] == 100
+
+    @mock.patch("datahub.ingestion.source.dbt.dbt_cloud.requests.get")
+    def test_get_jobs_reads_job_type(self, mock_get: mock.Mock) -> None:
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [
+                {"id": 100, "generate_docs": True, "job_type": "ci"},
+                {"id": 200, "generate_docs": True, "job_type": None},
+                {"id": 300, "generate_docs": True},
+            ]
+        }
+        mock_get.return_value = mock_response
+
+        jobs = DBTCloudSource._get_jobs_for_project(
+            "https://test.getdbt.com", "token", 123, 456, 789
+        )
+
+        assert [job.job_type for job in jobs] == ["ci", None, None]
+
+    @mock.patch("datahub.ingestion.source.dbt.dbt_cloud.requests.get")
     def test_get_jobs_http_error(self, mock_get: mock.Mock) -> None:
         """Should raise ValueError on HTTP error."""
         mock_response = mock.Mock()
@@ -289,6 +334,7 @@ class TestAutoDiscoverProjectsAndJobs:
         job_id_pattern: Optional[AllowDenyPattern] = None,
         require_generate_docs: bool = False,
         write_semantics: str = "PATCH",
+        job_type_pattern: Optional[AllowDenyPattern] = None,
     ) -> DBTCloudSource:
         """Helper to create a DBTCloudSource with auto-discovery enabled."""
         pattern = job_id_pattern or AllowDenyPattern.allow_all()
@@ -301,6 +347,7 @@ class TestAutoDiscoverProjectsAndJobs:
                 enabled=True,
                 job_id_pattern=pattern,
                 require_generate_docs=require_generate_docs,
+                job_type_pattern=job_type_pattern or AllowDenyPattern.allow_all(),
             ),
             target_platform="snowflake",
             write_semantics=write_semantics,
@@ -330,6 +377,33 @@ class TestAutoDiscoverProjectsAndJobs:
 
         assert len(job_ids) == 3
         assert set(job_ids) == {100, 200, 300}
+
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_auto_discover_filters_by_job_type_pattern(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+    ) -> None:
+        """Deny CI jobs by type; a job without a reported type passes."""
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = [
+            DBTCloudJob(id=100, generate_docs=True, job_type="scheduled"),
+            DBTCloudJob(id=200, generate_docs=True, job_type="ci"),
+            DBTCloudJob(id=300, generate_docs=True, job_type=None),
+        ]
+
+        source = self._create_source_with_autodiscovery(
+            job_type_pattern=AllowDenyPattern(deny=["ci"])
+        )
+        job_ids = source._auto_discover_projects_and_jobs()
+
+        assert job_ids == [100, 300]
+        assert source.report.total_jobs_processed_skipped == 1
+        (warning,) = source.report.warnings
+        assert "job_type_pattern" in (warning.context or [""])[0]
 
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
     @mock.patch.object(DBTCloudSource, "_get_environments_for_project")

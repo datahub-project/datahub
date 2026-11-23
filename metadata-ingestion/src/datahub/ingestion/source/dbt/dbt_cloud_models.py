@@ -13,6 +13,9 @@ Note: These are not complete models - they are used for data validation of repon
 class DBTCloudJob:
     id: int
     generate_docs: bool
+    # Open set: dbt Cloud adds job types over time (seen: other, ci, merge,
+    # scheduled; also documented: exposure_sync, adaptive, hybrid).
+    job_type: Optional[str] = None
 
 
 class DBTCloudDeploymentType(StrEnum):

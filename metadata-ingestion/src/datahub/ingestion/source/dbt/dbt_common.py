@@ -441,6 +441,18 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     total_jobs_processed_skipped: int = 0
     processed_jobs_list: List[int] = field(default_factory=list)
 
+    # dbt Cloud auto-discovery: reconciling the copies of a node that several
+    # jobs returned (auto_discovery.node_merge_strategy = latest_build).
+    auto_discovery_node_copies_seen: int = 0
+    auto_discovery_nodes_merged: int = 0
+    auto_discovery_padding_rows_dropped: int = 0
+    auto_discovery_nodes_not_built_by_any_job: int = 0
+    auto_discovery_nodes_not_built_by_any_job_list: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    auto_discovery_test_results_merged: int = 0
+    auto_discovery_exposures_deduplicated: int = 0
+
     sql_parser_parse_failures_list: LossyList[str] = field(default_factory=LossyList)
     sql_parser_detach_ctes_failures_list: LossyList[str] = field(
         default_factory=LossyList
@@ -3134,7 +3146,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.report.warning(
                 title="Superseded dbt test failures not emitted",
                 message="A newer result exists for these dbt tests, so older non-passing "
-                "results from other run_results files were not emitted. Set "
+                "results from other runs were not emitted. Set "
                 "`only_emit_latest_test_result: false` to emit every result.",
                 context=f"{node.dbt_name} ({test_result.invocation_id}: {test_result.status})",
                 log=False,
