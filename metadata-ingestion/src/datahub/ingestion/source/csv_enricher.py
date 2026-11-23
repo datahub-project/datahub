@@ -44,11 +44,11 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-    SchemaMetadataClass,
     StructuredPropertiesClass,
     StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
 )
+from datahub.sql_parsing.schema_resolver import _column_rank
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from datahub.utilities.urns.structured_properties_urn import (
@@ -127,8 +127,14 @@ class CSVEnricherSource(Source):
         self.report: CSVEnricherReport = CSVEnricherReport()
         # Map from entity urn to a list of SubResourceRow.
         self.editable_schema_metadata_map: Dict[str, List[SubResourceRow]] = {}
-        # Map from dataset urn to the field paths in its schemaMetadata.
-        self.schema_field_paths_cache: Dict[str, List[str]] = {}
+        # Map from schemaField urn to property urn to values, batched like
+        # editable_schema_metadata_map so duplicate rows share one read-merge-write.
+        self.schema_field_structured_properties_map: Dict[
+            str, Dict[str, List[Union[str, float]]]
+        ] = {}
+        # Map from dataset urn to {CSV field path: schemaMetadata fieldPath}, or
+        # None when the schema could not be read.
+        self.schema_field_paths_cache: Dict[str, Optional[Dict[str, str]]] = {}
         self.should_overwrite: bool = self.config.write_semantics == "OVERRIDE"
 
         if not self.should_overwrite:
@@ -365,8 +371,7 @@ class CSVEnricherSource(Source):
 
         property_values_by_urn: Dict[str, List[str | float]] = {}
         for column, raw_value in structured_property_columns.items():
-            # csv.DictReader fills columns missing from a short row with None.
-            value = (raw_value or "").strip()
+            value = raw_value.strip()
             if len(value) <= 0:
                 continue
 
@@ -445,39 +450,111 @@ class CSVEnricherSource(Source):
             aspect=current_structured_properties,
         ).as_workunit()
 
-    def resolve_schema_field_path(self, dataset_urn: str, field_path: str) -> str:
+    def get_schema_field_paths(self, dataset_urn: str) -> Optional[Dict[str, str]]:
+        if dataset_urn in self.schema_field_paths_cache:
+            return self.schema_field_paths_cache[dataset_urn]
+
+        assert self.ctx.graph
+        field_paths: Optional[Dict[str, str]] = None
+        try:
+            schema_metadata = self.ctx.graph.get_schema_metadata(dataset_urn)
+        except Exception as e:
+            self.report.warning(
+                title="Failed To Read Dataset Schema",
+                message="Column structured properties were written using the field paths from the CSV as-is, because the dataset's schema could not be read.",
+                context=dataset_urn,
+                exc=e,
+            )
+        else:
+            if schema_metadata is None:
+                self.report.warning(
+                    title="Dataset Schema Not Found",
+                    message="Column structured properties were written using the field paths from the CSV as-is, because the dataset has no schema in DataHub.",
+                    context=dataset_urn,
+                )
+            else:
+                field_paths = {}
+                for field in schema_metadata.fields:
+                    simple_path = get_simple_field_path_from_v2_field_path(
+                        field.fieldPath
+                    )
+                    current = field_paths.get(simple_path)
+                    if current is None or _column_rank(field.fieldPath) < _column_rank(
+                        current
+                    ):
+                        field_paths[simple_path] = field.fieldPath
+                # A CSV path that exactly matches a fieldPath is used as-is.
+                field_paths.update(
+                    {
+                        field.fieldPath: field.fieldPath
+                        for field in schema_metadata.fields
+                    }
+                )
+
+        self.schema_field_paths_cache[dataset_urn] = field_paths
+        return field_paths
+
+    def resolve_schema_field_path(
+        self, dataset_urn: str, field_path: str
+    ) -> Optional[str]:
         # The CSV holds simple paths, but schemaField urns must use the exact
         # schemaMetadata fieldPath (possibly v2) to match what the UI reads.
         if not self.ctx.graph:
             return field_path
 
-        if dataset_urn not in self.schema_field_paths_cache:
-            schema_metadata = self.ctx.graph.get_aspect(
-                entity_urn=dataset_urn,
-                aspect_type=SchemaMetadataClass,
-            )
-            self.schema_field_paths_cache[dataset_urn] = (
-                [field.fieldPath for field in schema_metadata.fields]
-                if schema_metadata
-                else []
-            )
-
-        schema_field_paths = self.schema_field_paths_cache[dataset_urn]
-        if field_path in schema_field_paths:
+        field_paths = self.get_schema_field_paths(dataset_urn)
+        if field_paths is None:
             return field_path
-        for schema_field_path in schema_field_paths:
-            if (
-                get_simple_field_path_from_v2_field_path(schema_field_path)
-                == field_path
-            ):
-                return schema_field_path
 
-        self.report.warning(
-            title="Column Not Found In Schema",
-            message="Column structured properties were written using the field path from the CSV as-is, because no matching field was found in the dataset's schema.",
-            context=f"resource={dataset_urn}, subresource={field_path}",
+        resolved_path = field_paths.get(field_path)
+        if resolved_path is None:
+            self.report.warning(
+                title="Column Not Found In Schema",
+                message="Column structured properties were skipped, because no matching field was found in the dataset's schema.",
+                context=f"resource={dataset_urn}, subresource={field_path}",
+            )
+        return resolved_path
+
+    def add_schema_field_structured_properties(
+        self,
+        dataset_urn: str,
+        field_path: str,
+        structured_properties: List[StructuredPropertyValueAssignmentClass],
+    ) -> None:
+        resolved_path = self.resolve_schema_field_path(dataset_urn, field_path)
+        if resolved_path is None:
+            return
+
+        values_by_property = self.schema_field_structured_properties_map.setdefault(
+            make_schema_field_urn(dataset_urn, resolved_path), {}
         )
-        return field_path
+        for assignment in structured_properties:
+            values = values_by_property.setdefault(assignment.propertyUrn, [])
+            for value in assignment.values:
+                if value not in values:
+                    values.append(value)
+
+    def get_schema_field_structured_properties_work_units(
+        self,
+    ) -> Iterable[MetadataWorkUnit]:
+        for (
+            schema_field_urn,
+            values_by_property,
+        ) in self.schema_field_structured_properties_map.items():
+            maybe_structured_properties_wu = (
+                self.get_resource_structured_properties_work_unit(
+                    entity_urn=schema_field_urn,
+                    structured_properties=[
+                        StructuredPropertyValueAssignmentClass(
+                            propertyUrn=property_urn, values=values
+                        )
+                        for property_urn, values in values_by_property.items()
+                    ],
+                )
+            )
+            if maybe_structured_properties_wu:
+                self.report.num_schema_field_structured_properties_workunits_produced += 1
+                yield maybe_structured_properties_wu
 
     def get_resource_workunits(
         self,
@@ -765,7 +842,9 @@ class CSVEnricherSource(Source):
                 decoded_content = resp.content.decode("utf-8-sig")
                 rows = list(
                     csv.DictReader(
-                        decoded_content.splitlines(), delimiter=self.config.delimiter
+                        decoded_content.splitlines(),
+                        delimiter=self.config.delimiter,
+                        restval="",
                     )
                 )
             except Exception as e:
@@ -774,7 +853,9 @@ class CSVEnricherSource(Source):
                 ) from e
         else:
             with open(pathlib.Path(self.config.filename), encoding="utf-8-sig") as f:
-                rows = list(csv.DictReader(f, delimiter=self.config.delimiter))
+                rows = list(
+                    csv.DictReader(f, delimiter=self.config.delimiter, restval="")
+                )
 
         for row in rows:
             # We need the resource to move forward
@@ -819,34 +900,36 @@ class CSVEnricherSource(Source):
                 # Only dataset sub-resources are currently supported.
                 # Add the row to the map from entity (dataset) to SubResource rows. We cannot emit work units for
                 # EditableSchemaMetadata until we parse the whole CSV due to read-modify-write issues.
-                self.editable_schema_metadata_map.setdefault(entity_urn, [])
-                self.editable_schema_metadata_map[entity_urn].append(
-                    SubResourceRow(
-                        entity_urn=entity_urn,
-                        field_path=row["subresource"],
-                        term_associations=term_associations,
-                        tag_associations=tag_associations,
-                        description=description,
-                        domain=domain,
-                    )
-                )
-
-                if structured_properties:
-                    schema_field_urn = make_schema_field_urn(
-                        entity_urn,
-                        self.resolve_schema_field_path(entity_urn, row["subresource"]),
-                    )
-                    maybe_structured_properties_wu = (
-                        self.get_resource_structured_properties_work_unit(
-                            entity_urn=schema_field_urn,
-                            structured_properties=structured_properties,
+                # A row with nothing for editableSchemaMetadata is not added, so a
+                # structured-property-only row does not trigger an OVERRIDE of it.
+                if term_associations or tag_associations or description:
+                    self.editable_schema_metadata_map.setdefault(entity_urn, [])
+                    self.editable_schema_metadata_map[entity_urn].append(
+                        SubResourceRow(
+                            entity_urn=entity_urn,
+                            field_path=row["subresource"],
+                            term_associations=term_associations,
+                            tag_associations=tag_associations,
+                            description=description,
+                            domain=domain,
                         )
                     )
-                    if maybe_structured_properties_wu:
-                        self.report.num_schema_field_structured_properties_workunits_produced += 1
-                        yield maybe_structured_properties_wu
+
+                if structured_properties:
+                    self.add_schema_field_structured_properties(
+                        dataset_urn=entity_urn,
+                        field_path=row["subresource"],
+                        structured_properties=structured_properties,
+                    )
+            else:
+                self.report.warning(
+                    title="Unsupported Subresource",
+                    message="Ignoring row, because column-level metadata is supported for datasets only.",
+                    context=f"resource={entity_urn}, subresource={row['subresource']}",
+                )
 
         yield from self.get_sub_resource_work_units()
+        yield from self.get_schema_field_structured_properties_work_units()
 
     def get_report(self):
         return self.report
