@@ -541,8 +541,27 @@ def _slot_pieces(slot: object, scope: CatalogScope) -> List[str]:
     return [piece for piece in text.split(".") if piece]
 
 
-def _visible_cte_names(table: exp.Table) -> Set[str]:
-    """CTE names in scope for this table: only those an enclosing WITH declares.
+def _cte_key(name: str, quoted: bool, scope: CatalogScope) -> str:
+    """The name a CTE declaration and a reference to it are compared by.
+
+    Folded the way the dialect folds an unquoted name (CatalogScope.unquoted_case),
+    so `"T"` and `"t"` stay distinct where quoting makes them distinct objects.
+    """
+    case_sensitive = quoted and scope.unquoted_case is not None
+    if name.isascii():
+        folded = name.upper() if scope.unquoted_case == "upper" else name.lower()
+        if not case_sensitive or name == folded:
+            return folded
+    if case_sensitive:
+        # Never equal to an unquoted key: an unquoted name cannot hold a quote.
+        return _OTHER_CASE_MARK + name
+    # Non-ASCII and unquoted: Python's case mapping is wider than SQL's, so
+    # folding it could equate names the engine keeps apart.
+    return name
+
+
+def _visible_cte_names(table: exp.Table, scope: CatalogScope) -> Set[str]:
+    """CTE keys (_cte_key) in scope for this table: only those an enclosing WITH declares.
 
     An inner WITH does not reach an outer FROM, where SQL resolves the name to
     the real table (`SELECT * FROM t WHERE 1 IN (WITH t AS (...) SELECT ...)`).
@@ -567,7 +586,10 @@ def _visible_cte_names(table: exp.Table) -> Set[str]:
                 cut = ctes.index(inside)
                 visible = ctes[: cut + 1] if value.args.get("recursive") else ctes[:cut]
             for cte in visible:
-                names.add(cte.alias_or_name.lower())
+                alias = cte.args.get("alias")
+                identifier = alias.this if isinstance(alias, exp.TableAlias) else None
+                if isinstance(identifier, exp.Identifier):
+                    names.add(_cte_key(identifier.name, identifier.quoted, scope))
         node = node.parent
     return names
 
@@ -617,8 +639,10 @@ def _check_table(table: exp.Table, scope: CatalogScope) -> bool:
 
     if len(parts) < 2:
         name = parts[0] if parts else table.name
+        slot = pieces[0][0] if pieces else table.this
+        quoted = isinstance(slot, exp.Identifier) and slot.quoted
         # A CTE alias: permitted, but not a relation read.
-        if name.lower() in _visible_cte_names(table):
+        if _cte_key(name, quoted, scope) in _visible_cte_names(table, scope):
             return False
         # Some dialects expose their catalog unqualified (Oracle's public
         # synonyms such as `dba_tables`).

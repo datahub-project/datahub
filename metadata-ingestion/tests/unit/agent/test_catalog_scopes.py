@@ -828,6 +828,57 @@ def test_a_non_ascii_name_never_matches_the_catalog(
         check_query_scope(query, platform=platform, scope=_scope(source_type))
 
 
+# A CTE name resolves like any identifier: where quoting makes `"T"` and `"t"`
+# different objects, a reference in the other case is the physical table, and
+# the catalog read inside the CTE must not vouch for it.
+_CATALOG_CTE_BODY = "SELECT table_name FROM information_schema.tables"
+
+
+@pytest.mark.parametrize(
+    "source_type,cte,reference",
+    [
+        ("snowflake", '"T"', '"t"'),
+        ("snowflake", '"t"', '"T"'),
+        ("snowflake", '"t"', "t"),
+        ("postgres", '"t"', '"T"'),
+        ("postgres", '"T"', '"t"'),
+        ("postgres", '"T"', "t"),
+    ],
+)
+def test_a_cte_name_in_another_quoted_case_is_a_physical_table(
+    source_type: str, cte: str, reference: str
+) -> None:
+    with pytest.raises(SqlScopeError):
+        check_query_scope(
+            f"WITH {cte} AS ({_CATALOG_CTE_BODY}) SELECT * FROM {reference}",
+            platform=source_type,
+            scope=_scope(source_type),
+        )
+
+
+@pytest.mark.parametrize(
+    "source_type,cte,reference",
+    [
+        ("snowflake", '"t"', '"t"'),
+        ("snowflake", '"T"', "t"),
+        ("snowflake", "t", '"T"'),
+        ("snowflake", "t", "T"),
+        ("postgres", '"T"', '"T"'),
+        ("postgres", '"t"', "T"),
+        ("postgres", "T", '"t"'),
+        ("postgres", "t", "T"),
+    ],
+)
+def test_a_cte_name_resolving_to_the_cte_is_the_cte(
+    source_type: str, cte: str, reference: str
+) -> None:
+    check_query_scope(
+        f"WITH {cte} AS ({_CATALOG_CTE_BODY}) SELECT * FROM {reference}",
+        platform=source_type,
+        scope=_scope(source_type),
+    )
+
+
 def test_a_dialect_that_does_not_fold_matches_quoted_names_as_before() -> None:
     # MySQL and MSSQL resolve these names case-insensitively, quoted or not.
     check_query_scope(
