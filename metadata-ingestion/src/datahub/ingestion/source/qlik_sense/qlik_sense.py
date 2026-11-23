@@ -6,10 +6,12 @@ import json
 import logging
 import posixpath
 import re
+from collections import defaultdict
 from datetime import datetime
 from functools import partial
 from typing import (
     Collection,
+    DefaultDict,
     Dict,
     Iterable,
     List,
@@ -403,7 +405,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # Datasets emitted at the end of the run for the apps whose lineage
         # names them, added to those apps' checkpoints so a later run that
         # keeps an app keeps them too.
-        self._app_end_of_run_urns: Dict[str, Set[str]] = {}
+        self._app_end_of_run_urns: DefaultDict[str, Set[str]] = defaultdict(set)
         self._allowed_space_ids: Set[str] = set()
         self._reported_no_graph = False
         # Datasets with a column edge whose source field could not be named.
@@ -2034,6 +2036,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._unmapped_files.setdefault(urn, f"lib://{qualified}")
         return urn
 
+    def _unmapped_storage_file_urn(self, connection: str, path: str) -> Optional[str]:
+        """Reports a connection whose storage is unknown and names the file on
+        it by the connection and path, when it can be."""
+        if connection not in self.reporter.unresolved_file_connections:
+            self.reporter.unresolved_file_connections.append(connection)
+        return self._unmapped_file_urn(connection, path)
+
     def _gen_file_store_lineage(
         self, app: App, parsed: ParsedScript, table_urns: Set[str]
     ) -> Iterable[MetadataWorkUnit]:
@@ -2046,25 +2055,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if store.file.connection is None:
                 continue
             storage, detail = self._file_storage(store.file.connection, app.spaceId)
-            file_urn: Optional[str] = None
             if storage is not None:
                 file_urn = self._file_urn(storage, detail, store.file.path)
             else:
                 info = self._find_data_connection(store.file.connection, app.spaceId)
                 if info is not None and info.file_platform is None:
                     continue
-                if (
-                    store.file.connection
-                    not in self.reporter.unresolved_file_connections
-                ):
-                    self.reporter.unresolved_file_connections.append(
-                        store.file.connection
-                    )
-                file_urn = self._unmapped_file_urn(
+                unmapped_urn = self._unmapped_storage_file_urn(
                     store.file.connection, store.file.path
                 )
-            if file_urn is None:
-                continue
+                if unmapped_urn is None:
+                    continue
+                file_urn = unmapped_urn
             table_urn = self._stored_table_urn(app, store.label, table_urns)
             # A table the app doesn't ingest, such as one a script variable
             # names, has no dataset to link.
@@ -2132,14 +2134,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     # A visible connection of another kind, such as DataFiles,
                     # can't hold a file on this storage.
                     continue
-                if (
-                    reference.connection
-                    not in self.reporter.unresolved_file_connections
-                ):
-                    self.reporter.unresolved_file_connections.append(
-                        reference.connection
-                    )
-                unmapped_urn = self._unmapped_file_urn(
+                unmapped_urn = self._unmapped_storage_file_urn(
                     reference.connection, reference.path
                 )
                 if unmapped_urn is None:
@@ -2179,7 +2174,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _link_unmapped_file(self, app_id: str, urn: str) -> None:
         self._linked_unmapped_files.add(urn)
-        self._app_end_of_run_urns.setdefault(app_id, set()).add(urn)
+        self._app_end_of_run_urns[app_id].add(urn)
 
     def _record_end_of_run_urns(self) -> None:
         for app_id, urns in self._app_end_of_run_urns.items():
