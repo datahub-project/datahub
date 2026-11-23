@@ -193,14 +193,14 @@ def _removed_upstreams(ops: List[Tuple[str, str]]) -> List[str]:
     ]
 
 
-def _run(
+def _source(
     mock_api_cls: MagicMock,
     datasets: Optional[List[ListedDataset]],
     keep_unread_items: bool = False,
     graph: Optional[MagicMock] = None,
     script_read_failed: bool = False,
     items: Optional[List[Union[App, QlikDataset]]] = None,
-) -> Tuple[QlikSenseSource, Dict[str, List[str]], Dict[str, List[str]]]:
+) -> QlikSenseSource:
     space = MagicMock(id="space-1")
     space.name = "Finance"
     api = mock_api_cls.return_value
@@ -247,9 +247,22 @@ def _run(
     for item in api.get_items.return_value:
         if isinstance(item, App):
             item.script_read_failed = script_read_failed
-    source = QlikSenseSource(
+    return QlikSenseSource(
         QlikSourceConfig.model_validate(CLOUD_CONFIG),
         PipelineContext(run_id="test-lineage-graph", graph=graph),
+    )
+
+
+def _run(
+    mock_api_cls: MagicMock,
+    datasets: Optional[List[ListedDataset]],
+    keep_unread_items: bool = False,
+    graph: Optional[MagicMock] = None,
+    script_read_failed: bool = False,
+    items: Optional[List[Union[App, QlikDataset]]] = None,
+) -> Tuple[QlikSenseSource, Dict[str, List[str]], Dict[str, List[str]]]:
+    source = _source(
+        mock_api_cls, datasets, keep_unread_items, graph, script_read_failed, items
     )
     written, added = _lineage(source.get_workunits_internal())
     return source, written, added
@@ -317,6 +330,52 @@ def test_app_table_links_tables_of_another_app_it_loads(
 
     assert written[_urn("report-app.prices")] == [_urn("etl-app.curve")]
     assert not source.reporter.warnings
+
+
+@pytest.mark.parametrize("loader_first", [True, False])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_table_gets_column_lineage_from_another_app_it_loads(
+    mock_api_cls: MagicMock, loader_first: bool
+) -> None:
+    curve_qri = f"{ETL_APP}#Curve"
+    etl = _app(
+        "etl-app",
+        [LineageTable(qri=curve_qri, label="Curve", fields=["Price", "Close"])],
+    )
+    report = _app(
+        "report-app",
+        [
+            LineageTable(
+                qri=f"{REPORT_APP}#Tbl",
+                label="Prices",
+                source_qris=[curve_qri],
+                fields=["Price", "Px"],
+                field_source_qris={
+                    "Price": [_field_qri(curve_qri, "Price")],
+                    # Renamed, so only named once the other app is read.
+                    "Px": [_field_qri(curve_qri, "Close")],
+                },
+            )
+        ],
+    )
+    source = _source(
+        mock_api_cls, DATASETS, items=[report, etl] if loader_first else [etl, report]
+    )
+
+    [lineage] = [
+        aspect
+        for wu in source.get_workunits_internal()
+        if wu.get_urn() == _urn("report-app.prices")
+        and (aspect := wu.get_aspect_of_type(UpstreamLineageClass))
+    ]
+    prices, curve = _urn("report-app.prices"), _urn("etl-app.curve")
+    assert {
+        (cll.downstreams or [""])[0]: cll.upstreams
+        for cll in lineage.fineGrainedLineages or []
+    } == {
+        make_schema_field_urn(prices, "Price"): [make_schema_field_urn(curve, "Price")],
+        make_schema_field_urn(prices, "Px"): [make_schema_field_urn(curve, "Close")],
+    }
 
 
 @pytest.mark.parametrize(
