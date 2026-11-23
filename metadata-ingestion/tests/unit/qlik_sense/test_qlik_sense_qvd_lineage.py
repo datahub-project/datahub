@@ -360,8 +360,9 @@ def test_qvd_lineage_runs_from_etl_app_through_qvd_to_reporting_app() -> None:
 def test_qvds_of_a_storage_connection_take_the_file_dataset_qlik_cloud_uses() -> None:
     # Not a folder connection, so Qlik gives no folder for it.
     etl = ETL_SCRIPT.replace("lib://QVD Data/clean", "lib://Lake - Azure/Clean")
+    # Separators doubled where a variable left a path part empty.
     report = REPORT_SCRIPT.replace(
-        "lib://Shared QVDs/clean", "lib://$(vPrefix)Lake - Azure/Clean"
+        "lib://Shared QVDs/clean", "lib://$(vPrefix)Lake - Azure//Clean"
     )
     source, aspects = _run(
         [_app("etl-app", etl), _app("report-app", report)],
@@ -964,6 +965,29 @@ def test_qvd_path_from_a_let_expression_takes_the_reload_value() -> None:
             "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
             "Orders.qvd",
             id="after nested IF branches that disagree",
+        ),
+        pytest.param(
+            "IF vEnv = 'A' THEN\nSET vTable = 'Hist';\nELSE\nSET vTable = 'Old';\n"
+            "END IF;\nIF vRegion = 'EU' THEN\nSET vTable = 'Orders';\nELSE\n"
+            "SET vTable = 'Customers';\nEND IF;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            "Orders.qvd",
+            id="after a second IF that disagrees",
+        ),
+        pytest.param(
+            "LET vTable = Lower('Hist' & vRegion);\nIF vEnv = 'A' THEN\n"
+            "SET vTable = 'Orders';\nEND IF;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            "Orders.qvd",
+            id="after an IF that overrides a LET",
+        ),
+        pytest.param(
+            "LET vTable = Lower('Hist' & vRegion);\nFOR EACH vT IN 'a', 'b'\n"
+            "IF vT = 'a' THEN\nSET vTable = 'Orders';\nELSE\n"
+            "SET vTable = 'Customers';\nEND IF;\nNEXT vT;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            "Orders.qvd",
+            id="after a loop whose IF overrides a LET",
         ),
     ],
 )
