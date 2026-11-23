@@ -284,10 +284,27 @@ public class AuthorizationUtils {
     return canEditEntityQueries(subjectUrns, context);
   }
 
+  /**
+   * @param newSubjectUrns the subjects the update sets, or null when it leaves them unchanged
+   */
   public static boolean canUpdateQuery(
-      @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
+      @Nonnull Urn queryUrn,
+      @Nonnull List<Urn> currentSubjectUrns,
+      @Nullable List<Urn> newSubjectUrns,
+      @Nonnull QueryContext context) {
+    final List<Urn> resultingSubjectUrns =
+        newSubjectUrns != null ? newSubjectUrns : currentSubjectUrns;
+    // A query left without subjects has no entity to authorize against, and only Delete Entity can
+    // remove it afterwards. Updates that leave it that way need the same privilege as deleting it.
+    if (resultingSubjectUrns.isEmpty()) {
+      return canDeleteEntity(queryUrn, context);
+    }
     // Currently - you only need permission to edit an entity's queries to update any query.
-    return canEditEntityQueries(subjectUrns, context);
+    final List<Urn> impactedSubjectUrns = new ArrayList<>(currentSubjectUrns);
+    if (newSubjectUrns != null) {
+      impactedSubjectUrns.addAll(newSubjectUrns);
+    }
+    return canEditEntityQueries(impactedSubjectUrns, context);
   }
 
   public static boolean canDeleteQuery(
