@@ -512,6 +512,24 @@ def test_unlisted_dataset_is_named_from_the_upstream_graph(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_renamed_field_of_a_graph_named_source_still_replaces_lineage(
+    mock_api_cls: MagicMock,
+) -> None:
+    items = _reader_and_writer(
+        LineageUpstreams(resource_labels={UNLISTED_QVD: "prices.qvd"})
+    )
+    reader = items[0]
+    assert isinstance(reader, App)
+    # Loaded under a new name from a field the run never reads.
+    reader.lineage_tables[0].field_source_qris = {
+        "Px": [f"{UNLISTED_QVD}#Prices#unread-field-id"]
+    }
+    _, written, _ = _run(mock_api_cls, DATASETS, items=items)
+
+    assert written[_urn("report-app.prices")] == [_urn(UNLISTED_QVD)]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_unread_upstream_graph_only_adds_to_table_lineage(
     mock_api_cls: MagicMock,
 ) -> None:

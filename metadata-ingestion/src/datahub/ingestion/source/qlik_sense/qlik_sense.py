@@ -2301,11 +2301,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     if _qlik_field_id(field) == field_id
                     else self._field_names_by_id.get(field_id)
                 )
-                if urn and not name:
+                if urn and not name and urn not in self._graph_named_resources:
                     # The source field is real but no field of that name has
                     # been read yet, such as a renamed load from a QVD read
                     # later in the run, so the table's column lineage is not
-                    # all known.
+                    # all known. A source only the upstream graph names is
+                    # never read, so its field names never become known.
                     self._unnamed_field_lineage.add(dataset_urn)
                 if urn and name:
                     upstream = builder.make_schema_field_urn(urn, name)
