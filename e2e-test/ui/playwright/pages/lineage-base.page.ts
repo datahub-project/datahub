@@ -90,7 +90,8 @@ export class LineageBasePage extends BasePage {
     this.filterByDescriptionOption = page.getByTestId('adv-search-add-filter-description');
     this.filterTextInput = page.getByTestId('edit-text-input');
     this.filterTextDoneButton = page.getByTestId('edit-text-done-btn');
-    this.listItems = page.getByTestId('entity-search-results');
+    // The first result row, not the list container: the container also renders when there are no results.
+    this.listItems = page.getByTestId(/^search-result-row-/).first();
     this.downloadCsvButton = page.getByTestId('download-csv-button');
     this.downloadCsvInput = page.getByTestId('download-as-csv-input');
     this.csvModalDownloadButton = page.getByTestId('csv-modal-download-button');

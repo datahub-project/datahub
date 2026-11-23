@@ -167,7 +167,7 @@ export const EntitySearchResults = ({
                                             }
                                             setIsChecked={(checked) => onSelectEntity(entity, checked)}
                                             dataTestId={`checkbox-${entity.urn}`}
-                                            aria-label={entity.urn}
+                                            aria-label={entityRegistry.getDisplayName(entity.type, entity)}
                                         />
                                     </CheckboxWrapper>
                                 )}
