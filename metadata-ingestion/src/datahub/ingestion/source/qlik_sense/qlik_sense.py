@@ -670,7 +670,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                         return False
         return True
 
-    def _keep_previous_urns(self, app_id: str) -> List[str]:
+    def _keep_previous_read(self, app_id: str) -> Optional[AppCheckpoint]:
         try:
             previous = self.app_state.previous(app_id)
         except Exception as e:
@@ -685,11 +685,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             self._apps_tables_unknown.add(app_id)
             self._apps_qvds_unknown[app_id] = "its last read could not be loaded"
-            return []
+            return None
         if previous is None:
             self._apps_tables_unknown.add(app_id)
             self._apps_qvds_unknown[app_id] = "it has no last read to keep"
-            return []
+            return None
         self._app_urns.setdefault(app_id, set()).update(previous.urns)
         if previous.data_model_fields is not None:
             self._app_model_fields[app_id] = previous.data_model_fields
@@ -701,30 +701,32 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._app_qvds[app_id] = previous.qvds
             if not previous.qvds.writes_complete:
                 self._apps_qvds_unknown[app_id] = UNRESOLVED_STORE
-        if previous.table_urns_by_qri is None:
-            # Recorded before table URNs were kept in the state.
+        if previous.table_urns_by_qri is not None:
+            self._app_table_urns_by_qri.update(previous.table_urns_by_qri)
+        # None was recorded before table URNs were kept in the state.
+        if previous.table_urns_by_qri is None or previous.tables_unknown:
             self._apps_tables_unknown.add(app_id)
         else:
             self._apps_tables_known.add(app_id)
-            self._app_table_urns_by_qri.update(previous.table_urns_by_qri)
         assert self.stale_entity_removal_handler is not None
         for urn in previous.urns:
             self.stale_entity_removal_handler.add_entity_to_state(
                 guess_entity_type(urn), urn
             )
-        return previous.urns
+        return previous
 
     def _keep_unchanged_app(self, app: UnchangedApp) -> None:
-        urns = self._keep_previous_urns(app.id)
-        # Without the kept entities, which _keep_previous_urns reports as a
+        previous = self._keep_previous_read(app.id)
+        # Without the kept entities, which _keep_previous_read reports as a
         # failure, nothing is recorded, so the next run reads the app again.
-        if urns:
+        if previous is not None and previous.urns:
             self.app_state.record(
                 app.id,
                 AppCheckpoint(
                     fingerprint=self._salted_fingerprint(app.fingerprint),
-                    urns=urns,
-                    table_urns_by_qri=self._kept_table_urns(app.id),
+                    urns=previous.urns,
+                    table_urns_by_qri=previous.table_urns_by_qri,
+                    tables_unknown=previous.tables_unknown,
                     qvds=self._app_qvds.get(app.id),
                     data_model_fields=self._app_model_fields.get(app.id),
                 ),
@@ -747,8 +749,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             return _PartialRead.NOT_KEPT
         if previous.partial_reads >= self.config.max_partial_reads_kept:
             return _PartialRead.LIMIT_REACHED
-        urns = self._keep_previous_urns(app.id)
-        if not urns:
+        kept = self._keep_previous_read(app.id)
+        if kept is None or not kept.urns:
             return _PartialRead.NOT_KEPT
         # Its QVD writes are from its last full read and may have changed, so
         # they protect its QVD edges without replacing anyone else's.
@@ -760,9 +762,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             app.id,
             AppCheckpoint(
                 fingerprint=None,
-                urns=urns,
+                urns=kept.urns,
                 partial_reads=previous.partial_reads + 1,
                 table_urns_by_qri=previous.table_urns_by_qri,
+                tables_unknown=previous.tables_unknown,
                 qvds=previous.qvds,
                 data_model_fields=previous.data_model_fields,
             ),
@@ -798,11 +801,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             AppCheckpoint(
                 fingerprint=fingerprint,
                 urns=list(urns),
-                # Tables that are not all known are recorded as unknown, so a
-                # later run that keeps the app can't take them as complete.
-                table_urns_by_qri=None
-                if self._tables_unknown(app)
-                else self._app_table_urns(app),
+                table_urns_by_qri=self._app_table_urns(app),
+                # So a later run that keeps the app can't take its tables as
+                # complete, nor a 404 as the app having no tables.
+                tables_unknown=self._tables_unknown(app),
                 qvds=self._app_qvds.get(app.id),
                 data_model_fields=self._app_model_fields.get(app.id),
             ),
@@ -1883,15 +1885,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             or bool(app.tables and app.lineage_graph_missing)
         )
 
-    def _kept_table_urns(self, app_id: str) -> Optional[Dict[str, str]]:
-        if app_id not in self._apps_tables_known:
-            return None
-        return {
-            qri: urn
-            for qri, urn in self._app_table_urns_by_qri.items()
-            if _qlik_app_id(qri) == app_id
-        }
-
     def _app_tables_known(self, app_id: str) -> bool:
         if app_id in self._apps_tables_unknown:
             return False
@@ -2085,9 +2078,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         named by the connection and path, so the apps that write and read it
         still join. Only a connection named with its space is the same one in
         every app, and DataFiles hold Qlik's own datasets."""
-        if self._data_connections_unread():
-            # The connection may be one whose storage is known when listed.
-            return None
         space, _, name = connection.strip().partition(":")
         path = normalized_file_path(path)
         qualified = f"{space}:{name}/{path}"
@@ -2105,6 +2095,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _unmapped_storage_file_urn(self, connection: str, path: str) -> Optional[str]:
         """Reports a connection whose storage is unknown and names the file on
         it by the connection and path, when it can be."""
+        if self._data_connections_unread():
+            # Its storage may be known once listed; the unread listing is reported.
+            return None
         if connection not in self.reporter.unresolved_file_connections:
             self.reporter.unresolved_file_connections.append(connection)
         return self._unmapped_file_urn(connection, path)
@@ -2117,7 +2110,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         Qlik datasets. Only added to: other apps, read or not, may store into
         the same file."""
         upstreams: Dict[str, List[str]] = {}
-        competing = stores_in_competing_branches(parsed.qvd_stores)
+        competing = stores_in_competing_branches(
+            parsed.qvd_stores,
+            lambda store: (
+                self._stored_table_urn(app, store.label, table_urns)
+                or store.label.lower()
+            ),
+        )
         if competing:
             self._report_competing_stores(app, competing)
         for store in parsed.qvd_stores:
@@ -3054,7 +3053,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 entityUrn=urn,
                 aspect=DatasetProperties(
                     name=name[: -len(QVD_EXTENSION)]
-                    if name.endswith(QVD_EXTENSION)
+                    if name.lower().endswith(QVD_EXTENSION)
                     else name,
                     qualifiedName=path,
                     customProperties={
@@ -3549,7 +3548,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         else:
             self.reporter.apps_without_lineage_graph.append(app.id)
             # A last read whose tables are unknown can't tell either.
-            unknown = previous is None or previous.table_urns_by_qri is None
+            unknown = (
+                previous is None
+                or previous.table_urns_by_qri is None
+                or previous.tables_unknown
+            )
             if unknown and self.app_state.is_checkpointing_enabled():
                 # With no last read to compare with, the graph may only be
                 # missing because Qlik has not computed it yet, such as right

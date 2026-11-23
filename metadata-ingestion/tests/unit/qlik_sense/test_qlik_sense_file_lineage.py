@@ -922,6 +922,32 @@ def _model_table(name: str, alias: str, qri: str) -> Dict:
     }
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_stores_of_a_table_by_name_and_alias_in_competing_branches_are_not_linked(
+    mock_api_cls: MagicMock,
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        script="""
+IF vEnv = 'prod' THEN
+  STORE Customers INTO [lib://Sales Space:Lake/prod/customers.qvd] (qvd);
+ELSE
+  STORE AllCustomers INTO [lib://Sales Space:Lake/dev/customers.qvd] (qvd);
+END IF
+""",
+        tables=[
+            _model_table(
+                "Customers", "AllCustomers", "qri:db:sqlserver://sales#dbo.Customers"
+            )
+        ],
+    )
+
+    assert _stored_files(_graph_app_writes(source, app)) == {}
+    assert len(source.reporter.qvd_stores_in_competing_branches) == 2
+
+
 def _stored_files(writes: Dict[str, str]) -> Dict[str, str]:
     return {urn: upstreams for urn, upstreams in writes.items() if "abs," in urn}
 
@@ -986,6 +1012,37 @@ def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
         assert list(source.reporter.unread_stored_files) == [
             "lib://Sales Space:Lake/qvd/orders.qvd"
         ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_stored_qvd_on_unknown_storage_is_named_without_its_extension(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {},
+        {CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)},
+        script="Orders: LOAD * FROM [lib://Sales Space:Lake/qvd/Orders.QVD] (qvd);",
+    )
+    list(
+        source._gen_file_store_lineage(
+            _store_app([]).model_copy(update={"id": "app-2"}),
+            parse_script(
+                "STORE Orders INTO [lib://Sales Space:Lake/qvd/Orders.QVD] (qvd);"
+            ),
+            {make_dataset_urn("qlik-sense", "app-2.orders")},
+        )
+    )
+    assert source._resolve_file_source(
+        "app-1", _file_qri("adls", "lake", "qvd/Orders.QVD")
+    )
+
+    names = [
+        props.name
+        for wu in source._gen_unmapped_file_entities()
+        if (props := wu.get_aspect_of_type(DatasetPropertiesClass))
+    ]
+
+    assert names == ["Orders"]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -1169,15 +1226,18 @@ def test_file_is_not_named_by_its_connection_when_connections_were_not_listed(
 ) -> None:
     # The connection may be one whose storage the listing would have given,
     # so the last run's edges stay rather than move to a connection-named file.
-    writes = _graph_app_run(
+    source, app = _graph_app_source(
         mock_api_cls,
         {},
         [UnreadItem(name=UNREAD_DATA_CONNECTIONS, cause="timeout")],
         script=STORE_SCRIPT,
     )
+    writes = _graph_app_writes(source, app)
 
     assert writes[ORDERS] == f"patch:{RATES}"
     assert not [urn for urn in writes if "sales space:lake" in urn]
+    # Not reported as named by its connection; the unread listing is reported.
+    assert not source.reporter.unresolved_file_connections
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
