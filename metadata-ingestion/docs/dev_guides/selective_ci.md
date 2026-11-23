@@ -68,6 +68,17 @@ extra_test_paths:
   - tests/integration/myconnector-extra/
 ```
 
+### Connectors with unit tests only
+
+If a connector has no integration tests and its unit tests (which run in `testQuick` on every PR) cover it, say so explicitly:
+
+```yaml
+# src/datahub/ingestion/source/myconnector/connector.yaml
+integration_tests: false
+```
+
+A change to that connector then runs no integration tests. Without this, it trips the safety net below and runs the full integration suite. Connectors that import from it still get their own tests through the import graph. `--validate` rejects `integration_tests: false` on a connector that has integration tests.
+
 Connectors that live inside a shared source directory (like `source/sql/`) do **not** need a `connector.yaml` — their tests are discovered automatically via entry-point analysis.
 
 ## Adding a new connector
@@ -125,7 +136,7 @@ This catches non-obvious dependencies like `dbt` importing `sql/sql_types.py` �
 - **Documentation files** (`.md`) inside connector source directories are ignored — they don't affect runtime behavior. All other file types trigger tests.
 - The `run-all-ingestion-tests` label on a PR forces the full suite regardless of changes.
 - If the detection script crashes, the gate job fails the PR — it never silently passes.
-- **Safety net**: if changed source directories produce no test matrix entries (e.g. a source dir with no test path and no entry-point coverage), the full suite runs with a warning — changed code is never silently untested.
+- **Safety net**: if changed source directories produce no test matrix entries (e.g. a source dir with no test path and no entry-point coverage), the full suite runs with a warning — changed code is never silently untested. Connectors marked `integration_tests: false` are exempt.
 
 ## `connector.yaml` reference
 
@@ -135,5 +146,6 @@ This catches non-obvious dependencies like `dbt` importing `sql/sql_types.py` �
 | `extra_source_paths` | No       | Additional source directories covered by this connector's tests                               |
 | `extra_test_paths`   | No       | Additional test directories for this connector                                                |
 | `test_paths`         | No       | Legacy list form of test directories (validate-only; prefer `test_path` + `extra_test_paths`) |
+| `integration_tests`  | No       | `false` for a connector covered by unit tests only; exempts it from the safety net            |
 
 Shared base directories (like `source/sql/`, `source/usage/`) no longer need a `connector.yaml` — entry-point analysis handles test discovery for all connectors within them automatically.
