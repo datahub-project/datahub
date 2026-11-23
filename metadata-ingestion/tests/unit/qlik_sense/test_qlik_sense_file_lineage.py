@@ -1067,17 +1067,41 @@ def test_included_scripts_are_read_into_the_script() -> None:
     ).has_includes
 
 
-def test_included_script_is_read_once_a_run() -> None:
+def test_included_script_is_read_once_a_run_per_space() -> None:
     with patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session"):
         api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
     engine = MagicMock()
     engine.websocket_send_request.side_effect = [
         {"qContent": "X: LOAD 1 AS a AUTOGENERATE 1;"},
         EngineError({"code": 5, "message": "Access denied"}),
+        {"qContent": "Y: LOAD 2 AS a AUTOGENERATE 1;"},
+        {},
     ]
 
     for _ in range(2):
-        assert api._read_include(engine, "lib://A:DataFiles/x.qvs")
-        assert api._read_include(engine, "lib://B:DataFiles/y.qvs") is None
-    assert engine.websocket_send_request.call_count == 2
-    assert api.include_read_failures == ["lib://B:DataFiles/y.qvs"]
+        assert api._read_include(engine, "space-1", "lib://DataFiles/x.qvs")
+        assert api._read_include(engine, "space-1", "lib://B:DataFiles/y.qvs") is None
+    # A path without a space resolves in the reading app's space.
+    assert api._read_include(engine, "space-2", "lib://DataFiles/x.qvs") == (
+        "Y: LOAD 2 AS a AUTOGENERATE 1;"
+    )
+    assert api._read_include(engine, "space-2", "lib://DataFiles/z.qvs") is None
+    assert engine.websocket_send_request.call_count == 4
+    assert api.include_read_failures == [
+        "lib://B:DataFiles/y.qvs",
+        "lib://DataFiles/z.qvs",
+    ]
+
+
+@pytest.mark.parametrize(
+    "commented",
+    [
+        "// $(Include=lib://Common:DataFiles/loads.qvs);",
+        "REM $(Include=lib://Common:DataFiles/loads.qvs);",
+        "/* $(Include=lib://Common:DataFiles/loads.qvs); */",
+    ],
+)
+def test_commented_include_is_not_read_into_the_script(commented: str) -> None:
+    files = {"lib://Common:DataFiles/loads.qvs": "Rates: LOAD * FROM [lib://L/r.csv];"}
+    parsed = parse_script(inline_includes(commented, {}, files.get))
+    assert not parsed.file_loads

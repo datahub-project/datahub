@@ -1343,7 +1343,6 @@ def inline_includes(
     script: str,
     app_variables: Dict[str, str],
     read: Callable[[str], Optional[str]],
-    depth: int = 0,
 ) -> str:
     """The script with each $(Include) and $(Must_Include) replaced by the
     script of the file it names, as Qlik splices it in at reload, including
@@ -1353,16 +1352,22 @@ def inline_includes(
     scripts that are not read."""
     variables = unquoted_values(app_variables)
 
-    def replace(match: "re.Match[str]") -> str:
-        path = _expand_nested_variables(match.group("path").strip(), variables)
-        if depth >= _MAX_INCLUDE_DEPTH or not LIB_PATH_RE.match(path) or "$(" in path:
-            return match.group(0)
-        content = read(path)
-        if content is None:
-            return match.group(0)
-        return f"\n{inline_includes(content, app_variables, read, depth + 1)}\n"
+    def inline(text: str, depth: int) -> str:
+        def replace(match: "re.Match[str]") -> str:
+            path = _expand_nested_variables(match.group("path").strip(), variables)
+            if not LIB_PATH_RE.match(path) or "$(" in path:
+                return match.group(0)
+            content = read(path)
+            if content is None:
+                return match.group(0)
+            return f"\n{inline(content, depth + 1)}\n"
 
-    return INCLUDE_PATH_RE.sub(replace, script)
+        if depth >= _MAX_INCLUDE_DEPTH:
+            return text
+        # A commented-out include is not run.
+        return INCLUDE_PATH_RE.sub(replace, _strip_comments(text))
+
+    return inline(script, 0)
 
 
 def parse_script(
