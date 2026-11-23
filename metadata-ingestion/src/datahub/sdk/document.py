@@ -35,12 +35,14 @@ Example - External document (from Notion, Confluence, etc.)::
         text="Summary of the handbook content...",  # Optional
     )
 
-Example - Document hidden from global context (AI-only access)::
+Example - Document hidden from global context::
 
     from datahub.sdk import Document
 
-    # This document won't appear in search or sidebar navigation.
-    # It's only accessible via related assets - useful for AI agent context.
+    # Search and sidebar navigation leave this document out by default, and its
+    # related assets still lead to it - useful for AI agent context. This is not
+    # access control: a cross-entity search such as searchAcrossEntities that
+    # filters on showInGlobalContext still returns it.
     doc = Document.create_document(
         id="dataset-context-doc",
         title="Dataset Context for AI",
@@ -511,8 +513,9 @@ class Document(
             text: Full text content of the document (supports markdown)
             status: Publication status - "PUBLISHED" or "UNPUBLISHED" (default: PUBLISHED)
             show_in_global_context: If True, document appears in global search and
-                sidebar navigation. If False, document is only accessible via related
-                assets - useful for AI-only context documents. (default: True)
+                sidebar navigation. If False, it is left out of them by default, which
+                is not access control - useful for AI-only context documents.
+                (default: True)
             subtype: Document sub-type (e.g., "FAQ", "Tutorial", "Runbook")
             parent_document: URN of parent document (for hierarchical organization)
             related_assets: URNs of related data assets (datasets, dashboards, etc.)
@@ -970,9 +973,11 @@ class Document(
     def set_show_in_global_context(self, show: bool) -> Self:
         """Set whether document appears in global context.
 
-        When False, the document won't appear in search results or the
-        sidebar navigation. It will only be accessible through related assets.
-        This is useful for documents intended only for AI agent context.
+        When False, the document is left out of search results and the sidebar
+        navigation by default, and its related assets still lead to it. This is
+        not access control: a cross-entity search such as searchAcrossEntities
+        that filters on showInGlobalContext still returns it. This is useful for
+        documents intended only for AI agent context.
 
         Args:
             show: True to show in global context, False to hide
@@ -985,9 +990,11 @@ class Document(
         return self
 
     def hide_from_global_context(self) -> Self:
-        """Hide document from global search and sidebar.
+        """Hide document from global search and sidebar by default.
 
-        The document will only be accessible through related assets.
+        This is not access control: related assets still lead to the document,
+        and a cross-entity search such as searchAcrossEntities that filters on
+        showInGlobalContext still returns it.
         Useful for AI-only context documents.
 
         Returns:

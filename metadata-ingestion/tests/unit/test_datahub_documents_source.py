@@ -5715,6 +5715,47 @@ class TestOrphanedDocumentResilience:
         # retry also reading markers — nothing beyond the first batch.
         assert source.graph.get_entities.call_count == 2 + 2 * 100
 
+    @staticmethod
+    def _http_error(status: int) -> requests.HTTPError:
+        response = requests.Response()
+        response.status_code = status
+        return requests.HTTPError(f"{status} Error", response=response)
+
+    @pytest.mark.parametrize("status", [401, 403, 502, 503, 504])
+    def test_auth_or_outage_status_aborts_without_a_per_urn_retry(
+        self, ctx, config, status
+    ):
+        # get_entities raises a bare HTTPError. An auth failure or an unavailable
+        # GMS must abort on the first batch instead of retrying every URN in it.
+        source = self._make_source(ctx, config)
+        source.graph.get_entities = Mock(side_effect=self._http_error(status))
+        urns = [f"urn:li:document:doc-{i}" for i in range(250)]
+
+        with pytest.raises(OperationalError):
+            list(source._hydrate_documents(urns))
+
+        # The first batch's marker read and source read only.
+        assert source.graph.get_entities.call_count == 2
+
+    def test_plain_500_still_isolates_the_bad_document(self, ctx, config):
+        # A 500 can be one document GMS cannot serialize, so it keeps the per-URN
+        # fallback instead of aborting the run.
+        source = self._make_source(ctx, config)
+        good = _stored_aspects(self._native_notion_doc("urn:li:document:good"))
+
+        def _get_entities(entity_name, urns, aspects=None, with_system_metadata=False):
+            if urns == ["urn:li:document:good"]:
+                return {"urn:li:document:good": good}
+            raise self._http_error(500)
+
+        source.graph.get_entities = Mock(side_effect=_get_entities)
+
+        hydrated = list(
+            source._hydrate_documents(["urn:li:document:good", "urn:li:document:bad"])
+        )
+
+        assert [e["urn"] for e in hydrated] == ["urn:li:document:good"]
+
     def test_response_for_unrequested_urn_is_ignored(self, ctx, config):
         source = self._make_source(ctx, config)
         source.graph.get_entities = Mock(

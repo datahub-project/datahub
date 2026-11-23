@@ -1516,6 +1516,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
     # Aspects a document's embed text, source type and platform are read from.
     _HYDRATE_ASPECT_NAMES = ["documentInfo", "semanticText", "dataPlatformInstance"]
 
+    # HTTP statuses that mean GMS is unreachable or rejecting this caller, so a
+    # per-URN retry would repeat the same failure. A plain 500 is left out on purpose:
+    # a single document GMS cannot serialize fails its whole batch that way, and the
+    # per-URN retry is what isolates it.
+    _HYDRATE_ABORT_HTTP_STATUSES = frozenset({401, 403, 502, 503, 504})
+
     def _document_from_aspects(
         self,
         urn: str,
@@ -1585,8 +1591,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         """Read documents in one OpenAPI v3 batchGet, keyed by URN.
 
         A URN with no stored aspects is absent from the result. Connection and
-        timeout failures raise ``OperationalError``; any other failure propagates
-        so the caller can retry the batch one URN at a time.
+        timeout failures, and HTTP statuses in ``_HYDRATE_ABORT_HTTP_STATUSES``,
+        raise ``OperationalError``; any other failure propagates so the caller can
+        retry the batch one URN at a time.
         """
         # Semantic state first: the source aspects below must be read no earlier than
         # the marker that describes them (see _read_semantic_content_batch).
@@ -1602,6 +1609,16 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             raise OperationalError(
                 "Document hydration could not reach GMS", {"urns": len(urns)}
             ) from e
+        except requests.exceptions.HTTPError as e:
+            # raise_for_status() in get_entities surfaces HTTP failures unwrapped.
+            # `is not None` because a Response is falsy for any 4xx/5xx status.
+            status = e.response.status_code if e.response is not None else None
+            if status in self._HYDRATE_ABORT_HTTP_STATUSES:
+                raise OperationalError(
+                    f"Document hydration was refused by GMS with HTTP {status}",
+                    {"urns": len(urns)},
+                ) from e
+            raise
         requested = set(urns)
         return {
             urn: self._document_from_aspects(

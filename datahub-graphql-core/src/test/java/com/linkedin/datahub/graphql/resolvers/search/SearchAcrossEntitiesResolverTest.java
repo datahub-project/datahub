@@ -784,6 +784,90 @@ public class SearchAcrossEntitiesResolverTest {
         Arrays.asList(buildDocumentDefaultFilter(), buildDocumentDefaultFilter(), null));
   }
 
+  @Test
+  public static void testAViewFilterOnPlacementLiftsThePlacementClauseInItsBranch()
+      throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setNumEntities(0)
+                .setFrom(0)
+                .setPageSize(0)
+                .setMetadata(new SearchResultMetadata()));
+    // The view matches documents hidden from global context, or documents in a domain
+    DataHubViewInfo view = new DataHubViewInfo();
+    view.setName("test");
+    view.setType(DataHubViewType.GLOBAL);
+    view.setCreated(new AuditStamp().setTime(0L).setActor(TEST_USER_URN));
+    view.setLastModified(new AuditStamp().setTime(0L).setActor(TEST_USER_URN));
+    view.setDefinition(
+        new DataHubViewDefinition()
+            .setEntityTypes(new StringArray(ImmutableList.of(Constants.DOCUMENT_ENTITY_NAME)))
+            .setFilter(
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        buildCriterion(
+                                            "showInGlobalContext", Condition.EQUAL, "false"))),
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        buildCriterion(
+                                            "domains",
+                                            Condition.EQUAL,
+                                            "urn:li:domain:sales")))))));
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, initMockViewService(TEST_VIEW_URN, view));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(
+            new SearchAcrossEntitiesInput(
+                ImmutableList.of(EntityType.DOCUMENT),
+                "q",
+                0,
+                10,
+                null,
+                null,
+                TEST_VIEW_URN.toString(),
+                null,
+                null));
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<Filter> filter = ArgumentCaptor.forClass(Filter.class);
+    Mockito.verify(mockClient)
+        .searchAcrossEntities(
+            any(), any(), any(), filter.capture(), anyInt(), anyInt(), any(), any());
+    // Each view branch joined with the published clause and the legacy clause. Only the two
+    // that carry the view's placement criterion lose the placement default.
+    List<ConjunctiveCriterion> branches = filter.getValue().getOr();
+    Assert.assertEquals(branches.size(), 4);
+    int lifted = 0;
+    for (ConjunctiveCriterion branch : branches) {
+      boolean viewNamesPlacement = hasPlacementCriterion(branch, false);
+      Assert.assertEquals(hasPlacementCriterion(branch, true), !viewNamesPlacement, branch + "");
+      lifted += viewNamesPlacement ? 1 : 0;
+    }
+    Assert.assertEquals(lifted, 2);
+  }
+
+  private static boolean hasPlacementCriterion(ConjunctiveCriterion branch, boolean negated) {
+    return branch.getAnd().stream()
+        .anyMatch(
+            criterion ->
+                "showInGlobalContext".equals(criterion.getField())
+                    && criterion.isNegated() == negated);
+  }
+
   private static ViewService initMockViewService(Urn viewUrn, DataHubViewInfo viewInfo) {
     ViewService service = Mockito.mock(ViewService.class);
     Mockito.when(service.getViewInfo(any(), Mockito.eq(viewUrn))).thenReturn(viewInfo);
