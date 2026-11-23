@@ -53,6 +53,10 @@ class TrinoAdapter(PlatformAdapter):
         # Step 1: Handle custom SQL via temp view
         if context.custom_sql:
             context = self._create_temp_view_for_custom_sql(context)
+            # The rows profiled are the source's query, not the whole table.
+            # No Trino source builds one today, so this covers a path that is
+            # reachable rather than one taken every run.
+            context.applied.source_scoped = True
 
         # Step 2: Create SQLAlchemy table object
         if context.temp_view:

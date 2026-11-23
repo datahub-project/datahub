@@ -31,6 +31,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
@@ -169,6 +170,13 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
         LabelUtils.isAuthorizedToUpdateTerms(context, urn, "ignored"));
     result.setCanEditSchemaFieldDescription(
         DescriptionUtils.isAuthorizedToUpdateFieldDescription(context, urn));
+    // Coarse flag. The parent dataset is checked, then this stand-in schema field, so a policy on
+    // either can grant. A policy on one real column does not match the stand-in field path.
+    result.setCanEditSchemaFieldProperties(
+        AuthorizationUtils.canEditStructuredProperties(
+            SchemaFieldUtils.generateSchemaFieldUrn(urn, "ignored"),
+            context,
+            List.of(WILDCARD_URN)));
     result.setCanViewDatasetUsage(AuthorizationUtils.isViewDatasetUsageAuthorized(context, urn));
     result.setCanViewDatasetProfile(
         AuthorizationUtils.isViewDatasetProfileAuthorized(context, urn));
@@ -286,7 +294,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
             : AuthorizationUtils.canDeleteEntity(urn, context));
     result.setCanEditLineage(canEditEntityLineage(urn, context));
     result.setCanEditProperties(
-        AuthorizationUtils.canEditProperties(urn, context, Collections.emptyList()));
+        AuthorizationUtils.canEditStructuredProperties(urn, context, List.of(WILDCARD_URN)));
     result.setCanEditAssertions(
         AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, urn));
     result.setCanEditAssertionOwners(
