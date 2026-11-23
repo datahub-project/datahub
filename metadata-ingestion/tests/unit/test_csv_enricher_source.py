@@ -412,9 +412,10 @@ def run_csv(
     rows: List[str],
     graph: Optional[mock.MagicMock],
     write_semantics: str = "PATCH",
+    header: str = CSV_HEADER,
 ) -> Tuple[CSVEnricherSource, List[MetadataChangeProposalWrapper]]:
     csv_file = tmp_path / "enricher.csv"
-    csv_file.write_text("\n".join([CSV_HEADER, *rows]) + "\n")
+    csv_file.write_text("\n".join([header, *rows]) + "\n")
     ctx = PipelineContext("test-run-id")
     ctx.graph = graph
     source = CSVEnricherSource(
@@ -423,7 +424,10 @@ def run_csv(
             write_semantics=write_semantics,
             delimiter=",",
             array_delimiter="|",
-            structured_properties={"classification": "io.acryl.test.classification"},
+            structured_properties={
+                "classification": "io.acryl.test.classification",
+                "tier": "io.acryl.test.tier",
+            },
         ),
         ctx,
     )
@@ -617,3 +621,41 @@ def test_non_dataset_subresource_row_warns(tmp_path):
 
     assert mcps == []
     assert len(warning_contexts(source)) == 1
+
+
+def test_column_structured_properties_short_row(tmp_path):
+    # csv.DictReader fills columns missing from a short row; the mapped but
+    # missing "tier" column must be treated as empty, not crash.
+    source, mcps = run_csv(
+        tmp_path,
+        [column_row("col_a")],
+        graph=None,
+        write_semantics="OVERRIDE",
+        header=f"{CSV_HEADER},tier",
+    )
+
+    assert structured_properties_by_urn(mcps) == {
+        schema_field_urn("col_a"): [(CLASSIFICATION_URN, ["Sensitive"])]
+    }
+
+
+def test_column_structured_properties_duplicate_rows_same_value_dedupe(tmp_path):
+    _, mcps = run_csv(
+        tmp_path,
+        [column_row("col_a"), column_row("col_a")],
+        graph=None,
+        write_semantics="OVERRIDE",
+    )
+
+    assert structured_properties_by_urn(mcps) == {
+        schema_field_urn("col_a"): [(CLASSIFICATION_URN, ["Sensitive"])]
+    }
+
+
+def test_column_structured_properties_accepts_exact_v2_field_path(tmp_path):
+    v2_path = "[version=2.0].[type=struct].address.[type=string].zip"
+    graph = make_graph(schema=make_schema_metadata([v2_path]))
+    source, mcps = run_csv(tmp_path, [column_row(f'"{v2_path}"')], graph=graph)
+
+    assert list(structured_properties_by_urn(mcps)) == [schema_field_urn(v2_path)]
+    assert not source.report.warnings

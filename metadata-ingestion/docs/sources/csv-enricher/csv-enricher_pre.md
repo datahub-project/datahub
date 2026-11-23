@@ -36,7 +36,7 @@ On column rows (rows with a `subresource`), structured properties are written to
 
 The `subresource` can be the simple column path (for example `address.zip`). When the ingestion has access to DataHub, the source looks up the dataset's schema and uses the matching full field path. If the schema has no matching field, the row's structured properties are skipped and a warning is reported. If the dataset has no schema in DataHub, or the schema cannot be read, the `subresource` value is used as-is and a warning is reported.
 
-A column row that only sets structured properties does not change the column's tags, glossary terms, or description, even with `OVERRIDE`.
+A column row that only sets structured properties does not change the column's tags, glossary terms, or description, even with `OVERRIDE`, unless another row for the same dataset sets tags, glossary terms or a description, because `OVERRIDE` rewrites the dataset's whole `editableSchemaMetadata`.
 
 When `write_semantics` is set to `OVERRIDE`, structured properties are replaced as part of the full entity-level overwrite behavior. This means structured properties not present in mapped CSV columns will be removed from the entity.
 
