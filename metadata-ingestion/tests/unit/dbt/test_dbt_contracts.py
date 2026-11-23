@@ -2006,18 +2006,22 @@ def test_cloud_contract_uses_run_environment_by_default() -> None:
     assert perf.timing_inferred
 
 
-@pytest.mark.parametrize("ingest_contracts", [True, False])
-def test_cloud_models_query_requests_timings_only_for_contracts(
-    ingest_contracts: bool,
-) -> None:
-    source = _cloud_source(ingest_contracts=ingest_contracts)
+def test_cloud_queries_always_request_execution_timings() -> None:
+    """Timings rank copies of a node across jobs, so they are not contract-only."""
+    source = _cloud_source(ingest_contracts=False)
     with mock.patch.object(
         DBTCloudSource, "_send_graphql_query", side_effect=RuntimeError("stop")
     ) as mock_send:
         source._fetch_nodes_and_exposures()
-    queries = [call.kwargs["query"] for call in mock_send.call_args_list]
-    assert any("models" in q for q in queries)
-    assert any("executeStartedAt" in q for q in queries) is ingest_contracts
+    queries = {
+        call.kwargs["query"]
+        .split("DatahubMetadataQuery_", 1)[1]
+        .split("(")[0]: call.kwargs["query"]
+        for call in mock_send.call_args_list
+    }
+    for node_type in ("models", "seeds", "snapshots", "tests"):
+        assert "executeCompletedAt" in queries[node_type], node_type
+        assert "runGeneratedAt" in queries[node_type], node_type
 
 
 def test_cloud_model_performance_uses_execute_timings() -> None:

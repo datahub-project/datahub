@@ -1,7 +1,7 @@
 import logging
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from json import JSONDecodeError
 from typing import Dict, Iterator, List, Literal, Optional, Set, Tuple, cast
 from urllib.parse import urlparse
@@ -84,6 +84,27 @@ class AutoDiscoveryConfig(ConfigModel):
     job_id_pattern: AllowDenyPattern = Field(
         default_factory=AllowDenyPattern.allow_all,
         description="Regex patterns to filter jobs by job_id when auto-discovering.",
+    )
+
+    job_type_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex patterns to filter jobs by their dbt Cloud job type when "
+        "auto-discovering, for example `scheduled`, `merge`, `ci` or `other`. A job "
+        "whose type dbt Cloud does not report is matched as an empty string.",
+    )
+
+    node_merge_strategy: Literal["latest_build", "last_job_wins"] = Field(
+        default="latest_build",
+        description=(
+            "How a node returned by several discovered jobs is reconciled. "
+            "`latest_build` (default): the copy from the most recent run that "
+            "actually built the node wins; a node no discovered job built keeps "
+            "the copy from the most recently started run. Test results from every "
+            "job are kept and each exposure is ingested once. "
+            "`last_job_wins`: the previous behaviour, where the copy from whichever "
+            "job the dbt Cloud API listed last silently replaced the others. Only "
+            "for rolling back. Only applies when auto-discovery is enabled."
+        ),
     )
 
 
@@ -225,6 +246,9 @@ def infer_metadata_endpoint(access_url: str) -> Optional[str]:
         return f"{parsed_uri.scheme}://metadata.{parsed_uri.netloc}/graphql"
 
 
+# Maximum page size of the dbt Cloud Administrative API list endpoints.
+_DBT_CLOUD_JOBS_PAGE_SIZE = 100
+
 _DBT_GRAPHQL_COMMON_FIELDS = """
   runId
   accountId
@@ -267,7 +291,15 @@ _DBT_GRAPHQL_NODE_COMMON_FIELDS = """
   #}
 """
 
-_DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS = """
+# Run timings. They rank the copies of a node that several auto-discovered
+# jobs return, stamp test results and feed contract run events.
+_DBT_GRAPHQL_TIMING_FIELDS = """
+    executeStartedAt
+    executeCompletedAt
+    runGeneratedAt
+"""
+
+_DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS = f"""
   packageName
   alias
   error
@@ -277,13 +309,7 @@ _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS = """
   rawCode
   compiledSql
   compiledCode
-"""
-
-# Model run timings, requested only when contracts are ingested.
-_DBT_GRAPHQL_MODEL_TIMING_FIELDS = """
-    executeStartedAt
-    executeCompletedAt
-    runGeneratedAt
+  {_DBT_GRAPHQL_TIMING_FIELDS}
 """
 
 _DBT_FIELDS_BY_TYPE = {
@@ -347,6 +373,7 @@ _DBT_FIELDS_BY_TYPE = {
     rawCode
     compiledSql
     compiledCode
+    {_DBT_GRAPHQL_TIMING_FIELDS}
 """,
     "exposures": f"""
     {_DBT_GRAPHQL_COMMON_FIELDS}
@@ -440,6 +467,147 @@ query DatahubDiscoveryContractQuery(
   }
 }
 """
+
+
+_BUILT_RESOURCE_TYPES = frozenset({"model", "seed", "snapshot"})
+
+# Sort keys for ranking copies of one node returned by several jobs.
+# (0, epoch) sorts below any real timestamp, so a missing value never wins.
+_NO_TIMESTAMP = (0, datetime.min)
+
+
+def _timestamp_key(node: Dict, *fields: str) -> Tuple[int, datetime]:
+    """The first present timestamp among ``fields``, as a comparable UTC key."""
+    for field_name in fields:
+        value = node.get(field_name)
+        if value:
+            parsed = parse_dbt_timestamp(value)
+            # dbt Cloud reports year-1 dates (0001-01-01) for sources that were
+            # never freshness-checked; see max_loaded_at in _parse_into_dbt_node.
+            if parsed.year > 1:
+                if parsed.tzinfo is not None:
+                    parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+                return (1, parsed)
+    return _NO_TIMESTAMP
+
+
+def _latest(copies: List[Dict], *fields: str) -> Dict:
+    """The copy with the latest timestamp among ``fields``, then the newest run."""
+    return max(copies, key=lambda c: (_timestamp_key(c, *fields), _run_key(c)))
+
+
+def _has_run_time(node: Dict) -> bool:
+    return (
+        _timestamp_key(node, "executeCompletedAt", "executeStartedAt", "runGeneratedAt")
+        != _NO_TIMESTAMP
+    )
+
+
+def _run_key(node: Dict) -> int:
+    """Rank copies by the run that produced them.
+
+    dbt Cloud run ids form one global, monotonically increasing sequence in
+    run *creation* order, and a run resolves its commit at creation, so a
+    higher run id means a newer manifest. Not valid for completion order.
+    """
+    run_id = node.get("runId")
+    return int(run_id) if run_id is not None else 0
+
+
+def _is_padding(node: Dict) -> bool:
+    """A manifest row the queried run did not execute.
+
+    The job-scoped Discovery query returns the entire manifest for models,
+    seeds and snapshots; rows the run did not execute carry ``status: null``
+    and no timings. ``skip`` is not a signal: genuinely skipped nodes have
+    ``skip: true`` and a status, and padding rows have ``skip: false``.
+    Ephemeral models never have a status, so they are not padding either.
+    """
+    return node.get("status") is None and node.get("materializedType") != "ephemeral"
+
+
+@dataclass
+class _MergedRawNodes:
+    """One copy per node after reconciling the batches of every discovered job."""
+
+    nodes: List[Dict]
+    # Non-winning copies of tests. Tests are run-scoped, so every copy is a
+    # distinct result and is kept.
+    extra_test_copies: List[Dict]
+    exposures: List[Dict]
+    copies_seen: int
+    nodes_merged: int
+    padding_dropped: int
+    not_built_by_any_job: List[str]
+    # Test copies without a run time, dropped because they cannot be ordered
+    # against the copies that have one.
+    untimed_test_copies_dropped: int
+    exposures_deduplicated: int
+
+
+def _merge_raw_nodes(
+    *, raw_nodes: List[Dict], raw_exposures: List[Dict]
+) -> _MergedRawNodes:
+    """Keep one copy of each node across the batches of several jobs.
+
+    Models, seeds and snapshots: the copy from the most recent run that
+    actually built the node wins; when no job built it, the copy from the most
+    recently created run wins. Sources rank on freshness, then run. Tests keep
+    every copy. Everything else, and exposures, keep the most recent run's copy.
+    """
+    groups: Dict[Tuple[str, str], List[Dict]] = {}
+    for node in raw_nodes:
+        groups.setdefault((node["resourceType"], node["uniqueId"]), []).append(node)
+
+    nodes: List[Dict] = []
+    extra_test_copies: List[Dict] = []
+    nodes_merged = 0
+    padding_dropped = 0
+    not_built_by_any_job: List[str] = []
+    untimed_test_copies_dropped = 0
+
+    for (resource_type, unique_id), copies in groups.items():
+        if len(copies) > 1:
+            nodes_merged += 1
+        if resource_type in _BUILT_RESOURCE_TYPES:
+            built = [c for c in copies if not _is_padding(c)]
+            if built:
+                winner = _latest(built, "executeCompletedAt", "executeStartedAt")
+                padding_dropped += len(copies) - len(built)
+            else:
+                winner = max(copies, key=_run_key)
+                padding_dropped += len(copies) - 1
+                not_built_by_any_job.append(unique_id)
+        elif resource_type == "source":
+            winner = _latest(copies, "snapshottedAt", "maxLoadedAt")
+        elif resource_type == "test":
+            # Results are ordered by run time downstream, so a copy without
+            # one is only kept when it is the sole copy.
+            timed = [c for c in copies if _has_run_time(c)]
+            winner = max(timed or copies, key=_run_key)
+            extra_test_copies.extend(c for c in timed if c is not winner)
+            untimed_test_copies_dropped += len(copies) - max(len(timed), 1)
+        else:
+            winner = max(copies, key=_run_key)
+        nodes.append(winner)
+
+    exposures_by_id: Dict[str, Dict] = {}
+    for exposure in raw_exposures:
+        current = exposures_by_id.get(exposure["uniqueId"])
+        if current is None or _run_key(exposure) > _run_key(current):
+            exposures_by_id[exposure["uniqueId"]] = exposure
+
+    return _MergedRawNodes(
+        nodes=nodes,
+        extra_test_copies=extra_test_copies,
+        exposures=list(exposures_by_id.values()),
+        copies_seen=len(raw_nodes),
+        nodes_merged=nodes_merged,
+        padding_dropped=padding_dropped,
+        not_built_by_any_job=not_built_by_any_job,
+        untimed_test_copies_dropped=untimed_test_copies_dropped,
+        exposures_deduplicated=len(raw_exposures) - len(exposures_by_id),
+    )
 
 
 @dataclass
@@ -582,7 +750,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     source_config.token.get_secret_value(),
                     _DBT_GRAPHQL_QUERY.format(
                         type="models",
-                        fields="environmentId" + _DBT_GRAPHQL_MODEL_TIMING_FIELDS,
+                        fields="environmentId" + _DBT_GRAPHQL_TIMING_FIELDS,
                     ),
                     {"jobId": source_config.job_id, "runId": source_config.run_id},
                 )
@@ -750,39 +918,72 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         url = f"{access_url.rstrip('/')}/api/v2/accounts/{account_id}/jobs/"
 
         logger.debug(f"Fetching jobs for account {account_id} from dbt Cloud: {url}")
-        response = requests.get(
-            url,
-            headers={
-                "Authorization": f"Token {token}",
-                "Content-Type": "application/json",
-            },
-            params={
-                "project_id": project_id,
-                "environment_id": environment_id,
-            },
-        )
-
-        try:
-            response.raise_for_status()
-            data = response.json()
-            # The API returns jobs in a 'data' field
-            jobs = [
-                DBTCloudJob(id=job["id"], generate_docs=job["generate_docs"])
-                for job in data.get("data", [])
-            ]
-
-            logger.info(f"Found {len(jobs)} jobs in dbt Cloud account {account_id}")
-            return jobs
-        except requests.exceptions.RequestException as e:
-            logger.debug(f"Unable to fetch jobs from dbt Cloud API: {e}", exc_info=True)
-            raise ValueError(
-                f"Failed to fetch jobs from dbt Cloud API. Status code: {response.status_code}"
-            ) from e
-        except JSONDecodeError as e:
-            logger.debug(
-                f"Invalid JSON response from dbt Cloud API: {e}", exc_info=True
+        # The endpoint pages at 100 jobs; without paging, a project with more
+        # jobs silently ingested a truncated set.
+        jobs: List[DBTCloudJob] = []
+        offset = 0
+        while True:
+            response = requests.get(
+                url,
+                headers={
+                    "Authorization": f"Token {token}",
+                    "Content-Type": "application/json",
+                },
+                params={
+                    "project_id": project_id,
+                    "environment_id": environment_id,
+                    "limit": _DBT_CLOUD_JOBS_PAGE_SIZE,
+                    "offset": offset,
+                },
             )
-            raise ValueError("Received invalid JSON response from dbt Cloud API") from e
+
+            try:
+                response.raise_for_status()
+                data = response.json()
+            except requests.exceptions.RequestException as e:
+                logger.debug(
+                    f"Unable to fetch jobs from dbt Cloud API: {e}", exc_info=True
+                )
+                raise ValueError(
+                    f"Failed to fetch jobs from dbt Cloud API. Status code: {response.status_code}"
+                ) from e
+            except JSONDecodeError as e:
+                logger.debug(
+                    f"Invalid JSON response from dbt Cloud API: {e}", exc_info=True
+                )
+                raise ValueError(
+                    "Received invalid JSON response from dbt Cloud API"
+                ) from e
+
+            page = data.get("data") or []
+            jobs.extend(
+                DBTCloudJob(
+                    id=job["id"],
+                    generate_docs=job["generate_docs"],
+                    job_type=job.get("job_type"),
+                )
+                for job in page
+            )
+            offset += len(page)
+            total_count = (
+                (data.get("extra") or {}).get("pagination", {}).get("total_count")
+            )
+            if total_count is None:
+                if len(page) < _DBT_CLOUD_JOBS_PAGE_SIZE:
+                    break
+            elif offset >= total_count:
+                break
+            elif not page:
+                logger.warning(
+                    f"dbt Cloud returned no jobs at offset {offset} although it "
+                    f"reports {total_count} jobs; the job list may be incomplete."
+                )
+                break
+            if not page:
+                break
+
+        logger.info(f"Found {len(jobs)} jobs in dbt Cloud account {account_id}")
+        return jobs
 
     @staticmethod
     def _get_environments_for_project(
@@ -916,7 +1117,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             )
             raise
 
-        # Filter jobs by job_id_pattern and optionally by generate_docs
+        # Filter jobs by job_id_pattern, job_type_pattern and optionally by
+        # generate_docs
         filtered_job_ids: List[int] = []
         pattern_matched_jobs = 0
         for job in all_jobs:
@@ -924,9 +1126,13 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 not self.config.auto_discovery.require_generate_docs
                 or job.generate_docs
             )
-            passes_pattern_check = self.config.auto_discovery.job_id_pattern.allowed(
+            passes_id_check = self.config.auto_discovery.job_id_pattern.allowed(
                 str(job.id)
             )
+            passes_type_check = self.config.auto_discovery.job_type_pattern.allowed(
+                job.job_type or ""
+            )
+            passes_pattern_check = passes_id_check and passes_type_check
 
             if passes_pattern_check:
                 pattern_matched_jobs += 1
@@ -935,8 +1141,12 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             else:
                 self.report.total_jobs_processed_skipped += 1
                 skip_reasons = []
-                if not passes_pattern_check:
+                if not passes_id_check:
                     skip_reasons.append("did not match job_id_pattern")
+                if not passes_type_check:
+                    skip_reasons.append(
+                        f"did not match job_type_pattern (job_type={job.job_type})"
+                    )
                 if not passes_docs_check:
                     skip_reasons.append("generate_docs is not enabled")
                 reason_str = " and ".join(skip_reasons)
@@ -964,12 +1174,15 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     "Check that the environment has jobs and that the token can see them."
                 )
             elif not pattern_matched_jobs:
-                message = "No job in the production environment matches auto_discovery.job_id_pattern."
+                message = (
+                    "No job in the production environment matches both "
+                    "auto_discovery.job_id_pattern and auto_discovery.job_type_pattern."
+                )
             else:
                 message = (
-                    "Every job matching auto_discovery.job_id_pattern has "
-                    '"Generate docs on run" turned off, and auto_discovery.require_generate_docs '
-                    "is enabled."
+                    "Every job matching auto_discovery.job_id_pattern and "
+                    'auto_discovery.job_type_pattern has "Generate docs on run" turned '
+                    "off, and auto_discovery.require_generate_docs is enabled."
                 )
             self.report.failure(
                 title="No dbt Cloud jobs discovered",
@@ -986,14 +1199,11 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         return filtered_job_ids
 
     def _fetch_nodes_and_exposures(self) -> Tuple[List[DBTNode], List[DBTExposure]]:
-        # TODO: In dbt Cloud, commands are scheduled as part of jobs, where
-        # each job can have multiple runs. We currently only fully support
-        # jobs that do a full / mostly full build of the project, and will
-        # print out warnings if data is missing. In the future, it'd be nice
-        # to automatically detect all jobs that are part of a project and combine
-        # their metadata together.
-        # Additionally, we'd like to model dbt Cloud jobs/runs in DataHub
-        # as DataProcesses or DataJobs.
+        # In dbt Cloud, commands are scheduled as part of jobs, where each job
+        # can have multiple runs. Explicit mode reads one job and warns when
+        # data is missing; auto-discovery reads every discovered job and
+        # reconciles their batches in _merge_job_batches.
+        # TODO: model dbt Cloud jobs/runs in DataHub as DataProcesses or DataJobs.
 
         job_ids_to_ingest: List[int] = []
         run_id: Optional[int] = self.config.run_id
@@ -1021,8 +1231,6 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     and not self.config.entities_enabled.can_emit_semantic_models
                 ):
                     continue
-                if node_type == "models" and self.config.ingest_contracts:
-                    fields += _DBT_GRAPHQL_MODEL_TIMING_FIELDS
 
                 try:
                     logger.info(
@@ -1056,7 +1264,17 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     )
                     continue
 
-        nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
+        if (
+            self._is_auto_discovery_enabled()
+            and self.config.auto_discovery is not None
+            and self.config.auto_discovery.node_merge_strategy == "latest_build"
+        ):
+            nodes, exposures = self._merge_job_batches(
+                raw_nodes=raw_nodes, raw_exposures=raw_exposures
+            )
+        else:
+            nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
+            exposures = [self._parse_into_dbt_exposure(exp) for exp in raw_exposures]
 
         # Resolve database/schema for semantic models from their upstream nodes
         semantic_models_needing_resolution = [
@@ -1076,9 +1294,6 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                             object.__setattr__(node, "schema", ref_node.schema)
                         break
 
-        # Parse exposures
-        exposures = [self._parse_into_dbt_exposure(exp) for exp in raw_exposures]
-
         # Track semantic model count
         semantic_model_count = sum(
             1 for node in nodes if node.node_type == "semantic_model"
@@ -1090,6 +1305,53 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             )
 
         return nodes, exposures
+
+    def _merge_job_batches(
+        self, *, raw_nodes: List[Dict], raw_exposures: List[Dict]
+    ) -> Tuple[List[DBTNode], List[DBTExposure]]:
+        """Reconcile the per-job Discovery batches into one copy per node."""
+        merged = _merge_raw_nodes(raw_nodes=raw_nodes, raw_exposures=raw_exposures)
+        self.report.auto_discovery_node_copies_seen = merged.copies_seen
+        self.report.auto_discovery_nodes_merged = merged.nodes_merged
+        self.report.auto_discovery_padding_rows_dropped = merged.padding_dropped
+        self.report.auto_discovery_exposures_deduplicated = (
+            merged.exposures_deduplicated
+        )
+        if merged.untimed_test_copies_dropped:
+            self.report.auto_discovery_untimed_test_results_dropped = (
+                merged.untimed_test_copies_dropped
+            )
+            self.report.warning(
+                title="dbt Cloud test results without a run time were dropped",
+                message="Some discovered jobs returned test results with no "
+                "execution time. They cannot be ordered against the results of "
+                "other jobs, so only results with a run time were kept for "
+                "those tests.",
+                context=f"{merged.untimed_test_copies_dropped} result(s)",
+            )
+
+        nodes = [self._parse_into_dbt_node(node) for node in merged.nodes]
+        nodes_by_name = {node.dbt_name: node for node in nodes}
+        for raw_copy in merged.extra_test_copies:
+            extra_results = self._parse_into_dbt_node(raw_copy).test_results
+            nodes_by_name[raw_copy["uniqueId"]].test_results.extend(extra_results)
+            self.report.auto_discovery_test_results_merged += len(extra_results)
+
+        winners_by_id = {node["uniqueId"]: node for node in merged.nodes}
+        for unique_id in merged.not_built_by_any_job:
+            self.report.auto_discovery_nodes_not_built_by_any_job += 1
+            self.report.auto_discovery_nodes_not_built_by_any_job_list.append(unique_id)
+            winner = winners_by_id[unique_id]
+            self.report.warning(
+                title="dbt Cloud node not built by any discovered job",
+                message="No discovered job's latest run built this node, so its "
+                "metadata comes from the most recently started run that saw it "
+                "and may be stale until a job builds it.",
+                context=f"{unique_id} (kept copy from job {winner.get('jobId')}, "
+                f"run {winner.get('runId')})",
+            )
+
+        return nodes, [self._parse_into_dbt_exposure(exp) for exp in merged.exposures]
 
     def load_projects(self) -> Iterator[DBTProject]:
         nodes, exposures = self._fetch_nodes_and_exposures()
@@ -1166,9 +1428,24 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         test_result = None
         if not node["skip"]:
+            # Results of one test from several jobs are ordered by this time.
+            # The ingestion-time fallback only ever applies to a test whose
+            # every copy lacks a run time, of which a single one is kept.
+            executed_at = next(
+                (
+                    parse_dbt_timestamp(node[key])
+                    for key in (
+                        "executeCompletedAt",
+                        "executeStartedAt",
+                        "runGeneratedAt",
+                    )
+                    if node.get(key)
+                ),
+                None,
+            )
             test_result = DBTTestResult(
                 invocation_id=f"job{node['jobId']}-run{node['runId']}",
-                execution_time=datetime.now(),  # TODO: dbt Cloud doesn't expose this.
+                execution_time=executed_at or datetime.now(),
                 status=node["status"],
                 native_results={
                     key: str(node[key])

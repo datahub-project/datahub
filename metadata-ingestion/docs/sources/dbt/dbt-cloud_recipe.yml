@@ -24,6 +24,12 @@ source:
     #       - ".*"  # regex pattern to include jobs (default: include all)
     #     # deny:
     #     #   - "test.*"  # optional: regex pattern to exclude specific jobs
+    #   job_type_pattern: # optional: filter by dbt Cloud job type (scheduled, merge, ci, other, ...)
+    #     deny:
+    #       - "ci"
+    #       - "merge"
+    #   require_generate_docs: false # optional: set to true to only ingest jobs with "Generate docs on run" enabled
+    #   node_merge_strategy: latest_build # optional: last_job_wins restores the previous behaviour
 
     target_platform: "${TARGET_PLATFORM_ID}" # e.g. bigquery/postgres/snowflake/etc.
     # convert_urns_to_lowercase: false  # optional: set to false for case-sensitive platforms like BigQuery to preserve original casing (default: true)
