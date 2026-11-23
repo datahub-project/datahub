@@ -13,6 +13,7 @@ import {
     hasUnderBaselineFieldFinding,
     isUnderBaseline,
     measuredFromFindings,
+    overagesOf,
     planRatchet,
 } from './bundle-budget-chore.mjs';
 import { writeBudgetFindings } from './eager-budget.mjs';
@@ -22,19 +23,35 @@ const chorePath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'bundl
 const eagerShrink = 'Eager JS fell to 280000 bytes gzip, 20000 under the 300000 baseline. Update …';
 const shellGrow = 'Logged-in shell JS is 1008000 bytes gzip, 8000 over the 1000000 baseline (allowed +10240).';
 const shellShrink = 'Logged-in shell JS fell to 900000 bytes gzip, 100000 under the 1000000 baseline. Update …';
+const searchGrow = 'Logged-in search JS is 1130000 bytes gzip, 30000 over the 1100000 baseline (allowed +10240).';
 const searchShrink = 'Logged-in search JS fell to 1050000 bytes gzip, 50000 under the 1100000 baseline. Update …';
 
 test('ok when both budgets are clean', () => {
     assert.equal(classify({ soft: [], hard: [] }), 'ok');
 });
 
-test('ratchet-down when every soft finding is an under-baseline shrink', () => {
+test('ratchet-down when a soft finding is an under-baseline shrink', () => {
     assert.equal(classify({ soft: [eagerShrink], hard: [] }), 'ratchet-down');
     assert.equal(isUnderBaseline(eagerShrink), true);
 });
 
-test('soft-over when any soft finding is growth', () => {
+test('soft-over when the only soft findings are growth', () => {
     assert.equal(classify({ soft: [shellGrow], hard: [] }), 'soft-over');
+});
+
+test('a field over baseline does not block lowering a field that shrank', () => {
+    const findings = { soft: [shellShrink, searchGrow], hard: [] };
+    assert.equal(classify(findings), 'ratchet-down');
+    assert.deepEqual(overagesOf(findings), [searchGrow]);
+    const planned = planRatchet({
+        eager: { totalGzip: 300_000 },
+        page: { shell: 1_000_000, search: 1_100_000 },
+        eagerMeasured: 300_000,
+        pageMeasured: { shell: 900_000, search: 1_130_000 },
+        pageSoft: findings.soft,
+    });
+    assert.equal(planned.page.shell, 900_000);
+    assert.equal(planned.page.search, 1_100_000);
 });
 
 test('hard wins over soft', () => {
@@ -101,9 +118,9 @@ test('applyRatchet is pure and never raises a field', () => {
 });
 
 test('field finding matcher is label-scoped', () => {
-    assert.equal(hasUnderBaselineFieldFinding([shellShrink], 'shell'), true);
-    assert.equal(hasUnderBaselineFieldFinding([shellShrink], 'search'), false);
-    assert.equal(hasUnderBaselineFieldFinding([shellGrow], 'shell'), false);
+    assert.equal(hasUnderBaselineFieldFinding([shellShrink], 'Logged-in shell JS'), true);
+    assert.equal(hasUnderBaselineFieldFinding([shellShrink], 'Logged-in search JS'), false);
+    assert.equal(hasUnderBaselineFieldFinding([shellGrow], 'Logged-in shell JS'), false);
 });
 
 test('measuredFromFindings reads persisted gzip and nulls missing fields', () => {

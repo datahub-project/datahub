@@ -3,8 +3,10 @@ name: Bundle budget reassessment
 # After nightly build & test uploads bundle-budget-artifacts from frontend-build,
 # this small job classifies the result and opens a PR only when baselines should
 # ratchet down. Soft overages are reported (never auto-raised). Hard cliffs
-# already fail frontend-build, so this workflow only runs on successful
-# scheduled builds. See datahub-web-react/AGENTS.md (Bundle size budgets).
+# already fail frontend-build, which then uploads no artifact. The artifact is
+# only uploaded after every budget step passed, so an unrelated failing job in
+# the same nightly run does not block the ratchet: the run is used whenever the
+# artifact exists. See datahub-web-react/AGENTS.md (Bundle size budgets).
 #
 # Opt-in: set repo variable BUNDLE_BUDGET_REASSESS=true (this workflow is a no-op
 # until then). Downstream forks with a different default branch, paid runners, or
@@ -49,7 +51,7 @@ jobs:
         (
           github.event_name == 'workflow_run' &&
           github.event.workflow_run.event == 'schedule' &&
-          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.conclusion != 'cancelled' &&
           github.event.workflow_run.head_branch == github.event.repository.default_branch
         )
       )
@@ -78,12 +80,15 @@ jobs:
 
       - name: Resolve PR token
         id: token
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          FALLBACK_TOKEN: ${{ github.token }}
         run: |
-          if [ -n "${{ steps.app-token.outputs.token }}" ]; then
-            echo "value=${{ steps.app-token.outputs.token }}" >> "$GITHUB_OUTPUT"
+          if [ -n "$APP_TOKEN" ]; then
+            echo "value=$APP_TOKEN" >> "$GITHUB_OUTPUT"
             echo "source=app" >> "$GITHUB_OUTPUT"
           else
-            echo "value=${{ github.token }}" >> "$GITHUB_OUTPUT"
+            echo "value=$FALLBACK_TOKEN" >> "$GITHUB_OUTPUT"
             echo "source=github.token" >> "$GITHUB_OUTPUT"
             echo "::warning title=Bundle budget::BUNDLE_BUDGET_APP_CLIENT_ID is unset. The ratchet PR will use github.token and will not trigger required CI checks. Configure a GitHub App (vars.BUNDLE_BUDGET_APP_CLIENT_ID + secrets.BUNDLE_BUDGET_APP_PRIVATE_KEY) so the PR gets checks."
           fi
@@ -129,25 +134,36 @@ jobs:
           WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
           EVENT_NAME: ${{ github.event_name }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          REPO: ${{ github.repository }}
         run: |
           if [ "$EVENT_NAME" = "workflow_run" ]; then
-            echo "run_id=$WORKFLOW_RUN_ID" >> "$GITHUB_OUTPUT"
-            exit 0
+            run_id="$WORKFLOW_RUN_ID"
+          elif [ -n "$INPUT_RUN_ID" ]; then
+            run_id="$INPUT_RUN_ID"
+          else
+            run_id=$(gh run list --workflow "build & test" --event schedule --branch "$DEFAULT_BRANCH" --limit 20 --json databaseId,conclusion \
+              --jq '[.[] | select(.conclusion=="success" or .conclusion=="failure")][0].databaseId // empty')
           fi
-          if [ -n "$INPUT_RUN_ID" ]; then
-            echo "run_id=$INPUT_RUN_ID" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          run_id=$(gh run list --workflow "build & test" --event schedule --branch "$DEFAULT_BRANCH" --status success --limit 20 --json databaseId,conclusion \
-            --jq '[.[] | select(.conclusion=="success")][0].databaseId // empty')
-          if [ -z "$run_id" ]; then
-            echo "No successful scheduled build & test run found to pull bundle-budget-artifacts from."
+          if ! [[ "$run_id" =~ ^[0-9]+$ ]]; then
+            echo "No usable build & test run id (got '${run_id:0:40}')."
             exit 1
           fi
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          found=$(gh api "repos/$REPO/actions/runs/$run_id/artifacts" \
+            --jq '[.artifacts[] | select(.name == "bundle-budget-artifacts" and (.expired | not))] | length')
+          if [ "$found" = "0" ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Bundle budget reassessment"
+              echo ""
+              echo "Skipped: build & test run $run_id has no bundle-budget-artifacts (frontend-build did not reach the upload step, or it expired)."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Download bundle budget artifacts
-        if: steps.skip.outputs.skip != 'true'
+        if: steps.skip.outputs.skip != 'true' && steps.source.outputs.found == 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: bundle-budget-artifacts
@@ -156,15 +172,16 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Stage findings into budget dist
-        if: steps.skip.outputs.skip != 'true'
+        if: steps.skip.outputs.skip != 'true' && steps.source.outputs.found == 'true'
         env:
           BUDGET_DIR: ${{ env.BUNDLE_BUDGET_DIR }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
         run: |
           DIST="${BUNDLE_BUDGET_DIST:-$BUDGET_DIR/dist}"
           mkdir -p "$DIST"
           for f in eager-budget-findings.json page-budget-findings.json eager-budget-report.json; do
             if [ ! -f "/tmp/bundle-budget-artifacts/$f" ]; then
-              echo "Missing $f in bundle-budget-artifacts from run ${{ steps.source.outputs.run_id }}"
+              echo "Missing $f in bundle-budget-artifacts from run $SOURCE_RUN_ID"
               ls -la /tmp/bundle-budget-artifacts || true
               exit 1
             fi
@@ -178,8 +195,10 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Classify budgets
-        if: steps.skip.outputs.skip != 'true'
+        if: steps.skip.outputs.skip != 'true' && steps.source.outputs.found == 'true'
         id: budgets
+        env:
+          SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
         run: |
           # The chore prints its decision and then exits 1 on purpose for `hard`, so a
           # non-zero exit alone is not a crash. Keep going to write the summary, and
@@ -211,10 +230,11 @@ jobs:
           {
             echo "### Bundle budget reassessment"
             echo ""
-            echo "Source build & test run: \`${{ steps.source.outputs.run_id }}\`"
+            echo "Source build & test run: \`$SOURCE_RUN_ID\`"
             echo ""
             echo "Decision: \`$decision\`"
             echo ""
+            node -e "const s=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); if (s.overages.length) { console.log('Over baseline (never auto-raised; needs a deliberate follow-up PR):\n'); s.overages.forEach((m) => console.log('- ' + m)); console.log(''); }" "$RUNNER_TEMP/chore.json"
             if [ -f /tmp/bundle-budget-artifacts/eager-regression.md ]; then
               cat /tmp/bundle-budget-artifacts/eager-regression.md
             fi
@@ -225,7 +245,7 @@ jobs:
 
       - name: Ratchet baselines down
         id: ratchet
-        if: steps.skip.outputs.skip != 'true' && steps.budgets.outputs.decision == 'ratchet-down'
+        if: steps.skip.outputs.skip != 'true' && steps.source.outputs.found == 'true' && steps.budgets.outputs.decision == 'ratchet-down'
         run: |
           if ! node datahub-web-react/scripts/bundle-budget-chore.mjs --apply \
             --budget-dir "$BUNDLE_BUDGET_DIR" \
@@ -255,7 +275,7 @@ jobs:
           cp /tmp/bundle-budget-artifacts/eager-budget-inventory-measured.json "$INVENTORY_BASELINE"
 
       - name: Open ratchet PR
-        if: steps.skip.outputs.skip != 'true' && steps.budgets.outputs.decision == 'ratchet-down' && steps.ratchet.outputs.changed == 'true'
+        if: steps.skip.outputs.skip != 'true' && steps.source.outputs.found == 'true' && steps.budgets.outputs.decision == 'ratchet-down' && steps.ratchet.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.token.outputs.value }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}

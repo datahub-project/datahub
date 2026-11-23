@@ -74,7 +74,10 @@ when repo variable `BUNDLE_BUDGET_REASSESS=true` (no second frontend build, no
 JDK/Gradle/yarn setup, write permissions stay out of main CI): classify the artifact,
 **auto-PR only when baselines should ratchet down** (only fields with their own
 under-baseline soft finding are written, each as `min(baseline, measured)` — never raise),
-and leave soft overages as a report (never auto-raise). It skips when an open PR titled
+and leave soft overages as a report (never auto-raise; a field over its baseline does not
+block lowering a different field that shrank). It runs for any non-cancelled nightly
+`build & test` that uploaded the artifact, so an unrelated failing job does not block it. It
+skips when an open PR titled
 "ratchet frontend bundle budgets" from a `chore/bundle-budget-ratchet*` branch already
 exists and uses a unique branch per run. Soft
 warnings on feature PRs are a signal for that chore, not a merge blocker.

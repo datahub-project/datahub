@@ -28,9 +28,7 @@ export function resolveBudgetPaths(opts = {}) {
         eagerBudget: path.resolve(
             opts.eagerBudget || env.BUNDLE_EAGER_BUDGET || path.join(budgetDir, 'eager-budget.json'),
         ),
-        pageBudget: path.resolve(
-            opts.pageBudget || env.BUNDLE_PAGE_BUDGET || path.join(budgetDir, 'page-budget.json'),
-        ),
+        pageBudget: path.resolve(opts.pageBudget || env.BUNDLE_PAGE_BUDGET || path.join(budgetDir, 'page-budget.json')),
         inventoryBaseline: path.resolve(
             opts.inventoryBaseline ||
                 env.BUNDLE_INVENTORY_BASELINE ||

@@ -3,10 +3,11 @@
  * Decide what the scheduled bundle-budget reassessment should do.
  *
  * Reads eager/page findings JSON after a default-branch build, then:
- *   - ratchet-down: lower only fields whose own soft finding is an under-baseline
- *     shrink (never raise; each written field is min(baseline, measured))
- *   - soft-over: report only (do not bump ceilings)
  *   - hard: exit 1
+ *   - ratchet-down: lower only fields whose own soft finding is an under-baseline
+ *     shrink (never raise; each written field is min(baseline, measured)). Other
+ *     fields that are over baseline stay untouched and are listed as `overages`.
+ *   - soft-over: only overages, report them (never bump ceilings)
  *   - ok: nothing to do
  *
  * Works purely from the findings JSON (the nightly `bundle-budget-artifacts`
@@ -22,6 +23,10 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 
 import { resolveBudgetPaths, takeBudgetPathArgs } from './budget-paths.mjs';
+
+// Start of the finding messages built by eager-budget.mjs / page-bundle-size.mjs.
+const EAGER_LABEL = 'Eager JS';
+const PAGE_LABEL = { shell: 'Logged-in shell JS', search: 'Logged-in search JS' };
 
 function finiteOrNull(value) {
     return typeof value === 'number' && Number.isFinite(value) ? value : null;
@@ -54,18 +59,32 @@ export function isUnderBaseline(message) {
     return /fell to .+ under the .+ baseline/.test(message);
 }
 
-/** Soft under-baseline finding that names this field (label substring). */
-export function hasUnderBaselineFieldFinding(softMessages, labelPart) {
-    return (softMessages || []).some((message) => isUnderBaseline(message) && message.includes(labelPart));
+/**
+ * Soft under-baseline finding for this field. `labelPrefix` is the start of the
+ * finding message ("Eager JS", "Logged-in shell JS", ...), so a hint that happens
+ * to mention another field cannot match.
+ */
+export function hasUnderBaselineFieldFinding(softMessages, labelPrefix) {
+    return (softMessages || []).some((message) => isUnderBaseline(message) && message.startsWith(labelPrefix));
 }
 
-/** @param {{ soft?: string[], hard?: string[] } | null | undefined} findings */
+/** Soft findings that are not shrinks: ceilings the chore never raises on its own. */
+export function overagesOf(findings) {
+    return (findings?.soft || []).filter((message) => !isUnderBaseline(message));
+}
+
+/**
+ * hard beats ratchet-down beats soft-over. A field over its baseline does not
+ * block lowering a different field that shrank.
+ *
+ * @param {{ soft?: string[], hard?: string[] } | null | undefined} findings
+ */
 export function classify(findings) {
     const soft = findings?.soft || [];
     const hard = findings?.hard || [];
     if (hard.length) return 'hard';
     if (!soft.length) return 'ok';
-    if (soft.every(isUnderBaseline)) return 'ratchet-down';
+    if (soft.some(isUnderBaseline)) return 'ratchet-down';
     return 'soft-over';
 }
 
@@ -85,21 +104,21 @@ export function planRatchet({ eager, page, eagerMeasured, pageMeasured, eagerSof
     const nextEager = { ...eager };
     const nextPage = { ...page };
     if (
-        hasUnderBaselineFieldFinding(eagerSoft, 'Eager JS') &&
+        hasUnderBaselineFieldFinding(eagerSoft, EAGER_LABEL) &&
         eagerMeasured != null &&
         Number.isFinite(eagerMeasured)
     ) {
         nextEager.totalGzip = Math.min(eager.totalGzip, eagerMeasured);
     }
     if (
-        hasUnderBaselineFieldFinding(pageSoft, 'shell') &&
+        hasUnderBaselineFieldFinding(pageSoft, PAGE_LABEL.shell) &&
         pageMeasured.shell != null &&
         Number.isFinite(pageMeasured.shell)
     ) {
         nextPage.shell = Math.min(page.shell, pageMeasured.shell);
     }
     if (
-        hasUnderBaselineFieldFinding(pageSoft, 'search') &&
+        hasUnderBaselineFieldFinding(pageSoft, PAGE_LABEL.search) &&
         pageMeasured.search != null &&
         Number.isFinite(pageMeasured.search)
     ) {
@@ -174,9 +193,11 @@ function main(argv = process.argv.slice(2)) {
     const { eagerMeasured, pageMeasured } = measuredFromFindings(eagerFindings, pageFindings);
     // stderr keeps the stdout JSON parseable for the workflow.
     const unmeasured = [
-        hasUnderBaselineFieldFinding(eagerFindings.soft, 'Eager JS') && eagerMeasured == null && 'eager totalGzip',
-        hasUnderBaselineFieldFinding(pageFindings.soft, 'shell') && pageMeasured.shell == null && 'page shell',
-        hasUnderBaselineFieldFinding(pageFindings.soft, 'search') && pageMeasured.search == null && 'page search',
+        hasUnderBaselineFieldFinding(eagerFindings.soft, EAGER_LABEL) && eagerMeasured == null && 'eager totalGzip',
+        hasUnderBaselineFieldFinding(pageFindings.soft, PAGE_LABEL.shell) && pageMeasured.shell == null && 'page shell',
+        hasUnderBaselineFieldFinding(pageFindings.soft, PAGE_LABEL.search) &&
+            pageMeasured.search == null &&
+            'page search',
     ].filter(Boolean);
     if (unmeasured.length) {
         console.error(
@@ -194,6 +215,7 @@ function main(argv = process.argv.slice(2)) {
         eagerHard: eagerFindings.hard,
         pageSoft: pageFindings.soft,
         pageHard: pageFindings.hard,
+        overages: [...overagesOf(eagerFindings), ...overagesOf(pageFindings)],
     };
 
     if (decision === 'ratchet-down' && apply) {
