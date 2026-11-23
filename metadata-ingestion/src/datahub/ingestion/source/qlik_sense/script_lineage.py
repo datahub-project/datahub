@@ -456,8 +456,10 @@ class ParsedScript(BaseModel):
     # creates a table Qlik names, so the script's tables are not all known.
     table_labels: List[str] = []
     has_unnamed_tables: bool = False
-    # Labels of the tables the script drops.
+    # Labels of the tables the script drops, and whether it drops or replaces
+    # a table it doesn't name.
     dropped_tables: List[str] = []
+    drops_unnamed_tables: bool = False
 
 
 class ScriptTableLineage(BaseModel):
@@ -1008,6 +1010,7 @@ class _ScriptParser(BaseModel):
     table_labels: List[str] = []
     has_unnamed_tables: bool = False
     dropped_tables: List[str] = []
+    drops_unnamed_tables: bool = False
     # The current statement before the script's variables are expanded.
     raw_statement: str = ""
     flow: _ControlFlowTracker = Field(default_factory=_ControlFlowTracker)
@@ -1246,10 +1249,12 @@ class _ScriptParser(BaseModel):
             return True
         drop = DROP_TABLES_RE.match(statement)
         if drop:
-            self.dropped_tables.extend(
-                _unquote(name.strip())
-                for name in TABLE_NAME_RE.findall(drop.group("names"))
-            )
+            for name in TABLE_NAME_RE.findall(drop.group("names")):
+                dropped = _named_by(_unquote(name.strip()))
+                if dropped is None:
+                    self.drops_unnamed_tables = True
+                else:
+                    self.dropped_tables.append(dropped)
             return True
         return False
 
@@ -1357,6 +1362,8 @@ class _ScriptParser(BaseModel):
             # Qlik names the table, or the tables, or a variable the parser
             # can't expand does.
             self.has_unnamed_tables = True
+            if replace or self.pending_replace:
+                self.drops_unnamed_tables = True
             return
         if name.lower() not in (known.lower() for known in self.table_labels):
             self.table_labels.append(name)
@@ -1448,6 +1455,7 @@ def parse_script(
         table_labels=parser.table_labels,
         has_unnamed_tables=parser.has_unnamed_tables,
         dropped_tables=parser.dropped_tables,
+        drops_unnamed_tables=parser.drops_unnamed_tables,
     )
 
 

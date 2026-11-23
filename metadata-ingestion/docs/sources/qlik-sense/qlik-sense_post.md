@@ -182,6 +182,7 @@ A `BINARY` statement loads another app's data model into an app. On Qlik Sense E
 - To the tables of the same name of the app the file was exported from, when `binary_file_to_app` maps the file to that app's id, with column-level lineage between their fields.
   - Only tables that app ingests are linked, and only when the run reads it or keeps it from its last read.
   - A table the script also loads into under the same name is still linked. It is not linked when the script drops it with `DROP TABLE` first, or loads it with a `Replace` prefix, which in a full reload drops the table and loads it again.
+  - When the script drops or replaces a table it doesn't name, such as an unlabelled `Replace LOAD` or `DROP TABLE $(vTable)` with a variable the connector can't expand, no table is linked, because any of them could be that table.
   - If the source app isn't read or kept, or doesn't ingest the table, the table's lineage from earlier runs is kept and only added to. The same holds for column lineage when the source app's data model can't be read and its last read didn't record its fields.
 - Otherwise, to the file. On a connection mapped in `file_connection_to_storage`, that is the storage's dataset, such as an `abs` or `s3` file. On a folder connection or a file system path, it is a dataset with the `Qlik App File` subtype, named and placed in folders as a QVD is (see [QVD paths](#qvd-paths)).
   - The file's tables are not known here, so a table the script also loads under the same name is not linked.
@@ -310,6 +311,7 @@ Each entry gives the app, and the file or source app, with the reason its BINARY
 - "the app's data model was not read": set `read_data_model: true`. If it is set, the app's data couldn't be opened; see "Qlik apps read without their data".
 - "binary_file_to_app maps it to the app itself": map the file to the id of the app it was exported from.
 - "the script creates tables it doesn't name": map the file in `binary_file_to_app`.
+- "the script drops or replaces tables it doesn't name": label the `Replace` load, or set the variable that names the dropped table in `script_variables`.
 - "its data connection is not a known folder connection": map the connection in `file_connection_to_storage`, or the file in `binary_file_to_app`.
 - "app ... was not read or kept this run": include the source app in the run, and fix the errors that stopped it from being read.
 - "app ... has no table ...": the source app doesn't ingest that table. Check that `binary_file_to_app` names the app the file was exported from.

@@ -3083,6 +3083,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         source_app_id = self._binary_source_app(file, resolved)
         if source_app_id == app.id:
             return without_lineage("binary_file_to_app maps it to the app itself")
+        if source_app_id is not None and parsed.drops_unnamed_tables:
+            # Any data model table could be one the script dropped and loaded again.
+            return without_lineage(
+                "the script drops or replaces tables it doesn't name, so the "
+                "tables the file brings in are not known"
+            )
         created = {label.lower() for label in parsed.table_labels}
         if source_app_id is not None:
             # A load under a BINARY table's name adds to it, or Qlik renames
