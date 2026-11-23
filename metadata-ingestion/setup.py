@@ -895,6 +895,10 @@ plugins: Dict[str, Set[str]] = {
     # opensearch-py backs the elasticsearch query_source backend, whose config
     # module is imported whenever the source loads.
     | opensearch_common
+    | sqlalchemy_lib  # powers the sql_table query_source backend
+    # cachetools is imported at module load via SQLAlchemyConnectionConfig ->
+    # profiling config -> operation_config.
+    | cachetools_lib
     | {"smart-open[s3]>=5.2.1,<8.0.0"},
     "slack": slack,
     "superset": superset_common,
