@@ -4,7 +4,7 @@ Captures pre-upgrade state into ``TestContext.snapshot_t0`` so downstream
 phases can compute deltas after the upgrade runs:
 
 - ES alias targets (alias name -> list of physical indices) for every
-  ``*index_v2*`` index discovered at runtime.
+  ``*index_v3*`` index discovered at runtime.
 - Per-physical-index doc count.
 - MySQL aspect-row count grouped by ``schemaVersion`` for each configured aspect.
 - T0 epoch ms (used by Phase 4's ``[T0, T1]`` window assertions).
@@ -33,7 +33,7 @@ log = logging.getLogger(__name__)
 _INDEX_PREFIX = ""
 
 # Substring used to identify DataHub physical indices.
-_INDEX_SUFFIX = "index_v2"
+_INDEX_SUFFIX = "index_v3"
 
 
 class SnapshotT0Phase(Phase):
@@ -71,6 +71,7 @@ class SnapshotT0Phase(Phase):
         for idx in indices:
             self._record_doc_count(snap, idx)
             self._record_alias(snap, idx)
+        self._record_alias_doc_counts(snap)
 
         for aspect in self._aspects:
             self._record_aspect_histogram(snap, aspect)
@@ -94,6 +95,7 @@ class SnapshotT0Phase(Phase):
             duration_s=time.monotonic() - t0,
             details={
                 "doc_counts": snap.doc_counts,
+                "alias_doc_counts": snap.alias_doc_counts,
                 "aliases": snap.indices,
                 "aspects": {a: dict(v) for a, v in snap.aspects_by_version.items()},
                 "epoch_ms": snap.epoch_ms,
@@ -124,6 +126,19 @@ class SnapshotT0Phase(Phase):
             return
         if targets:
             snap.indices[idx] = targets
+
+    def _record_alias_doc_counts(self, snap: SnapshotT0) -> None:
+        # V3 physical indices are named <alias>_<version>_<ts>; resolve the
+        # alias through ES instead of parsing the name.
+        try:
+            alias_map = self._es.get_alias_map()
+        except Exception as exc:
+            log.warning("alias map query failed: %s", exc)
+            return
+        for idx, count in snap.doc_counts.items():
+            for alias in alias_map.get(idx, []):
+                if _INDEX_SUFFIX in alias:
+                    snap.alias_doc_counts[alias] = count
 
     def _record_aspect_histogram(self, snap: SnapshotT0, aspect: str) -> None:
         try:

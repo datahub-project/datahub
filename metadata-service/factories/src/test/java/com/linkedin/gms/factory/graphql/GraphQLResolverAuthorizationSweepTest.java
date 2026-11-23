@@ -208,7 +208,6 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
               Map.entry("deletePageTemplate", Outcome.WROTE),
               Map.entry("linkPhysicalChild", Outcome.WROTE),
               Map.entry("setLogicalParent", Outcome.WROTE),
-              Map.entry("submitFormPrompt", Outcome.WROTE),
               Map.entry("unlinkPhysicalChild", Outcome.WROTE),
               // PRECONDITION: the generated arguments fail an existence or input check that runs
               // before the authorization check (the check exists on the success path).

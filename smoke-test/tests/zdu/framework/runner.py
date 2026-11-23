@@ -37,6 +37,7 @@ from .phases.snapshot_t1 import SnapshotT1Phase
 from .phases.upgrade_blocking import UpgradeBlockingPhase
 from .phases.upgrade_blocking_rerun import UpgradeBlockingReRunPhase
 from .phases.upgrade_nonblocking import UpgradeNonBlockingPhase
+from .phases.upgrade_settings_only import UpgradeSettingsOnlyPhase
 from .phases.validation import ValidationPhase
 from .reporter import Reporter
 from .scenario_executor import ScenarioTypeRegistry
@@ -154,7 +155,6 @@ class ZDUTestRunner:
         report = ZDUReport(config=self._config)
         ctx = TestContext(gms_url=self._config.gms_url)
         # Cache the active scenario list so cross-scenario validators
-        # (e.g., Suite B TC-102 reading TC-101's expected_reindex_indices)
         # can look up siblings at validation time.
         ctx.all_scenarios = list(self._scenarios)
 
@@ -385,6 +385,18 @@ class ZDUTestRunner:
                     datahub=self._datahub,
                     gms_service=self._config.gms_service,
                     new_image_tag=self._config.new_image_tag,
+                ),
+            ),
+            (
+                "upgrade_settings_only",
+                UpgradeSettingsOnlyPhase(
+                    docker=self._docker,
+                    es=self._es,
+                    gms_service=self._config.gms_service,
+                    upgrade_service=self._config.upgrade_service,
+                    timeout_s=self._config.sweep_timeout_s,
+                    new_image_tag=self._config.new_image_tag,
+                    build_images_root=self._config.build_images_root,
                 ),
             ),
             (

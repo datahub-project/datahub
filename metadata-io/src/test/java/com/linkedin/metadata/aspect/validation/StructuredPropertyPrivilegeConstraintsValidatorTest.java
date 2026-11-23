@@ -173,7 +173,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                    any(), any(), anyCollection()))
+                    any(), any(), anyCollection(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -196,7 +196,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                    any(), any(), anyCollection()))
+                    any(), any(), anyCollection(), any()))
         .thenReturn(false);
 
     AspectValidationException ex =
@@ -242,7 +242,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                    any(), any(), anyCollection()))
+                    any(), any(), anyCollection(), any()))
         .thenReturn(true);
 
     Assert.assertFalse(
@@ -262,7 +262,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
     authUtilMockedStatic.verify(
         () ->
             AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                any(), eq(TEST_DATASET_URN), eq(expected)));
+                any(), eq(TEST_DATASET_URN), eq(expected), any()));
   }
 
   // A PATCH arrives as a PatchItemImpl by default, or as a ProposedItem under alternate MCP
@@ -289,7 +289,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                    any(), any(), anyCollection()))
+                    any(), any(), anyCollection(), any()))
         .thenReturn(true);
 
     Assert.assertFalse(
@@ -307,7 +307,8 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
             AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
                 any(),
                 eq(TEST_DATASET_URN),
-                eq(Set.of(UrnUtils.getUrn("urn:li:structuredProperty:p1")))));
+                eq(Set.of(UrnUtils.getUrn("urn:li:structuredProperty:p1"))),
+                any()));
   }
 
   // Deleting the whole aspect must authorize every currently-assigned property, not bypass the
@@ -333,7 +334,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                    any(), any(), anyCollection()))
+                    any(), any(), anyCollection(), any()))
         .thenReturn(true);
 
     Assert.assertFalse(
@@ -349,7 +350,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
     authUtilMockedStatic.verify(
         () ->
             AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                any(), eq(TEST_DATASET_URN), eq(expected)));
+                any(), eq(TEST_DATASET_URN), eq(expected), any()));
   }
 
   @Test
@@ -364,7 +365,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                    any(), any(), anyCollection()))
+                    any(), any(), anyCollection(), any()))
         .thenReturn(false);
 
     AspectValidationException ex =

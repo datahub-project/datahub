@@ -30,7 +30,6 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.resources.operations.Utils;
@@ -338,7 +337,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
     return RestliUtils.toTask(opContext, () -> {
       log.debug("Proposals: {}", metadataChangeProposals);
-      try {
         final AspectsBatch batch = AspectsBatchImpl.builder()
                 .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext(),
                     opContext.getValidationContext().isAlternateValidation(),
@@ -358,12 +356,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         List<IngestResult> results =
                 _entityService.ingestProposal(opContext, batch, asyncBool);
 
-            // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
-            return RESTLI_SUCCESS;
-          } catch (ValidationException e) {
-            throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
-          }
-        },
+        // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
+        return RESTLI_SUCCESS;
+      },
         MetricRegistry.name(this.getClass(), "ingestProposal"));
   }
 

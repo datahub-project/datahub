@@ -20,6 +20,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
+import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SearchInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -304,5 +305,21 @@ public class SemanticSearchResolverTest {
             anyList(),
             eq(0), // Default start
             eq(10)); // Default count
+  }
+
+  @Test
+  public void testMinSimilarityIsRejectedOnTheLegacySearch() {
+    SearchInput input = new SearchInput();
+    input.setType(EntityType.DATASET);
+    input.setQuery("machine learning models");
+    com.linkedin.datahub.graphql.generated.SearchFlags flags =
+        new com.linkedin.datahub.graphql.generated.SearchFlags();
+    flags.setMinSimilarity(0.8f);
+    input.setSearchFlags(flags);
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+
+    // The legacy kNN search has no raw cosine floor, so it refuses one rather than ignore it
+    org.testng.Assert.expectThrows(ValidationException.class, () -> resolver.get(mockEnvironment));
+    verifyNoInteractions(mockSemanticSearchService);
   }
 }
