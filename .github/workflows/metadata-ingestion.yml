@@ -32,6 +32,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
+      oldest-python: ${{ steps.build-matrix.outputs.oldest_python }}
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: ./.github/actions/setup-toolchain
@@ -71,8 +72,9 @@ jobs:
           TEST_MATRIX: ${{ steps.ci.outputs.test_matrix }}
           EVENT_NAME: ${{ github.event_name }}
           FORCE_ALL: ${{ steps.label-check.outputs.force_all }}
-          # Every Python version lives here. Pull requests and perf tests use the
-          # first (oldest) entry; integration batches use INTEGRATION_PYTHONS.
+          # Every Python version lives here, in any order. Pull requests, perf tests
+          # and the oldest-only ci steps use the lowest version; integration
+          # batches use INTEGRATION_PYTHONS.
           QUICK_PYTHONS_ALL: '["3.11","3.12","3.13"]'
           INTEGRATION_PYTHONS: '["3.11","3.13"]'
           # testQuick is split into this many parallel jobs per Python version;
@@ -83,7 +85,8 @@ jobs:
           # master and releases, releases, manual runs and PRs labelled
           # run-all-ingestion-tests keep the full matrix. A break that only shows on
           # 3.12/3.13 is therefore caught after merge rather than before.
-          OLDEST_PYTHON=$(jq -r '.[0]' <<<"$QUICK_PYTHONS_ALL")
+          OLDEST_PYTHON=$(jq -r 'sort_by(split(".") | map(tonumber)) | .[0]' <<<"$QUICK_PYTHONS_ALL")
+          echo "oldest_python=$OLDEST_PYTHON" >> "$GITHUB_OUTPUT"
           if [ "$EVENT_NAME" = "pull_request" ] && [ "$FORCE_ALL" != "true" ]; then
             QUICK_PYTHONS=$(jq -n -c --arg v "$OLDEST_PYTHON" '[$v]')
             FULL_PYTHONS="$QUICK_PYTHONS"
@@ -266,7 +269,7 @@ jobs:
       # not read a green leg here as the ON path being covered. The tests that
       # cover it are the ones that set the flag themselves.
       - name: Snowflake unit tests with preserve_column_case forced on
-        if: ${{ matrix.command == 'testQuick' && matrix.shard == 0 && matrix.python-version == '3.11' }}
+        if: ${{ matrix.command == 'testQuick' && matrix.shard == 0 && matrix.python-version == needs.detect.outputs.oldest-python }}
         env:
           DATAHUB_TEST_PRESERVE_COLUMN_CASE: "1"
           PYTHONFAULTHANDLER: "1"
@@ -326,7 +329,7 @@ jobs:
 
           rm -rf "$TEMP_DIR"
       - name: Upload coverage to Codecov with ingestion flag
-        if: ${{ always() && matrix.python-version == '3.11' }}
+        if: ${{ always() && matrix.python-version == needs.detect.outputs.oldest-python }}
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
