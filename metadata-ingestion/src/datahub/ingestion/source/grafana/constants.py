@@ -1,3 +1,5 @@
+from datahub.utilities.str_enum import StrEnum
+
 # General is Grafana's virtual root folder; no folder container exists for it.
 # Grafana sends folderId 0 as an int; the models' coerce_numbers_to_str makes it "0".
 GRAFANA_GENERAL_FOLDER_ID = "0"
@@ -9,7 +11,16 @@ GRAFANA_DASHBOARD_EXTRACTION = "Grafana Dashboard Extraction"
 GRAFANA_PANEL_EXTRACTION = "Grafana Panel Extraction"
 
 HTTP_PERMISSION_STATUS_CODES = frozenset({401, 403})
-MAX_REPORT_CONTEXT_CHARS = 200
+
+
+class FolderPlacement(StrEnum):
+    """Where a dashboard with a folderId ends up in one ingestion run."""
+
+    PLACED = "placed"  # folder container emitted this run
+    GENERAL = "general"  # Grafana's root folder; no container exists
+    FILTERED = "filtered"  # folder excluded by folder_pattern
+    NOT_INGESTED = "not_ingested"  # folder not returned by /api/folders
+
 
 _LATER_PAGES_NOT_PLACED = (
     "dashboards in folders on this or later pages will not be placed in a folder"

@@ -10,6 +10,7 @@ from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.grafana.constants import (
     DASHBOARD_FOLDER_NOT_INGESTED_TITLE,
     DASHBOARD_WITHOUT_FOLDER_ID_TITLE,
+    FOLDERS_UNPARSEABLE_TITLE,
 )
 from datahub.ingestion.source.grafana.grafana_config import GrafanaSourceConfig
 from datahub.ingestion.source.grafana.grafana_source import GrafanaSource
@@ -18,7 +19,11 @@ from datahub.ingestion.source.grafana.models import (
     DashboardContainerKey,
     Folder,
     FolderKey,
+    FolderListing,
     Panel,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -95,8 +100,11 @@ def _run(
     *,
     folders: List[Folder],
     dashboards: List[Dashboard],
+    unparseable_folders: int = 0,
 ) -> Tuple[GrafanaSource, List[MetadataWorkUnit]]:
-    mock_api.get_folders.return_value = folders
+    mock_api.get_folders.return_value = FolderListing(
+        folders=folders, unparseable=unparseable_folders
+    )
     mock_api.get_dashboards.return_value = dashboards
     source = GrafanaSource(config, ctx)
     return source, list(source.get_workunits_internal())
@@ -194,38 +202,54 @@ def test_dashboard_placed_in_ingested_folder(
     assert parents == [_folder_urn(folder_id)]
     # The parent must be a container this run emitted, not just a matching key.
     assert set(parents) <= _emitted_container_urns(workunits)
+    assert source.report.folders_scanned == 1
+    assert _folder_counters(source) == dict.fromkeys(FOLDER_COUNTERS, 0)
+    assert not source.report.warnings
+
+
+def test_general_folder_dashboard_has_no_parent(mock_api, mock_config, mock_context):
+    # General is Grafana's root folder, sent as the integer 0.
+    source, workunits = _run(
+        mock_config,
+        mock_context,
+        mock_api,
+        folders=[],
+        dashboards=[_make_dashboard(folder_id=0)],
+    )
+
+    dashboard_container_urn = _dashboard_container_urn("0")
+    assert dashboard_container_urn in _emitted_container_urns(workunits)
+    assert not _parents(workunits, dashboard_container_urn)
     assert _folder_counters(source) == dict.fromkeys(FOLDER_COUNTERS, 0)
     assert not source.report.warnings
 
 
 @pytest.mark.parametrize(
-    "dashboard_folder_id, folders, deny, expected_counter, expected_warning",
+    "dashboard_folder_id, folders, folder_pattern, expected_counter, expected_warnings",
     [
-        # General is Grafana's root folder, sent as the integer 0.
-        pytest.param(0, [], None, None, None, id="general"),
         pytest.param(
             "1",
             [Folder(id="1", title=FOLDER_TITLE)],
-            [FOLDER_TITLE],
+            AllowDenyPattern(deny=[FOLDER_TITLE]),
             "dashboards_in_filtered_folders",
-            None,
+            set(),
             id="excluded-folder",
         ),
         # e.g. a nested folder /api/folders does not list, or a failed page
         pytest.param(
             "1",
             [],
-            None,
+            AllowDenyPattern.allow_all(),
             "dashboards_without_folder_container",
-            DASHBOARD_FOLDER_NOT_INGESTED_TITLE,
+            {DASHBOARD_FOLDER_NOT_INGESTED_TITLE},
             id="unlisted-folder",
         ),
         pytest.param(
             None,
             [],
-            None,
+            AllowDenyPattern.allow_all(),
             "dashboards_without_folder_id",
-            DASHBOARD_WITHOUT_FOLDER_ID_TITLE,
+            {DASHBOARD_WITHOUT_FOLDER_ID_TITLE},
             id="no-folder-id",
         ),
     ],
@@ -236,12 +260,11 @@ def test_dashboard_not_placed_in_folder(
     mock_context,
     dashboard_folder_id,
     folders,
-    deny,
+    folder_pattern,
     expected_counter,
-    expected_warning,
+    expected_warnings,
 ):
-    if deny:
-        mock_config.folder_pattern = AllowDenyPattern(deny=deny)
+    mock_config.folder_pattern = folder_pattern
 
     source, workunits = _run(
         mock_config,
@@ -251,20 +274,50 @@ def test_dashboard_not_placed_in_folder(
         dashboards=[_make_dashboard(folder_id=dashboard_folder_id)],
     )
 
-    folder_id = None if dashboard_folder_id is None else str(dashboard_folder_id)
-    dashboard_container_urn = _dashboard_container_urn(folder_id)
+    dashboard_container_urn = _dashboard_container_urn(dashboard_folder_id)
     assert dashboard_container_urn in _emitted_container_urns(workunits)
     assert not _parents(workunits, dashboard_container_urn)
-    expected_counters = dict.fromkeys(FOLDER_COUNTERS, 0)
-    if expected_counter:
-        expected_counters[expected_counter] = 1
-    assert _folder_counters(source) == expected_counters
-    if expected_warning:
-        assert log_titles(source.report.warnings) == {expected_warning}
-        [context] = log_contexts(source.report.warnings)
-        assert DASHBOARD_UID in context
-    else:
-        assert not source.report.warnings
+    assert _folder_counters(source) == {
+        **dict.fromkeys(FOLDER_COUNTERS, 0),
+        expected_counter: 1,
+    }
+    assert log_titles(source.report.warnings) == expected_warnings
+    assert all(DASHBOARD_UID in c for c in log_contexts(source.report.warnings))
+
+
+@pytest.mark.parametrize(
+    "stateful_ingestion, expect_failure",
+    [
+        pytest.param(None, False, id="stateful-off"),
+        pytest.param(
+            StatefulStaleMetadataRemovalConfig(
+                enabled=True, remove_stale_metadata=False
+            ),
+            False,
+            id="stale-removal-off",
+        ),
+        pytest.param(
+            StatefulStaleMetadataRemovalConfig(enabled=True),
+            True,
+            id="stale-removal-on",
+        ),
+    ],
+)
+def test_unparseable_folders_fail_run_only_when_removing_stale_metadata(
+    mock_api, mock_config, mock_context, stateful_ingestion, expect_failure
+):
+    # A failure makes stale-entity removal skip this run, so the skipped
+    # folders' containers are not soft-deleted. Without stale removal there is
+    # nothing to protect, and the per-folder warnings are enough.
+    source = GrafanaSource(mock_config, mock_context)
+    source.config.stateful_ingestion = stateful_ingestion
+    mock_api.get_folders.return_value = FolderListing(folders=[], unparseable=2)
+    mock_api.get_dashboards.return_value = []
+
+    list(source.get_workunits_internal())
+
+    failure_titles = log_titles(source.report.failures)
+    assert (FOLDERS_UNPARSEABLE_TITLE in failure_titles) == expect_failure
 
 
 @pytest.mark.usefixtures("mock_api")
