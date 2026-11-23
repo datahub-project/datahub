@@ -197,6 +197,7 @@
     "marketplace.home": "Datenprodukte – Startseite",
     "marketplace.applicationFilter.placeholder": "Anwendungen filtern",
     "marketplace.createTooltip": "Datenprodukt erstellen",
+    "marketplace.createUnauthorized": "Du hast keine Berechtigung, hier Datenprodukte zu erstellen. Versuche, eines über den Tab „Datenprodukte“ einer Domäne zu erstellen, die du verwaltest.",
     "marketplace.cardAssets_one": "{{count}} Asset",
     "marketplace.cardAssets_other": "{{count}} Assets",
     "marketplace.cardDeprecated": "Veraltet",

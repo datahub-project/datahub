@@ -45,6 +45,7 @@
     "inviteToken.copyTooltip": "Einladungslink kopieren.",
     "inviteToken.createError": "Einladungstoken für Rolle {{roleName}} konnte nicht erstellt werden: \n {{error}}",
     "inviteToken.footerText": "Kopiere einen Einladungslink und sende ihn an deine Benutzer. Bei der Anmeldung werden Benutzer automatisch der ausgewählten Rolle zugewiesen.",
+    "inviteToken.footerTextNoRole": "Kopiere einen Einladungslink und sende ihn an deine Benutzer. Sie können ein Konto erstellen, erhalten aber keine Rolle.",
     "inviteToken.generateNewLinkTooltip": "Neuen Link generieren. Alte Links sind nicht mehr gültig.",
     "inviteToken.generateSuccess": "Neuer Einladungslink generiert",
     "inviteToken.modalTitle": "Einladungslink teilen",

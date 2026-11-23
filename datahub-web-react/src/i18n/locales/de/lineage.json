@@ -72,6 +72,7 @@
     "levelFilter.directTooltip": "Direkt verwandte Daten-Assets anzeigen",
     "levelFilter.indirect": "indirekt",
     "levelFilter.indirectTooltip": "Indirekt verwandte Daten-Assets anzeigen",
+    "loadError": "Lineage konnte nicht geladen werden. Bitte versuche es erneut.",
     "manageLineage.changeToHome": "Zu Home wechseln",
     "manageLineage.dashboardNoDownstream": "Dashboard-Entitäten haben keine Downstream-Lineage",
     "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",
