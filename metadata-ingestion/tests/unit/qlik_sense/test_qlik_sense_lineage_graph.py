@@ -214,6 +214,7 @@ def _source(
     api.field_lineage_failures = []
     api.opened_without_data = []
     api.include_read_failures = []
+    api.upstream_graph_read_failures = []
     api.get_user_name.return_value = None
     api.list_datasets.return_value = datasets
     api.get_items.return_value = [
@@ -415,7 +416,7 @@ WRITER_TABLE = "qri:app:sense://writer-app#Out"
 
 
 def _reader_and_writer(
-    upstreams: Optional[LineageUpstreams],
+    upstreams: LineageUpstreams, read_failed: bool = False
 ) -> List[Union[App, QlikDataset]]:
     reader = _app(
         "report-app",
@@ -428,6 +429,7 @@ def _reader_and_writer(
         ],
     )
     reader.lineage_upstreams = upstreams
+    reader.lineage_upstreams_read_failed = read_failed
     # Read after the app that loads what it stores.
     return [reader, _app("writer-app", [LineageTable(qri=WRITER_TABLE, label="Out")])]
 
@@ -446,15 +448,12 @@ def test_unlisted_dataset_is_named_from_the_upstream_graph(
         },
     )
     source = _source(mock_api_cls, DATASETS, items=_reader_and_writer(upstreams))
-    with patch.object(source.app_state, "add_urns") as add_urns:
-        workunits = list(source.get_workunits_internal())
+    workunits = list(source.get_workunits_internal())
     written, added = _lineage(workunits)
 
     # A QVD in a space the API key can't see joins the app storing it to the
     # app loading it; one listed in a space the recipe leaves out is not named.
     prices = _urn(UNLISTED_QVD)
-    # Emitted at the end of the run, so kept with the app that names it.
-    add_urns.assert_called_once_with("report-app", {prices})
     assert written[_urn("report-app.prices")] == [prices]
     assert added[prices] == [_urn("writer-app.out")]
     properties = next(
@@ -464,6 +463,15 @@ def test_unlisted_dataset_is_named_from_the_upstream_graph(
         and (p := wu.get_aspect_of_type(DatasetPropertiesClass))
     )
     assert properties.name == "prices"
+    # Qlik's label is not a path.
+    assert properties.qualifiedName is None
+    assert "path" not in properties.customProperties
+    subtypes = next(
+        t
+        for wu in workunits
+        if wu.get_urn() == prices and (t := wu.get_aspect_of_type(SubTypesClass))
+    )
+    assert subtypes.typeNames == ["QVD"]
     assert not source.reporter.failures
 
 
@@ -471,7 +479,11 @@ def test_unlisted_dataset_is_named_from_the_upstream_graph(
 def test_unread_upstream_graph_only_adds_to_table_lineage(
     mock_api_cls: MagicMock,
 ) -> None:
-    _, written, added = _run(mock_api_cls, DATASETS, items=_reader_and_writer(None))
+    _, written, added = _run(
+        mock_api_cls,
+        DATASETS,
+        items=_reader_and_writer(LineageUpstreams(), read_failed=True),
+    )
 
     assert _urn("report-app.prices") not in written
     assert _urn(UNLISTED_QVD) not in added
@@ -518,6 +530,88 @@ def test_upstream_graph_is_read(requests_mock: requests_mock_module.Mocker) -> N
         resource_labels={UNLISTED_QVD: "prices.qvd", REPORT_APP: "Report"},
         stored_from={f"{UNLISTED_QVD}#Prices": [WRITER_TABLE]},
     )
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        {"status_code": 403},
+        {"status_code": 500},
+        {"json": {"nodes": {}}},
+    ],
+)
+def test_failed_upstream_graph_read_leaves_the_app_complete(
+    requests_mock: requests_mock_module.Mocker, response: Dict[str, Any]
+) -> None:
+    requests_mock.get(f"{BASE_URL}/api-keys", json={})
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    requests_mock.get(
+        f"{BASE_URL}/lineage-graphs/nodes/{quote(REPORT_APP, safe='')}",
+        **response,
+    )
+    app = _app("report-app", [])
+    app.qri = REPORT_APP
+    engine = MagicMock()
+    engine.websocket_send_request.return_value = {"qLayout": {}}
+    engine.get_script.return_value = ""
+    with (
+        patch("datahub.ingestion.source.qlik_sense.qlik_api.App") as app_cls,
+        patch.object(api, "_open_engine", return_value=engine),
+        patch.object(api, "_get_app_sheets", return_value=[]),
+        patch.object(api, "_read_variables", return_value={}),
+        patch.object(api, "_get_app_used_tables", return_value=[]),
+        patch.object(
+            api,
+            "get_table_lineage",
+            return_value=[
+                LineageTable(
+                    qri=f"{REPORT_APP}#Tbl",
+                    label="Prices",
+                    source_qris=[f"{UNLISTED_QVD}#Prices"],
+                )
+            ],
+        ),
+        patch.object(api, "_read_data_model", return_value=[]),
+    ):
+        app_cls.model_validate.return_value = app
+        api._get_app("report-app")
+
+    assert not app.tables_read_failed
+    assert not app.read_errors
+    assert app.lineage_upstreams_read_failed
+    assert [f.split(":")[0] for f in api.upstream_graph_read_failures] == ["report-app"]
+    assert not api.lineage_read_failures
+
+
+GRAPH_FILE = "qri:file:adls://Conn#Path"
+
+
+@pytest.mark.parametrize("listed", [True, False])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_the_script_may_load_is_named_from_the_graph_only_when_listed(
+    mock_api_cls: MagicMock, listed: bool
+) -> None:
+    api = mock_api_cls.return_value
+    api.unread_items = []
+    api.list_datasets.return_value = DATASETS if listed else None
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    source._allowed_space_ids = {"space-1"}
+    # The app's file paths are unknown, so its script may load the file.
+    source._apps_variables_unread.add("report-app")
+    source._lineage_upstreams["report-app"] = LineageUpstreams(
+        resource_labels={GRAPH_FILE: "prices.csv"}
+    )
+
+    resolved = source._resolve_lineage_sources(
+        [f"{GRAPH_FILE}#Tbl"], _urn("report-app.prices"), own_app_id="report-app"
+    )
+
+    # Without the listing, the file may be a listed dataset with its own URN.
+    assert resolved.urns == ([_urn(GRAPH_FILE)] if listed else [])
+    assert not resolved.complete
 
 
 ORACLE_PRICES = make_dataset_urn("oracle", "erp.prices")

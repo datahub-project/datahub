@@ -192,9 +192,11 @@ class LineageTable(BaseModel):
     field_lineage_failed: bool = False
 
 
+# Qlik Cloud datasets, such as QVDs stored in a space.
+QLIK_DATASET_QRI_PREFIX = "qri:qdf:"
 # Qlik Cloud datasets and data connection files, the upstream resources
 # LineageUpstreams can name.
-UPSTREAM_RESOURCE_QRI_PREFIXES = ("qri:qdf:", "qri:file:")
+UPSTREAM_RESOURCE_QRI_PREFIXES = (QLIK_DATASET_QRI_PREFIX, "qri:file:")
 
 
 class LineageUpstreams(BaseModel):
@@ -401,8 +403,7 @@ class App(Item):
     tables: List[QlikTable] = []
     # Tables of an app without a data model, from Qlik Cloud's lineage graph.
     lineage_tables: List[LineageTable] = []
-    # None when the app's upstream graph could not be read.
-    lineage_upstreams: Optional[LineageUpstreams] = LineageUpstreams()
+    lineage_upstreams: LineageUpstreams = LineageUpstreams()
     # Qlik Cloud answered 404 for the app's lineage graph.
     lineage_graph_missing: bool = False
     # The tables of the app's data model as the last reload left them, read on
@@ -417,6 +418,8 @@ class App(Item):
     # The data model or the load script could not be read, so the app's tables,
     # and with them the chart inputs, are unknown.
     tables_read_failed: bool = False
+    # The upstream graph could not be read, so sources only it names are unknown.
+    lineage_upstreams_read_failed: bool = False
     # The app was opened without its data after loading it failed, so the next
     # run must try again rather than skip it as unchanged.
     data_load_failed: bool = False

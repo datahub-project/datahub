@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Literal, Optional
 from urllib.parse import quote
 
 import requests
@@ -155,10 +155,7 @@ class QlikAPI(QlikBaseAPI):
         # has not computed it since.
         if response.status_code == 404:
             return None
-        response.raise_for_status()
-        graph = response.json().get(Constant.GRAPH)
-        if graph is None:
-            raise ValueError(f"Lineage graph response for {qri} has no graph")
+        graph = self._graph_of(response, f"Lineage graph of {qri}")
         # Only the resource's own tables: neighbouring nodes would otherwise be
         # read as its tables, and their sources as its sources.
         tables = {
@@ -184,16 +181,25 @@ class QlikAPI(QlikBaseAPI):
                     self.field_lineage_failures.append(f"{table.qri}: {e}")
         return list(tables.values())
 
-    def _upstream_graph(self, qri: str, level: str, up: int) -> Dict:
-        response = self.session.get(
-            f"{self.rest_api_url}/lineage-graphs/nodes/{quote(qri, safe='')}"
-            f"?level={level}&up={up}"
-        )
+    @staticmethod
+    def _graph_of(response: requests.Response, what: str) -> Dict[str, Any]:
+        # The graph is untyped JSON whose node and edge keys vary by level.
         response.raise_for_status()
         graph = response.json().get(Constant.GRAPH)
         if graph is None:
-            raise ValueError(f"Upstream lineage response for {qri} has no graph")
+            raise ValueError(f"{what} response has no graph")
         return graph
+
+    def _upstream_graph(
+        self, qri: str, level: Literal["RESOURCE", "TABLE"], up: int
+    ) -> Dict[str, Any]:
+        return self._graph_of(
+            self.session.get(
+                f"{self.rest_api_url}/lineage-graphs/nodes/{quote(qri, safe='')}"
+                f"?level={level}&up={up}"
+            ),
+            f"Upstream lineage of {qri}",
+        )
 
     def get_lineage_upstreams(self, qri: str) -> LineageUpstreams:
         """Labels of the resources upstream of the app, and the app tables two
@@ -224,10 +230,7 @@ class QlikAPI(QlikBaseAPI):
             f"{self.rest_api_url}/lineage-graphs/nodes/{quote(qri, safe='')}"
             f"/actions/expand?node={quote(table.qri, safe='')}&level=FIELD"
         )
-        response.raise_for_status()
-        graph = response.json().get(Constant.GRAPH)
-        if graph is None:
-            raise ValueError(f"Field lineage response for {table.qri} has no graph")
+        graph = self._graph_of(response, f"Field lineage of {table.qri}")
         names = {
             field_qri: node.get(Constant.LABEL)
             for field_qri, node in (graph.get(Constant.NODES) or {}).items()
@@ -439,6 +442,24 @@ class QlikAPI(QlikBaseAPI):
                 self.include_read_failures.append(path)
         return self._include_contents[path]
 
+    def _read_lineage_upstreams(self, app: App) -> None:
+        if not any(
+            qri.startswith(UPSTREAM_RESOURCE_QRI_PREFIXES)
+            for table in app.lineage_tables
+            for qri in table.source_qris
+        ):
+            return
+        try:
+            app.lineage_upstreams = self.get_lineage_upstreams(app.qri)
+        except Exception as e:
+            # Only names sources the run can't list, so the rest of the app is
+            # complete.
+            log_read_error(
+                f"Unable to fetch upstream lineage of app {app.id}. Exception: {e}"
+            )
+            app.lineage_upstreams_read_failed = True
+            self.upstream_graph_read_failures.append(f"{app.id}: {e}")
+
     def _get_app(self, app_id: str, script_app: bool = False) -> App:
         errors = ReadErrors()
         websocket_connection = self._open_engine(app_id)
@@ -470,22 +491,7 @@ class QlikAPI(QlikBaseAPI):
                     errors.record(
                         f"Unable to fetch table lineage of app {app_id}. Exception: {e}"
                     )
-                if any(
-                    qri.startswith(UPSTREAM_RESOURCE_QRI_PREFIXES)
-                    for table in app.lineage_tables
-                    for qri in table.source_qris
-                ):
-                    try:
-                        app.lineage_upstreams = self.get_lineage_upstreams(app.qri)
-                    except Exception as e:
-                        # Only names sources the run can't list, so the rest of
-                        # the app is complete.
-                        log_read_error(
-                            f"Unable to fetch upstream lineage of app {app_id}. "
-                            f"Exception: {e}"
-                        )
-                        app.lineage_upstreams = None
-                        self.lineage_read_failures.append(f"{app_id}: {e}")
+                self._read_lineage_upstreams(app)
             app.lineage_graph_missing |= errors.lineage_graph_missing
             app.tables_read_failed = len(errors.messages) > read_errors
             if not app.tables or not all(table.tableQri for table in app.tables):

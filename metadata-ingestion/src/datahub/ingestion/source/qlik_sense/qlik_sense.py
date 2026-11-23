@@ -70,6 +70,7 @@ from datahub.ingestion.source.qlik_sense.config import (
 from datahub.ingestion.source.qlik_sense.data_classes import (
     FIELD_TYPE_MAPPING,
     KNOWN_DATA_PLATFORM_MAPPING,
+    QLIK_DATASET_QRI_PREFIX,
     UPSTREAM_RESOURCE_QRI_PREFIXES,
     App,
     AppField,
@@ -222,8 +223,6 @@ ENTITY_CHECK_BATCH_SIZE = 100
 # An analytics app is a sense resource in the lineage graph, a script app a
 # dataprep resource.
 QLIK_APP_QRI_RE = re.compile(r"^qri:app:(?:sense|dataprep)://([^#]+)")
-# Qlik Cloud datasets, such as QVDs stored in a space.
-QLIK_DATASET_QRI_PREFIX = "qri:qdf:"
 QVD_EXTENSION = ".qvd"
 # Every Qlik Cloud space's connection to its own data files.
 DATA_FILES_CONNECTION = "datafiles"
@@ -409,7 +408,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # Upstream graphs of the apps read this run, and the resources only
         # they name, by URN, with their labels and the app tables storing into
         # them.
-        self._lineage_upstreams: Dict[str, Optional[LineageUpstreams]] = {}
+        self._lineage_upstreams: Dict[str, LineageUpstreams] = {}
+        self._apps_upstream_graph_unread: Set[str] = set()
         self._graph_named_resources: Dict[str, str] = {}
         self._graph_resource_writers: Dict[str, Set[str]] = {}
         self._allowed_space_ids: Set[str] = set()
@@ -1807,6 +1807,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _register_app_tables(self, app: App) -> None:
         self._app_table_urns_by_qri.update(self._app_table_urns(app))
         self._lineage_upstreams[app.id] = app.lineage_upstreams
+        if app.lineage_upstreams_read_failed:
+            self._apps_upstream_graph_unread.add(app.id)
         if app.tables_read_failed:
             self._apps_tables_unknown.add(app.id)
             return
@@ -1880,7 +1882,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 if urn is None and self._file_inputs_incomplete(own_app_id):
                     # The file may be one the script reads through a path,
                     # connection or included script this run could not read,
-                    # so the last run's edge to it must stay.
+                    # so the last run's edge to it must stay. Without the
+                    # listing, it may be a listed file the graph can't name.
+                    if datasets is None:
+                        return None, False
                     return self._graph_named_source(own_app_id, table_qri), False
             if urn is None and datasets is None:
                 return None, False
@@ -1893,11 +1898,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 return None, False
             if urn is None and own_app_id is not None:
                 urn = self._graph_named_source(own_app_id, table_qri)
-                if (
-                    urn is None
-                    and own_app_id in self._lineage_upstreams
-                    and self._lineage_upstreams[own_app_id] is None
-                ):
+                if urn is None and self._upstream_graph_unread(own_app_id):
                     # The upstream graph that may name it could not be read.
                     return None, False
         return (urn if urn != dataset_urn else None), True
@@ -1907,17 +1908,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         in a space the API key can't see, under a URN from its QRI. Its writer
         apps' tables become its upstreams at the end of the run."""
         upstreams = self._lineage_upstreams.get(app_id)
-        resource_qri = table_qri.rpartition("#")[0]
-        label = (
-            upstreams.resource_labels.get(resource_qri)
-            if upstreams and table_qri.startswith(UPSTREAM_RESOURCE_QRI_PREFIXES)
-            else None
-        )
-        if (
-            upstreams is None
-            or label is None
-            or resource_qri in self._listed_dataset_qris
+        if upstreams is None or not table_qri.startswith(
+            UPSTREAM_RESOURCE_QRI_PREFIXES
         ):
+            return None
+        resource_qri = table_qri.rpartition("#")[0]
+        label = upstreams.resource_labels.get(resource_qri)
+        if label is None or resource_qri in self._listed_dataset_qris:
             return None
         # A file another app's script resolves keeps that URN there, so the two
         # are separate datasets until its storage is mapped.
@@ -1928,6 +1925,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             upstreams.stored_from.get(table_qri, [])
         )
         return urn
+
+    def _upstream_graph_unread(self, app_id: str) -> bool:
+        return app_id in self._apps_upstream_graph_unread
 
     def _file_inputs_incomplete(self, app_id: str) -> bool:
         if app_id in self._apps_with_includes:
@@ -3003,28 +3003,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.platform, self.config.platform_instance, self.config.env
         )
         for urn, path in paths.items():
-            yield self._gen_entity_status_aspect(urn)
-            name = posixpath.basename(path)
-            yield MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=DatasetProperties(
-                    name=name[: -len(QVD_EXTENSION)]
-                    if name.endswith(QVD_EXTENSION)
-                    else name,
-                    qualifiedName=path,
-                    customProperties={
-                        Constant.TYPE: subtype,
-                        "path": path,
-                    },
-                ),
-            ).as_workunit()
-            dpi_aspect = self._gen_dataplatform_instance_aspect(urn)
-            if dpi_aspect:
-                yield dpi_aspect
-            yield MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=SubTypes(typeNames=[subtype]),
-            ).as_workunit()
+            yield from self._gen_file_entity(
+                urn, posixpath.basename(path), subtype, path
+            )
             # In Folder containers from the server and share (or drive) down,
             # as the data lake sources place files; without a container the
             # browse path would be cut at the dots of the server name. A
@@ -3032,23 +3013,33 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if CANONICAL_ABSOLUTE_PATH_RE.match(path):
                 yield from containers.create_container_hierarchy(path.lstrip("/"), urn)
 
-    def _gen_unmapped_file_entities(self) -> Iterable[MetadataWorkUnit]:
-        yield from self._gen_typed_file_entities(
-            {urn: self._unmapped_files[urn] for urn in self._linked_unmapped_files}
-        )
-        yield from self._gen_typed_file_entities(self._graph_named_resources)
-        for urn, writer_qris in self._graph_resource_writers.items():
-            # Only writer apps this run ingests: another app's table has no URN.
-            writer_urns = {
-                self._app_table_urns_by_qri.get(qri) for qri in writer_qris
-            } - {None, urn}
-            yield from self._patch_upstreams(
-                urn, sorted(filter(None, writer_urns)), DatasetLineageType.COPY
-            )
-
-    def _gen_typed_file_entities(
-        self, paths: Dict[str, str]
+    def _gen_file_entity(
+        self, urn: str, name: str, subtype: str, path: Optional[str] = None
     ) -> Iterable[MetadataWorkUnit]:
+        yield self._gen_entity_status_aspect(urn)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=DatasetProperties(
+                name=name[: -len(QVD_EXTENSION)]
+                if name.endswith(QVD_EXTENSION)
+                else name,
+                qualifiedName=path,
+                customProperties={
+                    Constant.TYPE: subtype,
+                    **({"path": path} if path else {}),
+                },
+            ),
+        ).as_workunit()
+        dpi_aspect = self._gen_dataplatform_instance_aspect(urn)
+        if dpi_aspect:
+            yield dpi_aspect
+        yield MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=SubTypes(typeNames=[subtype]),
+        ).as_workunit()
+
+    def _gen_unmapped_file_entities(self) -> Iterable[MetadataWorkUnit]:
+        paths = {urn: self._unmapped_files[urn] for urn in self._linked_unmapped_files}
         qvds = {
             urn: path
             for urn, path in paths.items()
@@ -3059,6 +3050,26 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             {urn: path for urn, path in paths.items() if urn not in qvds},
             DatasetSubTypes.QLIK_DATASET,
         )
+        for urn, label in self._graph_named_resources.items():
+            # Qlik's label is a name, not a path, so the dataset has no path.
+            yield from self._gen_file_entity(
+                urn,
+                label,
+                DatasetSubTypes.QLIK_QVD
+                if label.lower().endswith(QVD_EXTENSION)
+                else DatasetSubTypes.QLIK_DATASET,
+            )
+        for urn, writer_qris in self._graph_resource_writers.items():
+            # Only writer apps this run ingests: another app's table has no URN.
+            writer_urns = {
+                writer
+                for qri in writer_qris
+                if (writer := self._app_table_urns_by_qri.get(qri)) is not None
+                and writer != urn
+            }
+            yield from self._patch_upstreams(
+                urn, sorted(writer_urns), DatasetLineageType.COPY
+            )
 
     def _record_model_fields(self, app: App) -> None:
         on_prem = self.config.on_prem
@@ -3802,6 +3813,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 title="Unable to read Qlik dataset lineage",
                 message="Lineage from the apps that store these datasets is skipped.",
                 context=_bounded_list(self.qlik_api.lineage_read_failures),
+            )
+        if self.qlik_api.upstream_graph_read_failures:
+            self.reporter.warning(
+                title="Unable to read Qlik upstream lineage graph",
+                message="Sources of these apps that only Qlik's lineage graph "
+                "names, such as datasets in spaces the API key can't see, are "
+                "left out, and the apps' lineage is only added to this run.",
+                context=_bounded_list(self.qlik_api.upstream_graph_read_failures),
             )
         change_check_failures = [
             *self.qlik_api.change_check_failures,

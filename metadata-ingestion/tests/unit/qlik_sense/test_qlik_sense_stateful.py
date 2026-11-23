@@ -4,12 +4,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     PERSONAL_SPACE_DICT,
     App,
+    LineageTable,
+    LineageUpstreams,
     Sheet,
     Space,
 )
@@ -170,7 +173,10 @@ def test_qrs_failure_does_not_soft_delete(
     ]
 
 
-def _cloud_app(read_errors: List[str]) -> App:
+UNLISTED_QVD = "qri:qdf:space://Unlisted#PricesQvd"
+
+
+def _cloud_app(read_errors: List[str], loads_unlisted_qvd: bool = False) -> App:
     app = App.model_validate(
         {
             "id": "app-1",
@@ -195,11 +201,25 @@ def _cloud_app(read_errors: List[str]) -> App:
             )
         ]
     app.read_errors = read_errors
+    if loads_unlisted_qvd and not read_errors:
+        app.lineage_tables = [
+            LineageTable(
+                qri="qri:app:sense://app-1#Tbl",
+                label="Prices",
+                source_qris=[f"{UNLISTED_QVD}#Prices"],
+            )
+        ]
+        app.lineage_upstreams = LineageUpstreams(
+            resource_labels={UNLISTED_QVD: "prices.qvd"}
+        )
     return app
 
 
 def _cloud_run(
-    graph: MagicMock, run_id: str, read_errors: List[str]
+    graph: MagicMock,
+    run_id: str,
+    read_errors: List[str],
+    loads_unlisted_qvd: bool = False,
 ) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
     with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI") as api_cls:
         api = api_cls.return_value
@@ -213,7 +233,8 @@ def _cloud_run(
                 }
             )
         ]
-        api.get_items.return_value = [_cloud_app(read_errors)]
+        api.get_items.return_value = [_cloud_app(read_errors, loads_unlisted_qvd)]
+        api.list_datasets.return_value = []
         api.unread_items = []
         api.failed_user_lookups = {}
         api.change_check_failures = []
@@ -221,6 +242,7 @@ def _cloud_run(
         api.field_lineage_failures = []
         api.opened_without_data = []
         api.include_read_failures = []
+        api.upstream_graph_read_failures = []
         api.get_user_name.return_value = None
         ctx = PipelineContext(run_id=run_id, pipeline_name="qlik-cloud", graph=graph)
         source = QlikSenseSource(
@@ -259,3 +281,22 @@ def test_cloud_partly_read_app_keeps_last_read(
     assert "Unable to fully read Qlik app" in [
         warning.title for warning in second.reporter.warnings
     ]
+
+
+def test_graph_named_dataset_is_kept_with_a_partly_read_app(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    _, first_wus = _cloud_run(
+        mock_datahub_graph, "run-1", read_errors=[], loads_unlisted_qvd=True
+    )
+    _, second_wus = _cloud_run(
+        mock_datahub_graph,
+        "run-2",
+        read_errors=["Unable to fetch sheets"],
+        loads_unlisted_qvd=True,
+    )
+
+    prices = make_dataset_urn("qlik-sense", UNLISTED_QVD.lower())
+    assert prices in {wu.get_urn() for wu in first_wus}
+    assert prices not in {wu.get_urn() for wu in second_wus}
+    assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
