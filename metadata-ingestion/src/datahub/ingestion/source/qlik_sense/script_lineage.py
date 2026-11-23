@@ -1308,15 +1308,16 @@ class _ScriptParser(BaseModel):
         Concatenate or Join add to another table."""
         if mapping or merged or self.pending_mapping or self.pending_merge:
             return
-        if _named_by(label) is None or generic or self.pending_generic:
+        name = _named_by(label)
+        if name is None or generic or self.pending_generic:
             # Qlik names the table, or the tables, or a variable the parser
             # can't expand does.
             self.has_unnamed_tables = True
             return
-        if label.lower() not in (known.lower() for known in self.table_labels):
-            self.table_labels.append(label)
+        if name.lower() not in (known.lower() for known in self.table_labels):
+            self.table_labels.append(name)
         if replace or self.pending_replace:
-            self.dropped_tables.append(label)
+            self.dropped_tables.append(name)
 
     def _record_file_load(self, statement: str) -> None:
         expanded = _load_path(statement)
