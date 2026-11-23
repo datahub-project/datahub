@@ -391,6 +391,25 @@ def test_file_that_cant_be_named_by_its_connection(
     assert _source({}, {})._unmapped_file_urn(connection, path) is None
 
 
+@pytest.mark.parametrize("data_files", ["Other Space:DataFiles", "DataFiles"])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_named_by_its_connection_ignores_data_files_on_the_same_path(
+    mock_api_cls: MagicMock, data_files: str
+) -> None:
+    # DataFiles hold Qlik datasets, never a file on external storage, even
+    # when not listed.
+    script = (
+        "Rates: LOAD * FROM [lib://Sales Space:Lake/ref/rates.csv] (txt);\n"
+        f"Cached: LOAD * FROM [lib://{data_files}/ref/rates.csv] (txt);\n"
+    )
+    source = _source({}, {}, script)
+
+    assert source._resolve_file_source(
+        "app-1", _file_qri("adls", "lake", "ref/rates.csv")
+    ) == make_dataset_urn("qlik-sense", "sales space:lake/ref/rates.csv")
+    assert source.reporter.unresolved_file_connections == [CONNECTION]
+
+
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_file_named_by_its_connection_or_on_mapped_storage_is_ambiguous(
     mock_api_cls: MagicMock,

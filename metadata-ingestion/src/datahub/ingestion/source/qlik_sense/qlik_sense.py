@@ -234,6 +234,11 @@ QVD_EXTENSION = ".qvd"
 DATA_FILES_CONNECTION = "datafiles"
 
 
+def _is_data_files(connection: str) -> bool:
+    space, qualified, name = connection.strip().partition(":")
+    return (name if qualified else space).lower() == DATA_FILES_CONNECTION
+
+
 def _is_qvd(dataset: Union[QlikDataset, ListedDataset]) -> bool:
     return dataset.type.upper() == "QVD" or dataset.name.lower().endswith(QVD_EXTENSION)
 
@@ -2074,7 +2079,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         qualified = f"{space}:{name}/{path}"
         if (
             not (space and name and path)
-            or name.lower() == DATA_FILES_CONNECTION
+            or _is_data_files(connection)
             # Characters a dataset URN can't hold.
             or any(char in qualified for char in ",()")
         ):
@@ -2209,9 +2214,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             storage, detail = self._file_storage(reference.connection, space_id)
             if storage is None:
                 info = self._find_data_connection(reference.connection, space_id)
-                if info is not None and info.file_platform != candidates.platform:
-                    # A visible connection of another kind, such as DataFiles,
-                    # can't hold a file on this storage.
+                if _is_data_files(reference.connection) or (
+                    info is not None and info.file_platform != candidates.platform
+                ):
+                    # DataFiles, listed or not, and a visible connection of
+                    # another kind can't hold a file on this storage.
                     continue
                 unmapped_urn = self._unmapped_storage_file_urn(
                     reference.connection, reference.path
@@ -3161,6 +3168,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         source_app_id = self._binary_source_app(file, resolved)
         if source_app_id == app.id:
             return without_lineage("binary_file_to_app maps it to the app itself")
+        if source_app_id is not None and parsed.drops_unnamed_tables:
+            # Any data model table could be one the script dropped and loaded again.
+            return without_lineage(
+                "the script drops or replaces tables it doesn't name, so the "
+                "tables the file brings in are not known"
+            )
         created = {label.lower() for label in parsed.table_labels}
         if source_app_id is not None:
             # A load under a BINARY table's name adds to it, or Qlik renames
