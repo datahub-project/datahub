@@ -1747,11 +1747,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return app_table_identifier(app_id, label)
 
     def _app_table_urns(self, app: App) -> Dict[str, str]:
-        urns = {
-            table.tableQri: self._gen_qlik_dataset_urn(table.tableQri.lower())
-            for table in app.tables
-            if table.tableQri
-        }
+        urns: Dict[str, str] = {}
+        for table in app.tables:
+            if table.tableQri:
+                urn = self._gen_qlik_dataset_urn(table.tableQri.lower())
+                urns[table.tableQri] = urn
+                if table.graphQri:
+                    urns[table.graphQri] = urn
         urns.update(
             (
                 table.qri,
@@ -1765,7 +1767,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _register_app_tables(self, app: App) -> None:
         self._app_table_urns_by_qri.update(self._app_table_urns(app))
-        if app.tables_read_failed:
+        if (
+            app.tables_read_failed
+            or app.graph_tables_unmatched
+            or (app.tables and app.lineage_graph_missing)
+        ):
             self._apps_tables_unknown.add(app.id)
             return
         self._apps_tables_known.add(app.id)
