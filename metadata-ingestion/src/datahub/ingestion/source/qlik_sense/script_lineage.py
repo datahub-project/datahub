@@ -1364,20 +1364,24 @@ class _ScriptParser(BaseModel):
     ) -> None:
         """Notes the table a load creates, with the top preceding load's
         prefixes. A mapping table is dropped at the end of the reload, and
-        Concatenate or Join add to another table."""
-        if mapping or merged or self.pending_mapping or self.pending_merge:
+        Concatenate or Join add to another table, unless Replace drops it
+        first."""
+        replaced = replace or self.pending_replace
+        if mapping or self.pending_mapping:
+            return
+        if (merged or self.pending_merge) and not replaced:
             return
         name = _named_by(label)
         if name is None or generic or self.pending_generic:
             # Qlik names the table, or the tables, or a variable the parser
             # can't expand does.
             self.has_unnamed_tables = True
-            if replace or self.pending_replace:
+            if replaced:
                 self.drops_unnamed_tables = True
             return
         if name.lower() not in (known.lower() for known in self.table_labels):
             self.table_labels.append(name)
-        if replace or self.pending_replace:
+        if replaced:
             self.dropped_tables.append(name)
 
     def _record_file_load(self, statement: str) -> None:
