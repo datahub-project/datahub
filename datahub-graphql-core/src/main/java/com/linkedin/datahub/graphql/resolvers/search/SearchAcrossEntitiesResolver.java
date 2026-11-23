@@ -27,6 +27,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -100,14 +101,18 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             // Build the final filter, combining view filter and entity-specific defaults
             Filter combinedFilter =
                 maybeResolvedView != null
-                    ? SearchUtils.combineFilters(
+                    ? FilterUtils.combineFilters(
                         baseFilter, maybeResolvedView.getDefinition().getFilter())
                     : baseFilter;
 
+            // Whether the caller's own filter, with its view, has a criterion before the defaults
+            final boolean callerFiltered = FilterUtils.hasCriterion(combinedFilter);
+
             // Add default entity filters (e.g. showInGlobalContext for documents).
-            combinedFilter =
-                DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+            final DefaultEntityFiltersUtil.SearchFilters defaults =
+                DefaultEntityFiltersUtil.searchFilters(
                     combinedFilter, finalEntities, searchFlags, context);
+            combinedFilter = defaults.filter();
 
             boolean shouldIncludeStructuredPropertyFacets =
                 input.getSearchFlags() != null
@@ -122,7 +127,13 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             // Execute search and remove default filter fields from aggregations
             SearchResult searchResult =
                 _entityClient.searchAcrossEntities(
-                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags)
+                        .withCallerOptionalFilterFields(
+                            DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
+                        .withCallerFiltered(callerFiltered)
+                        .withAnchorFilter(defaults.anchorFilter()),
                     finalEntities,
                     sanitizedQuery,
                     combinedFilter,

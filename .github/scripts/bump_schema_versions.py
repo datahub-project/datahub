@@ -230,32 +230,55 @@ def get_base_pdl_changes(merge_base: str, remote_ref: str) -> list[str]:
         sys.exit(1)
 
 
-def get_changed_pdl_files(base_ref: str) -> list[str]:
-    """Return repo-relative paths of PDL files that differ between base_ref and the working tree.
+def _merge_in_progress() -> bool:
+    """Return True while a `git merge` is unfinished (MERGE_HEAD exists)."""
+    result = subprocess.run(
+        ["git", "rev-parse", "-q", "--verify", "MERGE_HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0 and bool(result.stdout.strip())
 
-    Compares base_ref against the working tree (not HEAD) so that uncommitted
-    changes are included — this function runs inside a pre-commit hook.
-    base_ref may be a branch name, remote tracking ref, or commit SHA.
+
+def _diff_pdl_names(base_ref: str, against: str | None = None) -> list[str]:
+    """PDL paths that differ between base_ref and against, or the working tree.
+
+    against=None compares to the working tree, so uncommitted edits count.
     """
+    cmd = [
+        "git",
+        "diff",
+        "--name-only",
+        "--diff-filter=ACM",
+        base_ref,
+    ]
+    if against is not None:
+        cmd.append(against)
+    cmd.extend(["--", "*.pdl"])
     try:
-        result = subprocess.run(
-            [
-                "git",
-                "diff",
-                "--name-only",
-                "--diff-filter=ACM",
-                base_ref,
-                "--",
-                "*.pdl",
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return [f.strip() for f in result.stdout.strip().splitlines() if f.strip()]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     except subprocess.CalledProcessError as e:
         print(f"Error getting changed files: {e.stderr}", file=sys.stderr)
         sys.exit(1)
+    return [f.strip() for f in result.stdout.strip().splitlines() if f.strip()]
+
+
+def get_changed_pdl_files(base_ref: str) -> list[str]:
+    """Return PDL files this branch changed relative to base_ref.
+
+    Outside a merge, compares base_ref to the working tree so uncommitted
+    edits count — this runs inside a pre-commit hook. During a merge the
+    working tree also contains the branch being merged in. Comparing that
+    tree to the old merge base reports those incoming files as changes this
+    branch made, and the overlap check then refuses the merge commit for a
+    file this branch never edited. Compare to HEAD instead: files that only
+    arrived with the merge are not this branch's changes. Conflict-resolution
+    edits to a file the branch did not already change do not count either.
+    base_ref may be a branch name, remote tracking ref, or commit SHA.
+    """
+    if _merge_in_progress():
+        return _diff_pdl_names(base_ref, "HEAD")
+    return _diff_pdl_names(base_ref)
 
 
 def get_file_at_branch(filepath: str, branch: str) -> str | None:
@@ -825,7 +848,9 @@ BUMP_WORTHY_ANNOTATIONS = frozenset(
 )
 
 
-def parse_record_fields(body: str) -> dict[str, tuple[str, bool, dict[str, str]]] | None:
+def parse_record_fields(
+    body: str,
+) -> dict[str, tuple[str, bool, dict[str, str], bool]] | None:
     """Parse the top-level fields of a record body (comments already stripped).
 
     Returns {field name: (normalized type, is_optional, annotations)}, or None
@@ -840,8 +865,9 @@ def parse_record_fields(body: str) -> dict[str, tuple[str, bool, dict[str, str]]
     parser (rather than duplicating the brace-balanced scanning logic) so both
     tools classify annotation changes identically.
     """
-    fields: dict[str, tuple[str, bool, dict[str, str]]] = {}
+    fields: dict[str, tuple[str, bool, dict[str, str], bool]] = {}
     pending_annotations: dict[str, str] = {}
+    pending_deprecated = False
     n = len(body)
     i = _skip_ws(body, 0)
     while i < n:
@@ -855,6 +881,8 @@ def parse_record_fields(body: str) -> dict[str, tuple[str, bool, dict[str, str]]
                 return None
             ann_name = m.group(0)
             i = m.end()
+            if ann_name == "deprecated":
+                pending_deprecated = True
             while i < n and body[i] == ".":
                 m = _IDENT_RE.match(body, i + 1)
                 if not m:
@@ -888,8 +916,9 @@ def parse_record_fields(body: str) -> dict[str, tuple[str, bool, dict[str, str]]
         type_norm = normalize_pdl_for_compare(_strip_field_default(type_text))
         if name in fields:
             return None
-        fields[name] = (type_norm, _type_is_optional(type_text), pending_annotations)
+        fields[name] = (type_norm, _type_is_optional(type_text), pending_annotations, pending_deprecated)
         pending_annotations = {}
+        pending_deprecated = False
         i = _skip_ws(body, end)
     return fields
 
@@ -1025,6 +1054,127 @@ def _aspect_annotation_without_version(content: str) -> dict | None:
     return data
 
 
+_BOOST_SCORE_RE = re.compile(r'"boostScore"\s*:\s*-?(?:\d+(?:\.\d*)?|\.\d+)')
+
+
+def _without_boost_score(annotation: str) -> str:
+    """Drop boostScore from a normalized @Searchable value, including path maps."""
+    text = _BOOST_SCORE_RE.sub("", annotation)
+    text = re.sub(r",\s*,", ", ", text)
+    text = re.sub(r"\{\s*,", "{ ", text)
+    text = re.sub(r",\s*\}", " }", text)
+    return " ".join(text.split())
+
+
+def _without_query_by_default(annotation: str) -> str:
+    """Drop queryByDefault from a normalized @Searchable value, including path maps.
+
+    The flag selects whether an unqualified query reads the field. Changing it does
+    not change rows stored for the aspect.
+    """
+    text = re.sub(r'"queryByDefault"\s*:\s*(?:true|false|"true"|"false")', "", annotation)
+    text = re.sub(r",\s*,", ", ", text)
+    text = re.sub(r"\{\s*,", "{ ", text)
+    text = re.sub(r",\s*\}", " }", text)
+    text = " ".join(text.split())
+    return re.sub(r"\{\s*\}", "{}", text)
+
+
+def _without_v3_overlay(annotation: str) -> str:
+    """Drop a nested v3 value from a normalized @Searchable value.
+
+    The overlay changes only the Search V3 index, including a mappings array with
+    nested objects. It does not change rows stored for the aspect, so it is
+    ignored the same way searchLabel is.
+    """
+    pieces: list[str] = []
+    cursor = 0
+    for match in re.finditer(r'"v3"\s*:', annotation):
+        value_start = _skip_ws(annotation, match.end())
+        if value_start >= len(annotation) or annotation[value_start] not in "{[":
+            continue
+        value_end = _skip_balanced(annotation, value_start)
+        if value_end is None:
+            continue
+        pieces.append(annotation[cursor : match.start()])
+        cursor = value_end
+    text = "".join(pieces) + annotation[cursor:]
+    text = re.sub(r",\s*,", ", ", text)
+    text = re.sub(r"\{\s*,", "{ ", text)
+    text = re.sub(r",\s*\}", " }", text)
+    text = " ".join(text.split())
+    return re.sub(r"\{\s*\}", "{}", text)
+
+
+def _without_search_label(annotation: str) -> str:
+    """Drop searchLabel from a normalized @Searchable value, including path maps."""
+    text = re.sub(r'"searchLabel"\s*:\s*"[^"]*"', "", annotation)
+    text = re.sub(r",\s*,", ", ", text)
+    text = re.sub(r"\{\s*,", "{ ", text)
+    text = re.sub(r",\s*\}", " }", text)
+    text = " ".join(text.split())
+    return re.sub(r"\{\s*\}", "{}", text)
+
+
+def _without_has_values_field_name(annotation: str) -> str:
+    """Drop hasValuesFieldName from a normalized @Searchable value, including path maps.
+
+    The name selects the shared existence boolean for a search label. Changing it
+    rebuilds the index mapping and does not change rows stored for the aspect.
+    """
+    text = re.sub(r'"hasValuesFieldName"\s*:\s*"[^"]*"', "", annotation)
+    text = re.sub(r",\s*,", ", ", text)
+    text = re.sub(r"\{\s*,", "{ ", text)
+    text = re.sub(r",\s*\}", " }", text)
+    text = " ".join(text.split())
+    return re.sub(r"\{\s*\}", "{}", text)
+
+
+def _is_empty_annotation(annotation: str) -> bool:
+    return re.fullmatch(r"\{\s*\}", annotation) is not None
+
+
+def _annotations_for_version_bump(annotations: dict[str, str]) -> dict[str, str]:
+    """Annotations that require a stored-aspect migration.
+
+    searchLabel selects a shared search field, hasValuesFieldName names that label's
+    existence boolean, queryByDefault selects whether an unqualified query reads the
+    field, and a nested v3 object overrides the label for Search V3 only. Changing any
+    of them rebuilds the index and does not change rows already stored for the aspect,
+    so they are ignored the same way boostScore is. A @Searchable annotation that
+    contains nothing else is ignored too.
+    """
+    compared: dict[str, str] = {}
+    for name, value in annotations.items():
+        if name != "Searchable":
+            compared[name] = value
+            continue
+        value = _without_query_by_default(
+            _without_has_values_field_name(
+                _without_search_label(_without_boost_score(_without_v3_overlay(value)))
+            )
+        )
+        if not _is_empty_annotation(value):
+            compared[name] = value
+    return compared
+
+
+def _annotations_compared_for_version_bump(
+    base_annotations: dict[str, str], current_annotations: dict[str, str]
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Compare annotations, treating removal of @Searchable as mapping-only.
+
+    Dropping @Searchable stops indexing that field. The aspect field and its
+    stored value remain, so this is not a row migration. Adding @Searchable, or
+    changing one that remains, still bumps.
+    """
+    base = _annotations_for_version_bump(base_annotations)
+    current = _annotations_for_version_bump(current_annotations)
+    if "Searchable" in base and "Searchable" not in current:
+        base = {name: value for name, value in base.items() if name != "Searchable"}
+    return base, current
+
+
 def _defs_backward_compatible(
     base_defs: dict[str, dict], cur_defs: dict[str, dict]
 ) -> bool:
@@ -1039,10 +1189,15 @@ def _defs_backward_compatible(
         @compliance, @UrnValidation)
 
     Any removal, type change, optional→required flip, added non-optional field,
-    includes change, removed enum symbol, or a changed/added/removed
+    includes change, removed enum symbol, or a changed or added
     `BUMP_WORTHY_ANNOTATIONS` value on an existing field (@Searchable,
-    @Relationship, @SearchableRef, @TimeseriesField, @TimeseriesFieldCollection
-    — these drive reindexing) is treated as incompatible (bump).
+    @Relationship, @SearchableRef, @TimeseriesField, @TimeseriesFieldCollection)
+    is treated as incompatible (bump). Removing @Searchable is not: the field
+    stays in the aspect and its stored value remains; only the search mapping
+    changes. `boostScore` is a query weight. `searchLabel` selects the shared search
+    field a value is copied into, and `hasValuesFieldName` names that label's existence
+    boolean. Either one is applied by reindexing, not by migrating rows. Deprecating a
+    field that remains does not bump; deleting the field does.
     """
     for name, bdef in base_defs.items():
         cdef = cur_defs.get(name)
@@ -1053,11 +1208,11 @@ def _defs_backward_compatible(
                 return False
             base_fields = bdef["fields"]
             cur_fields = cdef["fields"]
-            for fname, (btype, bopt, bann) in base_fields.items():
+            for fname, (btype, bopt, bann, _bdeprecated) in base_fields.items():
                 cur_field = cur_fields.get(fname)
                 if cur_field is None:
                     return False
-                ctype, copt, cann = cur_field
+                ctype, copt, cann, _cdeprecated = cur_field
                 # Type change or optional→required is breaking (matches report).
                 if ctype != btype:
                     return False
@@ -1067,11 +1222,17 @@ def _defs_backward_compatible(
                 # has_structural there); treat as bump-worthy to stay aligned.
                 if (not bopt) and copt:
                     return False
-                # A whitelisted annotation (index/reindex-relevant) changing
-                # value, appearing, or disappearing is a real schema change.
-                if bann != cann:
+                # A whitelisted annotation changing value or appearing is a
+                # stored-aspect change. Removing @Searchable is not: the source
+                # value stays, and only the search mapping changes. boostScore,
+                # searchLabel, and hasValuesFieldName are applied by reindexing.
+                # Deprecating a field that remains does not bump; deleting the field does.
+                base_annotations, current_annotations = (
+                    _annotations_compared_for_version_bump(bann, cann)
+                )
+                if base_annotations != current_annotations:
                     return False
-            for fname, (_ctype, copt, _ann) in cur_fields.items():
+            for fname, (_ctype, copt, _ann, _deprecated) in cur_fields.items():
                 if fname not in base_fields and not copt:
                     return False
         elif not bdef["symbols"].issubset(cdef["symbols"]):
@@ -1296,7 +1457,7 @@ def main() -> int:
         if args.verbose:
             print(
                 f"Ignoring {len(backward_compatible)} backward-compatible PDL "
-                "change(s) (additive optional fields / enum symbols only):"
+                "change(s) (no stored-aspect migration):"
             )
             for f in backward_compatible:
                 print(f"  {f}")
@@ -1306,10 +1467,12 @@ def main() -> int:
         print("No changed PDL files found.")
         return 0
 
-    # Check whether any PDL files changed on this branch also changed on the
+    # Check whether any PDL files this branch changed also changed on the
     # base branch since divergence. If so, the branch must be rebased or
     # merged before schemaVersion can be bumped correctly.
-    # Unrelated PDL changes on the base branch do not block.
+    # Unrelated PDL changes on the base branch do not block. A file that
+    # shows up only because it is being merged in from the base does not
+    # either: get_changed_pdl_files excludes those during a merge.
     base_pdl_changes = get_base_pdl_changes(merge_base, remote_ref)
     conflicting = sorted(set(directly_changed) & set(base_pdl_changes))
     if conflicting:

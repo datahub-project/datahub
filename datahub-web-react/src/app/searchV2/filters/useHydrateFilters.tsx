@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { buildEntityCache, isResolutionRequired } from '@app/entityV2/view/builder/utils';
+import { buildEntityCache, isEntityResolutionRequired } from '@app/entityV2/shared/utils/selectorUtils';
 import { FieldType, FilterPredicate } from '@app/searchV2/filters/types';
 
 import { useGetEntitiesLazyQuery } from '@graphql/entity.generated';
@@ -31,7 +31,7 @@ export const useHydrateFilters = (filters: FilterPredicate[]): FilterPredicate[]
 
     useEffect(() => {
         const attemptedUrns = attemptedUrnsRef.current;
-        if (!isResolutionRequired(urnsToResolve, entityCache, attemptedUrns)) {
+        if (!isEntityResolutionRequired(urnsToResolve, entityCache, attemptedUrns)) {
             return;
         }
         urnsToResolve.forEach((urn) => attemptedUrns.add(urn));

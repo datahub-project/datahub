@@ -4,12 +4,14 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
+import com.linkedin.common.Status;
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.lifecycle.LifecycleStageTypeInfo;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCLItem;
@@ -43,6 +45,9 @@ import lombok.extern.slf4j.Slf4j;
 @Setter
 @Accessors(chain = true)
 public class VersionPropertiesSideEffect extends MCPSideEffect {
+
+  private static final String LIFECYCLE_STAGE_TYPE_INFO_ASPECT = "lifecycleStageTypeInfo";
+
   @Nonnull private AspectPluginConfig config;
 
   @Override
@@ -109,6 +114,14 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
       if (!supersedes(versionProperties, prevLatestVersionProperties)) {
         return Stream.empty();
       }
+    }
+
+    // Don't re-promote entities that are in a hidden lifecycle stage. LifecycleVersionSideEffect
+    // may have intentionally demoted this entity by patching isLatest=false while keeping a higher
+    // sortId than the new VSP.latest. Without this guard, a subsequent patch on this entity's
+    // VersionProperties would re-promote it, undoing the effective-latest demotion.
+    if (isEntityInHiddenStage(operationFingerprint, entityUrn, retrieverContext)) {
+      return Stream.empty();
     }
 
     // New version properties is the new latest
@@ -229,6 +242,46 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
             .applyPatch(prevLatestVersionProperties, retrieverContext.getAspectRetriever());
 
     return Stream.of(updateVersionSetProperties, updateOldLatestVersionProperties, setIsLatest);
+  }
+
+  /**
+   * Returns {@code true} if the entity at {@code entityUrn} currently has a lifecycle stage whose
+   * {@code hideInSearch} setting is {@code true}. Used to prevent re-promoting a hidden entity to
+   * {@code isLatest} via sortId comparison — see the guard in {@link #processMCP}.
+   */
+  private static boolean isEntityInHiddenStage(
+      @Nonnull OperationFingerprint operationFingerprint,
+      @Nonnull Urn entityUrn,
+      @Nonnull RetrieverContext retrieverContext) {
+    try {
+      Aspect statusAspect =
+          retrieverContext
+              .getAspectRetriever()
+              .getLatestAspectObject(operationFingerprint, entityUrn, STATUS_ASPECT_NAME);
+      if (statusAspect == null) {
+        return false;
+      }
+      Status status = new Status(statusAspect.data());
+      if (!status.hasLifecycleStage()) {
+        return false;
+      }
+      Aspect stageAspect =
+          retrieverContext
+              .getAspectRetriever()
+              .getLatestAspectObject(
+                  operationFingerprint,
+                  status.getLifecycleStage(),
+                  LIFECYCLE_STAGE_TYPE_INFO_ASPECT);
+      if (stageAspect == null) {
+        return false;
+      }
+      LifecycleStageTypeInfo info = new LifecycleStageTypeInfo(stageAspect.data());
+      return info.getSettings() != null && info.getSettings().isHideInSearch();
+    } catch (Exception e) {
+      log.warn(
+          "Failed to check hidden lifecycle stage for {}, treating as not hidden", entityUrn, e);
+      return false;
+    }
   }
 
   /**

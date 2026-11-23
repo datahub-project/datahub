@@ -1,12 +1,15 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
+import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -17,11 +20,15 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
 
   private final EntityClient _entityClient;
   private final EntityService<?> _entityService;
+  private final EntityVersioningService _entityVersioningService;
 
   public DeleteGlossaryEntityResolver(
-      final EntityClient entityClient, EntityService<?> entityService) {
+      final EntityClient entityClient,
+      EntityService<?> entityService,
+      final EntityVersioningService entityVersioningService) {
     _entityClient = entityClient;
     _entityService = entityService;
+    _entityVersioningService = entityVersioningService;
   }
 
   @Override
@@ -38,6 +45,7 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
             }
 
             try {
+              unlinkFromVersionSet(context, entityUrn);
               final var references =
                   _entityClient.deleteEntityThenReferences(
                       context.getOperationContext(), entityUrn);
@@ -69,5 +77,24 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  /**
+   * Deleting a version must first unlink it so the version set hands "latest" to the next version.
+   * Otherwise the set keeps pointing at the deleted entity and its remaining versions stay hidden
+   * from search, which filters out non-latest versions.
+   */
+  private void unlinkFromVersionSet(final QueryContext context, final Urn entityUrn) {
+    final VersionProperties versionProperties =
+        (VersionProperties)
+            _entityService.getAspect(
+                context.getOperationContext(),
+                entityUrn,
+                Constants.VERSION_PROPERTIES_ASPECT_NAME,
+                0L);
+    if (versionProperties != null) {
+      _entityVersioningService.unlinkVersion(
+          context.getOperationContext(), versionProperties.getVersionSet(), entityUrn);
+    }
   }
 }

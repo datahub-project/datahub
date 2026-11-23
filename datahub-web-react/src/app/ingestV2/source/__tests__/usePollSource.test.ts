@@ -1,9 +1,10 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { updateListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import usePollSource from '@app/ingestV2/source/usePollSource';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useGetIngestionSourceLazyQuery } from '@graphql/ingestion.generated';
 

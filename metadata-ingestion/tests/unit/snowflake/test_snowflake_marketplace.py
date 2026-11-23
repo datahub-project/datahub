@@ -27,7 +27,7 @@ from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
     GlobalTagsClass,
 )
-from tests.unit.snowflake.conftest_marketplace import (  # type: ignore[import-untyped]
+from tests.unit.snowflake.conftest_marketplace import (
     FakeNativeConn as _FakeNativeConn,
 )
 

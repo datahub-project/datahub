@@ -8,6 +8,7 @@ import { test, expect } from '../../fixtures/base-test';
 import { MetricsPage } from '../../pages/metrics.page';
 import { TIMEOUTS } from '../../utils/constants';
 import { METRICS_FEATURE_FLAGS, NAMES, ORDERS_LOGICAL_URN, SEMANTIC_MODEL_ORDERS_URN } from './constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'metrics' });
 
@@ -20,18 +21,22 @@ test.describe('Semantic Model details', () => {
     await metricsPage.navigateToSemanticModel(SEMANTIC_MODEL_ORDERS_URN);
   });
 
-  test('loads profile with sidebar selection and summary modules', async () => {
-    await metricsPage.expectEntityNamed(NAMES.ORDERS_MODEL);
-    await expect(metricsPage.sidebar).toBeVisible();
+  test(
+    'loads profile with sidebar selection and summary modules',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async () => {
+      await metricsPage.expectEntityNamed(NAMES.ORDERS_MODEL);
+      await expect(metricsPage.sidebar).toBeVisible();
 
-    await metricsPage.openSummaryTab();
-    await metricsPage.expectSemanticModelModulesVisible();
-    await metricsPage.expectModuleContains(metricsPage.datasetsModule, NAMES.ORDERS_ALIAS);
-    await metricsPage.expectModuleContains(metricsPage.metricsModule, NAMES.TOTAL_REVENUE);
-    await metricsPage.expectModuleContains(metricsPage.dimensionsModule, 'order_id');
-    await metricsPage.expectModuleContains(metricsPage.relationshipsModule, NAMES.ORDERS_ALIAS);
-    await metricsPage.expectModuleContains(metricsPage.relationshipsModule, NAMES.CUSTOMERS_ALIAS);
-  });
+      await metricsPage.openSummaryTab();
+      await metricsPage.expectSemanticModelModulesVisible();
+      await metricsPage.expectModuleContains(metricsPage.datasetsModule, NAMES.ORDERS_ALIAS);
+      await metricsPage.expectModuleContains(metricsPage.metricsModule, NAMES.TOTAL_REVENUE);
+      await metricsPage.expectModuleContains(metricsPage.dimensionsModule, 'order_id');
+      await metricsPage.expectModuleContains(metricsPage.relationshipsModule, NAMES.ORDERS_ALIAS);
+      await metricsPage.expectModuleContains(metricsPage.relationshipsModule, NAMES.CUSTOMERS_ALIAS);
+    },
+  );
 
   test('definition tab shows native definition', async () => {
     await metricsPage.openDefinitionTab();

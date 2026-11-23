@@ -12,6 +12,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.ModelValidationException;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
@@ -34,7 +35,7 @@ public class MultiEntityMappingsUtilsTest {
 
     assertEquals(result.size(), 2);
     assertEquals(result.get(TYPE), ALIAS_FIELD_TYPE);
-    assertEquals(result.get(PATH), "_search.entityName");
+    assertEquals(result.get(PATH), "name");
   }
 
   @Test
@@ -52,7 +53,7 @@ public class MultiEntityMappingsUtilsTest {
 
     assertEquals(result.size(), 2);
     assertEquals(result.get(TYPE), ALIAS_FIELD_TYPE);
-    assertEquals(result.get(PATH), "_search.qualifiedName");
+    assertEquals(result.get(PATH), "qualifiedName");
   }
 
   @Test
@@ -66,7 +67,7 @@ public class MultiEntityMappingsUtilsTest {
 
   @Test
   public void testCreateAliasMapping() {
-    String targetPath = "_search.custom_field";
+    String targetPath = "customField";
     Map<String, Object> result = MultiEntityMappingsUtils.createAliasMapping(targetPath);
 
     assertEquals(result.size(), 2);
@@ -251,7 +252,14 @@ public class MultiEntityMappingsUtilsTest {
     when(annotation.getFieldName()).thenReturn(fieldName);
 
     when(annotation.getSearchLabel()).thenReturn(Optional.ofNullable(searchLabel));
+    when(annotation.indexedFieldName())
+        .thenReturn(
+            searchLabel == null || searchLabel.isEmpty()
+                ? Optional.empty()
+                : Optional.of(searchLabel));
     when(annotation.getEntityFieldName()).thenReturn(Optional.ofNullable(entityFieldName));
+    when(annotation.isV3Searchable()).thenReturn(true);
+    when(annotation.resolvedForV3()).thenReturn(annotation);
     when(annotation.getEagerGlobalOrdinals()).thenReturn(Optional.ofNullable(eagerGlobalOrdinals));
     when(annotation.getFieldNameAliases())
         .thenReturn(
@@ -384,7 +392,7 @@ public class MultiEntityMappingsUtilsTest {
     Collection<EntitySpec> entitySpecs = Collections.singletonList(entitySpec);
 
     Map<String, Object> result =
-        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
+        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
 
     assertTrue(result.containsKey("dynamic"));
     assertTrue(result.containsKey("properties"));
@@ -397,7 +405,7 @@ public class MultiEntityMappingsUtilsTest {
     assertFalse(properties.containsKey("tier_1"));
   }
 
-  @Test(expectedExceptions = IllegalArgumentException.class)
+  @Test(expectedExceptions = ModelValidationException.class)
   public void testBuildSearchSectionWithTypeConflicts() {
     // Create entity specs with conflicting types for the same destination field
     // Use BOOLEAN and KEYWORD which map to different Elasticsearch types
@@ -405,8 +413,8 @@ public class MultiEntityMappingsUtilsTest {
     EntitySpec entitySpec2 = createMockEntitySpecWithFieldType("sort_name", FieldType.BOOLEAN);
     Collection<EntitySpec> entitySpecs = Arrays.asList(entitySpec1, entitySpec2);
 
-    // This should throw an IllegalArgumentException due to type conflicts
-    MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
+    // Registry validation rejects the conflicting shared-label contract before mapping generation.
+    MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
   }
 
   @Test
@@ -414,7 +422,7 @@ public class MultiEntityMappingsUtilsTest {
     Collection<EntitySpec> entitySpecs = Collections.emptyList();
 
     Map<String, Object> result =
-        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
+        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
 
     @SuppressWarnings("unchecked")
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
@@ -430,7 +438,7 @@ public class MultiEntityMappingsUtilsTest {
     Collection<EntitySpec> entitySpecs = Collections.singletonList(entitySpec);
 
     Map<String, Object> result =
-        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
+        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
 
     // Verify basic structure
     assertNotNull(result, "Result should not be null");
@@ -449,7 +457,7 @@ public class MultiEntityMappingsUtilsTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> nameField = (Map<String, Object>) properties.get("name");
     assertEquals(nameField.get("type"), "keyword", "name should be keyword type");
-    assertEquals(nameField.get("normalizer"), "keyword_normalizer", "name should have normalizer");
+    assertFalse(nameField.containsKey("normalizer"), nameField.toString());
 
     // Verify search label destination fields
     assertTrue(properties.containsKey("score"), "Should contain score field");
@@ -458,8 +466,7 @@ public class MultiEntityMappingsUtilsTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> scoreField = (Map<String, Object>) properties.get("score");
     assertEquals(scoreField.get("type"), "keyword", "score should be keyword type");
-    assertEquals(
-        scoreField.get("normalizer"), "keyword_normalizer", "score should have normalizer");
+    assertFalse(scoreField.containsKey("normalizer"), scoreField.toString());
 
     // Verify entity field name destinations
     assertTrue(properties.containsKey("customField"), "Should contain customField field");
@@ -467,8 +474,7 @@ public class MultiEntityMappingsUtilsTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> customField = (Map<String, Object>) properties.get("customField");
     assertEquals(customField.get("type"), "keyword", "customField should be keyword type");
-    assertEquals(
-        customField.get("normalizer"), "keyword_normalizer", "customField should have normalizer");
+    assertFalse(customField.containsKey("normalizer"), customField.toString());
   }
 
   // Helper methods for testing relocated utility methods
@@ -479,6 +485,8 @@ public class MultiEntityMappingsUtilsTest {
     when(annotation.getFieldType()).thenReturn(fieldType);
     when(annotation.getFieldName()).thenReturn(fieldName);
     when(annotation.getSearchIndexed()).thenReturn(Optional.ofNullable(searchIndexed));
+    when(annotation.isV3Searchable()).thenReturn(true);
+    when(annotation.resolvedForV3()).thenReturn(annotation);
 
     SearchableFieldSpec fieldSpec = mock(SearchableFieldSpec.class);
     when(fieldSpec.getSearchableAnnotation()).thenReturn(annotation);
@@ -529,8 +537,15 @@ public class MultiEntityMappingsUtilsTest {
     when(annotation.getFieldName()).thenReturn(fieldName);
 
     when(annotation.getSearchLabel()).thenReturn(Optional.ofNullable(searchLabel));
+    when(annotation.indexedFieldName())
+        .thenReturn(
+            searchLabel == null || searchLabel.isEmpty()
+                ? Optional.empty()
+                : Optional.of(searchLabel));
     when(annotation.getEntityFieldName()).thenReturn(Optional.ofNullable(entityFieldName));
     when(annotation.getSearchIndexed()).thenReturn(Optional.empty());
+    when(annotation.isV3Searchable()).thenReturn(true);
+    when(annotation.resolvedForV3()).thenReturn(annotation);
 
     SearchableFieldSpec fieldSpec = mock(SearchableFieldSpec.class);
     when(fieldSpec.getSearchableAnnotation()).thenReturn(annotation);

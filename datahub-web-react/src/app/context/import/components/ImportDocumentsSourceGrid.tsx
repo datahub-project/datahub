@@ -9,6 +9,7 @@ import { Card } from '@src/alchemy-components';
 
 import confluenceLogo from '@images/confluencelogo.svg';
 import githubLogo from '@images/githublogo.png';
+import gitlabLogo from '@images/gitlablogo.png';
 import notionLogo from '@images/notionlogo.png';
 
 const ICON_SIZE = 24;
@@ -42,6 +43,12 @@ export default function ImportDocumentsSourceGrid({
                         subTitle={t('context.import.githubDescription')}
                         icon={<img src={githubLogo} alt={t('context.import.githubAlt')} style={LOGO_STYLE} />}
                         onClick={() => onSelectSource(ImportSourceType.GITHUB)}
+                    />
+                    <Card
+                        title={t('context.import.gitlabTitle')}
+                        subTitle={t('context.import.gitlabDescription')}
+                        icon={<img src={gitlabLogo} alt={t('context.import.gitlabAlt')} style={LOGO_STYLE} />}
+                        onClick={() => onSelectSource(ImportSourceType.GITLAB)}
                     />
                     <Card
                         title={t('context.import.notionTitle')}

@@ -1,11 +1,11 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import SidebarPopularityHeaderSection, {
     hasPopularityStats,
 } from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarPopularityHeaderSection';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import {
     DashboardLastUpdatedMs,
     DatasetLastUpdatedMs,
@@ -16,7 +16,7 @@ import Freshness from '@app/previewV2/Freshness';
 import LineageBadge from '@app/previewV2/LineageBadge';
 import QueryStat from '@app/previewV2/QueryStat';
 import { useHideLineageInSearchCards } from '@app/useAppConfig';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {
     Chart,
@@ -98,7 +98,7 @@ function getLastUpdatedMs(entity: Entity): DatasetLastUpdatedMs | DashboardLastU
  * so tags, terms, users, and domains never grow an empty strip.
  */
 export default function HoverCardFooter({ entity, properties }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const hideLineage = useHideLineageInSearchCards();
 
     const statsSummary = getStatsSummary(entity);

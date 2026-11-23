@@ -5,7 +5,7 @@ import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
 import { mapFilterOption } from '@app/searchV2/filters/mapFilterOption';
 import { FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
 import { getFilterDisplayName, useFilterDisplayName } from '@app/searchV2/filters/utils';
-import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
+import { OptionList } from '@app/searchV2/filters/value/styledComponents';
 import {
     deduplicateOptions,
     useFilterOptionsBySearchQuery,
@@ -21,11 +21,10 @@ interface Props {
     values: FilterValue[];
     defaultOptions: FilterValueOption[];
     onChangeValues: (newValues: FilterValue[]) => void;
-    onApply: () => void;
-    type?: 'card' | 'default';
     includeCount?: boolean;
     className?: string;
     aggregationsEntityTypes?: Array<EntityType>;
+    isRenderedInSubMenu?: boolean;
     showDefaultOptions?: boolean;
 }
 
@@ -34,17 +33,15 @@ export default function EnumValueMenu({
     values,
     includeCount = false,
     defaultOptions,
-    type = 'card',
     onChangeValues,
-    onApply,
     className,
     aggregationsEntityTypes,
+    isRenderedInSubMenu,
     showDefaultOptions = true,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const displayName = useFilterDisplayName(field);
 
-    // Ideally we would not have staged values, and filters would update automatically.
     const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined);
 
     // Debounce the value that drives the server-side aggregation query so we don't fire
@@ -63,7 +60,6 @@ export default function EnumValueMenu({
 
     const optionsWithAggs = [...defaultOptions, ...deduplicateOptions(defaultOptions, aggOptions)];
 
-    // Do an aggregations query with the given search query as a filter to find any values not in the first set of results
     const { options: searchAggOptions, loading: searchAggsLoading } = useLoadAggregationOptions({
         field,
         visible: !!debouncedSearchQuery, // only run this query if there's a (debounced) search query
@@ -77,7 +73,6 @@ export default function EnumValueMenu({
 
     const localSearchOptions = useFilterOptionsBySearchQuery(allOptions, searchQuery);
 
-    // Compute the final options to show to the user.
     const finalOptions = searchQuery ? localSearchOptions : allOptions;
 
     const filterMenuOptions = finalOptions.map((option) =>
@@ -104,14 +99,19 @@ export default function EnumValueMenu({
 
     return (
         <OptionsDropdownMenu
-            menu={<OptionMenu items={filterMenuOptions} />}
-            updateFilters={onApply}
+            menu={
+                <OptionList>
+                    {filterMenuOptions.map((opt) => (
+                        <React.Fragment key={opt.key}>{opt.label}</React.Fragment>
+                    ))}
+                </OptionList>
+            }
             searchQuery={searchQuery || ''}
             updateSearchQuery={setSearchQuery}
             isLoading={aggLoading || searchAggsLoading}
             searchPlaceholder={displayName}
-            type={type}
             className={className}
+            isRenderedInSubMenu={isRenderedInSubMenu}
         />
     );
 }

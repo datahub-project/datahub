@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 
 import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
-import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { EntityNestedSelectOption } from '@app/sharedV2/select/select.types';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { ListDomainFragment, useScrollAcrossDomainsQuery } from '@src/graphql/domain.generated';
 import { Entity, EntityType, FilterOperator, SortOrder } from '@src/types.generated';
 
@@ -40,10 +40,10 @@ interface Props {
 
 /**
  * Custom hook for infinite scroll domains specifically adapted for DomainSelector
- * Returns NestedSelectOption format domains and intersection observer ref
+ * Returns EntityNestedSelectOption format domains and intersection observer ref
  */
 export default function useInfiniteScrollDomains({ parentDomain, skip }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const [hasInitialized, setHasInitialized] = useState(false);
     const [domains, setDomains] = useState<Entity[]>([]);
     const [domainsUrnsSet, setDomainsUrnsSet] = useState<Set<string>>(new Set());
@@ -99,8 +99,8 @@ export default function useInfiniteScrollDomains({ parentDomain, skip }: Props) 
         }
     }, [inView, nextScrollId, scrollId, loading, hasMoreDomains]);
 
-    // Convert domains to NestedSelectOption format
-    const nestedSelectOptions = useMemo((): NestedSelectOption[] => {
+    // Convert domains to EntityNestedSelectOption format
+    const nestedSelectOptions = useMemo((): EntityNestedSelectOption[] => {
         return domains.map((domain) => ({
             value: domain.urn,
             label: entityRegistry.getDisplayName(domain.type, domain),

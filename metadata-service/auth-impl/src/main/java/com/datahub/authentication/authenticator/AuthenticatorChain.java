@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.AuthenticationRequest;
+import com.datahub.authentication.AuthenticationUnavailableException;
 import com.datahub.plugins.auth.authentication.Authenticator;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
@@ -44,6 +45,10 @@ public class AuthenticatorChain {
    * <p>Returns an instance of {@link Authentication} if the incoming request is successfully
    * authenticated. Returns null if {@link Authentication} cannot be resolved for the incoming
    * request.
+   *
+   * @throws AuthenticationUnavailableException if no authenticator succeeded and at least one could
+   *     not decide because its backing store failed. The request may carry valid credentials, so
+   *     callers should not treat it as unauthenticated.
    */
   @Nullable
   public Authentication authenticate(
@@ -53,6 +58,7 @@ public class AuthenticatorChain {
 
     ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
     List<Pair<String, Exception>> authenticationFailures = new ArrayList<>();
+    AuthenticationUnavailableException unavailable = null;
     for (final Authenticator authenticator : this.authenticators) {
       try {
         log.debug(
@@ -78,6 +84,16 @@ public class AuthenticatorChain {
             authenticator.getClass().getCanonicalName(),
             e);
         throw e;
+      } catch (AuthenticationUnavailableException e) {
+        // Keep trying the rest of the chain; another authenticator may still succeed.
+        log.debug(
+            "Authenticator {} could not reach its store",
+            authenticator.getClass().getCanonicalName(),
+            e);
+        authenticationFailures.add(new Pair<>(authenticator.getClass().getCanonicalName(), e));
+        if (unavailable == null) {
+          unavailable = e;
+        }
       } catch (Exception e) {
         // Log as a normal error otherwise.
         log.debug(
@@ -104,6 +120,9 @@ public class AuthenticatorChain {
       log.debug(
           "Authentication chain failed to resolve a valid authentication. Errors: {}",
           shortMessage);
+    }
+    if (unavailable != null) {
+      throw unavailable;
     }
     return null;
   }

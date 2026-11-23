@@ -1,11 +1,10 @@
 import React from 'react';
 
-import { Entity } from '@app/entity/Entity';
-import { VIEW_ENTITY_PAGE } from '@app/entity/shared/constants';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { ViewBuilderState } from '@app/entity/view/types';
-import { EntityCapabilityType } from '@app/entityV2/Entity';
-import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
+import { Entity, EntityCapabilityType } from '@app/entityV2/Entity';
+import { VIEW_ENTITY_PAGE } from '@app/entityV2/shared/constants';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
+import { ViewBuilderState } from '@app/entityV2/view/types';
+import { AppConfigWithoutPolicyPrivileges, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 import { AppConfigDocument, GetEntityCountsDocument } from '@graphql/app.generated';
 import { GetBrowsePathsDocument, GetBrowseResultsDocument } from '@graphql/browse.generated';
@@ -35,7 +34,6 @@ import {
 import { GetTagDocument } from '@graphql/tag.generated';
 import { GetUserDocument } from '@graphql/user.generated';
 import {
-    AppConfig,
     Container,
     DataFlow,
     DataHubView,
@@ -3766,7 +3764,7 @@ export const mocksWithSearchFlagsOff = [
                         ...DEFAULT_APP_CONFIG.featureFlags,
                         showSearchFiltersV2: false,
                     },
-                } as AppConfig,
+                } as AppConfigWithoutPolicyPrivileges,
             },
         },
     },

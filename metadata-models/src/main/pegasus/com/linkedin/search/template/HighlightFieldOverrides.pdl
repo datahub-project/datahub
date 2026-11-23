@@ -1,0 +1,24 @@
+namespace com.linkedin.search.template
+
+/**
+ * Template override of the highlight-field set. Applied to the schema-derived highlight fields.
+ * {@code replace} cannot be combined with {@code add} or {@code remove}. An explicitly present
+ * empty object clears an inherited override. Whether highlighting runs stays on
+ * {@code SearchFlags.skipHighlighting}.
+ */
+record HighlightFieldOverrides {
+  /**
+   * Field names added on top of the base set.
+   */
+  add: optional array[string]
+
+  /**
+   * Field names removed from the base set.
+   */
+  remove: optional array[string]
+
+  /**
+   * Wholesale replacement of the base set.
+   */
+  replace: optional array[string]
+}

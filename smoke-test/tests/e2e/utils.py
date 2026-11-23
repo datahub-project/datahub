@@ -31,6 +31,33 @@ from utilities.consistency_utils import wait_for_writes_to_sync
 TIME: int = 1581407189000
 logger = logging.getLogger(__name__)
 
+# Matches EntitySearchIndexResolver.shouldReadV3.
+_V2_ENABLED_PROPERTY = "elasticsearch.entityIndex.v2.enabled"
+_V3_ENABLED_PROPERTY = "elasticsearch.entityIndex.v3.enabled"
+_V3_KEYWORD_READ_PROPERTY = "elasticsearch.entityIndex.v3.keywordReadEnabled"
+
+
+def _flag(properties: Dict[str, Any], name: str, default: bool) -> bool:
+    raw = properties.get(name)
+    if raw is None:
+        return default
+    if isinstance(raw, str):
+        return raw.lower() == "true"
+    return bool(raw)
+
+
+def reads_search_v3(auth_session) -> bool:
+    """True when keyword reads are served from Search V3 indices."""
+    response = auth_session.get(
+        f"{auth_session.gms_url()}/openapi/v1/system-info/properties/simple"
+    )
+    response.raise_for_status()
+    properties = response.json()
+    v3_enabled = _flag(properties, _V3_ENABLED_PROPERTY, False)
+    v2_enabled = _flag(properties, _V2_ENABLED_PROPERTY, True)
+    keyword_read = _flag(properties, _V3_KEYWORD_READ_PROPERTY, False)
+    return v3_enabled and (keyword_read or not v2_enabled)
+
 
 def sync_elastic() -> None:
     wait_for_writes_to_sync()
@@ -259,6 +286,7 @@ def get_sleep_info() -> Tuple[int, int]:
 
 def with_test_retry(
     max_attempts: Optional[int] = None,
+    retry: Optional[tenacity.retry_base] = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator that retries with environment-based sleep settings from get_sleep_info().
@@ -269,6 +297,8 @@ def with_test_retry(
     Args:
         max_attempts: Optional maximum number of retry attempts. If not provided,
                      uses DATAHUB_TEST_SLEEP_TIMES environment variable (default 3).
+        retry: Optional tenacity retry condition. If not provided, retries on any
+               exception.
 
     Usage:
         @with_test_retry()
@@ -283,9 +313,24 @@ def with_test_retry(
     """
     sleep_sec, sleep_times = get_sleep_info()
     retry_count = max_attempts if max_attempts is not None else sleep_times
+    # Read-after-write checks usually pass a second or two after a miss, but a
+    # flat sleep_sec (20s by default) made every miss cost the full sleep. Back
+    # off from 1s up to sleep_sec instead, and stop only once both the attempt
+    # count and the old total sleep budget are spent, so no check gives up
+    # sooner than it did with fixed sleeps. The budget counts sleep time only
+    # (idle_for), not the checks' own run time, as the fixed sleeps did.
+    sleep_budget = sleep_sec * max(retry_count - 1, 0)
+
+    def _stop(retry_state: tenacity.RetryCallState) -> bool:
+        return (
+            retry_state.attempt_number >= retry_count
+            and retry_state.idle_for >= sleep_budget
+        )
+
     return tenacity.retry(
-        stop=tenacity.stop_after_attempt(retry_count),
-        wait=tenacity.wait_fixed(sleep_sec),
+        stop=_stop,
+        wait=tenacity.wait_exponential(multiplier=1, min=1, max=max(sleep_sec, 1)),
+        retry=retry if retry is not None else tenacity.retry_if_exception_type(),
         reraise=True,
     )
 
@@ -917,6 +962,47 @@ def create_datahub_step_state_aspects(
         json.dump(aspects_dict, f, indent=2)
 
 
+_AUTH_DENIED_CODES = (401, 403)
+
+
+def _was_denied_before_write(url: str, response: Any) -> bool:
+    """True when GMS refused the request on authorization, so nothing was written.
+
+    Authorization runs before any write, so a 401/403 (HTTP status, or every
+    GraphQL error with no field returning data) leaves no change to wait for.
+    Authorization tests send many such calls; each used to pay a full sync wait.
+    """
+    status = getattr(response, "status_code", None)
+    if not isinstance(status, int):
+        return False
+    if status in _AUTH_DENIED_CODES:
+        return True
+    if "/graphql" not in url or status != 200:
+        return False
+    try:
+        body = response.json()
+    except ValueError:
+        return False
+    if not isinstance(body, dict):
+        return False
+    errors = body.get("errors")
+    if not errors or not isinstance(errors, list):
+        return False
+    data = body.get("data")
+    if isinstance(data, dict) and any(value is not None for value in data.values()):
+        return False
+    if data is not None and not isinstance(data, dict):
+        return False
+    # Only an error on the top-level field means the resolver itself was denied. An
+    # error deeper in the path can come from reading the result after a write.
+    return all(
+        isinstance(error, dict)
+        and (error.get("extensions") or {}).get("code") in _AUTH_DENIED_CODES
+        and len(error.get("path") or []) <= 1
+        for error in errors
+    )
+
+
 class TestSessionWrapper:
     """
     Many of the tests do not consider async writes. This
@@ -978,7 +1064,9 @@ class TestSessionWrapper:
                 result = attr(*args, **kwargs)
 
                 # Post-processing can be done here
-                if name in ("post", "put"):
+                if name in ("post", "put") and not _was_denied_before_write(
+                    args[0], result
+                ):
                     # Wait for sync if writing
                     # delete is excluded for efficient test clean-up
                     self._wait(*args, **kwargs)

@@ -8,7 +8,7 @@ import { useAppConfig } from '@app/useAppConfig';
 import analytics, { Event, EventType } from '@src/app/analytics';
 import { getEntityPath } from '@src/app/entityV2/shared/containers/profile/entityData';
 import { isEntityType } from '@src/app/entityV2/shared/utils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { FacetFilterInput } from '@src/types.generated';
 
 export default function useSelectOption(
@@ -16,7 +16,7 @@ export default function useSelectOption(
     filters: FacetFilterInput[],
 ) {
     const history = useHistory();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const appConfig = useAppConfig();
     const searchAPIVariant = appConfig.config.searchBarConfig.apiVariant;
 

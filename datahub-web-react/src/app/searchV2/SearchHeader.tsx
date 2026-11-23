@@ -13,8 +13,8 @@ import { V2_SEARCH_BAR_ID } from '@app/onboarding/configV2/HomePageOnboardingCon
 import { SearchBar } from '@app/searchV2/SearchBar';
 import { SearchBarV2 } from '@app/searchV2/searchBarV2/SearchBarV2';
 import useSearchViewAll from '@app/searchV2/useSearchViewAll';
-import { NAV_SIDEBAR_COLLAPSE_TRANSITION_MS } from '@app/shared/constants';
-import { useIsHomePage } from '@app/shared/useIsHomePage';
+import { NAV_SIDEBAR_COLLAPSE_TRANSITION_MS } from '@app/sharedV2/constants';
+import { useIsHomePage } from '@app/sharedV2/useIsHomePage';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
@@ -102,22 +102,25 @@ const SearchBarContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const StyledButton = styled(Button)`
-    color: ${(props) => props.theme.colors.textSecondary};
-    text-align: center;
+    && {
+        color: ${(props) => props.theme.colors.textSecondary};
+        text-align: center;
 
-    font-family: Mulish;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 700;
-    line-height: normal;
+        font-family: Mulish;
+        font-size: 12px;
+        font-style: normal;
+        font-weight: 700;
+        line-height: normal;
 
-    display: flex;
-    gap: 4px;
-    align-items: center;
+        display: flex;
+        gap: 4px;
+        align-items: center;
+    }
 
-    &:hover,
-    :active,
-    :focus {
+    /* antd 5's link-button hover rule is five classes deep */
+    &&&&&:hover,
+    &&&&&:active,
+    &&&&&:focus {
         color: ${(props) => props.theme.colors.textTertiary};
     }
 `;

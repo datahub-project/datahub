@@ -10,7 +10,7 @@ import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { EmbeddedProfile } from '@app/entityV2/shared/profileChunks';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
 import { Document, DocumentSourceType, EntityType, SearchResult } from '@types';

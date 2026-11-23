@@ -32,11 +32,9 @@ vi.mock('@graphql/mutations.generated', async (importOriginal) => {
 });
 vi.mock('@app/useEntityRegistry', () => ({
     useEntityRegistry: vi.fn(),
-    useEntityRegistryV2: vi.fn(),
 }));
 vi.mock('@src/app/useEntityRegistry', () => ({
     useEntityRegistry: vi.fn(),
-    useEntityRegistryV2: vi.fn(),
 }));
 vi.mock('react-i18next', async (importOriginal) => {
     const actual = await importOriginal<typeof import('react-i18next')>();

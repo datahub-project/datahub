@@ -9,8 +9,8 @@ import { useUserContext } from '@app/context/useUserContext';
 import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
 import { AdvancedButton, AdvancedContent, FormSection } from '@app/identity/group/CreateGroupModal.components';
-import { validateCustomUrnId } from '@app/shared/textUtil';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { validateCustomUrnId } from '@app/sharedV2/textUtil';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { Input, Modal, TextArea } from '@src/alchemy-components';
 
 import { useAddGroupMembersMutation, useCreateGroupMutation } from '@graphql/group.generated';

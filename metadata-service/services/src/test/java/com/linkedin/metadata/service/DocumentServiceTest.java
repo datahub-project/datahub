@@ -41,6 +41,8 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -57,10 +59,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.Assert;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class DocumentServiceTest {
@@ -414,7 +419,7 @@ public class DocumentServiceTest {
   }
 
   @Test
-  public void testUpdateArticleContentsDoesNotWriteSemanticTextUnlessProvided() throws Exception {
+  public void testUpdateArticleContentsMirrorsBodyIntoSemanticTextByDefault() throws Exception {
     final SystemEntityClient mockClient = createMockEntityClientWithInfo();
     final DocumentService service = new DocumentService(mockClient);
 
@@ -445,6 +450,38 @@ public class DocumentServiceTest {
             infoProposal.getAspect().getContentType(),
             DocumentInfo.class);
     Assert.assertEquals(updatedInfo.getContents().getText(), "New content");
+
+    // No explicit semanticText: the new body becomes the embedding-source override, so every API
+    // that edits a body keeps semantic search in step without opting in.
+    final MetadataChangeProposal semanticTextProposal =
+        proposalsCaptor.getValue().stream()
+            .filter(
+                proposal -> Constants.SEMANTIC_TEXT_ASPECT_NAME.equals(proposal.getAspectName()))
+            .findFirst()
+            .orElseThrow();
+    Assert.assertEquals(
+        GenericRecordUtils.deserializeAspect(
+                semanticTextProposal.getAspect().getValue(),
+                semanticTextProposal.getAspect().getContentType(),
+                SemanticText.class)
+            .getText(),
+        "New content");
+  }
+
+  @Test
+  public void testUpdateArticleContentsLeavesSemanticTextAloneOnTitleOnlyEdit() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.updateDocumentContents(
+        opContext, TEST_DOCUMENT_URN, null, "New title", null, TEST_USER_URN, SearchIndexMode.SYNC);
+
+    @SuppressWarnings("unchecked")
+    final ArgumentCaptor<List<MetadataChangeProposal>> proposalsCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(mockClient, times(1))
+        .batchIngestProposals(eq(opContext), proposalsCaptor.capture(), eq(false));
+
     Assert.assertTrue(
         proposalsCaptor.getValue().stream()
             .noneMatch(
@@ -452,15 +489,37 @@ public class DocumentServiceTest {
   }
 
   @Test
-  public void testUpdateArticleContentsUpdatesSemanticTextWhenProvided() throws Exception {
-    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+  public void testUpdateArticleContentsReplacesAnyStoredSemanticTextWhenNoneIsPassed()
+      throws Exception {
+    // The contract: a caller that wants its own value passes one on every write. A write that
+    // does not is taken to mean the body is the value, whatever was stored before.
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo("Custom retrieval text");
     final DocumentService service = new DocumentService(mockClient);
 
     service.updateDocumentContents(
         opContext,
         TEST_DOCUMENT_URN,
-        "User-owned content",
-        "User-owned content",
+        "New content",
+        null,
+        null,
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
+
+    Assert.assertEquals(captureSemanticText(mockClient), "New content");
+  }
+
+  @Test
+  public void testUpdateArticleContentsUpdatesSemanticTextWhenProvided() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+    final DocumentService service = new DocumentService(mockClient);
+
+    // Distinct values: with the same string for both, a regression that ignored semanticText and
+    // copied the body would still pass.
+    service.updateDocumentContents(
+        opContext,
+        TEST_DOCUMENT_URN,
+        "New body",
+        "Explicit semantic text",
         null,
         null,
         TEST_USER_URN,
@@ -483,7 +542,7 @@ public class DocumentServiceTest {
             semanticTextProposal.getAspect().getValue(),
             semanticTextProposal.getAspect().getContentType(),
             SemanticText.class);
-    Assert.assertEquals(updatedSemanticText.getText(), "User-owned content");
+    Assert.assertEquals(updatedSemanticText.getText(), "Explicit semantic text");
   }
 
   @Test
@@ -682,9 +741,198 @@ public class DocumentServiceTest {
             eq(10));
   }
 
+  @DataProvider(name = "relevanceRankedQueries")
+  public Object[][] relevanceRankedQueries() {
+    // "foo*" pins the boundary: it carries a wildcard character but is still a real query with
+    // meaningful scores, so it must not fall into the recency branch.
+    return new Object[][] {{"Average Order Value"}, {"foo*"}};
+  }
+
+  @Test(dataProvider = "relevanceRankedQueries")
+  public void testSearchDocumentsRanksTextQueryByRelevance(String query) throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithSearchResults();
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.searchDocuments(opContext, query, null, null, 0, 10);
+
+    // An empty sort list lets Elasticsearch rank by score. A createdAt sort here would bury exact
+    // title matches beneath whatever was ingested most recently.
+    Assert.assertTrue(captureSortCriteria(mockClient).isEmpty());
+  }
+
+  @DataProvider(name = "browseStyleQueries")
+  public Object[][] browseStyleQueries() {
+    return new Object[][] {{"*"}, {""}, {"   "}};
+  }
+
+  @Test(dataProvider = "browseStyleQueries")
+  public void testSearchDocumentsRanksBrowseStyleQueryByRecency(String query) throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithSearchResults();
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.searchDocuments(opContext, query, null, null, 0, 10);
+
+    final List<SortCriterion> sortCriteria = captureSortCriteria(mockClient);
+    Assert.assertEquals(sortCriteria.size(), 1);
+    Assert.assertEquals(sortCriteria.get(0).getField(), "createdAt");
+    Assert.assertEquals(sortCriteria.get(0).getOrder(), SortOrder.DESCENDING);
+  }
+
+  @Test
+  public void testSearchDocumentsHonorsExplicitSort() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithSearchResults();
+    final DocumentService service = new DocumentService(mockClient);
+    final SortCriterion explicitSort =
+        new SortCriterion().setField("lastModifiedAt").setOrder(SortOrder.DESCENDING);
+
+    service.searchDocuments(opContext, "Average Order Value", null, explicitSort, 0, 10);
+
+    Assert.assertEquals(captureSortCriteria(mockClient), List.of(explicitSort));
+  }
+
+  @SuppressWarnings("unchecked")
+  private List<SortCriterion> captureSortCriteria(SystemEntityClient mockClient) throws Exception {
+    final ArgumentCaptor<List<SortCriterion>> captor = ArgumentCaptor.forClass(List.class);
+    verify(mockClient)
+        .search(
+            any(OperationContext.class),
+            eq(Constants.DOCUMENT_ENTITY_NAME),
+            any(String.class),
+            any(),
+            captor.capture(),
+            eq(0),
+            eq(10));
+    return captor.getValue();
+  }
+
+  @Test
+  public void testSearchDocumentsKeepsCallerTemplateAndExplain() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithSearchResults();
+    when(mockClient.searchAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(),
+            anyInt(),
+            any(),
+            anyList(),
+            anyList()))
+        .thenReturn(searchPage());
+    final DocumentService service = new DocumentService(mockClient);
+    final Urn template = UrnUtils.getUrn("urn:li:searchTemplate:structured");
+    final SearchFlags requested =
+        new SearchFlags().setSearchTemplate(template).setIncludeExplain(true);
+
+    service.searchDocuments(opContext, "tutorial", null, null, 0, 10, null, requested);
+    service.searchDocuments(opContext, "tutorial", null, null, 0, 10, List.of("entity"), requested);
+
+    final ArgumentCaptor<OperationContext> page = ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockClient)
+        .search(
+            page.capture(),
+            eq(Constants.DOCUMENT_ENTITY_NAME),
+            eq("tutorial"),
+            any(),
+            any(List.class),
+            eq(0),
+            eq(10));
+    assertCallerTemplate(page.getValue(), template);
+
+    final ArgumentCaptor<OperationContext> facets = ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockClient)
+        .searchAcrossEntities(
+            facets.capture(),
+            eq(List.of(Constants.DOCUMENT_ENTITY_NAME)),
+            eq("tutorial"),
+            any(),
+            eq(0),
+            eq(Integer.valueOf(10)),
+            anyList(),
+            eq(List.of("entity")));
+    assertCallerTemplate(facets.getValue(), template);
+  }
+
+  @Test
+  public void testSearchDocumentsWithoutATemplateStaysFulltext() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithSearchResults();
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.searchDocuments(opContext, "tutorial", null, null, 0, 10);
+
+    final ArgumentCaptor<OperationContext> captured =
+        ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockClient)
+        .search(
+            captured.capture(),
+            eq(Constants.DOCUMENT_ENTITY_NAME),
+            eq("tutorial"),
+            any(),
+            any(List.class),
+            eq(0),
+            eq(10));
+    final SearchFlags applied = captured.getValue().getSearchContext().getSearchFlags();
+    Assert.assertFalse(applied.hasSearchTemplate());
+    Assert.assertTrue(applied.isFulltext());
+  }
+
+  private static void assertCallerTemplate(OperationContext opContext, Urn template) {
+    final SearchFlags applied = opContext.getSearchContext().getSearchFlags();
+    Assert.assertEquals(applied.getSearchTemplate(), template);
+    Assert.assertTrue(applied.isIncludeExplain());
+    Assert.assertTrue(applied.isFulltext());
+  }
+
+  private static SearchResult searchPage() {
+    final SearchResult searchResult = new SearchResult();
+    searchResult.setFrom(0);
+    searchResult.setPageSize(10);
+    searchResult.setNumEntities(0);
+    searchResult.setEntities(new SearchEntityArray());
+    searchResult.setMetadata(new SearchResultMetadata());
+    return searchResult;
+  }
+
   // Helper methods to create mock EntityClients
 
+  /** The semanticText aspect the batch wrote, or null when it wrote none. */
+  @Nullable
+  private SemanticText captureSemanticTextAspect(@Nonnull final SystemEntityClient mockClient)
+      throws Exception {
+    @SuppressWarnings("unchecked")
+    final ArgumentCaptor<List<MetadataChangeProposal>> proposalsCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(mockClient, times(1))
+        .batchIngestProposals(eq(opContext), proposalsCaptor.capture(), eq(false));
+
+    return proposalsCaptor.getValue().stream()
+        .filter(proposal -> Constants.SEMANTIC_TEXT_ASPECT_NAME.equals(proposal.getAspectName()))
+        .findFirst()
+        .map(
+            proposal ->
+                GenericRecordUtils.deserializeAspect(
+                    proposal.getAspect().getValue(),
+                    proposal.getAspect().getContentType(),
+                    SemanticText.class))
+        .orElse(null);
+  }
+
+  @Nullable
+  private String captureSemanticText(@Nonnull final SystemEntityClient mockClient)
+      throws Exception {
+    final SemanticText aspect = captureSemanticTextAspect(mockClient);
+    return aspect == null ? null : aspect.getText();
+  }
+
   private SystemEntityClient createMockEntityClientWithInfo() throws Exception {
+    return createMockEntityClientWithInfo(null);
+  }
+
+  /**
+   * @param storedSemanticText when non-null, the mocked document also carries a {@code
+   *     semanticText} aspect holding this value
+   */
+  private SystemEntityClient createMockEntityClientWithInfo(
+      @Nullable final String storedSemanticText) throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     final DocumentInfo info = new DocumentInfo();
@@ -696,6 +944,13 @@ public class DocumentServiceTest {
 
     final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     aspectMap.put(Constants.DOCUMENT_INFO_ASPECT_NAME, aspect);
+
+    if (storedSemanticText != null) {
+      final SemanticText stored = new SemanticText().setText(storedSemanticText);
+      final EnvelopedAspect semanticTextAspect = new EnvelopedAspect();
+      semanticTextAspect.setValue(new com.linkedin.entity.Aspect(stored.data()));
+      aspectMap.put(Constants.SEMANTIC_TEXT_ASPECT_NAME, semanticTextAspect);
+    }
 
     final EntityResponse response = new EntityResponse();
     response.setUrn(TEST_DOCUMENT_URN);

@@ -7,9 +7,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { getEffectivePrimaryKeys, isPrimaryKeyField } from '@app/entityV2/dataset/profile/schema/utils/primaryKeys';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 import { pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { AboutFieldTab } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/AboutFieldTab';
 import DrawerFooter from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/DrawerFooter';
 import FieldHeader from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldHeader';
@@ -17,7 +19,6 @@ import {
     SchemaFieldDrawerTabs,
     TABS_WIDTH,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawerTabs';
-import SchemaFieldQueriesSidebarTab from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldQueriesSidebarTab';
 import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsTabWrapper';
 import { SchemaTimelineSection } from '@app/entityV2/shared/tabs/Dataset/Timeline/SchemaTimelineSection';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
@@ -27,6 +28,13 @@ import { TabRenderType } from '@app/entityV2/shared/types';
 import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
 import { useGetEntitiesNotesQuery } from '@graphql/relationships.generated';
 import { EditableSchemaMetadata, Post, SchemaField, TimeWindow, UsageQueryResult } from '@types';
+
+// Query cards and the query editor sit behind this tab. The schema drawer itself
+// should not download the syntax highlighter or Monaco.
+const SchemaFieldQueriesSidebarTab = lazyProfileComponent(
+    'SchemaFieldQueriesSidebarTab',
+    () => import('@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldQueriesSidebarTab'),
+);
 
 const DEFAULT_SELECTED_TAB_KEY = 'About';
 
@@ -81,6 +89,10 @@ const Tabs = styled.div``;
 
 interface Props {
     schemaFields: SchemaField[];
+    // primaryKeys declared by the source schema, for the effective primary key badge
+    schemaPrimaryKeys?: string[] | null;
+    // primary key declared by users (editablePrimaryKeys aspect), used when the source declares none
+    editedPrimaryKeys?: string[] | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     expandedDrawerFieldPath: string | null;
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
@@ -97,6 +109,8 @@ interface Props {
 
 export default function SchemaFieldDrawer({
     schemaFields,
+    schemaPrimaryKeys,
+    editedPrimaryKeys,
     editableSchemaMetadata,
     expandedDrawerFieldPath,
     setExpandedDrawerFieldPath,
@@ -117,6 +131,11 @@ export default function SchemaFieldDrawer({
     );
     const expandedField =
         expandedFieldIndex !== undefined && expandedFieldIndex !== -1 ? displayedRows[expandedFieldIndex] : undefined;
+
+    const primaryKeys = useMemo(
+        () => getEffectivePrimaryKeys({ primaryKeys: schemaPrimaryKeys, fields: schemaFields }, editedPrimaryKeys),
+        [schemaPrimaryKeys, schemaFields, editedPrimaryKeys],
+    );
 
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const latestFullTableProfile = baseEntity?.dataset?.latestFullTableProfile?.[0];
@@ -263,6 +282,7 @@ export default function SchemaFieldDrawer({
                             <FieldHeader
                                 setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                                 expandedField={expandedField}
+                                isPrimaryKey={isPrimaryKeyField(primaryKeys, expandedField)}
                             />
                             <Body onKeyDown={(e) => e.stopPropagation()}>
                                 {selectedTab && (

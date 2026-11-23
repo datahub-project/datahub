@@ -136,6 +136,12 @@ class DataSource:
         return hash(self.__members())
 
 
+FabricArtifactType = Literal["Lakehouse", "Warehouse", "SQLAnalyticsEndpoint"]
+FABRIC_ARTIFACT_LAKEHOUSE: FabricArtifactType = "Lakehouse"
+FABRIC_ARTIFACT_WAREHOUSE: FabricArtifactType = "Warehouse"
+FABRIC_ARTIFACT_SQL_ANALYTICS_ENDPOINT: FabricArtifactType = "SQLAnalyticsEndpoint"
+
+
 @dataclass
 class FabricArtifact:
     """Represents a Microsoft Fabric artifact (Lakehouse, Warehouse, SQLAnalyticsEndpoint).
@@ -145,9 +151,7 @@ class FabricArtifact:
 
     id: str
     name: str
-    artifact_type: Literal[
-        "Lakehouse", "Warehouse", "SQLAnalyticsEndpoint"
-    ]  # casing really matters here
+    artifact_type: FabricArtifactType  # casing really matters here
     workspace_id: str
     # Raw relation ids from API (relations[].dependentOnArtifactId); used to resolve physical_item_ids.
     relation_dependent_ids: Optional[List[str]] = None
@@ -178,6 +182,14 @@ class Column:
     measure_profile: Optional[MeasureProfile] = None
 
 
+@dataclass(frozen=True)
+class MeasureReference:
+    """A `'Table'[Field]` (or bare `[Measure]`, table None) reference in DAX."""
+
+    table: Optional[str]
+    field: str
+
+
 @dataclass
 class Measure:
     name: str
@@ -189,6 +201,32 @@ class Measure:
     ] = dataclasses.field(default_factory=NullTypeClass)
     description: Optional[str] = None
     measure_profile: Optional[MeasureProfile] = None
+    # Only populated from TMDL definitions (workspace_apis mode).
+    references: List[MeasureReference] = dataclasses.field(default_factory=list)
+
+
+@dataclass
+class Relationship:
+    """A semantic-model relationship (TMDL `relationship`); modelled as a
+    foreign key from the `from` table to the `to` table."""
+
+    name: str
+    from_table: str
+    from_column: str
+    to_table: str
+    to_column: str
+    is_active: bool = True
+
+
+@dataclass
+class DatasetRefresh:
+    """Latest entry of GET /groups/{ws}/datasets/{id}/refreshes."""
+
+    request_id: Optional[str]
+    refresh_type: Optional[str]
+    status: Optional[str]
+    start_time: Optional[str]
+    end_time: Optional[str]
 
 
 @dataclass
@@ -210,6 +248,10 @@ class Table:
     source_expression: Optional[str] = (
         None  # From source[].expression (upstream table name)
     )
+    # DAX of a calculated table (TMDL `partition ... = calculated`); the model
+    # tables it reads become same-platform upstreams. workspace_apis mode only.
+    calculated_expression: Optional[str] = None
+    description: Optional[str] = None
 
 
 @dataclass
@@ -230,6 +272,9 @@ class PowerBIDataset:
     # DirectLake support: artifact ID this dataset depends on (Lakehouse/Warehouse)
     # From relations[].dependentOnArtifactId
     dependent_on_artifact_id: Optional[str] = None
+    # Populated only in workspace_apis mode (from TMDL / refresh history).
+    relationships: List["Relationship"] = field(default_factory=list)
+    last_refresh: Optional["DatasetRefresh"] = None
 
     def get_urn_part(self):
         return f"datasets.{self.id}"
@@ -260,12 +305,29 @@ class PowerBIDataset:
         )
 
 
+FieldReferenceKind = Literal["column", "measure"]
+
+
+@dataclass(frozen=True)
+class PageFieldReference:
+    """A model column or measure a page's visuals read (from the report
+    definition)."""
+
+    table: str
+    field: str
+    kind: FieldReferenceKind
+
+
 @dataclass
 class Page:
     id: str
     displayName: str
     name: str
     order: int
+    # Populated only when extract_report_field_usage is enabled.
+    field_references: List[PageFieldReference] = field(default_factory=list)
+    visual_count: Optional[int] = None
+    visual_types: List[str] = field(default_factory=list)
 
     def get_urn_part(self):
         return f"pages.{self.id}"

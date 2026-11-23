@@ -1,8 +1,12 @@
 package com.linkedin.metadata.resources.entity;
 
+import org.testng.annotations.BeforeMethod;
+import com.linkedin.metadata.utils.TolerantHandling;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.fail;
 
 import com.datahub.authentication.Actor;
@@ -12,6 +16,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataPlatformUrn;
@@ -30,19 +35,29 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.IngestAspectsResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
+import com.linkedin.data.template.GetMode;
+import com.linkedin.metadata.entity.ebean.batch.AttributedActorHeaders;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.UpdateIndicesService;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.parseq.Engine;
+import com.linkedin.parseq.EngineBuilder;
+import com.linkedin.parseq.Task;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -51,6 +66,8 @@ import com.linkedin.restli.server.RestLiServiceException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import mock.MockEntityRegistry;
+import org.mockito.ArgumentCaptor;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -64,6 +81,11 @@ public class AspectResourceTest {
   private PreProcessHooks preProcessHooks;
   private Authorizer authorizer;
   private OperationContext opContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
 
   @BeforeTest
   public void setup() {
@@ -93,6 +115,11 @@ public class AspectResourceTest {
     aspectResource.setSystemOperationContext(opContext);
     aspectResource.setEntitySearchService(mock(EntitySearchService.class));
     entityRegistry = opContext.getEntityRegistry();
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
@@ -173,6 +200,45 @@ public class AspectResourceTest {
     verifyNoMoreInteractions(producer);
   }
 
+  private AuditStamp queueAndCaptureStamp(Actor caller) throws URISyntaxException {
+    reset(producer, aspectDao);
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    Urn urn = new DatasetUrn(new DataPlatformUrn("platform"), "attributed", FabricType.PROD);
+    mcp.setEntityUrn(urn);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(new DatasetProperties().setName("name")));
+    mcp.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.UPSERT);
+    AttributedActorHeaders.stamp(mcp, "urn:li:corpuser:alice");
+
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(caller);
+    aspectResource.ingestProposal(mcp, "true");
+
+    ArgumentCaptor<MCPItem> item = ArgumentCaptor.forClass(MCPItem.class);
+    verify(producer).produceMetadataChangeProposal(any(OperationContext.class), eq(urn), item.capture());
+    return item.getValue().getAuditStamp();
+  }
+
+  @Test
+  public void testSystemCallerHonorsAttributedActor() throws URISyntaxException {
+    Actor system = opContext.getSessionAuthentication().getActor();
+
+    AuditStamp stamp = queueAndCaptureStamp(system);
+
+    assertEquals(stamp.getActor().toString(), "urn:li:corpuser:alice");
+    assertEquals(stamp.getImpersonator().toString(), system.toUrnStr());
+  }
+
+  @Test
+  public void testUserCallerIgnoresAttributedActor() throws URISyntaxException {
+    AuditStamp stamp = queueAndCaptureStamp(new Actor(ActorType.USER, "bob"));
+
+    assertEquals(stamp.getActor().toString(), "urn:li:corpuser:bob");
+    assertNull(stamp.getImpersonator(GetMode.NULL));
+  }
+
   @Test
   public void testGetCredentialsAspectDeniedWithoutManageUserCredentials() throws URISyntaxException {
     reset(producer, aspectDao);
@@ -202,6 +268,100 @@ public class AspectResourceTest {
     }
   }
 
+  /**
+   * Regression for #19016: {@code limit} is optional, but an omitted limit was unboxed into the
+   * response's {@code setLimit(long)} and the request failed with a 500 before the timeseries
+   * service was called. Omitting it must defer to the server default instead.
+   */
+  @Test
+  public void testGetTimeseriesAspectValuesWithoutLimit() throws URISyntaxException {
+    TimeseriesAspectService timeseriesAspectService = mock(TimeseriesAspectService.class);
+    aspectResource.setTimeseriesAspectService(timeseriesAspectService);
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+    Urn urn = new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD);
+
+    GetTimeseriesAspectValuesResponse response =
+        awaitTask(
+            aspectResource.getTimeseriesAspectValues(
+                urn.toString(),
+                DATASET_ENTITY_NAME,
+                DATASET_USAGE_STATISTICS_ASPECT_NAME,
+                0L,
+                1000L,
+                null,
+                false,
+                null,
+                null));
+
+    assertFalse(response.hasLimit());
+    verify(timeseriesAspectService)
+        .getAspectValues(
+            any(OperationContext.class),
+            eq(urn),
+            eq(DATASET_ENTITY_NAME),
+            eq(DATASET_USAGE_STATISTICS_ASPECT_NAME),
+            eq(0L),
+            eq(1000L),
+            isNull(),
+            isNull(),
+            isNull());
+  }
+
+  /** An explicit limit must still be echoed in the response and passed to the service. */
+  @Test
+  public void testGetTimeseriesAspectValuesWithLimit() throws URISyntaxException {
+    TimeseriesAspectService timeseriesAspectService = mock(TimeseriesAspectService.class);
+    aspectResource.setTimeseriesAspectService(timeseriesAspectService);
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+    Urn urn = new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD);
+
+    GetTimeseriesAspectValuesResponse response =
+        awaitTask(
+            aspectResource.getTimeseriesAspectValues(
+                urn.toString(),
+                DATASET_ENTITY_NAME,
+                DATASET_USAGE_STATISTICS_ASPECT_NAME,
+                0L,
+                1000L,
+                5,
+                false,
+                null,
+                null));
+
+    assertEquals(response.getLimit().longValue(), 5L);
+    verify(timeseriesAspectService)
+        .getAspectValues(
+            any(OperationContext.class),
+            eq(urn),
+            eq(DATASET_ENTITY_NAME),
+            eq(DATASET_USAGE_STATISTICS_ASPECT_NAME),
+            eq(0L),
+            eq(1000L),
+            eq(5),
+            isNull(),
+            isNull());
+  }
+
+  private static <T> T awaitTask(Task<T> task) {
+    ScheduledExecutorService timerScheduler = Executors.newSingleThreadScheduledExecutor();
+    Engine engine =
+        new EngineBuilder()
+            .setTaskExecutor(Runnable::run)
+            .setTimerScheduler(timerScheduler)
+            .build();
+    try {
+      engine.blockingRun(task);
+      return task.get();
+    } finally {
+      engine.shutdown();
+      timerScheduler.shutdownNow();
+    }
+  }
+
   @Test(expectedExceptions = RestLiServiceException.class, expectedExceptionsMessageRegExp = "Unknown aspect notAnAspect for entity dataset")
   public void testNoValidateAsync() throws URISyntaxException {
     OperationContext noValidateOpContext = TestOperationContexts.systemContextNoValidate();
@@ -222,5 +382,48 @@ public class AspectResourceTest {
     Actor actor = new Actor(ActorType.USER, "user");
     when(mockAuthentication.getActor()).thenReturn(actor);
     aspectResource.ingestProposal(mcp, "true");
+  }
+
+  @Test
+  public void testKeyOnlyProposalOfUnknownEntityTypeIsBadRequest() throws URISyntaxException {
+    // A key-only proposal (no urn) for an entity type this registry doesn't know, e.g. sent by a
+    // client built for a newer version: a 400, not a 500.
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType("entityFromNewerBuild");
+    mcp.setAspectName("status");
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(new com.linkedin.common.Status()));
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+
+    RestLiServiceException error =
+        org.testng.Assert.expectThrows(
+            RestLiServiceException.class, () -> aspectResource.ingestProposal(mcp, "false"));
+
+    org.testng.Assert.assertEquals(error.getStatus(), HttpStatus.S_400_BAD_REQUEST);
+  }
+
+  @Test
+  public void testStrictHandlingHasNoUnknownEntityTypePreCheck() throws URISyntaxException {
+    // Without tolerance the proposal goes straight to the authorization checks, as before: it may
+    // fail there, but never with the tolerant 400 for an unknown entity type.
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType("entityFromNewerBuild");
+    mcp.setAspectName("status");
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(new com.linkedin.common.Status()));
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+
+    try {
+      aspectResource.ingestProposal(mcp, "false");
+    } catch (RestLiServiceException e) {
+      org.testng.Assert.assertNotEquals(e.getStatus(), HttpStatus.S_400_BAD_REQUEST);
+    } catch (RuntimeException e) {
+      // The pre-tolerance failure resolving the unknown entity type during authorization.
+    }
   }
 }

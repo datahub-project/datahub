@@ -1,0 +1,35 @@
+"""
+An entity that can have structured properties
+"""
+interface HasStructuredProperties {
+  """
+  Structured properties applied to the entity
+  """
+  structuredProperties: StructuredProperties
+}
+
+extend type Api implements HasStructuredProperties
+extend type Application implements HasStructuredProperties
+extend type Chart implements HasStructuredProperties
+extend type Container implements HasStructuredProperties
+extend type CorpGroup implements HasStructuredProperties
+extend type CorpUser implements HasStructuredProperties
+extend type Dashboard implements HasStructuredProperties
+extend type DataContract implements HasStructuredProperties
+extend type DataFlow implements HasStructuredProperties
+extend type DataJob implements HasStructuredProperties
+extend type DataProduct implements HasStructuredProperties
+extend type Dataset implements HasStructuredProperties
+extend type Document implements HasStructuredProperties
+extend type Domain implements HasStructuredProperties
+extend type GlossaryNode implements HasStructuredProperties
+extend type GlossaryTerm implements HasStructuredProperties
+extend type MLFeature implements HasStructuredProperties
+extend type MLFeatureTable implements HasStructuredProperties
+extend type MLModel implements HasStructuredProperties
+extend type MLModelGroup implements HasStructuredProperties
+extend type MLPrimaryKey implements HasStructuredProperties
+extend type Metric implements HasStructuredProperties
+extend type Repository implements HasStructuredProperties
+extend type SchemaFieldEntity implements HasStructuredProperties
+extend type SemanticModel implements HasStructuredProperties

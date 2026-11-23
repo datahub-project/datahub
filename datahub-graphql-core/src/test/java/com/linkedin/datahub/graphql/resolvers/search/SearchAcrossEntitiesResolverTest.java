@@ -38,15 +38,19 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -174,7 +178,7 @@ public class SearchAcrossEntitiesResolverTest {
         initMockEntityClient(
             ImmutableList.of(Constants.DATASET_ENTITY_NAME),
             "",
-            SearchUtils.combineFilters(baseFilter, viewFilter),
+            FilterUtils.combineFilters(baseFilter, viewFilter),
             0,
             10,
             new SearchResult()
@@ -217,7 +221,7 @@ public class SearchAcrossEntitiesResolverTest {
         ImmutableList.of(
             Constants.DATASET_ENTITY_NAME), // Verify that merged entity types were used.
         "",
-        SearchUtils.combineFilters(baseFilter, viewFilter), // Verify that merged filters were used.
+        FilterUtils.combineFilters(baseFilter, viewFilter), // Verify that merged filters were used.
         0,
         10);
 
@@ -645,6 +649,139 @@ public class SearchAcrossEntitiesResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     Assert.assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public static void testRecordsWhetherTheCallerSetAFilterBeforeTheDefaults() throws Exception {
+    // A vector store that cannot filter reads this to tell the caller's filter from the
+    // published-document default the resolver adds
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setNumEntities(0)
+                .setFrom(0)
+                .setPageSize(0)
+                .setMetadata(new SearchResultMetadata()));
+    DataHubViewInfo view = new DataHubViewInfo();
+    view.setName("test");
+    view.setType(DataHubViewType.GLOBAL);
+    view.setCreated(new AuditStamp().setTime(0L).setActor(TEST_USER_URN));
+    view.setLastModified(new AuditStamp().setTime(0L).setActor(TEST_USER_URN));
+    view.setDefinition(
+        new DataHubViewDefinition()
+            .setEntityTypes(new StringArray(ImmutableList.of(Constants.DOCUMENT_ENTITY_NAME)))
+            .setFilter(
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        ImmutableList.of(
+                                            buildCriterion("field", Condition.EQUAL, "test"))))))));
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, initMockViewService(TEST_VIEW_URN, view));
+    List<AndFilterInput> facet =
+        ImmutableList.of(
+            new AndFilterInput(
+                ImmutableList.of(
+                    new FacetFilterInput(
+                        "platform",
+                        ImmutableList.of("urn:li:dataPlatform:hive"),
+                        false,
+                        FilterOperator.EQUAL))));
+
+    for (SearchAcrossEntitiesInput input :
+        ImmutableList.of(
+            new SearchAcrossEntitiesInput(
+                ImmutableList.of(EntityType.DOCUMENT), "q", 0, 10, null, null, null, null, null),
+            new SearchAcrossEntitiesInput(
+                ImmutableList.of(EntityType.DOCUMENT), "q", 0, 10, null, facet, null, null, null),
+            new SearchAcrossEntitiesInput(
+                ImmutableList.of(EntityType.DOCUMENT),
+                "q",
+                0,
+                10,
+                null,
+                null,
+                TEST_VIEW_URN.toString(),
+                null,
+                null))) {
+      DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+      QueryContext mockContext = getMockAllowContext();
+      Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+      Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+      resolver.get(mockEnv).get();
+    }
+
+    // No filter, then a facet the caller set, then a view the caller chose
+    ArgumentCaptor<OperationContext> contexts = ArgumentCaptor.forClass(OperationContext.class);
+    Mockito.verify(mockClient, Mockito.times(3))
+        .searchAcrossEntities(
+            contexts.capture(), any(), any(), any(), anyInt(), anyInt(), any(), any());
+    Assert.assertEquals(
+        contexts.getAllValues().stream()
+            .map(context -> context.getSearchContext().getCallerFiltered())
+            .collect(Collectors.toList()),
+        List.of(false, true, true));
+  }
+
+  @Test
+  public static void testHoldsASimilarityAnchorToTheDocumentDefaults() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setNumEntities(0)
+                .setFrom(0)
+                .setPageSize(0)
+                .setMetadata(new SearchResultMetadata()));
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
+    SearchFlags hiddenStages = new SearchFlags();
+    hiddenStages.setIncludeHiddenLifecycleStages(true);
+
+    for (SearchAcrossEntitiesInput input :
+        ImmutableList.of(
+            new SearchAcrossEntitiesInput(
+                ImmutableList.of(EntityType.DOCUMENT), "q", 0, 10, null, null, null, null, null),
+            new SearchAcrossEntitiesInput(
+                ImmutableList.of(EntityType.DATASET), "q", 0, 10, null, null, null, null, null),
+            new SearchAcrossEntitiesInput(
+                ImmutableList.of(EntityType.DOCUMENT),
+                "q",
+                0,
+                10,
+                null,
+                null,
+                null,
+                hiddenStages,
+                null))) {
+      DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+      QueryContext mockContext = getMockAllowContext();
+      Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+      Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+      resolver.get(mockEnv).get();
+    }
+
+    // A search of datasets adds no defaults to its filter, but it can still name a document as its
+    // anchor, so the anchor is held to them. Only includeHiddenLifecycleStages lifts them.
+    ArgumentCaptor<OperationContext> contexts = ArgumentCaptor.forClass(OperationContext.class);
+    Mockito.verify(mockClient, Mockito.times(3))
+        .searchAcrossEntities(
+            contexts.capture(), any(), any(), any(), anyInt(), anyInt(), any(), any());
+    Assert.assertEquals(
+        contexts.getAllValues().stream()
+            .map(context -> context.getSearchContext().getAnchorFilter())
+            .collect(Collectors.toList()),
+        Arrays.asList(buildDocumentDefaultFilter(), buildDocumentDefaultFilter(), null));
   }
 
   private static ViewService initMockViewService(Urn viewUrn, DataHubViewInfo viewInfo) {

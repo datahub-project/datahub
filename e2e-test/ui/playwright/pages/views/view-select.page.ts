@@ -35,7 +35,7 @@ export class ViewSelectPage extends BasePage {
     this.conditionSelect = page.getByTestId('condition-select');
     this.conditionOperatorSelect = page.getByTestId('condition-operator-select');
     this.entitySearchInput = page.getByTestId('entity-search-input');
-    this.dropdownSearchInput = page.getByTestId('dropdown-search-input');
+    this.dropdownSearchInput = page.getByTestId('dropdown-search-input').filter({ visible: true });
     this.footerButtonUpdate = page.getByTestId('footer-button-update');
     this.viewBuilderSave = page.getByTestId('view-builder-save');
     this.resultsContainer = page.getByTestId('browse-v2-results');
@@ -155,6 +155,8 @@ export class ViewSelectPage extends BasePage {
     const valueOption = this.getFilterValueOption(searchValue);
     await valueOption.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await valueOption.click();
+    // The option label opens the entity hover card under the pointer, over the footer; see EntityHoverCardComponent.
+    await this.entityHoverCard.dismiss(this.dropdownSearchInput, searchValue);
 
     // Update the filter
     await this.footerButtonUpdate.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
@@ -197,18 +199,23 @@ export class ViewSelectPage extends BasePage {
     await this.page.waitForLoadState('networkidle');
   }
 
+  async selectView(viewName: string): Promise<void> {
+    await this.viewsButton.click();
+    await this.waitForPopoverOpen();
+    // Other views may push this one out of the visible list, so narrow it first.
+    await this.viewsPopover.getByPlaceholder('Search views...').fill(viewName);
+    await this.viewSelectItem.filter({ hasText: viewName }).click();
+    await expect(this.viewsButton).toContainText(viewName);
+  }
+
   async openViewDropdown(viewName: string): Promise<void> {
     await this.viewsButton.click();
     await this.waitForPopoverOpen();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
 
     const selectedViewItem = this.getSelectedViewItem(viewName);
     await selectedViewItem.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
 
     await selectedViewItem.hover();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
 
     const dropdownTrigger = this.getViewDropdownTrigger(selectedViewItem);
     await dropdownTrigger.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });

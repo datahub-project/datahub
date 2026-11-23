@@ -65,72 +65,30 @@ SERVER_SIDE_EMBEDDING_TIMEOUT = int(os.environ.get("EMBEDDING_WAIT_TIMEOUT", "30
 # How long to wait for ES to index after embedding is confirmed
 INDEXING_WAIT_SECONDS = 20
 
-# Sample documents for testing semantic search
+
+def _semantic_probe() -> dict[str, Any]:
+    judgments = (
+        Path(__file__).resolve().parents[4]
+        / "metadata-io/src/test/resources/datapacks/search-quality/judgments.json"
+    )
+    payload = json.loads(judgments.read_text())
+    for judgment in payload["judgments"]:
+        if judgment["group"] == "semantic-probe":
+            return judgment
+    raise AssertionError(
+        "semantic-probe judgment is missing from the search-quality pack"
+    )
+
+
+# Text and expected order come from the search-quality judgment. Each run mints its own URNs.
+SEMANTIC_PROBE = _semantic_probe()
 SAMPLE_DOCUMENTS: list[dict[str, str]] = [
     {
-        "title": "Getting Started with DataHub",
-        "text": """Getting Started with DataHub
-
-Introduction
-DataHub is a modern data catalog designed to help you discover, understand, and trust your data.
-
-Quick Start
-1. Navigate to the DataHub UI
-2. Use the search bar to find datasets
-3. Explore metadata, lineage, and documentation
-
-Key Features
-- Search: Find data assets across your organization
-- Lineage: Understand data dependencies and flow
-- Documentation: Add and view rich documentation
-- Governance: Manage access and policies
-""",
-        "sub_type": "guide",
-    },
-    {
-        "title": "Data Access Request Process",
-        "text": """Data Access Request Process
-
-Overview
-This document describes how to request access to data assets in our data platform.
-
-Access Levels
-
-Read Access
-- View data in dashboards and reports
-- Run queries on approved datasets
-
-Write Access
-- Modify existing records
-- Requires additional approval
-
-Request Steps
-1. Identify the dataset you need access to
-2. Submit a request through the data portal
-3. Wait for owner approval (typically 24-48 hours)
-4. Access will be granted automatically upon approval
-""",
-        "sub_type": "process",
-    },
-    {
-        "title": "Machine Learning Model: Churn Prediction",
-        "text": """Churn Prediction Model
-
-Model Overview
-This model predicts the probability of customer churn within the next 30 days.
-
-Features
-- Days since last login
-- Purchase frequency
-- Support ticket count
-
-Performance Metrics
-- AUC-ROC: 0.87
-- Precision: 0.82
-- F1 Score: 0.80
-""",
-        "sub_type": "model",
-    },
+        "title": document["title"],
+        "text": document["text"],
+        "sub_type": document["subType"],
+    }
+    for document in SEMANTIC_PROBE["documents"]
 ]
 
 
@@ -562,8 +520,8 @@ class TestSemanticSearchWithIngestion:
                 except Exception as e:
                     pytest.fail(f"Failed to verify semanticContent for {urn}: {e}")
 
-            # Step 6: Execute semantic search
-            test_query = "how to request data access permissions"
+            # Step 4: Execute semantic search
+            test_query = SEMANTIC_PROBE["query"]
             logger.info(f"Executing semantic search: '{test_query}'")
 
             result = search_documents_semantic(auth_session, test_query)
@@ -572,7 +530,7 @@ class TestSemanticSearchWithIngestion:
             if "errors" in result:
                 pytest.fail(f"GraphQL errors: {result['errors']}")
 
-            # Step 7: Verify results
+            # Step 5: Verify results
             search_data = result.get("data", {}).get("semanticSearchAcrossEntities", {})
             total = search_data.get("total", 0)
             search_results = search_data.get("searchResults", [])

@@ -7,7 +7,8 @@ import com.linkedin.common.Urn
  * e.g. Gets activated when subTypes is view
  */
 @Aspect = {
-  "name": "viewProperties"
+  "name": "viewProperties",
+  "schemaVersion": 3
 }
 record ViewProperties {
 
@@ -15,14 +16,27 @@ record ViewProperties {
    * Whether the view is materialized
    */
   @Searchable = {
-    "fieldType": "BOOLEAN",
-    "weightsPerFieldValue": { "true": 0.5 }
+    "fieldType": "BOOLEAN"
   }
   materialized: boolean
 
   /**
    * The view logic
    */
+  @Searchable = {
+    "fieldType": "RICH_TEXT",
+    "queryByDefault": false,
+    "v3": {
+      "queryByDefault": false,
+      "boostScore": 0.5,
+      "searchLabel": "queryText",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   viewLogic: string
 
   /**
@@ -30,6 +44,20 @@ record ViewProperties {
    * logic is formatted for better readability, and with dbt, where this contains the
    * compiled SQL logic.
    */
+  @Searchable = {
+    "fieldType": "RICH_TEXT",
+    "queryByDefault": false,
+    "v3": {
+      "queryByDefault": false,
+      "boostScore": 0.5,
+      "searchLabel": "queryText",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   formattedViewLogic: optional string
 
   /**

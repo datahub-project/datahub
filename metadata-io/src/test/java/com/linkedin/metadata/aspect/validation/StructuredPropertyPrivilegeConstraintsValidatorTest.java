@@ -22,6 +22,7 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
@@ -209,6 +210,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
             .orElse(null);
     Assert.assertNotNull(ex);
     Assert.assertTrue(ex.getMessage().contains("structured property"));
+    Assert.assertEquals(ex.getSubType(), ValidationSubType.AUTHORIZATION);
   }
 
   // The key behavioral test: only added/removed/value-changed property URNs are authorized;
@@ -376,6 +378,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
             .orElse(null);
     Assert.assertNotNull(ex);
     Assert.assertTrue(ex.getMessage().contains("structured property"));
+    Assert.assertEquals(ex.getSubType(), ValidationSubType.AUTHORIZATION);
   }
 
   /** Builds a DELETE {@link BatchItem} removing the whole {@code structuredProperties} aspect. */

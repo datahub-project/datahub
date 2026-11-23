@@ -1,0 +1,13 @@
+{
+  "source": "datahub-project/static-assets",
+  "path": "datapacks/showcase-ecommerce",
+  "commit": "a4228e9f9e9c6ca4ccb453528448fca07170ce88",
+  "retained": false,
+  "normalizedInto": "03-longtail-ecommerce.json",
+  "snapshotSha256": {
+    "index.json": "014ba86260b27a74c31ff021ddfe3daec32e76a9dc1b3f0229570baf0600cdab",
+    "01-definitions.json": "3ecaf19324736331d6edb80c4fd7363d5b15fd41e2f9daf3ac68506aedf86608",
+    "02-data.json": "0b3aeaa8941acc79f7d08db370ec092912ca77c15c2c2cdba2bf243225630c90",
+    "03-context.json": "58ce56e42288d085e5d1ce07e2b9e98ea732efa2c144941df9a8805ad50f3c71"
+  }
+}

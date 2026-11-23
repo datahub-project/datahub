@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useGetSearchAssets } from '@app/homeV2/content/tabs/discovery/sections/insight/cards/useGetSearchAssets';
 import { UnionType } from '@app/searchV2/utils/constants';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useGetSearchResultsForMultipleCardsQuery } from '@graphql/search.generated';
 import { EntityType } from '@types';

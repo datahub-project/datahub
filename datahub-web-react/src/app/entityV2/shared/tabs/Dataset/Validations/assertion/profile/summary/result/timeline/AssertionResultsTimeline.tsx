@@ -7,8 +7,8 @@ import { AssertionResultsTimelineViz } from '@app/entityV2/shared/tabs/Dataset/V
 import { AssertionTimelineSkeleton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionTimelineSkeleton';
 import { TimeSelect } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/TimeSelect';
 import { calculateInitialLookbackWindowFromRunEvents } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
-import { Message } from '@app/shared/Message';
-import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
+import { Message } from '@app/sharedV2/Message';
+import { getFixedLookbackWindow } from '@app/sharedV2/time/timeUtils';
 
 import { useGetAssertionRunsLazyQuery } from '@graphql/assertion.generated';
 import { Assertion, AssertionType } from '@types';

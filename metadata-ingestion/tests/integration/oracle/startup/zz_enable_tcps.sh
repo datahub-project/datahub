@@ -1,9 +1,10 @@
 # Enable TCPS on 2484. Sourced by the image's runUserScripts.sh, so this
-# file must not change the caller's shell options. The subshell isolates
-# `set -e`. It is not the condition of an `if`: bash turns errexit off for
-# that whole subshell, and a later successful lsnrctl would hide a failed
-# orapki. A failure exits runUserScripts. The test waits for the ready file
-# written below, instead of connecting in plaintext.
+# file must not change the caller's shell options. enable_tcps runs in a
+# subshell, which isolates `set -e`. Its call is not the condition of an
+# `if`: bash turns errexit off for that whole subshell, and a later
+# successful lsnrctl would hide a failed orapki. A failure exits
+# runUserScripts. The test waits for the ready file written below, instead of
+# connecting in plaintext.
 #
 # The image user is oracle, not root. chown and `su oracle` fail for that
 # user. The wallet is created here, so it is already owned by oracle, and
@@ -14,11 +15,14 @@
 # show xepdb1, so this script exits before the ready file. A TCPS-only
 # listener never learns the service either.
 
-(
-    set -euo pipefail
-    # The fixture reads this when the ready file never appears. docker logs
-    # are not in the pytest output.
-    exec > /opt/oracle/tls/setup.log 2>&1
+enable_tcps() (
+    set -Eeuo pipefail
+    # The fixture reads this when setup fails. docker logs are not in the
+    # pytest output.
+    exec >> /opt/oracle/tls/setup.log 2>&1
+    echo "TCPS setup attempt $1"
+    # Some silent steps fail with no output, which left setup.log empty.
+    trap 'rc=$?; echo "line $LINENO exited $rc: $BASH_COMMAND"' ERR
 
     WALLET=/opt/oracle/oradata/tls-wallet
     WALLET_PWD=WalletPass1
@@ -43,13 +47,21 @@
         printf '%s' "$input" | "$ORACLE_HOME/bin/orapki" "$@"
     }
     orapki 2 wallet create -wallet "$WALLET" -auto_login
+    # Without the -addext_* flags orapki writes an X.509 v1 cert with no
+    # extensions. Python 3.13 verifies with VERIFY_X509_STRICT by default and
+    # rejects that as "invalid CA certificate". The client trusts this cert as
+    # its own CA, so it needs CA basic constraints, keyCertSign and an SKI.
     orapki 1 wallet add \
         -wallet "$WALLET" \
         -dn "CN=localhost" \
         -keysize 2048 \
         -self_signed \
         -validity 3650 \
-        -sign_alg sha256
+        -sign_alg sha256 \
+        -addext_basic_cons CA \
+        -addext_ku digitalSignature,keyEncipherment,keyCertSign \
+        -addext_ski \
+        -addext_san DNS:localhost
     # wallet add does not refresh cwallet.sso. Recreate the auto-login file
     # so the listener can open the wallet without the password. An existing
     # wallet asks for its password once.
@@ -112,7 +124,10 @@ EOF
     for _ in $(seq 1 60); do
         # XE registers this service as xepdb1. A case-sensitive XEPDB1
         # never matches, so the ready file below would never be written.
-        if "$ORACLE_HOME/bin/lsnrctl" status | grep -qi xepdb1; then
+        # grep reads a variable, not a pipe: grep -q exits at the first match,
+        # and under pipefail lsnrctl's SIGPIPE would fail the check.
+        listener_status=$("$ORACLE_HOME/bin/lsnrctl" status || true)
+        if grep -qi xepdb1 <<<"$listener_status"; then
             ready=1
             break
         fi
@@ -127,8 +142,23 @@ EOF
     # XEPDB1. The test waits for this file instead of the port.
     touch /opt/oracle/tls/ready
 )
-status=$?
+
+# Every step is safe to repeat: the wallet is recreated, the listener edits
+# are guarded and the listener restarts. A retry covers a step that fails
+# once on a busy runner.
+: > /opt/oracle/tls/setup.log
+rm -f /opt/oracle/tls/failed
+for attempt in 1 2 3; do
+    enable_tcps "$attempt"
+    status=$?
+    if [ "$status" -eq 0 ]; then
+        break
+    fi
+done
+unset -f enable_tcps
 if [ "$status" -ne 0 ]; then
+    # The fixture fails on this file instead of waiting out its timeout.
+    echo "$status" > /opt/oracle/tls/failed
     echo "Failed to enable Oracle TCPS" >&2
     exit "$status"
 fi

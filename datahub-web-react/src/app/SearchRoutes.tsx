@@ -3,10 +3,10 @@ import { Redirect, Route, Switch, useLocation } from 'react-router-dom';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { SearchablePage as SearchablePageV2 } from '@app/searchV2/SearchablePage';
-import { NoPageFound } from '@app/shared/NoPageFound';
-import { SuspenseBlock } from '@app/shared/SuspenseBlock';
-import { lazyDefault, lazyNamed } from '@app/shared/lazyPage';
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
+import { NoPageFound } from '@app/sharedV2/NoPageFound';
+import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
+import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import {
     useAppConfig,
     useBusinessAttributesFlag,
@@ -32,7 +32,6 @@ const StructuredProperties = lazyDefault(() => import('@app/govern/structuredPro
 const StructuredPropertyFormPage = lazyDefault(
     () => import('@app/govern/structuredProperties/StructuredPropertyFormPage'),
 );
-const ManageIngestionPage = lazyNamed(() => import('@app/ingest/ManageIngestionPage'), 'ManageIngestionPage');
 const IngestionRoutes = lazyDefault(() => import('@app/ingestV2/IngestionRoutes'));
 const MarketplaceRoutes = lazyDefault(() => import('@app/marketplace/MarketplaceRoutes'));
 const MetricsRoutes = lazyDefault(() => import('@app/metrics/MetricsRoutes'));
@@ -78,7 +77,6 @@ export const SearchRoutes = (): JSX.Element => {
         config?.featureFlags?.showManageTags &&
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
 
-    const showIngestV2 = config.featureFlags.showIngestionPageRedesign;
     const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
 
     const renderAnalyticsPage = () => {
@@ -143,8 +141,7 @@ export const SearchRoutes = (): JSX.Element => {
                             <Route path={PageRoutes.DOMAINS} render={() => <ManageDomainsPageV2 />} />
                         )}
 
-                        {!showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />}
-                        {showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <IngestionRoutes />} />}
+                        <Route path={PageRoutes.INGESTION} render={() => <IngestionRoutes />} />
 
                         <Route path={PageRoutes.SETTINGS} render={() => <SettingsPageV2 />} />
                         <Route path={`${PageRoutes.GLOSSARY}*`} render={() => <GlossaryRoutesV2 />} />

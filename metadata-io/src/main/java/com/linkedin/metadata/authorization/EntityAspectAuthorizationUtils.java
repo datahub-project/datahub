@@ -480,6 +480,24 @@ public final class EntityAspectAuthorizationUtils {
     return false;
   }
 
+  /**
+   * Returns true when the actor holds {@code MANAGE_DATA_PRODUCTS} (or full entity privileges) on
+   * every given domain. False for an empty collection.
+   *
+   * <p>Rename and membership changes use the <em>any</em>-domain variant because they act on a
+   * product that is already placed in its domains; placing a product into domains (see {@code
+   * DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish}) must be allowed for
+   * each of them. Keep the two apart.
+   */
+  static boolean isAuthorizedToManageDataProductsOnAllDomains(
+      @Nonnull AuthorizationSession session, @Nonnull Collection<Urn> domainUrns) {
+    if (domainUrns.isEmpty()) {
+      return false;
+    }
+    return domainUrns.stream()
+        .allMatch(domainUrn -> isAuthorizedToManageDataProductsOnDomain(session, domainUrn));
+  }
+
   private static boolean isAuthorizedToManageDataProductsOnDomain(
       @Nonnull AuthorizationSession session, @Nonnull Urn domainUrn) {
     EntitySpec domainSpec = new EntitySpec(domainUrn.getEntityType(), domainUrn.toString());

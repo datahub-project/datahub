@@ -16,7 +16,7 @@ import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
 import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
-import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.annotation.SearchableAnnotationHandler;
 import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
 import com.linkedin.metadata.models.annotation.TimeseriesFieldAnnotation;
 import com.linkedin.metadata.models.annotation.TimeseriesFieldCollectionAnnotation;
@@ -37,8 +37,7 @@ public class EntitySpecBuilder {
   private static final String ASPECTS_FIELD_NAME = "aspects";
   private static final String TIMESTAMP_FIELD_NAME = "timestampMillis";
 
-  public static SchemaAnnotationHandler _searchHandler =
-      new PegasusSchemaAnnotationHandlerImpl(SearchableAnnotation.ANNOTATION_NAME);
+  public static SchemaAnnotationHandler _searchHandler = new SearchableAnnotationHandler();
   public static SchemaAnnotationHandler _searchScoreHandler =
       new PegasusSchemaAnnotationHandlerImpl(SearchScoreAnnotation.ANNOTATION_NAME);
   public static SchemaAnnotationHandler _searchRefScoreHandler =

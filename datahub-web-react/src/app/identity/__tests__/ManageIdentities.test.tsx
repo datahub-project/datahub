@@ -31,7 +31,7 @@ vi.mock('@app/identity/serviceAccount', () => ({
 }));
 
 // Mock RoutedTabs
-vi.mock('@app/shared/RoutedTabs', () => ({
+vi.mock('@app/sharedV2/RoutedTabs', () => ({
     RoutedTabs: ({ tabs }: { tabs: Array<{ name: string; path: string; content: React.ReactNode }> }) => (
         <div data-testid="routed-tabs">
             {tabs.map((tab) => (

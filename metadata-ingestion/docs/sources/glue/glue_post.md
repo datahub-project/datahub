@@ -81,6 +81,16 @@ For cross-account S3 access, refer to the [S3 connector's cross-account document
 
 To capture lineage across Glue jobs and databases, a requirements must be met – otherwise the AWS API is unable to report any lineage. The job must be created in Glue Studio with the "Generate classic script" option turned on (this option can be accessed in the "Script" tab). Any custom scripts that do not have the proper annotations will not have reported lineage.
 
+#### DynamoDB Job Lineage
+
+When a Glue job reads or writes DynamoDB via `create_dynamic_frame.from_options(connection_type="dynamodb", ...)` (or the equivalent sink), the connector emits dataset URNs that match the [DynamoDB source](https://docs.datahub.com/docs/generated/ingestion/sources/dynamodb) (`{region}.{table}`, platform_instance = AWS account id by default). That joins DynamoDB tables into Glue job lineage alongside catalog or S3 sinks — a DynamoDB `DataSource` becomes a job input and a DynamoDB `DataSink` becomes a job output.
+
+This covers `extract_transforms: true` Glue ETL jobs that read from or write to DynamoDB — for example DynamoDB → Glue catalog / Iceberg / Parquet. Catalog sinks already resolve; enable `emit_storage_lineage: true` to link Glue Iceberg tables to their Iceberg/S3 storage.
+
+The account id used as `platform_instance` is resolved in this order: a configured `target_platform_configs.dynamodb.platform_instance`, then the node's `dynamodb.tableArn` account, then a cross-account `dynamodb.sts.roleArn` account, then the `sts:GetCallerIdentity` caller account. The Glue `catalog_id` is not used, because Glue only lists jobs in the caller's account. A node whose table ARN or role ARN cannot be parsed is skipped with a warning. To align URNs when the DynamoDB connector uses a custom `platform_instance`, set the same value under Glue `target_platform_configs.dynamodb`.
+
+For capturing native DynamoDB **Export to S3** jobs (JSON/Ion) rather than Glue ETL, use the DynamoDB source's `include_s3_export_lineage` option instead — that is a DynamoDB-source feature, not a Glue one.
+
 #### JDBC Upstream Lineage
 
 When a Glue job reads from a JDBC source (e.g. PostgreSQL, MySQL, Redshift, Oracle, SQL Server), the plugin automatically extracts upstream lineage to the referenced tables. This works for both:
@@ -146,6 +156,25 @@ source:
   `urn:li:structuredProperty:io.datahubproject.glue.column.<sanitized-key>`, where non-alphanumeric
   characters (except `.`) are replaced with `_`.
 - Partition key columns are also processed.
+
+#### Views with a `dummy` Column in Glue
+
+When a view has an output column whose type Hive cannot represent, such as `timestamp with time zone`
+(from `AT TIME ZONE`) or `char` longer than 255, Glue stores a single placeholder column named
+`dummy` for that view instead of its real columns. For Athena/Presto views, the connector reads the
+real columns and their types from the view definition instead, so the view shows its full schema and
+its column-level lineage connects to real columns. Column types Hive cannot represent are approximated:
+`timestamp with time zone` is shown as a timestamp, and types with no Hive equivalent (such as
+`time`, `interval` or `json`) are shown as strings. The original type is kept as the column's native
+type. Spark and Hive views are not changed, so a real column named `dummy` in one of those views is
+kept as it is.
+
+The ingestion report counts these views in `num_view_schema_from_view_definition`. Views whose
+columns cannot be recovered keep the `dummy` column, are counted in
+`num_view_placeholder_schema_unresolved`, and produce a warning that says why. Recovered columns
+whose type cannot be converted are counted in `num_view_columns_type_unresolved` and listed in a
+warning. They are ingested without a type (or with a nested field untyped), or as a string when the
+type is too long or too deeply nested to convert.
 
 #### Checking a recipe before ingesting
 

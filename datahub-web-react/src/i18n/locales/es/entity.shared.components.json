@@ -96,9 +96,14 @@
     "searchActions.glossaryTerms.addTitle": "Añadir términos del glosario",
     "searchActions.glossaryTerms.name": "Términos del glosario",
     "searchActions.glossaryTerms.removeTitle": "Quitar términos del glosario",
+    "searchActions.noSelection": "Seleccione al menos un activo para usar esta acción.",
     "searchActions.notSupported": "Esta acción no es compatible con los tipos seleccionados.",
     "searchActions.owners.addTitle": "Añadir owners",
     "searchActions.owners.removeTitle": "Quitar owners",
     "searchActions.tags.addTitle": "Añadir tags",
-    "searchActions.tags.removeTitle": "Quitar tags"
+    "searchActions.tags.removeTitle": "Quitar tags",
+    "structuredProperty.addMore": "+ Añadir más",
+    "structuredProperty.selectPlaceholder": "Seleccionar",
+    "viewAll.resultsIncomplete": "Los resultados pueden estar incompletos.",
+    "viewAll.searchAllAssets": "Buscar todos los activos de {{platform}} ingeridos"
 }

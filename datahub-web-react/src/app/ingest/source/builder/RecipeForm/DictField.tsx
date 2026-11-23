@@ -8,7 +8,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { StyledFormItem } from '@app/ingest/source/builder/RecipeForm/SecretField/SecretField';
 import { RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
 
@@ -18,9 +18,11 @@ export const Label = styled.div`
 `;
 
 const StyledButton = styled(Button)`
-    color: ${ANTD_GRAY[7]};
-    margin: 10px 0 0 30px;
-    width: calc(100% - 72px);
+    && {
+        color: ${ANTD_GRAY[7]};
+        margin: 10px 0 0 30px;
+        width: calc(100% - 72px);
+    }
 `;
 
 export const StyledQuestion = styled(Question)`

@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.shared.ElasticSearchUpgradeUtils;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPostStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPreStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.ReindexDebugStep;
@@ -19,9 +20,9 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -65,7 +66,9 @@ public class ReindexDebug implements Upgrade {
           baseElasticSearchComponents,
       final ConfigurationProvider configurationProvider,
       final AspectDao aspectDao) {
-    final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties = new HashSet<>();
+    final Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties =
+        ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
+            configurationProvider.getStructuredProperties(), aspectDao);
     final List<UpgradeStep> steps = new ArrayList<>();
     // Disable ES write mode/change refresh rate and clone indices
     steps.add(

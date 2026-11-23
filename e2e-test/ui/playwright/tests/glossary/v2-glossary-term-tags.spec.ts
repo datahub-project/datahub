@@ -8,13 +8,14 @@
 
 import { test } from '../../fixtures/base-test';
 import { GlossaryPage } from '../../pages/glossary.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'glossary' });
 
 const TAGGABLE_TERM_URN = 'urn:li:glossaryTerm:PlaywrightGlossaryTermTests.PlaywrightTaggableTerm';
 const TAG_NAME = 'PlaywrightGlossaryTermProfileTag';
 
-test.describe('glossary term profile tags', () => {
+test.describe('glossary term profile tags', { tag: [TestTag.P0] }, () => {
   // Mutations on a shared seeded term — keep serial to avoid chip-state races.
   test.describe.configure({ mode: 'serial' });
 
@@ -27,7 +28,7 @@ test.describe('glossary term profile tags', () => {
     });
   });
 
-  test('should allow assigning and unassigning a tag on a glossary term', async () => {
+  test('should allow assigning and unassigning a tag on a glossary term', { tag: [DomainTag.Catalog] }, async () => {
     test.setTimeout(120000);
 
     await glossaryPage.navigateToGlossaryTermByUrn(TAGGABLE_TERM_URN);

@@ -1,8 +1,11 @@
-from pydantic import Field, field_validator
+from typing import Any
+
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.configuration.env_vars import (
     get_gms_base_path,
+    get_kafka_auto_register_schemas,
     get_kafka_schema_registry_url,
 )
 from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolver
@@ -96,6 +99,31 @@ class KafkaProducerConnectionConfig(_KafkaConnectionConfig):
         default_factory=dict,
         description="Extra producer config serialized as JSON. These options will be passed into Kafka's SerializingProducer. See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serializingproducer and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md .",
     )
+
+    auto_register_schemas: bool = Field(
+        default=True,
+        description=(
+            "Whether to automatically register the MetadataChangeProposal schema "
+            "with the Schema Registry. Set to false when the Schema Registry is "
+            "read-only for the ingestion user; the schema must then be pre-registered "
+            "under the '<topic>-value' subject, and the emitter verifies it exists "
+            "at startup. MetadataChangeEvents are published as MCPs. "
+            "Can also be set via the DATAHUB_KAFKA_AUTO_REGISTER_SCHEMAS environment "
+            "variable; an explicit recipe value takes precedence."
+        ),
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _apply_env_var_defaults(cls, values: Any) -> Any:
+        # Pydantic cannot serialize a default_factory into the config schema, so the
+        # field default is the literal True (what the docs table shows). The env var
+        # applies only when the recipe omits the field; an explicit value wins.
+        if isinstance(values, dict) and "auto_register_schemas" not in values:
+            # Copy so applying the env-var default does not mutate the caller's mapping.
+            values = dict(values)
+            values["auto_register_schemas"] = get_kafka_auto_register_schemas()
+        return values
 
     @field_validator("producer_config", mode="after")
     @classmethod

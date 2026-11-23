@@ -7,7 +7,7 @@ import GraphPopover from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/gra
 import MonthOverMonthPill from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MonthOverMonthPill';
 import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
 import { RowCountData } from '@app/entityV2/shared/useRowCountData';
-import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
+import { formatNumberWithoutAbbreviation } from '@src/app/sharedV2/formatNumber';
 import dayjs from '@utils/dayjs';
 
 const DEFAULT_GRAPH_HEIGHT = '290px';

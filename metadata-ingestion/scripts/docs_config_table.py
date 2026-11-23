@@ -1,7 +1,7 @@
 import html
 import json
 import re
-from typing import Any, ClassVar, Dict, Iterable, List, Optional, Set, Type
+from typing import Any, ClassVar, Dict, Iterable, List, Optional, Type
 
 from pydantic import BaseModel, Field
 
@@ -345,39 +345,15 @@ def priority_value(path: str) -> str:
     return "A"
 
 
-def _get_removed_fields_from_model(model_class: Type[BaseModel]) -> set:
-    """Extract fields marked as removed via pydantic_removed_field from a Pydantic model"""
-    removed_fields = set()
-
-    # Check pre-root validators for removal markers
-    if hasattr(model_class, "__pre_root_validators__"):
-        for validator in model_class.__pre_root_validators__:
-            removed_field = getattr(validator, "_doc_removed_field", None)
-            if removed_field is not None:
-                removed_fields.add(removed_field)
-
-    return removed_fields
-
-
-def _is_removed_field(field_name: str, removed_fields: Optional[Set[str]]) -> bool:
-    """Check if a field is marked as removed"""
-    return field_name in removed_fields if removed_fields else False
-
-
 def should_hide_field(
     schema_field: SchemaFieldClass,
     current_source: str,
     schema_dict: Dict[str, Any],
-    removed_fields: Optional[Set[str]] = None,
 ) -> bool:
     """Check if field should be hidden for the current source"""
 
     # Extract field name from the path
     field_name = schema_field.fieldPath.split(".")[-1]
-
-    # Hide removed fields
-    if _is_removed_field(field_name, removed_fields):
-        return True
 
     for ends_with in [
         "pattern.[type=array].allow",
@@ -410,7 +386,6 @@ def should_hide_field(
 def gen_md_table_from_json_schema(
     schema_dict: Dict[str, Any],
     current_source: Optional[str] = None,
-    removed_fields: Optional[Set[str]] = None,
 ) -> str:
     # we don't want default field values to be injected into the description of the field
 
@@ -421,9 +396,7 @@ def gen_md_table_from_json_schema(
     field_tree = FieldTree(field=None)
     for field in schema_fields:
         row: FieldRow = FieldRow.from_schema_field(field)
-        if current_source and should_hide_field(
-            field, current_source, schema_dict, removed_fields
-        ):
+        if current_source and should_hide_field(field, current_source, schema_dict):
             continue
         field_tree.add_field(row)
 
@@ -438,11 +411,33 @@ def gen_md_table_from_json_schema(
     return "".join(result)
 
 
+def is_removed_property(property_schema: Any) -> bool:
+    """Whether a JSON schema property was flagged by pydantic_removed_field."""
+    return isinstance(property_schema, dict) and bool(
+        property_schema.get("schema_extra", {}).get("removed")
+    )
+
+
+def _drop_removed_properties(schema_dict: Dict[str, Any]) -> None:
+    """Strip removed fields, which stay in the schema but are not worth documenting.
+
+    Done before translation so it needs no knowledge of the field-path encoding, and
+    so the several rows an Optional field expands into all disappear together.
+    """
+    for container in [schema_dict, *schema_dict.get("$defs", {}).values()]:
+        properties = container.get("properties", {})
+        for name in [n for n, prop in properties.items() if is_removed_property(prop)]:
+            del properties[name]
+
+
 def gen_md_table_from_pydantic(
     model: Type[BaseModel], current_source: Optional[str] = None
 ) -> str:
-    removed_fields = _get_removed_fields_from_model(model)
-    return gen_md_table_from_json_schema(model.schema(), current_source, removed_fields)
+    # model.schema() builds a fresh dict each call, so mutating it here cannot affect
+    # the schema docgen publishes separately.
+    schema_dict = model.schema()
+    _drop_removed_properties(schema_dict)
+    return gen_md_table_from_json_schema(schema_dict, current_source)
 
 
 if __name__ == "__main__":

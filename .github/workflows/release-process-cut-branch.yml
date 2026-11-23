@@ -75,7 +75,7 @@ jobs:
 
       - name: Generate GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.RELEASE_TEAM_GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_TEAM_GH_APP_PRIVATE_KEY }}
@@ -193,9 +193,10 @@ jobs:
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        uses: ./.github/actions/setup-toolchain
         with:
-          python-version: "3.11"
+          java: false
+          gradle: false
 
       # N is the just-cut branch tip. N-1 is left to the script, which picks the
       # latest stable release tag for this repo (v*-cloud in acryl-fork, v* in OSS).

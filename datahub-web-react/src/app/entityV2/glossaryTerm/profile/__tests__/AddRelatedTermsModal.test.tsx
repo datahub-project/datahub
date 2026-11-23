@@ -1,3 +1,4 @@
+import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,7 +13,8 @@ const { termSearch, searchState } = vi.hoisted(() => ({
     searchState: { data: undefined as { search?: { searchResults: unknown[] } } | undefined, loading: false },
 }));
 
-vi.mock('@graphql/search.generated', () => ({
+vi.mock('@graphql/search.generated', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@graphql/search.generated')>()),
     useGetSearchResultsLazyQuery: () => [termSearch, searchState],
 }));
 
@@ -20,7 +22,7 @@ vi.mock('@graphql/glossaryTerm.generated', () => ({
     useAddRelatedTermsMutation: () => [vi.fn()],
 }));
 
-vi.mock('@app/glossary/GlossaryBrowser/GlossaryBrowser', () => ({
+vi.mock('@app/glossaryV2/GlossaryBrowser/GlossaryBrowser', () => ({
     default: () => React.createElement('div', { 'data-testid': 'glossary-browser' }),
 }));
 
@@ -54,9 +56,11 @@ beforeAll(() => {
 
 const renderModal = () =>
     render(
-        <CustomThemeProvider>
-            <AddRelatedTermsModal onClose={vi.fn()} relationshipType={TermRelationshipType.HasA} />
-        </CustomThemeProvider>,
+        <MockedProvider>
+            <CustomThemeProvider>
+                <AddRelatedTermsModal onClose={vi.fn()} relationshipType={TermRelationshipType.HasA} />
+            </CustomThemeProvider>
+        </MockedProvider>,
     );
 
 describe('AddRelatedTermsModal', () => {

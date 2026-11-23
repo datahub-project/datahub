@@ -1,0 +1,16 @@
+"""
+An entity with health signals
+"""
+interface HasHealth {
+  """
+  Experimental! The resolved health statuses of the entity
+  """
+  health: [Health!]
+}
+
+extend type Chart implements HasHealth
+extend type Dashboard implements HasHealth
+extend type DataFlow implements HasHealth
+extend type DataJob implements HasHealth
+extend type Dataset implements HasHealth
+extend type VersionedDataset implements HasHealth

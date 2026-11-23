@@ -97,7 +97,7 @@
     "historyTransaction.byActor": "tekijä: {{actorName}}",
     "versionMilestone.created": "Versio luotu",
     "versionMilestone.latest": "Uusin",
-    "versionMilestone.view": "Katso",
+    "versionMilestone.view": "Näytä",
     "versionMilestone.viewing": "· tarkasteltavana",
     "menuColumn.copyColumnFieldPath": "Kopioi sarakkeen kenttäpolku",
     "menuColumn.copyColumnUrn": "Kopioi sarakkeen URN",

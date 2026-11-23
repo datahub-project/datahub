@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import cast
+from typing import Callable, cast
 from unittest import mock
 
 import pytest
@@ -24,6 +24,16 @@ pytestmark = pytest.mark.integration_batch_0
 
 def _fixture(name: str) -> Path:
     return FIXTURES_DIR / name
+
+
+def _dwaas_paged_list(items: list) -> Callable[..., list]:
+    # dwaas-core lists page via bare top/skip and end on an empty page; mirror a real
+    # server by serving the items at skip=0 and an empty list for any later page.
+    def _cb(request: object, context: object) -> list:
+        skip = int(request.qs.get("skip", ["0"])[0])  # type: ignore[attr-defined]
+        return items if skip == 0 else []
+
+    return _cb
 
 
 def _install_mocks(m: rm_module.Mocker) -> None:
@@ -69,10 +79,12 @@ def _install_mocks(m: rm_module.Mocker) -> None:
     # branches plus the per-table CSN fetch that backfills schemas for CLL.
     m.get(
         f"{TENANT_URL}/dwaas-core/api/v1/spaces/S1/localtables",
-        json=[
-            {"technicalName": "SAP.TIME.M_TIME_DIMENSION"},
-            {"technicalName": "BASE_FACTS"},
-        ],
+        json=_dwaas_paged_list(
+            [
+                {"technicalName": "SAP.TIME.M_TIME_DIMENSION"},
+                {"technicalName": "BASE_FACTS"},
+            ]
+        ),
     )
     m.get(
         f"{TENANT_URL}/dwaas-core/api/v1/spaces/S2/localtables",
@@ -831,7 +843,7 @@ def _install_federation_mocks(m: rm_module.Mocker) -> None:
     )
     m.get(
         f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/dataflows",
-        json=[{"technicalName": "DF_ENRICH_CUSTOMER"}],
+        json=_dwaas_paged_list([{"technicalName": "DF_ENRICH_CUSTOMER"}]),
     )
     m.get(
         f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/dataflows/DF_ENRICH_CUSTOMER",
@@ -839,7 +851,7 @@ def _install_federation_mocks(m: rm_module.Mocker) -> None:
     )
     m.get(
         f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/replicationflows",
-        json=[{"technicalName": "RF_CUSTOMER_TO_BQ"}],
+        json=_dwaas_paged_list([{"technicalName": "RF_CUSTOMER_TO_BQ"}]),
     )
     m.get(
         f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/replicationflows/RF_CUSTOMER_TO_BQ",
@@ -847,7 +859,7 @@ def _install_federation_mocks(m: rm_module.Mocker) -> None:
     )
     m.get(
         f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/remotetables",
-        json=[{"technicalName": "RT_BIC_MATERIAL"}],
+        json=_dwaas_paged_list([{"technicalName": "RT_BIC_MATERIAL"}]),
     )
     m.get(
         f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/remotetables/RT_BIC_MATERIAL",
@@ -1003,7 +1015,7 @@ def test_discover_unexposed_views_skips_federated_catalog_views() -> None:
         _install_lineage_mocks(m)
         m.get(
             f"{TENANT_URL}/dwaas-core/api/v1/spaces/LINEAGE_TEST/views",
-            json=_ALL_LINEAGE_TEST_VIEWS,
+            json=_dwaas_paged_list(_ALL_LINEAGE_TEST_VIEWS),
         )
         source, workunits = _run_lineage_source(m)
 
@@ -1029,7 +1041,7 @@ def test_discover_unexposed_views_does_not_relabel_views_when_catalog_listing_fa
         )
         m.get(
             f"{TENANT_URL}/dwaas-core/api/v1/spaces/LINEAGE_TEST/views",
-            json=[{"technicalName": "MID_VIEW"}],
+            json=_dwaas_paged_list([{"technicalName": "MID_VIEW"}]),
         )
         source, workunits = _run_lineage_source(m)
 

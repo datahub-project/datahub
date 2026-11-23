@@ -344,10 +344,10 @@ Create these individual secrets in DataHub:
 
 **Step 3: Deploy via DataHub UI**
 
-1. Navigate to **Ingestion** > **Create new source**
+1. Navigate to **Data Sources** > **Create Source**
 2. Select **Iceberg** as the source type
-3. Paste your recipe configuration with secret references
-4. Configure a schedule (optional)
+3. Enter a **Source Name**, then paste your recipe configuration with secret references into the recipe editor
+4. Configure a schedule in the **Sync Schedule** section (optional)
 5. Click **Save and Run**
 
 ##### Using Vended Credentials (Optional)
@@ -470,6 +470,26 @@ For advanced Iceberg behavior and tuning, refer to:
 - [Iceberg table properties](https://iceberg.apache.org/docs/latest/configuration/#table-properties)
 - [Iceberg specification](https://iceberg.apache.org/spec/)
 - [PyIceberg configuration](https://py.iceberg.apache.org/)
+
+#### Checking a recipe before ingesting
+
+`datahub recipe probe` lists what the catalog holds and says what your patterns would keep, using
+the same catalog configuration and credentials as ingestion. It reads catalog listings and table
+metadata files only, never data files.
+
+```shell
+datahub recipe probe run namespaces --recipe recipe.yml
+datahub recipe probe run tables --recipe recipe.yml --namespace sales
+datahub recipe probe run columns --recipe recipe.yml --namespace sales --table orders
+datahub recipe probe filter --recipe recipe.yml --kind Table --parent sales --name orders
+```
+
+Two matching rules are worth knowing when writing patterns:
+
+- `namespace_pattern` is matched against the namespace name. Only top-level namespaces are
+  ingested; tables in nested namespaces are not.
+- `table_pattern` is matched against `<namespace>.<table>`, not the bare table name, so write
+  `^sales\.orders$` rather than `^orders$`.
 
 ### Limitations
 

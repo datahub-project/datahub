@@ -7,16 +7,20 @@ import AddRelatedTermsModal from '@app/entityV2/glossaryTerm/profile/AddRelatedT
 import RelatedTerm from '@app/entityV2/glossaryTerm/profile/RelatedTerm';
 import { RelatedTermTypes, getRelatedTermTypeLabel } from '@app/entityV2/glossaryTerm/profile/RelatedTermTypes';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 import { CustomIcon } from '@app/sharedV2/icons/customIcons/CustomIcon';
 import addTerm from '@app/sharedV2/icons/customIcons/add-term.svg';
 import { Button } from '@src/alchemy-components';
 
 import { TermRelationshipType } from '@types';
 
+type RelatedTermListItem = {
+    entity?: { urn?: string | null } | null;
+} | null;
+
 type Props = {
     glossaryRelatedTermType: string;
-    glossaryRelatedTermResult: Array<any>;
+    glossaryRelatedTermResult: ReadonlyArray<RelatedTermListItem>;
 };
 
 const ListWrapper = styled.div`
@@ -46,9 +50,9 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
     const { t } = useTranslation('entity.types');
     const { t: tf } = useTranslation('common.feedback');
     const [isShowingAddModal, setIsShowingAddModal] = useState(false);
-    const glossaryRelatedTermUrns: Array<string> = [];
-    glossaryRelatedTermResult.forEach((item: any) => {
-        glossaryRelatedTermUrns.push(item?.entity?.urn);
+    const glossaryRelatedTermUrns = glossaryRelatedTermResult.flatMap((item) => {
+        const itemUrn = item?.entity?.urn;
+        return itemUrn ? [itemUrn] : [];
     });
     const contentLoading = false;
     const relationshipType =

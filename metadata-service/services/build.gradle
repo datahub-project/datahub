@@ -38,6 +38,7 @@ dependencies {
 
     annotationProcessor externalDependency.lombok
 
+    testImplementation testFixtures(project(':metadata-utils'))
     testImplementation externalDependency.testng
     testImplementation externalDependency.junit
     testImplementation externalDependency.mockito

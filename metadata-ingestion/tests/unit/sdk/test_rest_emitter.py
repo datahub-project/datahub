@@ -911,6 +911,50 @@ class TestDataHubRestEmitter:
 
             openapi_emitter._await_status([trace], timedelta(seconds=10))
             assert not trace.data  # Should be empty after successful completion
+            assert mock_emit.call_count == 1
+
+    def test_await_status_unknown_keeps_polling(self, openapi_emitter):
+        """UNKNOWN is not a committed primary write, so the wait polls again."""
+        with (
+            patch("datahub.emitter.rest_emitter.time.sleep"),
+            patch(
+                "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
+            ) as mock_emit,
+        ):
+            trace = TraceData(
+                trace_id="test-trace-id", data={"urn:li:dataset:test": ["status"]}
+            )
+            responses = [
+                {
+                    "urn:li:dataset:test": {
+                        "status": {
+                            "success": True,
+                            "primaryStorage": {"writeStatus": "UNKNOWN"},
+                            "searchStorage": {"writeStatus": "UNKNOWN"},
+                        }
+                    }
+                },
+                {
+                    "urn:li:dataset:test": {
+                        "status": {
+                            "success": True,
+                            "primaryStorage": {"writeStatus": "ACTIVE_STATE"},
+                            "searchStorage": {"writeStatus": "TRACE_NOT_IMPLEMENTED"},
+                        }
+                    }
+                },
+            ]
+
+            def _response(*_args, **_kwargs):
+                payload = responses.pop(0)
+                return Mock(json=lambda: payload)
+
+            mock_emit.side_effect = _response
+
+            openapi_emitter._await_status([trace], timedelta(seconds=10))
+            assert not trace.data
+            assert mock_emit.call_count == 2
+            assert responses == []
 
     def test_await_status_timeout(self, openapi_emitter):
         with patch(

@@ -79,12 +79,14 @@ query appConfig {
             contextDocumentsEnabled
             documentExplicitSaveEnabled
             dataContractsEnabled
+            showApplicationsFeatureToggle
             editableDatasetNameEnabled
             themeV2Enabled
             themeV2Default
             themeV2Toggleable
             themeDarkModeEnabled
             showSeparateSiblings
+            maxSiblingGroupUrns
             showManageStructuredProperties
             schemaFieldCLLEnabled
             hideDbtSourceInLineage
@@ -96,7 +98,6 @@ query appConfig {
             showSearchBarAutocompleteRedesign
             showManageTags
             showIntroducePage
-            showIngestionPageRedesign
             showLineageExpandMore
             showLineageFilterNodes
             showStatsTabRedesign
@@ -108,7 +109,6 @@ query appConfig {
             assetSummaryPageV1
             datasetSummaryPageV1
             metricsEnabled
-            ingestionOnboardingRedesignV1
             documentationFileUploadV1
             contextDocumentsEnabled
             hideLineageInSearchCards
@@ -120,6 +120,7 @@ query appConfig {
             i18nEnabled
             browserTracingEnabled
             browserWebVitalsEnabled
+            showGithubStarPrompt
         }
         chromeExtensionConfig {
             enabled

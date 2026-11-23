@@ -3,6 +3,7 @@ import { useOnSelectionChange, useReactFlow } from 'reactflow';
 
 import { LINEAGE_ANNOTATION_NODE_NAME } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
 import useAddAnnotationNodes from '@app/lineageV3/LineageAnnotationNode/useAddAnnotationNodes';
+import { DATA_FLOW_LINEAGE_CONTROL_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import { useTrackLineageView } from '@app/lineageV3/LineageDisplay.hooks';
 import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/LineageFilterNodeBasic';
 import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
@@ -60,7 +61,12 @@ export default function LineageDisplay({
     const shownUrns = useMemo(
         () =>
             flowNodes
-                .filter((node) => node.type !== LINEAGE_FILTER_NODE_NAME && node.type !== LINEAGE_ANNOTATION_NODE_NAME)
+                .filter(
+                    (node) =>
+                        node.type !== LINEAGE_FILTER_NODE_NAME &&
+                        node.type !== LINEAGE_ANNOTATION_NODE_NAME &&
+                        node.type !== DATA_FLOW_LINEAGE_CONTROL_NODE_NAME,
+                )
                 .map((node) => node.data.urn || node.id),
         [flowNodes],
     );

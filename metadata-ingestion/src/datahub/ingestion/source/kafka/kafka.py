@@ -53,6 +53,7 @@ import avro.io
 import avro.schema
 import confluent_kafka
 import confluent_kafka.admin
+import requests
 from confluent_kafka.admin import (
     AdminClient,
     ConfigEntry,
@@ -103,17 +104,28 @@ from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     KafkaSchemaRegistryBase,
     SchemaAndFields,
 )
+from datahub.ingestion.source.kafka.stream_processing.builder import (
+    build_flink_workunits,
+)
+from datahub.ingestion.source.kafka.stream_processing.flink import (
+    FlinkLineageExtractor,
+    build_flink_client,
+)
+from datahub.ingestion.source.kafka.stream_processing.models import FlinkJob
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
+    DatasetLineageTypeClass,
     DatasetProfileClass,
     KafkaSchemaClass,
     OwnershipSourceTypeClass,
     SchemaMetadataClass,
     StatusClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
@@ -137,6 +149,11 @@ def _needs_schema_resolution(schema_and_fields: Optional[SchemaAndFields]) -> bo
         schema_and_fields.schema is None and not schema_and_fields.fields
     )
 
+
+# Returned by _decode_message_part for a payload that could not be decoded, so a
+# skipped message stays distinguishable from a legitimately null value (an Avro
+# null or a JSON `null`), which must still yield a key-only sample.
+_UNDECODABLE = object()
 
 # (low, high, sample_size) -> (start_offset, expected_message_count)
 OffsetFn = Callable[[int, int, int], Tuple[int, int]]
@@ -317,13 +334,18 @@ class KafkaConnectionTest:
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Not supported. If you use Kafka Connect, the kafka-connect source can generate lineage.",
-    supported=False,
+    "Optionally emits topic-to-topic lineage from Stream Catalog cluster links / mirror "
+    "topics via `confluent_catalog.include_lineage`, and from Confluent Cloud Flink SQL "
+    "via `stream_processing_lineage.flink.enabled`. For source/sink lineage to external "
+    "systems, use the kafka-connect source.",
+    supported=True,
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Not supported",
-    supported=False,
+    "Optionally emits column-level lineage from Confluent Cloud Flink SQL statements "
+    "(`stream_processing_lineage.flink.enabled`, with "
+    "`stream_processing_lineage.include_column_lineage`).",
+    supported=True,
 )
 @capability(
     SourceCapability.TAGS,
@@ -554,6 +576,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         if collection_tasks:
             yield from self.generate_profiles_in_parallel(collection_tasks)
 
+        yield from self._emit_stream_processing_lineage()
+
         if self.source_config.ingest_schemas_as_entities:
             # Get all subjects from schema registry and ingest them as SCHEMA DatasetSubTypes
             for subject in self.schema_registry_client.get_subjects():
@@ -571,6 +595,63 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         exc=e,
                         log=False,
                     )
+
+    def _emit_stream_processing_lineage(self) -> Iterable[MetadataWorkUnit]:
+        config = self.source_config.stream_processing_lineage
+        if (
+            not config.flink.enabled
+            or not config.flink.environment_id
+            or not config.flink.kafka_cluster_id
+        ):
+            return
+
+        jobs: List[FlinkJob] = []
+        flink_client = build_flink_client(config.flink, self.report)
+        try:
+            jobs = FlinkLineageExtractor(
+                flink_client, self.report, config.flink
+            ).extract()
+        except requests.HTTPError as e:
+            # A failure, not a warning: with no jobs this run, stale-entity removal
+            # would otherwise soft-delete every Flink job emitted before.
+            status = e.response.status_code if e.response is not None else None
+            if status in (401, 403):
+                self.report.failure(
+                    title="Flink API key rejected",
+                    message="Confluent Cloud rejected the Flink API key. The statements "
+                    "API needs a Flink API key for this environment's cloud region, "
+                    "not a Cloud resource-management or cluster key.",
+                    context=f"status={status}",
+                    exc=e,
+                )
+            else:
+                self._report_flink_listing_failure(e)
+        except Exception as e:
+            self._report_flink_listing_failure(e)
+        finally:
+            flink_client.close()
+
+        yield from build_flink_workunits(
+            jobs=jobs,
+            environment_id=config.flink.environment_id,
+            kafka_cluster_id=config.flink.kafka_cluster_id,
+            topic_platform=self.platform,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+            report=self.report,
+            topic_allowed=self.source_config.topic_patterns.allowed,
+            graph=self.ctx.graph,
+            include_column_lineage=config.include_column_lineage,
+        )
+
+    def _report_flink_listing_failure(self, exc: Exception) -> None:
+        self.report.failure(
+            title="Flink lineage extraction failed",
+            message="Failed to list Confluent Cloud Flink statements; no Flink lineage "
+            "was emitted this run",
+            context="flink-lineage",
+            exc=exc,
+        )
 
     def _locked_warning(self, message: LiteralString, context: str) -> None:
         # report.warning is not thread-safe; serialize the profiling worker calls.
@@ -827,12 +908,21 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             value = msg.value() if callable(msg.value) else msg.value
 
             # Use pre-cached schema metadata to avoid repeated lookups
-            processed_key = self._process_message_part(
-                key, "key", topic, schema_metadata, is_key=True
+            processed_key = self._decode_message_part(
+                key, topic, schema_metadata, is_key=True
             )
-            processed_value = self._process_message_part(
-                value, "value", topic, schema_metadata, is_key=False
+            processed_value = self._decode_message_part(
+                value, topic, schema_metadata, is_key=False
             )
+            if processed_value is _UNDECODABLE or (
+                processed_key is _UNDECODABLE and processed_value is None
+            ):
+                # Already counted as skipped. A sample holding only
+                # offset/timestamp would inflate the row count without
+                # contributing any field data.
+                return
+            if processed_key is _UNDECODABLE:
+                processed_key = None
 
             # Start with metadata
             sample = {
@@ -872,15 +962,16 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         ):
             self._locked_warning("Failed to process message", "profiling")
 
-    def _process_message_part(
+    def _decode_message_part(
         self,
         data: Any,
-        prefix: str,
         topic: str,
         schema_metadata: Optional[SchemaMetadataClass],
         is_key: bool = False,
-    ) -> Optional[Any]:
-        """Decode one message part (key or value) using pre-fetched schema metadata."""
+    ) -> Any:
+        """Decode one message part (key or value) using pre-fetched schema
+        metadata. Returns None for a null value and _UNDECODABLE for a payload
+        that was skipped because it could not be decoded."""
         if data is None:
             return None
 
@@ -936,21 +1027,27 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                                     exc=e,
                                     log=False,
                                 )
-                            return None
+                            return _UNDECODABLE
 
-                    decoded = decode_kafka_message_value(
-                        data,
-                        topic,
-                        flatten_json_func=flatten_json,
-                        max_depth=self.source_config.profiling.nested_field_max_depth,
-                    )
-                    if decoded is None:
-                        # Binary/undecodable payload; skip rather than pollute the
-                        # profile with a synthetic field.
-                        with self._report_lock:
-                            self.report.profiling_samples_skipped += 1
+                # No usable Avro schema (none registered, inferred fields only, or
+                # a non-Avro type): decode as JSON/text so the profiler never sees
+                # raw bytes.
+                decoded = decode_kafka_message_value(
+                    data,
+                    topic,
+                    flatten_json_func=flatten_json,
+                    max_depth=self.source_config.profiling.nested_field_max_depth,
+                )
+                if decoded is None:
+                    if data.strip() == b"null":
+                        # A JSON null is a valid (empty) value, not a decode failure.
                         return None
-                    return decoded
+                    # Binary/undecodable payload; skip rather than pollute the
+                    # profile with a synthetic field.
+                    with self._report_lock:
+                        self.report.profiling_samples_skipped += 1
+                    return _UNDECODABLE
+                return decoded
 
             except Exception as e:
                 # Skip the message rather than emitting a base64 blob, which would
@@ -963,7 +1060,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         exc=e,
                         log=False,
                     )
-                return None
+                return _UNDECODABLE
 
         return data
 
@@ -1286,6 +1383,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         if not is_subject:
             self._apply_catalog_metadata(topic, all_tags, custom_props)
+            mirror_lineage = self._build_catalog_lineage(topic)
+            if mirror_lineage is not None:
+                extra_aspects.append(mirror_lineage)
 
         if self.source_config.external_url_base:
             base_url = self.source_config.external_url_base.rstrip("/")
@@ -1360,6 +1460,85 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             if properties:
                 custom_props.update(properties)
                 self.report.catalog_topics_with_business_metadata += 1
+
+    def _build_catalog_lineage(self, topic: str) -> Optional[UpstreamLineageClass]:
+        catalog_config = self.source_config.confluent_catalog
+        if self.topic_catalog is None or not catalog_config.include_lineage:
+            return None
+
+        catalog_topic = self.topic_catalog.get_topic(topic)
+        if catalog_topic is None or catalog_topic.source_topic is None:
+            return None
+        source = catalog_topic.source_topic
+        if not source.name:
+            return None
+        if not catalog_config.cluster_id and not self.topic_catalog.is_complete():
+            # Without cluster_id, a partial read can miss the same topic name in another
+            # cluster of the environment, so this match may be the wrong cluster's topic.
+            self._skip_mirror_lineage(
+                topic,
+                "Skipping mirror-topic lineage because the Stream Catalog was only "
+                "partially read and confluent_catalog.cluster_id is not set.",
+                f"topic={topic}",
+            )
+            return None
+
+        if source.cluster_id and source.cluster_id == catalog_config.cluster_id:
+            upstream_instance = self.source_config.platform_instance
+        elif source.cluster_id in catalog_config.cluster_id_to_platform_instance:
+            upstream_instance = catalog_config.cluster_id_to_platform_instance[
+                source.cluster_id
+            ]
+        else:
+            self._skip_mirror_lineage(
+                topic,
+                "Skipping mirror-topic lineage because the source topic's cluster is not "
+                "mapped. Add it to `confluent_catalog.cluster_id_to_platform_instance`.",
+                f"topic={topic}, source_topic={source.name}, "
+                f"source_cluster_id={source.cluster_id}",
+            )
+            return None
+
+        upstream_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=source.name,
+            platform_instance=upstream_instance,
+            env=self.source_config.env,
+        )
+        own_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=topic,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+        )
+        if upstream_urn == own_urn:
+            # Mirror topics keep the source name unless the link sets a prefix, so two
+            # clusters ingested without distinct platform instances collide here.
+            self._skip_mirror_lineage(
+                topic,
+                "Skipping mirror-topic lineage that would point a topic at itself. Give "
+                "each cluster its own platform_instance.",
+                f"topic={topic}, source_cluster_id={source.cluster_id}",
+            )
+            return None
+
+        self.report.catalog_mirror_lineage_edges += 1
+        return UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    dataset=upstream_urn,
+                    type=DatasetLineageTypeClass.COPY,
+                )
+            ]
+        )
+
+    def _skip_mirror_lineage(
+        self, topic: str, message: LiteralString, context: str
+    ) -> None:
+        self.report.catalog_mirror_lineage_skipped.append(topic)
+        self.report.warning(
+            title="Mirror-topic lineage skipped", message=message, context=context
+        )
 
     def build_custom_properties(
         self,

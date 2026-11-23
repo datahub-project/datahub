@@ -8,9 +8,21 @@ from utilities.consistency_utils import wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
 
-# Smoke quickstart sets POLICY_CACHE_REFRESH_INTERVAL_SECONDS=10; allow scheduled refresh
+# Smoke quickstart sets POLICY_CACHE_REFRESH_INTERVAL_SECONDS=2; allow scheduled refresh
 # plus async invalidate/rebuild under full-suite CI load.
 DEFAULT_POLICY_CACHE_AUTH_WAIT_SECONDS = 60
+
+
+def _post_without_sync_wait(session, url: str, **kwargs: Any):
+    """POST without TestSessionWrapper's automatic sync wait.
+
+    Every write helper below waits explicitly after its POST. On a
+    TestSessionWrapper the plain ``post`` would wait a second time.
+    """
+    raw_post = getattr(session, "raw_post", None)
+    if raw_post is not None:
+        return raw_post(url, **kwargs)
+    return session.post(url, **kwargs)
 
 
 def is_graphql_auth_denied(res: dict[str, Any]) -> bool:
@@ -38,6 +50,36 @@ def wait_until_graphql_auth_denied(
     while time.time() < deadline:
         last_res = request_fn()
         if is_graphql_auth_denied(last_res):
+            return last_res
+        logger.info(
+            "Waiting for policy cache to reflect %s (%.0fs remaining)",
+            description,
+            max(0.0, deadline - time.time()),
+        )
+        time.sleep(poll_interval_seconds)
+    raise AssertionError(
+        f"Timed out after {timeout_seconds}s waiting for {description}; "
+        f"last response: {last_res}"
+    )
+
+
+def wait_until_graphql_authorized(
+    request_fn: Callable[[], dict[str, Any]],
+    *,
+    timeout_seconds: float = DEFAULT_POLICY_CACHE_AUTH_WAIT_SECONDS,
+    poll_interval_seconds: float = 1.0,
+    description: str = "authorization grant",
+) -> dict[str, Any]:
+    """Poll until request_fn stops returning a GraphQL authorization error.
+
+    Counterpart of wait_until_graphql_auth_denied for a new or widened policy. Only
+    pass an idempotent request: it is re-sent until GMS's policy cache allows it.
+    """
+    deadline = time.time() + timeout_seconds
+    last_res: dict[str, Any] = {}
+    while time.time() < deadline:
+        last_res = request_fn()
+        if not is_graphql_auth_denied(last_res):
             return last_res
         logger.info(
             "Waiting for policy cache to reflect %s (%.0fs remaining)",
@@ -124,133 +166,156 @@ def get_current_user_info(session):
         return None
 
 
-def set_base_platform_privileges_policy_status(status, session):
-    base_platform_privileges = {
-        "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
-            updatePolicy(urn: $urn, input: $input) }""",
-        "variables": {
-            "urn": "urn:li:dataHubPolicy:7",
-            "input": {
-                "type": "PLATFORM",
-                "state": status,
-                "name": "All Users - Base Platform Privileges",
-                "description": "Grants base platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",
-                "privileges": [
-                    "MANAGE_INGESTION",
-                    "MANAGE_SECRETS",
-                    "MANAGE_USERS_AND_GROUPS",
-                    "VIEW_ANALYTICS",
-                    "GENERATE_PERSONAL_ACCESS_TOKENS",
-                    "MANAGE_DOMAINS",
-                    "MANAGE_GLOBAL_ANNOUNCEMENTS",
-                    "MANAGE_TESTS",
-                    "MANAGE_GLOSSARIES",
-                    "MANAGE_TAGS",
-                    "MANAGE_GLOBAL_VIEWS",
-                    "MANAGE_GLOBAL_OWNERSHIP_TYPES",
-                ],
-                "actors": {
-                    "users": [],
-                    "groups": None,
-                    "resourceOwners": False,
-                    "allUsers": True,
-                    "allGroups": False,
-                    "resourceOwnersTypes": None,
-                },
+BASE_PLATFORM_PRIVILEGES_POLICY_URN = "urn:li:dataHubPolicy:7"
+VIEW_DATASET_SENSITIVE_POLICY_URN = "urn:li:dataHubPolicy:view-dataset-sensitive"
+VIEW_ENTITY_PAGE_POLICY_URN = "urn:li:dataHubPolicy:view-entity-page-all"
+
+_LIST_POLICIES_QUERY = """
+query listPolicies($input: ListPoliciesInput!) {
+  listPolicies(input: $input) {
+    total
+    policies {
+      urn
+      type
+      name
+      state
+      description
+      privileges
+      actors { users groups resourceOwners resourceOwnersTypes allUsers allGroups }
+      resources {
+        allResources
+        resources
+        filter { criteria { field values { value } condition } }
+      }
+    }
+  }
+}
+"""
+
+
+def _fetch_policy(session, urn):
+    """Read a policy's live definition, or None if it is not present."""
+    start, count = 0, 100
+    while True:
+        response = session.post(
+            f"{get_frontend_url()}/api/v2/graphql",
+            json={
+                "query": _LIST_POLICIES_QUERY,
+                "variables": {"input": {"start": start, "count": count}},
             },
+        )
+        response.raise_for_status()
+        result = (response.json().get("data") or {}).get("listPolicies") or {}
+        policies = result.get("policies") or []
+        for policy in policies:
+            if policy.get("urn") == urn:
+                return policy
+        start += count
+        if not policies or start >= result.get("total", 0):
+            return None
+
+
+def _policy_to_update_input(policy, state):
+    """Turn a Policy read back from GraphQL into a PolicyUpdateInput, changing only state."""
+    actors = policy.get("actors") or {}
+    update_input = {
+        "type": policy["type"],
+        "state": state,
+        "name": policy["name"],
+        "description": policy.get("description"),
+        "privileges": policy.get("privileges") or [],
+        "actors": {
+            "users": actors.get("users"),
+            "groups": actors.get("groups"),
+            "resourceOwners": bool(actors.get("resourceOwners")),
+            "resourceOwnersTypes": actors.get("resourceOwnersTypes"),
+            "allUsers": bool(actors.get("allUsers")),
+            "allGroups": bool(actors.get("allGroups")),
         },
     }
-    base_privileges_response = session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=base_platform_privileges
+
+    resources = policy.get("resources")
+    if resources:
+        resource_filter = resources.get("filter")
+        update_input["resources"] = {
+            "allResources": resources.get("allResources"),
+            "resources": resources.get("resources"),
+            "filter": {
+                "criteria": [
+                    {
+                        "field": criterion["field"],
+                        "values": [v["value"] for v in criterion.get("values") or []],
+                        "condition": criterion.get("condition"),
+                    }
+                    for criterion in (resource_filter.get("criteria") or [])
+                ]
+            }
+            if resource_filter
+            else None,
+        }
+    return update_input
+
+
+def _set_policy_status(urn, status, session):
+    """Flip one bootstrap policy's state, preserving everything else about it.
+
+    These helpers are used as save/restore pairs around tests that need an "all users" policy
+    temporarily disabled. They used to write a hardcoded policy definition on the way back, which
+    made "restore" a misnomer: whatever the deployment actually had was replaced by the constant
+    baked into this file, for the rest of the pytest process.
+
+    Both directions of drift were live here, and both leak into unrelated tests:
+
+    * ``dataHubPolicy:7`` gained MANAGE_USERS_AND_GROUPS for ALL users. That is the self floor
+      for adding yourself to a group, so test_group_owner_cannot_add_self_to_owned_group then saw
+      its self-add legitimately succeed and reported a privilege escalation that never happened.
+    * ``view-dataset-sensitive`` lost VIEW_DATASET_OPERATIONS and ``view-entity-page-all`` lost
+      ES_EXPLAIN_QUERY_PRIVILEGE, silently revoking them from all users.
+
+    Reading the live definition also keeps this correct across deployments, which ship different
+    privilege sets on these bootstrap policies.
+    """
+    policy = _fetch_policy(session, urn)
+    assert policy is not None, (
+        f"{urn} not found; cannot toggle it without knowing its definition, and writing a "
+        f"guessed one would change what all users can do."
     )
-    base_privileges_response.raise_for_status()
-    base_res_data = base_privileges_response.json()
-    assert base_res_data["data"]["updatePolicy"] == "urn:li:dataHubPolicy:7"
+
+    response = session.post(
+        f"{get_frontend_url()}/api/v2/graphql",
+        json={
+            "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
+            updatePolicy(urn: $urn, input: $input) }""",
+            "variables": {"urn": urn, "input": _policy_to_update_input(policy, status)},
+        },
+    )
+    response.raise_for_status()
+    res_data = response.json()
+    assert res_data["data"]["updatePolicy"] == urn, res_data
+
+
+def set_base_platform_privileges_policy_status(status, session):
+    _set_policy_status(BASE_PLATFORM_PRIVILEGES_POLICY_URN, status, session)
 
 
 def set_view_dataset_sensitive_info_policy_status(status, session):
-    dataset_sensitive_information = {
-        "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
-            updatePolicy(urn: $urn, input: $input) }""",
-        "variables": {
-            "urn": "urn:li:dataHubPolicy:view-dataset-sensitive",
-            "input": {
-                "type": "METADATA",
-                "state": status,
-                "name": "All Users - View Dataset Sensitive Information",
-                "description": "Grants viewing privileges of usage and profile information of all datasets for all users",
-                "privileges": ["VIEW_DATASET_USAGE", "VIEW_DATASET_PROFILE"],
-                "actors": {
-                    "users": [],
-                    "groups": None,
-                    "resourceOwners": False,
-                    "allUsers": True,
-                    "allGroups": False,
-                    "resourceOwnersTypes": None,
-                },
-            },
-        },
-    }
-    sensitive_info_response = session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_sensitive_information
-    )
-    sensitive_info_response.raise_for_status()
-    sens_info_data = sensitive_info_response.json()
-    assert (
-        sens_info_data["data"]["updatePolicy"]
-        == "urn:li:dataHubPolicy:view-dataset-sensitive"
-    )
+    _set_policy_status(VIEW_DATASET_SENSITIVE_POLICY_URN, status, session)
 
 
 def set_view_entity_profile_privileges_policy_status(status, session):
-    view_entity_page = {
-        "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
-            updatePolicy(urn: $urn, input: $input) }""",
-        "variables": {
-            "urn": "urn:li:dataHubPolicy:view-entity-page-all",
-            "input": {
-                "type": "METADATA",
-                "state": status,
-                "name": "All Users - View Entity Page",
-                "description": "Grants entity view to all users",
-                "privileges": [
-                    "VIEW_ENTITY_PAGE",
-                    "VIEW_ENTITY_QUERIES",
-                    "VIEW_ALL_QUERIES",
-                    "SEARCH_PRIVILEGE",
-                    "GET_COUNTS_PRIVILEGE",
-                    "GET_TIMESERIES_ASPECT_PRIVILEGE",
-                    "GET_ENTITY_PRIVILEGE",
-                    "GET_TIMELINE_PRIVILEGE",
-                ],
-                "actors": {
-                    "users": [],
-                    "groups": None,
-                    "resourceOwners": False,
-                    "allUsers": True,
-                    "allGroups": False,
-                    "resourceOwnersTypes": None,
-                },
-            },
-        },
-    }
-    view_entity_response = session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=view_entity_page
-    )
-    view_entity_response.raise_for_status()
-    view_entity_data = view_entity_response.json()
-    assert (
-        view_entity_data["data"]["updatePolicy"]
-        == "urn:li:dataHubPolicy:view-entity-page-all"
-    )
+    _set_policy_status(VIEW_ENTITY_PAGE_POLICY_URN, status, session)
 
 
-def create_user(session, email, password):
-    """Create a native user via /signUp; ``email`` must be valid if enforceValidEmail is enabled."""
-    # Remove user if exists
-    res_data = remove_user(session, f"urn:li:corpuser:{email}")
-    assert res_data
-    assert "error" not in res_data
+def create_user(session, email, password, *, remove_existing: bool = True):
+    """Create a native user via /signUp; ``email`` must be valid if enforceValidEmail is enabled.
+
+    Pass ``remove_existing=False`` when the email is unique to this call, so the
+    pre-delete of a user that cannot exist yet is skipped.
+    """
+    if remove_existing:
+        res_data = remove_user(session, f"urn:li:corpuser:{email}")
+        assert res_data
+        assert "error" not in res_data
 
     # Get the invite token
     get_invite_token_json = {
@@ -299,7 +364,9 @@ def create_user(session, email, password):
         "title": "Data Engineer",
         "inviteToken": invite_token,
     }
-    sign_up_response = session.post(f"{get_frontend_url()}/signUp", json=sign_up_json)
+    sign_up_response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/signUp", json=sign_up_json
+    )
     sign_up_response.raise_for_status()
     assert sign_up_response
     assert "error" not in sign_up_response
@@ -318,7 +385,9 @@ def remove_user(session, urn):
         }""",
         "variables": {"urn": urn},
     }
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     wait_for_writes_to_sync(mae_only=True)
     return response.json()
@@ -331,7 +400,9 @@ def create_group(session, name):
         }""",
         "variables": {"input": {"name": name}},
     }
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
     assert res_data
@@ -348,7 +419,9 @@ def remove_group(session, urn):
         }""",
         "variables": {"urn": urn},
     }
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
     assert res_data
@@ -365,7 +438,9 @@ def assign_user_to_group(session, group_urn, user_urns):
         }""",
         "variables": {"groupUrn": group_urn, "userUrns": user_urns},
     }
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
     assert res_data
@@ -383,7 +458,9 @@ def assign_role(session, role_urn, actor_urns):
         "variables": {"input": {"roleUrn": role_urn, "actors": actor_urns}},
     }
 
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
     assert res_data
@@ -443,7 +520,9 @@ def create_metadata_policy(
         },
     }
 
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=policy)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=policy
+    )
     response.raise_for_status()
     res_data = response.json()
     assert res_data.get("data") and res_data["data"].get("createPolicy"), (
@@ -503,7 +582,9 @@ def create_domain_scoped_metadata_policy(
         },
     }
 
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=policy)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=policy
+    )
     response.raise_for_status()
     res_data = response.json()
     assert res_data.get("data") and res_data["data"].get("createPolicy"), (
@@ -543,7 +624,9 @@ def create_user_policy(
         },
     }
 
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=policy)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=policy
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -562,8 +645,8 @@ def remove_policy(urn, session):
         "variables": {"urn": urn},
     }
 
-    response = session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=remove_policy_json
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=remove_policy_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -724,6 +807,8 @@ def remove_secret(session, urn):
         "variables": {"urn": urn},
     }
 
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=remove_secret)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=remove_secret
+    )
     response.raise_for_status()
     wait_for_writes_to_sync(mae_only=True)

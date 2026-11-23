@@ -40,6 +40,12 @@ public class CreateDataProductResolver implements DataFetcher<CompletableFuture<
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
+          // The privilege check below accepts EDIT_ENTITY on whatever URN it is given, and the
+          // dataProductProperties write is committed before setDomain rejects a non-domain URN,
+          // which would leave a product with no domain and no owner.
+          if (!Constants.DOMAIN_ENTITY_NAME.equals(domainUrn.getEntityType())) {
+            throw new IllegalArgumentException("The provided domainUrn is not a Domain");
+          }
           if (!_dataProductService.verifyEntityExists(context.getOperationContext(), domainUrn)) {
             throw new IllegalArgumentException("The Domain provided dos not exist");
           }

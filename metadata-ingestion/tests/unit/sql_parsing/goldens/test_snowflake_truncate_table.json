@@ -1,0 +1,15 @@
+{
+    "query_type": "UNKNOWN",
+    "query_type_props": {},
+    "query_fingerprint": "2fc5d1bbcfd7cc902000538e8783665b646707509ddaf5c8fc59326ae4aa549c",
+    "in_tables": [],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.t,PROD)"
+    ],
+    "column_lineage": null,
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "TRUNCATE TABLE t"
+    }
+}

@@ -10,14 +10,13 @@ import {
 } from '@app/document/utils/documentSidebarGroupPagination';
 import {
     buildDocumentDomainGroupSearchInput,
-    documentBelongsInDomainGroup,
+    documentsInDomainGroup,
 } from '@app/document/utils/documentSidebarGrouping';
 import {
     DEFAULT_DOCUMENT_SIDEBAR_SORT,
     DocumentSidebarSortValue,
     documentSidebarSortToCriterion,
 } from '@app/document/utils/documentSidebarSort';
-import { prependMissingUrnEntities } from '@app/sharedV2/utils/mergeUrnEntities';
 
 import { useSearchDocumentsQuery } from '@graphql/document.generated';
 import { Document } from '@types';
@@ -28,7 +27,10 @@ type Props = {
     groupKey: string;
     sort?: DocumentSidebarSortValue;
     skip?: boolean;
-    /** Open document from getDocument — prepended when it belongs in this group but isn't on the loaded pages. */
+    /**
+     * Open document from getDocument. Prepended when it belongs in this group but
+     * isn't on the loaded pages; removed when it no longer belongs.
+     */
     selectedDocument?: Document | null;
 };
 
@@ -96,11 +98,10 @@ export default function useDocumentGroupDocuments({
     const documentsWithSelected = useMemo(() => {
         // Keep the open doc visible even when the group search errors (e.g. GMS
         // lagging a GraphQL schema change) so Domain mode is not a blank section.
+        // Also drop it from a group it no longer belongs to — search pages stay
+        // cached after a domain change, so the old section would otherwise keep it.
         const base = skip || error ? [] : documents;
-        if (!selectedDocument || !documentBelongsInDomainGroup(selectedDocument, groupKey)) {
-            return base;
-        }
-        return prependMissingUrnEntities(base, [selectedDocument]);
+        return documentsInDomainGroup(base, groupKey, selectedDocument);
     }, [documents, error, groupKey, selectedDocument, skip]);
 
     return {

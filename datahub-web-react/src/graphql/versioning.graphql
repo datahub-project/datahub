@@ -42,27 +42,18 @@ fragment versionsSearchResults on SearchResults {
         entity {
             urn
             type
+            ... on HasStatus {
+                status {
+                    lifecycleStage {
+                        urn
+                        name
+                        description
+                    }
+                }
+            }
             ... on SupportsVersions {
                 versionProperties {
                     ...versionProperties
-                }
-            }
-            ... on GlossaryTerm {
-                status {
-                    lifecycleStage {
-                        urn
-                        name
-                        description
-                    }
-                }
-            }
-            ... on Dataset {
-                status {
-                    lifecycleStage {
-                        urn
-                        name
-                        description
-                    }
                 }
             }
         }

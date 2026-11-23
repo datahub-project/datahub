@@ -66,6 +66,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
@@ -88,11 +89,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    ChartSnapshot,
-    DashboardSnapshot,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsClass,
@@ -859,7 +855,11 @@ class ModeSource(StatefulIngestionSourceBase):
 
     def construct_dashboard(
         self, space_token: str, report_info: ModeReport, chart_urns: List[str]
-    ) -> Optional[Tuple[DashboardSnapshot, MetadataChangeProposalWrapper]]:
+    ) -> Optional[
+        Tuple[List[MetadataChangeProposalWrapper], MetadataChangeProposalWrapper]
+    ]:
+        """The dashboard's aspect MCPs and, separately, its browsePathsV2 MCP; None if
+        the report has no token or id."""
         report_token = report_info.token or ""
         # logger.debug(f"Processing report {(report_info.name or '')}: {report_info}")
 
@@ -882,10 +882,6 @@ class ModeSource(StatefulIngestionSourceBase):
             return None
 
         dashboard_urn = self._dashboard_urn(report_info)
-        dashboard_snapshot = DashboardSnapshot(
-            urn=dashboard_urn,
-            aspects=[],
-        )
 
         title = report_info.name or ""
         description = report_info.description or ""
@@ -955,7 +951,6 @@ class ModeSource(StatefulIngestionSourceBase):
             dashboardUrl=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report_token}",
             customProperties={},
         )
-        dashboard_snapshot.aspects.append(dashboard_info_class)
 
         # browse path
         space_name = self.space_tokens[space_token]
@@ -966,7 +961,6 @@ class ModeSource(StatefulIngestionSourceBase):
                 f"{title if title else (report_info.id or '')}"
             ]
         )
-        dashboard_snapshot.aspects.append(browse_path)
 
         browse_path_v2 = BrowsePathsV2Class(
             path=self._browse_path_dashboard(space_token)
@@ -982,10 +976,14 @@ class ModeSource(StatefulIngestionSourceBase):
                 (report_info._links or {}).get("creator", {}).get("href", "")
             )
         )
-        if ownership is not None:
-            dashboard_snapshot.aspects.append(ownership)
 
-        return dashboard_snapshot, browse_mcp
+        return (
+            MetadataChangeProposalWrapper.construct_many(
+                entityUrn=dashboard_urn,
+                aspects=[dashboard_info_class, browse_path, ownership],
+            ),
+            browse_mcp,
+        )
 
     @lru_cache(maxsize=5000)
     def _get_ownership(self, user: str) -> Optional[OwnershipClass]:
@@ -1863,10 +1861,6 @@ class ModeSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         # logger.debug(f"Processing chart {(chart_data.token or '')}: {chart_data}")
         chart_urn = builder.make_chart_urn(self.platform, (chart_data.token or ""))
-        chart_snapshot = ChartSnapshot(
-            urn=chart_urn,
-            aspects=[],
-        )
 
         last_modified = ChangeAuditStamps()
         creator = self._get_creator(
@@ -1926,7 +1920,6 @@ class ModeSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
             inputEdges=[],
         )
-        chart_snapshot.aspects.append(chart_info)
 
         query_urn = self.get_dataset_urn_from_query(query)
         yield from self.get_input_fields(chart_urn, chart_data, chart_fields, query_urn)
@@ -1941,7 +1934,6 @@ class ModeSource(StatefulIngestionSourceBase):
         report_name = report_info.name or report_info.token or "unknown"
         path = f"/mode/{self.config.workspace}/{space_name}/{report_name}/{query_name}/{title}"
         browse_path = BrowsePathsClass(paths=[path])
-        chart_snapshot.aspects.append(browse_path)
 
         # Browse path v2
         browse_path_v2 = BrowsePathsV2Class(
@@ -1957,7 +1949,6 @@ class ModeSource(StatefulIngestionSourceBase):
             rawQuery=(query.raw_query or ""),
             type=ChartQueryTypeClass.SQL,
         )
-        chart_snapshot.aspects.append(chart_query)
 
         # Ownership
         ownership = self._get_ownership(
@@ -1965,11 +1956,13 @@ class ModeSource(StatefulIngestionSourceBase):
                 (chart_data._links or {}).get("creator", {}).get("href", "")
             )
         )
-        if ownership is not None:
-            chart_snapshot.aspects.append(ownership)
 
-        mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-        yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+        yield from auto_workunit(
+            MetadataChangeProposalWrapper.construct_many(
+                entityUrn=chart_urn,
+                aspects=[chart_info, browse_path, chart_query, ownership],
+            )
+        )
 
     def fetch_reports(self, space_token: str) -> Iterator[List[dict]]:
         """Every report in one space, unfiltered, page by page, as Mode's raw
@@ -2375,21 +2368,17 @@ class ModeSource(StatefulIngestionSourceBase):
         )
 
         if dashboard_tuple_from_report is not None:
-            (
-                dashboard_snapshot_from_report,
-                browse_mcpw,
-            ) = dashboard_tuple_from_report
-
-            mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot_from_report)
+            dashboard_mcps, browse_mcpw = dashboard_tuple_from_report
+            dashboard_urn = self._dashboard_urn(report)
 
             mcpw = MetadataChangeProposalWrapper(
-                entityUrn=dashboard_snapshot_from_report.urn,
+                entityUrn=dashboard_urn,
                 aspect=SubTypesClass(typeNames=[BIAssetSubTypes.MODE_REPORT]),
             )
             yield mcpw.as_workunit()
             yield from add_dataset_to_container(
                 container_key=space_container_key,
-                dataset_urn=dashboard_snapshot_from_report.urn,
+                dataset_urn=dashboard_urn,
             )
             yield browse_mcpw.as_workunit()
 
@@ -2399,17 +2388,17 @@ class ModeSource(StatefulIngestionSourceBase):
             )
 
             yield MetadataChangeProposalWrapper(
-                entityUrn=dashboard_snapshot_from_report.urn,
+                entityUrn=dashboard_urn,
                 aspect=usage_statistics,
             ).as_workunit()
 
             if self.config.ingest_embed_url is True:
                 yield self.create_embed_aspect_mcp(
-                    entity_urn=dashboard_snapshot_from_report.urn,
+                    entity_urn=dashboard_urn,
                     embed_url=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report.token}/embed",
                 ).as_workunit()
 
-            yield MetadataWorkUnit(id=dashboard_snapshot_from_report.urn, mce=mce)
+            yield from auto_workunit(dashboard_mcps)
 
         for query, chart_fields, charts in query_chart_data:
             for i, chart in enumerate(charts):

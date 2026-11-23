@@ -1,5 +1,7 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -325,7 +327,14 @@ public class PatchItemImpl implements PatchMCP {
               .templateDefault(templateDefault)
               .build();
       return ChangeItemImpl.fromPatch(
-          urn, aspectSpec, recordTemplate, genericPatchTemplate, auditStamp, aspectRetriever);
+          urn,
+          aspectSpec,
+          recordTemplate,
+          genericPatchTemplate,
+          getMetadataChangeProposal(),
+          getSystemMetadata(),
+          auditStamp,
+          aspectRetriever);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -403,11 +412,23 @@ public class PatchItemImpl implements PatchMCP {
     }
 
     public PatchItemImpl build(EntityRegistry entityRegistry) {
-      urn(ValidationApiUtils.validateUrn(entityRegistry, this.urn));
-      log.debug("entity type = {}", this.urn.getEntityType());
+      if (handling().toleratesUnknownEntityAspect()) {
+        // Check the entity type before validating the urn: an unknown type (e.g. written by a newer
+        // version before a rollback) must fail as a ValidationException, like an unknown aspect,
+        // not as the IllegalArgumentException batch building treats as "skip silently".
+        entitySpec(ValidationApiUtils.validateEntity(entityRegistry, this.urn.getEntityType()));
+        log.debug("entity spec = {}", this.entitySpec);
+        ValidationApiUtils.validateKeyEntityTypes(entityRegistry, this.urn);
 
-      entitySpec(ValidationApiUtils.validateEntity(entityRegistry, this.urn.getEntityType()));
-      log.debug("entity spec = {}", this.entitySpec);
+        urn(ValidationApiUtils.validateUrn(entityRegistry, this.urn));
+        log.debug("entity type = {}", this.urn.getEntityType());
+      } else {
+        urn(ValidationApiUtils.validateUrn(entityRegistry, this.urn));
+        log.debug("entity type = {}", this.urn.getEntityType());
+
+        entitySpec(ValidationApiUtils.validateEntity(entityRegistry, this.urn.getEntityType()));
+        log.debug("entity spec = {}", this.entitySpec);
+      }
 
       aspectSpec(ValidationApiUtils.validateAspect(this.entitySpec, this.aspectName));
       log.debug("aspect spec = {}", this.aspectSpec);

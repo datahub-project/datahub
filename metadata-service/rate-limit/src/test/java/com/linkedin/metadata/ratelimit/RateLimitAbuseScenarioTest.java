@@ -11,7 +11,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
@@ -24,12 +26,23 @@ public class RateLimitAbuseScenarioTest {
 
   private static final String GRAPHQL_PATH = "/api/graphql";
 
+  // One member for the whole class; maps are reset between methods (see HazelcastTestSupport).
   private HazelcastInstance hazelcastInstance;
 
-  @AfterMethod
-  public void tearDown() {
+  @BeforeClass
+  public void startCluster() {
+    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
+  }
+
+  @AfterClass(alwaysRun = true)
+  public void stopCluster() {
     HazelcastTestSupport.shutdown(hazelcastInstance);
     hazelcastInstance = null;
+  }
+
+  @AfterMethod(alwaysRun = true)
+  public void clearBuckets() {
+    HazelcastTestSupport.resetAllMaps(hazelcastInstance);
   }
 
   @Test
@@ -157,7 +170,6 @@ public class RateLimitAbuseScenarioTest {
     // Single-node isolated Hazelcast: bucket consumption is exact, so the tests can assert precise
     // allowed/denied counts (== capacity). Across a real multi-node cluster, near-simultaneous
     // consumes can briefly admit slightly more, so a multi-node assertion would be <= capacity.
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     return new RateLimitEngine(
         config, "", null, hazelcastInstance, ObjectMapperContext.defaultMapper);
   }

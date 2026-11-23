@@ -4,7 +4,7 @@ import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import {
     ENTITY_HEADER_ACTION_ICON_SIZE,
     ENTITY_HEADER_ACTION_ICON_WEIGHT,
@@ -18,7 +18,7 @@ import {
     getDataContractCategoryFromAssertion,
     isAssertionPartOfContract,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
-import { ActionItem } from '@app/shared/actions/ActionItem';
+import { ActionItem } from '@app/sharedV2/actions/ActionItem';
 
 import { useUpsertDataContractMutation } from '@graphql/contract.generated';
 import { Assertion, DataContract } from '@types';

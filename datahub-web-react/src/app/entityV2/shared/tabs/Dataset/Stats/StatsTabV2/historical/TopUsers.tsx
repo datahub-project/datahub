@@ -16,7 +16,7 @@ import { GraphCard } from '@src/alchemy-components/components/GraphCard';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Maybe, UserUsageCounts } from '@src/types.generated';
 
 const CardWrapper = styled.div`
@@ -36,7 +36,7 @@ interface Props {
 const TopUsers = ({ users }: Props) => {
     const { t } = useTranslation('entity.profile.stats');
     const { t: tl } = useTranslation('common.labels');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const {
         permissions: { canViewDatasetUsage },

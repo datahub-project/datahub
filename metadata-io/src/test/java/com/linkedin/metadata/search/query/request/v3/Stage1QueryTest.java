@@ -30,7 +30,6 @@ import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.query.MultiMatchQueryBuilder;
 import org.opensearch.index.query.Operator;
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.query.SimpleQueryStringBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.WildcardQueryBuilder;
@@ -114,7 +113,8 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .collect(Collectors.toList());
     assertFalse(wildcards.isEmpty(), wildcards.toString());
     assertTrue(
-        wildcards.stream().allMatch(w -> w.fieldName().startsWith("_search.")),
+        wildcards.stream()
+            .allMatch(w -> w.fieldName().startsWith("name.") || w.fieldName().startsWith("title.")),
         wildcards.toString());
     // A lower-cased pattern: case-insensitive wildcards fail shards on OpenSearch 3.x
     assertTrue(
@@ -172,7 +172,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
     return clauses.stream()
         .filter(ConstantScoreQueryBuilder.class::isInstance)
         .map(cs -> (TermQueryBuilder) ((ConstantScoreQueryBuilder) cs).innerQuery())
-        .filter(term -> term.fieldName().equals("name.keyword"))
+        .filter(term -> term.fieldName().equals("name"))
         .map(TermQueryBuilder::value)
         .collect(Collectors.toSet());
   }
@@ -194,7 +194,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
     Set<Object> exactNameValues =
         exactNames.stream()
             .map(cs -> (TermQueryBuilder) cs.innerQuery())
-            .filter(term -> term.fieldName().equals("name.keyword"))
+            .filter(term -> term.fieldName().equals("name"))
             .map(TermQueryBuilder::value)
             .collect(Collectors.toSet());
     assertEquals(exactNameValues, Set.of("staging", "stg"));
@@ -215,7 +215,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .map(MatchQueryBuilder.class::cast)
             .anyMatch(
                 match ->
-                    match.fieldName().equals("_search.qualifiedName.text")
+                    match.fieldName().equals("qualifiedName.text")
                         && match.operator() == Operator.AND
                         && match.boost() == 50.0f),
         dotted.toString());
@@ -232,8 +232,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .map(SimpleQueryStringBuilder.class::cast)
             .anyMatch(
                 sqs ->
-                    sqs.defaultOperator() == Operator.AND
-                        && sqs.fields().containsKey("_search.entityName.text")),
+                    sqs.defaultOperator() == Operator.AND && sqs.fields().containsKey("name.text")),
         sentence.toString());
     assertTrue(
         sentence.stream()
@@ -241,7 +240,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .map(MatchQueryBuilder.class::cast)
             .anyMatch(
                 match ->
-                    match.fieldName().equals("_search.description.text")
+                    match.fieldName().equals("description.text")
                         && match.operator() == Operator.AND),
         sentence.toString());
     // Multi-word queries skip the contains wildcard
@@ -452,9 +451,11 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
                     true))
             .query();
     DisMaxQueryBuilder disMax = (DisMaxQueryBuilder) query;
-    QueryStringQueryBuilder structured = (QueryStringQueryBuilder) disMax.innerQueries().get(0);
-    assertEquals(structured.queryString(), "keyPart1:value");
-    assertEquals(structured.fields().get("keyPart1").floatValue(), 10.0f);
+    // keyPart1 is a V3 keyword root, so an unquoted value is a case-insensitive term.
+    TermQueryBuilder structured = (TermQueryBuilder) disMax.innerQueries().get(0);
+    assertEquals(structured.fieldName(), "keyPart1");
+    assertEquals(structured.value(), "value");
+    assertTrue(structured.caseInsensitive());
   }
 
   @Test
@@ -530,27 +531,34 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
         clauses);
     assertTrue(clauses.stream().noneMatch(WildcardQueryBuilder.class::isInstance));
     assertTrue(clauses.stream().noneMatch(SimpleQueryStringBuilder.class::isInstance));
-    // A single word searches the name-related delimited subfields only, here the urn
-    MultiMatchQueryBuilder multiMatch =
+    // A single word searches the fields that identify an entity: its name, its qualified name,
+    // and its id. Each is its own clause so one document does not sum their scores.
+    List<MultiMatchQueryBuilder> identity =
         clauses.stream()
             .filter(MultiMatchQueryBuilder.class::isInstance)
             .map(MultiMatchQueryBuilder.class::cast)
-            .findFirst()
-            .orElseThrow();
-    assertEquals(multiMatch.type(), MultiMatchQueryBuilder.Type.BEST_FIELDS);
+            .toList();
+    assertTrue(
+        identity.stream()
+            .allMatch(match -> match.type() == MultiMatchQueryBuilder.Type.BEST_FIELDS),
+        identity.toString());
     assertEquals(
-        multiMatch.fields().keySet(),
+        identity.stream()
+            .flatMap(match -> match.fields().keySet().stream())
+            .collect(Collectors.toSet()),
         Set.of(
-            "_search.entityName.text",
-            "_search.entityName.stemmed",
-            "_search.structuredProperties.text",
-            "_search.structuredProperties.stemmed"));
+            "name.text",
+            "name.stemmed",
+            "qualifiedName.text",
+            "qualifiedName.stemmed",
+            "id.text",
+            "id.stemmed"));
     // Exact names still score a constant above every partial match
     assertTrue(
         clauses.stream()
             .filter(TermQueryBuilder.class::isInstance)
             .map(TermQueryBuilder.class::cast)
-            .anyMatch(term -> term.fieldName().equals("name.keyword") && term.boost() == 1000.0f));
+            .anyMatch(term -> term.fieldName().equals("name") && term.boost() == 1000.0f));
   }
 
   @Test
@@ -573,12 +581,22 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
     assertEquals(
         fields,
         Set.of(
-            "_search.entityName.text",
-            "_search.entityName.stemmed",
-            "_search.other.text",
-            "_search.other.stemmed",
-            "_search.structuredProperties.text",
-            "_search.structuredProperties.stemmed"));
+            "name.text",
+            "name.stemmed",
+            "qualifiedName.text",
+            "qualifiedName.stemmed",
+            "id.text",
+            "id.stemmed",
+            "description.text",
+            "description.stemmed",
+            "text.text",
+            "text.stemmed",
+            "tags.text",
+            "tags.stemmed",
+            "glossaryTerms.text",
+            "glossaryTerms.stemmed",
+            "other.text",
+            "other.stemmed"));
   }
 
   @Test
@@ -611,8 +629,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
         clauses.stream()
             .filter(ConstantScoreQueryBuilder.class::isInstance)
             .map(cs -> (TermQueryBuilder) ((ConstantScoreQueryBuilder) cs).innerQuery())
-            .anyMatch(
-                term -> term.fieldName().equals("name.keyword") && "stg".equals(term.value())),
+            .anyMatch(term -> term.fieldName().equals("name") && "stg".equals(term.value())),
         clauses.toString());
   }
 
@@ -650,9 +667,9 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
     // "cargo2017" splits into "cargo 2017": no multi_match takes a name holding only one part,
     // and the whole run is re-queried on the identity fields
     List<MultiMatchQueryBuilder> split = v3LightMultiMatches("cargo2017");
-    assertEquals(split.size(), 1, split.toString());
-    assertEquals(split.get(0).value(), "cargo2017");
-    assertEquals(split.get(0).operator(), Operator.AND);
+    assertEquals(values(split), Set.of("cargo2017"), split.toString());
+    assertTrue(
+        split.stream().allMatch(match -> match.operator() == Operator.AND), split.toString());
     // Escaping alone keeps matching any part, and re-queries the hyphenated identifier whole
     List<MultiMatchQueryBuilder> escaped = v3LightMultiMatches("load-job");
     assertTrue(
@@ -663,7 +680,11 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .anyMatch(m -> "load-job".equals(m.value()) && m.operator() == Operator.AND),
         escaped.toString());
     // An unchanged word adds no re-query
-    assertEquals(v3LightMultiMatches("cargo").size(), 1);
+    assertEquals(values(v3LightMultiMatches("cargo")), Set.of("cargo"));
+  }
+
+  private static Set<Object> values(List<MultiMatchQueryBuilder> matches) {
+    return matches.stream().map(MultiMatchQueryBuilder::value).collect(Collectors.toSet());
   }
 
   @Test
@@ -686,9 +707,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .filter(multiMatch -> multiMatch.operator() == Operator.AND)
             .flatMap(multiMatch -> multiMatch.fields().keySet().stream())
             .collect(Collectors.toSet());
-    assertTrue(
-        fields.containsAll(Set.of("_search.entityName.text", "_search.qualifiedName.text")),
-        fields.toString());
+    assertTrue(fields.containsAll(Set.of("name.text", "qualifiedName.text")), fields.toString());
   }
 
   @Test
@@ -714,7 +733,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
         clauses.stream()
             .filter(TermQueryBuilder.class::isInstance)
             .map(TermQueryBuilder.class::cast)
-            .filter(term -> term.fieldName().equals("name.keyword"))
+            .filter(term -> term.fieldName().equals("name"))
             .map(TermQueryBuilder::value)
             .collect(Collectors.toSet()),
         Set.of("load-job"));
@@ -764,8 +783,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .anyMatch(
                 multiMatch ->
                     multiMatch.fields().keySet().stream()
-                        .anyMatch(
-                            field -> field.startsWith("_search.") && field.endsWith(".text"))),
+                        .anyMatch(field -> "name.text".equals(field))),
         clauses.toString());
   }
 

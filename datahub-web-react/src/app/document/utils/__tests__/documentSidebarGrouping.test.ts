@@ -4,12 +4,13 @@ import {
     buildDocumentDomainGroups,
     buildDocumentParentBreadcrumb,
     documentBelongsInDomainGroup,
+    documentsInDomainGroup,
     getDocumentDomainGroupField,
     getDocumentSidebarTitle,
     isDocumentGroupByValue,
     isUnassignedDocumentDomainGroup,
     resolveActiveDocumentDomainGroup,
-    sumFacetAggregationCounts,
+    shouldRefetchDocumentDomainGroups,
     toDocumentGroupingEntityData,
 } from '@app/document/utils/documentSidebarGrouping';
 
@@ -107,15 +108,6 @@ describe('document sidebar grouping', () => {
         });
     });
 
-    it('sums facet counts for the unassigned group', () => {
-        const facet = {
-            aggregations: [{ value: EntityType.Document, count: 4 }],
-        } as FacetMetadata;
-
-        expect(sumFacetAggregationCounts(facet)).toBe(4);
-        expect(sumFacetAggregationCounts()).toBe(0);
-    });
-
     it('builds searchDocuments filters for assigned and unassigned groups', () => {
         expect(buildDocumentDomainGroupSearchInput(domain.urn)).toEqual({ domains: [domain.urn] });
         expect(buildDocumentDomainGroupSearchInput(UNASSIGNED_DOMAIN_GROUP_KEY)).toEqual({ hasDomain: false });
@@ -131,6 +123,45 @@ describe('document sidebar grouping', () => {
         expect(documentBelongsInDomainGroup(assigned, UNASSIGNED_DOMAIN_GROUP_KEY)).toBe(false);
         expect(documentBelongsInDomainGroup(unassigned, UNASSIGNED_DOMAIN_GROUP_KEY)).toBe(true);
         expect(documentBelongsInDomainGroup(null, domain.urn)).toBe(false);
+    });
+
+    it('moves the open document out of a group after its domain changes', () => {
+        const moved = {
+            urn: 'urn:li:document:moved',
+            domain: { domain: { urn: domain.urn, type: EntityType.Domain } },
+        } as Document;
+        const other = { urn: 'urn:li:document:other', domain: null } as Document;
+
+        expect(documentsInDomainGroup([moved, other], UNASSIGNED_DOMAIN_GROUP_KEY, moved)).toEqual([other]);
+        expect(documentsInDomainGroup([other], domain.urn, moved)).toEqual([moved, other]);
+        expect(documentsInDomainGroup([moved, other], domain.urn, moved)).toEqual([moved, other]);
+    });
+
+    it('stops correcting a moved document once a different document is selected', () => {
+        const moved = {
+            urn: 'urn:li:document:moved',
+            domain: { domain: { urn: domain.urn, type: EntityType.Domain } },
+        } as Document;
+        const next = { urn: 'urn:li:document:next', domain: null } as Document;
+        const staleUnassignedPage = [moved, next];
+
+        // Overlay only applies to the open document. After the user opens another
+        // doc, stale group pages must already have been refetched.
+        expect(documentsInDomainGroup(staleUnassignedPage, UNASSIGNED_DOMAIN_GROUP_KEY, next)).toEqual(
+            staleUnassignedPage,
+        );
+    });
+
+    it('refetches domain pages only when the same document changes groups', () => {
+        const urn = 'urn:li:document:moved';
+        expect(shouldRefetchDocumentDomainGroups(undefined, undefined, urn, domain.urn)).toBe(false);
+        expect(shouldRefetchDocumentDomainGroups(null, null, urn, domain.urn)).toBe(false);
+        expect(shouldRefetchDocumentDomainGroups(urn, domain.urn, null, null)).toBe(false);
+        expect(shouldRefetchDocumentDomainGroups(urn, domain.urn, urn, domain.urn)).toBe(false);
+        expect(shouldRefetchDocumentDomainGroups(urn, UNASSIGNED_DOMAIN_GROUP_KEY, urn, domain.urn)).toBe(true);
+        expect(
+            shouldRefetchDocumentDomainGroups(urn, UNASSIGNED_DOMAIN_GROUP_KEY, 'urn:li:document:other', domain.urn),
+        ).toBe(false);
     });
 
     it('reads sidebar title and parent breadcrumb helpers', () => {

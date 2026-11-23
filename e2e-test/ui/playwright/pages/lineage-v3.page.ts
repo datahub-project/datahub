@@ -18,6 +18,7 @@ import { Page, Locator, BrowserContext, expect } from '@playwright/test';
 import { LineageBasePage } from './lineage-base.page';
 import type { DataHubLogger } from '../utils/logger';
 import { TIMEOUTS, LOAD_STATES } from '../utils/constants';
+import { GraphQLHelper } from '../helpers/graphql-helper';
 
 export class LineageV3Page extends LineageBasePage {
   readonly advSearchAddFilterButton: Locator;
@@ -109,9 +110,13 @@ export class LineageV3Page extends LineageBasePage {
     await this.clickAddFilter();
     await this.clickFilterByDescription();
     await this.typeFilterText(text);
+    // Callers assert on the filtered results, and the unfiltered ones are still on screen until
+    // the filtered lineage search returns.
+    const filtered = new GraphQLHelper(this.page).waitForGraphQLResponse('searchAcrossLineage', (variables) =>
+      JSON.stringify(variables).includes(text),
+    );
     await this.confirmFilterText();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.SHORT);
+    await filtered;
   }
 
   // ── Time-Range Filtering ────────────────────────────────────────────────────
@@ -266,12 +271,16 @@ export class LineageV3Page extends LineageBasePage {
   }
 
   /**
-   * Navigate to dataset and open lineage tab.
+   * Open a dataset's Lineage tab by deep link.
+   *
+   * Deliberately not "bare /dataset/<urn> then click the tab": a bare URL lands on the Summary
+   * tab (datasetSummaryPageV1), whose Lineage module mounts its own LineageExplorer, and antd
+   * keeps inactive tab panes mounted. Clicking into Lineage then leaves a second, hidden graph
+   * in the DOM, so every rf__node-/rf__edge- locator matches two elements (the hidden one first).
    */
   async navigateToDatasetLineage(urn: string): Promise<void> {
-    await this.navigate(`/dataset/${urn}`);
+    await this.navigate(`/dataset/${urn}/Lineage`);
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await this.clickLineageTab();
   }
 
   /**

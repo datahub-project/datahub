@@ -57,12 +57,12 @@ vi.mock('@app/identity/serviceAccount/CreateServiceAccountModal', () => ({
 }));
 
 // Mock the Message component
-vi.mock('@app/shared/Message', () => ({
+vi.mock('@app/sharedV2/Message', () => ({
     Message: ({ content }: any) => <div data-testid="message">{content}</div>,
 }));
 
 // Mock scrollToTop
-vi.mock('@app/shared/searchUtils', () => ({
+vi.mock('@app/sharedV2/searchUtils', () => ({
     scrollToTop: vi.fn(),
 }));
 

@@ -17,8 +17,10 @@ import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -148,7 +150,7 @@ public class DefaultEntityFiltersUtil {
       return documentDefaults;
     }
 
-    return SearchUtils.combineFilters(baseFilter, documentDefaults);
+    return FilterUtils.combineFilters(baseFilter, documentDefaults);
   }
 
   /**
@@ -178,6 +180,52 @@ public class DefaultEntityFiltersUtil {
         entityTypes.contains(DOCUMENT_ENTITY_NAME)
             && AuthorizationUtils.canManageDocuments(context);
     return addDefaultEntityFilters(baseFilter, entityTypes, true, canManageDocs);
+  }
+
+  /**
+   * A cross-entity search's filters from one manage-documents check: the request filter with the
+   * default entity filters added, as {@link #applyDefaultEntityFilters} adds them, and the anchor
+   * filter, the document defaults on their own. Search resolvers record the anchor filter on the
+   * search context for a similarity anchor to pass, whatever types the request searches: a request
+   * without documents adds no defaults but can still name a document as its anchor. When the
+   * request sets {@code includeHiddenLifecycleStages}, the request filter is left as it is and the
+   * anchor filter is null. The rule is written for documents, the only entity type that can anchor
+   * a similarity search in this build; an anchor of another type would be held to it too, so it
+   * needs a per-type branch before another type can anchor.
+   */
+  @Nonnull
+  public static SearchFilters searchFilters(
+      @Nullable Filter baseFilter,
+      @Nonnull List<String> entityTypes,
+      @Nullable SearchFlags searchFlags,
+      @Nonnull QueryContext context) {
+    if (searchFlags != null && Boolean.TRUE.equals(searchFlags.isIncludeHiddenLifecycleStages())) {
+      return new SearchFilters(baseFilter, null);
+    }
+    final boolean canManageDocuments = AuthorizationUtils.canManageDocuments(context);
+    return new SearchFilters(
+        addDefaultEntityFilters(baseFilter, entityTypes, true, canManageDocuments),
+        addDefaultEntityFilters(null, List.of(DOCUMENT_ENTITY_NAME), true, canManageDocuments));
+  }
+
+  /** A search's request filter and the anchor filter it records, from {@link #searchFilters}. */
+  public record SearchFilters(@Nullable Filter filter, @Nullable Filter anchorFilter) {}
+
+  /** Field names from caller-owned optional OR branches. */
+  @Nonnull
+  public static Set<String> callerOptionalFilterFields(@Nullable Filter filter) {
+    if (filter == null || filter.getOr() == null || filter.getOr().size() < 2) {
+      return Set.of();
+    }
+    Set<String> fields = new LinkedHashSet<>();
+    for (ConjunctiveCriterion branch : filter.getOr()) {
+      if (branch.getAnd() != null) {
+        for (Criterion criterion : branch.getAnd()) {
+          fields.add(criterion.getField());
+        }
+      }
+    }
+    return Set.copyOf(fields);
   }
 
   /**

@@ -617,6 +617,16 @@ public class AuthorizationUtils {
         DATASET_OPERATION_ASPECT_NAME);
   }
 
+  public static boolean canManageIngestion(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorizedEntityType(
+        context.getOperationContext(), MANAGE, List.of(INGESTION_SOURCE_ENTITY_NAME));
+  }
+
+  public static boolean canManageSecrets(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorizedEntityType(
+        context.getOperationContext(), MANAGE, List.of(SECRETS_ENTITY_NAME));
+  }
+
   public static boolean canManageAssetSummary(@Nonnull QueryContext context, @Nonnull Urn urn) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(

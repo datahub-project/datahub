@@ -1,7 +1,7 @@
 import { useContext, useEffect, useState } from 'react';
 
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
-import { PreviewSection } from '@app/shared/MatchesContext';
+import { PreviewSection } from '@app/sharedV2/MatchesContext';
 
 import { EntityType, SearchResult } from '@types';
 

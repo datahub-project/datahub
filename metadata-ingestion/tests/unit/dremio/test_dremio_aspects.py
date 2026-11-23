@@ -6,7 +6,10 @@ from datahub.ingestion.source.dremio.dremio_aspects import (
     DremioAspects,
     SchemaFieldTypeMapper,
 )
-from datahub.ingestion.source.dremio.dremio_models import DremioDatasetType
+from datahub.ingestion.source.dremio.dremio_models import (
+    DremioDatasetColumn,
+    DremioDatasetType,
+)
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -67,34 +70,34 @@ class TestSchemaFieldTypeMapper:
         ],
     )
     def test_known_type_mapping(self, data_type, expected_class):
-        field_type, native = SchemaFieldTypeMapper.get_field_type(data_type)
-        assert isinstance(field_type.type, expected_class)
-        assert native == data_type
+        field_type = SchemaFieldTypeMapper.get_field_type(data_type)
+        assert isinstance(field_type.schema_field_type.type, expected_class)
+        assert field_type.native_data_type == data_type
 
     def test_unknown_type_falls_back_to_null(self):
-        field_type, native = SchemaFieldTypeMapper.get_field_type("jsonb")
-        assert isinstance(field_type.type, NullTypeClass)
-        assert native == "jsonb"
+        field_type = SchemaFieldTypeMapper.get_field_type("jsonb")
+        assert isinstance(field_type.schema_field_type.type, NullTypeClass)
+        assert field_type.native_data_type == "jsonb"
 
     def test_empty_type_falls_back_to_null(self):
-        field_type, native = SchemaFieldTypeMapper.get_field_type("")
-        assert isinstance(field_type.type, NullTypeClass)
-        assert native == "NULL"
+        field_type = SchemaFieldTypeMapper.get_field_type("")
+        assert isinstance(field_type.schema_field_type.type, NullTypeClass)
+        assert field_type.native_data_type == "NULL"
 
     def test_data_size_appended_to_native_type(self):
-        _, native = SchemaFieldTypeMapper.get_field_type(
+        field_type = SchemaFieldTypeMapper.get_field_type(
             "character varying", data_size=255
         )
-        assert native == "character varying(255)"
+        assert field_type.native_data_type == "character varying(255)"
 
     def test_data_size_none_omitted(self):
-        _, native = SchemaFieldTypeMapper.get_field_type("integer", data_size=None)
-        assert native == "integer"
+        field_type = SchemaFieldTypeMapper.get_field_type("integer", data_size=None)
+        assert field_type.native_data_type == "integer"
 
     def test_type_lookup_is_case_insensitive(self):
         """The mapper lowercases input before lookup, so uppercase types resolve correctly."""
-        field_type, _ = SchemaFieldTypeMapper.get_field_type("INTEGER")
-        assert isinstance(field_type.type, NumberTypeClass)
+        field_type = SchemaFieldTypeMapper.get_field_type("INTEGER")
+        assert isinstance(field_type.schema_field_type.type, NumberTypeClass)
 
 
 class TestDremioAspectsExternalUrl:
@@ -211,3 +214,18 @@ class TestDremioAspectsViewProperties:
         dataset = _make_dataset(dataset_type=DremioDatasetType.VIEW)
         dataset.sql_definition = ""
         assert aspects._create_view_properties(dataset) is None
+
+
+def test_schema_field_keeps_native_type_and_nullability():
+    field = _make_aspects()._create_schema_field(
+        DremioDatasetColumn(
+            name="col_a",
+            ordinal_position=1,
+            is_nullable="YES",
+            data_type="character varying",
+            column_size=255,
+        )
+    )
+    assert isinstance(field.type.type, StringTypeClass)
+    assert field.nativeDataType == "character varying(255)"
+    assert field.nullable is True

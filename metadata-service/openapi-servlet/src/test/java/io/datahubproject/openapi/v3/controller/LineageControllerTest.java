@@ -232,6 +232,15 @@ public class LineageControllerTest extends AbstractTestNGSpringContextTests {
             .anyMatch(
                 p -> p.getKey().equals("dataset") && p.getValue().getType().equals("DownstreamOf"));
     assertTrue(hasDownstreamOf, "Expected lineage triplets to include dataset DownstreamOf");
+
+    boolean hasColumnLineage =
+        captured.getAllowedEdgeTriplets().stream()
+            .anyMatch(
+                p ->
+                    p.getKey().equals("schemafield")
+                        && p.getValue().getType().equals("DownstreamOf")
+                        && p.getValue().getOpposingEntityType().equals("schemaField"));
+    assertTrue(hasColumnLineage, "Expected lineage triplets to include schemaField DownstreamOf");
   }
 
   @Test

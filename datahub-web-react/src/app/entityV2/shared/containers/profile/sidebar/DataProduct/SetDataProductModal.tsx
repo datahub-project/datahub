@@ -5,18 +5,18 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
+import { useEntityFormContext } from '@app/entityV2/shared/entityForm/EntityFormContext';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ContextPath from '@app/previewV2/ContextPath';
-import { useIsMultipleDataProductsEnabled } from '@app/shared/hooks/useIsMultipleDataProductsEnabled';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useIsMultipleDataProductsEnabled } from '@app/sharedV2/hooks/useIsMultipleDataProductsEnabled';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { SelectOption } from '@src/alchemy-components/components/Select/types';
-import { useGetRecommendations } from '@src/app/shared/recommendation';
+import { useGetRecommendations } from '@src/app/sharedV2/recommendation';
 import { getModalDomContainer } from '@src/utils/focus';
 
 import { useBatchAddToDataProductsMutation, useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';

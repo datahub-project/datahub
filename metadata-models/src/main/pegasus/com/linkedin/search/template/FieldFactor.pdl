@@ -1,0 +1,41 @@
+namespace com.linkedin.search.template
+
+import com.linkedin.common.Urn
+
+/**
+ * One field_value_factor appended inside the template function score. The value comes
+ * from an index field or from a structured property definition. Java resolves a property
+ * to its current number field. An omitted factor or missing value is omitted from the
+ * function. An entry names a field or a property.
+ */
+record FieldFactor {
+  /**
+   * Index field whose stored number is the value. Unset when {@code propertyUrn} names the
+   * value.
+   */
+  field: optional string
+
+  /**
+   * Structured property definition. Unset when {@code field} names the value. The property
+   * is a single-valued number.
+   */
+  propertyUrn: optional Urn
+
+  /**
+   * Positive multiplier applied to the field value. Unset omits {@code factor} from the
+   * function, which then uses 1. A negative stored value is not scored, except under
+   * {@code SQUARE}, whose result stays non-negative.
+   */
+  factor: optional double
+
+  /**
+   * Non-negative value used when the field is absent. {@code RECIPROCAL} requires it to be
+   * positive. Unset omits {@code missing} from the function.
+   */
+  missing: optional double
+
+  /**
+   * Modifier applied to the field value. Unset omits {@code modifier} from the function.
+   */
+  modifier: optional FieldFactorModifier
+}

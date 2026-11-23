@@ -16,7 +16,7 @@ import computeImpactAnalysisGraph from '@app/lineageV3/useComputeGraph/computeIm
 import getFineGrainedLineage, { FineGrainedLineageData } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
 import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
 import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
 
@@ -42,7 +42,7 @@ interface ProcessedData {
 export default function useComputeGraph(): ProcessedData {
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const appConfig = useAppConfig();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { showLineageFilterNodes } = appConfig.config.featureFlags;
     const {
         rootUrn,

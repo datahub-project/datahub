@@ -1,10 +1,9 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import { useEntityDataExtractor } from '@app/entityV2/shared/containers/profile/sidebar/hooks/useEntityDataExtractor';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const mockUseEntityData = vi.hoisted(() => vi.fn());
 
-vi.mock('@src/app/entity/shared/EntityContext', async (importOriginal) => {
+vi.mock('@src/app/entityV2/shared/EntityContext', async (importOriginal) => {
     const original = await importOriginal<object>();
     return {
         ...original,

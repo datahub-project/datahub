@@ -1,10 +1,10 @@
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
 import useShouldSkipOnboardingTour from '@app/onboarding/useShouldSkipOnboardingTour';
 import { EducationStepsContext } from '@providers/EducationStepsContext';
 import useHasSeenEducationStep from '@providers/hooks/useHasSeenEducationStep';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { StepStateResult } from '@types';
 

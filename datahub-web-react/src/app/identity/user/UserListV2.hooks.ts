@@ -28,7 +28,7 @@ export function useUserListState() {
     const [pageSize, setPageSize] = useState(DEFAULT_USER_LIST_PAGE_SIZE);
 
     const authenticatedUser = useUserContext();
-    const canManagePolicies = authenticatedUser?.platformPrivileges?.managePolicies || false;
+    const canManageUserCredentials = authenticatedUser?.platformPrivileges?.manageUserCredentials || false;
 
     // Debounce search query to avoid excessive API calls
     useEffect(() => {
@@ -55,7 +55,7 @@ export function useUserListState() {
         setPage,
         pageSize,
         setPageSize,
-        canManagePolicies,
+        canManageUserCredentials,
     };
 }
 

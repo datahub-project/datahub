@@ -46,7 +46,7 @@ public final class MembershipGraphScrollFallback {
       int start,
       int count) {
     GraphRetriever graphRetriever = opContext.getRetrieverContext().getGraphRetriever();
-    if (graphRetriever == GraphRetriever.EMPTY || relationshipTypes.isEmpty() || count <= 0) {
+    if (graphRetriever == GraphRetriever.EMPTY || relationshipTypes.isEmpty() || count < 0) {
       return MembershipNeighborResult.fromNeighbors(List.of(), 0);
     }
 

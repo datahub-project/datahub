@@ -127,7 +127,7 @@ public class StructuredPropertyPrivilegeConstraintsValidator
     if (!AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
         session, item.getUrn(), difference)) {
       return List.of(
-          AspectValidationException.forItem(
+          AspectValidationException.forAuth(
               item, "Unauthorized to modify one or more structured property Urns: " + difference));
     }
     return Collections.emptyList();

@@ -51,7 +51,7 @@ export default function IngestionRunDetailsPage() {
                 {
                     key: 'back',
                     label:
-                        fromUrl === tabUrlMap[TabType.RunHistory]
+                        fromUrl?.split('?')[0] === tabUrlMap[TabType.RunHistory]
                             ? t('runDetails.breadcrumbRunHistory')
                             : t('page.title'),
                     href: fromUrl ?? tabUrlMap[TabType.Sources],

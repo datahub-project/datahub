@@ -200,4 +200,22 @@ public class GraphqlUsageClassificationRegistryTest {
         registry.resolve("graphql", GraphQLOperationKind.QUERY, List.of("searchAcrossLineage")),
         UsageOperation.LINEAGE_QUERY);
   }
+
+  @Test
+  public void testUiLineageGraphOperationsAreLineageQuery() {
+    // Root fields are entity lookups (e.g. "entity"), which alone would classify as
+    // metadata_query; the operation name must win.
+    for (String operationName :
+        List.of("getBulkEntityLineageV2", "getEntityLineage", "getLineageCounts")) {
+      assertEquals(
+          registry.resolve(operationName, GraphQLOperationKind.QUERY, List.of("entity")),
+          UsageOperation.LINEAGE_QUERY,
+          operationName);
+    }
+    // Lineage counts for a page of search results; its only root field is "entities"
+    assertEquals(
+        registry.resolve(
+            "getSearchResultLineageCounts", GraphQLOperationKind.QUERY, List.of("entities")),
+        UsageOperation.LINEAGE_QUERY);
+  }
 }

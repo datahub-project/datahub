@@ -10,6 +10,7 @@ import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
@@ -72,7 +73,9 @@ public class V2SemanticSearchMappingsBuilderTest {
 
     V2MappingsBuilder v2MappingsBuilder =
         new V2MappingsBuilder(
-            entityIndexConfiguration, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG);
+            entityIndexConfiguration,
+            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+            ESUtils.KEYWORD_MAXLENGTH);
 
     SemanticSearchConfiguration semanticConfig = buildTestSemanticConfig();
 
@@ -242,7 +245,9 @@ public class V2SemanticSearchMappingsBuilderTest {
     when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
     V2MappingsBuilder v2MappingsBuilder =
         new V2MappingsBuilder(
-            entityIndexConfiguration, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG);
+            entityIndexConfiguration,
+            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+            ESUtils.KEYWORD_MAXLENGTH);
 
     // Use real IndexConventionImpl instead of mocking
     com.linkedin.metadata.config.search.EntityIndexConfiguration entityIndexConfig =
@@ -279,7 +284,9 @@ public class V2SemanticSearchMappingsBuilderTest {
     when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
     V2MappingsBuilder v2MappingsBuilder =
         new V2MappingsBuilder(
-            entityIndexConfiguration, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG);
+            entityIndexConfiguration,
+            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+            ESUtils.KEYWORD_MAXLENGTH);
 
     SemanticSearchConfiguration semanticConfig = buildTestSemanticConfig();
 
@@ -446,7 +453,9 @@ public class V2SemanticSearchMappingsBuilderTest {
     when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
     V2MappingsBuilder v2MappingsBuilder =
         new V2MappingsBuilder(
-            entityIndexConfiguration, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG);
+            entityIndexConfiguration,
+            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+            ESUtils.KEYWORD_MAXLENGTH);
 
     com.linkedin.metadata.config.search.EntityIndexConfiguration entityIndexConfig =
         new com.linkedin.metadata.config.search.EntityIndexConfiguration();
@@ -515,7 +524,9 @@ public class V2SemanticSearchMappingsBuilderTest {
     when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
     V2MappingsBuilder v2MappingsBuilder =
         new V2MappingsBuilder(
-            entityIndexConfiguration, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG);
+            entityIndexConfiguration,
+            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+            ESUtils.KEYWORD_MAXLENGTH);
 
     com.linkedin.metadata.config.search.EntityIndexConfiguration entityIndexConfig =
         new com.linkedin.metadata.config.search.EntityIndexConfiguration();
@@ -559,6 +570,25 @@ public class V2SemanticSearchMappingsBuilderTest {
                 + modelKey);
       }
     }
+  }
+
+  @Test
+  public void testMixedCaseMetricMapsCanonicallyForOpenSearch() throws JsonProcessingException {
+    SemanticSearchConfiguration config = new SemanticSearchConfiguration();
+    config.setEnabled(true);
+    config.setEnabledEntities(Set.of("dataset"));
+
+    com.linkedin.metadata.config.search.ModelEmbeddingConfig model =
+        new com.linkedin.metadata.config.search.ModelEmbeddingConfig();
+    model.setVectorDimension(768);
+    model.setKnnEngine("lucene");
+    model.setSpaceType("CoSiNe");
+    model.setEfConstruction(128);
+    model.setM(16);
+    config.setModels(Map.of("test_model", model));
+
+    // Known metrics are canonicalized case-insensitively, then translated for the engine.
+    assertSpaceTypeForOpenSearch(config, "cosinesimil");
   }
 
   @Test

@@ -7,13 +7,12 @@ import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { getRelatedEntitiesUrl as getBusinessAttributeRelatedEntitiesUrl } from '@app/businessAttribute/businessAttributeUtils';
 import { getRelatedAssetsUrl } from '@app/entityV2/glossaryTerm/utils';
+import { TabType } from '@app/entityV2/group/types';
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
 import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import HoverCardEntityRow from '@app/sharedV2/hoverCard/HoverCardEntityRow';
 import HoverCardFooter from '@app/sharedV2/hoverCard/HoverCardFooter';
 import HoverCardHeader from '@app/sharedV2/hoverCard/HoverCardHeader';
@@ -25,7 +24,10 @@ import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttr
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { hasPropagationDetails } from '@app/sharedV2/propagation/utils';
 import TagPill from '@app/sharedV2/tags/TagPill';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { isRemovedAssociation } from '@app/sharedV2/tags/tags.utils';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
+import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { CorpUser, Entity, EntityType } from '@src/types.generated';
 import { resolveRuntimePath } from '@src/utils/runtimeBasePath';
 
@@ -92,7 +94,7 @@ type Props = {
 export default function EntityHoverCard({ entity, propagationDetails, ownershipRole }: Props) {
     const { t } = useTranslation('common.labels');
     const { t: tTypes } = useTranslation('entity.types');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const generateGlossaryColor = useGenerateGlossaryColorFromPalette();
     const properties = entityRegistry.getGenericEntityProperties(entity.type, entity);
 
@@ -134,11 +136,18 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
             href: resolveRuntimePath(getBusinessAttributeRelatedEntitiesUrl(entityRegistry, entity.urn)),
             label: tTypes('businessAttribute.viewRelatedEntities'),
         });
+    } else if (memberCount != null && memberCount > 0) {
+        relatedLinks.push({
+            href: resolveRuntimePath(
+                `${entityRegistry.getEntityUrl(entity.type, entity.urn)}/${TabType.Members.toLowerCase()}`,
+            ),
+            label: tTypes('group.viewAllMembers'),
+        });
     }
 
     const owners = properties?.ownership?.owners ?? [];
-    const tags = properties?.globalTags?.tags ?? [];
-    const terms = properties?.glossaryTerms?.terms ?? [];
+    const tags = (properties?.globalTags?.tags ?? []).filter((tag) => !isRemovedAssociation(tag));
+    const terms = (properties?.glossaryTerms?.terms ?? []).filter((term) => !isRemovedAssociation(term));
     const domain = properties?.domain?.domain;
     const dataProduct = properties?.dataProduct?.relationships?.[0]?.entity;
 

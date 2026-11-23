@@ -112,15 +112,16 @@ public class FilesController {
         return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
       }
 
-      String key = String.format("%s/%s", folder, fileId);
+      // Uploads are stored under the configured asset path prefix, so resolve the key from it.
+      // The {folder} segment is kept for link compatibility: the UI always writes the default
+      // folder into links, and a prefix containing '/' can't fit in one path segment.
+      String key =
+          String.format(
+              "%s/%s", configProvider.getDatahub().getObjectStorage().getAssetPathPrefix(), fileId);
 
       ObjectStorageReference ref = new ObjectStorageReference(bucket, key);
       String presignedUrl = objectStorageClient.presignedDownloadUrl(ref, expiration);
-      log.info(
-          "Generated presigned URL for folder: {}, file ID: {}, expires in: {}s",
-          folder,
-          fileId,
-          expiration);
+      log.info("Generated presigned URL for key: {}, expires in: {}s", key, expiration);
 
       // Return redirect response
       HttpHeaders headers = new HttpHeaders();

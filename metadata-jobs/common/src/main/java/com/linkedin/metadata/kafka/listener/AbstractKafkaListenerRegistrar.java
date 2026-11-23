@@ -49,9 +49,10 @@ public abstract class AbstractKafkaListenerRegistrar<E, H extends EventHook<E>, 
         getEnabledHooks().stream().collect(Collectors.groupingBy(H::getConsumerGroupSuffix));
 
     log.info(
-        "{} Consumer Groups: {}",
+        "{} Consumer Groups: {}, Topics: {}",
         getProcessorType(),
-        hookGroups.keySet().stream().map(this::buildConsumerGroupName).collect(Collectors.toSet()));
+        hookGroups.keySet().stream().map(this::buildConsumerGroupName).collect(Collectors.toSet()),
+        getTopicNames());
 
     hookGroups.forEach(
         (key, groupHooks) -> {

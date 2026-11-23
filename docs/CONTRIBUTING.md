@@ -41,7 +41,7 @@ Before you submit your Pull Request (PR), consider the following guidelines:
 - Open a pull request (PR) following [GitHub’s standard workflow](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request-from-a-fork).
 - Please make sure to follow our [PR Title Format](#pr-title-format) for clarity and consistency.
 - PRs are squashed and merged, resulting in a single commit with the PR title as the commit message.
-- If there are any breaking changes, potential downtime, deprecations, or big features, please add an update in [Updating DataHub under Next](how/updating-datahub.md).
+- If there are any breaking changes, potential downtime, deprecations, or big features, please add an update in [Breaking Changes under Next](how/breaking-changes.md).
 - That's it! Thank you for your contribution!
 
 ### Product-update CTA merge check

@@ -41,6 +41,17 @@ METRIC_ROW_COUNT = "rowCount"  # v3.0 + v3.1, schema-level
 METRIC_DUPLICATE_COUNT = "duplicateCount"  # v3.0 name for duplicateValues
 METRIC_VALID_VALUES = "validValues"  # v3.0 name for invalidValues
 
+# Actor recorded on aspects this source authors (deprecation, link stamps).
+ODCS_ACTOR = "urn:li:corpuser:datahub"
+
+# ODCS v3.2 vocabulary.
+SERVER_TYPE_ICEBERG = "iceberg"
+PLATFORM_GLUE = "glue"
+SEMANTIC_TYPE_MEASURE = "measure"  # RFC 0034: an aggregate, not a column
+SYNONYM_STATUS_DEPRECATED = "deprecated"  # RFC 0041: a former name
+# RFC 0050 variable reference: `${VAR}` / `${VAR:-default}`.
+VARIABLE_MARKER = "${"
+
 UNIT_ROWS = "rows"
 UNIT_PERCENT = "percent"
 
@@ -118,6 +129,9 @@ LOGICAL_TYPE_MAP: Dict[str, Type] = {
     "variant": RecordTypeClass,
     "array": ArrayTypeClass,
     "list": ArrayTypeClass,
+    # v3.2 (RFC 0042): embeddings. Dimensions/elementType stay in
+    # logicalTypeOptions, which is not mapped.
+    "vector": ArrayTypeClass,
     "map": MapTypeClass,
     "bytes": BytesTypeClass,
     "binary": BytesTypeClass,
@@ -138,4 +152,6 @@ PLATFORM_NAME_PARTS: Dict[str, Tuple[str, ...]] = {
     "databricks": ("catalog", "schema_"),
     "bigquery": ("project", "dataset"),
     "mysql": ("database",),
+    "glue": ("database",),
+    "iceberg": ("namespace",),
 }

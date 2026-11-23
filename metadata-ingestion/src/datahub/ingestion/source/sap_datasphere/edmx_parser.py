@@ -9,6 +9,7 @@ from datahub.ingestion.source.sap_common.edmx import (
     edm_decimal_native_type,
     parse_edmx_document,
 )
+from datahub.ingestion.source.sap_common.labels import description_from_source_label
 from datahub.ingestion.source.sap_common.models import (
     EdmxParseResult,
     UnknownColumnType,
@@ -109,7 +110,13 @@ class EdmxParser:
 
             prop_target = f"{entity_target}/{prop_name}"
             prop_annots = annotations_map.get(prop_target, {})
-            description = prop_annots.get("Common.Label")
+            # SAP's single business label feeds both the visible description (the schema
+            # UI does not render the deprecated label slot) and the label slot itself,
+            # which still backs the fieldLabels search index. Dropped when it only repeats
+            # the name.
+            source_label = description_from_source_label(
+                prop_annots.get("Common.Label"), prop_name
+            )
 
             custom_props: Dict[str, str] = {}
             for term, cal_value in _CALENDAR_TERMS.items():
@@ -126,17 +133,17 @@ class EdmxParser:
             if "Analytics.Measure" in prop_annots:
                 custom_props[PROP_SAP_IS_MEASURE] = PROP_VALUE_TRUE
 
-            schema_fields.append(
-                build_schema_field(
-                    name=prop_name,
-                    edm_type=edm_type,
-                    nullable=nullable,
-                    is_key=prop_name in key_props,
-                    description=description,
-                    native_type=native_type,
-                    unknown_sink=unknown_edm_types_local,
-                )
+            field = build_schema_field(
+                name=prop_name,
+                edm_type=edm_type,
+                nullable=nullable,
+                is_key=prop_name in key_props,
+                description=source_label,
+                native_type=native_type,
+                unknown_sink=unknown_edm_types_local,
             )
+            field.label = source_label
+            schema_fields.append(field)
             if custom_props:
                 field_custom_props[prop_name] = custom_props
 

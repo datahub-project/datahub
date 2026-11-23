@@ -283,7 +283,7 @@ def test_extract_dbt_entities_isolates_malformed_node():
     assert "models/bad_model.sql" in failure_entry
 
 
-def test_create_dbt_platform_mces_isolates_node_emission_failure(monkeypatch):
+def test_create_dbt_platform_mcps_isolates_node_emission_failure(monkeypatch):
     """One node's emission crashes; the other node's workunits are still
     produced and the failure is recorded with name + file path."""
     source = _make_source()
@@ -303,7 +303,7 @@ def test_create_dbt_platform_mces_isolates_node_emission_failure(monkeypatch):
     )
 
     workunits = list(
-        source.create_dbt_platform_mces(
+        source.create_dbt_platform_mcps(
             dbt_nodes=[good, bad],
             all_nodes_map=all_nodes_map,
         )
@@ -326,23 +326,25 @@ def test_create_dbt_platform_mces_isolates_node_emission_failure(monkeypatch):
     assert "models/bad_model.sql" in failure_entry
 
 
-def test_create_dbt_platform_mces_partial_emission_before_failure(monkeypatch):
+def test_create_dbt_platform_mcps_partial_emission_before_failure(monkeypatch):
     """Per the locked design, isolation does NOT buffer-and-rollback: if a
     node's failure occurs after some of its workunits were already yielded,
     those workunits stay in the output rather than being discarded."""
     source = _make_source()
     bad = _make_sql_model_node("model.pkg.bad_model", "models/bad_model.sql")
 
-    def fake_get_patched_mce(mce):
+    def fake_merge_with_server_aspects(urn, aspects):
         # Fires after the DataPlatformInstance aspect (and any subtype/standalone
-        # aspects) have already been yielded for this node, but before its main
-        # MCE snapshot would be.
+        # aspects) have already been yielded for this node, but before its
+        # dataset aspects would be.
         raise RuntimeError("simulated crash after partial emission")
 
-    monkeypatch.setattr(source, "get_patched_mce", fake_get_patched_mce)
+    monkeypatch.setattr(
+        source, "_merge_with_server_aspects", fake_merge_with_server_aspects
+    )
 
     workunits = list(
-        source.create_dbt_platform_mces(
+        source.create_dbt_platform_mcps(
             dbt_nodes=[bad],
             all_nodes_map={bad.dbt_name: bad},
         )
@@ -356,7 +358,7 @@ def test_create_dbt_platform_mces_partial_emission_before_failure(monkeypatch):
     assert source.report.node_emission_failures == 1
 
 
-def test_create_target_platform_mces_isolates_node_emission_failure(monkeypatch):
+def test_create_target_platform_mcps_isolates_node_emission_failure(monkeypatch):
     """One node's target-platform emission crashes; the other node's
     workunits are still produced and the failure is recorded."""
     source = _make_source()
@@ -374,7 +376,7 @@ def test_create_target_platform_mces_isolates_node_emission_failure(monkeypatch)
         source, "_create_query_entity_mcps", fake_create_query_entity_mcps
     )
 
-    workunits = list(source.create_target_platform_mces(dbt_nodes=[good, bad]))
+    workunits = list(source.create_target_platform_mcps(dbt_nodes=[good, bad]))
 
     good_urn = good.get_urn(
         source.config.target_platform,

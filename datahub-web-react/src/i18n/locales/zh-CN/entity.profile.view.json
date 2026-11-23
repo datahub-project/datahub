@@ -8,5 +8,6 @@
     "viewDefinitionTab.logicHeading": "逻辑",
     "viewDefinitionTab.materializedFalse": "否",
     "viewDefinitionTab.materializedLabel": "是否物化",
-    "viewDefinitionTab.materializedTrue": "是"
+    "viewDefinitionTab.materializedTrue": "是",
+    "viewDefinitionTab.noViewPermission": "你无权查看此视图的 SQL 逻辑。"
 }

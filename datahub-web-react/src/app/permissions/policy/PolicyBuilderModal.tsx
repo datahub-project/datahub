@@ -12,9 +12,9 @@ import { FIELD_TYPES } from '@app/permissions/policy/constants';
 import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 import { EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
 import { hasIncompleteStructuredProperties } from '@app/permissions/policy/structuredProperties/utils';
-import ClickOutside from '@app/shared/ClickOutside';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import ClickOutside from '@app/sharedV2/ClickOutside';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 
 import { ActorFilter, Policy, PolicyType, ResourceFilter } from '@types';
 

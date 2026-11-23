@@ -6,6 +6,7 @@
 
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from '../base.page';
+import { GraphQLHelper, GraphQLResponse } from '../../helpers/graphql-helper';
 import type { DataHubLogger } from '../../utils/logger';
 import { TIMEOUTS, LOAD_STATES, KEYS, DELAYS } from '../../utils/constants';
 
@@ -23,6 +24,7 @@ export class DocumentPage extends BasePage {
   readonly actionsMenuButton: Locator;
   readonly movePopover: Locator;
   readonly moveConfirmButton: Locator;
+  private readonly graphql: GraphQLHelper;
 
   // Factory methods for dynamic selectors
   readonly getTreeItem: (urn: string) => Locator;
@@ -44,6 +46,7 @@ export class DocumentPage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
+    this.graphql = new GraphQLHelper(page);
 
     // Initialize all selectors in constructor
     this.titleInput = page.getByTestId('document-title-input');
@@ -118,8 +121,6 @@ export class DocumentPage extends BasePage {
 
   async createDocumentWithTitle(title: string): Promise<string> {
     const docUrn = await this.createNewDocumentViaButton();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
     await this.navigateToDocument(docUrn);
     await this.setDocumentTitle(title);
     return docUrn;
@@ -138,16 +139,17 @@ export class DocumentPage extends BasePage {
     await expect(this.titleInput).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
     // Triple-click selects all text in textarea reliably
     await this.titleInput.click({ clickCount: 3 });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
     await this.titleInput.pressSequentially(title, { delay: DELAYS.SEQUENTIAL });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
+    await expect(this.titleInput).toHaveValue(title);
+    // Titles are saved through updateDocumentContents; match on the title so the
+    // waiter can't resolve on a contents-only save.
+    const saved = this.graphql.waitForGraphQLResponse(
+      'updateDocumentContents',
+      (variables) => (variables.input as { title?: string } | undefined)?.title === title,
+    );
     // Press Enter to save the title (triggers blur/save handler)
     await this.page.keyboard.press(KEYS.ENTER);
-    // Wait for title update to persist in the backend
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    await this.expectMutationSucceeded(saved, 'updateDocumentContents');
   }
 
   async expectTitleInput(title: string): Promise<void> {
@@ -156,11 +158,13 @@ export class DocumentPage extends BasePage {
 
   async navigateToDocument(urn: string): Promise<void> {
     await this.navigate(`/document/${encodeURIComponent(urn)}`);
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // Not networkidle: it has no timeout, and a just-created document's page can keep the network
+    // busy long enough to hang the test.
+    await expect(this.titleInput).toBeVisible({ timeout: TIMEOUTS.LONG });
   }
 
   async expectSidebarVisible(): Promise<void> {
-    await expect(this.documentSidebar).toBeVisible();
+    await expect(this.documentSidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
   }
 
   async expectCreateButtonEnabled(): Promise<void> {
@@ -187,14 +191,30 @@ export class DocumentPage extends BasePage {
     const editor = this.getEditorTextbox();
     await expect(editor).toBeVisible();
     await editor.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
     await editor.clear({ force: true });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
+    const saved = this.graphql.waitForGraphQLResponse(
+      'updateDocumentContents',
+      (variables) => (variables.input as { contents?: unknown } | undefined)?.contents !== undefined,
+    );
     await editor.fill(text);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    // By default the editor auto-saves 3s after the last keystroke. With documentExplicitSaveEnabled
+    // on, it shows a Save button instead and never auto-saves, so click it when it appears. Race the
+    // two so auto-save mode returns as soon as its save lands; a failed save is reported below.
+    const saveButton = this.page.getByTestId('document-save-button');
+    const explicitSave = await Promise.race([
+      saveButton.waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT }).then(
+        () => true,
+        () => false,
+      ),
+      saved.then(
+        () => false,
+        () => false,
+      ),
+    ]);
+    if (explicitSave) {
+      await saveButton.click();
+    }
+    await this.expectMutationSucceeded(saved, 'updateDocumentContents');
   }
 
   async expectEditorContains(text: string): Promise<void> {
@@ -208,22 +228,20 @@ export class DocumentPage extends BasePage {
     const trigger = this.getStatusSelectTrigger();
     await expect(trigger).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
     await trigger.click({ force: true });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
 
     const option = this.getDropdownOption(status);
     await expect(option).toBeVisible({ timeout: TIMEOUTS.LONG });
+    const saved = this.graphql.waitForGraphQLResponse(
+      'updateDocumentStatus',
+      (variables) => (variables.input as { state?: string } | undefined)?.state === status,
+    );
     await option.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
 
     // Verify optimistic update with case-insensitive match
     await expect(this.statusSelect).toContainText(new RegExp(status, 'i'));
 
-    // Wait for network and database persistence before allowing reload
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.MEDIUM);
+    // Callers reload next, so the change must be persisted first
+    await this.expectMutationSucceeded(saved, 'updateDocumentStatus');
   }
 
   async expectStatusContains(text: string): Promise<void> {
@@ -236,22 +254,17 @@ export class DocumentPage extends BasePage {
     const trigger = this.getTypeSelectTrigger();
     await expect(trigger).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
     await trigger.click({ force: true });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
 
     const option = this.getDropdownOption(type);
     await expect(option).toBeVisible({ timeout: TIMEOUTS.LONG });
+    const saved = this.graphql.waitForGraphQLResponse('updateDocumentSubType');
     await option.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
 
     // Verify optimistic update with case-insensitive match
     await expect(this.typeSelect).toContainText(new RegExp(type, 'i'));
 
-    // Wait for network and database persistence before allowing reload
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.MEDIUM);
+    // Callers reload next, so the change must be persisted first
+    await this.expectMutationSucceeded(saved, 'updateDocumentSubType');
   }
 
   async expectTypeContains(text: string): Promise<void> {
@@ -261,8 +274,6 @@ export class DocumentPage extends BasePage {
   async searchForDocument(query: string): Promise<void> {
     await this.searchInput.click();
     await this.searchInput.fill(query);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
   async expectSearchResultsVisible(): Promise<void> {
@@ -271,9 +282,8 @@ export class DocumentPage extends BasePage {
 
   async closeSearchAndVerifyClosed(): Promise<void> {
     await this.searchInput.clear();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
-    await expect(this.searchResults).not.toBeVisible({ timeout: TIMEOUTS.SHORT });
+    // MEDIUM leaves room for the search input's debounce before the results unmount.
+    await expect(this.searchResults).not.toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   }
 
   async clickTreeItemMenu(urn: string): Promise<void> {
@@ -306,8 +316,6 @@ export class DocumentPage extends BasePage {
     await expect(searchInput).toBeVisible();
     await searchInput.clear();
     await searchInput.fill(text);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
   async selectMoveSearchResult(text: string): Promise<void> {
@@ -329,24 +337,64 @@ export class DocumentPage extends BasePage {
     await expect(this.actionsMenuButton).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
     await expect(this.actionsMenuButton).toBeEnabled({ timeout: TIMEOUTS.MEDIUM });
     await this.actionsMenuButton.click({ force: true });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
+  /** Click Delete in the open actions menu and wait for the confirm dialog. */
   async clickDeleteMenuItem(): Promise<void> {
     const deleteMenuItem = this.getDeleteMenuOption();
-    await expect(deleteMenuItem).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    await deleteMenuItem.click({ force: true });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    const deleteDialog = this.getDeleteConfirmDialog();
+    // A forced click can land while the menu is still animating open and be dropped, which
+    // closes the menu without opening the dialog. Reopen the menu and retry until it opens.
+    await expect(async () => {
+      if (await deleteDialog.isVisible()) {
+        return;
+      }
+      if (!(await deleteMenuItem.isVisible())) {
+        await this.actionsMenuButton.click({ force: true });
+      }
+      await deleteMenuItem.click({ force: true, timeout: TIMEOUTS.SHORT });
+      await expect(deleteDialog).toBeVisible({ timeout: TIMEOUTS.SHORT });
+    }).toPass({ timeout: TIMEOUTS.EXTRA_LONG });
   }
 
+  /** Confirm the delete dialog and wait for the deleteDocument mutation to finish. */
   async confirmDelete(): Promise<void> {
     const deleteDialog = this.getDeleteConfirmDialog();
     await expect(deleteDialog).toBeVisible();
     const deleteButton = this.getDeleteButton();
     await expect(deleteButton).toBeVisible();
+    const deleted = this.graphql.waitForGraphQLResponse('deleteDocument');
     await deleteButton.click();
+    await this.expectMutationSucceeded(deleted, 'deleteDocument');
+  }
+
+  /** Await a mutation's response and fail on GraphQL errors or a false result. */
+  private async expectMutationSucceeded(response: Promise<GraphQLResponse>, mutation: string): Promise<void> {
+    const json = await response;
+    expect(json.errors, `${mutation} returned errors`).toBeUndefined();
+    expect((json.data as Record<string, unknown> | undefined)?.[mutation], `${mutation} result`).toBe(true);
+  }
+
+  /**
+   * The sidebar tree is search-backed, so a deleted document can linger until the index catches
+   * up. Reload the documents page until none of `removedUrns` are in the tree. `keptUrn` is a
+   * document the test did not delete: once it renders, the tree has loaded, so the absence checks
+   * can't pass on a tree that is still empty.
+   */
+  async expectDocumentsRemovedFromTree(removedUrns: string[], keptUrn: string): Promise<void> {
+    await expect(async () => {
+      // Not navigateToDocuments(): its networkidle wait has no timeout and can hang right after a
+      // delete, which toPass cannot interrupt. Wait for the tree's search request instead.
+      const [treeSearch] = await Promise.all([
+        this.graphql.waitForGraphQLResponse('searchDocuments'),
+        this.page.goto('/context/documents'),
+      ]);
+      expect(treeSearch.errors, 'searchDocuments returned errors').toBeUndefined();
+      await expect(this.getTreeItem(keptUrn)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+      for (const urn of removedUrns) {
+        await expect(this.getTreeItem(urn)).not.toBeAttached({ timeout: TIMEOUTS.SHORT });
+      }
+    }).toPass({ timeout: TIMEOUTS.EXTRA_LONG * 2 });
   }
 
   async expectParentBreadcrumbVisible(parentTitle: string): Promise<void> {
@@ -428,9 +476,11 @@ export class DocumentPage extends BasePage {
     // Expand control is on the left; hover it directly (not the title) before clicking.
     await expandButton.hover({ force: true });
     await expect(expandButton).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    const wasExpanded = await expandButton.getAttribute('aria-expanded');
     await expandButton.click({ force: true });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    await expect(expandButton).not.toHaveAttribute('aria-expanded', wasExpanded ?? 'false', {
+      timeout: TIMEOUTS.LONG,
+    });
   }
 
   async expectTreeItemExpanded(urn: string): Promise<void> {
@@ -456,8 +506,6 @@ export class DocumentPage extends BasePage {
     await button.click();
     // Expand-all can take a while on large libraries; wait for the control to unlock.
     await expect(button).toBeEnabled({ timeout: 60_000 });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
   /** If the section is already expanded, collapse-all first so expand-all has work to do. */
@@ -469,8 +517,7 @@ export class DocumentPage extends BasePage {
     if (/collapse/i.test(label)) {
       await button.click();
       await expect(button).toBeEnabled({ timeout: TIMEOUTS.LONG });
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+      await expect(button).not.toHaveAttribute('aria-label', /collapse/i, { timeout: TIMEOUTS.LONG });
     }
   }
 

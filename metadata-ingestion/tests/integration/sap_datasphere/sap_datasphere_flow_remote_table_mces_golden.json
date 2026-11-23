@@ -289,7 +289,6 @@
                 {
                     "fieldPath": "/BIC/MY_KEY",
                     "nullable": true,
-                    "description": "/BIC/MY_KEY",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -302,7 +301,6 @@
                 {
                     "fieldPath": "/BIC/MY_VALUE",
                     "nullable": true,
-                    "description": "/BIC/MY_VALUE",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}

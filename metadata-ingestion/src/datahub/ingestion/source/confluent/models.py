@@ -68,7 +68,7 @@ class CatalogEntity(CatalogModel):
         }
 
     def duplicate_business_metadata_names(self) -> List[str]:
-        # Only names with multiple non-null values — null siblings do not overwrite.
+        # Only names with multiple non-null values; null siblings do not overwrite.
         counts = Counter(
             attribute.name
             for attribute in self.business_metadata

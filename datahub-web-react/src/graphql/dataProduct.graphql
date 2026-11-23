@@ -21,6 +21,19 @@ query getDataProduct($urn: String!) {
         settings {
             ...AssetSettingsFields
         }
+        # Search-backed, so soft-deleted children are left out, as in the server-side delete check.
+        childDataProducts(input: { count: 0, query: "*" }) {
+            total
+        }
+    }
+}
+
+query getDataProductChildrenCount($urn: String!) {
+    dataProduct(urn: $urn) {
+        urn
+        childDataProducts(input: { count: 0, query: "*" }) {
+            total
+        }
     }
 }
 

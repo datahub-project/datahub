@@ -24,10 +24,12 @@ export function useBoundingBoxMemberPagination(rootUrn: string, nodes: NodeConte
 
     const target = Math.min(limit, total ?? limit);
     useEffect(() => {
-        if (start + BOUNDING_BOX_MEMBER_PAGE_SIZE < target) {
+        // Before the first page lands, `limit` can still be the previous graph's: the graph reset
+        // replaces the home node in an effect, after this hook has already read it
+        if (initialized && start + BOUNDING_BOX_MEMBER_PAGE_SIZE < target) {
             setStart((prev) => prev + BOUNDING_BOX_MEMBER_PAGE_SIZE);
         }
-    }, [start, target]);
+    }, [initialized, start, target]);
 
     return {
         start,

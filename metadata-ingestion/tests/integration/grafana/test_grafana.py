@@ -158,7 +158,23 @@ def loaded_grafana(docker_compose_runner, test_resources_dir):
             timeout=90,
             checker=check_prometheus_ready,
         )
-        wait_for_port(docker_services, "grafana", 3000, timeout=180)
+
+        # Checked over HTTP from the host rather than with wait_for_port's
+        # in-container bash probe: Grafana 13.3 images ship without /bin/bash.
+        def check_grafana_ready():
+            try:
+                response = requests.get(f"{BASE_URL}/api/health", timeout=5)
+                return response.status_code == 200
+            except requests.exceptions.RequestException:
+                return False
+
+        wait_for_port(
+            docker_services,
+            "grafana",
+            3000,
+            timeout=180,
+            checker=check_grafana_ready,
+        )
 
         # Additional verification that Grafana API is fully accessible
         verify_grafana_api_ready(docker_services)

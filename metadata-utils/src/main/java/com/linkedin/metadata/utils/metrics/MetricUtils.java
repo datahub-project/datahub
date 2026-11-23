@@ -85,9 +85,21 @@ public class MetricUtils {
   @Builder.Default
   private final Map<String, Counter> micrometerCounterCache = new ConcurrentHashMap<>();
 
-  private static final Map<String, Timer> micrometerTimerCache = new ConcurrentHashMap<>();
-  private static final Map<String, DistributionSummary> micrometerDistributionCache =
+  // A Timer and DistributionSummary also belong to one MeterRegistry. Instance scope matches the
+  // counter cache so a later MetricUtils does not record into an earlier registry.
+  @Builder.Default
+  private final Map<String, Timer> micrometerTimerCache = new ConcurrentHashMap<>();
+
+  @Builder.Default
+  private final Map<String, DistributionSummary> micrometerDistributionCache =
       new ConcurrentHashMap<>();
+
+  @Builder.Default
+  private final Map<String, AtomicDouble> micrometerGaugeStates = new ConcurrentHashMap<>();
+
+  @Builder.Default
+  private final Map<String, Gauge> micrometerGaugeCache = new ConcurrentHashMap<>();
+
   // For state-based gauges (like throttled state)
   private static final Map<String, AtomicDouble> gaugeStates = new ConcurrentHashMap<>();
 
@@ -193,6 +205,23 @@ public class MetricUtils {
     String cacheKey = createCacheKey(metricName, tags);
     return micrometerCounterCache.computeIfAbsent(
         cacheKey, key -> registry.counter(metricName, tags));
+  }
+
+  /**
+   * Sets a Micrometer gauge. Later calls with the same name and tags update the same gauge.
+   *
+   * @param metricName The name of the metric
+   * @param value The gauge value
+   * @param tags The tags to associate with the metric (can be empty)
+   */
+  public void setMicrometerGauge(String metricName, double value, String... tags) {
+    String cacheKey = createCacheKey(metricName, tags);
+    AtomicDouble state =
+        micrometerGaugeStates.computeIfAbsent(cacheKey, key -> new AtomicDouble(0));
+    micrometerGaugeCache.computeIfAbsent(
+        cacheKey,
+        key -> Gauge.builder(metricName, state, AtomicDouble::get).tags(tags).register(registry));
+    state.set(value);
   }
 
   /**

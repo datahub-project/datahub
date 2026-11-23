@@ -28,7 +28,9 @@ public class SelectionSetAnalyzerTest {
   private static final String SDL =
       "type Query { entity: Entity }\n"
           + "interface Entity { urn: String }\n"
-          + "type Dataset implements Entity { urn: String, ownership: String, subTypes: String,"
+          + "interface HasOwnership { ownership: String }\n"
+          + "type Dataset implements Entity & HasOwnership { urn: String, ownership: String,"
+          + " subTypes: String,"
           + " properties: DatasetProperties }\n"
           + "type DatasetProperties { name: String, description: String }\n"
           + "type CorpUser implements Entity { urn: String, slackUserInfo: String }\n";
@@ -39,6 +41,7 @@ public class SelectionSetAnalyzerTest {
               new SchemaParser().parse(SDL),
               RuntimeWiring.newRuntimeWiring()
                   .type("Entity", builder -> builder.typeResolver(env -> null))
+                  .type("HasOwnership", builder -> builder.typeResolver(env -> null))
                   .build());
 
   /**
@@ -96,6 +99,18 @@ public class SelectionSetAnalyzerTest {
 
     assertTrue(
         SelectionSetAnalyzer.collectImmediateFieldNames(environment, "Dataset").contains("urn"));
+  }
+
+  @Test
+  public void testInterfaceTypeConditionSkipsNonImplementors() {
+    DataFetchingEnvironment environment =
+        envFor("{ entity { urn ... on HasOwnership { ownership } } }");
+
+    assertEquals(
+        SelectionSetAnalyzer.collectImmediateFieldNames(environment, "Dataset"),
+        Set.of("urn", "ownership"));
+    assertEquals(
+        SelectionSetAnalyzer.collectImmediateFieldNames(environment, "CorpUser"), Set.of("urn"));
   }
 
   @Test

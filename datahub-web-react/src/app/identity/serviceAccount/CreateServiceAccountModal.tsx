@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { addServiceAccountToListCache } from '@app/identity/serviceAccount/cacheUtils';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { Input, Modal, Text, TextArea } from '@src/alchemy-components';
 
 import { useCreateServiceAccountMutation } from '@graphql/auth.generated';

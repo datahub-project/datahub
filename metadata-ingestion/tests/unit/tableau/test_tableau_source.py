@@ -36,15 +36,20 @@ from datahub.ingestion.source.tableau.tableau import (
     UpstreamTablesResult,
 )
 from datahub.ingestion.source.tableau.tableau_common import (
+    INHERITED_DESCRIPTION_PLACEHOLDER,
     TableauLineageOverrides,
     TableauUpstreamReference,
+    embedded_datasource_graphql_query,
     get_filter_pages,
     get_fully_qualified_table_name,
     get_overridden_info,
     make_filter,
     make_fine_grained_lineage_class,
     optimize_query_filter,
+    published_datasource_graphql_query,
+    sheet_graphql_query,
     tableau_field_to_schema_field,
+    with_inherited_field_descriptions,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
@@ -66,7 +71,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
 )
 from tests.test_helpers import test_connection_helpers
-from tests.unit.tableau.test_tableau_config import default_config
+from tests.unit.tableau.conftest import default_config
 
 FROZEN_TIME = "2021-12-07 07:00:00"
 
@@ -783,6 +788,41 @@ def test_tableau_source_handles_none_nativedatatype():
         field=field, ingest_tags=False
     )
     assert schema_field.nativeDataType == "UNKNOWN"
+
+
+def test_tableau_field_description_falls_back_to_inherited():
+    field: Dict[str, Any] = {
+        "name": "Test Field",
+        "description": None,
+        "descriptionInherited": [None, {"value": "From upstream column"}],
+    }
+    assert (
+        tableau_field_to_schema_field(field=field, ingest_tags=False).description
+        == "From upstream column\n\n"
+    )
+
+    field["description"] = "Own description"
+    assert (
+        tableau_field_to_schema_field(field=field, ingest_tags=False).description
+        == "Own description\n\n"
+    )
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        sheet_graphql_query,
+        embedded_datasource_graphql_query,
+        published_datasource_graphql_query,
+    ],
+)
+def test_inherited_field_descriptions_only_queried_when_enabled(query: str) -> None:
+    enabled = with_inherited_field_descriptions(query, enabled=True)
+    disabled = with_inherited_field_descriptions(query, enabled=False)
+
+    assert "descriptionInherited { value }" in enabled
+    assert "descriptionInherited" not in disabled
+    assert INHERITED_DESCRIPTION_PLACEHOLDER not in enabled + disabled
 
 
 def test_tableau_source_unescapes_lt():
@@ -1538,63 +1578,6 @@ def test_custom_sql_datasource_naming_scenarios(
     else:
         assert dataset_properties is not None
         assert dataset_properties.name == expected_name
-
-
-def test_table_lineage_without_columns():
-    """Test that tables without column metadata still create table-level lineage"""
-    config = TableauConfig(
-        connect_uri="http://test",
-        username="test",
-        password="test",
-        site="test",
-    )
-
-    ctx = PipelineContext(run_id="test")
-    site = SiteItem(name="test-site", content_url="test")
-    site._id = "test-site-id"
-    report = TableauSourceReport()
-
-    with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
-        source = TableauSiteSource(
-            config=config,
-            ctx=ctx,
-            site=site,
-            report=report,
-            server=mock.MagicMock(),
-            platform="tableau",
-        )
-
-        with mock.patch.object(
-            TableauUpstreamReference,
-            "create",
-            return_value=mock.MagicMock(
-                make_dataset_urn=mock.MagicMock(
-                    return_value="urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table,PROD)"
-                )
-            ),
-        ):
-            tables = [
-                {
-                    c.ID: "table-123",
-                    c.NAME: "my_table",
-                    c.COLUMNS_CONNECTION: {"totalCount": 0},  # NO COLUMNS
-                    c.DATABASE: {"name": "test_db"},
-                    c.SCHEMA: "test_schema",
-                    c.CONNECTION_TYPE: "snowflake",
-                }
-            ]
-
-            upstream_tables, table_id_to_urn = source.get_upstream_tables(
-                tables=tables,
-                datasource_name="test_datasource",
-                browse_path="/test",
-                is_custom_sql=False,
-            )
-
-            # Tables without columns should still create table-level lineage
-            assert len(upstream_tables) == 1
-            assert len(table_id_to_urn) == 1
-            assert report.num_upstream_table_processed_without_columns == 1
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

@@ -105,6 +105,50 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=test_resources_dir / mce_out_file,
+        fail_on_output_mces=True,
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_lookml_shared_view_same_connection(pytestconfig, tmp_path, mock_time):
+    """Test that a view file shared between two models with the same connection
+    is ingested for both models when view_naming_pattern includes {model}.
+    See https://github.com/datahub-project/datahub/issues/12043
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
+    mce_out_file = "shared_view_same_connection_mces.json"
+
+    new_recipe = {
+        "run_id": "lookml-test",
+        "source": {
+            "type": "lookml",
+            "config": {
+                "base_folder": f"{test_resources_dir}/lkml_samples_shared_view_same_connection",
+                "connection_to_platform_map": {"my_connection": "postgres"},
+                "parse_table_names_from_sql": True,
+                "tag_measures_and_dimensions": False,
+                "project_name": "shared_view_project",
+                "emit_reachable_views_only": False,
+                "view_naming_pattern": {"pattern": "{project}.{model}.view.{name}"},
+            },
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": f"{tmp_path}/{mce_out_file}",
+            },
+        },
+    }
+
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=False)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=test_resources_dir / "shared_view_same_connection_golden.json",
     )
 
 
@@ -142,6 +186,7 @@ def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        fail_on_output_mces=True,
     )
 
 
@@ -174,6 +219,7 @@ def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        fail_on_output_mces=True,
     )
 
 
@@ -373,6 +419,7 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out,
         golden_path=test_resources_dir / mce_out,
+        fail_on_output_mces=True,
     )
 
 
@@ -420,6 +467,7 @@ def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time
         pytestconfig,
         output_path=tmp_path / mce_out,
         golden_path=test_resources_dir / mce_out,
+        fail_on_output_mces=True,
     )
 
 
@@ -477,6 +525,7 @@ def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_ti
         pytestconfig,
         output_path=tmp_path / mce_out,
         golden_path=test_resources_dir / mce_out,
+        fail_on_output_mces=True,
     )
 
 
@@ -570,6 +619,7 @@ def ingestion_test(
             pytestconfig,
             output_path=tmp_path / mce_out_file,
             golden_path=test_resources_dir / mce_out_file,
+            fail_on_output_mces=True,
         )
 
 
@@ -626,6 +676,7 @@ def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out,
         golden_path=test_resources_dir / mce_out,
+        fail_on_output_mces=True,
     )
 
 
@@ -687,6 +738,7 @@ def test_reachable_views(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out,
         golden_path=test_resources_dir / mce_out,
+        fail_on_output_mces=True,
     )
 
     entity_urns = mce_helpers.get_entity_urns(tmp_path / mce_out)
@@ -897,6 +949,7 @@ def test_same_name_views_different_file_path(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out,
         golden_path=test_resources_dir / mce_out,
+        fail_on_output_mces=True,
     )
 
 
@@ -944,6 +997,7 @@ def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        fail_on_output_mces=True,
     )
 
 
@@ -979,6 +1033,7 @@ def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_t
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        fail_on_output_mces=True,
     )
 
 
@@ -1005,6 +1060,7 @@ def test_view_to_view_lineage_and_lookml_constant(pytestconfig, tmp_path, mock_t
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        fail_on_output_mces=True,
     )
 
 
@@ -1250,6 +1306,7 @@ def test_field_tag_ingest(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        fail_on_output_mces=True,
     )
 
 
@@ -1277,6 +1334,7 @@ def test_drop_hive(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        fail_on_output_mces=True,
     )
 
 
@@ -1314,6 +1372,7 @@ def test_gms_schema_resolution(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        fail_on_output_mces=True,
     )
 
 
@@ -1539,4 +1598,5 @@ FETCH NEXT 1 ROWS ONLY""",
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        fail_on_output_mces=True,
     )

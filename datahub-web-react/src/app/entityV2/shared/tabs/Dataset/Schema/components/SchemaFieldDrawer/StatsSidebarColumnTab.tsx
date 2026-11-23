@@ -5,7 +5,7 @@ import styled, { useTheme } from 'styled-components';
 import StatChart, { ChartCard } from '@app/entityV2/shared/tabs/Dataset/Stats/historical/charts/StatChart';
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { computeChartTickInterval, extractChartValuesFromFieldProfiles } from '@app/entityV2/shared/utils';
-import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
+import { getFixedLookbackWindow } from '@app/sharedV2/time/timeUtils';
 
 import { DatasetFieldProfile, SchemaField } from '@types';
 

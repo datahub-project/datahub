@@ -1,0 +1,11 @@
+namespace com.linkedin.search.template
+
+/**
+ * Elasticsearch search type applied when this template is executed. It is not part of the query
+ * JSON. Unset keeps the parent value. When no ancestor sets it, the template request uses
+ * {@code QUERY_THEN_FETCH}. The request flag is not consulted.
+ */
+enum SearchTemplateSearchType {
+  QUERY_THEN_FETCH
+  DFS_QUERY_THEN_FETCH
+}

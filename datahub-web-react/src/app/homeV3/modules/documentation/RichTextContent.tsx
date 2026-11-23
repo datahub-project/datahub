@@ -3,10 +3,10 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import useFileUpload from '@app/shared/hooks/useFileUpload';
-import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
-import { Editor } from '@src/alchemy-components/components/Editor/Editor';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import { Editor } from '@app/sharedV2/editor/Editor';
+import useFileUpload from '@app/sharedV2/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks';
 
 import { UploadDownloadScenario } from '@types';
 

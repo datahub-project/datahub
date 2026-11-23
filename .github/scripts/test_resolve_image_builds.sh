@@ -168,7 +168,7 @@ ALL=":metadata-service:war,:datahub-upgrade,:metadata-jobs:mae-consumer-job,:met
 
 echo "nothing that reaches an image"
 check "smoke-test only" "" 'CHANGED_FILES=["smoke-test/tests/a_test.py"]'
-check "docs and markdown" "" 'CHANGED_FILES=["docs/how/updating-datahub.md","README.md","docs-website/sidebars.js"]'
+check "docs and markdown" "" 'CHANGED_FILES=["docs/how/breaking-changes.md","README.md","docs-website/sidebars.js"]'
 check "playwright tests" "" 'CHANGED_FILES=["e2e-test/ui/playwright/tests/a.spec.ts"]'
 check "compose templates only" "" 'CHANGED_FILES=["docker/profiles/docker-compose.gms.yml"]'
 check "quickstart version map" "" 'CHANGED_FILES=["docker/quickstart/quickstart_version_mapping.yaml"]'

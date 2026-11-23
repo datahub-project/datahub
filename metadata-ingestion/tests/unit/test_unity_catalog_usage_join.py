@@ -3188,6 +3188,30 @@ def test_hive_metastore_recipe_parses_lineage_without_ingested_tables(
     )
 
 
+def test_hive_metastore_recipe_adds_hive_tables_to_ingested_lineage() -> None:
+    ex = _system_tables_extractor()
+    _register_tables(ex, ["main.sales.orders"])
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(
+        aggregator,
+        _query_with_lineage(
+            "SELECT * FROM main.sales.orders o "
+            "JOIN hive_metastore.default.events e ON o.id = e.id",
+            "s1",
+            sources=["main.sales.orders"],
+        ),
+        default_db=None,
+        covers_hive_metastore=True,
+    )
+
+    _assert_route(aggregator, ex, preparsed=1, hive_metastore_fallback=1)
+    assert aggregator.add_preparsed_query.call_args.args[0].upstreams == [
+        _dataset_urn("main.sales.orders"),
+        _dataset_urn("hive_metastore.default.events"),
+    ]
+
+
 @pytest.mark.parametrize(
     "query_text",
     [

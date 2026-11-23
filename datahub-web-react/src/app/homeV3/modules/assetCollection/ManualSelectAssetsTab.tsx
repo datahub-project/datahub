@@ -12,7 +12,7 @@ import useGetAssetResults from '@app/homeV3/modules/assetCollection/useGetAssetR
 import { LoaderContainer } from '@app/homeV3/styledComponents';
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
 import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataHubPageModuleType, Entity } from '@types';
 
@@ -81,7 +81,7 @@ type Props = {
 
 const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Props) => {
     const { t } = useTranslation('modules');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const [searchQuery, setSearchQuery] = useState<string | undefined>();
     const { appliedFilters, updateFieldFilters } = useAppliedFilters();

@@ -22,6 +22,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -97,14 +98,12 @@ public class SiblingsSearchResolver implements DataFetcher<CompletableFuture<Scr
         _viewService,
         entityTypes,
         input.getQuery(),
-        SearchUtils.combineFilters(inputFilter, baseFilter),
+        FilterUtils.combineFilters(inputFilter, baseFilter),
         input.getViewUrn(),
         input.getSearchFlags(),
         input.getCount(),
         input.getScrollId(),
         input.getKeepAlive(),
-        List.of(),
-        List.of(),
         this.getClass().getSimpleName());
   }
 

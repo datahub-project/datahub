@@ -2,10 +2,10 @@ import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
 import React from 'react';
 
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { capitalizeFirstLetterOnly } from '@src/app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@src/app/sharedV2/textUtil';
 
 import { EntityType, Owner } from '@types';
 

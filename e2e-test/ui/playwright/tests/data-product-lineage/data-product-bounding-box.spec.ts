@@ -11,6 +11,7 @@
 import { test, expect } from '../../fixtures/base-test';
 import { LineageV3Page } from '../../pages/lineage-v3.page';
 import { TIMEOUTS } from '../../utils/constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'data-product-lineage' });
 
@@ -59,11 +60,15 @@ test.describe('Data product lineage bounding box', () => {
     await expect(firstMemberNode(page)).toBeVisible();
   });
 
-  test('member count reports the members actually drawn, not the page size', async ({ page }) => {
-    const drawn = await memberNodes(page).count();
+  test(
+    'member count reports the members actually drawn, not the page size',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page }) => {
+      const drawn = await memberNodes(page).count();
 
-    // Lineage pulls in members past the fetched page, so the box holds more than a page of them
-    expect(drawn).toBeGreaterThan(MEMBER_PAGE_SIZE);
-    await expect(page.getByText(`${drawn} / ${TOTAL_MEMBERS} assets`)).toBeVisible();
-  });
+      // Lineage pulls in members past the fetched page, so the box holds more than a page of them
+      expect(drawn).toBeGreaterThan(MEMBER_PAGE_SIZE);
+      await expect(page.getByText(`${drawn} / ${TOTAL_MEMBERS} assets`)).toBeVisible();
+    },
+  );
 });
