@@ -604,6 +604,7 @@ def _graph_app_run(
     variables_read_failed: bool = False,
     script: str = SCRIPT,
     datasets_listed: bool = True,
+    tables: Optional[List[Dict]] = None,
 ) -> Dict[str, str]:
     """Each table's upstreams as a whole UpstreamLineage write lists them, or
     "patch:" and those a patch adds."""
@@ -636,6 +637,7 @@ def _graph_app_run(
             if variables_read_failed
             else {"vLake": "lib://Sales Space:Lake/"},
             "variables_read_failed": variables_read_failed,
+            "tables": tables or [],
             "lineage_tables": [
                 LineageTable(
                     qri="qri:app:sense://app-1#Orders",
@@ -691,7 +693,7 @@ def test_graph_table_links_to_the_file_its_script_loads(
 STORE_SCRIPT = """
 Orders:
 LOAD * FROM [lib://Sales Space:Lake/landing/orders.csv] (txt);
-STORE Orders INTO [lib://Sales Space:Lake/qvd/orders.qvd] (qvd);
+STORE Orders INTO [lib://Sales Space:Lake//qvd/orders.qvd] (qvd);
 STORE Scratch INTO [lib://Sales Space:Lake/qvd/scratch.qvd] (qvd);
 """
 
@@ -721,6 +723,38 @@ def test_stored_qvd_on_mapped_storage_links_the_stored_table(
         }
         if mapped
         else {}
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_stored_qvd_links_the_load_model_table_by_its_qri(
+    mock_api_cls: MagicMock,
+) -> None:
+    customers_qri = "qri:db:sqlserver://sales#dbo.Customers"
+    writes = _graph_app_run(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        script="STORE Customers INTO [lib://Sales Space:Lake/qvd/customers.qvd] (qvd);",
+        tables=[
+            {
+                "tableName": "Customers",
+                "boxType": "blackbox",
+                "tableAlias": "Customers",
+                "dataconnectorName": "Sales SQL",
+                "connectionInfo": {"id": "conn-1", "sourceConnectorID": "sqlserver"},
+                "spaceId": "space-1",
+                "fields": [],
+                "tableQri": customers_qri,
+            }
+        ],
+    )
+
+    assert writes[
+        "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qvd/customers.qvd,PROD)"
+    ] == (
+        "not primary patch:"
+        + make_dataset_urn("qlik-sense", customers_qri.lower())
     )
 
 

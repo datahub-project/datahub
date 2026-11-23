@@ -550,6 +550,8 @@ class _Block(BaseModel):
     has_default: bool = False
     # Statements between SWITCH and its first CASE run in no branch.
     in_case: bool = False
+    # How often each variable had been assigned when the block opened.
+    assignments_before: Counter = Field(default_factory=Counter)
 
 
 class _ControlFlowTracker(BaseModel):
@@ -575,6 +577,7 @@ class _ControlFlowTracker(BaseModel):
                 _Block(
                     before=self.state.model_copy(deep=True),
                     in_case=bool(control.group("if")),
+                    assignments_before=Counter(self.assignments),
                 )
             )
         elif self.blocks and (
@@ -640,7 +643,13 @@ class _ControlFlowTracker(BaseModel):
         unknown = set().union(*(outcome.unknown for outcome in outcomes)) | (
             set_anywhere - variables.keys()
         )
-        made_unknown = unknown - block.before.unknown
+        # A variable already unknown before the block but assigned in it is
+        # one the block decides too.
+        made_unknown = (unknown - block.before.unknown) | {
+            name
+            for name in unknown
+            if self.assignments[name] > block.assignments_before[name]
+        }
         if self.loops:
             # Like a variable set in the loop, it holds the app's value after.
             self.loops[-1].update(made_unknown)
