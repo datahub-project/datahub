@@ -305,6 +305,16 @@ class QlikOnPremConfig(ConfigModel):
         "identified by its file path, so files under these paths join into one "
         "dataset.",
     )
+    qvd_connection_folders: Dict[str, str] = Field(
+        default={},
+        description="Data connections that are not folder connections, such as "
+        "Azure Storage or Amazon S3 connections, as the connection name -> the "
+        "folder path to name their QVDs under. QVDs read and written through a "
+        "`lib://` path of such a connection are otherwise unresolved. For example "
+        "`{'Lake - Azure': '//lakeaccount.blob.core.windows.net/qlik'}`. Use the "
+        "path apps reach the same files under through a folder connection, if "
+        "any, so both join into one dataset.",
+    )
     qvd_ignored_connections: List[str] = Field(
         default=["ServerLogFolder", "ArchivedLogsFolder"],
         description="Folder data connections whose QVDs are not ingested. By "

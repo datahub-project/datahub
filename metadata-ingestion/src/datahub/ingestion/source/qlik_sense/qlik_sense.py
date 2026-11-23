@@ -2639,9 +2639,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         assert on_prem is not None
         resolver = QvdPathResolver(
             folders={
-                name: info.folder_path
-                for name, info in self._get_data_connections().items()
-                if info.folder_path
+                **{
+                    name: info.folder_path
+                    for name, info in self._get_data_connections().items()
+                    if info.folder_path
+                },
+                **on_prem.qvd_connection_folders,
             },
             ignored_connections=on_prem.qvd_ignored_connections,
             folder_aliases=on_prem.qvd_folder_aliases,

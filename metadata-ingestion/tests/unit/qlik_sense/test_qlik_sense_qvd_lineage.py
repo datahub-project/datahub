@@ -223,6 +223,7 @@ def _run(
     apps: List[App],
     current: Optional[UpstreamLineageClass] = None,
     connections_unread: bool = False,
+    qvd_connection_folders: Optional[Dict[str, str]] = None,
 ) -> "tuple[QlikSenseSource, Dict[str, Dict[str, Any]]]":
     graph = MagicMock()
     # The QVDs' lineage as DataHub holds it before the run.
@@ -256,7 +257,14 @@ def _run(
         )
         api.get_items.return_value = apps
         source = QlikSenseSource(
-            QlikSourceConfig.model_validate(ONPREM_CONFIG),
+            QlikSourceConfig.model_validate(
+                {
+                    "on_prem": {
+                        **ONPREM_CONFIG["on_prem"],
+                        "qvd_connection_folders": qvd_connection_folders or {},
+                    }
+                }
+            ),
             PipelineContext(run_id="test-qvd-lineage", graph=graph),
         )
         aspects: Dict[str, Dict[str, Any]] = {}
@@ -347,6 +355,22 @@ def test_qvd_lineage_runs_from_etl_app_through_qvd_to_reporting_app() -> None:
     assert aspects[CLEAN]["DatasetPropertiesClass"].name == "orders"
     assert source.reporter.qvds_found == 3
     assert not source.reporter.warnings
+
+
+def test_qvds_of_a_storage_connection_join_through_its_mapped_folder() -> None:
+    # Not a folder connection, so Qlik gives no folder for it.
+    etl = ETL_SCRIPT.replace("lib://QVD Data/clean", "lib://Lake - Azure/clean")
+    source, aspects = _run(
+        [_app("etl-app", etl), _app("report-app", REPORT_SCRIPT)],
+        qvd_connection_folders={"lake - azure": "//nas/qvd"},
+    )
+
+    assert _upstreams(aspects, CLEAN, "add") == [_urn("etl-app.orders")]
+    assert [
+        u.dataset
+        for u in aspects[_urn("report-app.sales")]["UpstreamLineageClass"].upstreams
+    ] == [CLEAN]
+    assert not source.reporter.unresolved_qvd_paths
 
 
 def test_qvd_lineage_is_only_added_to_when_an_app_script_could_not_be_read() -> None:
