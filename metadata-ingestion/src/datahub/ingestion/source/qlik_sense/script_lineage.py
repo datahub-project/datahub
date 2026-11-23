@@ -1,6 +1,6 @@
 import re
 from collections import Counter
-from typing import AbstractSet, Dict, List, Optional, Set
+from typing import AbstractSet, Callable, Dict, List, Optional, Set
 
 from pydantic import BaseModel, Field
 
@@ -384,21 +384,26 @@ class QvdStore(BaseModel):
     branches: List[ScriptBranch] = []
 
 
-def stores_in_competing_branches(stores: List[QvdStore]) -> List[QvdStore]:
+def stores_in_competing_branches(
+    stores: List[QvdStore],
+    table_key: Callable[[QvdStore], str] = lambda store: store.label.lower(),
+) -> List[QvdStore]:
     """STOREs of a table into different files from different branches of one
     IF or SWITCH, such as a prod and a dev path: which one ran can't be told,
-    so none of them names the table's file for certain."""
+    so none of them names the table's file for certain. `table_key` tells
+    which STOREs name the same table, such as by its name and by its alias."""
+    keys = [table_key(store) for store in stores]
     competing = []
-    for store in stores:
+    for store, key in zip(stores, keys, strict=True):
         branches = {branch.block: branch.branch for branch in store.branches}
         if any(
-            other.label.lower() == store.label.lower()
+            other_key == key
             and not other.file.same_file(store.file)
             and any(
                 branches.get(branch.block, branch.branch) != branch.branch
                 for branch in other.branches
             )
-            for other in stores
+            for other, other_key in zip(stores, keys, strict=True)
         ):
             competing.append(store)
     return competing
