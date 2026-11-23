@@ -33,6 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.Getter;
@@ -373,6 +374,18 @@ public class UrlValidator extends AspectPayloadValidator {
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
+    // A PATCH carries no aspect at proposal time, so the picture links it sets are checked on the
+    // patched result. (embed and institutionalMemory are checked from the patch ops instead.)
+    List<ChangeMCP> patchedPictures =
+        changeMCPs.stream()
+            .filter(PatchOperationUtils::isAppliedPatch)
+            .filter(
+                item ->
+                    "corpUserEditableInfo".equals(item.getAspectName())
+                        || "corpGroupEditableInfo".equals(item.getAspectName()))
+            .collect(Collectors.toList());
+    return patchedPictures.isEmpty()
+        ? Stream.empty()
+        : validateProposedAspects(operationContext, patchedPictures, retrieverContext);
   }
 }

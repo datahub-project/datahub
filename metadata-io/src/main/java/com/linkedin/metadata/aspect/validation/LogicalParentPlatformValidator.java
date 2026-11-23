@@ -11,6 +11,7 @@ import com.linkedin.logical.LogicalParent;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
@@ -23,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -139,6 +141,13 @@ public class LogicalParentPlatformValidator extends AspectPayloadValidator {
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
+    // A PATCH carries no aspect at proposal time, so its parent is checked on the patched result.
+    List<ChangeMCP> patched =
+        changeMCPs.stream()
+            .filter(PatchOperationUtils::isAppliedPatch)
+            .collect(Collectors.toList());
+    return patched.isEmpty()
+        ? Stream.empty()
+        : validateProposedAspects(operationContext, patched, retrieverContext);
   }
 }
