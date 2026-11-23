@@ -777,6 +777,24 @@ user set/change/remove only that structured property on matching assets. `NOT_EQ
 specific properties. These policies apply by default in the UI and can be configured to apply
 to API operations as well through the `MCP_VALIDATION_PRIVILEGE_CONSTRAINTS` environment variable which should be applied globally (GMS, MCE Consumer, and DataHub Upgrade specifically), which is enabled by default.
 
+A policy grants a write when its resource filter matches the asset and its privilege covers the
+operation. Policies are combined with OR: one policy with no `privilegeConstraints` list still
+grants the whole privilege even when another policy lists sub-resources. A list scopes only the
+policy that contains it, and only when the action names sub-resources. An action that names none
+is not filtered by the list. A list of tag URNs allows only those tag edits. It does not match a
+structured-property URN, so it does not allow that property write. A list of structured-property
+URNs allows only those properties. A criterion of type `structuredProperty` with no property URNs
+matches every structured property. A tag or domain on the resource filter (`resources.filter`)
+selects which assets the policy applies to; it is not a sub-resource list.
+
+The privilege can be the entity's update privilege (**Edit Entity**, and **Manage Documents** on
+documents) or the aspect privilege (**Edit Entity Properties** for every property, **Edit Entity
+Tags** for tags, **Edit Dataset Column Properties** or **Edit Entity** on the parent dataset or
+the schema field for a column). Creating an asset that does not exist yet uses **Create Entity**.
+Deleting the aspect uses **Delete Entity**. Answering a form prompt first checks that the form is
+on the asset and that the answer sets the property the prompt asks for. An assigned user or group
+can answer that property without the property privilege. A user who is not assigned still needs it.
+
 Example JSON of a policy with constraints:
 
 ```json

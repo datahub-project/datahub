@@ -69,6 +69,26 @@ by another script or agent. To connect to another instance, use a separate name,
 To intentionally replace an existing connection, add `--force`. Refreshing a token for the same
 server continues to work. Existing connection files and environment variables keep working.
 
+### Structured property writes follow the policy ([#21453](https://github.com/datahub-project/datahub/pull/21453))
+
+A `privilegeConstraints` list filters the sub-resources an action names. An action that names none
+is not filtered by the list. A list of tag URNs matches tag edits and does not match a
+structured-property URN, so it does not authorize that property write. A second policy with no list
+still grants its privilege in full. A tag or domain on the resource filter still selects which
+assets the policy applies to; that is unchanged.
+
+Structured-property and tag writes are allowed by the same privileges as other updates of that
+asset: **Edit Entity**, **Manage Documents** on documents, **Edit Entity Properties** for any
+property, **Edit Dataset Column Properties** on the parent dataset or the schema field for a
+column, **Create Entity** when the asset does not exist yet, and **Delete Entity** when the aspect
+is deleted. Rest.li now returns **403** for these authorization failures, as OpenAPI already did.
+
+Answering a form prompt is checked before anything is written. The form must be on the asset and
+the answer must set the structured property the prompt asks for. An assigned user or group can
+answer that property without **Edit Entity Properties**. The audit stamp stays that user. A user
+who is not assigned still needs the property privilege. **Manage Documentation Forms** does not
+grant the answer.
+
 ### Custom github-documents sources
 
 The shared code of the `github-documents` source moved to `datahub.ingestion.source.repository_documents`, so a GitLab source can reuse it ([PR #21230](https://github.com/datahub-project/datahub/pull/21230)). The documents recipes import are unchanged. Except for the report titles and the `document_mapping` and `hierarchy` settings below, this only affects Python code that subclasses `GitHubDocumentsSource` or imports its modules:

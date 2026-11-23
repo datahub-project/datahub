@@ -17,6 +17,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.patch.builder.StructuredPropertiesPatchBuilder;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.StructuredProperties;
+import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.ReadPreference;
@@ -53,7 +54,7 @@ public class RemoveStructuredPropertiesResolver
                 input.getStructuredPropertyUrns().stream()
                     .map(UrnUtils::getUrn)
                     .collect(Collectors.toList());
-            if (!AuthorizationUtils.canEditProperties(assetUrn, context, propertyUrns)) {
+            if (!AuthorizationUtils.canEditStructuredProperties(assetUrn, context, propertyUrns)) {
               throw new AuthorizationException(
                   String.format(
                       "Not authorized to update properties on the given urn %s", assetUrn));
@@ -64,6 +65,12 @@ public class RemoveStructuredPropertiesResolver
                 assetUrn)) {
               throw new RuntimeException(
                   String.format("Asset with provided urn %s does not exist", assetUrn));
+            }
+
+            // An empty input removes nothing. Return the current aspect instead of submitting a
+            // patch, which would bump the version and reindex an asset the caller did not change.
+            if (propertyUrns.isEmpty()) {
+              return currentProperties(context, assetUrn);
             }
 
             StructuredPropertiesPatchBuilder patchBuilder =
@@ -111,5 +118,29 @@ public class RemoveStructuredPropertiesResolver
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  private com.linkedin.datahub.graphql.generated.StructuredProperties currentProperties(
+      QueryContext context, Urn assetUrn) throws Exception {
+    EntityResponse response =
+        _entityClient.getV2(
+            context.getOperationContext(),
+            assetUrn.getEntityType(),
+            assetUrn,
+            ImmutableSet.of(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME));
+    StructuredProperties structuredProperties = new StructuredProperties();
+    structuredProperties.setProperties(new StructuredPropertyValueAssignmentArray());
+    if (response != null
+        && response.getAspects() != null
+        && response.getAspects().get(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME) != null) {
+      structuredProperties =
+          new StructuredProperties(
+              response
+                  .getAspects()
+                  .get(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME)
+                  .getValue()
+                  .data());
+    }
+    return StructuredPropertiesMapper.map(context, structuredProperties, assetUrn);
   }
 }
