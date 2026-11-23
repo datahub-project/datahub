@@ -357,11 +357,41 @@ class QvdLoad(BaseModel):
     fields: PrecedingLoad
 
 
+class ScriptBranch(BaseModel):
+    """A branch of an IF or SWITCH block, by the order the script opens
+    blocks in and the order of the branch within its block."""
+
+    block: int
+    branch: int
+
+
 class QvdStore(BaseModel):
     label: str
     file: QvdReference
     # The fields of `STORE <fields> FROM <table>`; None stores all the table's.
     fields: Optional[PrecedingLoad] = None
+    # The IF and SWITCH branches the STORE runs in, outermost first.
+    branches: List[ScriptBranch] = []
+
+
+def stores_in_competing_branches(stores: List[QvdStore]) -> List[QvdStore]:
+    """STOREs of a table into different files from different branches of one
+    IF or SWITCH, such as a prod and a dev path: which one ran can't be told,
+    so none of them names the table's file for certain."""
+    competing = []
+    for store in stores:
+        branches = {branch.block: branch.branch for branch in store.branches}
+        if any(
+            other.label.lower() == store.label.lower()
+            and other.file != store.file
+            and any(
+                branches.get(branch.block, branch.branch) != branch.branch
+                for branch in other.branches
+            )
+            for other in stores
+        ):
+            competing.append(store)
+    return competing
 
 
 class FileLoad(BaseModel):
@@ -548,7 +578,11 @@ class _BranchState(BaseModel):
 
 
 class _Block(BaseModel):
+    id: int
     before: _BranchState
+    # The branch being parsed, counting the statements before a SWITCH's first
+    # CASE as one.
+    branch: int = 0
     branches: List[_BranchState] = []
     has_default: bool = False
     # Statements between SWITCH and its first CASE run in no branch.
@@ -573,11 +607,20 @@ class _ControlFlowTracker(BaseModel):
     # its value before the first, as variables persist between reloads.
     assignments: Counter[str] = Field(default_factory=Counter)
     total_assignments: Counter[str] = Field(default_factory=Counter)
+    blocks_opened: int = 0
+
+    @property
+    def branches(self) -> List[ScriptBranch]:
+        return [
+            ScriptBranch(block=block.id, branch=block.branch) for block in self.blocks
+        ]
 
     def apply_control(self, control: "re.Match[str]") -> None:
         if control.group("if") or control.group("switch"):
+            self.blocks_opened += 1
             self.blocks.append(
                 _Block(
+                    id=self.blocks_opened,
                     before=self.state.model_copy(deep=True),
                     in_case=bool(control.group("if")),
                     assignments_before=Counter(self.assignments),
@@ -629,6 +672,7 @@ class _ControlFlowTracker(BaseModel):
         if block.in_case:
             block.branches.append(self.state)
         block.in_case = True
+        block.branch += 1
         block.has_default = block.has_default or is_default
         self.state = block.before.model_copy(deep=True)
 
@@ -1241,6 +1285,7 @@ class _ScriptParser(BaseModel):
                 label=_unquote(table.strip()),
                 file=file,
                 fields=None if fields is not None and fields.keeps_all else fields,
+                branches=self.flow.branches,
             )
         )
 

@@ -120,6 +120,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     VARIABLE_REFERENCE_RE,
     DataConnectionInfo,
     ParsedScript,
+    QvdStore,
     ResolvedConnection,
     ScriptTable,
     ScriptTableLineage,
@@ -139,6 +140,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     reads_unknown_fields,
     redact_connection,
     select_list_size,
+    stores_in_competing_branches,
     unquoted_values,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
@@ -1983,8 +1985,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         Qlik datasets. Only added to: other apps, read or not, may store into
         the same file."""
         upstreams: Dict[str, List[str]] = {}
+        competing = stores_in_competing_branches(parsed.qvd_stores)
+        if competing:
+            self._report_competing_stores(app, competing)
         for store in parsed.qvd_stores:
-            if store.file.connection is None:
+            if store.file.connection is None or store in competing:
                 continue
             storage, detail = self._file_storage(store.file.connection, app.spaceId)
             if storage is None:
@@ -2017,6 +2022,24 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 )
             # A file on storage is not this source's to remove when stale.
             yield from _patch_workunits(patch, is_primary_source=False)
+
+    def _report_competing_stores(self, app: App, stores: List[QvdStore]) -> None:
+        stored = [
+            f"{store.label} INTO lib://{store.file.connection}/{store.file.path}"
+            if store.file.connection
+            else f"{store.label} INTO {store.file.path}"
+            for store in stores
+        ]
+        self.reporter.qvd_stores_in_competing_branches.extend(
+            f"{app.id}: {store}" for store in stored
+        )
+        self.reporter.warning(
+            title="Qlik STOREs in competing branches are not linked",
+            message="The app stores a table into different files from different "
+            "branches of an IF or SWITCH, so which file it wrote can't be told "
+            "and none of them is linked.",
+            context=f"app={app.id}, stores={stored}",
+        )
 
     def _stored_table_urn(
         self, app: App, label: str, table_urns: Set[str]

@@ -1,5 +1,5 @@
 import json
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -625,8 +625,29 @@ def _graph_app_run(
     datasets_listed: bool = True,
     tables: Optional[List[Dict]] = None,
 ) -> Dict[str, str]:
-    """Each table's upstreams as a whole UpstreamLineage write lists them, or
-    "patch:" and those a patch adds."""
+    return _graph_app_writes(
+        *_graph_app_source(
+            mock_api_cls,
+            file_connection_to_storage,
+            unread,
+            variables_read_failed,
+            script,
+            datasets_listed,
+            tables,
+        )
+    )
+
+
+def _graph_app_source(
+    mock_api_cls: MagicMock,
+    file_connection_to_storage: Dict,
+    unread: List[UnreadItem],
+    variables_read_failed: bool = False,
+    script: str = SCRIPT,
+    datasets_listed: bool = True,
+    tables: Optional[List[Dict]] = None,
+    data_connections: Optional[Dict[str, DataConnectionInfo]] = None,
+) -> Tuple[QlikSenseSource, App]:
     api = mock_api_cls.return_value
     api.unread_items = unread
     api.list_datasets.return_value = (
@@ -643,7 +664,7 @@ def _graph_app_run(
         PipelineContext(run_id="test-file-lineage"),
     )
     source._allowed_space_ids = {"space-1"}
-    source._data_connections = {}
+    source._data_connections = data_connections or {}
     app = App.model_validate(
         {
             "id": "app-1",
@@ -669,6 +690,12 @@ def _graph_app_run(
             ],
         }
     )
+    return source, app
+
+
+def _graph_app_writes(source: QlikSenseSource, app: App) -> Dict[str, str]:
+    """Each table's upstreams as a whole UpstreamLineage write lists them, or
+    "patch:" and those a patch adds."""
     writes: Dict[str, str] = {}
     for wu in source._gen_app_workunit(app):
         lineage = wu.get_aspect_of_type(UpstreamLineageClass)
@@ -788,37 +815,25 @@ def _model_table(name: str, alias: str, qri: str) -> Dict:
     }
 
 
-def _store_app(tables: List[Dict]) -> App:
-    return App.model_validate(
-        {
-            "id": "app-1",
-            "qTitle": "Sales",
-            "createdDate": "2024-01-09T18:05:36.000Z",
-            "modifiedDate": "2024-01-09T18:05:36.000Z",
-            "spaceId": "space-1",
-            "script": STORE_SCRIPT,
-            "tables": tables,
-        }
-    )
+def _stored_files(writes: Dict[str, str]) -> Dict[str, str]:
+    return {urn: upstreams for urn, upstreams in writes.items() if "abs," in urn}
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_stored_qvd_on_unknown_storage_reports_the_connection(
     mock_api_cls: MagicMock,
 ) -> None:
-    source = _source(
+    source, app = _graph_app_source(
+        mock_api_cls,
         {},
-        {CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)},
+        [],
+        script=STORE_SCRIPT,
+        data_connections={
+            CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)
+        },
     )
 
-    assert (
-        list(
-            source._gen_file_store_lineage(
-                _store_app([]), parse_script(STORE_SCRIPT), {ORDERS}
-            )
-        )
-        == []
-    )
+    assert _stored_files(_graph_app_writes(source, app)) == {}
     assert source.reporter.unresolved_file_connections == [CONNECTION]
 
 
@@ -826,20 +841,98 @@ def test_stored_qvd_on_unknown_storage_reports_the_connection(
 def test_stored_label_naming_two_load_model_tables_links_neither(
     mock_api_cls: MagicMock,
 ) -> None:
-    source = _source({}, {})
-    by_name = "qri:db:sqlserver://sales#dbo.Customers"
-    by_alias = "qri:db:sqlserver://sales#dbo.CustomersArchive"
-    app = _store_app(
-        [
-            _model_table("Customers", "AllCustomers", by_name),
-            _model_table("CustomersArchive", "Customers", by_alias),
-        ]
+    writes = _graph_app_run(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        script="STORE Customers INTO [lib://Sales Space:Lake/qvd/customers.qvd] (qvd);",
+        tables=[
+            _model_table(
+                "Customers", "AllCustomers", "qri:db:sqlserver://sales#dbo.Customers"
+            ),
+            _model_table(
+                "CustomersArchive",
+                "Customers",
+                "qri:db:sqlserver://sales#dbo.CustomersArchive",
+            ),
+        ],
     )
-    table_urns = {
-        make_dataset_urn("qlik-sense", qri.lower()) for qri in (by_name, by_alias)
-    }
 
-    assert source._stored_table_urn(app, "Customers", table_urns) is None
+    assert _stored_files(writes) == {}
+
+
+@pytest.mark.parametrize(
+    "script, linked",
+    [
+        pytest.param(
+            """
+IF vEnv = 'prod' THEN
+  STORE Orders INTO [lib://Sales Space:Lake/prod/orders.qvd] (qvd);
+ELSE
+  STORE Orders INTO [lib://Sales Space:Lake/dev/orders.qvd] (qvd);
+END IF
+""",
+            [],
+            id="IF and ELSE store into different files",
+        ),
+        pytest.param(
+            """
+SWITCH vEnv
+CASE 'prod'
+  STORE Orders INTO [lib://Sales Space:Lake/prod/orders.qvd] (qvd);
+DEFAULT
+  STORE Orders INTO [lib://Sales Space:Lake/dev/orders.qvd] (qvd);
+END SWITCH
+""",
+            [],
+            id="SWITCH cases store into different files",
+        ),
+        pytest.param(
+            """
+IF vEnv = 'prod' THEN
+  STORE Orders INTO [lib://Sales Space:Lake/prod/orders.qvd] (qvd);
+END IF
+""",
+            ["prod"],
+            id="single IF",
+        ),
+        pytest.param(
+            """
+IF vEnv = 'prod' THEN
+  STORE Orders INTO [lib://Sales Space:Lake/prod/orders.qvd] (qvd);
+ELSE
+  STORE Orders INTO [lib://Sales Space:Lake/prod/orders.qvd] (qvd);
+END IF
+STORE Orders INTO [lib://Sales Space:Lake/dev/orders.qvd] (qvd);
+""",
+            ["prod", "dev"],
+            id="branches agree and a STORE outside the block",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_stores_in_competing_branches_are_not_linked(
+    mock_api_cls: MagicMock, script: str, linked: List[str]
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        script=f"Orders:\nLOAD * FROM [lib://Sales Space:Lake/landing/orders.csv] (txt);\n{script}",
+    )
+
+    assert _stored_files(_graph_app_writes(source, app)) == {
+        f"urn:li:dataset:(urn:li:dataPlatform:abs,lake/{env}/orders.qvd,PROD)": (
+            f"not primary patch:{ORDERS}"
+        )
+        for env in linked
+    }
+    competing = not linked
+    assert bool(source.reporter.qvd_stores_in_competing_branches) == competing
+    assert (
+        "Qlik STOREs in competing branches are not linked"
+        in [w.title for w in source.reporter.warnings]
+    ) == competing
 
 
 @pytest.mark.parametrize(
