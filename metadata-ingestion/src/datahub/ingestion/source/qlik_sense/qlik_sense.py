@@ -290,6 +290,8 @@ class _BinaryLink(BaseModel):
     table: str
     dataset_urn: str
     fields: List[str]
+    # An included script, which is not read, could change the table.
+    additive: bool = False
     # The table's lineage from the app's own script.
     upstream_urns: List[str] = []
     script_fields: List[FineGrainedLineage] = []
@@ -1842,11 +1844,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return app_table_identifier(app_id, label)
 
     def _app_table_urns(self, app: App) -> Dict[str, str]:
-        urns = {
-            table.tableQri: self._gen_qlik_dataset_urn(table.tableQri.lower())
-            for table in app.tables
-            if table.tableQri
-        }
+        urns: Dict[str, str] = {}
+        for table in app.tables:
+            if table.tableQri:
+                urn = self._gen_qlik_dataset_urn(table.tableQri.lower())
+                urns[table.tableQri] = urn
+                if table.graphQri:
+                    urns[table.graphQri] = urn
         urns.update(
             (
                 table.qri,
@@ -1860,7 +1864,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _register_app_tables(self, app: App) -> None:
         self._app_table_urns_by_qri.update(self._app_table_urns(app))
-        if app.tables_read_failed:
+        if (
+            app.tables_read_failed
+            or app.graph_tables_unmatched
+            or (app.tables and app.lineage_graph_missing)
+        ):
             self._apps_tables_unknown.add(app.id)
             return
         self._apps_tables_known.add(app.id)
@@ -3193,6 +3201,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # is not the file's. Tables the source app lacks are left out later.
             created &= {label.lower() for label in parsed.dropped_tables}
         upstream_urns: List[str] = []
+        if source_app_id is not None and parsed.has_includes:
+            self.reporter.warning(
+                title="Qlik BINARY tables may be changed by an included script",
+                message="Scripts brought in with $(Include) or $(Must_Include), "
+                "or a SUB the script calls but does not define, are not read and "
+                "could drop or reload the tables a mapped BINARY load brings in, "
+                "so their lineage is only added to.",
+                context=app.id,
+            )
         if source_app_id is None:
             if parsed.has_unnamed_tables or parsed.has_includes:
                 # Any data model table could be one of those.
@@ -3229,6 +3246,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     table=table.name,
                     dataset_urn=dataset_urn,
                     fields=fields,
+                    additive=parsed.has_includes,
                 )
         return binary
 
@@ -3255,23 +3273,32 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             return None
         return source_urn
 
-    def _patch_binary_upstreams(
-        self, link: _BinaryLink, source_urn: Optional[str]
-    ) -> Iterable[MetadataWorkUnit]:
+    def _binary_upstream_lineage(
+        self,
+        link: _BinaryLink,
+        source_urn: Optional[str],
+        fine_grained: List[FineGrainedLineage],
+    ) -> UpstreamLineage:
         upstreams = [
             Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
             for urn in link.upstream_urns
         ]
         if source_urn is not None:
             upstreams.append(Upstream(dataset=source_urn, type=DatasetLineageType.COPY))
-        fine_grained = self._column_lineage(link.script_fields)
-        if not upstreams and not fine_grained:
-            return
-        yield convert_upstream_lineage_to_patch(
-            link.dataset_urn,
-            UpstreamLineage(upstreams=upstreams, fineGrainedLineages=fine_grained),
-            None,
+        return UpstreamLineage(
+            upstreams=upstreams, fineGrainedLineages=self._column_lineage(fine_grained)
         )
+
+    def _patch_binary_upstreams(
+        self,
+        link: _BinaryLink,
+        source_urn: Optional[str],
+        fine_grained: List[FineGrainedLineage],
+    ) -> Iterable[MetadataWorkUnit]:
+        lineage = self._binary_upstream_lineage(link, source_urn, fine_grained)
+        if not lineage.upstreams and not lineage.fineGrainedLineages:
+            return
+        yield convert_upstream_lineage_to_patch(link.dataset_urn, lineage, None)
 
     def _gen_binary_lineage(self) -> Iterable[MetadataWorkUnit]:
         """Lineage of the tables an app BINARY loads from another app, written
@@ -3285,7 +3312,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if source_urn is None or source_model is None:
                 # Without the source app's fields, the column edges an earlier
                 # run wrote stay.
-                yield from self._patch_binary_upstreams(link, source_urn)
+                yield from self._patch_binary_upstreams(
+                    link, source_urn, link.script_fields
+                )
                 continue
             source_fields = set(source_model.get(link.table.lower(), []))
             fine_grained = [
@@ -3303,18 +3332,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     if field in source_fields
                 ),
             ]
+            if link.additive:
+                yield from self._patch_binary_upstreams(link, source_urn, fine_grained)
+                continue
             yield MetadataChangeProposalWrapper(
                 entityUrn=link.dataset_urn,
-                aspect=UpstreamLineage(
-                    upstreams=[
-                        *(
-                            Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
-                            for urn in link.upstream_urns
-                        ),
-                        Upstream(dataset=source_urn, type=DatasetLineageType.COPY),
-                    ],
-                    fineGrainedLineages=self._column_lineage(fine_grained),
-                ),
+                aspect=self._binary_upstream_lineage(link, source_urn, fine_grained),
             ).as_workunit()
         for app_id, source_app_id in sorted(unread):
             self.reporter.binary_loads_without_lineage.append(

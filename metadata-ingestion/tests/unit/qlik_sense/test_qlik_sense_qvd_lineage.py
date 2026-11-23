@@ -1300,6 +1300,36 @@ def test_binary_load_mapped_to_an_app_whose_script_drops_unnamed_tables_gets_no_
     assert entry.startswith("front-app:")
 
 
+@pytest.mark.parametrize(
+    "extra_script",
+    [
+        pytest.param("$(Include=lib://Scripts/extra.qvs);", id="an include"),
+        pytest.param("CALL LoadExtra;", id="a SUB the script does not define"),
+    ],
+)
+def test_binary_load_mapped_to_an_app_whose_script_includes_others_is_only_added_to(
+    extra_script: str,
+) -> None:
+    model = _app("model-app", MODEL_SCRIPT, ORDERS_MODEL)
+    front = _app("front-app", FRONT_SCRIPT + extra_script, FRONT_MODEL)
+    source_run, aspects = _run([model, front], on_prem=MAPPED)
+
+    orders = _urn("front-app.orders")
+    source = _urn("model-app.orders")
+    assert "UpstreamLineageClass" not in aspects[orders]
+    assert _upstreams(aspects, orders, "add") == [source]
+    assert not _upstreams(aspects, orders, "remove")
+    assert _added_columns(aspects, orders) == {
+        make_schema_field_urn(orders, field): [make_schema_field_urn(source, field)]
+        for field in ["id", "amount"]
+    }
+    assert any(
+        w.title == "Qlik BINARY tables may be changed by an included script"
+        and "front-app" in (w.context or [])
+        for w in source_run.reporter.warnings
+    )
+
+
 def test_binary_load_links_its_tables_to_the_app_file() -> None:
     source, aspects = _run([_app("front-app", FRONT_SCRIPT, FRONT_MODEL)])
 

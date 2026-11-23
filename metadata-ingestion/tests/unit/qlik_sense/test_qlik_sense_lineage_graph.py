@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import re
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 from urllib.parse import quote
@@ -19,11 +20,13 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     LineageTable,
     ListedDataset,
     QlikDataset,
+    QlikTable,
     SchemaField,
     UnchangedApp,
     UnreadItem,
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
+from datahub.ingestion.source.qlik_sense.qlik_base_api import ReadErrors
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
 from datahub.metadata.schema_classes import (
@@ -443,6 +446,123 @@ def test_app_table_lineage_is_only_added_to_when_the_app_it_loads_is_partly_read
         for w in source.reporter.warnings
         if w.title == "Lineage of Qlik app table only added to"
     )
+
+
+DATA_MODEL_APP = "qri:app:sense://dm-app"
+
+
+@pytest.mark.parametrize(
+    "extra_nodes, unmatched",
+    [
+        # A neighbouring resource's table of the same label is not the app's.
+        ({f"{SOURCE_QVD}#Other": {"label": "Orders"}}, False),
+        ({f"{DATA_MODEL_APP}#Cust": {"label": "Customers"}}, True),
+        # Two nodes of one label can't be told apart.
+        ({f"{DATA_MODEL_APP}#Dup": {"label": "Orders"}}, True),
+    ],
+)
+def test_data_model_tables_get_their_lineage_graph_node(
+    requests_mock: requests_mock_module.Mocker,
+    extra_nodes: Dict[str, Dict[str, str]],
+    unmatched: bool,
+) -> None:
+    requests_mock.get(f"{BASE_URL}/api-keys", json={})
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    requests_mock.get(
+        _expand_url(DATA_MODEL_APP),
+        json={
+            "graph": {
+                "nodes": {
+                    f"{DATA_MODEL_APP}#Ord": {"label": "Orders"},
+                    **extra_nodes,
+                }
+            }
+        },
+    )
+    requests_mock.get(
+        re.compile(r".*level=FIELD$"),
+        json={"graph": {"nodes": {f"{DATA_MODEL_APP}#Ord#F": {"label": "id"}}}},
+    )
+    requests_mock.post(
+        re.compile(r".*/overview$"),
+        json={
+            "resources": [
+                {
+                    "lineage": [
+                        {"tableLabel": "Orders", "tableQRI": f"{SOURCE_QVD}#Orders"}
+                    ]
+                }
+            ]
+        },
+    )
+    table = _data_model_table()
+    errors = ReadErrors()
+
+    api._add_qri_of_tables([table], "dm-app", errors)
+
+    assert errors.messages == []
+    assert table.tableQri == f"{SOURCE_QVD}#Orders"
+    assert (table.graphQri is None) == (f"{DATA_MODEL_APP}#Dup" in extra_nodes)
+    assert errors.graph_tables_unmatched == unmatched
+
+
+def _data_model_table() -> QlikTable:
+    return QlikTable.model_validate(
+        {
+            "tableName": "Orders",
+            "boxType": "load-file",
+            "tableAlias": "Orders",
+            "dataconnectorName": "Files",
+            "connectionInfo": {
+                "id": "conn-1",
+                "sourceConnectorID": "File_AmazonS3",
+                "space": "space-1",
+            },
+            "fields": [{"name": "order_id"}],
+        }
+    )
+
+
+@pytest.mark.parametrize("loader_first", [True, False])
+@pytest.mark.parametrize(
+    "unknown_by", [None, "graph_tables_unmatched", "lineage_graph_missing"]
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_table_links_data_model_tables_of_another_app_it_loads(
+    mock_api_cls: MagicMock, loader_first: bool, unknown_by: Optional[str]
+) -> None:
+    data_model = _app("dm-app", [])
+    table = _data_model_table()
+    table.tableQri = f"{SOURCE_QVD}#Orders"
+    table.graphQri = f"{DATA_MODEL_APP}#Ord"
+    data_model.tables = [table]
+    if unknown_by:
+        setattr(data_model, unknown_by, True)
+    report = _app(
+        "report-app",
+        [
+            LineageTable(
+                qri=f"{REPORT_APP}#Tbl",
+                label="Prices",
+                source_qris=[f"{DATA_MODEL_APP}#Ord"],
+            )
+        ],
+    )
+
+    _, written, added = _run(
+        mock_api_cls,
+        DATASETS,
+        items=[report, data_model] if loader_first else [data_model, report],
+    )
+
+    prices, orders = _urn("report-app.prices"), _urn(f"{SOURCE_QVD}#Orders")
+    if unknown_by:
+        # The app's graph tables may have no URN, so the last run's edges to
+        # them must stay.
+        assert prices not in written
+        assert added[prices] == [orders]
+    else:
+        assert written[prices] == [orders]
 
 
 @pytest.mark.parametrize(

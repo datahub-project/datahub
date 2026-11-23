@@ -1076,6 +1076,17 @@ STORE Orders INTO [lib://Sales Space:Lake/dev/orders.qvd] (qvd);
             ["prod", "dev"],
             id="branches agree and a STORE outside the block",
         ),
+        pytest.param(
+            """
+IF vEnv = 'prod' THEN
+  STORE Orders INTO [lib://Sales Space:Lake//prod/orders.qvd] (qvd);
+ELSE
+  STORE Orders INTO [lib://sales space:lake/prod\\orders.qvd] (qvd);
+END IF
+""",
+            ["prod"],
+            id="branches write the same file under different spellings",
+        ),
     ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
