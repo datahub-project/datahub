@@ -624,8 +624,13 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                         },
                         lineageTaskExecutor))
             .collect(Collectors.toList());
+    // Wait until the hop deadline rather than for remainingTime from here: with no queue in the
+    // pool, a batch submitted while every thread is busy runs on this thread before the wait.
     List<List<LineageRelationship>> completed =
-        ConcurrencyUtils.getAllCompleted(futures, remainingTime, TimeUnit.MILLISECONDS);
+        ConcurrencyUtils.getAllCompleted(
+            futures,
+            Math.max(1L, deadlineMillis - System.currentTimeMillis()),
+            TimeUnit.MILLISECONDS);
     if (completed.size() < futures.size()) {
       partial.set(true);
       recordIncompleteBatches(futures, numHops);
