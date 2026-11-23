@@ -6,6 +6,7 @@ import {
     FetchStatus,
     LineageEdge,
     LineageEntity,
+    LineageFilter,
     LineageNodesContext,
     NodeContext,
     addToAdjacencyList,
@@ -15,7 +16,10 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import pruneAllDuplicateEdges from '@app/lineageV3/queries/pruneAllDuplicateEdges';
-import { getNodeForBulkResult } from '@app/lineageV3/queries/useBulkEntityLineage.utils';
+import {
+    getNodeForBulkResult,
+    getUnfetchedTransformationalLeaves,
+} from '@app/lineageV3/queries/useBulkEntityLineage.utils';
 import {
     LOAD_ERROR_NOTIFICATION_KEY,
     addQueryNodes,
@@ -32,7 +36,15 @@ import { EntityType, LineageDirection } from '@types';
 
 const BATCH_SIZE = 10;
 
-export default function useBulkEntityLineage(shownUrns: string[]): (urn: string) => void {
+/**
+ * Fetches entity data, and with it lineage edges, for shown nodes, then for transformational
+ * leaves paginated out of view, so they do not inflate pagination counts (see
+ * `getUnfetchedTransformationalLeaves`).
+ */
+export default function useBulkEntityLineage(
+    shownUrns: string[],
+    lineageFilters: Map<string, LineageFilter> = new Map(),
+): (urn: string) => void {
     const flags = useAppConfig().config.featureFlags;
     const entityRegistry = useEntityRegistry();
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
@@ -143,6 +155,11 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                     return !node?.entity && !failedUrnsRef.current.has(urn);
                 })
                 .slice(0, BATCH_SIZE);
+            if (!newUrnsToFetch.length) {
+                newUrnsToFetch = getUnfetchedTransformationalLeaves(lineageFilters, nodes, rootType, memoizedShownUrns)
+                    .filter((urn) => !failedUrnsRef.current.has(urn))
+                    .slice(0, BATCH_SIZE);
+            }
             if (
                 !newUrnsToFetch.length &&
                 rootType === EntityType.SchemaField &&
@@ -165,6 +182,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
         nodes,
         dataVersion,
         memoizedShownUrns,
+        lineageFilters,
         showGhostEntities,
         rootType,
         ignoreSchemaFieldStatus,

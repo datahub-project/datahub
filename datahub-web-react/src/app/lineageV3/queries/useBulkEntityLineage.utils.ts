@@ -1,4 +1,4 @@
-import { LineageEntity } from '@app/lineageV3/common';
+import { LineageEntity, LineageFilter, isTransformational } from '@app/lineageV3/common';
 
 import { EntityType } from '@types';
 
@@ -31,4 +31,34 @@ export function getNodeForBulkResult(
         if (requestedUrn) return nodes.get(requestedUrn);
     }
     return undefined;
+}
+
+/**
+ * Transformational leaves among each lineage filter's paginated children that are not shown and
+ * not yet fetched. Search across lineage may not return the edges beyond a transformation, e.g.
+ * from a dbt source to its warehouse table when that table is reached through a query instead.
+ * Fetching the transformation adds those edges, so it is no longer counted as a separate child.
+ *
+ * @param lineageFilters Pagination state of each node with filtered-out children.
+ * @param nodes All nodes in the graph.
+ * @param rootType Entity type of the home node.
+ * @param shownUrns Urns of displayed nodes, which are fetched anyway.
+ */
+export function getUnfetchedTransformationalLeaves(
+    lineageFilters: Map<string, LineageFilter>,
+    nodes: Map<string, LineageEntity>,
+    rootType: EntityType,
+    shownUrns: string[],
+): string[] {
+    const shown = new Set(shownUrns);
+    const result = new Set<string>();
+    lineageFilters.forEach((filter) => {
+        filter.contents.forEach((urn) => {
+            const node = nodes.get(urn);
+            if (node && !node.entity && !shown.has(urn) && isTransformational(node, rootType)) {
+                result.add(urn);
+            }
+        });
+    });
+    return Array.from(result);
 }
