@@ -1109,6 +1109,36 @@ def test_binary_load_mapped_to_an_app_links_its_tables_and_columns(
     assert APP_FILE not in aspects
 
 
+@pytest.mark.parametrize(
+    "extra_script, linked",
+    [
+        pytest.param(
+            "Orders: LOAD id, amount FROM [lib://QVD Data/raw/more.qvd] (qvd);",
+            True,
+            id="a load that adds to the table",
+        ),
+        pytest.param(
+            "DROP TABLE [Orders];\n"
+            "Orders: LOAD id, amount FROM [lib://QVD Data/raw/more.qvd] (qvd);",
+            False,
+            id="a table dropped and loaded again",
+        ),
+    ],
+)
+def test_binary_load_mapped_to_an_app_keeps_a_table_the_script_loads_into(
+    extra_script: str, linked: bool
+) -> None:
+    model = _app("model-app", MODEL_SCRIPT, ORDERS_MODEL)
+    front = _app("front-app", FRONT_SCRIPT + extra_script, FRONT_MODEL)
+    _, aspects = _run(
+        [model, front],
+        on_prem={"binary_file_to_app": {"lib://Apps/sales model.qvf": "model-app"}},
+    )
+
+    orders = _urn("front-app.orders")
+    assert (_upstreams(aspects, orders, "add") == [_urn("model-app.orders")]) is linked
+
+
 def test_binary_load_links_its_tables_to_the_app_file() -> None:
     source, aspects = _run([_app("front-app", FRONT_SCRIPT, FRONT_MODEL)])
 
@@ -1130,6 +1160,11 @@ def test_binary_load_links_its_tables_to_the_app_file() -> None:
             FRONT_SCRIPT + "LOAD * INLINE [note\nx];",
             FRONT_MODEL,
             id="a table Qlik names",
+        ),
+        pytest.param(
+            FRONT_SCRIPT + "Attributes: Generic LOAD *;\nSQL SELECT * FROM db.t;",
+            FRONT_MODEL,
+            id="a Generic preceding load",
         ),
         pytest.param(FRONT_SCRIPT, {}, id="no data model"),
         pytest.param("Binary sales.qvf;", FRONT_MODEL, id="a relative path"),
@@ -1198,3 +1233,11 @@ SQL SELECT a FROM db.t;
     assert parsed.table_labels == ["Calendar", "Extra"]
     assert not parsed.has_unnamed_tables
     assert parse_script("Attributes: Generic LOAD * RESIDENT T;").has_unnamed_tables
+    assert parse_script(
+        "Attributes: Generic LOAD *;\nSQL SELECT * FROM db.t;"
+    ).has_unnamed_tables
+
+
+def test_tables_the_script_drops_are_known() -> None:
+    parsed = parse_script("DROP TABLES [Order Lines], 'Regions', Calendar;")
+    assert parsed.dropped_tables == ["Order Lines", "Regions", "Calendar"]

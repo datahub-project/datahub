@@ -112,6 +112,10 @@ STORE_RE = re.compile(
 )
 STORE_FROM_RE = re.compile(r"\bFROM\s+", re.IGNORECASE)
 BINARY_RE = re.compile(rf"^BINARY\s+{_FILE_PATH}\s*$", re.IGNORECASE)
+DROP_TABLES_RE = re.compile(
+    r"^DROP\s+TABLES?\s+(?P<names>.+?)\s*$", re.IGNORECASE | re.DOTALL
+)
+TABLE_NAME_RE = re.compile(r"\[[^\]]*\]|'[^']*'|\"[^\"]*\"|[^,\s][^,]*")
 # What may follow a LOAD's file source and its format spec.
 LOAD_SOURCE_END_RE = re.compile(
     r"\s*(?:;|$|(?:WHERE|WHILE|GROUP\s+BY|ORDER\s+BY)\b)", re.IGNORECASE
@@ -402,6 +406,8 @@ class ParsedScript(BaseModel):
     # creates a table Qlik names, so the script's tables are not all known.
     table_labels: List[str] = []
     has_unnamed_tables: bool = False
+    # Labels of the tables the script drops.
+    dropped_tables: List[str] = []
 
 
 class ScriptTableLineage(BaseModel):
@@ -932,6 +938,7 @@ class _ScriptParser(BaseModel):
     unresolved_binary_path: Optional[str] = None
     table_labels: List[str] = []
     has_unnamed_tables: bool = False
+    dropped_tables: List[str] = []
     # The current statement before the script's variables are expanded.
     raw_statement: str = ""
     flow: _ControlFlowTracker = Field(default_factory=_ControlFlowTracker)
@@ -939,6 +946,8 @@ class _ScriptParser(BaseModel):
     pending_loads: List[PrecedingLoad] = []
     pending_mapping: bool = False
     pending_reshaped: bool = False
+    # A preceding LOAD is a Generic load, which creates tables Qlik names.
+    pending_generic: bool = False
     # The top preceding LOAD adds to an existing table.
     pending_merge: bool = False
     pending_crosstable: Optional[CrossTable] = None
@@ -966,6 +975,7 @@ class _ScriptParser(BaseModel):
     def _clear_pending(self) -> None:
         self.pending_mapping = False
         self.pending_reshaped = False
+        self.pending_generic = False
         self.pending_merge = False
         self.pending_crosstable = None
         self.pending_label = None
@@ -1061,6 +1071,7 @@ class _ScriptParser(BaseModel):
         keywords = re.sub(_PREFIX_ARGS, "", prefix.group(0)) if prefix else ""
         mapping = bool(MAPPING_PREFIX_RE.search(keywords))
         reshaped = bool(RESHAPE_PREFIX_RE.search(keywords))
+        generic = bool(GENERIC_PREFIX_RE.search(keywords))
         if prefix:
             statement = statement[prefix.end() :]
         skip = False
@@ -1085,7 +1096,7 @@ class _ScriptParser(BaseModel):
                     known_label,
                     merged=bool(merge) or self.pending_merge,
                     mapping=mapping or self.pending_mapping,
-                    keywords=keywords,
+                    generic=generic or self.pending_generic,
                 )
                 self.tables.append(
                     ScriptTable(
@@ -1125,6 +1136,7 @@ class _ScriptParser(BaseModel):
                 # Reshaped below the top, so the top's fields are not known.
                 self.pending_crosstable = None
             self.pending_reshaped = self.pending_reshaped or reshaped
+            self.pending_generic = self.pending_generic or generic
             self.pending_loads.append(_parse_load_fields(statement))
         else:
             if LOAD_RE.match(statement):
@@ -1132,7 +1144,7 @@ class _ScriptParser(BaseModel):
                     label or self.pending_label,
                     merged=bool(merge) or self.pending_merge,
                     mapping=mapping or self.pending_mapping,
-                    keywords=keywords,
+                    generic=generic or self.pending_generic,
                 )
                 # Every file a LOAD reads is in Qlik's lineage graph, mapping
                 # loads included.
@@ -1145,7 +1157,7 @@ class _ScriptParser(BaseModel):
             self._clear_pending()
 
     def _file_statement(self, statement: str) -> bool:
-        """Reads a STORE or BINARY statement, which loads no table of its own."""
+        """Reads a STORE, BINARY or DROP TABLE statement, which loads no table."""
         store = STORE_RE.match(statement)
         if store:
             self._store(store)
@@ -1153,6 +1165,13 @@ class _ScriptParser(BaseModel):
         binary = BINARY_RE.match(statement)
         if binary:
             self._binary(binary.group("path"))
+            return True
+        drop = DROP_TABLES_RE.match(statement)
+        if drop:
+            self.dropped_tables.extend(
+                _unquote(name.strip())
+                for name in TABLE_NAME_RE.findall(drop.group("names"))
+            )
             return True
         return False
 
@@ -1238,13 +1257,13 @@ class _ScriptParser(BaseModel):
         self.unresolved_binary_path = unresolved[0] if unresolved else None
 
     def _record_table(
-        self, label: Optional[str], merged: bool, mapping: bool, keywords: str
+        self, label: Optional[str], merged: bool, mapping: bool, generic: bool
     ) -> None:
         """Notes the table a load creates. A mapping table is dropped at the
         end of the reload, and Concatenate or Join add to another table."""
         if mapping or merged:
             return
-        if label is None or GENERIC_PREFIX_RE.search(keywords):
+        if label is None or generic:
             # Qlik names the table, or the tables.
             self.has_unnamed_tables = True
             return
@@ -1337,6 +1356,7 @@ def parse_script(
         unresolved_binary_path=parser.unresolved_binary_path,
         table_labels=parser.table_labels,
         has_unnamed_tables=parser.has_unnamed_tables,
+        dropped_tables=parser.dropped_tables,
     )
 
 

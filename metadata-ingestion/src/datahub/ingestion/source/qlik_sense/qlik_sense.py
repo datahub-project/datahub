@@ -3036,6 +3036,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if source_app_id == app.id:
             return without_lineage("binary_file_to_app maps it to the app itself")
         created = {label.lower() for label in parsed.table_labels}
+        if source_app_id is not None:
+            # A load under a BINARY table's name adds to it, or Qlik renames
+            # the new table, so only a table the script drops and creates again
+            # is not the file's. Tables the source app lacks are left out later.
+            created &= {label.lower() for label in parsed.dropped_tables}
         loaded = [
             table
             for table in app.data_model_tables
