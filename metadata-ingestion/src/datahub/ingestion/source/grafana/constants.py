@@ -40,8 +40,12 @@ FOLDER_PARSE_ERROR_MESSAGE = (
 )
 FOLDERS_UNPARSEABLE_TITLE = "Folders could not be parsed"
 FOLDERS_UNPARSEABLE_MESSAGE = (
-    f"Some folders were skipped (see {FOLDER_PARSE_ERROR_TITLE}). Stale-entity removal is "
-    "skipped for this run so that their folder containers are not soft-deleted."
+    f"Some folders could not be read and were skipped (see {FOLDER_PARSE_ERROR_TITLE}). "
+    "So that their folder containers are not soft-deleted, this run removes no stale "
+    "metadata of any kind, and later runs do the same until Grafana returns those "
+    "folders with an id. Fix the folders in Grafana; setting "
+    "stateful_ingestion.remove_stale_metadata to false stops these failures but "
+    "also stops all stale-metadata removal."
 )
 
 DASHBOARD_FOLDER_NOT_INGESTED_TITLE = "Dashboard folder not ingested"

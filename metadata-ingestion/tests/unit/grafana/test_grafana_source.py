@@ -100,11 +100,8 @@ def _run(
     *,
     folders: List[Folder],
     dashboards: List[Dashboard],
-    unparseable_folders: int = 0,
 ) -> Tuple[GrafanaSource, List[MetadataWorkUnit]]:
-    mock_api.get_folders.return_value = FolderListing(
-        folders=folders, unparseable=unparseable_folders
-    )
+    mock_api.get_folders.return_value = FolderListing(folders=folders)
     mock_api.get_dashboards.return_value = dashboards
     source = GrafanaSource(config, ctx)
     return source, list(source.get_workunits_internal())
@@ -203,6 +200,7 @@ def test_dashboard_placed_in_ingested_folder(
     # The parent must be a container this run emitted, not just a matching key.
     assert set(parents) <= _emitted_container_urns(workunits)
     assert source.report.folders_scanned == 1
+    assert source.report.dashboards_scanned == 1
     assert _folder_counters(source) == dict.fromkeys(FOLDER_COUNTERS, 0)
     assert not source.report.warnings
 
@@ -277,6 +275,9 @@ def test_dashboard_not_placed_in_folder(
     dashboard_container_urn = _dashboard_container_urn(dashboard_folder_id)
     assert dashboard_container_urn in _emitted_container_urns(workunits)
     assert not _parents(workunits, dashboard_container_urn)
+    # No folder in this run was ingested, so none may be emitted as a container.
+    emitted = _emitted_container_urns(workunits)
+    assert not {_folder_urn(folder.id) for folder in folders} & emitted
     assert _folder_counters(source) == {
         **dict.fromkeys(FOLDER_COUNTERS, 0),
         expected_counter: 1,
@@ -288,7 +289,13 @@ def test_dashboard_not_placed_in_folder(
 @pytest.mark.parametrize(
     "stateful_ingestion, expect_failure",
     [
-        pytest.param(None, False, id="stateful-off"),
+        pytest.param(None, False, id="stateful-not-configured"),
+        # remove_stale_metadata defaults to true even when stateful is disabled.
+        pytest.param(
+            StatefulStaleMetadataRemovalConfig(enabled=False),
+            False,
+            id="stateful-disabled",
+        ),
         pytest.param(
             StatefulStaleMetadataRemovalConfig(
                 enabled=True, remove_stale_metadata=False

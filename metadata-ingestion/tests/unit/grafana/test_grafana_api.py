@@ -212,7 +212,7 @@ def test_get_folders_skips_malformed_folder(api_client, mock_session):
     # A bad folder first on the page must not cost the folders after it,
     # or the pages after it.
     mock_session.get.side_effect = [
-        _json_response([{"id": "2"}, {"id": "1", "title": "Folder 1"}]),
+        _json_response([{"title": "No id"}, {"id": "1", "title": "Folder 1"}]),
         _json_response([{"id": 3, "title": "Folder 3"}]),
         _json_response([]),
     ]
@@ -223,6 +223,7 @@ def test_get_folders_skips_malformed_folder(api_client, mock_session):
     assert listing.unparseable == 1
     assert api_client.report.folders_unparseable == 1
     assert log_titles(api_client.report.warnings) == {FOLDER_PARSE_ERROR_TITLE}
+    assert any("No id" in c for c in log_contexts(api_client.report.warnings))
     # Whether a skipped folder fails the run is the source's decision.
     assert not api_client.report.failures
 
