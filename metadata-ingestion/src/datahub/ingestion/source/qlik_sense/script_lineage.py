@@ -51,9 +51,14 @@ FROM_TABLE_RE = re.compile(
     re.IGNORECASE,
 )
 QLIK_TABLE_NAME_LENGTH = 32
-# The path may be built from variables, such as lib://$(vPrefix)Common/x.qvs.
+# Parentheses nested up to three deep, such as `$(v$(x))` or `loads (v2).qvs`.
+_BALANCED_PARENS = r"[^()]*"
+for _ in range(3):
+    _BALANCED_PARENS = rf"(?:[^()]|\({_BALANCED_PARENS}\))*"
+# The path may be built from variables, such as lib://$(vPrefix)Common/x.qvs,
+# and runs to the matching parenthesis; with unbalanced ones, to the first.
 INCLUDE_PATH_RE = re.compile(
-    r"\$\(\s*(?:Must_)?Include\s*=(?P<path>(?:[^()]|\$\([^()]*\))*)\)",
+    rf"\$\(\s*(?:Must_)?Include\s*=(?P<path>{_BALANCED_PARENS}|[^)]*)\)",
     re.IGNORECASE,
 )
 # Includes nested deeper than this are left unread, which also stops a cycle.

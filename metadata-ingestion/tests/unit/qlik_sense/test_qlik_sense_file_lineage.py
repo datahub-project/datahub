@@ -1363,6 +1363,36 @@ def test_include_with_a_variable_in_its_path_keeps_the_next_label(
     assert parsed.has_includes
 
 
+def test_include_path_with_parentheses_is_read() -> None:
+    files = {
+        "lib://Common:DataFiles/loads (v2).qvs": "X: LOAD * FROM [lib://S:Lake/x.csv];"
+    }
+    parsed = parse_script(
+        inline_includes(
+            "$(Include=lib://$(vCommon)DataFiles/loads (v2).qvs);",
+            {"vCommon": "'Common:'"},
+            files.get,
+        )
+    )
+
+    assert [load.expanded for load in parsed.file_loads] == ["lib://S:Lake/x.csv"]
+    assert not parsed.has_includes
+
+
+def test_unread_include_path_with_parentheses_forgets_the_connection() -> None:
+    script = (
+        "LIB CONNECT TO 'A';\n"
+        "$(Include=lib://Common:DataFiles/loads (v2).qvs);\n"
+        "Orders: SQL SELECT * FROM sales.orders;"
+    )
+    parsed = parse_script(inline_includes(script, {}, {}.get))
+
+    assert [(table.label, table.connection) for table in parsed.tables] == [
+        ("Orders", None)
+    ]
+    assert parsed.has_includes
+
+
 def test_include_outside_a_lib_path_is_not_read() -> None:
     files = {"common.qvs": "X: LOAD * FROM [lib://S:Lake/x.csv];"}
     parsed = parse_script(inline_includes("$(Include=common.qvs);", {}, files.get))
