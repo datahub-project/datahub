@@ -57,8 +57,7 @@ Once an issue is detected, route and fix it.
 
 Encode quality expectations as durable artifacts and track improvement over time.
 
-- **[Data Contracts](/docs/managed-datahub/observe/data-contract.md)** — the verifiable agreement between producers and consumers about what a dataset's freshness, volume, schema, and column-level quality should look like. Assertions are the checks that prove the contract is met. Data contracts are available in DataHub Core.
-- **[Failure trends in the Data Health Dashboard](/docs/managed-datahub/observe/data-health-dashboard.md#assertions-tab)** — filter the **By Assertion** view by time range and result status to surface which checks are failing repeatedly, which are flaky, and which tables consistently lack coverage. Use these patterns to prioritize the structural fixes — better tests, contract changes, ingestion improvements — that move quality forward over months, not just minutes. _DataHub Cloud only._
+- **[Failure trends in the Data Health Dashboard](/docs/managed-datahub/observe/data-health-dashboard.md#assertions-tab)** — filter the **By Assertion** view by time range and result status to surface which checks are failing repeatedly, which are flaky, and which tables consistently lack coverage. Use these patterns to prioritize the structural fixes — better tests, ingestion improvements — that move quality forward over months, not just minutes. _DataHub Cloud only._
 
 ## Bring your own quality signals — integrations
 
@@ -79,6 +78,5 @@ Every observability capability is scriptable. Common entry points:
 - **[Custom Assertions](/docs/api/tutorials/custom-assertions.md)** — register and report assertion types DataHub doesn't model out of the box.
 - **[Bulk Assertions SDK](/docs/api/tutorials/sdk/bulk-assertions-sdk.md)** — manage assertions at scale from Python.
 - **[Incidents tutorial](/docs/api/tutorials/incidents.md)** — open, update, and resolve incidents from your pipelines.
-- **[Data Contracts tutorial](/docs/api/tutorials/data-contracts.md)** — define and evolve contracts programmatically.
 - **[Subscriptions tutorial](/docs/api/tutorials/subscriptions.md)** — wire up notification routing from code.
 - **[Operations tutorial](/docs/api/tutorials/operations.md)** — report table-change events that power freshness and ingestion-driven assertions.

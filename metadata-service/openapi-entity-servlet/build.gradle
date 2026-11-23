@@ -73,6 +73,11 @@ task openApiGenerate(type: GenerateSwaggerCode, dependsOn: [mergeApiComponents, 
   inputFile = file("$buildDir/openapi/open-api.yaml")
   outputDir = file("$buildDir/openapi/generated")
 
+  // As the merged spec grows it can exceed SnakeYAML's default 3,145,728 code point limit. Above
+  // it the parser returns no document, and codegen only logs "missing OpenAPI input!" from a side
+  // thread while the build carries on without generating the controllers. Keep generous headroom.
+  jvmArgs = ['-DmaxYamlCodePoints=20000000']
+
   // custom generator class
   language = 'io.datahubproject.CustomSpringCodegen'
 
@@ -87,5 +92,15 @@ task openApiGenerate(type: GenerateSwaggerCode, dependsOn: [mergeApiComponents, 
           'apiPackage'         : "io.datahubproject.openapi.v2.generated.controller",
           'delegatePattern'    : "false"
   ]
+
+  // Codegen swallows parse failures and exits normally, so check that it produced controllers.
+  doLast {
+    def controllerDir = file("$buildDir/openapi/generated/src/main/java/io/datahubproject/openapi/v2/generated/controller")
+    def controllers = controllerDir.exists() ? controllerDir.list({ dir, name -> name.endsWith('.java') } as FilenameFilter) : []
+    if (controllers.size() == 0) {
+      throw new GradleException("openApiGenerate produced no controllers in ${controllerDir}. " +
+          "The generator hides spec parse errors; run it with --info or check the spec size against the YAML limit.")
+    }
+  }
 }
 tasks.getByName("compileJava").dependsOn(openApiGenerate)

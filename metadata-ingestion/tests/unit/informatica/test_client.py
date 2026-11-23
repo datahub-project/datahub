@@ -446,6 +446,76 @@ class TestWaitForExport:
         assert status.state == ExportJobState.TIMEOUT
         assert any("job-timeout" in e for e in client.report.export_jobs_failed)
 
+    def test_retries_after_read_timeout(self, client):
+        client._session_id = "s"
+        client._base_url = "https://pod/saas"
+        client._session_last_validated_at = 1e12
+
+        ok = _build_response(200, {"status": {"state": "SUCCESSFUL", "message": ""}})
+        with (
+            patch.object(
+                client._session,
+                "request",
+                side_effect=[requests.ConnectionError("read timed out"), ok],
+            ),
+            patch("datahub.ingestion.source.informatica.client.time.sleep"),
+        ):
+            status = client.wait_for_export("job-1")
+        assert status.state == ExportJobState.SUCCESSFUL
+
+
+class TestPrefetchTaskflowDefinitions:
+    def test_submit_timeout_is_warned_per_batch(self, client):
+        client._session_id = "s"
+        client._base_url = "https://pod/saas"
+        client._session_last_validated_at = 1e12
+        client.config.export_batch_size = 2
+
+        with patch.object(
+            client._export_submit_session,
+            "request",
+            side_effect=requests.ConnectionError("read timed out"),
+        ) as mock_request:
+            client.prefetch_taskflow_definitions(["tf1", "tf2", "tf3"])
+
+        submitted = [
+            len(c.kwargs["json"]["objects"]) for c in mock_request.call_args_list
+        ]
+        assert submitted == [2, 1]
+        assert [w.title for w in client.report.warnings] == [
+            "IDMC Taskflow batch export submit failed"
+        ]
+
+    def test_failed_batch_is_not_retried_per_taskflow(self, client):
+        client._session_id = "s"
+        client._base_url = "https://pod/saas"
+        client._session_last_validated_at = 1e12
+
+        with patch.object(
+            client, "_download_taskflow_export_definitions", return_value={}
+        ) as download:
+            client.prefetch_taskflow_definitions(["tf1"])
+            with patch.object(
+                client._session, "request", return_value=_build_response(403)
+            ):
+                assert client.get_taskflow_definition("T1", "tf1") is None
+
+        download.assert_called_once_with(["tf1"])
+        # "Not exported" must stay distinguishable from "exported, no steps".
+        assert "tf1" not in client._taskflow_definition_cache
+
+    def test_timed_out_batch_says_to_lower_the_batch_size(self, client):
+        client._session_id = "s"
+        client._base_url = "https://pod/saas"
+        client._session_last_validated_at = 1e12
+        client.config.export_poll_timeout_secs = 0
+
+        with patch.object(client, "submit_export_job", return_value="job-1"):
+            client.prefetch_taskflow_definitions(["tf1"])
+
+        titles = [w.title for w in client.report.warnings]
+        assert "IDMC Taskflow batch export timed out" in titles
+
 
 class TestSubmitExportJob:
     def test_raises_typed_error_on_missing_id(self, client):
@@ -455,10 +525,18 @@ class TestSubmitExportJob:
 
         resp = _build_response(200, {"no_id": True})
         with (
-            patch.object(client._session, "request", return_value=resp),
+            patch.object(client._export_submit_session, "request", return_value=resp),
             pytest.raises(InformaticaApiError, match="no ID"),
         ):
             client.submit_export_job(["m1"])
+
+    def test_submit_is_not_resent_after_it_may_have_arrived(self, client):
+        retry = client._export_submit_session.get_adapter("https://pod").max_retries
+        assert retry.read == 0
+        assert not retry.is_retry("POST", 504)
+        assert retry.is_retry("POST", 503)
+        # Other requests keep their read retries.
+        assert client._session.get_adapter("https://pod").max_retries.read is None
 
 
 class TestListMappingTasksEnrichment:

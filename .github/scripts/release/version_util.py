@@ -93,11 +93,11 @@ def release_channel(version_or_tag: str) -> Optional[str]:
 def release_channel_from_ref(ref: str) -> Optional[str]:
     """Return the Slack release channel for a git ref, or ``None`` if it isn't one.
 
-    Like :func:`release_channel`, but first strips a leading ``releases/`` or
-    ``hotfixes/`` branch prefix so release/hotfix branches map to their line's
-    channel. Non-release refs return ``None``.
+    Like :func:`release_channel`, but first strips a leading ``releases/``
+    branch prefix so release branches map to their line's channel. Non-release
+    refs return ``None``.
     """
-    ref = ref.removeprefix("releases/").removeprefix("hotfixes/")
+    ref = ref.removeprefix("releases/")
     return release_channel(ref)
 
 
