@@ -150,7 +150,8 @@ def test_federation_connection_detail_env_normalized_and_validated():
         UnityCatalogSourceConfig.model_validate(
             {
                 **_BASE,
-                "federation_connection_details": {"c": {"env": "NOT_AN_ENV"}},
+                # Malformed: a well-formed unknown env may be a registered custom env.
+                "federation_connection_details": {"c": {"env": "not-an-env"}},
             }
         )
 

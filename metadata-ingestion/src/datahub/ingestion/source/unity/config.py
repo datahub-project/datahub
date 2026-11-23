@@ -19,10 +19,10 @@ from datahub.configuration.common import (
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
+    validate_env,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.emitter.mce_builder import ALL_ENV_TYPES
 from datahub.ingestion.agent.verdicts import (
     ClassifyContext,
     Verdict,
@@ -217,9 +217,7 @@ class FederationConnectionDetail(ConfigModel):
     @field_validator("env", mode="after")
     @classmethod
     def env_must_be_one_of(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v.upper() not in ALL_ENV_TYPES:
-            raise ValueError(f"env must be one of {ALL_ENV_TYPES}, found {v}")
-        return v.upper() if v is not None else v
+        return validate_env(v) if v is not None else v
 
 
 class UnityCatalogSourceConfig(

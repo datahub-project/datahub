@@ -2343,6 +2343,17 @@ def test_override_table_name_ignores_other_platform_and_case() -> None:
     assert bindings[1].table_name is None
 
 
+def test_override_with_custom_env_is_bound() -> None:
+    # A registered custom env is a valid dataset env, so its URN can be an override.
+    override = "urn:li:dataset:(urn:li:dataPlatform:postgres,db.sch.t,MY_ENV)"
+    contract = _make_contract(schema=[{"name": "t"}])
+    (binding,) = odcs_to_physical_bindings(
+        contract, _config(physical_urn_overrides={"c1": {"t": override}})
+    )
+    assert binding.physical_urn == override
+    assert binding.refusal_kind is None
+
+
 @pytest.mark.parametrize(
     "override, kind",
     [
@@ -2351,7 +2362,7 @@ def test_override_table_name_ignores_other_platform_and_case() -> None:
             RefusalKind.UNRESOLVED_VARIABLE,
         ),
         (
-            "urn:li:dataset:(urn:li:dataPlatform:postgres,db.sch.t,NOTANENV)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,db.sch.t,NOT-AN-ENV)",
             RefusalKind.INVALID_OVERRIDE,
         ),
         (

@@ -3,9 +3,11 @@ from typing import Dict, Optional
 from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    validate_env,
+)
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.emitter.mce_builder import ALL_ENV_TYPES
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
@@ -102,13 +104,9 @@ class ConnectionPlatformConfig(ConfigModel):
     def _validate_env(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return v
-        # Mirror EnvConfigMixin.env_must_be_one_of exactly (case-normalize, then
-        # check the canonical set) so a per-connection `env` accepts the same
-        # values as the connector's top-level `env` — otherwise e.g. `prod` would
-        # be accepted at the top level but rejected here.
-        if v.upper() not in ALL_ENV_TYPES:
-            raise ValueError(f"env must be one of {ALL_ENV_TYPES}, found {v}")
-        return v.upper()
+        # Same check as EnvConfigMixin.env_must_be_one_of, so a per-connection `env`
+        # accepts the same values as the connector's top-level `env`.
+        return validate_env(v)
 
 
 _BUILTIN_PLATFORM_TYPE_DEFAULTS: Dict[str, ConnectionPlatformConfig] = {

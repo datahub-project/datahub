@@ -325,9 +325,11 @@ class TestLookerViewIdProjectPlatformInstance:
         )
         assert config.view_platform_detail("sales").env == "DEV"
 
+        # A well-formed unknown env (e.g. NOT_AN_ENV) may be a registered custom env,
+        # which DataHub checks on write. Malformed values are still rejected here.
         with pytest.raises(ValueError):
             LookerCommonConfig.model_validate(
-                {"project_to_platform_instance": {"sales": {"env": "NOT_AN_ENV"}}}
+                {"project_to_platform_instance": {"sales": {"env": "not-an-env"}}}
             )
 
 

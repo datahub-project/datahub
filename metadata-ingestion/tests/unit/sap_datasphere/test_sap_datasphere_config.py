@@ -63,8 +63,9 @@ def test_space_container_key_different_spaces_differ():
 
 
 def test_connection_platform_config_rejects_invalid_env():
+    # Malformed: a well-formed unknown env (e.g. banana) may be a registered custom env.
     with pytest.raises(ValueError, match="env must be one of"):
-        ConnectionPlatformConfig(platform="hana", env="banana")
+        ConnectionPlatformConfig(platform="hana", env="ba-nana")
 
 
 def test_connection_platform_config_normalizes_env_case():

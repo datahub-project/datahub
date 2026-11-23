@@ -14,6 +14,7 @@ from typing import (
 )
 from urllib.parse import urlparse
 
+from datahub.configuration.source_common import is_env_name
 from datahub.emitter.mce_builder import (
     ALL_ENV_TYPES,
     datahub_guid,
@@ -523,12 +524,14 @@ def _override_binding(
                 RefusalKind.INVALID_OVERRIDE,
                 f"physical_urn_overrides value '{override_urn}' is not a dataset URN",
             )
-        # GMS only stores the FabricType spelling, so `prod` names no dataset.
-        elif urn.env not in ALL_ENV_TYPES:
+        # GMS stores envs upper-cased (a FabricType value or a custom env id), so
+        # a spelling such as `prod` names no dataset.
+        elif not is_env_name(urn.env):
             refusal = BindingRefusal(
                 RefusalKind.INVALID_OVERRIDE,
                 f"physical_urn_overrides value '{override_urn}' has env '{urn.env}', "
-                f"not one of {', '.join(sorted(ALL_ENV_TYPES))}",
+                f"which is neither one of {', '.join(sorted(ALL_ENV_TYPES))} nor a "
+                "custom environment id (uppercase letters, digits and underscores)",
             )
         else:
             return PhysicalBinding(
