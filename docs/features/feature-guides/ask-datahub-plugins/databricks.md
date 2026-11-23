@@ -98,7 +98,7 @@ After creating the connection, a dialog will show your **Client ID** and **Clien
 </p>
 
 :::info Access Scopes
-Request only scopes that are granted on the Databricks app connection. Discovery lists every scope Databricks supports, and with **Custom MCP** all of them are selected by default; Databricks then rejects the sign-in with `scopes ... are not assigned to the client`. `sql` is required for Ask DataHub to execute queries, and `offline_access` lets DataHub refresh the user's token so they stay connected. The **Databricks MCP** template selects these two for you.
+Request only scopes that are granted on the Databricks app connection. Discovery lists every scope Databricks supports, and with **Custom MCP** all of them are selected by default; Databricks then rejects the sign-in with `scopes ... are not assigned to the client`. `sql` is the scope Databricks lists for the Databricks SQL MCP server ([AWS](https://docs.databricks.com/aws/en/agents/mcp-tools/built-in-mcp-services), [Azure Databricks](https://learn.microsoft.com/en-us/azure/databricks/agents/mcp-tools/built-in-mcp-services)) and is required for Ask DataHub to execute queries, and `offline_access` lets DataHub refresh the user's token so they stay connected. The **Databricks MCP** template selects these two for you.
 :::
 
 5. Optionally add **Instructions for the AI Assistant**, ensure **Enable for Ask DataHub** is on, and click **Create**
