@@ -98,7 +98,11 @@ source:
         - include: "s3://my-bucket/{table}/*/*.parquet"
 ```
 
-A Location is folded only when a path spec with `{table}` matches it; without a matching spec the raw Location is used, as before. A Location that a spec `exclude`s or `tables_filter_pattern` filters out emits no storage lineage, and `ignore_non_path_spec_path: true` also drops Locations that match no spec. `strip_urls` has no effect on Glue. Each table folder should be covered by a single spec, as in the [Snowflake external stage guidance](https://docs.datahub.com/docs/generated/ingestion/sources/snowflake#data-lake-lineage-path-specs-for-external-stages). With neither `target_platform_configs.s3` nor `datalake_lineage_config` set, storage lineage URNs are unchanged.
+A Location is folded only when a path spec with `{table}` matches it; without a matching spec the raw Location is used, as before. A Location that a spec `exclude`s or `tables_filter_pattern` filters out emits no storage lineage, and `ignore_non_path_spec_path: true` also drops Locations that match no spec. Skipped tables are counted in the ingestion report. Each table folder should be covered by a single spec, as described for external stages in the [Snowflake connector docs](https://docs.datahub.com/docs/generated/ingestion/sources/snowflake). With neither `target_platform_configs.s3` nor `datalake_lineage_config` set, storage lineage URNs are unchanged.
+
+`datalake_lineage_config` is the shared data lake lineage model, but Glue only applies it to S3 table Locations: `strip_urls` has no effect, and a path spec for another storage scheme is warned about at startup and never matches. Tables whose Location is not an S3 URI emit no storage lineage and are counted in the report.
+
+Known gap: if the S3 recipe sets `convert_urns_to_lowercase: true`, the S3 dataset names are lowercased and Glue has no equivalent option, so a bucket or folder with upper-case characters will not match.
 
 #### Compatibility
 

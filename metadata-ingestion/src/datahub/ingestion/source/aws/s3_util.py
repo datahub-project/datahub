@@ -41,6 +41,7 @@ def make_s3_urn(
     s3_uri: str,
     env: str,
     remove_extension: bool = True,
+    *,
     platform_instance: Optional[str] = None,
 ) -> str:
     s3_name = strip_s3_prefix(s3_uri)
@@ -63,7 +64,7 @@ def make_s3_urn(
 
 
 def make_s3_urn_for_lineage(
-    s3_uri: str, env: str, platform_instance: Optional[str] = None
+    s3_uri: str, env: str, *, platform_instance: Optional[str] = None
 ) -> str:
     # Ideally this is the implementation for all S3 URNs
     # Don't feel comfortable changing `make_s3_urn` for glue, sagemaker, and athena

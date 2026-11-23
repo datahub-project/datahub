@@ -7,8 +7,10 @@ and the same ``{table}`` folding of partition directories (via the S3 recipe's
 ``path_specs``).
 """
 
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from unittest.mock import patch
 
 import pytest
 from moto import mock_aws
@@ -18,6 +20,9 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.glue import GlueSource, GlueSourceConfig
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
+from datahub.ingestion.source.data_lake_common.config import (
+    DataLakeLineageProviderConfig,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.source import S3Source, TableData
 
@@ -155,6 +160,14 @@ def test_storage_lineage_s3_target_env_falls_back_to_glue_env() -> None:
     )
 
 
+def test_storage_lineage_s3_target_env_without_instance() -> None:
+    source = _glue_source(target_platform_configs={"s3": {"env": "DEV"}})
+
+    assert _storage_upstream(
+        source, "s3://my-bucket/my_table"
+    ) == make_s3_urn_for_lineage("s3://my-bucket/my_table", "DEV")
+
+
 def test_job_s3_node_applies_s3_target_instance() -> None:
     source = _glue_source(
         target_platform_configs={"s3": {"platform_instance": "lake"}},
@@ -212,6 +225,10 @@ def test_excluded_location_emits_no_storage_lineage() -> None:
     )
 
     assert _upstream_lineage_mcps(source, "s3://my-bucket/my_table/dt=2024-01-01") == []
+    assert source.report.num_storage_lineage_skipped_by_path_spec == 1
+    assert "Storage lineage skipped by path spec" in [
+        i.title for i in source.report.infos
+    ]
 
 
 def test_unmatched_location_emits_no_storage_lineage_when_ignored() -> None:
@@ -223,6 +240,45 @@ def test_unmatched_location_emits_no_storage_lineage_when_ignored() -> None:
     )
 
     assert _upstream_lineage_mcps(source, "s3://my-bucket/my_table/dt=2024-01-01") == []
+    assert source.report.num_storage_lineage_skipped_by_path_spec == 1
+
+
+def test_non_s3_location_is_counted_and_emits_no_storage_lineage() -> None:
+    # Glue storage lineage is S3-only; any other URI is skipped, but visibly.
+    source = _glue_source()
+
+    assert _upstream_lineage_mcps(source, "gs://my-bucket/my_table") == []
+    assert source.report.num_storage_lineage_non_s3_location == 1
+    assert "Storage lineage skipped for non-S3 location" in [
+        i.title for i in source.report.infos
+    ]
+
+
+def test_path_spec_failure_is_reported_and_does_not_abort_table() -> None:
+    # A path spec that blows up on one odd Location must not take the rest of the
+    # table (or the run) down with it: the table's other aspects are still emitted.
+    source = _glue_source(
+        datalake_lineage_config={"path_specs": [{"include": TABLE_SPEC}]},
+    )
+
+    with patch.object(
+        DataLakeLineageProviderConfig, "get_path", side_effect=RuntimeError("boom")
+    ):
+        wus = list(source._gen_table_wu(_glue_table("s3://my-bucket/my_table")))
+
+    assert not any(
+        isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, models.UpstreamLineageClass)
+        for wu in wus
+    )
+    assert any(
+        isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, models.DatasetPropertiesClass)
+        for wu in wus
+    )
+    assert "Failed to resolve storage location" in [
+        w.title for w in source.report.warnings
+    ]
 
 
 def test_downstream_direction_uses_folded_urn() -> None:
@@ -276,6 +332,50 @@ def test_glue_upstream_equals_s3_source_dataset_urn(
     )
 
     assert _storage_upstream(glue, location) == s3_urn
+
+
+def test_non_s3_path_spec_warns(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.WARNING, logger="datahub.ingestion.source.aws.glue"):
+        GlueSourceConfig(
+            aws_region="us-east-1",
+            emit_storage_lineage=True,
+            datalake_lineage_config={
+                "path_specs": [
+                    {"include": TABLE_SPEC},
+                    {"include": "gs://my-bucket/{table}/*.parquet"},
+                ]
+            },
+        )
+
+    assert any(
+        "gs://my-bucket/{table}/*.parquet" in r.message and "S3" in r.message
+        for r in caplog.records
+    )
+
+
+def test_path_specs_without_storage_lineage_warn(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.WARNING, logger="datahub.ingestion.source.aws.glue"):
+        GlueSourceConfig(
+            aws_region="us-east-1",
+            datalake_lineage_config={"path_specs": [{"include": TABLE_SPEC}]},
+        )
+
+    assert any("emit_storage_lineage" in r.message for r in caplog.records)
+
+
+def test_s3_path_specs_with_storage_lineage_do_not_warn(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.WARNING, logger="datahub.ingestion.source.aws.glue"):
+        GlueSourceConfig(
+            aws_region="us-east-1",
+            emit_storage_lineage=True,
+            datalake_lineage_config={"path_specs": [{"include": TABLE_SPEC}]},
+        )
+
+    assert caplog.records == []
 
 
 def test_path_spec_model_is_shared_with_s3_source() -> None:
