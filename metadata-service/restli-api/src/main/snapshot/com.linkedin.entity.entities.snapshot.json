@@ -7937,7 +7937,7 @@
     }, {
       "name" : "keywordFallbackOnEmbeddingFailure",
       "type" : "boolean",
-      "doc" : "Semantic search through the semantic search template answers a query it could not embed with\nan error naming why: timeout, rejected, reserveExhausted, budgetExhausted, or failed. With this\nflag set it serves keyword search results for the same request instead, and\nSearchResultMetadata.keywordFallback marks them with that reason. Those results cover every\nrequested entity type, not only the ones semantic search covers. Only a failed query embedding\nfalls back: a failed kNN or facet request, and similarity, still fail. Semantic search on its\nlegacy path fails as it does without the flag.",
+      "doc" : "On GraphQL, semantic search through the semantic search template, and searchAcrossEntities and\nsearch through a template named in searchTemplate, such as semantic, answer a query they could\nnot embed with an error naming why: timeout, rejected, reserveExhausted, budgetExhausted, or\nfailed. With this flag set they serve keyword search results for the same request instead,\nwithout the named template, and SearchResultMetadata.keywordFallback marks them with that\nreason. Those results cover every requested entity type, not only the ones semantic search\ncovers. Only a failed query embedding falls back: a failed kNN or facet request, and\nsimilarity, still fail. Semantic search on its legacy path fails as it does without the flag.",
       "default" : false,
       "optional" : true
     }, {
@@ -8596,7 +8596,7 @@
         }, {
           "name" : "keywordFallback",
           "type" : "string",
-          "doc" : "Set when semantic search served keyword search results because it could not embed the query\nand the caller set SearchFlags.keywordFallbackOnEmbeddingFailure: why the embedding failed\n(timeout, rejected, reserveExhausted, budgetExhausted, or failed).",
+          "doc" : "Set when a search served keyword search results because the template serving it could not\nembed the query and the caller set SearchFlags.keywordFallbackOnEmbeddingFailure: why the\nembedding failed (timeout, rejected, reserveExhausted, budgetExhausted, or failed).",
           "optional" : true
         } ]
       },

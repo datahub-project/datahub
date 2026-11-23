@@ -1461,7 +1461,8 @@ elasticsearch:
           scrollEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SCROLL_ENTITIES_PERCENT:-1}
           aggregateEntities: ${SEARCH_V3_TEMPLATES_ROLLOUT_AGGREGATE_ENTITIES:}
           aggregateEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_AGGREGATE_ENTITIES_PERCENT:-1}
-          # Semantic search (semanticSearchAcrossEntities) through the semanticSearch surface below.
+          # Semantic search (semanticSearchAcrossEntities and semanticSearch) through the
+          # semanticSearch surface below.
           # Off unless set: blank does not use mode or percent. active serves the template to
           # semanticSearchPercent of actors, all of them when that is unset. off and shadow keep
           # semantic search on its legacy kNN search.
