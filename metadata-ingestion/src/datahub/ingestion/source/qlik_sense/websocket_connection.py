@@ -48,7 +48,8 @@ class RefusedConnectionBudget:
         self._lock = threading.Lock()
         self._refused_since: Optional[float] = None
 
-    def allows_retry(self) -> bool:
+    def record_refusal(self) -> bool:
+        """Records a refusal and returns whether the budget still allows a retry."""
         with self._lock:
             now = time.monotonic()
             if self._refused_since is None:
@@ -116,25 +117,25 @@ class WebsocketConnection:
                 connection = connect()
             except _TRANSIENT_CONNECT_ERRORS as e:
                 if isinstance(e, ConnectionRefusedError) and refusals is not None:
-                    if not refusals.allows_retry():
+                    if not refusals.record_refusal():
                         raise
                     logger.info(
                         f"Engine at {url} refused the connection, retrying: {e}"
                     )
                     time.sleep(REFUSED_RETRY_SECONDS)
-                    continue
-                if attempt >= CONNECT_ATTEMPTS:
+                elif attempt >= CONNECT_ATTEMPTS:
                     raise
-                logger.info(
-                    f"Retrying Engine connection to {url} after attempt "
-                    f"{attempt} failed: {e}"
-                )
-                time.sleep(CONNECT_RETRY_SECONDS * attempt)
-                attempt += 1
-                continue
-            if refusals is not None:
-                refusals.connected()
-            return connection
+                else:
+                    logger.info(
+                        f"Retrying Engine connection to {url} after attempt "
+                        f"{attempt} failed: {e}"
+                    )
+                    time.sleep(CONNECT_RETRY_SECONDS * attempt)
+                    attempt += 1
+            else:
+                if refusals is not None:
+                    refusals.connected()
+                return connection
 
     @classmethod
     def for_cloud(
