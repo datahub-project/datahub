@@ -84,7 +84,7 @@ export default function LineageDisplay({
         return map;
     }, [flowNodes]);
     const { refetchUrn, loading: entitiesLoading } = useBulkEntityLineage(shownUrns);
-    useBulkBoundingBoxMemberships();
+    const { loading: membershipsLoading } = useBulkBoundingBoxMemberships();
 
     const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, displayedAdjacencyList);
     const {
@@ -153,7 +153,7 @@ export default function LineageDisplay({
     const expanding = useIsExpanding();
     // Not `loaded`: a home node whose lineage is empty, or only soft-deleted, never bumps nodeVersion
     const fetched = initialized ?? nodeVersion > 0;
-    const settled = useLineageSettled(!fetched || expanding || entitiesLoading, fitting);
+    const settled = useLineageSettled(!fetched || expanding || entitiesLoading || membershipsLoading, fitting);
 
     return (
         <LineageDisplayContext.Provider
