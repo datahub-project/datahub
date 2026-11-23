@@ -361,11 +361,7 @@ def test_file_without_known_storage_is_named_by_its_connection(
         == regions
     )
     assert source.reporter.unresolved_file_connections == [CONNECTION]
-    entities = list(
-        source._gen_file_entities(
-            {urn: source._unmapped_files[urn] for urn in source._linked_unmapped_files}
-        )
-    )
+    entities = list(source._gen_unmapped_file_entities())
     assert {wu.get_urn() for wu in entities} == {regions}
     properties = next(
         p for wu in entities if (p := wu.get_aspect_of_type(DatasetPropertiesClass))

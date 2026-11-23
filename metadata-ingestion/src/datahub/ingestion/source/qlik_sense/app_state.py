@@ -28,6 +28,10 @@ class AppCheckpoint(BaseModel):
     table_urns_by_qri: Optional[Dict[str, str]] = None
     # The QVDs the app writes and reads, on-prem. None in older state.
     qvds: Optional[AppQvds] = None
+    # Table name, in lower case -> fields of the app's data model, kept for
+    # apps that `binary_file_to_app` names, so apps loading them with BINARY
+    # link their columns while the app is kept.
+    data_model_fields: Optional[Dict[str, List[str]]] = None
 
 
 class QlikAppCheckpointState(CheckpointStateBase):

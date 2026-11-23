@@ -6,8 +6,13 @@ import pytest
 
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
-from datahub.ingestion.source.qlik_sense.data_classes import App, UnreadItem
+from datahub.ingestion.source.qlik_sense.data_classes import (
+    App,
+    DataModelTable,
+    UnreadItem,
+)
 from datahub.ingestion.source.qlik_sense.qlik_base_api import UNREAD_DATA_CONNECTIONS
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.qvd_lineage import (
@@ -32,7 +37,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from tests.unit.qlik_sense.qlik_fakes import ONPREM_CONFIG
+from tests.unit.qlik_sense.qlik_fakes import ON_PREM, ONPREM_CONFIG
 
 
 def _urn(name: str) -> str:
@@ -198,14 +203,25 @@ CONNECTIONS = {
     "QVD Data": DataConnectionInfo(name="QVD Data", folder_path="\\\\nas\\qvd\\"),
     # The same folder, reached through another connection.
     "Shared QVDs": DataConnectionInfo(name="Shared QVDs", folder_path="//NAS/qvd"),
+    "Apps": DataConnectionInfo(name="Apps", folder_path="//nas/apps"),
 }
 RAW = _urn("//nas/qvd/raw/orders.qvd")
 CLEAN = _urn("//nas/qvd/clean/orders.qvd")
 
 
-def _app(app_id: str, script: Optional[str]) -> App:
+def _app(
+    app_id: str,
+    script: Optional[str],
+    data_model: Optional[Dict[str, List[str]]] = None,
+) -> App:
     return App.model_validate(
         {
+            "data_model_tables": [
+                DataModelTable.from_engine(
+                    {"qName": name, "qFields": [{"qName": field} for field in fields]}
+                )
+                for name, fields in (data_model or {}).items()
+            ],
             "id": app_id,
             "qTitle": app_id,
             "qri": f"qri:app:sense://{app_id}",
@@ -223,6 +239,7 @@ def _run(
     current: Optional[UpstreamLineageClass] = None,
     connections_unread: bool = False,
     file_connection_to_storage: Optional[Dict[str, Dict[str, Any]]] = None,
+    on_prem: Optional[Dict[str, Any]] = None,
 ) -> "tuple[QlikSenseSource, Dict[str, Dict[str, Any]]]":
     graph = MagicMock()
     # The QVDs' lineage as DataHub holds it before the run.
@@ -259,7 +276,7 @@ def _run(
         source = QlikSenseSource(
             QlikSourceConfig.model_validate(
                 {
-                    **ONPREM_CONFIG,
+                    "on_prem": {**ON_PREM, **(on_prem or {})},
                     "file_connection_to_storage": file_connection_to_storage or {},
                 }
             ),
@@ -623,7 +640,7 @@ def test_every_app_emits_the_folders_of_its_qvds(mock_api_cls: MagicMock) -> Non
     def folder_urns(paths: Dict[str, str]) -> List[str]:
         return [
             wu.get_urn()
-            for wu in source._gen_file_entities(paths)
+            for wu in source._gen_file_entities(paths, DatasetSubTypes.QLIK_QVD)
             if wu.get_aspect_of_type(ContainerPropertiesClass)
         ]
 
@@ -645,7 +662,9 @@ def _qvd_folders(config: Dict[str, Any], path: str) -> List[Tuple[str, str]]:
         )
     return [
         (wu.get_urn(), properties.name)
-        for wu in source._gen_file_entities({_urn(path): path})
+        for wu in source._gen_file_entities(
+            {_urn(path): path}, DatasetSubTypes.QLIK_QVD
+        )
         if (properties := wu.get_aspect_of_type(ContainerPropertiesClass))
     ]
 
@@ -1049,3 +1068,134 @@ def test_loop_connection_prefix_is_not_an_unset_prefix() -> None:
     assert not parsed.qvd_stores
     assert parsed.has_unresolved_store
     assert parsed.unresolved_qvd_paths == ["lib://$(vPrefix)QVD Data/orders.qvd"]
+
+
+MODEL_SCRIPT = """
+Orders: LOAD id, amount FROM [lib://QVD Data/raw/orders.qvd] (qvd);
+Regions: LOAD * INLINE [region
+north];
+"""
+FRONT_SCRIPT = """
+Binary [lib://Apps/Sales Model.qvf];
+Calendar: LOAD * INLINE [day
+1];
+"""
+ORDERS_MODEL = {"Orders": ["id", "amount"], "Regions": ["region"]}
+FRONT_MODEL = {**ORDERS_MODEL, "Calendar": ["day"]}
+APP_FILE = _urn("//nas/apps/sales model.qvf")
+
+
+@pytest.mark.parametrize("loader_first", [True, False])
+def test_binary_load_mapped_to_an_app_links_its_tables_and_columns(
+    loader_first: bool,
+) -> None:
+    model = _app("model-app", MODEL_SCRIPT, ORDERS_MODEL)
+    front = _app("front-app", FRONT_SCRIPT, FRONT_MODEL)
+    _, aspects = _run(
+        [front, model] if loader_first else [model, front],
+        on_prem={"binary_file_to_app": {"lib://Apps/sales model.qvf": "model-app"}},
+    )
+
+    orders = _urn("front-app.orders")
+    source = _urn("model-app.orders")
+    assert _upstreams(aspects, orders, "add") == [source]
+    assert _added_columns(aspects, orders) == {
+        make_schema_field_urn(orders, field): [make_schema_field_urn(source, field)]
+        for field in ["id", "amount"]
+    }
+    # The model app ingests no Regions table to link to.
+    assert "lineage_ops" not in aspects[_urn("front-app.regions")]
+    # The script creates Calendar itself, and the file is not linked.
+    assert "lineage_ops" not in aspects.get(_urn("front-app.calendar"), {})
+    assert APP_FILE not in aspects
+
+
+def test_binary_load_links_its_tables_to_the_app_file() -> None:
+    source, aspects = _run([_app("front-app", FRONT_SCRIPT, FRONT_MODEL)])
+
+    orders = _urn("front-app.orders")
+    assert [u.dataset for u in aspects[orders]["UpstreamLineageClass"].upstreams] == [
+        APP_FILE
+    ]
+    assert aspects[APP_FILE]["SubTypesClass"].typeNames == ["Qlik App File"]
+    assert aspects[APP_FILE]["DatasetPropertiesClass"].name == "sales model.qvf"
+    assert _urn("front-app.calendar") not in aspects
+    assert source.reporter.binary_loads_found == 1
+    assert not source.reporter.binary_loads_without_lineage
+
+
+@pytest.mark.parametrize(
+    "script, data_model",
+    [
+        pytest.param(
+            FRONT_SCRIPT + "LOAD * INLINE [note\nx];",
+            FRONT_MODEL,
+            id="a table Qlik names",
+        ),
+        pytest.param(FRONT_SCRIPT, {}, id="no data model"),
+        pytest.param("Binary sales.qvf;", FRONT_MODEL, id="a relative path"),
+    ],
+)
+def test_binary_load_whose_tables_are_not_known_gets_no_lineage(
+    script: str, data_model: Dict[str, List[str]]
+) -> None:
+    source, aspects = _run([_app("front-app", script, data_model)])
+
+    assert _urn("front-app.orders") not in aspects
+    assert APP_FILE not in aspects
+    assert len(source.reporter.binary_loads_without_lineage) == 1
+
+
+def test_binary_load_from_an_app_the_run_does_not_read_is_reported() -> None:
+    source, aspects = _run(
+        [_app("front-app", FRONT_SCRIPT, FRONT_MODEL)],
+        on_prem={"binary_file_to_app": {"//nas/apps/sales model.qvf": "other-app"}},
+    )
+
+    assert "lineage_ops" not in aspects[_urn("front-app.orders")]
+    assert list(source.reporter.binary_loads_without_lineage) == [
+        "front-app: app other-app was not read or kept this run"
+    ]
+
+
+@pytest.mark.parametrize(
+    "statement, file, unresolved",
+    [
+        (
+            "Binary [lib://Apps/Sales Model.qvf]",
+            QvdReference(connection="Apps", path="Sales Model.qvf"),
+            None,
+        ),
+        (
+            "BINARY c:\\qv\\customer.qvw",
+            QvdReference(path="c:\\qv\\customer.qvw"),
+            None,
+        ),
+        # Relative to the working directory, so no known file.
+        ("Binary customer.qvf", None, "customer.qvf"),
+    ],
+)
+def test_binary_statement_names_the_app_file(
+    statement: str, file: Optional[QvdReference], unresolved: Optional[str]
+) -> None:
+    parsed = parse_script(f"{statement};")
+    assert parsed.binary_file == file
+    assert parsed.unresolved_binary_path == unresolved
+
+
+def test_tables_the_script_creates_are_known() -> None:
+    parsed = parse_script(
+        """
+Calendar: LOAD * INLINE [day
+1];
+Concatenate (Orders) LOAD * FROM [lib://QVD Data/more.qvd] (qvd);
+Map: MAPPING LOAD a, b RESIDENT Calendar;
+Extra:
+LOAD a;
+SQL SELECT a FROM db.t;
+"""
+    )
+    # Concatenate adds to a table, and a mapping table is dropped.
+    assert parsed.table_labels == ["Calendar", "Extra"]
+    assert not parsed.has_unnamed_tables
+    assert parse_script("Attributes: Generic LOAD * RESIDENT T;").has_unnamed_tables
