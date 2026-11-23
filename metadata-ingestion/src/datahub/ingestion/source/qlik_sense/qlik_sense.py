@@ -725,10 +725,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             AppCheckpoint(
                 fingerprint=fingerprint,
                 urns=list(urns),
-                # Tables that could not all be read are recorded as unknown, so
-                # a later run can't take them for the app having no tables.
+                # Tables that are not all known are recorded as unknown, so a
+                # later run that keeps the app can't take them as complete.
                 table_urns_by_qri=None
-                if app.tables_read_failed
+                if self._tables_unknown(app)
                 else self._app_table_urns(app),
                 qvds=self._app_qvds.get(app.id),
             ),
@@ -1767,17 +1767,23 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _register_app_tables(self, app: App) -> None:
         self._app_table_urns_by_qri.update(self._app_table_urns(app))
-        if (
-            app.tables_read_failed
-            or app.graph_tables_unmatched
-            or (app.tables and app.lineage_graph_missing)
-        ):
+        if self._tables_unknown(app):
             self._apps_tables_unknown.add(app.id)
             return
         self._apps_tables_known.add(app.id)
         previous = self._usable_checkpoint(app.id, [])
         if previous is not None and previous.table_urns_by_qri:
             self._previous_app_table_urns.update(previous.table_urns_by_qri.values())
+
+    @staticmethod
+    def _tables_unknown(app: App) -> bool:
+        """Whether some of the app's tables may have no URN this run, so a
+        table that loads from the app can't be told to load nothing else."""
+        return (
+            app.tables_read_failed
+            or app.graph_tables_unmatched
+            or bool(app.tables and app.lineage_graph_missing)
+        )
 
     def _kept_table_urns(self, app_id: str) -> Optional[Dict[str, str]]:
         if app_id not in self._apps_tables_known:
