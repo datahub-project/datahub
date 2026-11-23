@@ -3113,6 +3113,8 @@ class TestTablesForDatabaseQueryWithFilter:
             exclude_dynamic_tables=True,
         )
         assert "COALESCE(is_dynamic, 'NO') = 'NO'" in query_no_dynamic
+        # Lag-refreshing interactive tables report IS_DYNAMIC='YES' but stay in.
+        assert "OR table_type = 'INTERACTIVE TABLE'" in query_no_dynamic
 
         # Only BASE TABLE and exclude dynamic tables
         query_base_no_dynamic = SnowflakeQuery.tables_for_database(

@@ -415,9 +415,12 @@ class SnowflakeQuery:
         type_list = ", ".join(f"'{t}'" for t in sorted(table_types))
         conditions.append(f"table_type in ({type_list})")
 
-        # Filter out dynamic tables if excluded
+        # Interactive tables with a target lag also report IS_DYNAMIC='YES', but they are emitted
+        # as interactive tables and opted out through table_types, so this flag leaves them in.
         if exclude_dynamic_tables:
-            conditions.append("COALESCE(is_dynamic, 'NO') = 'NO'")
+            conditions.append(
+                "(COALESCE(is_dynamic, 'NO') = 'NO' OR table_type = 'INTERACTIVE TABLE')"
+            )
 
         return conditions
 
