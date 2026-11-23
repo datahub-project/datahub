@@ -69,6 +69,8 @@ class ReadErrors:
     sheets_unread: bool = False
     # Qlik Cloud answered 404 for the app's lineage graph.
     lineage_graph_missing: bool = False
+    # A table node of the app's lineage graph matched no data model table.
+    graph_tables_unmatched: bool = False
 
     def record(self, message: str) -> None:
         log_read_error(message)
