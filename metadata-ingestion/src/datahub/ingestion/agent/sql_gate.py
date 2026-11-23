@@ -428,10 +428,14 @@ def _admitted_table_function(func: exp.Anonymous, scope: CatalogScope) -> bool:
     if not (isinstance(qualified, exp.Dot) and qualified.expression is func):
         return False
     table_call = qualified.parent
-    if not (
-        isinstance(table_call, exp.TableFromRows)
-        and isinstance(table_call.parent, (exp.From, exp.Join))
-    ):
+    if not isinstance(table_call, exp.TableFromRows):
+        return False
+    container = table_call.parent
+    # `JOIN LATERAL TABLE(...)` wraps the call in one Lateral; the arguments
+    # are still checked below, so a correlated column is refused either way.
+    if isinstance(container, exp.Lateral) and container.this is table_call:
+        container = container.parent
+    if not isinstance(container, (exp.From, exp.Join)):
         return False
     qualifier = _qualifier_identifiers(qualified.this)
     if qualifier is None:

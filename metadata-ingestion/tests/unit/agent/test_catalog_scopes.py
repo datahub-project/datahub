@@ -79,6 +79,14 @@ PERMITTED: List[Tuple[str, str, str]] = [
         'SELECT tag_name, column_name FROM TABLE("My_Db".information_schema.'
         'tag_references_all_columns(\'"My_Db"."My_Schema"."Events"\', \'table\'))',
     ),
+    # Joined beside a catalog relation, the function call parses inside a Lateral.
+    (
+        "snowflake",
+        "snowflake",
+        "SELECT t.table_name, r.tag_name FROM information_schema.tables AS t "
+        "JOIN LATERAL TABLE(information_schema.tag_references("
+        "'my_db.my_schema.events', 'table')) AS r",
+    ),
     # Emptiness here is how an agent tells Standard edition from Enterprise:
     # the view is never populated on Standard, so lineage and usage come back
     # silently empty while every privilege is present. Verified against both
@@ -953,6 +961,11 @@ REFUSED_TABLE_FUNCTION_SHAPE: List[Tuple[str, str]] = [
         "TABLE(information_schema.tag_references(t.table_name, 'table')) AS r",
     ),
     (
+        "lateral column argument",
+        "SELECT r.tag_name FROM information_schema.tables AS t JOIN LATERAL "
+        "TABLE(information_schema.tag_references(t.table_name, 'table')) AS r",
+    ),
+    (
         "subquery argument",
         "SELECT * FROM TABLE(information_schema.tag_references("
         "(SELECT MAX(table_name) FROM information_schema.tables), 'table'))",
@@ -974,6 +987,11 @@ REFUSED_TABLE_FUNCTION_SHAPE: List[Tuple[str, str]] = [
     ),
     # Listed by name: the schema's other table functions stay refused.
     ("unlisted function", "SELECT * FROM TABLE(information_schema.query_history())"),
+    (
+        "unlisted function in a lateral join",
+        "SELECT * FROM information_schema.tables AS t "
+        "JOIN LATERAL TABLE(information_schema.query_history()) AS r",
+    ),
     (
         "unlisted function with arguments",
         "SELECT * FROM TABLE(my_db.information_schema.query_history_by_user('u'))",
