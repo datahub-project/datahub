@@ -16,7 +16,6 @@ import os
 import sys
 import threading
 import time
-import traceback
 from io import StringIO
 from logging.handlers import MemoryHandler
 from types import TracebackType
@@ -542,9 +541,14 @@ class TestExceptionMasking:
 
     def test_exception_masking_failures_do_not_open_the_circuit(self, masking_filter):
         exc_info = _exc_info(lambda: _raise(ValueError("query failed")))
-        with patch.object(traceback, "format_exception", side_effect=MemoryError):
+        with patch.object(
+            filter_module._FORMATTER, "formatException", side_effect=MemoryError
+        ):
             for _ in range(11):
-                masking_filter.filter(_record(exc_info))
+                record = _record(exc_info)
+                masking_filter.filter(record)
+                assert record.exc_info is not None
+                assert record.exc_info[0] is MaskedException
         record = _record(None, msg="ordinary message")
 
         masking_filter.filter(record)
