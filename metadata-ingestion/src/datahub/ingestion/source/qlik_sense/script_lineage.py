@@ -4,7 +4,10 @@ from typing import AbstractSet, Callable, Dict, List, Optional, Set
 
 from pydantic import BaseModel, Field
 
-from datahub.ingestion.source.qlik_sense.file_lineage import FileStorage
+from datahub.ingestion.source.qlik_sense.file_lineage import (
+    FilePlatform,
+    FileStorage,
+)
 from datahub.metadata.urns import DatasetUrn
 
 CONNECT_RE = re.compile(
@@ -63,8 +66,10 @@ VARIABLE_RE = re.compile(
 EXPRESSION_NAME_RE = re.compile(r"[^\W\d]\w*")
 STRING_LITERAL_RE = re.compile(r"'(?P<single>[^']*)'|\"(?P<double>[^\"]*)\"")
 VARIABLE_REFERENCE_RE = re.compile(r"\$\((?P<name>[^()=]+)\)")
+# A label can be a variable the parser can't expand, kept as `$(name)`.
 LABEL_RE = re.compile(
-    r"^(?:\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|(?P<bare>[^\W\d][\w.\-]*))\s*:(?!/)"
+    r"^(?:\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|(?P<bare>[^\W\d][\w.\-]*)"
+    r"|(?P<variable>\$\([^()]*\)))\s*:(?!/)"
 )
 # A prefix's arguments, where a quoted or bracketed name may hold a `)`.
 _PREFIX_ARGS = r"\((?:[^()\[\]'\"]|\[[^\]]*\]|'[^']*'|\"[^\"]*\")*\)"
@@ -193,6 +198,8 @@ MAPPING_PREFIX_RE = re.compile(r"\bMapping\b", re.IGNORECASE)
 RESHAPE_PREFIX_RE = re.compile(r"\b(?:CrossTable|Generic)\b", re.IGNORECASE)
 # A Generic load creates a table per attribute value, not one its label names.
 GENERIC_PREFIX_RE = re.compile(r"\bGeneric\b", re.IGNORECASE)
+# In a full reload, Replace drops the table and loads it again.
+REPLACE_PREFIX_RE = re.compile(r"\bReplace\b", re.IGNORECASE)
 CROSSTABLE_RE = re.compile(r"\bCrossTable\s*\(", re.IGNORECASE)
 # Single-quoted text is a string literal in a chart expression, not a field.
 # A quoted field can carry a derived-field suffix, as in [Date].autoCalendar.Year.
@@ -354,12 +361,28 @@ class ScriptTable(BaseModel):
 
 
 class QvdReference(BaseModel):
-    """A file a script names, such as a QVD: a path in a folder data
-    connection, as in `lib://<connection>/<path>`, or, in legacy mode, a file
-    system path."""
+    """A file a script names, such as a QVD or the .qvf app file a BINARY
+    statement loads: a path in a folder data connection, as in
+    `lib://<connection>/<path>`, or, in legacy mode, a file system path."""
 
     connection: Optional[str] = None
     path: str
+
+    @property
+    def as_written(self) -> str:
+        return f"lib://{self.connection}/{self.path}" if self.connection else self.path
+
+
+class BinaryStatement(BaseModel):
+    """The app file a BINARY statement loads the data model of."""
+
+    # The path as the script names it.
+    written: str
+    # None when the path names no single file the connector can resolve.
+    file: Optional[QvdReference] = None
+    # The path uses a variable, so it may name another file once the app's
+    # variables are read.
+    uses_variables: bool = False
 
 
 class QvdLoad(BaseModel):
@@ -405,10 +428,7 @@ class ParsedScript(BaseModel):
     # The script includes other scripts, or calls a SUB it doesn't define,
     # whose loads are not read.
     has_includes: bool = False
-    # The app file a BINARY statement loads the data model of, and the path
-    # as written when it names no single file the connector can resolve.
-    binary_file: Optional[QvdReference] = None
-    unresolved_binary_path: Optional[str] = None
+    binary: Optional[BinaryStatement] = None
     # Labels of the tables the script's own loads create, and whether a load
     # creates a table Qlik names, so the script's tables are not all known.
     table_labels: List[str] = []
@@ -437,7 +457,7 @@ class DataConnectionInfo(BaseModel):
     # The storage of a Qlik Cloud file data connection, such as Azure Storage.
     file_storage: Optional[FileStorage] = None
     # The platform of its files, known even when its storage is not.
-    file_platform: Optional[str] = None
+    file_platform: Optional[FilePlatform] = None
 
 
 class ResolvedConnection(BaseModel):
@@ -576,7 +596,7 @@ class _Block(BaseModel):
     # Statements between SWITCH and its first CASE run in no branch.
     in_case: bool = False
     # How often each variable had been assigned when the block opened.
-    assignments_before: Counter = Field(default_factory=Counter)
+    assignments_before: Counter[str] = Field(default_factory=Counter)
 
 
 class _ControlFlowTracker(BaseModel):
@@ -593,8 +613,8 @@ class _ControlFlowTracker(BaseModel):
     # How often the script assigns each variable, as it runs, and in all. The
     # app keeps a variable's value from its last assignment, which is also
     # its value before the first, as variables persist between reloads.
-    assignments: Counter = Field(default_factory=Counter)
-    total_assignments: Counter = Field(default_factory=Counter)
+    assignments: Counter[str] = Field(default_factory=Counter)
+    total_assignments: Counter[str] = Field(default_factory=Counter)
 
     def apply_control(self, control: "re.Match[str]") -> None:
         if control.group("if") or control.group("switch"):
@@ -793,6 +813,12 @@ def _load_path(statement: str) -> Optional[str]:
     return _unquote(source.group("path").strip()).strip() if source else None
 
 
+def _named_by(label: Optional[str]) -> Optional[str]:
+    """The table name a label gives, or None when a variable the parser
+    couldn't expand names it."""
+    return None if label is None or "$(" in label else label
+
+
 def _unquote(name: str) -> str:
     if len(name) > 1 and QUOTE_PAIRS.get(name[0]) == name[-1]:
         return name[1:-1]
@@ -941,8 +967,7 @@ class _ScriptParser(BaseModel):
     unlabelled_qvd_loads: List[str] = []
     file_loads: List[FileLoad] = []
     has_includes: bool = False
-    binary_file: Optional[QvdReference] = None
-    unresolved_binary_path: Optional[str] = None
+    binary: Optional[BinaryStatement] = None
     table_labels: List[str] = []
     has_unnamed_tables: bool = False
     dropped_tables: List[str] = []
@@ -955,8 +980,9 @@ class _ScriptParser(BaseModel):
     pending_reshaped: bool = False
     # A preceding LOAD is a Generic load, which creates tables Qlik names.
     pending_generic: bool = False
-    # The top preceding LOAD adds to an existing table.
+    # The top preceding LOAD adds to an existing table, or replaces it.
     pending_merge: bool = False
+    pending_replace: bool = False
     pending_crosstable: Optional[CrossTable] = None
     # A SELECT under a preceding LOAD that adds to an unknown table.
     pending_skip: bool = False
@@ -984,6 +1010,7 @@ class _ScriptParser(BaseModel):
         self.pending_reshaped = False
         self.pending_generic = False
         self.pending_merge = False
+        self.pending_replace = False
         self.pending_crosstable = None
         self.pending_label = None
         self.pending_loads = []
@@ -1079,6 +1106,7 @@ class _ScriptParser(BaseModel):
         mapping = bool(MAPPING_PREFIX_RE.search(keywords))
         reshaped = bool(RESHAPE_PREFIX_RE.search(keywords))
         generic = bool(GENERIC_PREFIX_RE.search(keywords))
+        replace = bool(REPLACE_PREFIX_RE.search(keywords))
         if prefix:
             statement = statement[prefix.end() :]
         skip = False
@@ -1095,15 +1123,19 @@ class _ScriptParser(BaseModel):
                 else:
                     # A reshaping under the preceding loads hides the fields.
                     crosstable = None if reshaped else self.pending_crosstable
+                written_label = label or self.pending_label
                 known_label = (
-                    label or self.pending_label or _from_table_name(sql.group("sql"))
+                    _named_by(written_label)
+                    if written_label
+                    else _from_table_name(sql.group("sql"))
                 )
                 table_label = known_label or f"table_{len(self.tables) + 1}"
                 self._record_table(
                     known_label,
-                    merged=bool(merge) or self.pending_merge,
-                    mapping=mapping or self.pending_mapping,
-                    generic=generic or self.pending_generic,
+                    merged=bool(merge),
+                    mapping=mapping,
+                    generic=generic,
+                    replace=replace,
                 )
                 self.tables.append(
                     ScriptTable(
@@ -1137,6 +1169,7 @@ class _ScriptParser(BaseModel):
                 self.pending_label = label
                 self.pending_skip = skip
                 self.pending_merge = bool(merge)
+                self.pending_replace = replace
                 self.pending_mapping = mapping
                 self.pending_crosstable = _crosstable(prefix.group(0) if prefix else "")
             elif reshaped:
@@ -1149,18 +1182,19 @@ class _ScriptParser(BaseModel):
             if LOAD_RE.match(statement):
                 self._record_table(
                     label or self.pending_label,
-                    merged=bool(merge) or self.pending_merge,
-                    mapping=mapping or self.pending_mapping,
-                    generic=generic or self.pending_generic,
+                    merged=bool(merge),
+                    mapping=mapping,
+                    generic=generic,
+                    replace=replace,
                 )
                 # Every file a LOAD reads is in Qlik's lineage graph, mapping
                 # loads included.
                 self._record_file_load(statement)
                 if not (skip or mapping or self.pending_skip or self.pending_mapping):
-                    self._qvd_load(label or self.pending_label, statement)
+                    self._qvd_load(_named_by(label or self.pending_label), statement)
                 # A preceding LOAD's label names the table a later Concatenate
                 # or Join without a target adds to.
-                self.last_label = label or self.pending_label
+                self.last_label = _named_by(label or self.pending_label)
             self._clear_pending()
 
     def _file_statement(self, statement: str) -> bool:
@@ -1257,25 +1291,40 @@ class _ScriptParser(BaseModel):
 
     def _binary(self, path: str) -> None:
         path = _unquote(path.strip()).strip()
+        # Before expansion, as a path built from the app's variables changes
+        # when they can't be read.
+        uses_variables = "$(" in self.raw_statement
         if "$(" in path:
             path = self._expand_app_variables(path)
-        unresolved: List[str] = []
-        self.binary_file = self._file_reference(path, unresolved)
-        self.unresolved_binary_path = unresolved[0] if unresolved else None
+        self.binary = BinaryStatement(
+            written=path,
+            file=self._file_reference(path, []),
+            uses_variables=uses_variables,
+        )
 
     def _record_table(
-        self, label: Optional[str], merged: bool, mapping: bool, generic: bool
+        self,
+        label: Optional[str],
+        merged: bool,
+        mapping: bool,
+        generic: bool,
+        replace: bool,
     ) -> None:
-        """Notes the table a load creates. A mapping table is dropped at the
-        end of the reload, and Concatenate or Join add to another table."""
-        if mapping or merged:
+        """Notes the table a load creates, with the top preceding load's
+        prefixes. A mapping table is dropped at the end of the reload, and
+        Concatenate or Join add to another table."""
+        if mapping or merged or self.pending_mapping or self.pending_merge:
             return
-        if label is None or generic:
-            # Qlik names the table, or the tables.
+        name = _named_by(label)
+        if name is None or generic or self.pending_generic:
+            # Qlik names the table, or the tables, or a variable the parser
+            # can't expand does.
             self.has_unnamed_tables = True
             return
-        if label.lower() not in (known.lower() for known in self.table_labels):
-            self.table_labels.append(label)
+        if name.lower() not in (known.lower() for known in self.table_labels):
+            self.table_labels.append(name)
+        if replace or self.pending_replace:
+            self.dropped_tables.append(name)
 
     def _record_file_load(self, statement: str) -> None:
         expanded = _load_path(statement)
@@ -1303,9 +1352,7 @@ class _ScriptParser(BaseModel):
         if file is None:
             return
         if not label:
-            self.unlabelled_qvd_loads.append(
-                f"lib://{file.connection}/{file.path}" if file.connection else file.path
-            )
+            self.unlabelled_qvd_loads.append(file.as_written)
             return
         # The file's columns go through the statement's own field list and
         # then every preceding load above it.
@@ -1455,8 +1502,7 @@ def parse_script(
         unlabelled_qvd_loads=parser.unlabelled_qvd_loads,
         file_loads=parser.file_loads,
         has_includes=parser.has_includes,
-        binary_file=parser.binary_file,
-        unresolved_binary_path=parser.unresolved_binary_path,
+        binary=parser.binary,
         table_labels=parser.table_labels,
         has_unnamed_tables=parser.has_unnamed_tables,
         dropped_tables=parser.dropped_tables,
