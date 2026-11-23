@@ -76,7 +76,11 @@ REPEATED_PAGE_MESSAGE = (
     "Grafana returned a page with nothing new, so paging stopped; the API may "
     "be ignoring the page parameter"
 )
-BASIC_MODE_RESPONSE_ERROR_TITLE = "Dashboard Search Error"
+DASHBOARD_SEARCH_ERROR_TITLE = "Dashboard Search Error"
+DASHBOARD_SEARCH_UNEXPECTED_RESPONSE_MESSAGE = (
+    "Grafana /api/search returned a page that is not a list; dashboards on this "
+    "or later pages were not ingested"
+)
 BASIC_MODE_RESPONSE_ERROR_MESSAGE = (
     "Grafana /api/search did not return a list of dashboards in basic mode"
 )

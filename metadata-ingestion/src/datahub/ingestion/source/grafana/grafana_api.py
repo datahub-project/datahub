@@ -10,6 +10,8 @@ from pydantic import SecretStr, ValidationError
 from datahub.ingestion.source.grafana.constants import (
     DASHBOARD_PARSE_ERROR_MESSAGE,
     DASHBOARD_PARSE_ERROR_TITLE,
+    DASHBOARD_SEARCH_ERROR_TITLE,
+    DASHBOARD_SEARCH_UNEXPECTED_RESPONSE_MESSAGE,
     FOLDER_FETCH_ERROR_MESSAGE,
     FOLDER_FETCH_ERROR_TITLE,
     FOLDER_PARSE_ERROR_MESSAGE,
@@ -175,6 +177,7 @@ class GrafanaAPIClient:
         """Fetch all dashboards from search endpoint with pagination."""
         dashboards: List[Dashboard] = []
         seen_uids: Set[str] = set()
+        previous_batch: Optional[List[object]] = None
         page = 1
         per_page = self.page_size
 
@@ -192,8 +195,23 @@ class GrafanaAPIClient:
                 response.raise_for_status()
 
                 batch = response.json()
+                # As in get_folders: check the shape before emptiness, so a
+                # non-list body is a failure instead of being walked as hits.
+                if not isinstance(batch, list):
+                    self.report.failure(
+                        title=DASHBOARD_SEARCH_ERROR_TITLE,
+                        message=DASHBOARD_SEARCH_UNEXPECTED_RESPONSE_MESSAGE,
+                        context=f"page {page}: {batch}",
+                    )
+                    break
                 if not batch:
                     break
+                # An identical page also stops a page full of hits without a
+                # uid, which would never produce a new uid.
+                if batch == previous_batch:
+                    self._report_repeated_page(f"/api/search page {page}")
+                    break
+                previous_batch = batch
 
                 page_uids = self._search_hit_uids(batch)
                 new_uids = [
@@ -212,9 +230,9 @@ class GrafanaAPIClient:
                 page += 1
             except requests.exceptions.RequestException as e:
                 self.report.failure(
-                    title="Dashboard Search Error",
+                    title=DASHBOARD_SEARCH_ERROR_TITLE,
                     message="Failed to fetch dashboards on page",
-                    context=str(page),
+                    context=f"page {page}",
                     exc=e,
                 )
                 if _is_permission_error(e):

@@ -267,8 +267,17 @@ class Dashboard(_GrafanaBaseModel):
         """Extract dashboard data from nested structure and process panels."""
         if isinstance(data, dict):
             dashboard_data = data.get("dashboard", data)
+            # pydantic only turns ValueError into a ValidationError; an
+            # AttributeError or TypeError from here would escape get_dashboard
+            # and stop ingestion.
+            if not isinstance(dashboard_data, dict):
+                raise ValueError("dashboard is not an object")
 
             _panel_data = dashboard_data.get("panels", [])
+            if _panel_data is None:
+                _panel_data = []
+            if not isinstance(_panel_data, list):
+                raise ValueError("panels is not a list")
             panels = []
             skipped_panels: List[str] = []
 
@@ -291,7 +300,7 @@ class Dashboard(_GrafanaBaseModel):
                 "skipped_panels": skipped_panels,
             }
 
-            if (meta := data.get("meta")) is not None:
+            if isinstance(meta := data.get("meta"), dict):
                 # We only want to set folder_id and created_by from meta if we get it
                 # from json and not when creating Dashboard(uid=...) like in tests.
                 result["folder_id"] = meta.get("folderId")

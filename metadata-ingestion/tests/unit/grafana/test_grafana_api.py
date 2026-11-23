@@ -6,8 +6,11 @@ import requests
 from pydantic import SecretStr
 
 from datahub.ingestion.source.grafana.constants import (
+    DASHBOARD_PARSE_ERROR_TITLE,
+    DASHBOARD_SEARCH_ERROR_TITLE,
     FOLDER_FETCH_ERROR_TITLE,
     FOLDER_PARSE_ERROR_TITLE,
+    REPEATED_PAGE_TITLE,
 )
 from datahub.ingestion.source.grafana.grafana_api import GrafanaAPIClient
 from datahub.ingestion.source.grafana.models import Dashboard, Folder
@@ -237,7 +240,78 @@ def test_get_dashboards_stops_when_page_repeats(api_client, mock_session):
     ]
 
     assert [d.uid for d in api_client.get_dashboards()] == ["a"]
-    assert len(api_client.report.warnings) == 1
+    assert log_titles(api_client.report.warnings) == {REPEATED_PAGE_TITLE}
+
+
+def test_get_dashboards_stops_when_page_without_uids_repeats(api_client, mock_session):
+    # A full page of hits without a uid never yields a new uid, so only the
+    # repeated page itself can end paging.
+    api_client.page_size = 2
+    page = [{"title": "a"}, {"title": "b"}]
+    mock_session.get.side_effect = [
+        _json_response(page),
+        _json_response(page),
+        AssertionError("get_dashboards kept paging"),
+    ]
+
+    assert api_client.get_dashboards() == []
+    assert REPEATED_PAGE_TITLE in log_titles(api_client.report.warnings)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param({"message": "Unauthorized"}, id="object"),
+        pytest.param("<html>proxy error</html>", id="string"),
+        pytest.param(42, id="number"),
+        pytest.param({}, id="empty-object"),
+        pytest.param(None, id="null"),
+    ],
+)
+def test_get_dashboards_reports_non_list_search_page(api_client, mock_session, body):
+    # A non-list body is a failure, not a list of skipped hits, and ends paging.
+    api_client.page_size = 1
+    mock_session.get.side_effect = [
+        _json_response(body),
+        AssertionError("get_dashboards kept paging"),
+    ]
+
+    assert api_client.get_dashboards() == []
+    assert log_titles(api_client.report.failures) == {DASHBOARD_SEARCH_ERROR_TITLE}
+    assert api_client.report.dashboard_search_hits_skipped == 0
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param({"dashboard": None}, id="dashboard-null"),
+        pytest.param({"dashboard": ["x"]}, id="dashboard-list"),
+        pytest.param({"dashboard": "x"}, id="dashboard-string"),
+        pytest.param(
+            {"dashboard": {"uid": "x", "title": "x", "panels": 5}}, id="panels-number"
+        ),
+    ],
+)
+def test_get_dashboard_skips_malformed_nested_body(api_client, mock_session, body):
+    # These used to raise AttributeError/TypeError out of the model validator,
+    # which get_dashboard did not catch, stopping ingestion.
+    mock_session.get.return_value = _json_response(body)
+
+    assert api_client.get_dashboard("x") is None
+    assert api_client.report.dashboards_unparseable == 1
+    assert log_titles(api_client.report.warnings) == {DASHBOARD_PARSE_ERROR_TITLE}
+
+
+@pytest.mark.parametrize("meta", ["x", ["x"]])
+def test_get_dashboard_ignores_non_object_meta(api_client, mock_session, meta):
+    mock_session.get.return_value = _json_response(
+        {"dashboard": {"uid": "x", "title": "x", "panels": []}, "meta": meta}
+    )
+
+    dashboard = api_client.get_dashboard("x")
+
+    assert dashboard is not None
+    assert dashboard.folder_id is None
 
 
 def test_get_dashboards_skips_bad_search_hits_and_dashboards(api_client, mock_session):

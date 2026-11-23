@@ -294,6 +294,23 @@ def test_folder_without_title_is_named_after_uid_or_id(folder_data, expected_tit
     assert Folder.model_validate(folder_data).title == expected_title
 
 
+def test_dashboard_records_failed_panel_extraction():
+    # A row holding something that is not a panel stops panel extraction; the
+    # dashboard is still ingested and the loss is recorded for the report.
+    dashboard = Dashboard.model_validate(
+        {
+            "dashboard": {
+                "uid": "x",
+                "title": "x",
+                "panels": [{"type": "row", "panels": ["not a panel"]}],
+            }
+        }
+    )
+
+    assert dashboard.panels == []
+    assert dashboard.skipped_panels == ["all panels (AttributeError)"]
+
+
 def test_dashboard_missing_folder_id():
     dashboard_data = {
         "dashboard": {

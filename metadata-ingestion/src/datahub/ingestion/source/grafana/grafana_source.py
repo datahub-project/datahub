@@ -26,9 +26,9 @@ from datahub.ingestion.source.grafana.constants import (
     BASIC_MODE_ITEM_SKIPPED_MESSAGE,
     BASIC_MODE_ITEM_SKIPPED_TITLE,
     BASIC_MODE_RESPONSE_ERROR_MESSAGE,
-    BASIC_MODE_RESPONSE_ERROR_TITLE,
     DASHBOARD_FOLDER_NOT_INGESTED_MESSAGE,
     DASHBOARD_FOLDER_NOT_INGESTED_TITLE,
+    DASHBOARD_SEARCH_ERROR_TITLE,
     DASHBOARD_WITHOUT_FOLDER_ID_MESSAGE,
     DASHBOARD_WITHOUT_FOLDER_ID_TITLE,
     FOLDERS_UNPARSEABLE_MESSAGE,
@@ -170,7 +170,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 response.raise_for_status()
             except requests.exceptions.RequestException as e:
                 self.report.failure(
-                    title="Dashboard Search Error",
+                    title=DASHBOARD_SEARCH_ERROR_TITLE,
                     message="Failed to fetch dashboards in basic mode",
                     exc=e,
                 )
@@ -180,14 +180,14 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 dashboards = response.json()
             except requests.exceptions.JSONDecodeError as e:
                 self.report.failure(
-                    title=BASIC_MODE_RESPONSE_ERROR_TITLE,
+                    title=DASHBOARD_SEARCH_ERROR_TITLE,
                     message=BASIC_MODE_RESPONSE_ERROR_MESSAGE,
                     exc=e,
                 )
                 return
             if not isinstance(dashboards, list):
                 self.report.failure(
-                    title=BASIC_MODE_RESPONSE_ERROR_TITLE,
+                    title=DASHBOARD_SEARCH_ERROR_TITLE,
                     message=BASIC_MODE_RESPONSE_ERROR_MESSAGE,
                     context=str(dashboards)[:MAX_REPORT_CONTEXT_CHARS],
                 )
