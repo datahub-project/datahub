@@ -964,7 +964,7 @@ def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
 
     assert source.reporter.unresolved_file_connections == [CONNECTION]
     lineage = [
-        wu
+        wu.metadata
         for wu in workunits
         if isinstance(wu.metadata, MetadataChangeProposalClass)
         and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
@@ -972,8 +972,8 @@ def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
     if read:
         # Named by its connection and path.
         assert {wu.get_urn() for wu in workunits} == {UNMAPPED_ORDERS_QVD}
-        assert [wu.get_urn() for wu in lineage] == [UNMAPPED_ORDERS_QVD]
-        assert stored in str(lineage[0].metadata.aspect)
+        assert [mcp.entityUrn for mcp in lineage] == [UNMAPPED_ORDERS_QVD]
+        assert stored in str(lineage[0].aspect)
         # In the storing app's checkpoint too.
         assert UNMAPPED_ORDERS_QVD in source._app_end_of_run_urns["app-2"]
         assert not source.reporter.unread_stored_files
