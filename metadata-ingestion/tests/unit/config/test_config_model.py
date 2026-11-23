@@ -292,6 +292,46 @@ def test_config_redaction_headers():
     }
 
 
+def test_config_redaction_all_header_maps():
+    obj = {
+        "source": {
+            "config": {
+                "http_headers": {"X-Session": "abc", "Accept": "application/json"},
+                "transport_options": {"headers": {"Cookie": "sid=xyz"}, "timeout": 30},
+            }
+        },
+        "include_headers": True,
+    }
+
+    assert redact_raw_config(obj) == {
+        "source": {
+            "config": {
+                "http_headers": {"X-Session": "********", "Accept": "********"},
+                "transport_options": {"headers": {"Cookie": "********"}, "timeout": 30},
+            }
+        },
+        "include_headers": True,
+    }
+
+
+def test_config_redaction_is_case_insensitive():
+    obj = {
+        "X-API-Key": "k1",
+        "X-Auth-Token": "t1",
+        "API_KEY": "k2",
+        "Password": "p1",
+        "Server": "http://localhost:8080",
+    }
+
+    assert redact_raw_config(obj) == {
+        "X-API-Key": "********",
+        "X-Auth-Token": "********",
+        "API_KEY": "********",
+        "Password": "********",
+        "Server": "http://localhost:8080",
+    }
+
+
 def test_config_redaction_2():
     obj = {
         "config": {

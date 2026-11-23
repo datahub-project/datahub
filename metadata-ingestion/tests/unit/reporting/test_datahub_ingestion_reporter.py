@@ -350,3 +350,64 @@ def test_recipe_redacts_extra_headers() -> None:
         "authorization": "********",
         "X-Custom": "********",
     }
+
+
+def test_recipe_masks_registered_secret_under_unlisted_key() -> None:
+    secret_value = "sasl-secret-value"
+    SecretRegistry.reset_instance()
+    SecretRegistry.get_instance().register_secret("KAFKA_PASS", secret_value)
+    pipeline_config = PipelineConfig.from_dict(
+        {
+            "source": {
+                "type": "kafka",
+                "config": {
+                    "connection": {"consumer_config": {"sasl.password": secret_value}}
+                },
+            },
+            "sink": {"type": "console"},
+        }
+    )
+    ctx = PipelineContext(run_id="cli-run", pipeline_config=pipeline_config)
+    provider = DatahubIngestionRunSummaryProvider(
+        sink=MagicMock(spec=Sink), report_recipe=True, ctx=ctx
+    )
+
+    recipe = provider._get_recipe_to_report(ctx)
+    SecretRegistry.reset_instance()
+    assert secret_value not in recipe
+    consumer_config = json.loads(recipe)["source"]["config"]["connection"][
+        "consumer_config"
+    ]
+    masked_value = "***REDACTED:KAFKA_PASS***"
+    assert consumer_config == {"sasl.password": masked_value}
+
+
+def test_recipe_serialization_failure_still_reports_summary() -> None:
+    pipeline_config = PipelineConfig.from_dict(
+        {
+            "source": {"type": "file", "config": {"path": "x.json"}},
+            "sink": {"type": "console"},
+        }
+    )
+    ctx = PipelineContext(run_id="cli-run", pipeline_config=pipeline_config)
+    sink = MagicMock(spec=Sink)
+
+    with patch.object(
+        PipelineConfig, "get_raw_dict", side_effect=ValueError("not serializable")
+    ):
+        provider = DatahubIngestionRunSummaryProvider(
+            sink=sink, report_recipe=True, ctx=ctx
+        )
+        provider.on_start(ctx)
+
+    emitted = [
+        call.args[0].record.aspect for call in sink.write_record_async.call_args_list
+    ]
+    source_info = next(
+        a for a in emitted if isinstance(a, DataHubIngestionSourceInfoClass)
+    )
+    assert source_info.config.recipe == ""
+    execution_input = next(
+        a for a in emitted if isinstance(a, ExecutionRequestInputClass)
+    )
+    assert execution_input.args["recipe"] == ""

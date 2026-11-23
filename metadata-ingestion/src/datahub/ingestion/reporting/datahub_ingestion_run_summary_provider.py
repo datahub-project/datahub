@@ -212,9 +212,9 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
 
     def _get_recipe_to_report(self, ctx: PipelineContext) -> str:
         assert ctx.pipeline_config
-        if not self.report_recipe or not ctx.pipeline_config.get_raw_dict():
-            return ""
-        else:
+        try:
+            if not self.report_recipe or not ctx.pipeline_config.get_raw_dict():
+                return ""
             redacted_recipe = redact_raw_config(ctx.pipeline_config.get_raw_dict())
             # This is required otherwise json dumps will fail
             # with a TypeError: Object of type set is not JSON serializable
@@ -223,7 +223,19 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
                     redacted_recipe
                 )
             )
-            return json.dumps(converted_recipe)
+            # Key-based redaction misses secrets under unlisted keys (e.g. Kafka
+            # consumer_config["sasl.password"]); mask any registered secret value.
+            masked_recipe = SecretMaskingFilter(
+                SecretRegistry.get_instance()
+            ).mask_structure(converted_recipe)
+            return json.dumps(masked_recipe)
+        except Exception:
+            # Losing the recipe must not disable the whole run-summary reporter.
+            logger.warning(
+                "Failed to serialize the recipe; reporting the run without it",
+                exc_info=True,
+            )
+            return ""
 
     def _emit_aspect(
         self, entity_urn: Urn, aspect_value: _Aspect, try_sync: bool = False

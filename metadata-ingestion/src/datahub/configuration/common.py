@@ -44,6 +44,8 @@ REDACT_KEYS = {
     # A connection string embeds credentials (e.g. an Azure ``AccountKey=...`` /
     # storage account master key) but matches none of the suffixes below.
     "connection_string",
+    # HTTP header name.
+    "authorization",
 }
 REDACT_SUFFIXES = {
     "_password",
@@ -59,14 +61,23 @@ REDACT_SUFFIXES = {
     "_connection_string",
     "-connection-string",
 }
+# Header maps (extra_headers, http_headers, Looker transport_options.headers, ...):
+# any custom header (API key, cookie, ...) may carry a credential, so keep the
+# header names visible but redact every value.
+REDACT_ALL_VALUES_SUFFIXES = {"headers"}
 
 
 def _should_redact_key(key: Union[str, int]) -> bool:
-    return isinstance(key, str) and (
-        key in REDACT_KEYS
-        or any(key.endswith(suffix) for suffix in REDACT_SUFFIXES)
-        # HTTP header names are case-insensitive.
-        or key.lower() == "authorization"
+    if not isinstance(key, str):
+        return False
+    # Keys under user-supplied maps (HTTP headers, env vars) are often not lowercase.
+    key = key.lower()
+    return key in REDACT_KEYS or any(key.endswith(s) for s in REDACT_SUFFIXES)
+
+
+def _should_redact_all_values(key: Union[str, int]) -> bool:
+    return isinstance(key, str) and any(
+        key.lower().endswith(s) for s in REDACT_ALL_VALUES_SUFFIXES
     )
 
 
@@ -96,9 +107,7 @@ def redact_raw_config(obj: Any) -> Any:
         for k, v in obj.items():
             if _should_redact_key(k):
                 redacted[k] = _redact_value(v)
-            elif k == "extra_headers" and isinstance(v, dict):
-                # Any custom header (API key, cookie, ...) may carry a credential;
-                # keep header names visible but redact every value.
+            elif _should_redact_all_values(k) and isinstance(v, dict):
                 redacted[k] = {hk: _redact_value(hv) for hk, hv in v.items()}
             else:
                 redacted[k] = redact_raw_config(v)
