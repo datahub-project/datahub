@@ -13,8 +13,8 @@
  *   4. no single GraphQL response is larger than                    5 MB
  *   5. filtering the sidebar list by name shows the last value     <  3 s   (from typing)
  *
- * Budgets are wall-clock and machine dependent; SCALE_BUDGET_FACTOR (default 1, or 2 when CI is set) scales
- * the time budgets for slower runners. Every GraphQL call is attached to the report as JSON.
+ * Budgets are wall-clock and machine dependent; SCALE_BUDGET_FACTOR (default 1) scales the time
+ * budgets for slower runners. Every GraphQL call is attached to the report as JSON.
  */
 import { test, expect } from '../../fixtures/base-test';
 import { GlossaryTermScalePage } from '../../pages/glossary-term-scale.page';
@@ -25,9 +25,7 @@ import {
   type UrnValuesFixture,
 } from '../../helpers/seeders/urn-values-seeder';
 
-// Shared CI runners vary a lot (a slow runner took 16.5 s for the first value against a 15 s
-// budget), so CI defaults to double the local budgets; a real regression is still several times slower.
-const FACTOR = Number(process.env.SCALE_BUDGET_FACTOR ?? (process.env.CI ? 2 : 1));
+const FACTOR = Number(process.env.SCALE_BUDGET_FACTOR ?? 1);
 // Typical CI runs take 5-8 s, but on a slow runner every request is 2-3x slower and the page
 // needs over 10 s; these budgets leave room for that without hiding a real regression.
 const BUDGET_MS = {

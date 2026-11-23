@@ -182,15 +182,18 @@ export class DomainEntityPage extends BasePage {
     // Ensure page is ready before clicking
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    // The menu click can be swallowed while the page is still hydrating, leaving the modal closed,
-    // so retry the whole open-menu -> open-modal sequence instead of waiting on a modal that never opens.
+    // In a CI failure the "Add link" menu stayed open and the modal never appeared: the click landed while
+    // the domain page was still refetching (getDomain), probably, so retry the open sequence instead of waiting longer.
+    // Check the modal first so a late-opening modal is never clicked through.
     await expect(async () => {
-      if (!(await this.addLinkMenuItem.isVisible())) {
-        await this.addRelatedButton.click();
+      if (!(await this.urlInput.isVisible())) {
+        if (!(await this.addLinkMenuItem.isVisible())) {
+          await this.addRelatedButton.click({ timeout: TIMEOUTS.SHORT });
+        }
+        await this.addLinkMenuItem.click({ timeout: TIMEOUTS.SHORT });
       }
-      await this.addLinkMenuItem.click({ timeout: TIMEOUTS.SHORT });
       await expect(this.urlInput).toBeVisible({ timeout: TIMEOUTS.SHORT });
-    }).toPass({ timeout: TIMEOUTS.EXTRA_LONG * 2, intervals: [500, 1000, 2000] });
+    }).toPass({ timeout: TIMEOUTS.EXTRA_LONG, intervals: [500, 1000, 2000] });
 
     await this.urlInput.fill(url);
     await this.labelInput.fill(label);
