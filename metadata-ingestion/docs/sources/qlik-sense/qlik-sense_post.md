@@ -4,7 +4,7 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 #### Apps, sheets and charts
 
-Each app is ingested both as a container, which holds its tables, sheets and charts, and as a dashboard with the `Qlik App` subtype. The app dashboard links to the app's sheets, and to the app's tables that no chart reads, so lineage runs from every table to the app, through a chart and its sheet or directly.
+Each app is ingested both as a container, which holds its tables, sheets and charts, and as a dashboard with the `App` subtype. The app dashboard links to the app's sheets, and to the app's tables that no chart reads, so lineage runs from every table to the app, through a chart and its sheet or directly.
 
 - In a published app, users' private sheets are skipped; base and community sheets are ingested.
 - Charts inside a container object's tabs are ingested as charts of the sheet. An untitled chart takes its tab label as its title.
@@ -157,7 +157,7 @@ file_connection_to_storage:
     convert_urns_to_lowercase: true
 ```
 
-Names keep the case of the path the script uses unless `convert_urns_to_lowercase` is set; set it the same way in both recipes.
+Set `convert_urns_to_lowercase` as for [Qlik Cloud files](#lineage-from-files-on-azure-storage-amazon-s3-and-google-cloud-storage-qlik-cloud), the same way in both recipes.
 
 - Variables in a QVD path, including those set with `LET` or in an included script such as a connection prefix, are expanded with the app's variables as its last reload left them.
 - A `lib://` path may separate the connection from the path with a backslash.
@@ -273,13 +273,23 @@ The SQL doesn't qualify a table, and its connection has no database or schema. S
 
 A `SELECT` that cannot be parsed is skipped, for example one that uses an unexpanded variable in a table name. Set the variables the warning lists as `settable` in `script_variables`; no script sets them. Variables listed as set at run time, such as a loop variable, can't be set this way.
 
-#### `unresolved_qvd_paths` in the report (on-prem)
+#### "Some Qlik QVD loads have no lineage", or `unresolved_qvd_paths` and `unlabelled_qvd_loads` in the report (on-prem)
 
-A path the connector can't resolve to one file is listed, such as a wildcard, a variable the app doesn't have, a path relative to the `Directory` statement, or a `lib://` path of a connection that isn't a folder connection and isn't in `file_connection_to_storage`. Set missing variables in `script_variables`, map one share reached by different names with `qvd_folder_aliases`, and map storage connections in `file_connection_to_storage`.
+`unresolved_qvd_paths` lists paths the connector can't resolve to one file, such as a wildcard, a variable the app doesn't have, a path relative to the `Directory` statement, or a `lib://` path of a connection that isn't a folder connection and isn't in `file_connection_to_storage`. Set missing variables in `script_variables`, map one share reached by different names with `qvd_folder_aliases`, and map storage connections in `file_connection_to_storage`.
+
+`unlabelled_qvd_loads` lists QVDs loaded without a table label. Qlik names such a table itself, so it is not linked to the QVD. Give the `LOAD` a label, such as `Orders: LOAD * FROM [lib://QVD Data/orders.qvd] (qvd);`.
 
 #### `unresolved_file_connections` in the report, or "Qlik file connections have no known storage" (Qlik Cloud)
 
 Apps read files through these connections, but their storage is not known. Add each one to `file_connection_to_storage` with its `storage_uri`, or give the API key's user **Can consume data** in the connection's space.
+
+#### `apps_without_lineage_graph` in the report, or "Qlik Cloud has no lineage graph for app" (Qlik Cloud)
+
+Qlik Cloud has no lineage graph for these apps, and their last read, if any, had no tables, so their tables come from the load script only. Qlik also has no graph for an app whose lineage it has not computed yet, such as right after a reload. When there is no last read to compare with, the warning is reported and the lineage of the app's tables is only added to for that run.
+
+#### `apps_change_check_failed` in the report, or "Unable to check whether Qlik apps changed" (on-prem)
+
+With `skip_unchanged_apps`, these apps could not be checked for changes, for example because the Repository Service or DataHub did not answer, so they were read in full. Nothing is lost; if the check keeps failing, the entry says why.
 
 #### "Lineage of Qlik app table only added to"
 
