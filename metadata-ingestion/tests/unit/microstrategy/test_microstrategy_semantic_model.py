@@ -806,3 +806,80 @@ def test_metrics_are_emitted_as_they_are_fetched(
     assert fetched == ["METRIC1", "METRIC2"]
     assert mapper.report.semantic_model_metrics_emitted == 2
     assert "Semantic model metrics: 2/2" in caplog.text
+
+
+def test_referenced_scope_emits_used_metrics_and_what_they_are_built_from() -> None:
+    # A project catalog holds tens of thousands of metrics; the ingested
+    # reports use a few hundred. The reference scope emits those, plus the
+    # metrics they are derived from, and never fetches the rest.
+    fetched: List[str] = []
+
+    class RecordingClient(FakeSemanticModelClient):
+        def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+            fetched.append(metric_id)
+            return super().get_metric_model(project_id, metric_id)
+
+    client = RecordingClient(
+        metrics=[
+            _metric_object("UNUSED1", "Unused"),
+            _metric_object("USED1", "Used"),
+            _metric_object("BASE1", "Base"),
+            _metric_object("BASE2", "Base of base"),
+        ],
+        metric_models={
+            "USED1": {
+                "expression": {"tokens": [{"objectId": "BASE1", "subType": "metric"}]}
+            },
+            "BASE1": {
+                "expression": {"tokens": [{"objectId": "BASE2", "subType": "metric"}]}
+            },
+            "BASE2": {
+                "expression": {"tokens": [{"objectId": "FACT1", "subType": "fact"}]}
+            },
+        },
+    )
+    mapper = _mapper(client, semantic_model_metric_scope="referenced")
+    model_tables = [_table("SALES", attributes=[], facts=[_fact("FACT1", "Revenue")])]
+
+    aspects = _aspects_by_urn(
+        list(
+            mapper.emit(
+                project_id="project-1",
+                project_name="Project One",
+                model_tables=model_tables,
+                warehouse_context=None,
+                project_container_key=_project_container_key(),
+                referenced_object_ids={"USED1", "ATTRIBUTE1"},
+            )
+        )
+    )
+
+    assert fetched == ["USED1", "BASE1", "BASE2"]
+    metric_urns = {urn for urn in aspects if urn.startswith("urn:li:metric:")}
+    assert metric_urns == {
+        f"urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,{metric_id})"
+        for metric_id in ("USED1", "BASE1", "BASE2")
+    }
+    assert mapper.report.semantic_model_metrics_emitted == 3
+    assert mapper.report.semantic_model_metrics_out_of_scope == 1
+
+
+def test_without_a_reference_scope_every_catalog_metric_is_emitted() -> None:
+    client = FakeSemanticModelClient(
+        metrics=[_metric_object("UNUSED1", "Unused"), _metric_object("USED1", "Used")]
+    )
+    mapper = _mapper(client)
+    model_tables = [_table("SALES", attributes=[], facts=[_fact("FACT1", "Revenue")])]
+
+    list(
+        mapper.emit(
+            project_id="project-1",
+            project_name="Project One",
+            model_tables=model_tables,
+            warehouse_context=None,
+            project_container_key=_project_container_key(),
+        )
+    )
+
+    assert mapper.report.semantic_model_metrics_emitted == 2
+    assert mapper.report.semantic_model_metrics_out_of_scope == 0

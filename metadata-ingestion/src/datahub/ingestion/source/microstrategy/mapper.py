@@ -147,6 +147,17 @@ class MicroStrategyMapper:
         # Folder containers already emitted this run: every dashboard, report
         # and dataset filed under a folder walks the same ancestry.
         self._emitted_folder_keys: Set[str] = set()
+        # Catalog object ids (attributes and metrics) used by the datasets
+        # emitted per project, for semantic_model_metric_scope=referenced.
+        self._referenced_object_ids: Dict[str, Set[str]] = {}
+
+    def referenced_object_ids(self, project_id: str) -> Set[str]:
+        """Normalized catalog object ids used by the datasets emitted so far
+        in the project."""
+        return set(self._referenced_object_ids.get(project_id, set()))
+
+    def forget_referenced_object_ids(self, project_id: str) -> None:
+        self._referenced_object_ids.pop(project_id, None)
 
     def project_key(self, project_id: str) -> ProjectKey:
         return ProjectKey(
@@ -618,6 +629,9 @@ class MicroStrategyMapper:
         sub_type: str,
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_dataset_scanned()
+        self._referenced_object_ids.setdefault(project_id, set()).update(
+            dataset.normalized_object_ids()
+        )
         dataset_urn = self.lineage.dataset_urn(project_id, parent_id, dataset)
 
         yield self._platform_instance_workunit(dataset_urn)

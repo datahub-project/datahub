@@ -24,6 +24,7 @@ from datahub.ingestion.source.microstrategy.models import (
     ReportDefinition,
     ReportDerivedMetric,
     extract_folder_parts,
+    normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.usage import UsageBucket
@@ -3155,3 +3156,39 @@ def test_usage_bucket_for_report_dataset_emits_dataset_usage_statistics() -> Non
         ("urn:li:corpuser:bob", 3),
     ]
     assert mapper.report.usage_buckets_emitted == 1
+
+
+def test_emitted_datasets_record_the_catalog_objects_they_use_per_project() -> None:
+    # semantic_model_metric_scope=referenced scopes the semantic model to
+    # these ids, so they must cover every dataset emitted in the project.
+    mapper = _mapper()
+    report_object = MicroStrategyObject.model_validate(
+        {"id": "report-1", "name": "Sales Report", "type": "3"}
+    )
+    source_dataset = DatasetObject.model_validate(
+        {
+            "id": "cube-1",
+            "name": "Sales Cube",
+            "availableObjects": {
+                "metrics": [{"id": "metric-1", "name": "Revenue", "type": "metric"}],
+                "attributes": [{"id": "attr-1", "name": "Store", "type": "attribute"}],
+            },
+        }
+    )
+
+    list(
+        mapper.gen_report_source_dataset_workunits(
+            "project-1",
+            report_object,
+            source_dataset,
+            mapper.project_key("project-1"),
+        )
+    )
+
+    assert mapper.referenced_object_ids("project-1") == {
+        normalize_object_id("metric-1"),
+        normalize_object_id("attr-1"),
+    }
+    assert mapper.referenced_object_ids("project-2") == set()
+    mapper.forget_referenced_object_ids("project-1")
+    assert mapper.referenced_object_ids("project-1") == set()

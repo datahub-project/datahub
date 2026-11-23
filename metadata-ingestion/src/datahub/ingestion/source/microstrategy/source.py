@@ -592,7 +592,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             model_tables=model_tables,
             warehouse_context=lineage_context.warehouse_context,
             project_container_key=self.mapper.project_key(project.id),
+            referenced_object_ids=(
+                self.mapper.referenced_object_ids(project.id)
+                if self.config.semantic_model_metric_scope == "referenced"
+                else None
+            ),
         )
+        self.mapper.forget_referenced_object_ids(project.id)
 
     @timed_phase("source_warehouses")
     def _get_project_source_warehouses(self, project_id: str) -> List[Datasource]:

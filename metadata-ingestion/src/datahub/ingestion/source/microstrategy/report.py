@@ -175,6 +175,8 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     semantic_models_emitted: int = 0
     semantic_model_datasets_emitted: int = 0
     semantic_model_metrics_emitted: int = 0
+    # Catalog metrics left out by semantic_model_metric_scope=referenced.
+    semantic_model_metrics_out_of_scope: int = 0
     semantic_model_relationships_emitted: int = 0
     semantic_model_attribute_relationship_api_failures: int = 0
     semantic_model_consolidation_api_failures: int = 0

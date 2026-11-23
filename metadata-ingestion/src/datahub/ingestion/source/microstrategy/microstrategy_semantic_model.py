@@ -85,7 +85,7 @@ class _MetricProgress:
         report: MicroStrategyReport,
     ) -> None:
         self._project_id = project_id
-        self._total = total
+        self.total = total
         self._every_seconds = every_seconds
         self._report = report
         self._started = time.perf_counter()
@@ -109,7 +109,7 @@ class _MetricProgress:
             "Semantic model metrics: %d/%d in %.0fs, %d failed; peak RSS %s MB "
             "(project=%s)",
             self.done,
-            self._total,
+            self.total,
             self._last_logged - self._started,
             self.failed,
             self._report.peak_rss_mb,
@@ -171,7 +171,11 @@ class MicroStrategySemanticModelMapper:
         model_tables: List[Dict[str, object]],
         warehouse_context: Optional[WarehouseLineageContext],
         project_container_key: ContainerKey,
+        referenced_object_ids: Optional[Set[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        """`referenced_object_ids` limits the metrics to those ids and the
+        metrics they are built from (semantic_model_metric_scope=referenced);
+        None emits every catalog metric."""
         model_urn = str(
             SemanticModelUrn(
                 platform=MICROSTRATEGY_PLATFORM,
@@ -223,6 +227,7 @@ class MicroStrategySemanticModelMapper:
             fact_table_aliases=fact_table_aliases,
             attribute_table_aliases=attribute_table_aliases,
             alias_to_dataset=alias_to_dataset,
+            referenced_object_ids=referenced_object_ids,
         ):
             yield from metric.as_workunits()
             metrics_emitted += 1
@@ -629,6 +634,7 @@ class MicroStrategySemanticModelMapper:
         fact_table_aliases: Dict[str, Set[str]],
         attribute_table_aliases: Dict[str, Set[str]],
         alias_to_dataset: Dict[str, SemanticModelDataset],
+        referenced_object_ids: Optional[Set[str]] = None,
     ) -> Iterable[Metric]:
         consolidation_cache: Dict[str, List[str]] = {}
         try:
@@ -650,15 +656,32 @@ class MicroStrategySemanticModelMapper:
                 exc=error,
             )
             return
+        # Metrics in catalog order; with a reference scope, only the metrics
+        # the ingested datasets use, then (appended as their definitions are
+        # read) the metrics those are built from.
+        by_id = {
+            normalize_object_id(metric_object.id): metric_object
+            for metric_object in metric_objects
+        }
+        if referenced_object_ids is None:
+            queue = list(by_id)
+        else:
+            queue = [
+                metric_id for metric_id in by_id if metric_id in referenced_object_ids
+            ]
+        queued: Set[str] = set(queue)
         progress = _MetricProgress(
             project_id=project_id,
-            total=len(metric_objects),
+            total=len(queue),
             every_seconds=self.config.progress_log_interval_seconds,
             report=self.report,
         )
-        for metric_object in metric_objects:
+        position = 0
+        while position < len(queue):
+            metric_id = queue[position]
+            position += 1
+            metric_object = by_id[metric_id]
             progress.step()
-            metric_id = normalize_object_id(metric_object.id)
             try:
                 model = self.client.get_metric_model(project_id, metric_object.id)
             except MicroStrategyAPIError as error:
@@ -702,6 +725,13 @@ class MicroStrategySemanticModelMapper:
                 )
                 for referenced_metric_id in metric_metric_ids_from_model(model)
             ]
+            if referenced_object_ids is not None:
+                for referenced_metric_id in metric_metric_ids_from_model(model):
+                    dependency = normalize_object_id(referenced_metric_id)
+                    if dependency in by_id and dependency not in queued:
+                        queued.add(dependency)
+                        queue.append(dependency)
+                        progress.total += 1
 
             model_expression = model.get("expression")
             expression_text = _optional_str(
@@ -730,6 +760,8 @@ class MicroStrategySemanticModelMapper:
                 derived_from=derived_from,
             )
         progress.log()
+        if referenced_object_ids is not None:
+            self.report.semantic_model_metrics_out_of_scope += len(by_id) - len(queue)
 
     def _resolve_consolidation(
         self,

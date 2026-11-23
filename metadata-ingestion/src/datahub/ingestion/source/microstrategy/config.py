@@ -519,6 +519,18 @@ class MicroStrategyConfig(
             "MicroStrategy modeling APIs."
         ),
     )
+    semantic_model_metric_scope: Literal["all", "referenced"] = Field(
+        default="all",
+        description=(
+            "Which catalog metrics the semantic model emits when "
+            "`emit_semantic_model_entities` is on. `all` emits every metric in "
+            "the project. `referenced` emits only the metrics that a dataset "
+            "ingested this run uses, plus every metric those metrics are built "
+            "from, so the semantic model follows the dashboard and report "
+            "scope instead of the whole project catalog. `referenced` also "
+            "fetches only those metrics' definitions."
+        ),
+    )
     tag_measures_and_dimensions: bool = Field(
         default=True,
         description=(
