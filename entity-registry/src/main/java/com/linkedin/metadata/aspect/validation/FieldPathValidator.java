@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -21,9 +22,14 @@ import com.linkedin.schema.SchemaMetadata;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonValue;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -73,7 +79,49 @@ public class FieldPathValidator extends AspectPayloadValidator {
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
-    return Stream.of();
+    // A PATCH carries only its delta at proposal time, and a schemaMetadata patch can append or
+    // rewrite a field by array index, so the patched result is checked here. Only violations the
+    // patch introduced are reported: stored bad data must not block unrelated patches.
+    ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
+    changeMCPs.stream()
+        .filter(PatchOperationUtils::isAppliedPatch)
+        .forEach(
+            item -> {
+              Set<String> before =
+                  violations(item.getAspectName(), item.getPreviousRecordTemplate());
+              violations(item.getAspectName(), item.getRecordTemplate()).stream()
+                  .filter(violation -> !before.contains(violation))
+                  .forEach(violation -> exceptions.addException(item, violation));
+            });
+    return exceptions.streamAllExceptions();
+  }
+
+  /** Empty and duplicated field paths of a stored or patched aspect, as messages. */
+  private static Set<String> violations(String aspectName, @Nullable RecordTemplate aspect) {
+    if (aspect == null) {
+      return Set.of();
+    }
+    final boolean isSchemaMetadata = SCHEMA_METADATA_ASPECT_NAME.equals(aspectName);
+    final List<String> fieldPaths =
+        isSchemaMetadata
+            ? new SchemaMetadata(aspect.data())
+                .getFields().stream().map(SchemaField::getFieldPath).collect(Collectors.toList())
+            : new EditableSchemaMetadata(aspect.data())
+                .getEditableSchemaFieldInfo().stream()
+                    .map(EditableSchemaFieldInfo::getFieldPath)
+                    .collect(Collectors.toList());
+    final Set<String> seen = new HashSet<>();
+    final Set<String> violations = new HashSet<>();
+    for (String fieldPath : fieldPaths) {
+      validateFieldPath(fieldPath).ifPresent(violations::add);
+      if (!seen.add(fieldPath)) {
+        violations.add(
+            String.format(
+                "%s aspect has duplicated field path %s",
+                isSchemaMetadata ? "SchemaMetadata" : "EditableSchemaMetadata", fieldPath));
+      }
+    }
+    return violations;
   }
 
   /**
