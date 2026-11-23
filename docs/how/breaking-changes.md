@@ -15,6 +15,10 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Elasticsearch source rejects username/password together with api_key
+
+The `elasticsearch` source now fails config validation when a recipe sets `api_key` together with `username` or `password` ([PR #20355](https://github.com/datahub-project/datahub/pull/20355)). Both were sent as `Authorization` headers before, and which one the cluster used was undefined. Keep only the method you rely on.
+
 ### sql-queries source moved into a package
 
 The `sql-queries` source is now the package `datahub.ingestion.source.sql_queries` ([PR #20345](https://github.com/datahub-project/datahub/pull/20345)). Recipes are unchanged. Python code that imports from the old module must use the new paths, for example `datahub.ingestion.source.sql_queries.source.SqlQueriesSource` and `datahub.ingestion.source.sql_queries.config.SqlQueriesSourceConfig`. The report failures `Local file read error` and `S3 read error` are now both titled `Query file open error`; update any alerting that matches the old titles. A run where more query entries fail to parse than succeed now reports a `Most entries failed to parse` failure, so the run fails instead of finishing with per-entry warnings; fix or remove the malformed entries.
