@@ -102,7 +102,7 @@ A Location is folded only when a path spec with `{table}` matches it; without a 
 
 `datalake_lineage_config` is the shared data lake lineage model, but Glue only applies it to S3 table Locations: `strip_urls` has no effect, and a path spec for another storage scheme is warned about at startup and never matches. Tables whose Location is not an S3 URI emit no storage lineage and are counted in the report.
 
-Known gap: if the S3 recipe sets `convert_urns_to_lowercase: true`, the S3 dataset names are lowercased and Glue has no equivalent option, so a bucket or folder with upper-case characters will not match.
+Keep `convert_urns_to_lowercase` at its default of `false` in the S3 recipe. When it is `true` the S3 dataset names are lowercased and Glue has no equivalent option, so a bucket or folder with upper-case characters will not match.
 
 #### Compatibility
 
