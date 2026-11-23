@@ -580,10 +580,10 @@ task generateQuickstartComposeConfig {
         configOutput = configOutput.replace('__SIGNING_KEY__', '${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}')
         configOutput = configOutput.replace('__SALT__', '${DATAHUB_TOKEN_SERVICE_SALT}')
         configOutput = configOutput.replace('__SYSTEM_CLIENT_SECRET__', '${DATAHUB_SYSTEM_CLIENT_SECRET:-JohnSnowKnowsNothing}')
+        configOutput = configOutput.replace(System.getenv('HOME'), '${HOME}')
         configOutput = configOutput.replace('__AI_MCP_ENABLED__', '${DATAHUB_AI_MCP_ENABLED:-true}')
         configOutput = configOutput.replace('__MCP_SERVER_ENABLED__', '${MCP_SERVER_ENABLED:-false}')
         configOutput = configOutput.replace('__AI_IMAGE__', '${DATAHUB_AI_IMAGE:-acryldata/datahub-ai-service}')
-        configOutput = configOutput.replace(System.getenv('HOME'), '${HOME}')
 
         // Parse configOutput as yaml and add UI_INGESTION_DEFAULT_CLI_VERSION as an env var under datahub-gms-quickstart.environment key
         // This needs to be matched with the version of the CLI used to launch quickstart
