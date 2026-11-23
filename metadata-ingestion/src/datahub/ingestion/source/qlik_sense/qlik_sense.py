@@ -284,6 +284,13 @@ class _BinaryLink(BaseModel):
     script_fields: List[FineGrainedLineage] = []
 
 
+class _ParsedApp(BaseModel):
+    """The last app whose script was parsed, with the parse."""
+
+    app: App
+    parsed: ParsedScript
+
+
 class _BinaryLoad(BaseModel):
     """The tables an on-prem app's BINARY statement brings in, by identifier,
     the app file, by URN, when it is linked to the file, and the tables linked
@@ -440,7 +447,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._app_urns: Dict[str, Set[str]] = {}
         self._app_model_fields: Dict[str, Dict[str, List[str]]] = {}
         self._binary_links: List[_BinaryLink] = []
-        self._last_parsed: Optional[Tuple[App, ParsedScript]] = None
+        self._last_parsed: Optional[_ParsedApp] = None
         # The data model fields of the app being emitted, by table identifier.
         self._data_model_fields: Dict[str, List[QlikDatasetSchemaField]] = {}
         # Datasets and the app table QRIs stored into them, linked once every
@@ -1597,14 +1604,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _parsed_script(self, app: App) -> ParsedScript:
         # Parsed before an on-prem app's read is checked and again when it is
         # emitted, so the last parse is kept.
-        if self._last_parsed is not None and self._last_parsed[0] is app:
-            return self._last_parsed[1]
+        if self._last_parsed is not None and self._last_parsed.app is app:
+            return self._last_parsed.parsed
         parsed = (
             parse_script(app.script, self._app_variables(app))
             if app.script
             else ParsedScript()
         )
-        self._last_parsed = (app, parsed)
+        self._last_parsed = _ParsedApp(app=app, parsed=parsed)
         return parsed
 
     def _build_script_tables(
@@ -2967,11 +2974,29 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         on_prem = self.config.on_prem
         assert on_prem is not None
         # Only for the apps BINARY loads come from, as the checkpoint keeps them.
-        if app.id in on_prem.binary_file_to_app.values() and app.data_model_tables:
+        if app.id not in on_prem.binary_file_to_app.values():
+            return
+        if app.data_model_tables:
             self._app_model_fields[app.id] = {
                 table.name.lower(): [field.name for field in table.fields]
                 for table in app.data_model_tables
             }
+            return
+        if not app.data_load_failed:
+            return
+        # Its fields from its last read, so BINARY loads from it keep their
+        # column lineage while its data model can't be read.
+        failures: List[str] = []
+        previous = self._usable_checkpoint(app.id, failures)
+        for failure in failures:
+            self.reporter.warning(
+                title="Unable to load the last checkpoint of a Qlik app",
+                message="The data model fields of an app BINARY loads come from "
+                "are not known, so lineage to its tables is only added to.",
+                context=failure,
+            )
+        if previous is not None and previous.data_model_fields is not None:
+            self._app_model_fields[app.id] = previous.data_model_fields
 
     def _binary_source_app(
         self, file: QvdReference, resolved: Optional[str]
@@ -3100,27 +3125,39 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             return None
         return source_urn
 
+    def _patch_binary_upstreams(
+        self, link: _BinaryLink, source_urn: Optional[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        upstreams = [
+            Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
+            for urn in link.upstream_urns
+        ]
+        if source_urn is not None:
+            upstreams.append(Upstream(dataset=source_urn, type=DatasetLineageType.COPY))
+        fine_grained = self._column_lineage(link.script_fields)
+        if not upstreams and not fine_grained:
+            return
+        yield convert_upstream_lineage_to_patch(
+            link.dataset_urn,
+            UpstreamLineage(upstreams=upstreams, fineGrainedLineages=fine_grained),
+            None,
+        )
+
     def _gen_binary_lineage(self) -> Iterable[MetadataWorkUnit]:
         """Lineage of the tables an app BINARY loads from another app, written
-        once every app has been read. Without the source app's table, the
-        table's own lineage is only added to, so the edge an earlier run wrote
-        stays."""
+        once every app has been read. Without the source app's table or its
+        fields, the table's own lineage is only added to, so the edges an
+        earlier run wrote stay."""
         unread: Set[Tuple[str, str]] = set()
         for link in self._binary_links:
             source_urn = self._binary_link_source(link, unread)
-            if source_urn is None:
-                yield from self._patch_upstreams(
-                    link.dataset_urn,
-                    link.upstream_urns,
-                    DatasetLineageType.TRANSFORMED,
-                    self._column_lineage(link.script_fields),
-                )
+            source_model = self._app_model_fields.get(link.source_app_id)
+            if source_urn is None or source_model is None:
+                # Without the source app's fields, the column edges an earlier
+                # run wrote stay.
+                yield from self._patch_binary_upstreams(link, source_urn)
                 continue
-            source_fields = set(
-                self._app_model_fields.get(link.source_app_id, {}).get(
-                    link.table.lower(), []
-                )
-            )
+            source_fields = set(source_model.get(link.table.lower(), []))
             fine_grained = [
                 *link.script_fields,
                 *(

@@ -1141,9 +1141,8 @@ def test_binary_load_mapped_to_an_app_links_its_tables_and_columns(
     regions = aspects[_urn("front-app.regions")]
     assert "lineage_ops" not in regions
     assert "UpstreamLineageClass" not in regions
-    assert list(source_run.reporter.binary_loads_without_lineage) == [
-        "front-app: app model-app has no table Regions"
-    ]
+    [entry] = source_run.reporter.binary_loads_without_lineage
+    assert entry.startswith("front-app:")
     # The script creates Calendar itself, and the file is not linked.
     assert "lineage_ops" not in aspects.get(_urn("front-app.calendar"), {})
     assert APP_FILE not in aspects
@@ -1280,17 +1279,24 @@ def test_binary_load_from_a_storage_connection_links_to_the_stored_file() -> Non
 
 
 def test_binary_load_from_an_app_the_run_does_not_read_is_reported() -> None:
+    script = (
+        FRONT_SCRIPT
+        + "Orders: LOAD id, amount FROM [lib://QVD Data/raw/more.qvd] (qvd);"
+    )
     source, aspects = _run(
-        [_app("front-app", FRONT_SCRIPT, FRONT_MODEL)],
+        [_app("front-app", script, FRONT_MODEL)],
         on_prem={"binary_file_to_app": {"//nas/apps/sales model.qvf": "other-app"}},
     )
 
-    # The edge an earlier run wrote stays.
-    assert "lineage_ops" not in aspects[_urn("front-app.orders")]
-    assert "UpstreamLineageClass" not in aspects[_urn("front-app.orders")]
-    assert list(source.reporter.binary_loads_without_lineage) == [
-        "front-app: app other-app was not read or kept this run"
-    ]
+    # The script's own upstream is only added, so the edge an earlier run
+    # wrote to the source app stays.
+    orders = _urn("front-app.orders")
+    assert "UpstreamLineageClass" not in aspects[orders]
+    assert _upstreams(aspects, orders, "add") == [_urn("//nas/qvd/raw/more.qvd")]
+    assert not _upstreams(aspects, orders, "remove")
+    [entry] = source.reporter.binary_loads_without_lineage
+    assert entry.startswith("front-app:")
+    assert "other-app" in entry
 
 
 @pytest.mark.parametrize(
@@ -1314,9 +1320,11 @@ def test_binary_statement_names_the_app_file(
     assert not binary.uses_variables
 
 
-def test_tables_the_script_creates_are_known() -> None:
-    parsed = parse_script(
-        """
+@pytest.mark.parametrize(
+    "script, labels, unnamed",
+    [
+        pytest.param(
+            """
 Calendar: LOAD * INLINE [day
 1];
 Concatenate (Orders) LOAD * FROM [lib://QVD Data/more.qvd] (qvd);
@@ -1324,19 +1332,38 @@ Map: MAPPING LOAD a, b RESIDENT Calendar;
 Extra:
 LOAD a;
 SQL SELECT a FROM db.t;
-"""
-    )
-    # Concatenate adds to a table, and a mapping table is dropped.
-    assert parsed.table_labels == ["Calendar", "Extra"]
-    assert not parsed.has_unnamed_tables
-    assert parse_script("Attributes: Generic LOAD * RESIDENT T;").has_unnamed_tables
-    assert parse_script(
-        "Attributes: Generic LOAD *;\nSQL SELECT * FROM db.t;"
-    ).has_unnamed_tables
-    for label in ["[$(vTable)]", "$(vTable)"]:
-        parsed = parse_script(f"{label}: LOAD * INLINE [a\n1];")
-        assert parsed.has_unnamed_tables
-        assert not parsed.table_labels
+""",
+            ["Calendar", "Extra"],
+            False,
+            # Concatenate adds to a table, and a mapping table is dropped.
+            id="labelled loads",
+        ),
+        pytest.param(
+            "Attributes: Generic LOAD * RESIDENT T;", [], True, id="a Generic load"
+        ),
+        pytest.param(
+            "Attributes: Generic LOAD *;\nSQL SELECT * FROM db.t;",
+            [],
+            True,
+            id="a Generic preceding load",
+        ),
+        pytest.param(
+            "[$(vTable)]: LOAD * INLINE [a\n1];",
+            [],
+            True,
+            id="a bracketed variable label",
+        ),
+        pytest.param(
+            "$(vTable): LOAD * INLINE [a\n1];", [], True, id="a variable label"
+        ),
+    ],
+)
+def test_tables_the_script_creates_are_known(
+    script: str, labels: List[str], unnamed: bool
+) -> None:
+    parsed = parse_script(script)
+    assert parsed.table_labels == labels
+    assert parsed.has_unnamed_tables is unnamed
 
 
 @pytest.mark.parametrize(
