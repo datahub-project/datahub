@@ -15,6 +15,7 @@ import { liteModePlugin } from './devtools/vite-preview-plugin/liteMode';
 import { authShellPreloadPlugin } from './vite-plugins/authShellPreloadPlugin';
 import { i18nLocaleBundlesPlugin } from './vite-plugins/i18nLocaleBundlesPlugin';
 import { precompressAssetsPlugin } from './vite-plugins/precompressAssetsPlugin';
+import { styledComponentsPurePlugin } from './vite-plugins/styledComponentsPurePlugin';
 
 /* eslint-enable import-alias/import-alias */
 
@@ -209,6 +210,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
             substituteBasePathForDev(),
             assertLazyIconsGenerated(),
             ...devPlugins,
+            styledComponentsPurePlugin(),
             react(),
             federation({
                 name: 'datahub-host',
