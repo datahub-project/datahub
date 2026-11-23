@@ -80,10 +80,10 @@ class QlikAPI(QlikBaseAPI):
             HTTPAdapter(max_retries=retry, pool_maxsize=pool_size),
         )
         self.rest_api_url = f"https://{self.tenant_hostname}/api/v1"
-        # Included scripts by path, None when unreadable. Many apps include the
-        # same file, so each is read once a run.
-        # ponytail: workers may race to read a file twice; harmless, as reads
-        # are idempotent.
+        # Included scripts by the space (or personal app) reading them and the
+        # path, None when unreadable. Many apps include the same file, so each
+        # is read once a run per space, as a path without a space resolves in
+        # the reading app's space.
         self._include_contents: Dict[str, Optional[str]] = {}
         # Test connection by fetching list of api keys
         logger.info(f"Trying to connect to {self.rest_api_url}")
@@ -425,22 +425,30 @@ class QlikAPI(QlikBaseAPI):
         return connections
 
     def _read_include(
-        self, websocket_connection: WebsocketConnection, path: str
+        self, websocket_connection: WebsocketConnection, reader: str, path: str
     ) -> Optional[str]:
         """The script of a file an app includes, read by the Engine as a reload
         reads it. Needs Can view in the space holding the file."""
-        if path not in self._include_contents:
-            try:
-                self._include_contents[path] = (
-                    websocket_connection.websocket_send_request(
-                        method="GetIncludeFileContent", params={"qPath": path}
-                    ).get("qContent")
-                )
-            except Exception as e:
-                logger.debug(f"Unable to read included script {path}: {e}")
-                self._include_contents[path] = None
-                self.include_read_failures.append(path)
-        return self._include_contents[path]
+        key = f"{reader}|{path}"
+        if key in self._include_contents:
+            return self._include_contents[key]
+        try:
+            content = websocket_connection.websocket_send_request(
+                method="GetIncludeFileContent", params={"qPath": path}
+            ).get("qContent")
+        except EngineError as e:
+            self.include_read_failures.append(f"{path}: {e}")
+            self._include_contents[key] = None
+            return None
+        except Exception as e:
+            # Not cached, as a dropped websocket may read it for the next app.
+            self.include_read_failures.append(f"{path}: {e}")
+            return None
+        if not isinstance(content, str):
+            self.include_read_failures.append(f"{path}: no script text returned")
+            content = None
+        self._include_contents[key] = content
+        return content
 
     def _read_lineage_upstreams(self, app: App) -> None:
         if not any(
@@ -499,7 +507,9 @@ class QlikAPI(QlikBaseAPI):
                     app.script = inline_includes(
                         websocket_connection.get_script(),
                         app.variables,
-                        lambda path: self._read_include(websocket_connection, path),
+                        lambda path: self._read_include(
+                            websocket_connection, app.spaceId or app_id, path
+                        ),
                     )
                 except Exception as e:
                     if isinstance(e, EngineError) and e.access_denied:

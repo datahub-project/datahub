@@ -116,7 +116,7 @@ def connect_properties(connect_statement: str) -> Dict[str, str]:
     }
 
 
-def file_connector_platform(connect_statement: str) -> Optional[str]:
+def file_connector_platform(connect_statement: str) -> Optional[FilePlatform]:
     """The DataHub platform of the files a data connection reads, or None
     when it is not an Azure Storage, Amazon S3 or Google Cloud Storage one."""
     connector = FILE_CONNECTORS.get(

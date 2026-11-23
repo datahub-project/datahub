@@ -98,7 +98,7 @@ class QlikBaseAPI(ABC):
         self.field_lineage_failures: List[str] = []
         # Apps opened without their data because opening them with it failed.
         self.opened_without_data: List[str] = []
-        # Scripts apps include that could not be read, by path.
+        # Scripts apps include that could not be read, as path and reason.
         self.include_read_failures: List[str] = []
 
     def _record_failed_user_lookup(self, user_id: str, e: Exception) -> None:

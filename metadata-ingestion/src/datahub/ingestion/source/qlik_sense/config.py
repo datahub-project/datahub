@@ -14,6 +14,7 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import file_storage_of_uri
+from datahub.ingestion.source.qlik_sense.qvd_lineage import canonical_path
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -328,6 +329,29 @@ class QlikOnPremConfig(ConfigModel):
         "`read_data_model`, as the load script doesn't name the tables a "
         "BINARY load brings in.",
     )
+
+    @field_validator("binary_file_to_app")
+    @classmethod
+    def canonical_binary_files(cls, value: Dict[str, str]) -> Dict[str, str]:
+        apps: Dict[str, str] = {}
+        for path, app_id in value.items():
+            canonical = canonical_path(path)
+            if apps.get(canonical, app_id) != app_id:
+                raise ValueError(
+                    f"binary_file_to_app maps {path!r} to more than one app: "
+                    "paths match without regard to case or slash direction"
+                )
+            apps[canonical] = app_id
+        return apps
+
+    @model_validator(mode="after")
+    def warn_unused_binary_file_to_app(self) -> "QlikOnPremConfig":
+        if self.binary_file_to_app and not self.read_data_model:
+            logger.warning(
+                "binary_file_to_app needs read_data_model: the tables a BINARY "
+                "load brings in are only known from the app's data model."
+            )
+        return self
 
     @model_validator(mode="after")
     def warn_unused_server_cert_hostname(self) -> "QlikOnPremConfig":

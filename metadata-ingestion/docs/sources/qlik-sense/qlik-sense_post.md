@@ -71,7 +71,7 @@ Conditions are not evaluated:
 
 - A connection or variable set inside an `IF` or `SWITCH` block is kept after the block only when every branch sets the same value. An `IF` without `ELSE` or a `SWITCH` without `DEFAULT` can run no branch, so the value from before the block must match as well.
 - A `SUB` body is read where the script calls it, with the connection and variables in effect at that `CALL`. A `SUB` that is never called adds no tables. Quoted or numeric arguments of a `CALL` are bound to the `SUB` parameters for that call, and any other argument leaves its parameter unknown.
-- On Qlik Cloud, a script pulled in with `$(Include=...)` or `$(Must_Include=...)` is read into the app's script where it is included, when its path is a `lib://` path that the app's variables expand and the API key's user can view the space that holds it. An included script that is not read leaves the connection unknown after the include. A `CALL` of a `SUB` the script does not define makes the connection and all variables unknown, as an include does. After either, the table loaded last is unknown too, so a `Concatenate` or `Join` without a table name is skipped until another table is loaded.
+- On Qlik Cloud, a script pulled in with `$(Include=...)` or `$(Must_Include=...)` is read into the app's script where it is included, when its path is a `lib://` path that the app's variables expand and the API key's user can view the space that holds it. The app's variables hold the values its last reload left, so an include whose path uses a variable the script sets more than once, or inside an `IF`, `SWITCH`, loop or `SUB`, is not read. An included script that is not read leaves the connection unknown after the include. A `CALL` of a `SUB` the script does not define makes the connection and all variables unknown, as an include does. After either, the table loaded last is unknown too, so a `Concatenate` or `Join` without a table name is skipped until another table is loaded.
 - A `SELECT` that runs while the connection is unknown is skipped.
 - Nothing after an unconditional `EXIT SCRIPT` is read.
 - Rows added with `Concatenate (Table)` or fields added with `Join (Table)` belong to the named table, and without a table name to the table loaded just before.
@@ -180,8 +180,8 @@ This is much slower, about a minute per large app, and reads one app at a time u
 
 A `BINARY` statement loads another app's data model into an app. On Qlik Sense Enterprise it loads from a `.qvf` file, not from an app id ([Qlik help](https://help.qlik.com/en-US/sense/November2025/Subsystems/Hub/Content/Sense_Hub/Scripting/ScriptRegularStatements/Binary.htm)), so the file doesn't say which app it holds. The tables it brings in are the tables of the app's data model that the load script doesn't create itself, so BINARY lineage needs `read_data_model: true`. Each is ingested as an app table and linked upstream:
 
-- to the tables of the same name of the app the file was exported from, when `binary_file_to_app` maps the file to that app's id, with column-level lineage between their fields. Only tables that app ingests are linked, and only when the run reads it or keeps it unchanged. A table the script also loads into under the same name is still linked, unless the script drops it with `DROP TABLE` first.
-- otherwise, to the file itself, a dataset with the `Qlik App File` subtype, named and placed in folders as a QVD is (see [QVD paths](#qvd-paths)). The file's tables are not known here, so a table the script also loads under the same name is not linked. When the script also creates tables it doesn't name, such as an unlabelled `LOAD` or a `Generic` load, or includes another script, the tables the file brings in aren't known, so none are linked; map the file instead.
+- to the tables of the same name of the app the file was exported from, when `binary_file_to_app` maps the file to that app's id, with column-level lineage between their fields. Only tables that app ingests are linked, and only when the run reads it or keeps it unchanged. A table the script also loads into under the same name is still linked, unless the script drops it with `DROP TABLE` first or loads it with a `Replace` prefix, which in a full reload drops the table and loads it again. If the source app isn't read or kept, or doesn't ingest the table, the table's lineage from earlier runs is kept and only added to.
+- otherwise, to the file itself, a dataset with the `Qlik App File` subtype, named and placed in folders as a QVD is (see [QVD paths](#qvd-paths)). The file's tables are not known here, so a table the script also loads under the same name is not linked. When the script also creates tables it doesn't name, such as an unlabelled `LOAD`, a `Generic` load or a table labelled with a variable the connector can't expand (`$(vTable): LOAD ...`), or includes another script, the tables the file brings in aren't known, so none are linked; map the file instead.
 
 ```yaml
 on_prem:
@@ -190,7 +190,7 @@ on_prem:
     "lib://Apps/Sales Model.qvf": "<id of the Sales Model app>"
 ```
 
-A `binary_file_to_app` path matches the path as the script names it, or the file path it resolves to. BINARY loads that get no lineage are listed in `binary_loads_without_lineage` in the report, with the reason.
+A `binary_file_to_app` path matches the path as the script names it, or the file path it resolves to, ignoring case and slash direction. BINARY loads that get no lineage are listed in `binary_loads_without_lineage` in the report, with the reason. When an app's data model can't be loaded, or a BINARY path uses a variable and the app's variables can't be read, the app counts as partly read, so its last read is kept rather than its BINARY tables removed.
 
 #### Chart input fields
 
@@ -259,7 +259,7 @@ Column-level lineage is resolved against the upstream schemas in DataHub at read
 ### Limitations
 
 - On-prem ingestion does not ingest Qlik Cloud datasets or lineage from files on cloud storage connections.
-- Scripts pulled in with `$(Include=...)` or `$(Must_Include=...)` are not read on-prem, nor on Qlik Cloud when the API key's user cannot view the space that holds them (reported as "Unable to read included Qlik scripts"), and neither is a `SUB` the script calls but does not define. Tables, QVDs and files they load have no lineage from the script. On Qlik Cloud, a file in such an app's lineage graph that its own script does not load is only added to the table's lineage, never removed.
+- Scripts pulled in with `$(Include=...)` or `$(Must_Include=...)` are not read on-prem, nor on Qlik Cloud when the API key's user cannot view the space that holds them (reported as "Unable to read included Qlik scripts", with the reason for each file), and neither is a `SUB` the script calls but does not define. Tables, QVDs and files they load have no lineage from the script. On Qlik Cloud, a file in such an app's lineage graph that its own script does not load is only added to the table's lineage, never removed.
 - A table loaded with `RESIDENT` from another script table gets no lineage.
 - A file loaded through a variable that varies as the script runs, as in a `FOR EACH` loop over `FileList(...)`, is not named from the app's last value, so the table's file lineage is only added to.
 - Database tables in Qlik Cloud's lineage graph are not linked, as Qlik identifies them by an opaque hash; their lineage comes from the load script instead.

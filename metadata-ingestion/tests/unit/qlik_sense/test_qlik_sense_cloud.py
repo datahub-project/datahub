@@ -30,6 +30,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     infer_data_connection,
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import (
+    CONNECT_ATTEMPTS,
     EngineError,
     WebsocketConnection,
 )
@@ -329,6 +330,65 @@ def test_denied_load_script_is_a_warning(mock_api_cls: MagicMock) -> None:
     assert [warning.title for warning in source.reporter.warnings] == [
         "Unable to read Qlik app load script"
     ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unread_included_script_is_a_warning(mock_api_cls: MagicMock) -> None:
+    mock_api_cls.return_value.get_spaces.return_value = []
+    mock_api_cls.return_value.unread_items = []
+    mock_api_cls.return_value.failed_user_lookups = {}
+    mock_api_cls.return_value.lineage_read_failures = []
+    mock_api_cls.return_value.field_lineage_failures = []
+    mock_api_cls.return_value.opened_without_data = []
+    mock_api_cls.return_value.include_read_failures = [
+        "lib://Common:DataFiles/x.qvs: Access denied"
+    ]
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-cloud"),
+    )
+
+    list(source.get_workunits_internal())
+
+    assert "Unable to read included Qlik scripts" in [
+        warning.title for warning in source.reporter.warnings
+    ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_app_script_holds_the_scripts_it_includes(
+    mock_session_cls: MagicMock,
+    mock_websocket_cls: MagicMock,
+    mock_app_cls: MagicMock,
+) -> None:
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    app = _cloud_app()
+    mock_app_cls.model_validate.return_value = app
+    included = "Rates: LOAD * FROM [lib://Common:Lake/rates.csv];"
+
+    def engine_reply(method: str, params: object = None) -> Dict:
+        if method == "GetIncludeFileContent":
+            assert params == {"qPath": "lib://Common:DataFiles/x.qvs"}
+            return {"qContent": included}
+        return {"qLayout": {}}
+
+    engine = mock_websocket_cls.for_cloud.return_value
+    engine.websocket_send_request.side_effect = engine_reply
+    engine.get_script.return_value = "$(Include=lib://$(vCommon)DataFiles/x.qvs);"
+    with (
+        patch.object(api, "_get_app_sheets", return_value=[]),
+        patch.object(api, "_get_app_used_tables", return_value=[]),
+        patch.object(api, "get_table_lineage", return_value=[]),
+        patch.object(api, "_read_data_model", return_value=[]),
+        patch.object(api, "_read_variables", return_value={"vCommon": "'Common:'"}),
+    ):
+        api._get_app("app-1")
+
+    assert app.script is not None and included in app.script
+    assert "Include" not in app.script
+    assert api.include_read_failures == []
 
 
 def _data_connection(name: str, space: str, datasource: str) -> Dict[str, str]:
@@ -883,6 +943,19 @@ def test_engine_connection_is_retried_only_on_transient_errors(
         with pytest.raises(ssl.SSLCertVerificationError):
             WebsocketConnection.for_cloud("tenant.example.com", "key", "app-1")
         assert mock_connect.call_count == 1
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.sleep")
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refused_cloud_engine_connection_stops_after_the_attempt_limit(
+    mock_connect: MagicMock, mock_sleep: MagicMock
+) -> None:
+    mock_connect.side_effect = ConnectionRefusedError()
+
+    with pytest.raises(ConnectionRefusedError):
+        WebsocketConnection.for_cloud("tenant.example.com", "key", "app-1")
+
+    assert mock_connect.call_count == CONNECT_ATTEMPTS
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")

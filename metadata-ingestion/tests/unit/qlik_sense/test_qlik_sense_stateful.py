@@ -16,6 +16,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     Sheet,
     Space,
 )
+from datahub.ingestion.source.qlik_sense.file_lineage import qri_part_id
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     auto_stale_entity_removal,
@@ -176,7 +177,12 @@ def test_qrs_failure_does_not_soft_delete(
 UNLISTED_QVD = "qri:qdf:space://Unlisted#PricesQvd"
 
 
-def _cloud_app(read_errors: List[str], loads_unlisted_qvd: bool = False) -> App:
+def _cloud_app(
+    read_errors: List[str],
+    script: str = "",
+    lineage_tables: Optional[List[LineageTable]] = None,
+    loads_unlisted_qvd: bool = False,
+) -> App:
     app = App.model_validate(
         {
             "id": "app-1",
@@ -186,6 +192,8 @@ def _cloud_app(read_errors: List[str], loads_unlisted_qvd: bool = False) -> App:
             "createdDate": "2024-01-09T18:05:36.000Z",
             "modifiedDate": "2024-01-09T18:05:36.000Z",
             "spaceId": "space-1",
+            "script": script,
+            "lineage_tables": lineage_tables or [],
         }
     )
     if not read_errors:
@@ -219,6 +227,8 @@ def _cloud_run(
     graph: MagicMock,
     run_id: str,
     read_errors: List[str],
+    script: str = "",
+    lineage_tables: Optional[List[LineageTable]] = None,
     loads_unlisted_qvd: bool = False,
 ) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
     with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI") as api_cls:
@@ -233,8 +243,11 @@ def _cloud_run(
                 }
             )
         ]
-        api.get_items.return_value = [_cloud_app(read_errors, loads_unlisted_qvd)]
+        api.get_items.return_value = [
+            _cloud_app(read_errors, script, lineage_tables, loads_unlisted_qvd)
+        ]
         api.list_datasets.return_value = []
+        api.get_data_connections.return_value = {}
         api.unread_items = []
         api.failed_user_lookups = {}
         api.change_check_failures = []
@@ -299,4 +312,30 @@ def test_graph_named_dataset_is_kept_with_a_partly_read_app(
     prices = make_dataset_urn("qlik-sense", UNLISTED_QVD.lower())
     assert prices in {wu.get_urn() for wu in first_wus}
     assert prices not in {wu.get_urn() for wu in second_wus}
+    assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
+
+
+def test_cloud_partly_read_app_keeps_the_connection_named_file_it_loads(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    script = "Orders:\nLOAD * FROM [lib://Finance:Lake/landing/orders.csv] (txt);\n"
+    file_qri = (
+        f"qri:file:adls://{qri_part_id('lake')}"
+        f"#{qri_part_id('landing/orders.csv')}#{qri_part_id('item')}"
+    )
+    orders = [
+        LineageTable(
+            qri="qri:app:sense://app-1#Orders", label="Orders", source_qris=[file_qri]
+        )
+    ]
+    _, first_wus = _cloud_run(mock_datahub_graph, "run-1", [], script, orders)
+    _, second_wus = _cloud_run(
+        mock_datahub_graph, "run-2", ["Unable to fetch sheets"], script, orders
+    )
+
+    # Only an upstream of the app's table, so its dataset is emitted at the
+    # end of the run rather than with the app.
+    csv = make_dataset_urn("qlik-sense", "finance:lake/landing/orders.csv")
+    assert csv in {wu.get_urn() for wu in first_wus}
+    assert csv not in {wu.get_urn() for wu in second_wus}
     assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
