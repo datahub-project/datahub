@@ -1,9 +1,9 @@
-import React, { Suspense, useCallback, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Route, Switch } from 'react-router-dom';
 
 import MarketplaceSidebar from '@app/marketplace/MarketplaceSidebar';
 import { MarketplaceEntityContextProvider } from '@app/marketplace/context/MarketplaceEntityContext';
-import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
+import { RouteSuspense } from '@app/sharedV2/NavigationTransitions';
 import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import {
     HierarchicalBrowseContentWrapper,
@@ -38,7 +38,7 @@ export default function MarketplaceRoutes() {
                     onExpandSidebar={expandSidebar}
                 />
                 <HierarchicalBrowseMainContent>
-                    <Suspense fallback={<SuspenseBlock />}>
+                    <RouteSuspense>
                         <Switch>
                             <Route
                                 path={`${PageRoutes.DATA_PRODUCT_ENTITY}/:urn`}
@@ -46,7 +46,7 @@ export default function MarketplaceRoutes() {
                             />
                             <Route path={PageRoutes.MARKETPLACE} render={() => <MarketplacePage />} />
                         </Switch>
-                    </Suspense>
+                    </RouteSuspense>
                 </HierarchicalBrowseMainContent>
             </HierarchicalBrowseContentWrapper>
         </MarketplaceEntityContextProvider>

@@ -1,11 +1,11 @@
-import React, { Suspense, useState } from 'react';
+import React, { useState } from 'react';
 import { Route, Switch } from 'react-router-dom';
 
 import { DomainsContext, UpdatedDomain } from '@app/domainV2/DomainsContext';
 import ManageDomainsSidebar from '@app/domainV2/nestedDomains/ManageDomainsSidebar';
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
-import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
+import { RouteSuspense } from '@app/sharedV2/NavigationTransitions';
 import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import {
     HierarchicalBrowseContentWrapper,
@@ -47,7 +47,7 @@ export default function DomainRoutes() {
             <HierarchicalBrowseContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <ManageDomainsSidebar />
                 <HierarchicalBrowseMainContent>
-                    <Suspense fallback={<SuspenseBlock />}>
+                    <RouteSuspense>
                         <Switch>
                             <EntitySidebarContext.Provider
                                 value={{
@@ -64,7 +64,7 @@ export default function DomainRoutes() {
                                 <Route path={PageRoutes.DOMAINS} render={() => <ManageDomainsPageV2 />} />
                             </EntitySidebarContext.Provider>
                         </Switch>
-                    </Suspense>
+                    </RouteSuspense>
                 </HierarchicalBrowseMainContent>
             </HierarchicalBrowseContentWrapper>
         </DomainsContext.Provider>

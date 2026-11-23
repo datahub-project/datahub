@@ -1,8 +1,8 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { Route, Switch } from 'react-router-dom';
 
 import { IngestionContextProvider } from '@app/ingestV2/IngestionContext';
-import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
+import { RouteSuspense } from '@app/sharedV2/NavigationTransitions';
 import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import { PageRoutes } from '@conf/Global';
 
@@ -20,14 +20,14 @@ const IngestionSourceUpdatePage = lazyNamed(
 export default function IngestionRoutes() {
     return (
         <IngestionContextProvider>
-            <Suspense fallback={<SuspenseBlock />}>
+            <RouteSuspense>
                 <Switch>
                     <Route path={PageRoutes.INGESTION_CREATE} render={() => <IngestionSourceCreatePage />} />
                     <Route path={PageRoutes.INGESTION_UPDATE} render={() => <IngestionSourceUpdatePage />} />
                     <Route path={PageRoutes.INGESTION_RUN_DETAILS} render={() => <IngestionRunDetailsPage />} />
                     <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                 </Switch>
-            </Suspense>
+            </RouteSuspense>
         </IngestionContextProvider>
     );
 }

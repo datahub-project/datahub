@@ -1,11 +1,11 @@
-import React, { JSX, Suspense } from 'react';
+import React, { JSX } from 'react';
 import { Redirect, Route, Switch, useLocation } from 'react-router-dom';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { SearchablePage as SearchablePageV2 } from '@app/searchV2/SearchablePage';
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
+import { RouteSuspense } from '@app/sharedV2/NavigationTransitions';
 import { NoPageFound } from '@app/sharedV2/NoPageFound';
-import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
 import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import {
     useAppConfig,
@@ -89,7 +89,7 @@ export const SearchRoutes = (): JSX.Element => {
     return (
         <SearchablePageV2>
             <ErrorBoundary resetKeys={[location.pathname]}>
-                <Suspense fallback={<SuspenseBlock />}>
+                <RouteSuspense>
                     <Switch>
                         {/* Context Documents routes - must be before entity routes */}
                         {isContextDocumentsEnabled && (
@@ -175,7 +175,7 @@ export const SearchRoutes = (): JSX.Element => {
                         <Route path="/mfe*" component={MFERoutes} />
                         {me.loaded && loaded && <Route component={NoPageFound} />}
                     </Switch>
-                </Suspense>
+                </RouteSuspense>
             </ErrorBoundary>
         </SearchablePageV2>
     );

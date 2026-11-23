@@ -127,7 +127,11 @@ export function useInfiniteScroll<T>({
     // another fetch — just reset state and let the scroll observer or explicit
     // calls trigger the next load. This prevents loading from being set true
     // immediately after a reset.
+    // Only on a real change: StrictMode re-runs mount effects, which would drop the first page.
+    const lastResetTriggerRef = useRef(resetTrigger);
     useEffect(() => {
+        if (lastResetTriggerRef.current === resetTrigger) return;
+        lastResetTriggerRef.current = resetTrigger;
         wasLoadingBeforeResetRef.current = loadingRef.current;
         generationRef.current += 1;
         setItems([]);

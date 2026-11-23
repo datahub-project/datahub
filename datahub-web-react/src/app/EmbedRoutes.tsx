@@ -1,7 +1,7 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { Route } from 'react-router-dom';
 
-import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
+import { RouteSuspense } from '@app/sharedV2/NavigationTransitions';
 import { lazyDefault } from '@app/sharedV2/lazyPage';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
@@ -13,7 +13,7 @@ export default function EmbedRoutes() {
     const entityRegistry = useEntityRegistry();
 
     return (
-        <Suspense fallback={<SuspenseBlock />}>
+        <RouteSuspense>
             <Route exact path={PageRoutes.EMBED_LOOKUP} render={() => <EmbedLookup />} />
             {entityRegistry.getEntities().map((entity) => (
                 <Route
@@ -22,6 +22,6 @@ export default function EmbedRoutes() {
                     render={() => <EmbeddedPage entityType={entity.type} />}
                 />
             ))}
-        </Suspense>
+        </RouteSuspense>
     );
 }

@@ -1,9 +1,9 @@
-import React, { Suspense, useCallback, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Route, Switch } from 'react-router-dom';
 
 import MetricsSidebar from '@app/metrics/MetricsSidebar';
 import { MetricsEntityContextProvider } from '@app/metrics/context/MetricsEntityContext';
-import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
+import { RouteSuspense } from '@app/sharedV2/NavigationTransitions';
 import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import {
     HierarchicalBrowseContentWrapper,
@@ -38,7 +38,7 @@ export default function MetricsRoutes() {
                     onExpandSidebar={expandSidebar}
                 />
                 <HierarchicalBrowseMainContent>
-                    <Suspense fallback={<SuspenseBlock />}>
+                    <RouteSuspense>
                         <Switch>
                             <Route
                                 path={`${PageRoutes.METRIC_ENTITY}/:urn`}
@@ -50,7 +50,7 @@ export default function MetricsRoutes() {
                             />
                             <Route path={PageRoutes.METRICS} render={() => <MetricsPage />} />
                         </Switch>
-                    </Suspense>
+                    </RouteSuspense>
                 </HierarchicalBrowseMainContent>
             </HierarchicalBrowseContentWrapper>
         </MetricsEntityContextProvider>

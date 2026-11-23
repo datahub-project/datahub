@@ -145,10 +145,8 @@ const MEMO_TYPE = Symbol.for('react.memo');
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 /**
- * Whether cloning `ref` onto this element can reach a DOM node. Plain function components drop
- * the ref (and React warns), class components hand back the instance; either way the overlay
- * would have nothing to anchor to and render at the page origin. antd used `findDOMNode` for
- * these; here they get a layout-neutral wrapper to anchor on instead.
+ * Whether cloning `ref` onto this element reaches a DOM node. Function components get it as a prop
+ * most don't attach, and class components return the instance; those get a layout-neutral wrapper.
  */
 function acceptsDomRef(type: ReactElement['type']): boolean {
     if (typeof type === 'string') return true;

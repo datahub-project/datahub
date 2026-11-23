@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -42,10 +42,12 @@ export const Switch = ({
     const { t } = useTranslation('alchemy');
     const label = labelProp ?? t('switch.label');
     const [checked, setChecked] = useState(isChecked);
-
-    useEffect(() => {
+    // Sync during render, like Checkbox; an effect leaves one stale render
+    const [syncedIsChecked, setSyncedIsChecked] = useState(isChecked);
+    if (isChecked !== syncedIsChecked) {
+        setSyncedIsChecked(isChecked);
         setChecked(isChecked);
-    }, [isChecked]);
+    }
 
     const id = props.id || `switchToggle-${label}`;
 

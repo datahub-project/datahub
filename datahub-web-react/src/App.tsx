@@ -17,6 +17,7 @@ import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appCo
 import { injectGlobalSearchVariables } from '@app/appConfig/injectedOperationVariables';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/sharedV2/FilesUploadingDownloadingLatencyTracker';
+import { NavigationTransitions } from '@app/sharedV2/NavigationTransitions';
 import { SuspenseGlobal } from '@app/sharedV2/SuspenseGlobal';
 import { ErrorCodes } from '@app/sharedV2/constants';
 import { loadIsDarkMode } from '@app/theme/useIsDarkMode';
@@ -148,9 +149,11 @@ export const InnerApp: React.FC = () => {
                         <title>{useCustomTheme().theme?.content?.title}</title>
                     </Helmet>
                     <Router basename={getRuntimeBasePath()}>
-                        <Suspense fallback={<SuspenseGlobal />}>
-                            <Routes />
-                        </Suspense>
+                        <NavigationTransitions>
+                            <Suspense fallback={<SuspenseGlobal />}>
+                                <Routes />
+                            </Suspense>
+                        </NavigationTransitions>
                     </Router>
                 </CustomThemeProvider>
             </HelmetProvider>
