@@ -984,7 +984,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         url = git_ref.get_url_for_file_path(quote(path, safe="/"))
         # Every link with the label is managed here. Empty without a DataHub
         # connection: add only, stale links stay.
-        existing_urls = {link.url for link in self._existing_git_links(explore_urn)}
+        existing_urls = self._existing_git_link_urls(explore_urn)
         patch = HasInstitutionalMemoryPatch(explore_urn)
         for stale_url in sorted(existing_urls - {url}):
             patch.remove_institutional_memory_by_url_and_label(
@@ -1006,17 +1006,15 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             for mcp in patch.build()
         ]
 
-    def _existing_git_links(
-        self, explore_urn: str
-    ) -> List[InstitutionalMemoryMetadataClass]:
+    def _existing_git_link_urls(self, explore_urn: str) -> Set[str]:
         if self.ctx.graph is None:
-            return []
+            return set()
         memory = self.ctx.graph.get_aspect(explore_urn, InstitutionalMemoryClass)
-        return [
-            link
+        return {
+            link.url
             for link in (memory.elements if memory else [])
             if link.description == EXPLORE_GIT_LINK_LABEL
-        ]
+        }
 
     def _get_project_git_ref(self, project_name: str) -> Optional[GitReference]:
         # Failures (None) are cached too, so each project is fetched and warned about once.
@@ -1032,7 +1030,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         except (SDKError, DeserializeError) as e:
             self.reporter.warning(
                 title="Failed to fetch Looker project",
-                message="Explores in this project get no Git link. The API key may lack permission to read project settings.",
+                message="Explores in this project get no new or updated Git link; existing links are left unchanged. The API key may lack permission to read project settings.",
                 context=project_name,
                 exc=e,
             )
@@ -1040,7 +1038,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         if not project.git_remote_url:
             self.reporter.warning(
                 title="Looker project has no Git remote",
-                message="Explores in this project get no Git link.",
+                message="Explores in this project get no new or updated Git link; existing links are left unchanged.",
                 context=project_name,
             )
             return None
@@ -1049,7 +1047,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             # The remote itself is not echoed: it may carry credentials.
             self.reporter.warning(
                 title="Malformed Git remote for Explore links",
-                message="The project's Git remote is not a URL or user@host:path remote; explores in this project get no Git link.",
+                message="The project's Git remote is not a URL or user@host:path remote; explores in this project get no new or updated Git link; existing links are left unchanged.",
                 context=project_name,
             )
             return None
@@ -1061,7 +1059,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         except ValueError as e:
             self.reporter.warning(
                 title="Unsupported Git host for Explore links",
-                message="Only github.com and gitlab.com remotes are supported; explores in this project get no Git link.",
+                message="Only github.com and gitlab.com remotes are supported; explores in this project get no new or updated Git link; existing links are left unchanged.",
                 context=f"{project_name}: {repo}",
                 exc=e,
             )

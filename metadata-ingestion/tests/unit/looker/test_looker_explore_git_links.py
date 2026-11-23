@@ -27,6 +27,10 @@ REPO = "https://github.com/example-org/lookml"
 ORDERS_URL = f"{REPO}/blob/main/views/sales/orders.view.lkml"
 OLD_URL = f"{REPO}/blob/main/views/old/orders.view.lkml"
 LABEL = "View in Git"
+ORDERS_URN = "urn:li:dataset:(urn:li:dataPlatform:looker,sales.explore.orders,PROD)"
+INVOICES_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:looker,finance.explore.invoices,PROD)"
+)
 INGESTION_STAMP = AuditStampClass(time=0, actor="urn:li:corpuser:__ingestion")
 USER_STAMP = AuditStampClass(time=1700000000000, actor="urn:li:corpuser:jdoe")
 
@@ -81,7 +85,7 @@ def link_patches(source: LookerDashboardSource) -> List[Dict[str, Any]]:
         ):
             assert mcp.changeType == "PATCH"
             assert mcp.aspect is not None
-            patches.append(json.loads(mcp.aspect.value))
+            patches.append({**json.loads(mcp.aspect.value), "entityUrn": mcp.entityUrn})
     return patches
 
 
@@ -139,8 +143,11 @@ def test_first_add(looker_source_factory: SourceFactory) -> None:
         looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True)
     )
     patches = link_patches(source)
-    # Both explores of the fake model ("orders" and "unused") get the link.
-    assert len(patches) == 2
+    # Both explores of the fake model get the link, each on its own Explore.
+    assert sorted(p["entityUrn"] for p in patches) == sorted([ORDERS_URN, INVOICES_URN])
+    graph = source.ctx.graph
+    assert isinstance(graph, mock.MagicMock)
+    graph.get_aspect.assert_any_call(ORDERS_URN, InstitutionalMemoryClass)
     assert ops(patches[0]) == [("add", path_for(ORDERS_URL))]
     assert patches[0]["patch"][0]["value"] == {
         "url": ORDERS_URL,
@@ -148,6 +155,35 @@ def test_first_add(looker_source_factory: SourceFactory) -> None:
         "createStamp": {"time": 0, "actor": "urn:li:corpuser:__ingestion"},
         "settings": {"showInAssetPreview": True},
     }
+
+
+def test_each_project_gets_its_own_repo(looker_source_factory: SourceFactory) -> None:
+    client = client_with(ORDERS_LINK)
+    by_explore = client.lookml_model_explore.side_effect
+
+    def explore_in_own_project(
+        model: str, explore_name: str, fields: Any = None, transport_options: Any = None
+    ) -> LookmlModelExplore:
+        result = by_explore(model, explore_name)
+        result.project_name = "proj" if explore_name == "orders" else "other"
+        return result
+
+    client.lookml_model_explore.side_effect = explore_in_own_project
+    client.project.return_value = None
+    client.project.side_effect = (
+        lambda project_id, fields=None, transport_options=None: Project(
+            git_remote_url=f"git@github.com:example-org/{project_id}.git",
+            git_production_branch_name="main",
+        )
+    )
+    source = with_graph(looker_source_factory(client, extract_explore_git_links=True))
+
+    urls = {p["entityUrn"]: p["patch"][0]["value"]["url"] for p in link_patches(source)}
+    assert urls == {
+        ORDERS_URN: "https://github.com/example-org/proj/blob/main/views/sales/orders.view.lkml",
+        INVOICES_URN: "https://github.com/example-org/other/blob/main/views/sales/orders.view.lkml",
+    }
+    assert client.project.call_count == 2
 
 
 def test_same_url_writes_nothing(looker_source_factory: SourceFactory) -> None:
