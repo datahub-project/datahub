@@ -8,7 +8,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Collection,
     Dict,
     List,
     Mapping,
@@ -677,23 +676,31 @@ class DataHubListener:
     def _emit_mcps(
         self, emitter: Emitter, mcps: List[MetadataChangeProposalWrapper]
     ) -> None:
-        """Emit MCPs in as few requests as the emitter allows.
+        """Emit MCPs in as few requests as each emitter allows.
 
-        The REST emitter sends them as batches; other emitters (Kafka, file,
-        composite) get them one at a time, as before.
+        REST emitters, including those inside a CompositeEmitter, get one
+        ``emit_mcps`` batch. If the batch fails, or for other emitters (Kafka,
+        file), the MCPs are emitted one by one as before, so one rejected MCP
+        does not keep the others from being written.
         """
         import datahub.emitter.rest_emitter
 
-        callback = self._make_emit_callback()
-        if isinstance(emitter, datahub.emitter.rest_emitter.DataHubRestEmitter):
-            try:
-                emitter.emit_mcps(mcps)
-            except Exception as e:
-                callback(e, str(e))
-                raise
-            return
-        for mcp in mcps:
-            emitter.emit(mcp, callback)
+        emitters = (
+            emitter.emitters if isinstance(emitter, CompositeEmitter) else [emitter]
+        )
+        for i, child in enumerate(emitters):
+            # Like CompositeEmitter.emit, report results only for the first emitter.
+            callback = self._make_emit_callback() if i == 0 else None
+            if isinstance(child, datahub.emitter.rest_emitter.DataHubRestEmitter):
+                try:
+                    child.emit_mcps(mcps)
+                    continue
+                except Exception as e:
+                    logger.warning(
+                        f"Batch emit of {len(mcps)} MCPs failed, emitting them one by one: {e}"
+                    )
+            for mcp in mcps:
+                child.emit(mcp, callback)
 
     def _make_emit_callback(self) -> Callable[[Optional[Exception], str], None]:
         def emit_callback(err: Optional[Exception], msg: str) -> None:
@@ -1344,9 +1351,7 @@ class DataHubListener:
         # on worker processes. This means the scheduler's on_dag_run_running never triggers
         # DataFlow emission. By emitting here, we ensure the DataFlow exists before the
         # DataJob references it. DataHub's UPSERT semantics make duplicate emissions safe.
-        # Only this task's Status is sent: every task emits its own when it starts, so
-        # re-sending one per task in the DAG would cost O(tasks) requests per task start.
-        self.on_dag_start(dagrun, task_ids=[task.task_id])
+        self.on_dag_start(dagrun)
 
         # Generate and emit datajob
         # Task type can vary between Airflow versions (MappedOperator from different modules)
@@ -1525,14 +1530,9 @@ class DataHubListener:
             f"DataHub listener finished processing task instance failure for {task_instance.task_id}"
         )
 
-    def on_dag_start(  # type: ignore[no-untyped-def]
-        self, dag_run: "DagRun", task_ids: Optional[Collection[str]] = None
-    ) -> None:
-        """Emit the DataFlow of a DAG run and a Status for its DataJobs.
-
-        :param task_ids: tasks to emit a Status for. ``None`` (the default) emits one
-            for every task in the DAG.
-        """
+    def on_dag_start(self, dag_run: "DagRun") -> None:  # type: ignore[no-untyped-def]
+        # Runs on every task start (see on_task_instance_running), so the MCPs below,
+        # one Status per task in the DAG included, are sent as a batch where possible.
         logger.debug(
             f"DataHub on_dag_start called for dag_id={dag_run.dag_id}, run_id={dag_run.run_id}"
         )
@@ -1566,11 +1566,10 @@ class DataHubListener:
             )
         )
 
-        status_task_ids = (
-            [task.task_id for task in dag.tasks] if task_ids is None else task_ids
-        )
-        for task_id in status_task_ids:
-            task_urn = builder.make_data_job_urn_with_flow(str(dataflow.urn), task_id)
+        for task in dag.tasks:
+            task_urn = builder.make_data_job_urn_with_flow(
+                str(dataflow.urn), task.task_id
+            )
             mcps.append(
                 MetadataChangeProposalWrapper(
                     entityUrn=task_urn, aspect=StatusClass(removed=False)

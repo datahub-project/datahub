@@ -9,6 +9,7 @@ import pytest
 
 import datahub_airflow_plugin.airflow3.datahub_listener as listener_mod
 from datahub.api.entities.datajob import DataFlow
+from datahub.emitter.composite_emitter import CompositeEmitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.metadata.schema_classes import DataFlowInfoClass, StatusClass
@@ -382,10 +383,12 @@ class TestOnStarting:
             DataHubListener.on_starting(stub, TaskRunnerMarker())
 
 
-class TestOnDagStartEmission:
-    """on_dag_start must stay cheap when it runs on every task start."""
+_FLOW_URN = "urn:li:dataFlow:(airflow,my_dag,PROD)"
+_JOB_URNS = [f"urn:li:dataJob:({_FLOW_URN},{t})" for t in ("t1", "t2", "t3")]
 
-    _FLOW_URN = "urn:li:dataFlow:(airflow,my_dag,PROD)"
+
+class TestOnDagStartEmission:
+    """on_dag_start runs on every task start, so it must batch its MCPs."""
 
     def _make_stub(self, emitter: Any) -> Any:
         stub: Any = SimpleNamespace(
@@ -396,27 +399,21 @@ class TestOnDagStartEmission:
         stub._emit_mcps = lambda e, mcps: DataHubListener._emit_mcps(stub, e, mcps)
         return stub
 
-    def _make_dag_run(self, task_ids: List[str]) -> Any:
-        dag = SimpleNamespace(
-            dag_id="my_dag",
-            tasks=[SimpleNamespace(task_id=t) for t in task_ids],
-        )
-        return SimpleNamespace(dag_id="my_dag", run_id="run_1", dag=dag)
-
-    def _run(self, emitter: Any, task_ids: Any = None) -> None:
+    def _run(self, emitter: Any) -> None:
         dataflow = DataFlow(orchestrator="airflow", id="my_dag", env="PROD")
         dataflow.tags = {"tag_a"}
+        dag = SimpleNamespace(
+            dag_id="my_dag",
+            tasks=[SimpleNamespace(task_id=t) for t in ("t1", "t2", "t3")],
+        )
+        dag_run: Any = SimpleNamespace(dag_id="my_dag", run_id="run_1", dag=dag)
         with patch.object(
             listener_mod.AirflowGenerator, "generate_dataflow", return_value=dataflow
         ):
-            DataHubListener.on_dag_start(
-                self._make_stub(emitter),
-                self._make_dag_run(["t1", "t2", "t3"]),
-                task_ids=task_ids,
-            )
+            DataHubListener.on_dag_start(self._make_stub(emitter), dag_run)
 
     @staticmethod
-    def _status_urns(mcps: List[MetadataChangeProposalWrapper]) -> List[str]:
+    def _job_status_urns(mcps: List[MetadataChangeProposalWrapper]) -> List[str]:
         return [
             str(mcp.entityUrn)
             for mcp in mcps
@@ -424,44 +421,47 @@ class TestOnDagStartEmission:
             and str(mcp.entityUrn).startswith("urn:li:dataJob:")
         ]
 
-    def test_rest_emitter_sends_one_batch(self) -> None:
+    def test_rest_emitter_sends_one_batch_with_every_task_status(self) -> None:
         emitter = MagicMock(spec=DataHubRestEmitter)
         self._run(emitter)
 
         emitter.emit_mcps.assert_called_once()
         emitter.emit.assert_not_called()
         mcps = emitter.emit_mcps.call_args.args[0]
-        assert self._status_urns(mcps) == [
-            f"urn:li:dataJob:({self._FLOW_URN},{t})" for t in ("t1", "t2", "t3")
-        ]
-        assert "urn:li:tag:tag_a" in {str(m.entityUrn) for m in mcps}
-
-    def test_task_ids_limit_job_status(self) -> None:
-        emitter = MagicMock(spec=DataHubRestEmitter)
-        self._run(emitter, task_ids=["t2"])
-
-        mcps = emitter.emit_mcps.call_args.args[0]
-        assert self._status_urns(mcps) == [f"urn:li:dataJob:({self._FLOW_URN},t2)"]
+        assert self._job_status_urns(mcps) == _JOB_URNS
+        urns = {str(m.entityUrn) for m in mcps}
+        assert "urn:li:tag:tag_a" in urns
         assert any(
-            isinstance(m.aspect, DataFlowInfoClass)
-            and str(m.entityUrn) == self._FLOW_URN
+            isinstance(m.aspect, DataFlowInfoClass) and str(m.entityUrn) == _FLOW_URN
             for m in mcps
         )
 
     def test_other_emitters_get_mcps_one_by_one(self) -> None:
         emitter = MagicMock(spec=["emit", "flush"])
-        self._run(emitter, task_ids=["t1"])
+        self._run(emitter)
 
         emitted = [c.args[0] for c in emitter.emit.call_args_list]
-        assert self._status_urns(emitted) == [f"urn:li:dataJob:({self._FLOW_URN},t1)"]
+        assert self._job_status_urns(emitted) == _JOB_URNS
 
-    def test_batch_failure_reaches_callback_and_raises(self) -> None:
+    def test_failed_batch_falls_back_to_one_by_one(self) -> None:
         emitter = MagicMock(spec=DataHubRestEmitter)
-        emitter.emit_mcps.side_effect = RuntimeError("gms down")
-        callback = MagicMock()
-        stub = self._make_stub(emitter)
-        stub._make_emit_callback = lambda: callback
+        emitter.emit_mcps.side_effect = RuntimeError("batch rejected")
+        self._run(emitter)
 
-        with pytest.raises(RuntimeError):
-            DataHubListener._emit_mcps(stub, emitter, [MagicMock()])
-        callback.assert_called_once()
+        emitter.emit_mcps.assert_called_once()
+        emitted = [c.args[0] for c in emitter.emit.call_args_list]
+        assert emitted == emitter.emit_mcps.call_args.args[0]
+
+    def test_composite_batches_each_rest_emitter(self) -> None:
+        rest_a = MagicMock(spec=DataHubRestEmitter)
+        rest_b = MagicMock(spec=DataHubRestEmitter)
+        other = MagicMock(spec=["emit", "flush"])
+        self._run(CompositeEmitter([rest_a, rest_b, other]))
+
+        for rest in (rest_a, rest_b):
+            rest.emit_mcps.assert_called_once()
+            rest.emit.assert_not_called()
+        emitted = [c.args[0] for c in other.emit.call_args_list]
+        assert self._job_status_urns(emitted) == _JOB_URNS
+        # Like CompositeEmitter.emit, only the first emitter reports to the callback.
+        assert all(c.args[1] is None for c in other.emit.call_args_list)
