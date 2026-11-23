@@ -30,6 +30,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     infer_data_connection,
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import (
+    CONNECT_ATTEMPTS,
     EngineError,
     WebsocketConnection,
 )
@@ -880,6 +881,19 @@ def test_engine_connection_is_retried_only_on_transient_errors(
         with pytest.raises(ssl.SSLCertVerificationError):
             WebsocketConnection.for_cloud("tenant.example.com", "key", "app-1")
         assert mock_connect.call_count == 1
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.sleep")
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refused_cloud_engine_connection_stops_after_the_attempt_limit(
+    mock_connect: MagicMock, mock_sleep: MagicMock
+) -> None:
+    mock_connect.side_effect = ConnectionRefusedError()
+
+    with pytest.raises(ConnectionRefusedError):
+        WebsocketConnection.for_cloud("tenant.example.com", "key", "app-1")
+
+    assert mock_connect.call_count == CONNECT_ATTEMPTS
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")

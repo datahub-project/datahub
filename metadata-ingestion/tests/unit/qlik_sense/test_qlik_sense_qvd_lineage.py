@@ -825,6 +825,28 @@ def test_prefix_is_not_taken_as_unset_when_the_variables_were_not_read() -> None
 
 
 @pytest.mark.parametrize(
+    "connection, ignored, variables_known",
+    [
+        pytest.param("Lake", ["lake"], True, id="ignored_connection"),
+        pytest.param("$(vPrefix)Lake", [], False, id="prefix_with_variables_unread"),
+    ],
+)
+def test_storage_connection_qvd_takes_no_file_dataset(
+    connection: str, ignored: List[str], variables_known: bool
+) -> None:
+    resolver = QvdPathResolver(
+        folders={},
+        ignored_connections=ignored,
+        folder_aliases={},
+        variables_known=variables_known,
+        storage_urns={"Lake": lambda path: f"file:{path}"},
+    )
+    assert (
+        resolver.storage_urn(QvdReference(connection=connection, path="x.qvd")) is None
+    )
+
+
+@pytest.mark.parametrize(
     "folder, expected",
     [
         (
@@ -923,6 +945,13 @@ def test_expression_variable_is_not_expanded_in_a_qvd_path() -> None:
             "$(Include=lib://Scripts/common.qvs);\n"
             "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\nNEXT vTable;",
             id="loop variable after an include",
+        ),
+        pytest.param(
+            "LET vTable = Lower('Orders' & vRegion);\n"
+            "IF vEnv = 'A' THEN\nSET vOther = 'x';\nEND IF;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\n"
+            "LET vTable = Lower('Hist' & vRegion);",
+            id="unknown before an IF that doesn't set it",
         ),
     ],
 )
