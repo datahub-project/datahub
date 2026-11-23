@@ -1,11 +1,18 @@
-from typing import Dict, List, Union, cast
+import io
+from typing import Dict, List, Optional, Union, cast
 from unittest import mock
 
+import boto3
+import pytest
+from moto import mock_aws
+
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.csv_enricher import CSVEnricherConfig, CSVEnricherSource
 from datahub.metadata.schema_classes import (
+    EditableDatasetPropertiesClass,
     GlossaryTermAssociationClass,
     OwnerClass,
     OwnershipSourceClass,
@@ -351,3 +358,124 @@ def test_get_workunits_internal_emits_structured_properties(tmp_path):
         ("urn:li:structuredProperty:io.acryl.test.classification", ("Sensitive",)),
         ("urn:li:structuredProperty:ownerTeam", ("Finance",)),
     }
+
+
+CSV_WITH_DESCRIPTION = (
+    "resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain\n"
+    f'"{DATASET_URN}",,,,,,Remote description,\n'
+)
+
+
+def _read_descriptions(filename: str) -> List[Optional[str]]:
+    source = CSVEnricherSource(
+        CSVEnricherConfig(
+            filename=filename,
+            write_semantics="OVERRIDE",
+            delimiter=",",
+            array_delimiter="|",
+        ),
+        PipelineContext("test-run-id"),
+    )
+    descriptions = []
+    for wu in source.get_workunits_internal():
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        if isinstance(wu.metadata.aspect, EditableDatasetPropertiesClass):
+            descriptions.append(wu.metadata.aspect.description)
+    return descriptions
+
+
+def test_get_workunits_internal_reads_local_file_with_bom(tmp_path):
+    csv_file = tmp_path / "bom.csv"
+    csv_file.write_bytes(CSV_WITH_DESCRIPTION.encode("utf-8-sig"))
+
+    assert _read_descriptions(str(csv_file)) == ["Remote description"]
+
+
+@pytest.mark.parametrize(
+    "url", ["http://example.com/file.csv", "https://example.com/file.csv?sig=abc"]
+)
+def test_get_workunits_internal_reads_http_via_fs(url):
+    with mock.patch("datahub.ingestion.fs.http_fs.smart_open") as mock_smart_open:
+        mock_smart_open.open.return_value = io.BytesIO(
+            CSV_WITH_DESCRIPTION.encode("utf-8-sig")
+        )
+        assert _read_descriptions(url) == ["Remote description"]
+    mock_smart_open.open.assert_called_once_with(url, mode="rb", transport_params={})
+
+
+def test_get_workunits_internal_reads_s3_via_fs():
+    with (
+        mock.patch("datahub.ingestion.fs.s3_fs.boto3") as mock_boto3,
+        mock.patch("datahub.ingestion.fs.s3_fs.smart_open") as mock_smart_open,
+    ):
+        mock_smart_open.open.return_value = io.BytesIO(
+            CSV_WITH_DESCRIPTION.encode("utf-8")
+        )
+        assert _read_descriptions("s3://my-bucket/enrich.csv") == ["Remote description"]
+    mock_smart_open.open.assert_called_once_with(
+        "s3://my-bucket/enrich.csv",
+        mode="rb",
+        transport_params={"client": mock_boto3.client.return_value},
+    )
+
+
+def test_get_workunits_internal_remote_read_error_is_configuration_error():
+    read_error = OSError("404 Not Found")
+    with mock.patch("datahub.ingestion.fs.http_fs.smart_open") as mock_smart_open:
+        mock_smart_open.open.side_effect = read_error
+        with pytest.raises(
+            ConfigurationError, match="Cannot read remote file"
+        ) as exc_info:
+            _read_descriptions("https://example.com/missing.csv")
+    mock_smart_open.open.assert_called_once()
+    assert exc_info.value.__cause__ is read_error
+
+
+def test_get_workunits_internal_missing_local_file_raises(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        _read_descriptions(str(tmp_path / "missing.csv"))
+    # A Windows drive letter parses as a one-letter URL scheme; it must still be
+    # treated as a local path.
+    with pytest.raises(FileNotFoundError):
+        _read_descriptions(r"C:\no\such\dir\enrich.csv")
+
+
+def test_config_rejects_unsupported_scheme():
+    with pytest.raises(ValueError, match="file, http, https, s3"):
+        CSVEnricherConfig(filename="gs://my-bucket/enrich.csv")
+
+
+def test_missing_fs_dependency_suggests_csv_enricher_extra():
+    with (
+        mock.patch(
+            "datahub.ingestion.source.csv_enricher.fs_registry.get",
+            side_effect=ConfigurationError(
+                "s3 is disabled due to a missing dependency"
+            ),
+        ),
+        pytest.raises(ConfigurationError, match=r"acryl-datahub\[csv-enricher\]"),
+    ):
+        _read_descriptions("s3://my-bucket/enrich.csv")
+
+
+def test_remote_csv_decode_error_is_not_reported_as_read_error():
+    with mock.patch("datahub.ingestion.fs.http_fs.smart_open") as mock_smart_open:
+        mock_smart_open.open.return_value = io.BytesIO(b"resource\n\xff\xfe\n")
+        with pytest.raises(UnicodeDecodeError):
+            _read_descriptions("https://example.com/latin1.csv")
+
+
+@mock_aws
+def test_get_workunits_internal_reads_s3_with_moto(monkeypatch):
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    s3 = boto3.client("s3", region_name="us-east-1")
+    s3.create_bucket(Bucket="my-bucket")
+    s3.put_object(
+        Bucket="my-bucket",
+        Key="enrich.csv",
+        Body=CSV_WITH_DESCRIPTION.encode("utf-8-sig"),
+    )
+
+    assert _read_descriptions("s3://my-bucket/enrich.csv") == ["Remote description"]
