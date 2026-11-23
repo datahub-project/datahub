@@ -26,6 +26,8 @@ class AppCheckpoint(BaseModel):
     # Table QRI -> dataset URN of the app's tables, so datasets an app kept from
     # its last read stores into still link to them. None in older state.
     table_urns_by_qri: Optional[Dict[str, str]] = None
+    # Some of the app's tables may be missing from table_urns_by_qri.
+    tables_unknown: bool = False
     # The QVDs the app writes and reads, on-prem. None in older state.
     qvds: Optional[AppQvds] = None
     # Table name, in lower case -> fields of the app's data model, kept for

@@ -596,7 +596,10 @@ def test_app_whose_tables_are_unknown_is_recorded_so(
     # A later run that keeps the app from its checkpoint must not take its
     # tables as complete.
     checkpoint = record.call_args.args[1]
-    assert (checkpoint.table_urns_by_qri is None) == bool(unknown_by)
+    assert checkpoint.tables_unknown is bool(unknown_by)
+    # The tables it did match are still recorded, so a later missing lineage
+    # graph isn't taken as the app having no tables.
+    assert checkpoint.table_urns_by_qri
 
 
 @pytest.mark.parametrize(
@@ -1325,6 +1328,57 @@ def test_missing_lineage_graph(
     assert list(source.reporter.apps_without_lineage_graph) == (
         ["etl-app"] if read_complete else []
     )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_missing_lineage_graph_after_a_read_with_unknown_tables_keeps_it(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    source.app_state = MagicMock()
+    source.app_state.previous.return_value = AppCheckpoint(
+        urns=["urn:li:container:x"],
+        table_urns_by_qri={f"{ETL_APP}#Curve": _urn("etl-app.curve")},
+        tables_unknown=True,
+    )
+    app = _app("etl-app", [])
+    app.lineage_graph_missing = True
+
+    source._check_missing_lineage_graph(app)
+
+    # Its last read had tables, so the app keeps it instead of being ingested
+    # without them.
+    assert not app.read_complete
+    assert app.tables_read_failed
+
+
+@pytest.mark.parametrize("tables_unknown", [False, True])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_app_carries_whether_its_tables_are_unknown(
+    mock_api_cls: MagicMock, tables_unknown: bool
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    mock_api_cls.return_value.unread_items = []
+    source.app_state = MagicMock()
+    source.stale_entity_removal_handler = MagicMock()
+    source._fingerprint_salt = "salt"
+    curve = _urn("etl-app.curve")
+    source.app_state.previous.return_value = AppCheckpoint(
+        urns=[curve],
+        table_urns_by_qri={f"{ETL_APP}#Curve": curve},
+        tables_unknown=tables_unknown,
+    )
+
+    source._keep_unchanged_app(UnchangedApp(id="etl-app", fingerprint="f"))
+
+    assert source._app_tables_known("etl-app") is not tables_unknown
+    assert source.app_state.record.call_args.args[1].tables_unknown is tables_unknown
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -2173,6 +2227,13 @@ def test_unnamed_source_field_does_not_block_replace_without_column_lineage(
     [
         # A last read whose tables were not all known can't tell either.
         (AppCheckpoint(urns=["urn:li:container:x"]), True, True),
+        (
+            AppCheckpoint(
+                urns=["urn:li:container:x"], table_urns_by_qri={}, tables_unknown=True
+            ),
+            True,
+            True,
+        ),
         # Without stateful ingestion there is never a last read, so the app is
         # taken as having no tables rather than patched on every run.
         (None, False, False),
@@ -2221,4 +2282,4 @@ def test_app_with_unknown_tables_records_them_as_unknown(
     list(source._gen_recorded_app_workunit(app))
 
     # Recorded as unknown, so a later 404 isn't read as "the app has no tables".
-    assert source.app_state.record.call_args.args[1].table_urns_by_qri is None
+    assert source.app_state.record.call_args.args[1].tables_unknown
