@@ -1,4 +1,4 @@
-import SkeletonButton from 'antd/lib/skeleton/Button';
+import SkeletonButton from 'antd/es/skeleton/Button';
 import React from 'react';
 import styled from 'styled-components';
 

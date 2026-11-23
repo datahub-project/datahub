@@ -1,3 +1,4 @@
+import { DATAHUB_GITHUB_URL } from '@app/sharedV2/constants';
 import light from '@conf/theme/colorThemes/light';
 import { Theme } from '@conf/theme/types';
 
@@ -58,7 +59,7 @@ const themeV1: Theme = {
                 },
                 {
                     label: 'GitHub',
-                    path: 'https://github.com/datahub-project/datahub',
+                    path: DATAHUB_GITHUB_URL,
                     shouldOpenInNewTab: true,
                 },
             ],

@@ -419,10 +419,15 @@ def test_denied_load_script_only_adds_to_table_lineage(
     mock_api_cls: MagicMock,
 ) -> None:
     # The SQL lineage a run that could read the script wrote stays in place.
-    _, written, added = _run(mock_api_cls, DATASETS, script_read_failed=True)
+    source, written, added = _run(mock_api_cls, DATASETS, script_read_failed=True)
 
     assert _urn("etl-app.curve") not in written
     assert added[_urn("etl-app.curve")] == [_urn("space-1.src.qvd")]
+    assert any(
+        "load script could not be read" in str(w.context)
+        for w in source.reporter.warnings
+        if w.title == "Lineage of Qlik app table only added to"
+    )
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")

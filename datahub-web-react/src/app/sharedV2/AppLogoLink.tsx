@@ -11,10 +11,13 @@ const StyledLink = styled(Link)`
 `;
 
 const LogoImage = styled(Image)`
-    display: inline-block;
-    height: 32px;
-    width: auto;
-    display: flex;
+    /* antd 5 sizes .ant-image .ant-image-img with two classes; && keeps these sizes winning */
+    && {
+        display: inline-block;
+        height: 32px;
+        width: auto;
+        display: flex;
+    }
 `;
 
 export default function AppLogoLink() {

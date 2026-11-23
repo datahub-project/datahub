@@ -60,9 +60,16 @@ record VectorRetrievalExplanation {
   candidates: optional int
 
   /**
-   * The raw cosine floor in effect: retrieval.minSimilarity, else semanticSearch.minSimilarity.
+   * The raw cosine floor in effect: retrieval.minSimilarity, else semanticSearch.minSimilarity,
+   * or SearchFlags.minSimilarity when that is higher or no other floor is in effect.
    */
   minSimilarity: optional float
+
+  /**
+   * SearchFlags.minSimilarity, the floor the caller set, whether or not it raised the floor in
+   * effect.
+   */
+  callerMinSimilarity: optional float
 
   /**
    * Why the floor inherited from semanticSearch.minSimilarity was not applied: profileNotCosine,
@@ -74,6 +81,12 @@ record VectorRetrievalExplanation {
    * Hits below minSimilarity. They are dropped and the window is not refilled.
    */
   belowMinSimilarity: int = 0
+
+  /**
+   * Of the hits below minSimilarity, those SearchFlags.minSimilarity dropped by raising the floor:
+   * the floor in effect without it would have kept them.
+   */
+  belowCallerMinSimilarity: int = 0
 
   /**
    * Hits below the deprecated SearchFlags.minScore. They are dropped and the window is not

@@ -25,6 +25,51 @@ example, `for_field(..., editable=False).add_tag(...)` in the Python SDK targets
 `schemaMetadata` does not have, and it still fails: use the default `editable=True`. Invalid
 patches on these aspects return client errors (4xx) instead of server errors.
 
+### Semantic search template sends an entity URN to similarity ([#21474](https://github.com/datahub-project/datahub/pull/21474))
+
+System update now writes version 19 of the shipped search templates. `urn:li:searchTemplate:semantic`
+routes a query that is an entity URN (lowercase `urn:li:`, an entity type, a colon, and a key) to
+`urn:li:searchTemplate:similarity`. A search that names `semantic` in the `searchTemplate` search flag
+with an entity URN as the query now returns the entities nearest that entity, as a search that names
+`similarity` does, instead of embedding the URN text. The same holds for semantic search
+(`semanticSearchAcrossEntities`) when its template surface is on
+(`SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH=active`), since that surface selects `semantic`. Like that
+search, it fails when the entity cannot anchor it, for example when the entity has no stored
+embeddings; semantic search reports that as a bad request (`BAD_REQUEST`). In OSS only Document entities have an
+embedding profile, so the URN of any other entity type now fails the search, counted as `noAnchor`,
+instead of being embedded. The route covers every entity URN on purpose. It reads everything after the
+entity type's colon as the key, so a query that starts with a URN and goes on with words, such as
+`urn:li:corpuser:jdoe recent dashboards`, is routed too and fails as `noAnchor` instead of being
+embedded. Any other query runs on
+`semantic` as before. A custom template whose parent is `semantic` inherits the route unless it sets its
+own `routes`.
+
+In `searchAcrossEntities`, `aggregateAcrossEntities`, `scrollAcrossEntities`, `browseV2`,
+`semanticSearchAcrossEntities`, and `searchDocuments`, an entity can anchor a similarity search, routed
+or named, only if that search would show it to the user, except that with view authorization off a
+`searchDocuments` anchor is not held to the document READ check its results get. In the first five, a
+document that is not published, or not shown in global context, cannot anchor one, whatever entity
+types the search asks for, unless the request sets `includeHiddenLifecycleStages`. A user who can
+manage documents can still anchor on an unpublished document that has no lifecycle stage. In `searchDocuments`, a document can
+anchor one if it is published, or unpublished and owned by the user or one of their groups, or
+unpublished and the user can manage documents. A draft cannot, and neither can a document not shown in
+global context. Other GraphQL searches, Rest.li, and OpenAPI do not change.
+
+To remove the route on this release, so that a URN query on `semantic` is embedded again, run system
+update once with
+`DATAHUB_SEARCH_TEMPLATES_REVISION='{"version":"v19-revert","mcps_location":"bootstrap_mcps/search-templates-semantic-revert.yaml","force":true}'`,
+then unset the variable. Then check that
+`datahub get --urn "urn:li:searchTemplate:semantic" --aspect searchTemplateProperties` shows an empty
+`routes` list, since system update only logs a revert the write validator rejects.
+
+### Show Applications setting is hidden by default
+
+Applications are being deprioritized. The **Show Applications** setting on the **Settings > Appearance**
+page is now hidden by default ([PR #21432](https://github.com/datahub-project/datahub/pull/21432)),
+so admins can no longer turn Applications on from the UI. If your organization already turned
+Applications on, they stay visible, and existing Applications are not deleted. To bring the setting
+back, set `SHOW_APPLICATIONS_FEATURE_TOGGLE=true` on GMS.
+
 ### CLI initialization from scripts
 
 When you run `datahub init` without an interactive terminal, it now stops if an existing
@@ -33,6 +78,41 @@ by another script or agent. To connect to another instance, use a separate name,
 `datahub init --profile acme-staging --host https://acme-staging.example.com/gms --token "<token>"`.
 To intentionally replace an existing connection, add `--force`. Refreshing a token for the same
 server continues to work. Existing connection files and environment variables keep working.
+
+### Structured property writes follow the policy ([#21453](https://github.com/datahub-project/datahub/pull/21453))
+
+A `privilegeConstraints` list filters the sub-resources an action names. An action that names none
+is not filtered by the list. A list of tag URNs matches tag edits and does not match a
+structured-property URN, so it does not authorize that property write. A second policy with no list
+still grants its privilege in full. A tag or domain on the resource filter still selects which
+assets the policy applies to; that is unchanged.
+
+Structured-property and tag writes are allowed by the same privileges as other updates of that
+asset: **Edit Entity**, **Manage Documents** on documents, **Edit Entity Properties** for any
+property, **Edit Dataset Column Properties** on the parent dataset or the schema field for a
+column, **Create Entity** when the asset does not exist yet, and **Delete Entity** when the aspect
+is deleted. Rest.li now returns **403** for these authorization failures, as OpenAPI already did.
+
+Answering a form prompt is checked before anything is written. The form must be on the asset and
+the answer must set the structured property the prompt asks for. An assigned user or group can
+answer that property without **Edit Entity Properties**. The audit stamp stays that user. A user
+who is not assigned still needs the property privilege. **Manage Documentation Forms** does not
+grant the answer.
+
+### Custom github-documents sources
+
+The shared code of the `github-documents` source moved to `datahub.ingestion.source.repository_documents`, so a GitLab source can reuse it ([PR #21230](https://github.com/datahub-project/datahub/pull/21230)). The documents recipes import are unchanged. Except for the report titles and the `document_mapping` and `hierarchy` settings below, this only affects Python code that subclasses `GitHubDocumentsSource` or imports its modules:
+
+- `_build_document` now takes `repo_path` and `is_directory` instead of `github_path`. A subclass that overrides it must use the new parameters, or it fails with a `TypeError` on the first document.
+- `_build_github_external_url` is replaced by `_build_external_url(owner_repo, branch, path, *, is_directory)`. A subclass that overrides the old method, for example to point links at GitHub Enterprise, must override the new one: the old method is no longer called, so links silently fall back to github.com.
+- To change how OKF frontmatter is mapped, override the new `_map_okf` method. Patching `map_okf` in `github_documents_source` no longer works, because that module no longer uses it.
+- `get_latest_commit_sha` on a repository client now returns `None`, not `"unknown"`, when the branch cannot be resolved. A custom client must do the same.
+- The report warnings `github-tree-truncated`, `github-files-truncated` and `github-file-not-read` are now titled `Repository tree truncated`, `Matching files truncated by max_files` and `Repository file not read`. Update any alerting that matches the old titles.
+- The `document_mapping` and `hierarchy` settings were never used by this source and are deprecated. A recipe that sets them still runs, with a warning; remove them from the recipe.
+- These old import paths still work but are deprecated, and will be removed in a later release. Importing any of them raises a `FutureWarning`. Import from `repository_documents` instead:
+  - The `github_documents.okf_*`, `github_hierarchy` and `github_documents_report` modules.
+  - In `github_api`: `GitHubFileInfo`, `RepositoryDocumentsClient`, `MAX_FILE_SIZE_BYTES`, `collect_intermediate_directories`, `normalize_document_id`, and the `make_*_source_id` and `resolve_parent_dir_source_id` helpers.
+  - In `github_documents_source`: `EXTRACTION_ALGO_VERSION`, `LAST_EXPORTED_CONTENT_HASH_KEY`, `PROP_IMPORT_SOURCE_ID`, `compute_file_content_hash` and `compute_source_hash`.
 
 ### Filtering policies with more than one filter group ([#21412](https://github.com/datahub-project/datahub/pull/21412))
 
@@ -79,13 +159,14 @@ other rows keep their places. With hybrid read off, keyword results do not chang
 whose parent is `fulltext` inherits the rerank, unless it sets its own `knn` that names a `field`:
 that `knn` keeps the reading it had before, so one with only `field` is still the earlier document
 rerank. The new
-`urn:li:searchTemplate:semantic` retrieves by vector. A search uses it only when it names it in the
-`searchTemplate` search flag; semantic search (`semanticSearchAcrossEntities`) does not change.
+`urn:li:searchTemplate:semantic` retrieves by vector. A search uses it when it names it in the
+`searchTemplate` search flag. Semantic search (`semanticSearchAcrossEntities`) uses it only behind
+its own switch; see "Semantic search can run the semantic search template".
 Version 18 adds `urn:li:searchTemplate:similarity` and the `similarity` capability. A search that
 names `similarity` in the `searchTemplate` flag, with an entity URN as the query, returns the documents
-nearest that entity. `semantic` does not change: its URN route ships in a later release, once every GMS
-pod can run similarity. A rollback to a release without similarity needs no extra step, since that
-release fails `similarity` only when a search names it.
+nearest that entity. Version 18 does not change `semantic`; version 19 adds its URN route. With
+version 18 stored, a rollback to a release without similarity needs no extra step, since that release
+fails `similarity` only when a search names it.
 
 **Upgrade through the release that adds the semantic search template contract**
 ([#21359](https://github.com/datahub-project/datahub/pull/21359)) before you upgrade to this one. GMS
@@ -113,9 +194,59 @@ search fails on the new `fulltext`. While this release is still deployed:
 
 The `semantic` and `similarity` templates stay stored, and the earlier release does not use them.
 
-If you later upgrade to this release again, system update keeps the restored templates, because
-version 18 already ran. To write the shipped templates again, run system update once with
+If you later upgrade to this release again, system update keeps the restored templates, because the
+version this release writes already ran. To write the shipped templates again, run system update once with
 `DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable.
+
+### Semantic search can run the semantic search template
+
+Semantic search (`semanticSearchAcrossEntities`) can now run `urn:li:searchTemplate:semantic` through a
+new `semanticSearch` template surface. It is off by default, and nothing changes while it is off. To
+turn it on, set `SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH=active` on GMS, and
+`SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH_PERCENT` to serve it to only some users. A blank or missing
+setting keeps it off, whatever `SEARCH_V3_TEMPLATES_ROLLOUT` says. The switch takes effect on
+Elasticsearch 8.18 or later and OpenSearch 3.5 or later. On older OpenSearch, or when GMS cannot read
+the OpenSearch version (reading it needs the `cluster:monitor/main` permission), semantic search stays
+on its own kNN search, and GMS logs a warning. GMS reads an unreadable version again at most once a
+minute, so granting the permission needs no restart. GMS keeps a version it has read until it restarts,
+so after upgrading OpenSearch to 3.5 or later, restart GMS for the switch to take effect. With it on:
+
+- Only documents have an embedding profile in this release, so semantic search through the template
+  returns documents only. Other entity types in `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` return
+  nothing, and a request for only those types returns an empty page. Keep the switch off if semantic
+  search serves other entity types for you.
+- Documents follow the same defaults as keyword search: only published documents shown in global
+  context come back, unless the request sets `includeHiddenLifecycleStages`. A user who can manage
+  documents also gets unpublished documents that have no lifecycle stage.
+- As in keyword search, soft-deleted entities and entities in a hidden lifecycle stage are left out
+  unless the request sets `includeSoftDeleted` or `includeHiddenLifecycleStages`.
+- `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY`, when set, drops results below that cosine. The
+  legacy semantic search applies only the `minScore` search flag.
+- The facets count the results semantic search found, not every document that matches the filter.
+- The query embedding and the vector search share a budget of two seconds, where the legacy semantic
+  search sets no timeout. A slow embedding fails as `DEADLINE_EXCEEDED`, and a vector search that
+  runs past the budget fails the search, which the keyword fallback below does not cover.
+- With the search cache on, results are cached per user and query for the cache's lifetime. The
+  legacy semantic search was never cached.
+- A query that cannot be embedded fails with an error that names the reason, instead of a generic
+  server error: `timeout` as `DEADLINE_EXCEEDED`; `rejected`, `reserveExhausted`, or
+  `budgetExhausted` as `SERVICE_UNAVAILABLE`; and `failed` as a server error. Set the new
+  `keywordFallbackOnEmbeddingFailure` search flag to get keyword search results instead. The results'
+  `keywordFallback` field then names the reason.
+- A configuration that would answer with keyword results, such as a `semanticSearch` slot that points at
+  a keyword template, fails the search instead.
+
+A new `minSimilarity` search flag sets a raw cosine floor on vector results. It can raise the floor a
+template or `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY` sets, and never lower it. While the switch is
+off or does not take effect, semantic search rejects the flag. **Action:** none. Before you turn the
+switch on, check that clients expect the document defaults and facet counts above.
+
+### Parent Data Product is now checked on every API
+
+Setting a Data Product's parent through OpenAPI, Rest.li or YAML now fails if the parent doesn't exist
+or isn't a Data Product, as it already did in the UI and GraphQL ([PR #21307](https://github.com/datahub-project/datahub/pull/21307)).
+Create parents before their children. Existing products are unaffected unless their parent is changed.
+To turn the check off, set `metadataChangeProposal.validation.dataProductProperties.parent.enabled` to `false`.
 
 <!--
 
@@ -179,9 +310,14 @@ Requirements:
 
 ### Breaking Changes
 
+- [#21472](https://github.com/datahub-project/datahub/pull/21472) **(Ingestion / Informatica)** A run that cannot list all projects, folders, Taskflows or Mapping Tasks now fails instead of finishing with a warning. Stale metadata removal is paused for that run, so objects it did not read are no longer soft-deleted. A folder or Taskflow that fails to process is still a warning, but what it ingested in the previous run is kept instead of soft-deleted. A Taskflow whose definition cannot be exported keeps its `orchestrate` job from the previous run. Datasets that appear only in Informatica lineage are no longer soft-deleted by this source, and a dataset another connector soft-deleted is no longer restored by it.
+  **Action:** if runs now fail, fix the permission or API error named in the report. Datasets this source soft-deleted before upgrading stay deleted until the connector that owns them ingests them again.
+
 - **(GMS / Search / Groups)** `corpGroupInfo.email` is now searchable. On Search V2 it is a keyword included in the default query. On Search V3 it is an exact keyword plus `text` and `stemmed` subfields under the `email` label. A group written before this change has no value there until it is written again. **Action:** run RestoreIndices for `corpGroup` so existing groups can be found by email.
 
 - **(GMS / Search / Execution requests)** `requestTimeMs`, the execution request's `requestedAt`, is a date on the execution-request index. It was a `long` holding epoch milliseconds. A live `long` field cannot become `date` in place. **Action:** rebuild that index with `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true` on the next system update. Epoch-millis values stay valid under the default date format. The stored aspect JSON is unchanged. New writes record schema version 3, and existing rows are not swept.
+
+- [#21223](https://github.com/datahub-project/datahub/pull/21223) **(Data Products / Authorization)** New "Manage All Data Products" platform privilege; creating from the Data Products page now requires it. The privilege lets a user create, edit and delete Data Products in any Domain, including Data Products with no Domain. The create buttons on the Data Products page are now disabled for users without it, instead of failing when the form is submitted. Users who hold Manage Data Products on specific Domains only can still create Data Products from those Domains' Data Products tab. The Root user, Admins and Editors get the privilege by default on upgrade. **Action:** grant Manage All Data Products to any custom role or policy whose users should keep creating Data Products from the Data Products page.
 
 - [#21311](https://github.com/datahub-project/datahub/pull/21311) **(Ingestion / Azure AD)** Users disabled in Azure AD are now ingested as suspended and can't sign in to DataHub. User country now comes from `usageLocation` instead of the mobile phone number. An `azure_ad_response_to_username_attr` that isn't a Graph user property now fails the run. **Action:** before upgrading, check that no one who still needs DataHub access is disabled in Azure AD.
 
@@ -191,6 +327,9 @@ Requirements:
 
 - [#21363](https://github.com/datahub-project/datahub/pull/21363) **(Ingestion / Vertex AI)** An `env` under `platform_instance_map` that is not a valid environment (for example `PRDO`) now fails the run at start with `env must be one of ...`. Before, it was accepted and the lineage links to that platform's datasets pointed at an environment that does not exist. Lower-case values such as `prod` are still accepted and give the same dataset URNs as before.
   **Action:** if the run fails at start with this message, correct the `env` of the listed platform to a valid environment such as `PROD` or `DEV`; the error message lists them all.
+
+- [#21239](https://github.com/datahub-project/datahub/pull/21239) **(Ingestion / Vertex AI)** A project listed in `project_ids` (or set in the deprecated `project_id`) that the connector cannot read now fails the run, after the other projects finish. This includes a project with the Vertex AI API turned off, which was a warning before. A project found by discovery (`project_labels` or `project_id_pattern` without `project_ids`) with the API turned off, or with no Vertex AI role, still gives a warning, and its earlier entities are now kept instead of being soft-deleted, except its experiment folders, which can be soft-deleted while the error lasts (warning "Experiment folders not kept while unreadable") and come back on the first run that reads them. An error in the connector itself, rather than one from Google, keeps them too. Entities the connector could not read in a run are kept, and a failed run pauses soft-deletion for every project. A listed project also fails the run when one resource type cannot be read on every run, for example experiments for a service account without ML Metadata permissions; everything else, models included, is still written. A configured region that Google does not list as a Vertex AI location (a typo), or that cannot be checked, now fails the run before any project is read, discovered projects included; regions that Google lists but the installed SDK does not yet support are skipped with a warning.
+  **Action:** if a listed project fails, enable the Vertex AI API and grant the service account a Vertex AI role such as `roles/aiplatform.viewer`, or remove the project from `project_ids`. If one resource type fails, grant the permission the report names or set the switch it names, such as `include_experiments: false`. If a configured region fails the run, correct or remove it, or grant `aiplatform.locations.list`. To silence the warning for a discovered project you do not want, grant the role or exclude it with `project_id_pattern`.
 
 - [#21219](https://github.com/datahub-project/datahub/pull/21219) **(Ingestion / Qlik Sense)** On Qlik Sense Enterprise, QVD datasets are now placed in `Folder` containers that follow their file path (server or share, then each folder), and are browsed under those folders instead of the path split at its dots. Their URNs, schemas and lineage are unchanged. **Action:** update any bookmark or saved browse path that pointed at the old QVD hierarchy.
 
