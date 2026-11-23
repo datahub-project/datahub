@@ -26,6 +26,11 @@ Runs alternate A, B, A, B. A batched all-A-then-all-B loop lets host drift land 
 `bundle-inventory.mjs` attributes eager `index.html` JS (same set as
 `datahub-web-react/scripts/eager-budget.mjs`) to packages via source maps.
 
+To also explain why a module is eager (shortest static import chain, and which eager
+modules are reachable only through `import()`), build with
+`DATAHUB_BUNDLE_GRAPH_OUT=<file>` (read by `vite-plugins/bundleGraphDumpPlugin.ts`) and pass
+that file as `--graph`.
+
 Attribution and rendering live in `bundle-inventory-core.mjs` /
 `bundle-inventory-render.mjs`; `bundle-inventory.mjs` is the CLI entry (and
 re-exports for tests).

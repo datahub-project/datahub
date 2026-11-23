@@ -12,6 +12,7 @@ import { configDefaults } from 'vitest/config';
 // Vite config is evaluated by Node before `@src` aliases exist.
 /* eslint-disable import-alias/import-alias */
 import { authShellPreloadPlugin } from './vite-plugins/authShellPreloadPlugin';
+import { bundleGraphDumpPlugin } from './vite-plugins/bundleGraphDumpPlugin';
 import { i18nLocaleBundlesPlugin } from './vite-plugins/i18nLocaleBundlesPlugin';
 import { precompressAssetsPlugin } from './vite-plugins/precompressAssetsPlugin';
 
@@ -269,6 +270,7 @@ export default defineConfig(async ({ mode }) => {
             }),
             stripDotSlashFromAssets(),
             eagerBudgetReport(),
+            bundleGraphDumpPlugin(process.env.DATAHUB_BUNDLE_GRAPH_OUT),
             authShellPreloadPlugin(),
             // closeBundle order: 'post' — runs after vite-plugin-static-copy writes Monaco etc.
             precompressAssetsPlugin(),

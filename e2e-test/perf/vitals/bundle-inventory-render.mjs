@@ -121,7 +121,10 @@ export function renderMarkdown(report, { top = 30 } = {}) {
             const chain = r.static_chain.map((s) => `\`${s}\``).join(' → ');
             return r.dynamic_only_share > 0.05 ? `${chain} (${pct(r.dynamic_only_share)} dyn-only)` : chain;
         };
-        for (const [chunkFile, rows] of Object.entries(attr.per_chunk)) {
+        // With one eager chunk this table repeats the global one, so it is only worth
+        // printing when there are several chunks or it carries the "why eager" column.
+        const showPerChunk = Object.keys(attr.per_chunk).length > 1 || reachByPkg.size > 0;
+        for (const [chunkFile, rows] of showPerChunk ? Object.entries(attr.per_chunk) : []) {
             const role = chunkRole(chunkFile);
             const entries = Object.entries(rows);
             if (entries.length <= 1) continue;
@@ -180,7 +183,7 @@ export function renderMarkdown(report, { top = 30 } = {}) {
     }
 
     const reach = report.reachability;
-    if (reach) {
+    if (reach && reach.packages.some((p) => p.dynamic_only_rendered_bytes > 0)) {
         const gzFor = new Map((attr?.packages ?? []).map((p) => [p.package, p.gzip_bytes]));
         const dynRows = reach.packages
             .filter((p) => p.dynamic_only_rendered_bytes > 0)
