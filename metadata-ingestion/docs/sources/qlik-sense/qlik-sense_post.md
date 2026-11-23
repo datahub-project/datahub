@@ -319,7 +319,7 @@ Each entry gives the app, and the file or source app, with the reason its BINARY
 
 #### "Qlik BINARY tables may be changed by an included script" (on-prem)
 
-These apps load another app with a mapped `BINARY` statement and also include scripts the connector doesn't read, or call a `SUB` the script doesn't define. Their BINARY tables are linked to the source app, but the lineage is only added to, so edges written by earlier runs stay. To have the lineage replaced on each run, move the included code into the app's own script.
+These apps load another app with a mapped `BINARY` statement and also include scripts the connector doesn't read, or call a `SUB` the script doesn't define. Their BINARY tables are linked to the source app, but the lineage is only added to, so edges written by earlier runs stay. Remove an edge in DataHub when the table no longer comes from that app.
 
 #### `unresolved_file_connections` in the report, or "Qlik file connections have no known storage" (Qlik Cloud)
 
