@@ -2122,7 +2122,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 file_urn = self._file_urn(storage, detail, store.file.path)
             else:
                 info = self._find_data_connection(store.file.connection, app.spaceId)
-                if info is not None and info.file_platform is None:
+                if (info is not None and info.file_platform is None) or _is_data_files(
+                    store.file.connection
+                ):
+                    # Not a file connection, so it has no storage to map.
                     continue
                 unmapped_urn = self._unmapped_storage_file_urn(
                     store.file.connection, store.file.path

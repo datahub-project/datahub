@@ -989,11 +989,21 @@ def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
-def test_stored_qvd_on_a_visible_connection_without_file_storage_is_skipped(
-    mock_api_cls: MagicMock,
+@pytest.mark.parametrize(
+    "folder, connections",
+    [
+        pytest.param(
+            "Sales Space:Some Folder",
+            {"Sales Space:Some Folder": DataConnectionInfo(name="Some Folder")},
+            id="a visible folder connection",
+        ),
+        pytest.param("Other Space:DataFiles", {}, id="an unlisted DataFiles"),
+    ],
+)
+def test_stored_qvd_on_a_connection_without_file_storage_is_skipped(
+    mock_api_cls: MagicMock, folder: str, connections: Dict[str, DataConnectionInfo]
 ) -> None:
-    folder = "Sales Space:Some Folder"
-    source = _source({}, {folder: DataConnectionInfo(name="Some Folder")})
+    source = _source({}, connections)
 
     assert not list(
         source._gen_file_store_lineage(
