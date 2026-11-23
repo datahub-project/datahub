@@ -815,17 +815,17 @@ def test_stored_qvd_on_mapped_storage_links_the_stored_table(
 
     stored = {urn: upstreams for urn, upstreams in writes.items() if "qvd," in urn}
     # Scratch is not a table the app ingests, so its QVD has nothing to link.
-    # Without the storage, the QVD is named by its connection and path.
-    assert stored == {
-        (
-            "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qvd/orders.qvd,PROD)"
-            if mapped
-            else UNMAPPED_ORDERS_QVD
-        ): (
-            # Not removed as stale: it is the storage's dataset.
-            f"not primary patch:{ORDERS}"
-        )
-    }
+    # Without the storage, the QVD is only linked at the end of the run.
+    assert stored == (
+        {
+            "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qvd/orders.qvd,PROD)": (
+                # Not removed as stale: it is the storage's dataset.
+                f"not primary patch:{ORDERS}"
+            )
+        }
+        if mapped
+        else {}
+    )
 
 
 @pytest.mark.parametrize("stored_label", ["Customers", "AllCustomers"])
@@ -885,24 +885,72 @@ def _store_app(tables: List[Dict]) -> App:
     )
 
 
+@pytest.mark.parametrize("read", [True, False])
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
-def test_stored_qvd_on_unknown_storage_reports_the_connection(
-    mock_api_cls: MagicMock,
+def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
+    mock_api_cls: MagicMock, read: bool
 ) -> None:
     source = _source(
         {},
         {CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)},
+        script="Orders: LOAD * FROM [lib://Sales Space:Lake/qvd/orders.qvd] (qvd);",
     )
+    storing_app = _store_app([]).model_copy(update={"id": "app-2"})
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
 
-    workunits = list(
+    assert not list(
         source._gen_file_store_lineage(
-            _store_app([]), parse_script(STORE_SCRIPT), {ORDERS}
+            storing_app, parse_script(STORE_SCRIPT), {stored}
         )
     )
+    # A later app's lineage graph reads the file, so it exists.
+    if read:
+        assert source._resolve_file_source(
+            "app-1", _file_qri("adls", "lake", "qvd/orders.qvd")
+        )
+    workunits = list(source._gen_unmapped_file_entities())
 
-    # Named by its connection and path instead.
-    assert {wu.get_urn() for wu in workunits} == {UNMAPPED_ORDERS_QVD}
     assert source.reporter.unresolved_file_connections == [CONNECTION]
+    lineage = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+    ]
+    if read:
+        # Named by its connection and path.
+        assert {wu.get_urn() for wu in workunits} == {UNMAPPED_ORDERS_QVD}
+        assert [wu.get_urn() for wu in lineage] == [UNMAPPED_ORDERS_QVD]
+        assert stored in str(lineage[0].metadata.aspect)
+        # In the storing app's checkpoint too.
+        assert UNMAPPED_ORDERS_QVD in source._app_end_of_run_urns["app-2"]
+        assert not source.reporter.unread_stored_files
+    else:
+        assert not workunits
+        assert "app-2" not in source._app_end_of_run_urns
+        assert list(source.reporter.unread_stored_files) == [
+            "lib://Sales Space:Lake/qvd/orders.qvd"
+        ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_stored_qvd_on_a_visible_connection_without_file_storage_is_skipped(
+    mock_api_cls: MagicMock,
+) -> None:
+    folder = "Sales Space:Some Folder"
+    source = _source({}, {folder: DataConnectionInfo(name="Some Folder")})
+
+    assert not list(
+        source._gen_file_store_lineage(
+            _store_app([]),
+            parse_script(f"STORE Orders INTO [lib://{folder}/x.qvd] (qvd);"),
+            {ORDERS},
+        )
+    )
+    assert not list(source._gen_unmapped_file_entities())
+    # Not a file connection, so there is no storage to map.
+    assert not source.reporter.unresolved_file_connections
+    assert not source.reporter.unread_stored_files
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")

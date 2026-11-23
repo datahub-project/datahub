@@ -418,6 +418,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # and those that lineage links to, which get a dataset.
         self._unmapped_files: Dict[str, str] = {}
         self._linked_unmapped_files: Set[str] = set()
+        # The tables each app stores into such a file, linked at the end of
+        # the run only if some app's lineage graph reads the file, as a STORE
+        # in the script may never run.
+        self._unmapped_file_stores: DefaultDict[str, Dict[str, List[str]]] = (
+            defaultdict(dict)
+        )
         # Datasets emitted at the end of the run for the apps whose lineage
         # names them, added to those apps' checkpoints so a later run that
         # keeps an app keeps them too.
@@ -2112,19 +2118,26 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # names, has no dataset to link.
             if table_urn is None:
                 continue
-            if storage is None:
-                self._link_unmapped_file(app.id, file_urn)
-            urns = upstreams.setdefault(file_urn, [])
+            urns = (
+                upstreams.setdefault(file_urn, [])
+                if storage is not None
+                else self._unmapped_file_stores[file_urn].setdefault(app.id, [])
+            )
             if table_urn not in urns:
                 urns.append(table_urn)
         for file_urn, urns in upstreams.items():
-            patch = DatasetPatchBuilder(file_urn)
-            for urn in urns:
-                patch.add_upstream_lineage(
-                    Upstream(dataset=urn, type=DatasetLineageType.COPY)
-                )
-            # A file on storage is not this source's to remove when stale.
-            yield from _patch_workunits(patch, is_primary_source=False)
+            yield from self._gen_stored_file_lineage(file_urn, urns)
+
+    def _gen_stored_file_lineage(
+        self, file_urn: str, table_urns: Iterable[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        patch = DatasetPatchBuilder(file_urn)
+        for urn in table_urns:
+            patch.add_upstream_lineage(
+                Upstream(dataset=urn, type=DatasetLineageType.COPY)
+            )
+        # A file on storage is not this source's to remove when stale.
+        yield from _patch_workunits(patch, is_primary_source=False)
 
     def _stored_table_urn(
         self, app: App, label: str, table_urns: Set[str]
@@ -3019,6 +3032,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 yield from containers.create_container_hierarchy(path.lstrip("/"), urn)
 
     def _gen_unmapped_file_entities(self) -> Iterable[MetadataWorkUnit]:
+        for file_urn, stores in sorted(self._unmapped_file_stores.items()):
+            if file_urn not in self._linked_unmapped_files:
+                self.reporter.unread_stored_files.append(self._unmapped_files[file_urn])
+                continue
+            table_urns: List[str] = []
+            for app_id, urns in stores.items():
+                self._app_end_of_run_urns[app_id].add(file_urn)
+                table_urns.extend(urn for urn in urns if urn not in table_urns)
+            yield from self._gen_stored_file_lineage(file_urn, table_urns)
         paths = {urn: self._unmapped_files[urn] for urn in self._linked_unmapped_files}
         qvds = {
             urn: path

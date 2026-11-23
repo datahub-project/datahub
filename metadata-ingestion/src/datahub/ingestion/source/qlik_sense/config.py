@@ -161,6 +161,9 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     # known: add them to file_connection_to_storage. Kept whole, since there are
     # only as many as the tenant has connections and each needs mapping.
     unresolved_file_connections: List[str] = field(default_factory=list)
+    # Files on connections of unknown storage that apps store into but no
+    # app's lineage graph reads, so they may not exist and are left out.
+    unread_stored_files: LossyList[str] = field(default_factory=LossyList)
     apps_read: int = 0
     apps_skipped_unchanged: int = 0
     # Apps read again because checking whether they changed failed.
