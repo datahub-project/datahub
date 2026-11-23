@@ -1,7 +1,9 @@
-import { Empty } from 'antd';
+import { EmptyState } from '@components';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
+import styled from 'styled-components';
 
 import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { combineEntityDataWithSiblings } from '@app/entityV2/shared/siblingUtils';
@@ -19,6 +21,10 @@ import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSib
 
 import { useGetEntityIncidentsQuery } from '@graphql/incident.generated';
 import { EntityPrivileges, Incident } from '@types';
+
+const ListEmptyState = styled(EmptyState)`
+    padding: 48px 0;
+`;
 
 export const IncidentList = () => {
     const { t } = useTranslation('entity.profile.incident');
@@ -112,7 +118,7 @@ export const IncidentList = () => {
                 />
             );
         }
-        return <Empty description={t('list.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+        return <ListEmptyState icon={Warning} title={t('list.empty')} size="sm" />;
     };
 
     return (

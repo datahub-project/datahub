@@ -25,10 +25,6 @@ const DocumentationWrapper = styled.div<{ canExpand?: boolean }>`
         ${({ canExpand }) => canExpand && 'margin-bottom: 50px;'}
     }
 
-    && .ant-empty {
-        padding: 0;
-    }
-
     .remirror-editor.ProseMirror,
     .datahub-editor-content {
         padding: 0px 8px;

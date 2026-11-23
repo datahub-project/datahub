@@ -36,6 +36,7 @@
     "entity.list.loadError": "Failed to load results! An unexpected error occurred.",
     "entity.paginationRange": "<bold>{{start}} - {{end}}</bold> of <bold>{{total}}</bold>",
     "entity.partOf": "Part of {{entityName}}",
+    "inputFields.empty": "No input fields",
     "properties.addProperty.title": "Add property",
     "properties.added.success": "Successfully added structured property!",
     "properties.adding.loading": "Adding...",

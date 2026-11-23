@@ -6,9 +6,9 @@ import styled from 'styled-components';
 import AddPropertyButton from '@app/entityV2/shared/tabs/Properties/AddPropertyButton';
 import { Maybe, StructuredProperties } from '@src/types.generated';
 
+// Matches the Columns tab toolbar: no divider, since the bordered table below draws its own edge.
 const TableHeader = styled.div`
-    padding: 8px 16px;
-    border-bottom: 1px solid ${(props) => props.theme.colors.border};
+    padding: 8px 16px 16px 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;

@@ -1,90 +1,63 @@
-import { Tooltip } from '@components';
+import { Card, Icon } from '@components';
 import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
-import { Stop } from '@phosphor-icons/react/dist/csr/Stop';
 import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
-import { Typography } from 'antd';
-import i18next from 'i18next';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { colors } from '@src/alchemy-components/theme';
+const CardsRow = styled.div`
+    display: flex;
+    flex-shrink: 0;
+    gap: 12px;
+    padding: 20px;
 
-const SummaryHeader = styled.div`
-    width: 100%;
-    padding-left: 20px;
-    padding-top: 20px;
-    padding-bottom: 20px;
+    & > * {
+        flex: 1;
+        min-width: 0;
+    }
+`;
+
+const IconContainer = styled.div<{ $variant: 'success' | 'error' }>`
     display: flex;
     align-items: center;
-    border-bottom: 1px solid ${colors.gray[100]};
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: ${(props) =>
+        props.$variant === 'success' ? props.theme.colors.bgSurfaceSuccess : props.theme.colors.bgSurfaceError};
 `;
-
-const SummaryContainer = styled.div``;
-
-const SummaryMessage = styled.div`
-    display: inline-block;
-    margin-left: 12px;
-`;
-
-const SummaryTitle = styled(Typography.Title)`
-    && {
-        padding-bottom: 0px;
-        margin-bottom: 0px;
-    }
-`;
-
-type TestsSummary = {
-    failing: number;
-    passing: number;
-    total: number;
-};
 
 type Props = {
-    summary: TestsSummary;
+    passing: number;
+    failing: number;
 };
 
-const getSummaryIcon = (summary: TestsSummary) => {
-    if (summary.total === 0) {
-        return <Stop size={28} color={colors.gray[600]} />;
-    }
-    if (summary.passing === summary.total) {
-        return <CheckCircle size={28} color={colors.green[500]} />;
-    }
-    return <XCircle size={28} color={colors.red[500]} />;
-};
-
-const getSummaryMessage = (summary: TestsSummary) => {
-    if (summary.total === 0) {
-        return i18next.t('entity.profile.tests:summary.noTestsRun');
-    }
-    if (summary.passing === summary.total) {
-        return i18next.t('entity.profile.tests:summary.allPassing');
-    }
-    if (summary.failing === summary.total) {
-        return i18next.t('entity.profile.tests:summary.allFailing');
-    }
-    return i18next.t('entity.profile.tests:summary.someFailing');
-};
-
-export const TestResultsSummary = ({ summary }: Props) => {
+export const TestResultsSummary = ({ passing, failing }: Props) => {
     const { t } = useTranslation('entity.profile.tests');
-    const summaryIcon = getSummaryIcon(summary);
-    const summaryMessage = getSummaryMessage(summary);
-    const subtitleMessage = t('summary.countsSubtitle', { passing: summary.passing, failing: summary.failing });
+
     return (
-        <SummaryHeader>
-            <SummaryContainer>
-                <Tooltip title={t('summary.statusTooltip')}>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                        {summaryIcon}
-                        <SummaryMessage>
-                            <SummaryTitle level={5}>{summaryMessage}</SummaryTitle>
-                            <Typography.Text type="secondary">{subtitleMessage}</Typography.Text>
-                        </SummaryMessage>
-                    </div>
-                </Tooltip>
-            </SummaryContainer>
-        </SummaryHeader>
+        <CardsRow>
+            <Card
+                title={String(passing)}
+                subTitle={t('summary.passingLabel')}
+                width="100%"
+                icon={
+                    <IconContainer $variant="success">
+                        <Icon icon={CheckCircle} color="iconSuccess" size="2xl" />
+                    </IconContainer>
+                }
+            />
+            <Card
+                title={String(failing)}
+                subTitle={t('summary.failingLabel')}
+                width="100%"
+                icon={
+                    <IconContainer $variant="error">
+                        <Icon icon={XCircle} color="iconError" size="2xl" />
+                    </IconContainer>
+                }
+            />
+        </CardsRow>
     );
 };

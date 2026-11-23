@@ -1,50 +1,33 @@
-import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
-import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import i18next from 'i18next';
-import React from 'react';
-import { DefaultTheme } from 'styled-components';
+
+import type { PillProps } from '@components/components/Pills/types';
 
 import { TestResultType } from '@types';
 
-/**
- * Returns the display text assoociated with an Test Result Type
- */
-export const getResultText = (result: TestResultType) => {
-    switch (result) {
-        case TestResultType.Success:
-            return i18next.t('entity.profile.tests:resultText.passing');
-        case TestResultType.Failure:
-            return i18next.t('entity.profile.tests:resultText.failing');
-        default:
-            throw new Error(`Unsupported Test Result Type ${result} provided.`);
-    }
-};
+type ResultPillProps = Required<Pick<PillProps, 'label' | 'color'>>;
+
+// Red and green are left out so category pills never read as a pass/fail status.
+const CATEGORY_COLORS: NonNullable<PillProps['color']>[] = ['violet', 'blue', 'yellow', 'gray'];
 
 /**
- * Returns the display color assoociated with an TestResultType
+ * Maps each distinct (free-form) test category to a pill color. Categories are sorted so the assignment
+ * doesn't depend on row order, and colors only repeat once there are more categories than colors.
  */
-export const getResultColor = (result: TestResultType, theme: DefaultTheme) => {
-    switch (result) {
-        case TestResultType.Success:
-            return theme.colors.iconSuccess;
-        case TestResultType.Failure:
-            return theme.colors.iconError;
-        default:
-            throw new Error(`Unsupported Test Result Type ${result} provided.`);
-    }
-};
+export function getCategoryPillColors(categories: string[]): Map<string, NonNullable<PillProps['color']>> {
+    const distinct = [...new Set(categories)].sort((a, b) => a.localeCompare(b));
+    return new Map(distinct.map((category, i) => [category, CATEGORY_COLORS[i % CATEGORY_COLORS.length]]));
+}
 
 /**
- * Returns the display icon assoociated with an TestResultType
+ * Returns the label and color for the pill that represents a TestResultType.
  */
-export const getResultIcon = (result: TestResultType, theme: DefaultTheme) => {
-    const resultColor = getResultColor(result, theme);
+export function getResultPillProps(result: TestResultType): ResultPillProps {
     switch (result) {
         case TestResultType.Success:
-            return <CheckCircle style={{ color: resultColor }} />;
+            return { label: i18next.t('entity.profile.tests:resultText.passing'), color: 'green' };
         case TestResultType.Failure:
-            return <XCircle style={{ color: resultColor }} />;
+            return { label: i18next.t('entity.profile.tests:resultText.failing'), color: 'red' };
         default:
             throw new Error(`Unsupported Test Result Type ${result} provided.`);
     }
-};
+}

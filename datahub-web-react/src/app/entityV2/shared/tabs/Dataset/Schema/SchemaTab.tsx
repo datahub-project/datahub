@@ -1,5 +1,5 @@
-import { Loader } from '@components';
-import { Empty } from 'antd';
+import { EmptyState, Loader } from '@components';
+import { Columns } from '@phosphor-icons/react/dist/csr/Columns';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
@@ -38,8 +38,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { ChangeCategoryType } from '@types';
 
-const NoSchema = styled(Empty)`
-    color: ${(props) => props.theme.colors.textDisabled};
+const NoSchemaContainer = styled.div`
     padding-top: 60px;
 `;
 
@@ -379,7 +378,9 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                                         <Loader size="md" />
                                     </LoadingWrapper>
                                 ) : (
-                                    <NoSchema />
+                                    <NoSchemaContainer>
+                                        <EmptyState icon={Columns} title={t('emptyState.title')} />
+                                    </NoSchemaContainer>
                                 )}
                             </SchemaScrollArea>
                         )}

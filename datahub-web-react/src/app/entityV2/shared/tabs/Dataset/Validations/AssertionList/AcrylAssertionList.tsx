@@ -1,4 +1,5 @@
-import { Empty } from 'antd';
+import { EmptyState } from '@components';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -40,6 +41,9 @@ import {
     SortOrder,
 } from '@src/types.generated';
 
+const ListEmptyState = styled(EmptyState)`
+    padding: 48px 0;
+`;
 const AssertionListContainer = styled.div`
     display: flex;
     height: 100%;
@@ -265,11 +269,12 @@ export const AcrylAssertionList = () => {
             );
         }
         return (
-            <Empty
-                description={
+            <ListEmptyState
+                icon={CheckCircle}
+                title={
                     hasRefinements ? t('assertionList.noAssertionsMatchFilters') : t('assertionList.noAssertionsRun')
                 }
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                size="sm"
             />
         );
     };

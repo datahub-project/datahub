@@ -1,5 +1,10 @@
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
-import { filterHiddenProperties, filterStructuredProperties } from '@app/entityV2/shared/tabs/Properties/utils';
+import {
+    filterHiddenProperties,
+    filterStructuredProperties,
+    getPropertyRowKey,
+    mapCustomPropertiesToPropertyRows,
+} from '@app/entityV2/shared/tabs/Properties/utils';
 import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 
 describe('filterSchemaRows', () => {
@@ -220,5 +225,19 @@ describe('filterHiddenProperties', () => {
         const filtered = filterHiddenProperties(rows);
         expect(filtered).toHaveLength(1);
         expect(filtered[0].children).toHaveLength(1);
+    });
+});
+
+describe('getPropertyRowKey', () => {
+    it('gives custom properties distinct keys and keys structured properties by qualified name', () => {
+        const customRows = mapCustomPropertiesToPropertyRows([
+            { key: 'node_type', value: 'source', associatedUrn: 'urn:li:dataset:1' },
+            { key: 'language', value: 'sql', associatedUrn: 'urn:li:dataset:1' },
+        ]);
+        const keys = customRows.map(getPropertyRowKey);
+        expect(new Set(keys).size).toBe(keys.length);
+        expect(getPropertyRowKey({ displayName: 'Has PII', qualifiedName: 'io.acryl.has_pii' })).toBe(
+            'io.acryl.has_pii',
+        );
     });
 });

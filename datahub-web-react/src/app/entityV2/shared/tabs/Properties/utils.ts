@@ -84,3 +84,11 @@ export function getFilteredCustomProperties(filterText: string, entityData?: Gen
         (property) => matchesName(property.key, filterText) || matchesName(property.value || '', filterText),
     );
 }
+
+/**
+ * Unique table row key for a property row. Custom properties have no qualified name, but their keys are
+ * unique per entity, so they are keyed by name.
+ */
+export function getPropertyRowKey(row: PropertyRow): string {
+    return row.qualifiedName ?? `custom:${row.displayName}`;
+}
