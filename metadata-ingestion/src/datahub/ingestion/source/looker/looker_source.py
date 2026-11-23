@@ -20,6 +20,7 @@ from typing import (
 )
 from urllib.parse import quote
 
+import requests
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.serialize import DeserializeError
 from looker_sdk.sdk.api40.models import (
@@ -33,6 +34,7 @@ from looker_sdk.sdk.api40.models import (
 )
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import GraphError
 from datahub.configuration.git import GitReference
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -80,6 +82,7 @@ from datahub.ingestion.source.looker.looker_common import (
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
 from datahub.ingestion.source.looker.looker_constant import (
     EXPLORE_GIT_LINK_LABEL,
+    EXPLORE_GIT_LINK_RUN_WIDE_HTTP_STATUSES,
     LOOKER_DEFAULT_GIT_BRANCH,
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
@@ -229,6 +232,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.explores_for_usage: List[looker_usage.LookerExploreForUsage] = []
 
         self._project_git_refs: Dict[str, Optional[GitReference]] = {}
+        self._git_link_read_failed = False
         if config.extract_explore_git_links and ctx.graph is None:
             self.reporter.info(
                 title="Explore Git links are add-only",
@@ -973,7 +977,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self, explore: LookerExplore, explore_urn: str
     ) -> List[MetadataWorkUnit]:
         path = explore.lookml_file_path
-        if not path or not explore.project_name:
+        if self._git_link_read_failed or not path or not explore.project_name:
             return []
         # shortcut: explores defined in an imported project get no link, since their
         # repo is the imported project's; resolve that project if users ask for it.
@@ -986,6 +990,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         # Every link with the label is managed here. Empty without a DataHub
         # connection: add only, stale links stay.
         existing_urls = self._existing_git_link_urls(explore_urn)
+        if existing_urls is None:
+            return []
         patch = HasInstitutionalMemoryPatch(explore_urn)
         for stale_url in sorted(existing_urls - {url}):
             patch.remove_institutional_memory_by_url_and_label(
@@ -1009,10 +1015,37 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             for mcp in patch.build()
         ]
 
-    def _existing_git_link_urls(self, explore_urn: str) -> Set[str]:
+    def _existing_git_link_urls(self, explore_urn: str) -> Optional[Set[str]]:
+        """None when the read fails: links are then left unknown, so nothing is written."""
         if self.ctx.graph is None:
             return set()
-        memory = self.ctx.graph.get_aspect(explore_urn, InstitutionalMemoryClass)
+        try:
+            memory = self.ctx.graph.get_aspect(explore_urn, InstitutionalMemoryClass)
+        except (requests.RequestException, GraphError) as e:
+            if (
+                isinstance(e, requests.HTTPError)
+                and e.response is not None
+                and 400 <= e.response.status_code < 500
+                and e.response.status_code
+                not in EXPLORE_GIT_LINK_RUN_WIDE_HTTP_STATUSES
+            ):
+                # About this Explore only (e.g. access denied), so keep going with the rest.
+                self.reporter.warning(
+                    title="Could not read an Explore's existing links",
+                    message="No Git link is written for this Explore this run; its existing links are left unchanged.",
+                    context=explore_urn,
+                    exc=e,
+                )
+                return None
+            # Outage-type error: the graph session has already retried, so later reads would fail too.
+            self._git_link_read_failed = True
+            self.reporter.warning(
+                title="Failed to read existing Explore links",
+                message="Explore Git links are skipped for the rest of the run; existing links are left unchanged.",
+                context=explore_urn,
+                exc=e,
+            )
+            return None
         return {
             link.url
             for link in (memory.elements if memory else [])

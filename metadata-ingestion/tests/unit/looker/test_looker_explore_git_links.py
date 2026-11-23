@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from unittest import mock
 
 import pytest
+import requests
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api40.models import LookmlModelExplore, Project
 
@@ -18,6 +19,7 @@ from datahub.metadata.schema_classes import (
     InstitutionalMemoryMetadataClass,
     MetadataChangeProposalClass,
 )
+from datahub.sdk.dataset import Dataset
 from tests.unit.looker.test_looker_source import explore, fake_client
 
 SourceFactory = Callable[..., LookerDashboardSource]
@@ -304,6 +306,74 @@ def test_link_with_another_label_is_left_alone(
     )
     patch = link_patches(source)[0]
     assert ops(patch) == [("add", path_for(ORDERS_URL))]
+
+
+def http_error(status: int) -> requests.HTTPError:
+    response = requests.Response()
+    response.status_code = status
+    return requests.HTTPError(f"{status}", response=response)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        requests.ConnectionError("GMS unreachable"),
+        http_error(503),
+        http_error(429),
+        http_error(401),
+    ],
+    ids=["connection-error", "http-503", "http-429", "http-401"],
+)
+def test_failed_link_read_skips_links_for_the_rest_of_the_run(
+    looker_source_factory: SourceFactory, error: Exception
+) -> None:
+    source = with_graph(
+        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True)
+    )
+    graph = source.ctx.graph
+    assert isinstance(graph, mock.MagicMock)
+    graph.get_aspect.side_effect = error
+
+    workunits = list(source.get_workunits_internal())
+
+    # Explores are still emitted; only their links are skipped, without retrying per Explore.
+    explore_urns = {str(wu.urn) for wu in workunits if isinstance(wu, Dataset)}
+    assert {ORDERS_URN, INVOICES_URN} <= explore_urns
+    assert not any(
+        isinstance(wu, MetadataWorkUnit)
+        and isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == "institutionalMemory"
+        for wu in workunits
+    )
+    assert graph.get_aspect.call_count == 1
+    assert [w.title for w in source.reporter.warnings].count(
+        "Failed to read existing Explore links"
+    ) == 1
+
+
+def test_access_denied_on_one_explore_skips_only_that_explore(
+    looker_source_factory: SourceFactory,
+) -> None:
+    source = with_graph(
+        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True)
+    )
+    graph = source.ctx.graph
+    assert isinstance(graph, mock.MagicMock)
+
+    def get_aspect(urn: str, aspect_type: Any) -> None:
+        if urn == ORDERS_URN:
+            raise http_error(403)
+        return None
+
+    graph.get_aspect.side_effect = get_aspect
+
+    patches = link_patches(source)
+
+    assert [p["entityUrn"] for p in patches] == [INVOICES_URN]
+    assert graph.get_aspect.call_count == 2
+    titles = [w.title for w in source.reporter.warnings]
+    assert "Could not read an Explore's existing links" in titles
+    assert "Failed to read existing Explore links" not in titles
 
 
 def test_no_datahub_connection_adds_only_and_notes_it_once(

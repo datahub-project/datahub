@@ -22,6 +22,9 @@ VIEW_FIELD_TIMEFRAMES_ATTRIBUTE = "timeframes"
 # Identifies the links the looker source manages on Explores: links with this label are
 # replaced or removed on each run, so changing it would orphan links already written.
 EXPLORE_GIT_LINK_LABEL = "View in Git"
+# Reading an Explore's links failed with a bad token (401) or throttling (429): it would
+# fail for every Explore, so link reads stop for the run instead of skipping one Explore.
+EXPLORE_GIT_LINK_RUN_WIDE_HTTP_STATUSES = frozenset({401, 429})
 # Looker's default when a project has no production branch configured.
 LOOKER_DEFAULT_GIT_BRANCH = "master"
 # LookML IDE link path: /projects/<project>/files/<url-encoded repo path>
