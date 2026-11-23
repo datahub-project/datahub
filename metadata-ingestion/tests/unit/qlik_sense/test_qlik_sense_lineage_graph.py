@@ -17,6 +17,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     DataModelTable,
     LineageTable,
+    LineageUpstreams,
     ListedDataset,
     QlikDataset,
     SchemaField,
@@ -407,6 +408,113 @@ def test_app_table_lineage_is_only_added_to_when_a_qvd_has_no_qri(
     # When it may be the source, the table's earlier edge is kept rather than
     # replaced away.
     assert (_urn("etl-app.curve") in written) is written_whole
+
+
+UNLISTED_QVD = "qri:qdf:space://Unlisted#PricesQvd"
+WRITER_TABLE = "qri:app:sense://writer-app#Out"
+
+
+def _reader_and_writer(
+    upstreams: Optional[LineageUpstreams],
+) -> List[Union[App, QlikDataset]]:
+    reader = _app(
+        "report-app",
+        [
+            LineageTable(
+                qri=f"{REPORT_APP}#Tbl",
+                label="Prices",
+                source_qris=[f"{UNLISTED_QVD}#Prices", f"{HIDDEN_QVD}#Curve"],
+            )
+        ],
+    )
+    reader.lineage_upstreams = upstreams
+    # Read after the app that loads what it stores.
+    return [reader, _app("writer-app", [LineageTable(qri=WRITER_TABLE, label="Out")])]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unlisted_dataset_is_named_from_the_upstream_graph(
+    mock_api_cls: MagicMock,
+) -> None:
+    upstreams = LineageUpstreams(
+        resource_labels={UNLISTED_QVD: "prices.qvd", HIDDEN_QVD: "hidden.qvd"},
+        stored_from={
+            f"{UNLISTED_QVD}#Prices": [
+                WRITER_TABLE,
+                "qri:app:sense://unread-app#Out",
+            ]
+        },
+    )
+    source = _source(mock_api_cls, DATASETS, items=_reader_and_writer(upstreams))
+    workunits = list(source.get_workunits_internal())
+    written, added = _lineage(workunits)
+
+    # A QVD in a space the API key can't see joins the app storing it to the
+    # app loading it; one listed in a space the recipe leaves out is not named.
+    prices = _urn(UNLISTED_QVD)
+    assert written[_urn("report-app.prices")] == [prices]
+    assert added[prices] == [_urn("writer-app.out")]
+    properties = next(
+        p
+        for wu in workunits
+        if wu.get_urn() == prices
+        and (p := wu.get_aspect_of_type(DatasetPropertiesClass))
+    )
+    assert properties.name == "prices"
+    assert not source.reporter.failures
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unread_upstream_graph_only_adds_to_table_lineage(
+    mock_api_cls: MagicMock,
+) -> None:
+    _, written, added = _run(mock_api_cls, DATASETS, items=_reader_and_writer(None))
+
+    assert _urn("report-app.prices") not in written
+    assert _urn(UNLISTED_QVD) not in added
+
+
+def test_upstream_graph_is_read(requests_mock: requests_mock_module.Mocker) -> None:
+    requests_mock.get(f"{BASE_URL}/api-keys", json={})
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    node = f"{BASE_URL}/lineage-graphs/nodes/{quote(REPORT_APP, safe='')}"
+    requests_mock.get(
+        f"{node}?level=RESOURCE&up=1",
+        json={
+            "graph": {
+                "nodes": {
+                    UNLISTED_QVD: {"label": "prices.qvd"},
+                    REPORT_APP: {"label": "Report"},
+                },
+                "edges": [{"source": UNLISTED_QVD, "target": REPORT_APP}],
+            }
+        },
+    )
+    requests_mock.get(
+        f"{node}?level=TABLE&up=2",
+        json={
+            "graph": {
+                "nodes": {},
+                "edges": [
+                    {
+                        "source": WRITER_TABLE,
+                        "target": f"{UNLISTED_QVD}#Prices",
+                        "relation": "store",
+                    },
+                    {
+                        "source": f"{UNLISTED_QVD}#Prices",
+                        "target": f"{REPORT_APP}#Tbl",
+                        "relation": "load",
+                    },
+                ],
+            }
+        },
+    )
+
+    assert api.get_lineage_upstreams(REPORT_APP) == LineageUpstreams(
+        resource_labels={UNLISTED_QVD: "prices.qvd", REPORT_APP: "Report"},
+        stored_from={f"{UNLISTED_QVD}#Prices": [WRITER_TABLE]},
+    )
 
 
 ORACLE_PRICES = make_dataset_urn("oracle", "erp.prices")

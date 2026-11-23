@@ -192,6 +192,22 @@ class LineageTable(BaseModel):
     field_lineage_failed: bool = False
 
 
+# Qlik Cloud datasets and data connection files, the upstream resources
+# LineageUpstreams can name.
+UPSTREAM_RESOURCE_QRI_PREFIXES = ("qri:qdf:", "qri:file:")
+
+
+class LineageUpstreams(BaseModel):
+    """The resources upstream of an app in Qlik Cloud's lineage graph, which
+    names nodes the API key can't list, such as datasets in spaces it has no
+    access to."""
+
+    # Resource QRI, such as a QVD's, to its label, such as `orders.qvd`.
+    resource_labels: Dict[str, str] = {}
+    # Table QRI to the QRIs of the app tables Qlik saw store into it.
+    stored_from: Dict[str, List[str]] = {}
+
+
 class ListedDataset(BaseModel):
     space_id: str
     name: str
@@ -385,6 +401,8 @@ class App(Item):
     tables: List[QlikTable] = []
     # Tables of an app without a data model, from Qlik Cloud's lineage graph.
     lineage_tables: List[LineageTable] = []
+    # None when the app's upstream graph could not be read.
+    lineage_upstreams: Optional[LineageUpstreams] = LineageUpstreams()
     # Qlik Cloud answered 404 for the app's lineage graph.
     lineage_graph_missing: bool = False
     # The tables of the app's data model as the last reload left them, read on

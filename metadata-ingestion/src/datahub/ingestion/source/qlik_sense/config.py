@@ -71,6 +71,8 @@ class Constant:
     EDGES = "edges"
     SOURCE = "source"
     TARGET = "target"
+    RELATION = "relation"
+    STORE = "store"
     RESOURCEATTRIBUTES = "resourceAttributes"
     RESOURCES = "resources"
     LINEAGE = "lineage"

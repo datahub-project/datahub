@@ -94,7 +94,8 @@ When an app's data model has no tables (the app is listed under `apps_without_lo
 
 Each Qlik dataset links upstream to the app tables that `STORE` into it, so lineage runs from an ETL app, through the QVDs it writes, to the apps that load them. QVD datasets have the `QVD` subtype and are named without the `.qvd` extension; the dataset URN still holds the file name. Script apps (data preparation scripts) are read like analytics apps, and the QVDs they store into are linked to their tables.
 
-- Only datasets in spaces allowed by `space_pattern`, and visible to the API key, are linked. Give the API key's user access to the spaces that hold the QVDs to see the whole chain.
+- Only datasets in spaces allowed by `space_pattern`, and visible to the API key, are ingested as Qlik datasets. Give the API key's user access to the spaces that hold the QVDs to see the whole chain.
+- A Qlik dataset or file that an app loads but the API key can't list, such as a QVD in a space its user can't see or a file on a connection whose storage is unknown, is named from the app's upstream lineage graph. It is ingested as a Qlik Sense dataset named by Qlik's label for it, with the Qlik ID (QRI) in its URN, and links upstream to the tables of the apps Qlik saw store into it, when the run ingests those apps. This costs two requests per app that loads datasets or files. A dataset listed in a space that `space_pattern` leaves out stays out. Once its space or storage is visible, the dataset gets its usual URN and the QRI-named one is no longer emitted.
 - With `include_column_lineage` (on by default), the connector also reads the field level of the lineage graph for each table and for each dataset an app stores into. This adds column-level lineage between app tables and datasets, and gives a table the script drops after storing it its field names. It costs one request per table. A field loaded under a new name is linked only when its source field's name is known this run.
 
 A table's lineage is replaced each run, as its app owns it. When something it loads could not be read this run, such as the list of datasets or the app's load script, the lineage read this run is added to the table's existing lineage instead, and the run reports a warning.
@@ -262,7 +263,8 @@ Column-level lineage is resolved against the upstream schemas in DataHub at read
 - A table loaded with `RESIDENT` from another script table gets no lineage.
 - A file loaded through a variable that varies as the script runs, as in a `FOR EACH` loop over `FileList(...)`, is not named from the app's last value, so the table's file lineage is only added to.
 - Database tables in Qlik Cloud's lineage graph are not linked, as Qlik identifies them by an opaque hash; their lineage comes from the load script instead.
-- Qlik answers "Forbidden" for datasets and spaces the API key's user cannot access, so those sources are left out of lineage.
+- Qlik answers "Forbidden" for datasets and spaces the API key's user cannot access. Those datasets are only named from the lineage graph of the apps that load them, without their schema.
+- A file named from the lineage graph and also resolved from another app's load script is ingested as two datasets until its storage is set in `file_connection_to_storage`.
 - `file_connection_to_storage` does not accept `wasb://` and `wasbs://` URIs.
 - An unlabelled `LOAD` from a QVD is skipped, as Qlik names its table.
 - On-prem, apps whose section access denies the service user their data cannot be read with `read_data_model: true`.
