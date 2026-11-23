@@ -2687,21 +2687,25 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if app.script is None or app.script_read_failed:
             # QVDs the script writes can't be known, so their lineage is kept.
             self._apps_qvds_unknown[app.id] = "its load script could not be read"
-        elif any(
+            return lineage
+        if any(
             item.name == UNREAD_DATA_CONNECTIONS for item in self.qlik_api.unread_items
         ):
             # Without the folder connections, the lib:// QVDs it writes are
             # unknown.
-            self._apps_qvds_unknown[app.id] = "data connections could not be listed"
+            unknown_reason: Optional[str] = "data connections could not be listed"
         elif parsed.has_unresolved_store or lineage.has_unresolved_store:
             # Such as a loop STORE, or a path built from a variable that failed
-            # to read. The writes that resolved are still added, and the app's
-            # edges into QVDs are kept.
-            lineage.qvds.writes_complete = False
-            self._app_qvds[app.id] = lineage.qvds
-            self._apps_qvds_unknown[app.id] = UNRESOLVED_STORE
+            # to read.
+            unknown_reason = UNRESOLVED_STORE
         else:
-            self._app_qvds[app.id] = lineage.qvds
+            unknown_reason = None
+        if unknown_reason:
+            # The writes that resolved, such as to a mapped storage connection,
+            # are still added, and the app's edges into QVDs are kept.
+            lineage.qvds.writes_complete = False
+            self._apps_qvds_unknown[app.id] = unknown_reason
+        self._app_qvds[app.id] = lineage.qvds
         return lineage
 
     @staticmethod

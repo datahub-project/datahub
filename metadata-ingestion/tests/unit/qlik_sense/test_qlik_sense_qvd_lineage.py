@@ -502,6 +502,29 @@ def test_qvd_writers_are_kept_when_data_connections_could_not_be_listed() -> Non
     assert not any(_upstreams(aspects, urn, "remove") for urn in aspects)
 
 
+def test_storage_qvd_writes_are_added_when_data_connections_could_not_be_listed() -> (
+    None
+):
+    etl = ETL_SCRIPT.replace("lib://QVD Data/clean", "lib://Lake - Azure/Clean")
+    source, aspects = _run(
+        [_app("etl-app", etl)],
+        connections_unread=True,
+        file_connection_to_storage={
+            "Lake - Azure": {
+                "storage_uri": "abfss://lake@account.dfs.core.windows.net/qlik"
+            }
+        },
+    )
+    # The storage path needs no folder listing, so its write is known even
+    # though the app's other writes are not.
+    clean = make_dataset_urn("abs", "lake/qlik/Clean/orders.qvd")
+    assert _upstreams(aspects, clean, "add") == [_urn("etl-app.orders")]
+    assert not _upstreams(aspects, clean, "remove")
+    assert source._apps_qvds_unknown == {
+        "etl-app": "data connections could not be listed"
+    }
+
+
 def test_qvd_stored_without_its_extension_is_not_an_app_table() -> None:
     other_qvd = _urn("//nas/qvd/staging/orders.dat")
     _, aspects = _run(
