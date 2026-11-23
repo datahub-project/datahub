@@ -9,6 +9,7 @@ public final class EntityGraphCacheKeys {
   private static final String SOURCE_SEPARATOR = "@";
   private static final String COMPONENT_SEPARATOR = ":";
   private static final String MARKER_INFIX = ":marker:";
+  private static final String REBUILD_SUPPRESS_SUFFIX = ":rebuild-suppress";
 
   private EntityGraphCacheKeys() {}
 
@@ -69,5 +70,17 @@ public final class EntityGraphCacheKeys {
 
   public static boolean isFailureMarkerKey(@Nonnull String cacheKey) {
     return cacheKey.contains(MARKER_INFIX);
+  }
+
+  /**
+   * Status-map key that records a failed refresh without replacing the snapshot key's read status.
+   */
+  @Nonnull
+  public static String rebuildSuppressionKey(@Nonnull String cacheKey) {
+    return cacheKey + REBUILD_SUPPRESS_SUFFIX;
+  }
+
+  public static boolean isRebuildSuppressionKey(@Nonnull String cacheKey) {
+    return cacheKey.endsWith(REBUILD_SUPPRESS_SUFFIX);
   }
 }

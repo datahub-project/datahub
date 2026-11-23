@@ -4,6 +4,8 @@ import styled, { useTheme } from 'styled-components';
 
 import { Text } from '@components/components/Text';
 
+import { DATAHUB_GITHUB_URL } from '@app/sharedV2/constants';
+
 import dataHubLogo from '@images/datahublogo.png';
 
 const Section = styled.div`
@@ -72,7 +74,7 @@ const resources = [
     {
         /* untranslated-text */
         label: 'DataHub GitHub',
-        path: 'https://github.com/datahub-project/datahub',
+        path: DATAHUB_GITHUB_URL,
         shouldOpenInNewTab: true,
     },
 ];

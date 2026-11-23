@@ -339,7 +339,9 @@ datahub:
           hysteresisPercent: 5
         hazelcast:
           evictionPolicy: MAX_SIZE
-          maxSizePerNode: 32
+          # Hazelcast uses 271 partitions. A PER_NODE cap below that is clamped to about one entry
+          # per partition, so two components in one partition evict each other.
+          maxSizePerNode: ${ENTITY_GRAPH_CACHE_HAZELCAST_MAX_SIZE_PER_NODE:542}
           maxSizePolicy: PER_NODE
           heapMaxSizePercent: 0
           ttlSeconds: 0
@@ -1459,6 +1461,13 @@ elasticsearch:
           scrollEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SCROLL_ENTITIES_PERCENT:-1}
           aggregateEntities: ${SEARCH_V3_TEMPLATES_ROLLOUT_AGGREGATE_ENTITIES:}
           aggregateEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_AGGREGATE_ENTITIES_PERCENT:-1}
+          # Semantic search (semanticSearchAcrossEntities) through the semanticSearch surface below.
+          # Off unless set: blank does not use mode or percent. active serves the template to
+          # semanticSearchPercent of actors, all of them when that is unset. off and shadow keep
+          # semantic search on its legacy kNN search.
+          # On OpenSearch it needs 3.5 or later; an older or unreadable version keeps the legacy search.
+          semanticSearch: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH:}
+          semanticSearchPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH_PERCENT:-1}
         # storage reads the aspect and fills a missing shipped template from the classpath.
         # System update sets classpath and does not read stored templates.
         # A merged template stays cached for cache.primary.ttlSeconds, the same TTL as entity
@@ -1512,6 +1521,11 @@ elasticsearch:
           aggregateEntities:
             fulltext:
               default: urn:li:searchTemplate:search
+          # Semantic search, when its rollout above serves it. Only a vector rung may serve this
+          # surface: a slot that selects a keyword template fails the search.
+          semanticSearch:
+            fulltext:
+              default: urn:li:searchTemplate:semantic
 
 
 # TODO: Kafka topic convention
@@ -2220,6 +2234,7 @@ featureFlags:
   #productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-cloud/} # URL to fetch product updates JSON from remote source.
   #productUpdatesJsonFallbackResource: ${PRODUCT_UPDATES_JSON_FALLBACK_RESOURCE:product-update-saas.json} # Classpath resource to use as fallback when remote fetch fails.
   logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:true} # Enables logical models feature
+  showGithubStarPrompt: ${SHOW_GITHUB_STAR_PROMPT:true} # Shows the "Star us on GitHub" asks
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false} # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:true} # Enables displaying the asset summary page

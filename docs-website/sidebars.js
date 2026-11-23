@@ -315,6 +315,12 @@ module.exports = {
                   id: "docs/features/feature-guides/context/import-github",
                   className: "saasOnly",
                 },
+                {
+                  label: "Import from GitLab",
+                  type: "doc",
+                  id: "docs/features/feature-guides/context/import-gitlab",
+                  className: "saasOnly",
+                },
               ],
             },
             {
@@ -500,11 +506,6 @@ module.exports = {
               type: "doc",
               id: "docs/managed-datahub/observe/data-health-dashboard",
               className: "saasOnly",
-            },
-            {
-              label: "Data Contracts",
-              type: "doc",
-              id: "docs/managed-datahub/observe/data-contract",
             },
           ],
         },
@@ -1571,7 +1572,6 @@ module.exports = {
         "docs/api/tutorials/sdk/bulk-assertions-sdk",
         "docs/api/tutorials/incidents",
         "docs/api/tutorials/operations",
-        "docs/api/tutorials/data-contracts",
         "docs/api/tutorials/domains",
         "docs/api/tutorials/forms",
         "docs/api/tutorials/lineage",
