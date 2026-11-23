@@ -1082,6 +1082,13 @@ def test_qvd_path_from_a_let_expression_takes_the_reload_value() -> None:
             id="after a second IF that disagrees",
         ),
         pytest.param(
+            "SWITCH vEnv\nCASE 'A'\nSET vTable = 'Hist';\nCASE 'B'\n"
+            "SET vTable = 'Customers';\nDEFAULT\nSET vTable = 'Old';\nEND SWITCH;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            "Orders.qvd",
+            id="after SWITCH cases that disagree",
+        ),
+        pytest.param(
             "LET vTable = Lower('Hist' & vRegion);\nIF vEnv = 'A' THEN\n"
             "SET vTable = 'Orders';\nEND IF;\n"
             "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
@@ -1105,6 +1112,23 @@ def test_qvd_path_from_a_variable_known_at_that_point_resolves(
     # the script first sets it, as variables persist between reloads.
     parsed = parse_script(script, app_variables={"vTable": "Orders"})
     assert [load.file.path for load in parsed.qvd_loads] == [path]
+
+
+def test_sub_called_twice_takes_the_app_value_after_its_last_call() -> None:
+    parsed = parse_script(
+        "SUB PickTable\nIF vEnv = 'A' THEN\nSET vTable = 'Hist';\nELSE\n"
+        "SET vTable = 'Customers';\nEND IF;\nEND SUB;\n"
+        "CALL PickTable;\n"
+        "First: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\n"
+        "CALL PickTable;\n"
+        "Second: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+        app_variables={"vTable": "Orders"},
+    )
+    # The second CALL assigns vTable again, so after the first it can differ.
+    assert parsed.unresolved_qvd_paths == ["lib://QVD Data/$(vTable).qvd"]
+    assert [(load.label, load.file.path) for load in parsed.qvd_loads] == [
+        ("Second", "Orders.qvd")
+    ]
 
 
 def test_store_through_a_connection_prefix_set_in_branches_resolves() -> None:
