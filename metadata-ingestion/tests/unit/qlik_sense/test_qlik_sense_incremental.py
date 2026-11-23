@@ -83,6 +83,7 @@ class _Qlik:
         self.data_model_fails_for: Set[str] = set()
         self.variables: Dict[str, Dict[str, str]] = {}
         self.variables_fail_for: Set[str] = set()
+        self.connections_fail = False
 
     def qrs_get(
         self, url: str, params: Optional[Dict[str, str]] = None, **_: object
@@ -111,6 +112,8 @@ class _Qlik:
                 return FakeResponse({}, status_code=503)
             return FakeResponse(self.objects)
         if url.endswith("/dataconnection/full"):
+            if self.connections_fail:
+                return FakeResponse({}, status_code=503)
             return FakeResponse([self.data_connection, *self.extra_connections])
         raise AssertionError(url)
 
@@ -924,6 +927,24 @@ def test_kept_unchanged_app_still_writes_its_qvd(
 
     assert second.reporter.apps_skipped_unchanged == 1
     assert _qvd_upstreams(second_wus) == [writer]
+
+
+def test_app_read_while_data_connections_were_unread_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _qvd_qlik()
+    qlik.connections_fail = True
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    opens = qlik.engine_opens
+
+    # Its lib:// QVDs were unresolved, so it is not kept as unchanged even
+    # though the connections still can't be listed.
+    second, _ = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert second.reporter.apps_skipped_unchanged == 0
+    assert qlik.engine_opens == opens + 2
 
 
 def test_app_checkpoint_from_before_qvd_lineage_is_read_again(
