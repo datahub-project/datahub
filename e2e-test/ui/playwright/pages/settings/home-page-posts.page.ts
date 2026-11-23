@@ -127,6 +127,14 @@ export class HomePagePostsPage extends BaseSettingsPage {
     await this.v2HomePageAnnouncementsTab.click();
   }
 
+  // Pinned links show in the Pinned Links section of the Discover tab, the home page's default tab.
+  async navigateToPinnedLinks(): Promise<void> {
+    await this.page.goto('/');
+    await this.skipOnboarding();
+    await this.skipIntroducePage();
+    await this.page.keyboard.press('Escape');
+  }
+
   async verifyPostVisible(title: string): Promise<void> {
     const isOnHomePage = await this.page.evaluate(() => window.location.pathname === '/');
 
@@ -143,6 +151,12 @@ export class HomePagePostsPage extends BaseSettingsPage {
     await this.skipIntroducePage();
     await this.page.keyboard.press('Escape');
     await this.v2HomePageAnnouncementsTab.click();
+    await this.page.waitForLoadState('networkidle');
+    await expect(this.page.getByText(title)).toBeHidden();
+  }
+
+  async verifyPinnedLinkRemovedFromHome(title: string): Promise<void> {
+    await this.navigateToPinnedLinks();
     await this.page.waitForLoadState('networkidle');
     await expect(this.page.getByText(title)).toBeHidden();
   }

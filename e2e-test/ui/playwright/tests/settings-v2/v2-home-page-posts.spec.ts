@@ -62,6 +62,10 @@ test.describe('create announcement and link post', () => {
     await postsPage.navigate();
     await postsPage.verifyPostVisible(linkTitle);
 
+    await postsPage.navigateToPinnedLinks();
+    await postsPage.verifyPostVisible(linkTitle);
+
+    await postsPage.navigate();
     await postsPage.editPost(linkTitle);
     await postsPage.selectPostType('Pinned Link');
     await postsPage.fillTitle(linkUpdated);
@@ -72,8 +76,12 @@ test.describe('create announcement and link post', () => {
     await postsPage.navigate();
     await postsPage.verifyPostVisible(linkUpdated);
 
+    await postsPage.navigateToPinnedLinks();
+    await postsPage.verifyPostVisible(linkUpdated);
+
+    await postsPage.navigate();
     await postsPage.deletePost(linkUpdated);
-    await postsPage.verifyPostRemovedFromHome(linkUpdated);
+    await postsPage.verifyPinnedLinkRemovedFromHome(linkUpdated);
   });
 });
 

@@ -69,15 +69,15 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit, s
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    toast.success(t('createSuccess'));
+                    toast.success(t(showPinnedLinks ? 'createSuccess' : 'announcement.createSuccess'));
                     onCreate();
                 }
             })
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: t('createError'),
-                    permissionMessage: t('createUnauthorized'),
+                    defaultMessage: t(showPinnedLinks ? 'createError' : 'announcement.createError'),
+                    permissionMessage: t(showPinnedLinks ? 'createUnauthorized' : 'announcement.createUnauthorized'),
                 });
             });
         onClose();
@@ -95,12 +95,12 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit, s
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    toast.success(t('updateSuccess'));
+                    toast.success(t(showPinnedLinks ? 'updateSuccess' : 'announcement.updateSuccess'));
                     onEdit(editData.urn, content);
                 }
             })
             .catch((e) => {
-                toast.error(t('updateError'));
+                toast.error(t(showPinnedLinks ? 'updateError' : 'announcement.updateError'));
                 console.error('Failed to update Post:', e.message);
             });
         onClose();

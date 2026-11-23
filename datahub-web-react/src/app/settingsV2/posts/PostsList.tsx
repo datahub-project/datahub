@@ -196,15 +196,21 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
                 />
             );
         }
-        return <EmptyState icon={Note} title={t('emptyTitle')} description={t('emptyDescription')} />;
+        return (
+            <EmptyState
+                icon={Note}
+                title={t(showPinnedLinks ? 'emptyTitle' : 'announcement.emptyTitle')}
+                description={t(showPinnedLinks ? 'emptyDescription' : 'announcement.emptyDescription')}
+            />
+        );
     };
 
     return (
         <PageContainer>
-            {error && <Alert variant="error" title={t('loadError')} />}
+            {error && <Alert variant="error" title={t(showPinnedLinks ? 'loadError' : 'announcement.loadError')} />}
             <PostsContainer>
                 <SearchBar
-                    placeholder={t('searchPlaceholder')}
+                    placeholder={t(showPinnedLinks ? 'searchPlaceholder' : 'announcement.searchPlaceholder')}
                     value={query || ''}
                     onChange={(value) => {
                         setPage(1);
