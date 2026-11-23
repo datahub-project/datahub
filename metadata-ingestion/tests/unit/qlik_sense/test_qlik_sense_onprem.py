@@ -1,7 +1,7 @@
 import json
 import ssl
 import threading
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1723,11 +1723,33 @@ def test_refused_engine_connection_fails_at_once_after_the_budget(
     mock_sleep.assert_not_called()
 
 
-@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.monotonic")
-@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.sleep")
+class _FakeClock:
+    """Time that only passes when the code under test sleeps or a test advances it."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.now += seconds
+
+
+@pytest.fixture
+def engine_clock() -> Iterator[_FakeClock]:
+    clock = _FakeClock()
+    module = "datahub.ingestion.source.qlik_sense.websocket_connection.time"
+    with (
+        patch(f"{module}.monotonic", clock.monotonic),
+        patch(f"{module}.sleep", clock.sleep),
+    ):
+        yield clock
+
+
 @patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
 def test_engine_connection_resets_the_refusal_budget(
-    mock_connect: MagicMock, mock_sleep: MagicMock, mock_monotonic: MagicMock
+    mock_connect: MagicMock, engine_clock: _FakeClock
 ) -> None:
     mock_connect.side_effect = [
         ConnectionRefusedError(),
@@ -1736,15 +1758,33 @@ def test_engine_connection_resets_the_refusal_budget(
         ConnectionRefusedError(),
         MagicMock(),
     ]
-    # The later refusal comes after the first refusal's budget would have run out.
-    mock_monotonic.side_effect = [0.0, 290.0, 400.0]
     refusals = RefusedConnectionBudget(seconds=300)
 
     _open_onprem_engine(refusals)
+    # Past the first refusal's budget, had the connection not reset it.
+    engine_clock.now += 400
     _open_onprem_engine(refusals)
 
     assert mock_connect.call_count == 5
-    assert mock_sleep.call_count == 3
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_refusal_budget_is_shared_by_all_app_reads(
+    mock_session_cls: MagicMock, mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    mock_session_cls.return_value.headers = {}
+    mock_connect.side_effect = ConnectionRefusedError()
+    api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
+
+    with pytest.raises(ConnectionRefusedError):
+        api._open_engine("app-1")
+    assert mock_connect.call_count > 1
+    mock_connect.reset_mock()
+
+    with pytest.raises(ConnectionRefusedError):
+        api._open_engine("app-2")
+    assert mock_connect.call_count == 1
 
 
 @patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")

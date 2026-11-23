@@ -49,7 +49,7 @@ Variables set with `SET`, or with `LET` and a quoted string, are expanded in con
 The app only keeps a variable's last value, so these variables stay unknown, even after an include:
 
 - the variable of a `FOR` or `FOR EACH` loop, inside the loop
-- a variable set with `LET` from an expression inside a loop, a `SUB`, or an `IF` or `SWITCH` branch
+- a variable set with `LET` from an expression inside a `SUB`, or inside a loop or an `IF` or `SWITCH` branch until the loop or block ends (see below)
 - a variable set with `LET` more than once
 - a variable whose `IF` branches disagree, until the block and any loop or block around it ends
 - a `SUB` parameter the script gives no literal value
@@ -90,7 +90,9 @@ A `LOAD` stacked on a `SELECT` (a preceding load) gives the table its field name
 
 #### Lineage through QVDs and other Qlik datasets (Qlik Cloud)
 
-When an app's data model has no tables (the app is listed under `apps_without_load_model` in the report), the connector reads the app's tables from Qlik Cloud's lineage graph. Each table is ingested as `{app id}.{table name}`, the same name a load script table gets, and links upstream to the Qlik datasets it loads, such as QVD files, and to the app tables it loads from, including another app's tables, as a `BINARY` load reads them, with column lineage between their fields. A table of an app the run does not ingest is left out. A table that the load script parser also finds with a `SELECT` is ingested once, with the upstreams from both. The tables' fields and their types come from the app's data model in the Engine, as its last reload left them. A load script table whose name the parser can't read from its statement, such as an unlabelled `SELECT` from a subquery, takes the name of the one data model table with exactly its columns; otherwise it is ingested as `table_<n>`. Label such loads in the script to name them for certain.
+When an app's data model has no tables (the app is listed under `apps_without_load_model` in the report), the connector reads the app's tables from Qlik Cloud's lineage graph. Each table is ingested as `{app id}.{table name}`, the same name a load script table gets, and links upstream to the Qlik datasets it loads, such as QVD files, and to the app tables it loads from, including another app's tables, as a `BINARY` load reads them, with column lineage between their fields.
+
+A table of an app the run does not ingest is left out. A table that the load script parser also finds with a `SELECT` is ingested once, with the upstreams from both. The tables' fields and their types come from the app's data model in the Engine, as its last reload left them. A load script table whose name the parser can't read from its statement, such as an unlabelled `SELECT` from a subquery, takes the name of the one data model table with exactly its columns; otherwise it is ingested as `table_<n>`. Label such loads in the script to name them for certain.
 
 Each Qlik dataset links upstream to the app tables that `STORE` into it, so lineage runs from an ETL app, through the QVDs it writes, to the apps that load them. QVD datasets have the `QVD` subtype and are named without the `.qvd` extension; the dataset URN still holds the file name. Script apps (data preparation scripts) are read like analytics apps, and the QVDs they store into are linked to their tables.
 
@@ -128,7 +130,7 @@ A file is linked only when one connection could hold it:
 - When two connections known only from `storage_uri` could hold it, such as the prod and dev branches of an `IF`, the one whose Azure container path or Google Cloud Storage bucket matches the file's QRI is linked, and otherwise neither is.
 - When the data connections or an app's variables could not be read, files that are not resolved keep their lineage from the last run.
 
-The other way, a QVD any app writes with `STORE <table> INTO [lib://<connection>/<path>]` onto such a connection gets the stored table as an upstream, so an app that loads the QVD later links through it. Only QVD stores are linked, and only from tables the app ingests. As other apps may store into the same file, these edges are only added, never removed; remove an edge in DataHub when an app no longer stores into the file. An on-prem recipe that maps the same storage in `file_connection_to_storage` gives its QVDs the same datasets, so lineage joins across the two (see [QVD paths](#qvd-paths)).
+The other way, a QVD an app writes with `STORE <table> INTO [lib://<connection>/<path>]` onto a connection whose storage is known gets the stored table as an upstream, so an app that loads the QVD later links through it. Only QVD stores are linked, only from tables the app ingests, and only from apps whose load script the connector reads (see [Lineage from load scripts](#lineage-from-load-scripts)). When the script stores the same table into different files from different branches of an `IF` or `SWITCH`, such as a prod and a dev path, which file it wrote can't be told, so none of them is linked and the stores are listed under `qvd_stores_in_competing_branches` in the report. As other apps may store into the same file, these edges are only added, never removed; remove an edge in DataHub when an app no longer stores into the file. An on-prem recipe that maps the same storage in `file_connection_to_storage` gives its QVDs the same datasets, so lineage joins across the two (see [QVD paths](#qvd-paths)).
 
 #### Lineage through QVDs (on-prem)
 
@@ -239,7 +241,7 @@ Column-level lineage is resolved against the upstream schemas in DataHub at read
 
 ### Limitations
 
-- On-prem ingestion does not ingest Qlik Cloud datasets or lineage from files on cloud storage connections.
+- On-prem ingestion does not ingest Qlik Cloud datasets. From cloud storage connections it only links QVDs, and only for connections mapped in `file_connection_to_storage`.
 - Scripts pulled in with `$(Include=...)` or `$(Must_Include=...)` are not read, and neither is a `SUB` the script calls but does not define. Tables, QVDs and files they load have no lineage from the script. On Qlik Cloud, a file in such an app's lineage graph that its own script does not load is only added to the table's lineage, never removed.
 - A table loaded with `RESIDENT` from another script table gets no lineage.
 - A file loaded through a variable that varies as the script runs, as in a `FOR EACH` loop over `FileList(...)`, is not named from the app's last value, so the table's file lineage is only added to.

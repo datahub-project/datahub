@@ -4,7 +4,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
+from datahub.emitter.mce_builder import (
+    make_dataset_urn,
+    make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import App, UnreadItem
@@ -202,6 +206,14 @@ CONNECTIONS = {
 }
 RAW = _urn("//nas/qvd/raw/orders.qvd")
 CLEAN = _urn("//nas/qvd/clean/orders.qvd")
+# Not a folder connection, so Qlik gives no folder for it.
+STORAGE_ETL_SCRIPT = ETL_SCRIPT.replace(
+    "lib://QVD Data/clean", "lib://Lake - Azure/Clean"
+)
+STORAGE_MAPPING: Dict[str, Dict[str, Any]] = {
+    "Lake - Azure": {"storage_uri": "abfss://lake@account.dfs.core.windows.net/qlik"}
+}
+STORAGE_QVD = make_dataset_urn("abs", "lake/qlik/Clean/orders.qvd")
 
 
 def _app(app_id: str, script: Optional[str]) -> App:
@@ -358,30 +370,23 @@ def test_qvd_lineage_runs_from_etl_app_through_qvd_to_reporting_app() -> None:
 
 
 def test_qvds_of_a_storage_connection_take_the_file_dataset_qlik_cloud_uses() -> None:
-    # Not a folder connection, so Qlik gives no folder for it.
-    etl = ETL_SCRIPT.replace("lib://QVD Data/clean", "lib://Lake - Azure/Clean")
     # Separators doubled where a variable left a path part empty.
     report = REPORT_SCRIPT.replace(
         "lib://Shared QVDs/clean", "lib://$(vPrefix)Lake - Azure//Clean"
     )
     source, aspects = _run(
-        [_app("etl-app", etl), _app("report-app", report)],
-        file_connection_to_storage={
-            "Lake - Azure": {
-                "storage_uri": "abfss://lake@account.dfs.core.windows.net/qlik"
-            }
-        },
+        [_app("etl-app", STORAGE_ETL_SCRIPT), _app("report-app", report)],
+        file_connection_to_storage=STORAGE_MAPPING,
     )
 
-    clean = make_dataset_urn("abs", "lake/qlik/Clean/orders.qvd")
-    assert _upstreams(aspects, clean, "add") == [_urn("etl-app.orders")]
+    assert _upstreams(aspects, STORAGE_QVD, "add") == [_urn("etl-app.orders")]
     assert [
         u.dataset
         for u in aspects[_urn("report-app.sales")]["UpstreamLineageClass"].upstreams
-    ] == [clean]
+    ] == [STORAGE_QVD]
     # Another platform's dataset: only its lineage is written, and never as
     # the source that could remove it when stale.
-    assert set(aspects[clean]) == {"patch", "lineage_ops", "not_primary_source"}
+    assert set(aspects[STORAGE_QVD]) == {"patch", "lineage_ops", "not_primary_source"}
     assert not source.reporter.unresolved_qvd_paths
 
 
@@ -505,24 +510,74 @@ def test_qvd_writers_are_kept_when_data_connections_could_not_be_listed() -> Non
 def test_storage_qvd_writes_are_added_when_data_connections_could_not_be_listed() -> (
     None
 ):
-    etl = ETL_SCRIPT.replace("lib://QVD Data/clean", "lib://Lake - Azure/Clean")
-    source, aspects = _run(
-        [_app("etl-app", etl)],
+    old_writer = _urn("etl-app.old_orders")
+    _, aspects = _run(
+        [_app("etl-app", STORAGE_ETL_SCRIPT)],
+        current=UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(dataset=old_writer, type=DatasetLineageTypeClass.COPY)
+            ]
+        ),
         connections_unread=True,
+        file_connection_to_storage=STORAGE_MAPPING,
+    )
+    # The storage path needs no folder listing, so its write is added, while
+    # the app's other writes are unknown and its old edge is kept.
+    assert _upstreams(aspects, STORAGE_QVD, "add") == [_urn("etl-app.orders")]
+    assert not any(_upstreams(aspects, urn, "remove") for urn in aspects)
+
+
+def test_stale_qlik_edge_is_removed_from_a_storage_qvd() -> None:
+    manual = make_dataset_urn("snowflake", "db.schema.orders")
+    _, aspects = _run(
+        [_app("etl-app", STORAGE_ETL_SCRIPT)],
+        current=UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(dataset=manual, type=DatasetLineageTypeClass.COPY),
+                UpstreamClass(
+                    dataset=_urn("etl-app.old_orders"),
+                    type=DatasetLineageTypeClass.COPY,
+                ),
+            ]
+        ),
+        file_connection_to_storage=STORAGE_MAPPING,
+    )
+    assert _upstreams(aspects, STORAGE_QVD, "remove") == [_urn("etl-app.old_orders")]
+    assert aspects[STORAGE_QVD]["not_primary_source"]
+
+
+@pytest.mark.parametrize(
+    "mapping, expected",
+    [
+        pytest.param(
+            {"platform_instance": "lake-prod"},
+            make_dataset_urn_with_platform_instance(
+                "abs", "lake/qlik/Clean/orders.qvd", "lake-prod"
+            ),
+            id="platform_instance",
+        ),
+        pytest.param(
+            {"env": "DEV"},
+            make_dataset_urn("abs", "lake/qlik/Clean/orders.qvd", "DEV"),
+            id="env",
+        ),
+        pytest.param(
+            {"convert_urns_to_lowercase": True},
+            make_dataset_urn("abs", "lake/qlik/clean/orders.qvd"),
+            id="lowercase",
+        ),
+    ],
+)
+def test_storage_qvd_urn_follows_the_connection_mapping(
+    mapping: Dict[str, Any], expected: str
+) -> None:
+    _, aspects = _run(
+        [_app("etl-app", STORAGE_ETL_SCRIPT)],
         file_connection_to_storage={
-            "Lake - Azure": {
-                "storage_uri": "abfss://lake@account.dfs.core.windows.net/qlik"
-            }
+            "Lake - Azure": {**STORAGE_MAPPING["Lake - Azure"], **mapping}
         },
     )
-    # The storage path needs no folder listing, so its write is known even
-    # though the app's other writes are not.
-    clean = make_dataset_urn("abs", "lake/qlik/Clean/orders.qvd")
-    assert _upstreams(aspects, clean, "add") == [_urn("etl-app.orders")]
-    assert not _upstreams(aspects, clean, "remove")
-    assert source._apps_qvds_unknown == {
-        "etl-app": "data connections could not be listed"
-    }
+    assert _upstreams(aspects, expected, "add") == [_urn("etl-app.orders")]
 
 
 def test_qvd_stored_without_its_extension_is_not_an_app_table() -> None:
@@ -1027,6 +1082,13 @@ def test_qvd_path_from_a_let_expression_takes_the_reload_value() -> None:
             id="after a second IF that disagrees",
         ),
         pytest.param(
+            "SWITCH vEnv\nCASE 'A'\nSET vTable = 'Hist';\nCASE 'B'\n"
+            "SET vTable = 'Customers';\nDEFAULT\nSET vTable = 'Old';\nEND SWITCH;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            "Orders.qvd",
+            id="after SWITCH cases that disagree",
+        ),
+        pytest.param(
             "LET vTable = Lower('Hist' & vRegion);\nIF vEnv = 'A' THEN\n"
             "SET vTable = 'Orders';\nEND IF;\n"
             "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
@@ -1050,6 +1112,23 @@ def test_qvd_path_from_a_variable_known_at_that_point_resolves(
     # the script first sets it, as variables persist between reloads.
     parsed = parse_script(script, app_variables={"vTable": "Orders"})
     assert [load.file.path for load in parsed.qvd_loads] == [path]
+
+
+def test_sub_called_twice_takes_the_app_value_after_its_last_call() -> None:
+    parsed = parse_script(
+        "SUB PickTable\nIF vEnv = 'A' THEN\nSET vTable = 'Hist';\nELSE\n"
+        "SET vTable = 'Customers';\nEND IF;\nEND SUB;\n"
+        "CALL PickTable;\n"
+        "First: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\n"
+        "CALL PickTable;\n"
+        "Second: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+        app_variables={"vTable": "Orders"},
+    )
+    # The second CALL assigns vTable again, so after the first it can differ.
+    assert parsed.unresolved_qvd_paths == ["lib://QVD Data/$(vTable).qvd"]
+    assert [(load.label, load.file.path) for load in parsed.qvd_loads] == [
+        ("Second", "Orders.qvd")
+    ]
 
 
 def test_store_through_a_connection_prefix_set_in_branches_resolves() -> None:

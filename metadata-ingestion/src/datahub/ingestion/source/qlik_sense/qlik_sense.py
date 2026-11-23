@@ -120,6 +120,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     VARIABLE_REFERENCE_RE,
     DataConnectionInfo,
     ParsedScript,
+    QvdStore,
     ResolvedConnection,
     ScriptTable,
     ScriptTableLineage,
@@ -139,6 +140,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     reads_unknown_fields,
     redact_connection,
     select_list_size,
+    stores_in_competing_branches,
     unquoted_values,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
@@ -697,7 +699,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_recorded_app_workunit(self, app: App) -> Iterable[MetadataWorkUnit]:
         fingerprint = (
             self._salted_fingerprint(app.fingerprint)
-            if app.fingerprint and app.read_complete and not app.data_load_failed
+            if app.fingerprint
+            and app.read_complete
+            and not app.data_load_failed
+            # Its connection paths were unresolved, so it is read again next run.
+            and not self._data_connections_unread()
             else None
         )
         urns: Dict[str, None] = {}
@@ -1862,10 +1868,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return (
             app_id in self._apps_variables_unread
             or app_id in self._apps_file_paths_unknown
-            or any(
-                item.name == UNREAD_DATA_CONNECTIONS
-                for item in self.qlik_api.unread_items
-            )
+            or self._data_connections_unread()
+        )
+
+    def _data_connections_unread(self) -> bool:
+        return any(
+            item.name == UNREAD_DATA_CONNECTIONS for item in self.qlik_api.unread_items
         )
 
     def _app_variables(self, app: App) -> Dict[str, str]:
@@ -1983,8 +1991,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         Qlik datasets. Only added to: other apps, read or not, may store into
         the same file."""
         upstreams: Dict[str, List[str]] = {}
+        competing = stores_in_competing_branches(parsed.qvd_stores)
+        if competing:
+            self._report_competing_stores(app, competing)
         for store in parsed.qvd_stores:
-            if store.file.connection is None:
+            if store.file.connection is None or store in competing:
                 continue
             storage, detail = self._file_storage(store.file.connection, app.spaceId)
             if storage is None:
@@ -2017,6 +2028,24 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 )
             # A file on storage is not this source's to remove when stale.
             yield from _patch_workunits(patch, is_primary_source=False)
+
+    def _report_competing_stores(self, app: App, stores: List[QvdStore]) -> None:
+        stored = [
+            f"{store.label} INTO lib://{store.file.connection}/{store.file.path}"
+            if store.file.connection
+            else f"{store.label} INTO {store.file.path}"
+            for store in stores
+        ]
+        self.reporter.qvd_stores_in_competing_branches.extend(
+            f"{app.id}: {store}" for store in stored
+        )
+        self.reporter.warning(
+            title="Qlik STOREs in competing branches are not linked",
+            message="The app stores a table into different files from different "
+            "branches of an IF or SWITCH, so which file it wrote can't be told "
+            "and none of them is linked.",
+            context=f"app={app.id}, stores={stored}",
+        )
 
     def _stored_table_urn(
         self, app: App, label: str, table_urns: Set[str]
@@ -2796,9 +2825,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # QVDs the script writes can't be known, so their lineage is kept.
             self._apps_qvds_unknown[app.id] = "its load script could not be read"
             return lineage
-        if any(
-            item.name == UNREAD_DATA_CONNECTIONS for item in self.qlik_api.unread_items
-        ):
+        if self._data_connections_unread():
             # Without the folder connections, the lib:// QVDs it writes are
             # unknown.
             unknown_reason: Optional[str] = "data connections could not be listed"
