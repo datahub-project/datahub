@@ -1941,10 +1941,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return (
             app_id in self._apps_variables_unread
             or app_id in self._apps_file_paths_unknown
-            or any(
-                item.name == UNREAD_DATA_CONNECTIONS
-                for item in self.qlik_api.unread_items
-            )
+            or self._data_connections_unread()
+        )
+
+    def _data_connections_unread(self) -> bool:
+        return any(
+            item.name == UNREAD_DATA_CONNECTIONS for item in self.qlik_api.unread_items
         )
 
     def _app_variables(self, app: App) -> Dict[str, str]:
@@ -2059,6 +2061,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         named by the connection and path, so the apps that write and read it
         still join. Only a connection named with its space is the same one in
         every app, and DataFiles hold Qlik's own datasets."""
+        if self._data_connections_unread():
+            # The connection may be one whose storage is known when listed.
+            return None
         space, _, name = connection.strip().partition(":")
         path = normalized_file_path(path)
         qualified = f"{space}:{name}/{path}"
@@ -2911,9 +2916,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # QVDs the script writes can't be known, so their lineage is kept.
             self._apps_qvds_unknown[app.id] = "its load script could not be read"
             return lineage
-        if any(
-            item.name == UNREAD_DATA_CONNECTIONS for item in self.qlik_api.unread_items
-        ):
+        if self._data_connections_unread():
             # Without the folder connections, the lib:// QVDs it writes are
             # unknown.
             unknown_reason: Optional[str] = "data connections could not be listed"
@@ -3099,6 +3102,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if source_app_id == app.id:
             return without_lineage("binary_file_to_app maps it to the app itself")
         created = {label.lower() for label in parsed.table_labels}
+        if source_app_id is not None:
+            # A load under a BINARY table's name adds to it, or Qlik renames
+            # the new table, so only a table the script drops and creates again
+            # is not the file's. Tables the source app lacks are left out later.
+            created &= {label.lower() for label in parsed.dropped_tables}
         loaded = [
             table
             for table in app.data_model_tables
