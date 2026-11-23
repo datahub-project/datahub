@@ -79,6 +79,10 @@ class _Qlik:
         self.failing_streams: Set[str] = set()
         self.scripts: Dict[str, str] = {}
         self.extra_connections: List[Dict[str, object]] = []
+        self.data_models: Dict[str, List[Dict[str, object]]] = {}
+        self.data_model_fails_for: Set[str] = set()
+        self.variables: Dict[str, Dict[str, str]] = {}
+        self.variables_fail_for: Set[str] = set()
 
     def qrs_get(
         self, url: str, params: Optional[Dict[str, str]] = None, **_: object
@@ -123,7 +127,12 @@ class _Qlik:
             else _app_engine_calls(app_id)
         )
         websocket.get_script.return_value = self.scripts.get(app_id, LOAD_SCRIPT)
-        websocket.get_variables.return_value = {}
+        websocket.get_variables.return_value = self.variables.get(app_id, {})
+        if app_id in self.variables_fail_for:
+            websocket.get_variables.side_effect = TimeoutError("timed out")
+        websocket.get_data_model_tables.return_value = self.data_models.get(app_id, [])
+        if app_id in self.data_model_fails_for:
+            websocket.get_data_model_tables.side_effect = TimeoutError("timed out")
         return websocket
 
 
@@ -178,6 +187,8 @@ def _run(
     run_id: str,
     **overrides: object,
 ) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
+    on_prem = overrides.pop("on_prem", {})
+    assert isinstance(on_prem, dict)
     with (
         patch(
             "datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session"
@@ -199,6 +210,7 @@ def _run(
                         "skip_unchanged_apps": overrides.pop(
                             "skip_unchanged_apps", True
                         ),
+                        **on_prem,
                     },
                     **overrides,
                 }
@@ -984,3 +996,91 @@ def test_onprem_qvd_lineage_golden(
         output_path=output_path,
         golden_path=pathlib.Path(__file__).parent / "golden_onprem_qvd_lineage.json",
     )
+
+
+ORDERS_DATA_MODEL: List[Dict[str, object]] = [
+    {"qName": "Orders", "qFields": [{"qName": "id"}, {"qName": "amount"}]}
+]
+MODEL_ORDERS = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+FRONT_ORDERS = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-2.orders,PROD)"
+
+
+def _binary_qlik(front_script: str) -> _Qlik:
+    """app-2 loads app-1's data model with BINARY."""
+    qlik = _qvd_qlik()
+    qlik.scripts = {"app-1": STORING_SCRIPT, "app-2": front_script}
+    qlik.data_models = {"app-1": ORDERS_DATA_MODEL, "app-2": ORDERS_DATA_MODEL}
+    return qlik
+
+
+def _written_lineage(
+    workunits: List[MetadataWorkUnit], urn: str
+) -> List[UpstreamLineageClass]:
+    return [
+        wu.metadata.aspect
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.entityUrn == urn
+        and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+    ]
+
+
+def test_binary_load_from_an_app_kept_unchanged_still_links_its_tables(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _binary_qlik("Binary [lib://QVD Data/sales model.qvf];")
+    datahub = _DataHub(mock_datahub_graph)
+    on_prem: Dict[str, object] = {
+        "read_data_model": True,
+        "binary_file_to_app": {"lib://QVD Data/sales model.qvf": "app-1"},
+    }
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1", on_prem=on_prem)
+    datahub.write(first_wus)
+
+    # Only the loading app changed, so the model app is kept from its
+    # checkpoint, which holds its tables and their fields.
+    qlik.other_apps = [{**SECOND_APP, "modifiedDate": "2024-02-01T09:00:00.000Z"}]
+    second, second_wus = _run(mock_datahub_graph, qlik, "run-2", on_prem=on_prem)
+
+    assert second.reporter.apps_skipped_unchanged == 1
+    [lineage] = _written_lineage(second_wus, FRONT_ORDERS)
+    assert [upstream.dataset for upstream in lineage.upstreams] == [MODEL_ORDERS]
+    assert lineage.fineGrainedLineages is not None
+    assert [(fg.upstreams, fg.downstreams) for fg in lineage.fineGrainedLineages] == [
+        (
+            [f"urn:li:schemaField:({MODEL_ORDERS},{field})"],
+            [f"urn:li:schemaField:({FRONT_ORDERS},{field})"],
+        )
+        for field in ["id", "amount"]
+    ]
+
+
+@pytest.mark.parametrize("failure", ["data model", "variables"])
+def test_binary_tables_are_kept_when_a_read_cant_find_them(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+    failure: str,
+) -> None:
+    qlik = _binary_qlik("Binary [lib://$(vApps)/sales model.qvf];")
+    qlik.variables = {"app-2": {"vApps": "QVD Data"}}
+    datahub = _DataHub(mock_datahub_graph)
+    on_prem: Dict[str, object] = {"read_data_model": True}
+    first, first_wus = _run(
+        mock_datahub_graph, qlik, "run-1", on_prem=on_prem, skip_unchanged_apps=False
+    )
+    datahub.write(first_wus)
+    assert FRONT_ORDERS in _stale_urns(first)
+
+    if failure == "data model":
+        qlik.data_model_fails_for = {"app-2"}
+    else:
+        qlik.variables_fail_for = {"app-2"}
+    second, second_wus = _run(
+        mock_datahub_graph, qlik, "run-2", on_prem=on_prem, skip_unchanged_apps=False
+    )
+
+    # The next run may find them, so the app's last read is kept.
+    assert FRONT_ORDERS in _stale_urns(second)
+    assert FRONT_ORDERS not in _soft_deleted_urns(second_wus)
+    assert "Unable to fully read Qlik app" in [
+        warning.title for warning in second.reporter.warnings
+    ]
