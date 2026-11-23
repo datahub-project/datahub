@@ -4,7 +4,10 @@ from typing import AbstractSet, Dict, List, Optional, Set
 
 from pydantic import BaseModel, Field
 
-from datahub.ingestion.source.qlik_sense.file_lineage import FileStorage
+from datahub.ingestion.source.qlik_sense.file_lineage import (
+    FilePlatform,
+    FileStorage,
+)
 from datahub.metadata.urns import DatasetUrn
 
 CONNECT_RE = re.compile(
@@ -412,7 +415,7 @@ class DataConnectionInfo(BaseModel):
     # The storage of a Qlik Cloud file data connection, such as Azure Storage.
     file_storage: Optional[FileStorage] = None
     # The platform of its files, known even when its storage is not.
-    file_platform: Optional[str] = None
+    file_platform: Optional[FilePlatform] = None
 
 
 class ResolvedConnection(BaseModel):
@@ -551,7 +554,7 @@ class _Block(BaseModel):
     # Statements between SWITCH and its first CASE run in no branch.
     in_case: bool = False
     # How often each variable had been assigned when the block opened.
-    assignments_before: Counter = Field(default_factory=Counter)
+    assignments_before: Counter[str] = Field(default_factory=Counter)
 
 
 class _ControlFlowTracker(BaseModel):
@@ -568,8 +571,8 @@ class _ControlFlowTracker(BaseModel):
     # How often the script assigns each variable, as it runs, and in all. The
     # app keeps a variable's value from its last assignment, which is also
     # its value before the first, as variables persist between reloads.
-    assignments: Counter = Field(default_factory=Counter)
-    total_assignments: Counter = Field(default_factory=Counter)
+    assignments: Counter[str] = Field(default_factory=Counter)
+    total_assignments: Counter[str] = Field(default_factory=Counter)
 
     def apply_control(self, control: "re.Match[str]") -> None:
         if control.group("if") or control.group("switch"):
