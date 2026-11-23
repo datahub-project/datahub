@@ -252,6 +252,27 @@ def test_file_path_is_url_encoded_in_link(looker_source_factory: SourceFactory) 
     )
 
 
+@pytest.mark.parametrize(
+    "branch, expected",
+    [("hotfix#12", "hotfix%2312"), ("release/2026", "release/2026")],
+)
+def test_branch_is_url_encoded_in_link(
+    looker_source_factory: SourceFactory, branch: str, expected: str
+) -> None:
+    client = client_with(
+        ORDERS_LINK,
+        Project(
+            git_remote_url="git@github.com:example-org/lookml.git",
+            git_production_branch_name=branch,
+        ),
+    )
+    source = with_graph(looker_source_factory(client, extract_explore_git_links=True))
+    patch = link_patches(source)[0]
+    assert patch["patch"][0]["value"]["url"] == (
+        f"{REPO}/blob/{expected}/views/sales/orders.view.lkml"
+    )
+
+
 def test_any_link_with_the_label_is_managed(
     looker_source_factory: SourceFactory,
 ) -> None:

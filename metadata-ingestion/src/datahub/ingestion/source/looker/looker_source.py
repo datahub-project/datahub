@@ -1054,7 +1054,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         try:
             return GitReference(
                 repo=repo,
-                branch=project.git_production_branch_name or LOOKER_DEFAULT_GIT_BRANCH,
+                branch=quote(
+                    project.git_production_branch_name or LOOKER_DEFAULT_GIT_BRANCH,
+                    safe="/",
+                ),
             )
         except ValueError as e:
             self.reporter.warning(
