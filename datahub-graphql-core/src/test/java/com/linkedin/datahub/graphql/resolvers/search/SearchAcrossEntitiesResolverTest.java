@@ -42,6 +42,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.r2.RemoteInvocationException;
@@ -1076,27 +1077,33 @@ public class SearchAcrossEntitiesResolverTest {
   }
 
   @Test
-  public static void testSimilarityNeverFallsBack() throws Exception {
+  public static void testSimilarityNeverFallsBackAndAnUnusableAnchorIsABadRequest()
+      throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.searchAcrossEntities(
                 any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
         .thenThrow(
-            new SearchTemplateFailClosedException(
+            new SearchTemplateNoAnchorException(
                 "Search template urn:li:searchTemplate:similarity finds similar entities, and"
-                    + " urn:li:document:revenue has no stored vectors for document"));
+                    + " urn:li:document:revenue has no stored vectors for document"))
+        .thenThrow(
+            new SearchTemplateFailClosedException(
+                "Search template urn:li:searchTemplate:similarity could not read the anchor"));
     SearchAcrossEntitiesResolver resolver =
         new SearchAcrossEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
     SearchAcrossEntitiesInput input = namedTemplateSearch("urn:li:searchTemplate:similarity");
     input.getSearchFlags().setKeywordFallbackOnEmbeddingFailure(true);
 
+    // An anchor the request cannot use is the caller's error, as on semantic search
+    Assert.assertEquals(
+        typedError(resolver, input).errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
+    // Similarity embeds nothing, so the flag does not apply and another failure is not retyped
     CompletionException failure =
         Assert.expectThrows(
             CompletionException.class, () -> resolver.get(environment(input)).join());
-
-    // Similarity embeds nothing, so the flag does not apply and the failure is not retyped
     Assert.assertFalse(failure.getCause() instanceof DataHubGraphQLException, failure.toString());
-    Mockito.verify(mockClient, Mockito.times(1))
+    Mockito.verify(mockClient, Mockito.times(2))
         .searchAcrossEntities(any(), any(), any(), any(), anyInt(), anyInt(), any(), any());
   }
 

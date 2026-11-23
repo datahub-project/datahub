@@ -33,7 +33,6 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SemanticSearchDisabledException;
 import com.linkedin.metadata.search.SemanticSearchService;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
@@ -47,9 +46,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 
 /**
  * Resolver responsible for resolving 'semanticSearchAcrossEntities' field of the Query type.
@@ -154,17 +154,20 @@ public class SemanticSearchAcrossEntitiesResolver
                     : Collections.emptyList();
 
             if (servedByTemplate) {
-              return templateSearch(
-                  context,
-                  finalEntities,
-                  query,
-                  baseFilter,
-                  finalFilter,
-                  searchFlags,
-                  sortCriteria,
-                  start,
-                  count,
-                  structuredPropertyFacets);
+              return templateSearch()
+                  .semanticSearchService(_semanticSearchService)
+                  .entityClient(_entityClient)
+                  .context(context)
+                  .entityNames(finalEntities)
+                  .query(query)
+                  .baseFilter(baseFilter)
+                  .callerFilter(finalFilter)
+                  .searchFlags(searchFlags)
+                  .sortCriteria(sortCriteria)
+                  .start(start)
+                  .count(count)
+                  .facets(structuredPropertyFacets)
+                  .search();
             }
 
             return UrnSearchResultsMapper.map(
@@ -207,13 +210,24 @@ public class SemanticSearchAcrossEntitiesResolver
   }
 
   /**
-   * Semantic search through the semantic search template. As keyword search does, it adds the
-   * document defaults (the published-document default and placement) to the caller's filter,
-   * records whether that filter, with its view, had a criterion of its own, and keeps the default
-   * fields out of the facets. A query it could not embed is an error naming why, or, when the
-   * caller opted in, the keyword search results for the same request, marked with that reason.
+   * Semantic search through the semantic search template, for this resolver and for single-entity
+   * semantic search, which passes its one entity type. Callers name each argument through the
+   * {@code templateSearch()} builder and run it with {@code search()}. {@code baseFilter} is the
+   * caller's filter without its view and {@code callerFilter} the same filter with it, so without a
+   * view they are the same filter. As keyword search does, it adds the document defaults (the
+   * published-document default and placement) to the caller's filter, records whether that filter,
+   * with its view, had a criterion of its own, and keeps the default fields out of the facets. A
+   * query it could not embed is an error naming why, or, when the caller opted in, the keyword
+   * search results across the same entity types for the same request, marked with that reason.
    */
-  private SearchResults templateSearch(
+  @Builder(
+      builderClassName = "TemplateSearch",
+      builderMethodName = "templateSearch",
+      buildMethodName = "search",
+      access = AccessLevel.PACKAGE)
+  private static SearchResults searchByTemplate(
+      final SemanticSearchService semanticSearchService,
+      final com.linkedin.entity.client.EntityClient entityClient,
       final QueryContext context,
       final List<String> entityNames,
       final String query,
@@ -237,36 +251,23 @@ public class SemanticSearchAcrossEntitiesResolver
                 DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
             .withCallerFiltered(callerFiltered)
             .withAnchorFilter(defaults.anchorFilter());
-    final SearchResult result;
-    try {
-      result =
-          QueryEmbeddingFailures.searchWithKeywordFallback(
-              searching,
-              opContext ->
-                  _semanticSearchService.semanticSearchAcrossEntitiesByTemplate(
-                      opContext, entityNames, query, filter, sortCriteria, start, count, facets),
-              // The keyword search the same request runs, as keyword search escapes it
-              opContext ->
-                  _entityClient.searchAcrossEntities(
-                      opContext,
-                      entityNames,
-                      ResolverUtils.escapeForwardSlash(query),
-                      filter,
-                      start,
-                      count,
-                      sortCriteria,
-                      facets));
-    } catch (RuntimeException e) {
-      // An entity URN routes to similarity. One that cannot anchor the search is a bad request,
-      // not a server failure; the message does not say whether the entity exists.
-      final SearchTemplateNoAnchorException noAnchor =
-          ExceptionUtils.throwableOfType(e, SearchTemplateNoAnchorException.class);
-      if (noAnchor != null) {
-        throw new DataHubGraphQLException(
-            noAnchor.getMessage(), DataHubGraphQLErrorCode.BAD_REQUEST, noAnchor);
-      }
-      throw e;
-    }
+    final SearchResult result =
+        QueryEmbeddingFailures.searchWithKeywordFallback(
+            searching,
+            opContext ->
+                semanticSearchService.semanticSearchAcrossEntitiesByTemplate(
+                    opContext, entityNames, query, filter, sortCriteria, start, count, facets),
+            // The keyword search the same request runs, as keyword search escapes it
+            opContext ->
+                entityClient.searchAcrossEntities(
+                    opContext,
+                    entityNames,
+                    ResolverUtils.escapeForwardSlash(query),
+                    filter,
+                    start,
+                    count,
+                    sortCriteria,
+                    facets));
     return UrnSearchResultsMapper.map(
         context, DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(result));
   }
