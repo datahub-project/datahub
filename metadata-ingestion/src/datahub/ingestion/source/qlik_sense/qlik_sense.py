@@ -9,6 +9,7 @@ import re
 from datetime import datetime
 from functools import partial
 from typing import (
+    Callable,
     Collection,
     Dict,
     Iterable,
@@ -1957,6 +1958,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             lowercase=detail.convert_urns_to_lowercase if detail else False,
         )
 
+    @functools.cached_property
+    def _qvd_storage_urns(self) -> Dict[str, Callable[[str], str]]:
+        return {
+            name: partial(self._file_urn, storage, detail)
+            for name, detail in self.config.file_connection_to_storage.items()
+            if detail.storage_uri
+            and (storage := file_storage_of_uri(detail.storage_uri))
+        }
+
     def _resolve_file_source(self, app_id: str, file_qri: str) -> Optional[str]:
         """The dataset of a file in an app's lineage graph, such as a CSV on
         Azure Storage, when the app's load script reads it through a data
@@ -2653,12 +2663,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             ignored_connections=on_prem.qvd_ignored_connections,
             folder_aliases=on_prem.qvd_folder_aliases,
             variables_known=not app.variables_read_failed,
-            storage_urns={
-                name: partial(self._file_urn, storage, detail)
-                for name, detail in self.config.file_connection_to_storage.items()
-                if detail.storage_uri
-                and (storage := file_storage_of_uri(detail.storage_uri))
-            },
+            storage_urns=self._qvd_storage_urns,
         )
         lineage = app_qvd_lineage(
             app.id,
