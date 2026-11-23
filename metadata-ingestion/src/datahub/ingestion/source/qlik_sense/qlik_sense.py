@@ -342,6 +342,14 @@ class _ResolvedSources(BaseModel):
     complete: bool = True
 
 
+class _FileSourceResolution(BaseModel):
+    urn: Optional[str] = None
+    # The script reads the file through a connection whose storage, of the
+    # file's platform, is known, so the file has a storage URN even when it
+    # could not be told which.
+    on_known_storage: bool = False
+
+
 def _patch_workunits(
     patch: MetadataPatchProposal, is_primary_source: bool
 ) -> Iterable[MetadataWorkUnit]:
@@ -1851,6 +1859,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._lineage_upstreams[app.id] = app.lineage_upstreams
         if app.lineage_upstreams_read_failed:
             self._apps_upstream_graph_unread.add(app.id)
+            self._keep_graph_named_urns(app.id)
         if app.tables_read_failed:
             self._apps_tables_unknown.add(app.id)
             return
@@ -1917,16 +1926,23 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 if datasets
                 else None
             )
+            on_known_storage = False
             if urn is None and own_app_id is not None and FILE_QRI_RE.match(table_qri):
                 # Files on a storage connection resolve from the load script,
                 # without the list of datasets.
-                urn = self._resolve_file_source(own_app_id, table_qri)
+                file_source = self._file_source_resolution(own_app_id, table_qri)
+                urn, on_known_storage = file_source.urn, file_source.on_known_storage
                 if urn is None and self._file_inputs_incomplete(own_app_id):
                     # The file may be one the script reads through a path,
                     # connection or included script this run could not read,
                     # so the last run's edge to it must stay. Without the
-                    # listing, it may be a listed file the graph can't name.
-                    if datasets is None:
+                    # listing, it may be a listed file the graph can't name,
+                    # and without the connections, one on known storage.
+                    if (
+                        datasets is None
+                        or on_known_storage
+                        or self._data_connections_unread()
+                    ):
                         return None, False
                     return self._graph_named_source(own_app_id, table_qri), False
             if urn is None and datasets is None:
@@ -1938,7 +1954,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             ):
                 # It may be an ingested dataset the listing gave no QRI for.
                 return None, False
-            if urn is None and own_app_id is not None:
+            # A file on known storage that could not be told which is left out
+            # rather than named apart from its storage dataset.
+            if urn is None and own_app_id is not None and not on_known_storage:
                 urn = self._graph_named_source(own_app_id, table_qri)
                 if urn is None and self._upstream_graph_unread(own_app_id):
                     # The upstream graph that may name it could not be read.
@@ -1967,6 +1985,36 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             upstreams.stored_from.get(table_qri, [])
         )
         return urn
+
+    def _keep_graph_named_urns(self, app_id: str) -> None:
+        """Keeps the datasets the app's last read named from its upstream
+        graph, as this run could not read the graph to name them again."""
+        if self.stale_entity_removal_handler is None:
+            return
+        failures: List[str] = []
+        previous = self._usable_checkpoint(app_id, failures)
+        for failure in failures:
+            # A failure stops stale entity removal from soft-deleting them.
+            self.reporter.failure(
+                title="Unable to load the last checkpoint of a Qlik app",
+                message="Datasets the app's last read named from Qlik's lineage "
+                "graph could not be kept, so stale metadata removal is skipped "
+                "for this run.",
+                context=failure,
+            )
+        if previous is None:
+            return
+        # The URN up to its env, as `_graph_named_source` builds it.
+        prefixes = tuple(
+            self._gen_qlik_dataset_urn(prefix).rpartition(",")[0]
+            for prefix in UPSTREAM_RESOURCE_QRI_PREFIXES
+        )
+        for urn in previous.urns:
+            if urn.startswith(prefixes):
+                self._app_end_of_run_urns[app_id].add(urn)
+                self.stale_entity_removal_handler.add_entity_to_state(
+                    guess_entity_type(urn), urn
+                )
 
     def _upstream_graph_unread(self, app_id: str) -> bool:
         return app_id in self._apps_upstream_graph_unread
@@ -2201,13 +2249,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         }
 
     def _resolve_file_source(self, app_id: str, file_qri: str) -> Optional[str]:
+        return self._file_source_resolution(app_id, file_qri).urn
+
+    def _file_source_resolution(
+        self, app_id: str, file_qri: str
+    ) -> _FileSourceResolution:
         """The dataset of a file in an app's lineage graph, such as a CSV on
         Azure Storage, when the app's load script reads it through a data
         connection whose storage is known."""
         resolver = self._file_sources_by_app.get(app_id)
         space_id = self._app_space_ids.get(app_id)
         if resolver is None or space_id is None:
-            return None
+            return _FileSourceResolution()
         candidates = resolver.candidates(file_qri)
         # A connection whose properties match the QRI's names the file for
         # certain; one whose storage is only mapped is trusted only when no
@@ -2244,10 +2297,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             (confirmed if storage.qri_connection_id else unconfirmed).add(urn)
             if storage.likely_qri_connection_id == candidates.connection_id:
                 likely.add(urn)
+        unresolved = _FileSourceResolution(
+            on_known_storage=bool(confirmed or unconfirmed)
+        )
         if confirmed:
             urns = confirmed
         elif unknown:
-            return None
+            return unresolved
         elif unmapped:
             urns = unconfirmed | unmapped
         elif len(unconfirmed) > 1 and len(likely & unconfirmed) == 1:
@@ -2256,14 +2312,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         else:
             urns = unconfirmed
         if len(urns) != 1:
-            return None
+            return unresolved
         if file_qri not in self._resolved_file_qris:
             self._resolved_file_qris.add(file_qri)
             self.reporter.file_sources_resolved += 1
         urn = next(iter(urns))
         if urn in unmapped:
             self._link_unmapped_file(app_id, urn)
-        return urn
+        return _FileSourceResolution(
+            urn=urn, on_known_storage=unresolved.on_known_storage
+        )
 
     def _link_unmapped_file(self, app_id: str, urn: str) -> None:
         self._linked_unmapped_files.add(urn)
@@ -3050,7 +3108,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 yield from containers.create_container_hierarchy(path.lstrip("/"), urn)
 
     def _gen_file_entity(
-        self, urn: str, name: str, subtype: str, path: Optional[str] = None
+        self,
+        urn: str,
+        name: str,
+        subtype: DatasetSubTypes,
+        path: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         yield self._gen_entity_status_aspect(urn)
         yield MetadataChangeProposalWrapper(
@@ -3086,6 +3148,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             {urn: path for urn, path in paths.items() if urn not in qvds},
             DatasetSubTypes.QLIK_DATASET,
         )
+
+    def _gen_graph_named_resources(self) -> Iterable[MetadataWorkUnit]:
+        """The datasets and files only apps' upstream graphs name, and the
+        tables of the writer apps this run ingests as their upstreams."""
         for urn, label in self._graph_named_resources.items():
             # Qlik's label is a name, not a path, so the dataset has no path.
             yield from self._gen_file_entity(
@@ -3844,6 +3910,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         yield from self._gen_qvd_lineage()
         yield from self._gen_binary_lineage()
         yield from self._gen_unmapped_file_entities()
+        yield from self._gen_graph_named_resources()
         self._record_end_of_run_urns()
         if self.qlik_api.opened_without_data:
             self.reporter.warning(
@@ -3876,9 +3943,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 title="Qlik file connections have no known storage",
                 message="Files on these data connections are named by the "
                 "connection and path when it is named with its space, so they "
-                "only join the Qlik apps that write and read them; files on the "
-                "others are left out of lineage. Add each connection to "
-                "`file_connection_to_storage` with the URI of its storage.",
+                "only join the Qlik apps that write and read them. Files on the "
+                "others are named from the loading app's lineage graph, when its "
+                "tables come from the graph, and stores into them are not "
+                "linked. Add each connection to `file_connection_to_storage` "
+                "with the URI of its storage.",
                 context=_bounded_list(
                     sorted(self.reporter.unresolved_file_connections)
                 ),
@@ -3894,7 +3963,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 title="Unable to read Qlik upstream lineage graph",
                 message="Sources of these apps that only Qlik's lineage graph "
                 "names, such as datasets in spaces the API key can't see, are "
-                "left out, and the apps' lineage is only added to this run.",
+                "left out, and the apps' lineage is only added to this run. "
+                "Datasets the last run named from the graph are kept.",
                 context=_bounded_list(self.qlik_api.upstream_graph_read_failures),
             )
         change_check_failures = [

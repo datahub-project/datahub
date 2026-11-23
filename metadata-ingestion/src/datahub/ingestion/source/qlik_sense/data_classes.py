@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Type, Union
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.qlik_sense.config import QLIK_DATETIME_FORMAT, Constant
@@ -14,6 +14,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
 )
+from datahub.utilities.str_enum import StrEnum
 
 # TODO: Replace with standardized types in sql_types.py
 FIELD_TYPE_MAPPING: Dict[
@@ -174,6 +175,40 @@ class DataModelTable(BaseModel):
                 if field.get("qName") and not field.get("qIsSynthetic")
             ],
         )
+
+
+class LineageGraphLevel(StrEnum):
+    RESOURCE = "RESOURCE"
+    TABLE = "TABLE"
+    FIELD = "FIELD"
+
+
+class LineageGraphNode(BaseModel):
+    label: Optional[str] = None
+
+
+class LineageGraphEdge(BaseModel):
+    source: Optional[str] = None
+    target: Optional[str] = None
+    # Such as `load` or `store`.
+    relation: Optional[str] = None
+
+
+class LineageGraph(BaseModel):
+    """The `graph` of a Qlik Cloud lineage-graphs response, nodes by QRI."""
+
+    nodes: Dict[str, LineageGraphNode] = {}
+    edges: List[LineageGraphEdge] = []
+
+    @field_validator("nodes", mode="before")
+    @classmethod
+    def _null_nodes_are_empty(cls, value: object) -> object:
+        return {} if value is None else value
+
+    @field_validator("edges", mode="before")
+    @classmethod
+    def _null_edges_are_empty(cls, value: object) -> object:
+        return [] if value is None else value
 
 
 class LineageTable(BaseModel):

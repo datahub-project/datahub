@@ -11,6 +11,7 @@ import requests_mock as requests_mock_module
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
@@ -24,7 +25,9 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     UnchangedApp,
     UnreadItem,
 )
+from datahub.ingestion.source.qlik_sense.file_lineage import qri_part_id
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
+from datahub.ingestion.source.qlik_sense.qlik_base_api import UNREAD_DATA_CONNECTIONS
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
 from datahub.metadata.schema_classes import (
@@ -201,6 +204,7 @@ def _source(
     graph: Optional[MagicMock] = None,
     script_read_failed: bool = False,
     items: Optional[List[Union[App, QlikDataset]]] = None,
+    config: Optional[Dict[str, Any]] = None,
 ) -> QlikSenseSource:
     space = MagicMock(id="space-1")
     space.name = "Finance"
@@ -250,7 +254,7 @@ def _source(
         if isinstance(item, App):
             item.script_read_failed = script_read_failed
     return QlikSenseSource(
-        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        QlikSourceConfig.model_validate({**CLOUD_CONFIG, **(config or {})}),
         PipelineContext(run_id="test-lineage-graph", graph=graph),
     )
 
@@ -586,6 +590,87 @@ def test_upstream_graph_is_read(requests_mock: requests_mock_module.Mocker) -> N
     )
 
 
+GRAPH_FILE = "qri:file:adls://Conn#Path"
+DB_TABLE = "qri:db:mssql://Hash#Orders"
+
+
+def _read_report_app(
+    requests_mock: requests_mock_module.Mocker,
+    source_qri: str,
+    field_source_qri: str,
+    upstream_response: Dict[str, Any],
+) -> Tuple[QlikAPI, App]:
+    """Reads an app without a data model through its lineage graph, with the
+    Engine faked and Qlik Cloud's REST API mocked."""
+    requests_mock.get(f"{BASE_URL}/api-keys", json={})
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    node = f"{BASE_URL}/lineage-graphs/nodes/{quote(REPORT_APP, safe='')}"
+    table = f"{REPORT_APP}#Tbl"
+    requests_mock.get(
+        f"{node}/actions/expand?level=TABLE",
+        json={
+            "graph": {
+                "nodes": {table: {"label": "Prices"}},
+                "edges": [{"source": source_qri, "target": table}],
+            }
+        },
+    )
+    requests_mock.get(
+        f"{node}/actions/expand?level=FIELD",
+        json={
+            "graph": {
+                "nodes": {f"{table}#Fp": {"label": "Price"}},
+                "edges": [{"source": field_source_qri, "target": f"{table}#Fp"}],
+            }
+        },
+    )
+    requests_mock.get(node, **upstream_response)
+    app = _app("report-app", [])
+    app.qri = REPORT_APP
+    with (
+        patch("datahub.ingestion.source.qlik_sense.qlik_api.App") as app_cls,
+        patch(
+            "datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection"
+        ) as websocket_cls,
+        patch.object(api, "_get_app_sheets", return_value=[]),
+        patch.object(api, "_get_app_used_tables", return_value=[]),
+    ):
+        app_cls.model_validate.return_value = app
+        engine = websocket_cls.for_cloud.return_value
+        engine.get_script.return_value = ""
+        engine.get_data_model_tables.return_value = []
+        api._get_app("report-app")
+    return api, app
+
+
+@pytest.mark.parametrize(
+    "source_qri, field_source_qri, read",
+    [
+        pytest.param(f"{UNLISTED_QVD}#Prices", f"{DB_TABLE}#Fp", True, id="table"),
+        pytest.param(DB_TABLE, f"{GRAPH_FILE}#Tbl#Fp", True, id="field only"),
+        pytest.param(DB_TABLE, f"{DB_TABLE}#Fp", False, id="neither"),
+    ],
+)
+def test_upstream_graph_is_read_only_for_dataset_or_file_sources(
+    requests_mock: requests_mock_module.Mocker,
+    source_qri: str,
+    field_source_qri: str,
+    read: bool,
+) -> None:
+    _, app = _read_report_app(
+        requests_mock,
+        source_qri,
+        field_source_qri,
+        {"json": {"graph": {"nodes": {UNLISTED_QVD: {"label": "prices.qvd"}}}}},
+    )
+
+    assert (
+        any("level=resource" in r.url.lower() for r in requests_mock.request_history)
+        is read
+    )
+    assert bool(app.lineage_upstreams.resource_labels) is read
+
+
 @pytest.mark.parametrize(
     "response",
     [
@@ -597,38 +682,9 @@ def test_upstream_graph_is_read(requests_mock: requests_mock_module.Mocker) -> N
 def test_failed_upstream_graph_read_leaves_the_app_complete(
     requests_mock: requests_mock_module.Mocker, response: Dict[str, Any]
 ) -> None:
-    requests_mock.get(f"{BASE_URL}/api-keys", json={})
-    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
-    requests_mock.get(
-        f"{BASE_URL}/lineage-graphs/nodes/{quote(REPORT_APP, safe='')}",
-        **response,
+    api, app = _read_report_app(
+        requests_mock, f"{UNLISTED_QVD}#Prices", f"{UNLISTED_QVD}#Prices#Fp", response
     )
-    app = _app("report-app", [])
-    app.qri = REPORT_APP
-    engine = MagicMock()
-    engine.websocket_send_request.return_value = {"qLayout": {}}
-    engine.get_script.return_value = ""
-    with (
-        patch("datahub.ingestion.source.qlik_sense.qlik_api.App") as app_cls,
-        patch.object(api, "_open_engine", return_value=engine),
-        patch.object(api, "_get_app_sheets", return_value=[]),
-        patch.object(api, "_read_variables", return_value={}),
-        patch.object(api, "_get_app_used_tables", return_value=[]),
-        patch.object(
-            api,
-            "get_table_lineage",
-            return_value=[
-                LineageTable(
-                    qri=f"{REPORT_APP}#Tbl",
-                    label="Prices",
-                    source_qris=[f"{UNLISTED_QVD}#Prices"],
-                )
-            ],
-        ),
-        patch.object(api, "_read_data_model", return_value=[]),
-    ):
-        app_cls.model_validate.return_value = app
-        api._get_app("report-app")
 
     assert not app.tables_read_failed
     assert not app.read_errors
@@ -637,35 +693,128 @@ def test_failed_upstream_graph_read_leaves_the_app_complete(
     assert not api.lineage_read_failures
 
 
-GRAPH_FILE = "qri:file:adls://Conn#Path"
+def _file_reader(script: str, file_qri: str, variables_read_failed: bool) -> App:
+    reader = _app(
+        "report-app",
+        [LineageTable(qri=f"{REPORT_APP}#Tbl", label="Prices", source_qris=[file_qri])],
+    )
+    reader.script = script
+    reader.variables_read_failed = variables_read_failed
+    reader.lineage_upstreams = LineageUpstreams(
+        resource_labels={file_qri.rpartition("#")[0]: "prices.csv"}
+    )
+    return reader
 
 
-@pytest.mark.parametrize("listed", [True, False])
+def _workunits_of(
+    workunits: List[MetadataWorkUnit], urn: str
+) -> List[MetadataWorkUnit]:
+    return [wu for wu in workunits if wu.get_urn() == urn]
+
+
+@pytest.mark.parametrize(
+    "listed, connections_unread, graph_named",
+    [
+        pytest.param(True, False, True, id="listed"),
+        # The file may be a listed dataset with its own URN.
+        pytest.param(False, False, False, id="not listed"),
+        # The file may be on a connection whose storage the list would give.
+        pytest.param(True, True, False, id="connections unread"),
+    ],
+)
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_file_the_script_may_load_is_named_from_the_graph_only_when_listed(
-    mock_api_cls: MagicMock, listed: bool
+    mock_api_cls: MagicMock, listed: bool, connections_unread: bool, graph_named: bool
 ) -> None:
     api = mock_api_cls.return_value
-    api.unread_items = []
-    api.list_datasets.return_value = DATASETS if listed else None
-    source = QlikSenseSource(
-        QlikSourceConfig.model_validate(CLOUD_CONFIG),
-        PipelineContext(run_id="test-lineage-graph"),
+    api.get_data_connections.return_value = {}
+    api.unread_items = (
+        [UnreadItem(name=UNREAD_DATA_CONNECTIONS, cause="timed out")]
+        if connections_unread
+        else []
     )
-    source._allowed_space_ids = {"space-1"}
-    # The app's file paths are unknown, so its script may load the file.
-    source._apps_variables_unread.add("report-app")
-    source._lineage_upstreams["report-app"] = LineageUpstreams(
-        resource_labels={GRAPH_FILE: "prices.csv"}
+    file_qri = f"{GRAPH_FILE}#Tbl"
+    # The path is in a variable the run could not read, so the script may load
+    # the file.
+    reader = _file_reader(
+        "Prices: LOAD * FROM [$(vPath)] (txt);",
+        file_qri,
+        variables_read_failed=not connections_unread,
     )
+    source = _source(
+        mock_api_cls,
+        DATASETS if listed else None,
+        keep_unread_items=True,
+        items=[reader],
+    )
+    written, added = _lineage(source.get_workunits_internal())
 
-    resolved = source._resolve_lineage_sources(
-        [f"{GRAPH_FILE}#Tbl"], _urn("report-app.prices"), own_app_id="report-app"
-    )
+    table = _urn("report-app.prices")
+    assert table not in written
+    assert (_urn(GRAPH_FILE) in added.get(table, [])) is graph_named
 
-    # Without the listing, the file may be a listed dataset with its own URN.
-    assert resolved.urns == ([_urn(GRAPH_FILE)] if listed else [])
-    assert not resolved.complete
+
+@pytest.mark.parametrize(
+    "file_connection_to_storage, script, graph_named",
+    [
+        pytest.param(
+            {
+                "Prod": {"storage_uri": "abfss://lake@account.dfs.core.windows.net/p"},
+                "Dev": {"storage_uri": "abfss://lake@account.dfs.core.windows.net/d"},
+            },
+            "IF vEnv = 'prod' THEN\nPrices: LOAD * FROM [lib://Prod/x.csv] (txt);\n"
+            "ELSE\nPrices: LOAD * FROM [lib://Dev/x.csv] (txt);\nEND IF;\n",
+            False,
+            id="on mapped storage, either branch",
+        ),
+        pytest.param(
+            {},
+            "Prices: LOAD * FROM [lib://Lake/x.csv] (txt);\n",
+            True,
+            id="on a connection named without its space",
+        ),
+    ],
+)
+@pytest.mark.parametrize("variables_unread", [False, True])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unresolved_file_is_named_from_the_graph_only_off_known_storage(
+    mock_api_cls: MagicMock,
+    variables_unread: bool,
+    file_connection_to_storage: Dict[str, Any],
+    script: str,
+    graph_named: bool,
+) -> None:
+    mock_api_cls.return_value.get_data_connections.return_value = {}
+    mock_api_cls.return_value.spaces = {"space-1": "Finance"}
+    file_qri = (
+        f"qri:file:adls://{qri_part_id('lake-other')}#{qri_part_id('x.csv')}"
+        f"#{qri_part_id('item')}"
+    )
+    reader = _file_reader(script, file_qri, variables_read_failed=variables_unread)
+    source = _source(
+        mock_api_cls,
+        DATASETS,
+        items=[reader],
+        config={"file_connection_to_storage": file_connection_to_storage},
+    )
+    workunits = list(source.get_workunits_internal())
+    written, added = _lineage(workunits)
+
+    # A file on known storage has its storage URN, so it is left out rather
+    # than named apart from it.
+    file_urn = _urn(file_qri.rpartition("#")[0])
+    table = _urn("report-app.prices")
+    assert [*written.get(table, []), *added.get(table, [])] == (
+        [file_urn] if graph_named else []
+    )
+    subtypes = [
+        t
+        for wu in _workunits_of(workunits, file_urn)
+        if (t := wu.get_aspect_of_type(SubTypesClass))
+    ]
+    assert [t.typeNames for t in subtypes] == (
+        [[DatasetSubTypes.QLIK_DATASET]] if graph_named else []
+    )
 
 
 ORACLE_PRICES = make_dataset_urn("oracle", "erp.prices")

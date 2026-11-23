@@ -250,6 +250,7 @@ def test_only_denied_load_script_keeps_app_complete(
     with (
         patch.object(api, "_get_app_sheets", return_value=[]),
         patch.object(api, "_get_app_used_tables", return_value=[]),
+        patch.object(api, "get_table_lineage", return_value=[]),
     ):
         assert api._get_app("app-1") is app
 

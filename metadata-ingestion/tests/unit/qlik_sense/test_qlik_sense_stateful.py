@@ -182,6 +182,7 @@ def _cloud_app(
     script: str = "",
     lineage_tables: Optional[List[LineageTable]] = None,
     loads_unlisted_qvd: bool = False,
+    upstream_graph_unread: bool = False,
 ) -> App:
     app = App.model_validate(
         {
@@ -218,8 +219,11 @@ def _cloud_app(
             )
         ]
         app.lineage_upstreams = LineageUpstreams(
-            resource_labels={UNLISTED_QVD: "prices.qvd"}
+            resource_labels={}
+            if upstream_graph_unread
+            else {UNLISTED_QVD: "prices.qvd"}
         )
+        app.lineage_upstreams_read_failed = upstream_graph_unread
     return app
 
 
@@ -230,6 +234,7 @@ def _cloud_run(
     script: str = "",
     lineage_tables: Optional[List[LineageTable]] = None,
     loads_unlisted_qvd: bool = False,
+    upstream_graph_unread: bool = False,
 ) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
     with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI") as api_cls:
         api = api_cls.return_value
@@ -244,7 +249,13 @@ def _cloud_run(
             )
         ]
         api.get_items.return_value = [
-            _cloud_app(read_errors, script, lineage_tables, loads_unlisted_qvd)
+            _cloud_app(
+                read_errors,
+                script,
+                lineage_tables,
+                loads_unlisted_qvd,
+                upstream_graph_unread,
+            )
         ]
         api.list_datasets.return_value = []
         api.get_data_connections.return_value = {}
@@ -313,6 +324,27 @@ def test_graph_named_dataset_is_kept_with_a_partly_read_app(
     assert prices in {wu.get_urn() for wu in first_wus}
     assert prices not in {wu.get_urn() for wu in second_wus}
     assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
+
+
+def test_graph_named_dataset_is_kept_when_the_upstream_graph_is_unread(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    _cloud_run(mock_datahub_graph, "run-1", read_errors=[], loads_unlisted_qvd=True)
+    _, second_wus = _cloud_run(
+        mock_datahub_graph,
+        "run-2",
+        read_errors=[],
+        loads_unlisted_qvd=True,
+        upstream_graph_unread=True,
+    )
+    _, third_wus = _cloud_run(
+        mock_datahub_graph, "run-3", read_errors=[], loads_unlisted_qvd=True
+    )
+
+    # Its name comes only from the graph, so a run that could not read it keeps
+    # the dataset of the last read.
+    assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
+    assert not [wu for wu in third_wus if wu.id.startswith("soft-delete-")]
 
 
 def test_cloud_partly_read_app_keeps_the_connection_named_file_it_loads(
