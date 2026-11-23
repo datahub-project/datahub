@@ -840,6 +840,13 @@ def test_expression_variable_is_not_expanded_in_a_qvd_path() -> None:
             "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\nNEXT vTable;",
             id="loop variable after an include",
         ),
+        pytest.param(
+            "LET vTable = Lower('Orders' & vRegion);\n"
+            "IF vEnv = 'A' THEN\nSET vOther = 'x';\nEND IF;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\n"
+            "LET vTable = Lower('Hist' & vRegion);",
+            id="unknown before an IF that doesn't set it",
+        ),
     ],
 )
 def test_qvd_path_from_a_varying_variable_stays_unresolved(script: str) -> None:
