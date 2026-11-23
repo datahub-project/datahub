@@ -1991,10 +1991,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             UPSTREAM_RESOURCE_QRI_PREFIXES
         ):
             return None
-        resource_qri = table_qri.rpartition("#")[0]
-        label = upstreams.resource_labels.get(resource_qri)
-        if label is None or resource_qri in self._listed_dataset_qris:
+        # The graph may name the resource itself rather than one of its tables.
+        candidates = (table_qri.rpartition("#")[0], table_qri)
+        if any(qri in self._listed_dataset_qris for qri in candidates):
             return None
+        resource_qri = next(
+            (qri for qri in candidates if qri in upstreams.resource_labels), None
+        )
+        if resource_qri is None:
+            return None
+        label = upstreams.resource_labels[resource_qri]
         # A file another app's script resolves keeps that URN there, so the two
         # are separate datasets until its storage is mapped.
         urn = self._gen_qlik_dataset_urn(resource_qri.lower())

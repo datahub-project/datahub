@@ -488,7 +488,9 @@ WRITER_TABLE = "qri:app:sense://writer-app#Out"
 
 
 def _reader_and_writer(
-    upstreams: LineageUpstreams, read_failed: bool = False
+    upstreams: LineageUpstreams,
+    read_failed: bool = False,
+    source_qris: Optional[List[str]] = None,
 ) -> List[Union[App, QlikDataset]]:
     reader = _app(
         "report-app",
@@ -496,7 +498,8 @@ def _reader_and_writer(
             LineageTable(
                 qri=f"{REPORT_APP}#Tbl",
                 label="Prices",
-                source_qris=[f"{UNLISTED_QVD}#Prices", f"{HIDDEN_QVD}#Curve"],
+                source_qris=source_qris
+                or [f"{UNLISTED_QVD}#Prices", f"{HIDDEN_QVD}#Curve"],
             )
         ],
     )
@@ -545,6 +548,22 @@ def test_unlisted_dataset_is_named_from_the_upstream_graph(
     )
     assert subtypes.typeNames == ["QVD"]
     assert not source.reporter.failures
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_source_named_at_resource_level_is_named_from_the_upstream_graph(
+    mock_api_cls: MagicMock,
+) -> None:
+    upstreams = LineageUpstreams(
+        resource_labels={UNLISTED_QVD: "prices.qvd", HIDDEN_QVD: "hidden.qvd"},
+        stored_from={UNLISTED_QVD: [WRITER_TABLE]},
+    )
+    items = _reader_and_writer(upstreams, source_qris=[UNLISTED_QVD, HIDDEN_QVD])
+    _, written, added = _run(mock_api_cls, DATASETS, items=items)
+
+    # The one listed in a space the recipe leaves out is still not named.
+    assert written[_urn("report-app.prices")] == [_urn(UNLISTED_QVD)]
+    assert added[_urn(UNLISTED_QVD)] == [_urn("writer-app.out")]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
