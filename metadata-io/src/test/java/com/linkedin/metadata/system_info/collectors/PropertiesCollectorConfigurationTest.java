@@ -647,6 +647,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showSeparateSiblings",
           "featureFlags.showSimplifiedHomepageByDefault",
           "featureFlags.showTestsInHealthIcon",
+          "featureFlags.mcpServerEnabled",
           "featureFlags.i18nEnabled",
           "featureFlags.timeseriesAspectBatchLoadEnabled",
           "featureFlags.timeseriesAspectAggBatchLoadEnabled",
