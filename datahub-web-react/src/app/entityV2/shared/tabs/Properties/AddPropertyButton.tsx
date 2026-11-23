@@ -7,6 +7,7 @@ import styled from 'styled-components';
 
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entityV2/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
+import { canEditDisplayedStructuredProperties } from '@app/entityV2/shared/tabs/Properties/structuredPropertyPrivileges';
 import { Button, Dropdown, Input as InputComponent, Loader, Text } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
 import {
@@ -125,8 +126,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
         [data, fieldUrn, fieldPropertiesUrns, entityPropertiesUrns, entityRegistry, platformUrn],
     );
 
-    const canEditProperties =
-        entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
+    const canEditProperties = canEditDisplayedStructuredProperties(entityData, !!fieldUrn);
 
     if (!canEditProperties) return null;
 

@@ -1942,6 +1942,7 @@ fragment entityPrivileges on EntityPrivileges {
     canEditSchemaFieldTags
     canEditSchemaFieldGlossaryTerms
     canEditSchemaFieldDescription
+    canEditSchemaFieldProperties
     canViewQueries
     canEditQueries
     canEditEmbed

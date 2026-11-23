@@ -226,3 +226,20 @@ def test_get_path_schema():
     assert get_path_schema("https://example.com/file.txt") == "https"
     assert get_path_schema("/local/path/file.txt") == "file"
     assert get_path_schema("relative/path/file.txt") == "file"
+    assert get_path_schema(r"C:\data\file.txt") == "file"
+    assert get_path_schema("d:/data/file.txt") == "file"
+
+
+@patch("datahub.ingestion.fs.s3_fs.smart_open")
+@patch("datahub.ingestion.fs.s3_fs.boto3")
+def test_s3_filesystem_open_passes_client(mock_boto3, mock_smart_open):
+    mock_s3_client = Mock()
+    mock_boto3.client.return_value = mock_s3_client
+
+    S3FileSystem.create().open("s3://test-bucket/file.csv")
+
+    mock_smart_open.open.assert_called_once_with(
+        "s3://test-bucket/file.csv",
+        mode="rb",
+        transport_params={"client": mock_s3_client},
+    )

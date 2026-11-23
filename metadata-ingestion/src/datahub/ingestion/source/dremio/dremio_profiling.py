@@ -66,6 +66,38 @@ class DremioProfiler:
         self.report = report
         self.state_handler = state_handler
         self.QUERY_TIMEOUT = config.profiling.query_timeout
+        self._warn_unapplied_bounds()
+
+    def _warn_unapplied_bounds(self) -> None:
+        """Say so when the recipe asks for a bound this profiler does not apply.
+
+        The SQL profiler reports this per asset from what its adapter applied.
+        Dremio profiles through its own engine and never reaches that code, so
+        without this a `profiling.limit` here would be accepted and ignored in
+        silence -- the failure the applied-bound contract exists to remove. One
+        warning per run rather than per asset: the decision is the same for
+        every table, so repeating it would only bury it.
+        """
+        # DremioSource builds a profiler whether or not profiling is enabled, so
+        # without this a disabled run would be told its bounds went unapplied --
+        # true, but about profiles it was never going to produce.
+        if not self.config.is_profiling_enabled():
+            return
+        requested = [
+            name
+            for name in ("limit", "offset")
+            if getattr(self.config.profiling, name) is not None
+        ]
+        if not requested:
+            return
+        self.report.warning(
+            title="Profiling: limit and offset are not applied on Dremio",
+            message="Dremio profiles with a single-row aggregate query, so a "
+            "limit would bound that row rather than the scan and an offset "
+            "would skip the only row there is. Neither is applied, and every "
+            "profile covers the full table.",
+            context=f"requested: {', '.join(requested)}",
+        )
 
     def get_workunits(self, target: ProfileTarget) -> Iterable[MetadataWorkUnit]:
         if not target.columns:
@@ -227,14 +259,13 @@ class DremioProfiler:
         if not metrics:
             raise ValueError("No valid metrics could be generated")
 
-        main_query = f"SELECT {', '.join(metrics)} FROM {table_name}"
-
-        if self.config.profiling.limit:
-            main_query += f" LIMIT {self.config.profiling.limit}"
-        if self.config.profiling.offset:
-            main_query += f" OFFSET {self.config.profiling.offset}"
-
-        return main_query
+        # profiling.limit/offset are deliberately not applied. This query is a
+        # single-row aggregate, so a LIMIT bounds that row rather than the scan
+        # -- it has never reduced what Dremio reads -- and an OFFSET skips the
+        # only row there is, emptying the profile. Bounding the input would mean
+        # sampling the table inside a subquery, which this profiler does not do;
+        # until it does, the config lists neither option for Dremio.
+        return f"SELECT {', '.join(metrics)} FROM {table_name}"
 
     def _get_column_metrics(self, column_name: str, data_type: str) -> List[str]:
         metrics = []
