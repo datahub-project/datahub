@@ -7,6 +7,10 @@ from pydantic import ValidationError
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.qlik_sense.app_state import (
+    AppCheckpoint,
+    QlikAppStateHandler,
+)
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
@@ -368,6 +372,25 @@ def test_file_without_known_storage_is_named_by_its_connection(
     )
     assert properties.qualifiedName == "lib://Sales Space:Lake/ref/regions.xlsx"
     assert not source._unmapped_file_urn("Sales Space:DataFiles", "rates.qvd")
+    # Emitted at the end of the run, so recorded with the app that links it,
+    # for a run that keeps the app to keep the file too.
+    source.app_state = MagicMock()
+    source._record_end_of_run_urns()
+    source.app_state.add_urns.assert_called_once_with("app-1", {regions})
+
+
+def test_urns_emitted_at_the_end_of_the_run_join_the_app_checkpoint() -> None:
+    apps = {"app-1": AppCheckpoint(urns=["urn:li:dataset:kept"])}
+    handler = MagicMock()
+    handler.state_provider.get_current_checkpoint.return_value.state.apps = apps
+
+    QlikAppStateHandler.add_urns(
+        handler, "app-1", {"urn:li:dataset:file", "urn:li:dataset:kept"}
+    )
+    QlikAppStateHandler.add_urns(handler, "app-2", {"urn:li:dataset:file"})
+
+    assert apps["app-1"].urns == ["urn:li:dataset:kept", "urn:li:dataset:file"]
+    assert list(apps) == ["app-1"]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
