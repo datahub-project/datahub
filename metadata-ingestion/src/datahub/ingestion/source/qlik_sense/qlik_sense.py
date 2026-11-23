@@ -1941,6 +1941,20 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             return storage, detail
         return visible, detail
 
+    def _file_urn(
+        self, storage: FileStorage, detail: Optional[FileStorageDetail], path: str
+    ) -> str:
+        return file_dataset_urn(
+            storage,
+            path,
+            platform_instance=detail.platform_instance if detail else None,
+            # An env the mapping leaves unset is the recipe's.
+            env=detail.env
+            if detail and "env" in detail.model_fields_set
+            else self.config.env,
+            lowercase=detail.convert_urns_to_lowercase if detail else False,
+        )
+
     def _resolve_file_source(self, app_id: str, file_qri: str) -> Optional[str]:
         """The dataset of a file in an app's lineage graph, such as a CSV on
         Azure Storage, when the app's load script reads it through a data
@@ -1980,16 +1994,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 and storage.qri_connection_id != candidates.connection_id
             ):
                 continue
-            urn = file_dataset_urn(
-                storage,
-                reference.path,
-                platform_instance=detail.platform_instance if detail else None,
-                # An env the mapping leaves unset is the recipe's.
-                env=detail.env
-                if detail and "env" in detail.model_fields_set
-                else self.config.env,
-                lowercase=detail.convert_urns_to_lowercase if detail else False,
-            )
+            urn = self._file_urn(storage, detail, reference.path)
             (confirmed if storage.qri_connection_id else unconfirmed).add(urn)
             if storage.likely_qri_connection_id == candidates.connection_id:
                 likely.add(urn)
@@ -2639,16 +2644,19 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         assert on_prem is not None
         resolver = QvdPathResolver(
             folders={
-                **{
-                    name: info.folder_path
-                    for name, info in self._get_data_connections().items()
-                    if info.folder_path
-                },
-                **on_prem.qvd_connection_folders,
+                name: info.folder_path
+                for name, info in self._get_data_connections().items()
+                if info.folder_path
             },
             ignored_connections=on_prem.qvd_ignored_connections,
             folder_aliases=on_prem.qvd_folder_aliases,
             variables_known=not app.variables_read_failed,
+            storage_urns={
+                name: partial(self._file_urn, storage, detail)
+                for name, detail in self.config.file_connection_to_storage.items()
+                if detail.storage_uri
+                and (storage := file_storage_of_uri(detail.storage_uri))
+            },
         )
         lineage = app_qvd_lineage(
             app.id,
@@ -2800,7 +2808,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 else None
             )
-            if fields is not None:
+            if fields is not None and self._is_own_dataset(urn):
                 yield MetadataChangeProposalWrapper(
                     entityUrn=urn,
                     aspect=SchemaMetadata(
@@ -2927,8 +2935,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     patch.remove_fine_grained_lineage(lineage)
         for mcp in patch.build():
             yield MetadataWorkUnit(
-                id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+                id=MetadataWorkUnit.generate_workunit_id(mcp),
+                mcp_raw=mcp,
+                # A file on storage is not this source's to remove when stale.
+                is_primary_source=self._is_own_dataset(qvd_urn),
             )
+
+    def _is_own_dataset(self, urn: str) -> bool:
+        return DatasetUrn.from_string(urn).platform == builder.make_data_platform_urn(
+            self.platform
+        )
 
     def _check_missing_lineage_graph(self, app: App) -> None:
         # Qlik also answers 404 for lineage it has not computed yet, so a 404
