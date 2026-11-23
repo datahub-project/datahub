@@ -195,7 +195,7 @@ The two do not compose: sampling an already-limited table draws randomly from an
 
 Only BigQuery and Snowflake apply `limit`/`offset` at all, and the SQL profiler declines an `offset` with no `limit`: skipping rows without bounding them scans more than leaving it unset, not less. `limit` must be a positive whole number and `offset` a non-negative one; both are checked when the recipe is read.
 
-Each asset is labelled from the bound that was actually applied to it, so a profile never claims one that was not: it stays `FULL_TABLE`, and the run warns once per option — **Profiling: limit was not applied** or **Profiling: offset was not applied** — naming each asset it affected.
+Each asset is labelled from the bound that was actually applied to it, so a profile never claims one that was not. The label is whatever did happen instead — `FULL_TABLE` where nothing narrowed the scan, a sample where sampling took precedence, a partition where the source profiled one — and the run warns once per option, **Profiling: limit was not applied** or **Profiling: offset was not applied**, naming each asset it affected.
 
 #### `rowCount` and the column statistics are measured over different things
 

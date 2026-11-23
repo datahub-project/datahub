@@ -59,7 +59,7 @@ class ProfilingBaseConfig(ProfilingMethodConfig):
         "sample, use `sample_size` for that. Sampling takes precedence: where "
         "`use_sampling` applies, the table is sampled and this is not applied. Only "
         "BigQuery and Snowflake apply it; wherever it is not applied the run warns and "
-        "the profile is labelled as covering the full table. By default, profiles all "
+        "the profile is labelled from whatever was applied instead. By default, profiles all "
         "rows.",
     )
     offset: Annotated[
