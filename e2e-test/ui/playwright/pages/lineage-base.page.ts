@@ -90,8 +90,7 @@ export class LineageBasePage extends BasePage {
     this.filterByDescriptionOption = page.getByTestId('adv-search-add-filter-description');
     this.filterTextInput = page.getByTestId('edit-text-input');
     this.filterTextDoneButton = page.getByTestId('edit-text-done-btn');
-    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design list container class; no data-testid or ARIA role on this wrapper
-    this.listItems = page.locator('.ant-list-items');
+    this.listItems = page.getByTestId('entity-search-results');
     this.downloadCsvButton = page.getByTestId('download-csv-button');
     this.downloadCsvInput = page.getByTestId('download-as-csv-input');
     this.csvModalDownloadButton = page.getByTestId('csv-modal-download-button');
@@ -104,7 +103,7 @@ export class LineageBasePage extends BasePage {
     // eslint-disable-next-line playwright/no-raw-locators -- rc-virtual-list internal class; no data-testid or ARIA role
     this.columnDropdownVirtualList = page.locator('.rc-virtual-list');
     // eslint-disable-next-line playwright/no-raw-locators -- CSS class substring match for generated class name; no data-testid on ResultText
-    this.resultTextLink = page.locator('.ant-list-items [class*="ResultText"]').first();
+    this.resultTextLink = page.getByTestId('entity-search-results').locator('[class*="ResultText"]').first();
     this.lineageFiltersPanel = page.getByTestId('lineage-filters-panel');
     this.lineageSidebar = page.getByTestId('lineage-sidebar');
   }

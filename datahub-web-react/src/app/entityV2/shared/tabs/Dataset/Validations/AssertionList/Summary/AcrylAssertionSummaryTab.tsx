@@ -1,5 +1,6 @@
+import { EmptyState, Skeleton } from '@components';
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
-import { Card, Empty } from 'antd';
+import { ShieldCheck } from '@phosphor-icons/react/dist/csr/ShieldCheck';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
@@ -18,7 +19,6 @@ import {
     ASSERTION_TYPE_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
 } from '@app/searchV2/utils/constants';
-import { Button } from '@src/alchemy-components';
 import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/siblingUtils';
 import { useSearchAssertionsQuery } from '@src/graphql/assertion.generated';
@@ -34,14 +34,7 @@ const LoadingBody = styled.div`
     overflow: auto;
 `;
 
-const CardSkeleton = styled(Card)`
-    && {
-        padding: 0px 12px 12px 0px;
-        height: 210px;
-        border-radius: 8px;
-        width: 100%;
-    }
-`;
+const CARD_SKELETON_HEIGHT = 210;
 
 const AcrylAssertionSummaryContainer = styled.div`
     display: grid;
@@ -53,9 +46,7 @@ const AcrylAssertionSummaryContainer = styled.div`
 `;
 
 const EmptyContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    padding: 48px 0;
 `;
 
 const getBaseFilter: (urns: string[]) => FacetFilterInput = (urns: string[]) => ({
@@ -108,7 +99,7 @@ const AcrylAssertionTypeSummary = ({
     });
 
     if (loading) {
-        return <CardSkeleton loading />;
+        return <Skeleton.Button active block shape="square" height={CARD_SKELETON_HEIGHT} />;
     }
 
     const statusFacet = data?.searchAcrossEntities?.facets?.find(
@@ -164,10 +155,10 @@ export const AcrylAssertionSummaryTab = () => {
     if (entityLoading || assertionDataLoading) {
         return (
             <LoadingBody>
-                <CardSkeleton loading />
-                <CardSkeleton loading />
-                <CardSkeleton loading />
-                <CardSkeleton loading />
+                <Skeleton.Button active block shape="square" height={CARD_SKELETON_HEIGHT} />
+                <Skeleton.Button active block shape="square" height={CARD_SKELETON_HEIGHT} />
+                <Skeleton.Button active block shape="square" height={CARD_SKELETON_HEIGHT} />
+                <Skeleton.Button active block shape="square" height={CARD_SKELETON_HEIGHT} />
             </LoadingBody>
         );
     }
@@ -183,15 +174,18 @@ export const AcrylAssertionSummaryTab = () => {
     if (!assertionData || assertionCount === 0 || !assertionTypeFacets) {
         return (
             <EmptyContainer>
-                <Empty description={t('assertionSummary.noAssertionsCreated')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                <Button
-                    onClick={() =>
-                        history.replace(`${basePath}/List?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`)
-                    }
-                >
-                    {t('assertionSummary.goToAssertions')}
-                    <ArrowRight />
-                </Button>
+                <EmptyState
+                    icon={ShieldCheck}
+                    title={t('assertionSummary.noAssertionsCreated')}
+                    size="sm"
+                    action={{
+                        label: t('assertionSummary.goToAssertions'),
+                        icon: { icon: ArrowRight },
+                        iconPosition: 'right',
+                        onClick: () =>
+                            history.replace(`${basePath}/List?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`),
+                    }}
+                />
             </EmptyContainer>
         );
     }

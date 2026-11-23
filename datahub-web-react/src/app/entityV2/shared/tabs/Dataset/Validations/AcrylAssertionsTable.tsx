@@ -1,7 +1,10 @@
-import { Checkbox, Empty, Table, TableProps } from 'antd';
+import { Checkbox, EmptyState, Table } from '@components';
+import { ShieldCheck } from '@phosphor-icons/react/dist/csr/ShieldCheck';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import type { Column } from '@components/components/Table/types';
 
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import {
@@ -14,74 +17,14 @@ import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Valida
 
 import { Assertion, AssertionRunStatus, DataContract } from '@types';
 
-type StyledTableProps = {
-    showSelect?: boolean;
-} & TableProps<any>;
-
-const BaseStyledTable = styled(Table)<StyledTableProps>`
-    ${(props) => !props.showSelect && `margin-left: -50px;`}
-    max-width: none;
-    overflow: inherit;
-    height: inherit;
-    &&& .ant-table-thead .ant-table-cell {
-        font-weight: 600;
-        font-size: 12px;
-        color: ${(props) => props.theme.colors.textTertiary};
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    &&
-        .ant-table-thead
-        > tr
-        > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
-            [colspan]
-        )::before {
-        border: 1px solid ${(props) => props.theme.colors.border};
-    }
-    && {
-        .ant-table-tbody > tr > td {
-            border: none;
-            ${(props) => props.showSelect && `padding: 16px 20px;`}
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-    }
-    &&& .ant-table-cell {
-        background-color: transparent;
-    }
-    &&& .acryl-assertions-table-row {
-        cursor: pointer;
-        background-color: ${(props) => props.theme.colors.bgSurface};
-        :hover {
-            background-color: ${(props) => props.theme.colors.bgSurface};
-        }
-    }
-    &&& .acryl-selected-assertions-table-row {
-        background-color: ${(props) => props.theme.colors.bgHover};
-    }
-    &&& .ant-table-fixed-right {
-        background-color: inherit;
-    }
-    &&& .ant-table-tbody > tr > td.ant-table-cell-fix-right {
-        background-color: inherit;
-    }
-    &&& .ant-table-thead > tr > th.ant-table-cell-fix-right {
-        background-color: inherit;
-    }
-`;
-
-export const StyledTable = BaseStyledTable as <T = any>(props: StyledTableProps & TableProps<T>) => JSX.Element;
-
 const DetailsColumnWrapper = styled.div`
     display: flex;
     align-items: center;
-    justify-content: left;
+    gap: 12px;
 `;
 
-const AssertionSelectCheckbox = styled(Checkbox)`
-    margin-right: 12px;
+const EmptyContainer = styled.div`
+    padding: 48px 0;
 `;
 
 type Props = {
@@ -145,26 +88,27 @@ export const AcrylAssertionsTable = ({
         assertion,
     }));
 
-    const assertionsTableCols = [
+    type AssertionRow = (typeof assertionsTableData)[number];
+
+    const assertionsTableCols: Column<AssertionRow>[] = [
         {
             title: '',
-            dataIndex: '',
-            key: '',
-            render: (_, record: any) => {
+            key: 'details',
+            render: (record) => {
                 const selected = selectedUrns?.some((selectedUrn) => selectedUrn === record.urn);
                 return (
                     <DetailsColumnWrapper>
                         {showSelect && (
-                            <AssertionSelectCheckbox
-                                checked={selected}
-                                onClick={(e) => e.stopPropagation()}
-                                onChange={() => onSelect?.(record.urn as string)}
+                            <Checkbox
+                                isChecked={selected}
+                                onCheckboxChange={() => onSelect?.(record.urn)}
+                                aria-label={record.urn}
                             />
                         )}
                         <DetailsColumn
                             assertion={record.assertion}
                             contract={contract}
-                            lastEvaluation={record.lastEvaluation}
+                            lastEvaluation={record.lastEvaluation || undefined}
                             onViewAssertionDetails={() => setFocusAssertionUrn(record.urn)}
                         />
                     </DetailsColumnWrapper>
@@ -173,62 +117,38 @@ export const AcrylAssertionsTable = ({
         },
         {
             title: '',
-            dataIndex: '',
-            key: '',
-            render: (_, record: any) => {
-                // TODO: Add permission for editing contract.
-                return (
-                    <>
-                        {(showMenu && (
-                            <ActionsColumn
-                                assertion={record.assertion}
-                                contract={contract}
-                                canEditContract
-                                refetch={refetch}
-                            />
-                        )) ||
-                            undefined}
-                    </>
-                );
-            },
+            key: 'actions',
+            alignment: 'right',
+            // TODO: Add permission for editing contract.
+            render: (record) =>
+                showMenu ? (
+                    <ActionsColumn assertion={record.assertion} contract={contract} canEditContract refetch={refetch} />
+                ) : null,
         },
     ];
 
     return (
         <>
-            <StyledTable
-                showSelect={showSelect}
-                rowClassName={(record) => {
-                    return (
-                        (record.urn === focusAssertionUrn && 'acryl-selected-assertions-table-row') ||
-                        'acryl-assertions-table-row'
-                    );
-                }}
-                columns={assertionsTableCols}
-                dataSource={assertionsTableData}
-                rowKey="urn"
-                locale={{
-                    emptyText: (
-                        <Empty
-                            description={t('assertionList.noAssertionsTitle')}
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        />
-                    ),
-                }}
-                onRow={(record) => {
-                    return {
-                        onClick: (_) => {
-                            if (showSelect) {
-                                onSelect?.(record.urn as string);
-                            } else {
-                                setFocusAssertionUrn(record.urn);
-                            }
-                        },
-                    };
-                }}
-                showHeader={false}
-                pagination={false}
-            />
+            {assertionsTableData.length === 0 ? (
+                <EmptyContainer>
+                    <EmptyState icon={ShieldCheck} title={t('assertionList.noAssertionsTitle')} size="sm" />
+                </EmptyContainer>
+            ) : (
+                <Table<AssertionRow>
+                    columns={assertionsTableCols}
+                    data={assertionsTableData}
+                    rowKey="urn"
+                    showHeader={false}
+                    focusedRowKey={focusAssertionUrn}
+                    onRowClick={(record) => {
+                        if (showSelect) {
+                            onSelect?.(record.urn);
+                        } else {
+                            setFocusAssertionUrn(record.urn);
+                        }
+                    }}
+                />
+            )}
             {focusAssertionUrn && focusedAssertionEntity && (
                 <AssertionProfileDrawer
                     urn={focusAssertionUrn}
