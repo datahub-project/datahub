@@ -965,6 +965,29 @@ def test_qvd_path_from_a_let_expression_takes_the_reload_value() -> None:
             "Orders.qvd",
             id="after nested IF branches that disagree",
         ),
+        pytest.param(
+            "IF vEnv = 'A' THEN\nSET vTable = 'Hist';\nELSE\nSET vTable = 'Old';\n"
+            "END IF;\nIF vRegion = 'EU' THEN\nSET vTable = 'Orders';\nELSE\n"
+            "SET vTable = 'Customers';\nEND IF;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            "Orders.qvd",
+            id="after a second IF that disagrees",
+        ),
+        pytest.param(
+            "LET vTable = Lower('Hist' & vRegion);\nIF vEnv = 'A' THEN\n"
+            "SET vTable = 'Orders';\nEND IF;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            "Orders.qvd",
+            id="after an IF that overrides a LET",
+        ),
+        pytest.param(
+            "LET vTable = Lower('Hist' & vRegion);\nFOR EACH vT IN 'a', 'b'\n"
+            "IF vT = 'a' THEN\nSET vTable = 'Orders';\nELSE\n"
+            "SET vTable = 'Customers';\nEND IF;\nNEXT vT;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            "Orders.qvd",
+            id="after a loop whose IF overrides a LET",
+        ),
     ],
 )
 def test_qvd_path_from_a_variable_known_at_that_point_resolves(
