@@ -2,7 +2,8 @@
 
 Reads tests/graphql_schemas.json and writes build/graphql-schemas/<name>.graphql:
 the concatenated SDL GMS serves at that commit, or in the checkout for entries
-without a commit. Commits missing from a shallow clone are fetched by tag.
+without a commit. Commits missing from the clone are fetched by tag from
+DataHub's own repository, since origin may be a fork without its release tags.
 """
 
 import json
@@ -14,6 +15,7 @@ PACKAGE_DIR = pathlib.Path(__file__).resolve().parent.parent
 REPO_ROOT = PACKAGE_DIR.parent.parent
 SCHEMA_DIR = "datahub-graphql-core/src/main/resources"
 OUT_DIR = PACKAGE_DIR / "build" / "graphql-schemas"
+DATAHUB_REPO_URL = "https://github.com/datahub-project/datahub.git"
 
 
 def git(*args: str) -> str:
@@ -33,10 +35,11 @@ def has_commit(commit: str) -> bool:
 
 def sdl_at(commit: str, tag: str) -> str:
     if not has_commit(commit):
-        git("fetch", "--quiet", "--depth=1", "origin", "tag", tag)
-    tagged = git("rev-parse", f"{tag}^{{commit}}").strip()
-    if tagged != commit:
-        raise SystemExit(f"{tag} is {tagged}, but the pinned commit is {commit}")
+        # Into FETCH_HEAD only: a local tag of the same name may already exist.
+        git("fetch", "--quiet", "--depth=1", DATAHUB_REPO_URL, f"refs/tags/{tag}")
+        tagged = git("rev-parse", "FETCH_HEAD^{commit}").strip()
+        if tagged != commit:
+            raise SystemExit(f"{tag} is {tagged}, but the pinned commit is {commit}")
     files = [
         f
         for f in git("ls-tree", "-r", "--name-only", commit, SCHEMA_DIR).split()
