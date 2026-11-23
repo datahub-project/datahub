@@ -1,6 +1,8 @@
 import logging
 from typing import Iterable, Optional, Tuple, Union
 
+from typing_extensions import assert_never
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -17,12 +19,18 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.sql_queries.config import SqlQueriesSourceConfig
+from datahub.ingestion.source.sql_queries.config import (
+    ElasticsearchQuerySourceConfig,
+    SqlQueriesSourceConfig,
+)
 from datahub.ingestion.source.sql_queries.query_entry import (
     QueryEntry,
     QueryEntryContext,
 )
 from datahub.ingestion.source.sql_queries.readers.base import QueryLogReader
+from datahub.ingestion.source.sql_queries.readers.elasticsearch import (
+    ElasticsearchQueryLogReader,
+)
 from datahub.ingestion.source.sql_queries.readers.file import FileQueryLogReader
 from datahub.ingestion.source.sql_queries.report import SqlQueriesSourceReport
 from datahub.ingestion.source_report.ingestion_stage import (
@@ -123,8 +131,18 @@ class SqlQueriesSource(Source):
         self.reader: QueryLogReader = self._create_reader()
 
     def _create_reader(self) -> QueryLogReader:
+        query_source = self.config.query_source
+        if query_source is None:
+            # validate_query_source guarantees one of the two is set.
+            assert self.config.query_file is not None
+            return self._create_file_reader(self.config.query_file)
+        if isinstance(query_source, ElasticsearchQuerySourceConfig):
+            return ElasticsearchQueryLogReader(query_source, self.report)
+        assert_never(query_source)
+
+    def _create_file_reader(self, query_file: str) -> FileQueryLogReader:
         return FileQueryLogReader(
-            query_file=self.config.query_file,
+            query_file=query_file,
             aws_config=self.config.aws_config,
             entry_context=QueryEntryContext(
                 platform=self.config.platform,
@@ -184,19 +202,34 @@ class SqlQueriesSource(Source):
         """
         processed = self.report.num_entries_processed
         failed = self.report.num_entries_failed
+        skipped = self.report.num_entries_skipped_no_query
         if processed == 0:
             if failed > 0:
+                hint = (
+                    "check the file format (expected newline-delimited JSON)"
+                    if self.config.query_file
+                    else "check the query_source field mappings and record format"
+                )
                 self.report.failure(
                     title="All entries failed to parse",
-                    message="Every entry in the input file failed to parse — "
-                    "check the file format (expected newline-delimited JSON)",
+                    message=f"Every input record failed to parse — {hint}",
                     context=f"{failed} entries failed",
+                )
+            elif skipped > 0:
+                # Usually field_mappings.query names a field or column that
+                # doesn't exist (or differs in case), so every record looks
+                # empty.
+                self.report.failure(
+                    title="No records had SQL",
+                    message="Records were read, but none had a value in the "
+                    "mapped query field — check field_mappings.query",
+                    context=f"{skipped} records read from {self._input_label()}",
                 )
             else:
                 self.report.warning(
                     title="Empty input",
-                    message="No query entries found in input file",
-                    context=self.config.query_file,
+                    message="No query records found in input",
+                    context=self._input_label(),
                 )
             return
 
@@ -218,6 +251,11 @@ class SqlQueriesSource(Source):
                 "likely a systemic issue (auth, connectivity, config)",
                 context=f"{self.report.num_queries_aggregator_failures} failures",
             )
+
+    def _input_label(self) -> str:
+        if self.config.query_source is not None:
+            return self.config.query_source.label
+        return self.config.query_file or ""
 
     def _add_query_to_aggregator(self, query_entry: QueryEntry) -> None:
         if query_entry.upstream_tables and query_entry.downstream_tables:
