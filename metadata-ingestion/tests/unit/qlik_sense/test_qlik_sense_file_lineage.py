@@ -752,10 +752,7 @@ def test_stored_qvd_links_the_load_model_table_by_its_qri(
 
     assert writes[
         "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qvd/customers.qvd,PROD)"
-    ] == (
-        "not primary patch:"
-        + make_dataset_urn("qlik-sense", customers_qri.lower())
-    )
+    ] == ("not primary patch:" + make_dataset_urn("qlik-sense", customers_qri.lower()))
 
 
 @pytest.mark.parametrize(
