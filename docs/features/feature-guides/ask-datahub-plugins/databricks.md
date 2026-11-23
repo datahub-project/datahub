@@ -27,8 +27,9 @@ Because the plugin uses **OAuth**, each user authenticates with their own Databr
 
 ## Prerequisites
 
-- A Databricks workspace with **Managed MCP Servers** enabled. A workspace admin turns this on from the workspace **Previews** page (see [Databricks managed MCP servers](https://docs.databricks.com/aws/en/generative-ai/mcp/managed-mcp))
+- A Databricks workspace with **Managed MCP Servers** enabled. A workspace admin turns this on from the workspace **Previews** page (see Databricks-provided MCPs for [AWS](https://docs.databricks.com/aws/en/generative-ai/mcp/managed-mcp), [GCP](https://docs.databricks.com/gcp/en/generative-ai/mcp/managed-mcp), or [Azure Databricks](https://learn.microsoft.com/en-us/azure/databricks/agents/mcp-tools/built-in-mcp-services))
 - A Databricks account admin to create the OAuth app connection in the account console
+- If the workspace uses IP access lists, a workspace admin to allow DataHub's outbound IP addresses ([see Step 4](#step-4-allow-datahub-through-ip-access-lists))
 - DataHub Cloud with Ask DataHub Plugins enabled
 - Platform admin access in DataHub to configure the plugin
 
@@ -38,7 +39,7 @@ The Databricks plugin uses **User OAuth** authentication — each user authentic
 
 ### Step 1: Create an OAuth App Connection in Databricks
 
-App connections are created in the Databricks **account console**, not in workspace settings. See [Enable or disable partner OAuth applications](https://docs.databricks.com/aws/en/integrations/enable-disable-oauth) in the Databricks documentation.
+App connections are created in the Databricks **account console**, not in workspace settings. See Enable or disable partner OAuth applications for [AWS](https://docs.databricks.com/aws/en/integrations/enable-disable-oauth), [GCP](https://docs.databricks.com/gcp/en/integrations/enable-disable-oauth), or [Azure Databricks](https://learn.microsoft.com/en-us/azure/databricks/integrations/enable-disable-oauth).
 
 :::caution Use a new app connection
 Do not reuse the client ID of the service principal that runs DataHub ingestion. A service principal is not an OAuth app, and signing in with its client ID fails with `OAuth application with client ID ... isn't available in the account`.
@@ -102,6 +103,22 @@ Request only scopes that are granted on the Databricks app connection. Discovery
 
 5. Optionally add **Instructions for the AI Assistant**, ensure **Enable for Ask DataHub** is on, and click **Create**
 
+### Step 4: Allow DataHub Through IP Access Lists
+
+Skip this step if your workspace does not use IP access lists. When they are enabled, Databricks rejects every request from an address not on an allow list, so users can sign in through the OAuth pop-up (that request comes from their own browser) but every call DataHub then makes to the MCP server returns `403`.
+
+1. Ask your DataHub representative for the outbound IP addresses of your DataHub instance. They depend on where your instance is hosted, so do not copy addresses from another deployment.
+2. Check whether IP access lists are enabled on the workspace and which lists exist, for example with `databricks ip-access-lists list` in the Databricks CLI.
+3. Add DataHub's addresses to an `ALLOW` list on the workspace, and make sure no `BLOCK` list covers them, since block lists take precedence. Once a workspace has any allow list, every address not on one is blocked, so if you are creating the first allow list, include your users' own networks in it as well.
+
+See the Databricks documentation for your cloud:
+
+| Cloud            | IP access lists for workspaces                                                                                                      | CLI reference                                                                                                            |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| AWS              | [Configure IP access lists](https://docs.databricks.com/aws/en/security/network/front-end/ip-access-list-workspace)                 | [`ip-access-lists`](https://docs.databricks.com/aws/en/dev-tools/cli/reference/ip-access-lists-commands)                 |
+| GCP              | [Configure IP access lists](https://docs.databricks.com/gcp/en/security/network/front-end/ip-access-list-workspace)                 | [`ip-access-lists`](https://docs.databricks.com/gcp/en/dev-tools/cli/reference/ip-access-lists-commands)                 |
+| Azure Databricks | [Configure IP access lists](https://learn.microsoft.com/en-us/azure/databricks/security/network/front-end/ip-access-list-workspace) | [`ip-access-lists`](https://learn.microsoft.com/en-us/azure/databricks/dev-tools/cli/reference/ip-access-lists-commands) |
+
 ## User Setup
 
 Navigate to **Settings > My AI Settings**, find the **Databricks** plugin, and click **Connect**. You'll be redirected to Databricks to authenticate, then back to DataHub. See the [overview](./overview.md#user-setup-enabling-plugins) for more details.
@@ -117,7 +134,7 @@ Navigate to **Settings > My AI Settings**, find the **Databricks** plugin, and c
 
 ### Sign-in Succeeds but Requests Return 403
 
-If your workspace uses [IP access lists](https://docs.databricks.com/aws/en/security/network/front-end/ip-access-list), Databricks blocks DataHub's requests until DataHub's outbound IP addresses are allowed. Ask your DataHub representative for your instance's outbound IPs, then add them to the workspace allow list. To check whether IP access lists are enabled, run `databricks ip-access-lists list` with the Databricks CLI.
+The workspace's IP access lists are blocking DataHub. Allow DataHub's outbound IP addresses as described in [Step 4](#step-4-allow-datahub-through-ip-access-lists).
 
 ### Query Failures
 
