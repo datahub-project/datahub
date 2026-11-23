@@ -102,7 +102,7 @@ A `LOAD` stacked on a `SELECT` (a preceding load) gives the table its field name
 
 When an app's data model has no tables (the app is listed under `apps_without_load_model` in the report), the connector reads the app's tables from Qlik Cloud's lineage graph. Each table is ingested as `{app id}.{table name}`, the same name a load script table gets, and links upstream to the Qlik datasets it loads, such as QVD files, and to the app tables it loads from, including another app's tables, as a `BINARY` load reads them, with column lineage between their fields.
 
-A table of an app the run does not ingest is left out. A table that the load script parser also finds with a `SELECT` is ingested once, with the upstreams from both. The tables' fields and their types come from the app's data model in the Engine, as its last reload left them. A load script table whose name the parser can't read from its statement, such as an unlabelled `SELECT` from a subquery, takes the name of the one data model table with exactly its columns; otherwise it is ingested as `table_<n>`. Label such loads in the script to name them for certain.
+A table of an app the run does not ingest is left out. A `BINARY` load of an app that has a data model links to that app's data model tables when each table in the source app's lineage graph matches exactly one data model table by name. Otherwise the edges are only added, and edges from earlier runs are kept. A table that the load script parser also finds with a `SELECT` is ingested once, with the upstreams from both. The tables' fields and their types come from the app's data model in the Engine, as its last reload left them. A load script table whose name the parser can't read from its statement, such as an unlabelled `SELECT` from a subquery, takes the name of the one data model table with exactly its columns; otherwise it is ingested as `table_<n>`. Label such loads in the script to name them for certain.
 
 Each Qlik dataset links upstream to the app tables that `STORE` into it, so lineage runs from an ETL app, through the QVDs it writes, to the apps that load them. QVD datasets have the `QVD` subtype and are named without the `.qvd` extension; the dataset URN still holds the file name. Script apps (data preparation scripts) are read like analytics apps, and the QVDs they store into are linked to their tables.
 
@@ -196,10 +196,11 @@ A `BINARY` statement loads another app's data model into an app. On Qlik Sense E
   - Only tables that app ingests are linked, and only when the run reads it or keeps it from its last read.
   - A table the script also loads into under the same name is still linked. It is not linked when the script drops it with `DROP TABLE` first, or loads it with a `Replace` prefix, which in a full reload drops the table and loads it again.
   - When the script drops or replaces a table it doesn't name, such as an unlabelled `Replace LOAD` or `DROP TABLE $(vTable)` with a variable the connector can't expand, no table is linked, because any of them could be that table.
+  - When the script includes another script with `$(Include)` or `$(Must_Include)`, or calls a `SUB` it doesn't define, the tables are still linked, but their lineage is only added to, never replaced. The included script isn't read and could drop or reload a table. The run reports this as "Qlik BINARY tables may be changed by an included script".
   - If the source app isn't read or kept, or doesn't ingest the table, the table's lineage from earlier runs is kept and only added to. The same holds for column lineage when the source app's data model can't be read and its last read didn't record its fields.
 - Otherwise, to the file. On a connection mapped in `file_connection_to_storage`, that is the storage's dataset, such as an `abs` or `s3` file. On a folder connection or a file system path, it is a dataset with the `Qlik App File` subtype, named and placed in folders as a QVD is (see [QVD paths](#qvd-paths)).
   - The file's tables are not known here, so a table the script also loads under the same name is not linked.
-  - When the script also creates tables it doesn't name, none are linked, because any data model table could be one of those. Such tables come from an unlabelled `LOAD`, a `Generic` load, or a table labelled with a variable the connector can't expand (`$(vTable): LOAD ...`). The same applies when the script includes another script. Map the file in `binary_file_to_app` instead.
+  - When the script also creates tables it doesn't name, none are linked, because any data model table could be one of those. Such tables come from an unlabelled `LOAD`, a `Generic` load, or a table labelled with a variable the connector can't expand (`$(vTable): LOAD ...`). The same applies when the script includes another script or calls a `SUB` it doesn't define, because the file's tables can't be told apart from tables the included script creates. Map the file in `binary_file_to_app` instead.
 
 ```yaml
 on_prem:
@@ -329,6 +330,10 @@ Each entry gives the app, and the file or source app, with the reason its BINARY
 - "its data connection is not a known folder connection": map the connection in `file_connection_to_storage`, or the file in `binary_file_to_app`.
 - "app ... was not read or kept this run": include the source app in the run, and fix the errors that stopped it from being read.
 - "app ... has no table ...": the source app doesn't ingest that table. Check that `binary_file_to_app` names the app the file was exported from.
+
+#### "Qlik BINARY tables may be changed by an included script" (on-prem)
+
+These apps load another app with a mapped `BINARY` statement and also include scripts the connector doesn't read, or call a `SUB` the script doesn't define. Their BINARY tables are linked to the source app, but the lineage is only added to, so edges written by earlier runs stay. Remove an edge in DataHub when the table no longer comes from that app.
 
 #### `unresolved_file_connections` in the report, or "Qlik file connections have no known storage" (Qlik Cloud)
 

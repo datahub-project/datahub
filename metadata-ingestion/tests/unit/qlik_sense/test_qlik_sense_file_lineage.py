@@ -1079,6 +1079,17 @@ STORE Orders INTO [lib://Sales Space:Lake/dev/orders.qvd] (qvd);
             ["prod", "dev"],
             id="branches agree and a STORE outside the block",
         ),
+        pytest.param(
+            """
+IF vEnv = 'prod' THEN
+  STORE Orders INTO [lib://Sales Space:Lake//prod/orders.qvd] (qvd);
+ELSE
+  STORE Orders INTO [lib://sales space:lake/prod\\orders.qvd] (qvd);
+END IF
+""",
+            ["prod"],
+            id="branches write the same file under different spellings",
+        ),
     ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -1360,6 +1371,36 @@ def test_include_with_a_variable_in_its_path_keeps_the_next_label(
     )
 
     assert [table.label for table in parsed.tables] == ["Orders"]
+    assert parsed.has_includes
+
+
+def test_include_path_with_parentheses_is_read() -> None:
+    files = {
+        "lib://Common:DataFiles/loads (v2).qvs": "X: LOAD * FROM [lib://S:Lake/x.csv];"
+    }
+    parsed = parse_script(
+        inline_includes(
+            "$(Include=lib://$(vCommon)DataFiles/loads (v2).qvs);",
+            {"vCommon": "'Common:'"},
+            files.get,
+        )
+    )
+
+    assert [load.expanded for load in parsed.file_loads] == ["lib://S:Lake/x.csv"]
+    assert not parsed.has_includes
+
+
+def test_unread_include_path_with_parentheses_forgets_the_connection() -> None:
+    script = (
+        "LIB CONNECT TO 'A';\n"
+        "$(Include=lib://Common:DataFiles/loads (v2).qvs);\n"
+        "Orders: SQL SELECT * FROM sales.orders;"
+    )
+    parsed = parse_script(inline_includes(script, {}, {}.get))
+
+    assert [(table.label, table.connection) for table in parsed.tables] == [
+        ("Orders", None)
+    ]
     assert parsed.has_includes
 
 

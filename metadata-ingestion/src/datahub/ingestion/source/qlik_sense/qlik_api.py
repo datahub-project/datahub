@@ -297,6 +297,20 @@ class QlikAPI(QlikBaseAPI):
         # A sheet without an owner is a private sheet.
         return meta if Constant.OWNERID in meta else None
 
+    @staticmethod
+    def _own_table_nodes_by_label(
+        table_nodes: Dict[str, Dict], app_id: str
+    ) -> Dict[str, str]:
+        """The app's own table nodes by label, leaving out labels more than one
+        node has, as those can't be told apart."""
+        by_label: Dict[str, List[str]] = {}
+        for qri, node in table_nodes.items():
+            if qri.startswith(f"qri:app:sense://{app_id}#") and node.get(
+                Constant.LABEL
+            ):
+                by_label.setdefault(node[Constant.LABEL], []).append(qri)
+        return {label: qris[0] for label, qris in by_label.items() if len(qris) == 1}
+
     def _add_qri_of_tables(
         self, tables: List[QlikTable], app_id: str, errors: ReadErrors
     ) -> None:
@@ -311,7 +325,9 @@ class QlikAPI(QlikBaseAPI):
                 errors.lineage_graph_missing = True
                 return
             response.raise_for_status()
-            for table_node_qri in response.json()[Constant.GRAPH][Constant.NODES]:
+            table_nodes = response.json()[Constant.GRAPH][Constant.NODES]
+            graph_qris = self._own_table_nodes_by_label(table_nodes, app_id)
+            for table_node_qri in table_nodes:
                 table_node_qri = quote(table_node_qri, safe="")
                 response = self.session.get(
                     f"{self.rest_api_url}/lineage-graphs/nodes/{app_qri}/actions/expand?node={table_node_qri}&level=FIELD"
@@ -341,6 +357,13 @@ class QlikAPI(QlikBaseAPI):
             for table in tables:
                 if table.tableName in table_qri_dict:
                     table.tableQri = table_qri_dict[table.tableName]
+                table.graphQri = graph_qris.get(table.tableName)
+            matched = {table.graphQri for table in tables if table.tableQri}
+            errors.graph_tables_unmatched = any(
+                qri not in matched
+                for qri in table_nodes
+                if qri.startswith(f"qri:app:sense://{app_id}#")
+            )
         except Exception as e:
             errors.record(
                 f"Unable to add QRI for tables of app {app_id}. Exception: {e}"
@@ -508,6 +531,7 @@ class QlikAPI(QlikBaseAPI):
                     )
                 self._read_lineage_upstreams(app)
             app.lineage_graph_missing |= errors.lineage_graph_missing
+            app.graph_tables_unmatched = errors.graph_tables_unmatched
             app.tables_read_failed = len(errors.messages) > read_errors
             if not app.tables or not all(table.tableQri for table in app.tables):
                 # A personal app's unqualified paths resolve in its owner's
