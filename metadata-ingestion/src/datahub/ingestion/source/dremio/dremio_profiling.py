@@ -78,6 +78,11 @@ class DremioProfiler:
         warning per run rather than per asset: the decision is the same for
         every table, so repeating it would only bury it.
         """
+        # DremioSource builds a profiler whether or not profiling is enabled, so
+        # without this a disabled run would be told its bounds went unapplied --
+        # true, but about profiles it was never going to produce.
+        if not self.config.is_profiling_enabled():
+            return
         requested = [
             name
             for name in ("limit", "offset")

@@ -343,18 +343,26 @@ class TestUnappliedBoundsAreReported:
     """
 
     def test_a_requested_limit_is_reported_as_unapplied(self):
-        report = make_profiler(limit=100).report
+        report = make_profiler(enabled=True, limit=100).report
         titles = [c.kwargs["title"] for c in report.warning.call_args_list]
 
         assert any("not applied on Dremio" in t for t in titles)
 
     def test_a_requested_offset_is_reported_as_unapplied(self):
-        report = make_profiler(offset=25).report
+        report = make_profiler(enabled=True, offset=25).report
         contexts = [c.kwargs["context"] for c in report.warning.call_args_list]
 
         assert any("offset" in c for c in contexts)
 
     def test_nothing_is_reported_when_no_bound_was_requested(self):
-        report = make_profiler().report
+        report = make_profiler(enabled=True).report
+
+        assert report.warning.call_count == 0
+
+    def test_nothing_is_reported_when_profiling_is_disabled(self):
+        # DremioSource builds a profiler either way, so without the guard a
+        # disabled run was warned that its bounds went unapplied -- true, but
+        # about profiles it was never going to produce.
+        report = make_profiler(enabled=False, limit=100).report
 
         assert report.warning.call_count == 0
