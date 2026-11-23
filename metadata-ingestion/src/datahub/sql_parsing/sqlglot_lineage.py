@@ -125,7 +125,7 @@ def _restore_mssql_temp_table_prefix(
 
     The following functions depend on the # prefix for temp table detection:
       - datahub.ingestion.source.sql.mssql.source.SQLServerSource.is_temp_table()
-      - datahub.ingestion.source.sql_queries.SqlQueriesSource.is_temp_table()
+      - datahub.ingestion.source.sql_queries.source.SqlQueriesSource.is_temp_table()
       - datahub.ingestion.source.bigquery_v2.queries_extractor.BigQueryQueriesExtractor.is_temp_table()
       - datahub.ingestion.source.snowflake.snowflake_queries.SnowflakeQueriesExtractor.is_temp_table()
       - datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator.is_temp_table()

@@ -4980,7 +4980,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql_queries.SqlQueriesSource",
+      "classname": "datahub.ingestion.source.sql_queries.source.SqlQueriesSource",
       "platform_id": "sql-queries",
       "platform_name": "SQL Queries",
       "support_status": "GA"
