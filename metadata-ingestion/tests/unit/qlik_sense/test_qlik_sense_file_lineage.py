@@ -658,10 +658,14 @@ def _graph_app_run(
             and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
             and wu.metadata.aspect is not None
         ):
-            writes[wu.get_urn()] = "patch:" + ",".join(
-                op["value"]["dataset"]
-                for op in json.loads(wu.metadata.aspect.value)
-                if op["op"] == "add" and op["path"].startswith("/upstreams/")
+            writes[wu.get_urn()] = (
+                ("" if wu.is_primary_source else "not primary ")
+                + "patch:"
+                + ",".join(
+                    op["value"]["dataset"]
+                    for op in json.loads(wu.metadata.aspect.value)
+                    if op["op"] == "add" and op["path"].startswith("/upstreams/")
+                )
             )
     return writes
 
@@ -681,6 +685,42 @@ def test_graph_table_links_to_the_file_its_script_loads(
 
     assert writes[ORDERS] == (
         f"urn:li:dataset:(urn:li:dataPlatform:abs,lake/landing/orders.csv,PROD),{RATES}"
+    )
+
+
+STORE_SCRIPT = """
+Orders:
+LOAD * FROM [lib://Sales Space:Lake/landing/orders.csv] (txt);
+STORE Orders INTO [lib://Sales Space:Lake/qvd/orders.qvd] (qvd);
+STORE Scratch INTO [lib://Sales Space:Lake/qvd/scratch.qvd] (qvd);
+"""
+
+
+@pytest.mark.parametrize("mapped", [True, False])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_stored_qvd_on_mapped_storage_links_the_stored_table(
+    mock_api_cls: MagicMock, mapped: bool
+) -> None:
+    writes = _graph_app_run(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}}
+        if mapped
+        else {},
+        [],
+        script=STORE_SCRIPT,
+    )
+
+    stored = {urn: upstreams for urn, upstreams in writes.items() if "abs," in urn}
+    # Scratch is not a table the app ingests, so its QVD has nothing to link.
+    assert stored == (
+        {
+            "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qvd/orders.qvd,PROD)": (
+                # Not removed as stale: it is the storage's dataset.
+                f"not primary patch:{ORDERS}"
+            )
+        }
+        if mapped
+        else {}
     )
 
 

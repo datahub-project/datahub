@@ -1960,6 +1960,56 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             lowercase=detail.convert_urns_to_lowercase if detail else False,
         )
 
+    def _gen_file_store_lineage(
+        self, app: App, parsed: ParsedScript, table_urns: Set[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Lineage into the QVDs an app's load script stores on external
+        storage, such as Azure Storage, which the lineage graph only names as
+        Qlik datasets. Only added to: other apps, read or not, may store into
+        the same file."""
+        upstreams: Dict[str, List[str]] = {}
+        for store in parsed.qvd_stores:
+            if store.file.connection is None:
+                continue
+            storage, detail = self._file_storage(store.file.connection, app.spaceId)
+            if storage is None:
+                info = self._find_data_connection(store.file.connection, app.spaceId)
+                if (
+                    info is not None
+                    and info.file_platform is not None
+                    and store.file.connection
+                    not in self.reporter.unresolved_file_connections
+                ):
+                    self.reporter.unresolved_file_connections.append(
+                        store.file.connection
+                    )
+                continue
+            table_urn = self._gen_qlik_dataset_urn(
+                app_table_identifier(app.id, store.label)
+            )
+            # A table the app doesn't ingest, such as one a script variable
+            # names, has no dataset to link.
+            if table_urn not in table_urns:
+                continue
+            urns = upstreams.setdefault(
+                self._file_urn(storage, detail, store.file.path), []
+            )
+            if table_urn not in urns:
+                urns.append(table_urn)
+        for file_urn, urns in upstreams.items():
+            patch = DatasetPatchBuilder(file_urn)
+            for urn in urns:
+                patch.add_upstream_lineage(
+                    Upstream(dataset=urn, type=DatasetLineageType.COPY)
+                )
+            for mcp in patch.build():
+                yield MetadataWorkUnit(
+                    id=MetadataWorkUnit.generate_workunit_id(mcp),
+                    mcp_raw=mcp,
+                    # A file on storage is not this source's to remove when stale.
+                    is_primary_source=False,
+                )
+
     def _resolve_file_source(self, app_id: str, file_qri: str) -> Optional[str]:
         """The dataset of a file in an app's lineage graph, such as a CSV on
         Azure Storage, when the app's load script reads it through a data
@@ -2505,6 +2555,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         if qvd_lineage is not None:
             yield from self._gen_qvd_entities(qvd_lineage)
+        else:
+            yield from self._gen_file_store_lineage(app, parsed, set(table_fields))
         if fingerprint:
             # Skipping an unchanged app trusts this fingerprint, so it is written
             # only after everything else the app produced.
