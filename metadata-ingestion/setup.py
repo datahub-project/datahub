@@ -782,13 +782,13 @@ plugins: Dict[str, Set[str]] = {
     },
     # sqlglot_lib: view lineage reuses datahub.sql_parsing (sqlglot), which is not
     # in the base install; JPype1/jdk4py bridge to the JDBC driver (no SQLAlchemy).
-    "informix": sqlglot_lib | {"JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
+    "informix": sqlglot_lib | {"JPype1<2.0.0", "jdk4py>=21.0.13.1,<22.0"},
     "json-schema": {"requests<3.0.0"},
     # sqlglot_lib: Flink stream-processing lineage parses transform SQL for
     # best-effort column-level lineage via datahub.sql_parsing.
     "kafka": kafka_common | kafka_protobuf | sqlglot_lib,
     "kafka-connect": sql_common
-    | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
+    | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0.13.1,<22.0"},
     # kafka_protobuf reused for Glue Schema Registry PROTOBUF support
     # (kinesis_schema_registry imports protobuf_util at module load).
     "kinesis": aws_common | kafka_protobuf,
