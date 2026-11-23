@@ -8,6 +8,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Collection,
     Dict,
     List,
     Mapping,
@@ -673,6 +674,27 @@ class DataHubListener:
         if self.config.debug_emitter:
             logging.getLogger("datahub.emitter").setLevel(logging.DEBUG)
 
+    def _emit_mcps(
+        self, emitter: Emitter, mcps: List[MetadataChangeProposalWrapper]
+    ) -> None:
+        """Emit MCPs in as few requests as the emitter allows.
+
+        The REST emitter sends them as batches; other emitters (Kafka, file,
+        composite) get them one at a time, as before.
+        """
+        import datahub.emitter.rest_emitter
+
+        callback = self._make_emit_callback()
+        if isinstance(emitter, datahub.emitter.rest_emitter.DataHubRestEmitter):
+            try:
+                emitter.emit_mcps(mcps)
+            except Exception as e:
+                callback(e, str(e))
+                raise
+            return
+        for mcp in mcps:
+            emitter.emit(mcp, callback)
+
     def _make_emit_callback(self) -> Callable[[Optional[Exception], str], None]:
         def emit_callback(err: Optional[Exception], msg: str) -> None:
             if err:
@@ -1322,7 +1344,9 @@ class DataHubListener:
         # on worker processes. This means the scheduler's on_dag_run_running never triggers
         # DataFlow emission. By emitting here, we ensure the DataFlow exists before the
         # DataJob references it. DataHub's UPSERT semantics make duplicate emissions safe.
-        self.on_dag_start(dagrun)
+        # Only this task's Status is sent: every task emits its own when it starts, so
+        # re-sending one per task in the DAG would cost O(tasks) requests per task start.
+        self.on_dag_start(dagrun, task_ids=[task.task_id])
 
         # Generate and emit datajob
         # Task type can vary between Airflow versions (MappedOperator from different modules)
@@ -1501,7 +1525,14 @@ class DataHubListener:
             f"DataHub listener finished processing task instance failure for {task_instance.task_id}"
         )
 
-    def on_dag_start(self, dag_run: "DagRun") -> None:  # type: ignore[no-untyped-def]
+    def on_dag_start(  # type: ignore[no-untyped-def]
+        self, dag_run: "DagRun", task_ids: Optional[Collection[str]] = None
+    ) -> None:
+        """Emit the DataFlow of a DAG run and a Status for its DataJobs.
+
+        :param task_ids: tasks to emit a Status for. ``None`` (the default) emits one
+            for every task in the DAG.
+        """
         logger.debug(
             f"DataHub on_dag_start called for dag_id={dag_run.dag_id}, run_id={dag_run.run_id}"
         )
@@ -1527,46 +1558,48 @@ class DataHubListener:
             logger.warning("DataHub emitter not available, skipping DataFlow emission")
             return
 
-        # Emit dataflow
-        logger.debug(f"Emitting DataFlow MCPs for {dataflow.urn}")
-        dataflow.emit(emitter, callback=self._make_emit_callback())
+        mcps: List[MetadataChangeProposalWrapper] = list(dataflow.generate_mcp())
 
-        event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-            entityUrn=str(dataflow.urn), aspect=StatusClass(removed=False)
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=str(dataflow.urn), aspect=StatusClass(removed=False)
+            )
         )
-        emitter.emit(event)
 
-        for task in dag.tasks:
-            task_urn = builder.make_data_job_urn_with_flow(
-                str(dataflow.urn), task.task_id
+        status_task_ids = (
+            [task.task_id for task in dag.tasks] if task_ids is None else task_ids
+        )
+        for task_id in status_task_ids:
+            task_urn = builder.make_data_job_urn_with_flow(str(dataflow.urn), task_id)
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=task_urn, aspect=StatusClass(removed=False)
+                )
             )
-            event = MetadataChangeProposalWrapper(
-                entityUrn=task_urn, aspect=StatusClass(removed=False)
-            )
-            emitter.emit(event)
 
         if self.config.platform_instance:
             instance = make_dataplatform_instance_urn(
                 platform="airflow",
                 instance=self.config.platform_instance,
             )
-            event = MetadataChangeProposalWrapper(
-                entityUrn=str(dataflow.urn),
-                aspect=DataPlatformInstanceClass(
-                    platform=make_data_platform_urn("airflow"),
-                    instance=instance,
-                ),
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=str(dataflow.urn),
+                    aspect=DataPlatformInstanceClass(
+                        platform=make_data_platform_urn("airflow"),
+                        instance=instance,
+                    ),
+                )
             )
-            emitter.emit(event)
 
         # emit tags
         for tag in dataflow.tags:
             tag_urn = builder.make_tag_urn(tag)
-
-            event = MetadataChangeProposalWrapper(
-                entityUrn=tag_urn, aspect=StatusClass(removed=False)
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=tag_urn, aspect=StatusClass(removed=False)
+                )
             )
-            emitter.emit(event)
 
         browsePaths: List[BrowsePathEntryClass] = []
         if self.config.platform_instance:
@@ -1575,7 +1608,7 @@ class DataHubListener:
             )
             browsePaths.append(BrowsePathEntryClass(self.config.platform_instance, urn))
         browsePaths.append(BrowsePathEntryClass(str(dag.dag_id)))
-        browse_path_v2_event: MetadataChangeProposalWrapper = (
+        mcps.append(
             MetadataChangeProposalWrapper(
                 entityUrn=str(dataflow.urn),
                 aspect=BrowsePathsV2Class(
@@ -1584,9 +1617,9 @@ class DataHubListener:
             )
         )
         logger.debug(
-            f"Emitting BrowsePathsV2 MCP: entityUrn={browse_path_v2_event.entityUrn}, paths={[getattr(p, 'path', str(p)) for p in browsePaths]}"
+            f"Emitting {len(mcps)} DataFlow MCPs for {dataflow.urn}, BrowsePathsV2 paths={[getattr(p, 'path', str(p)) for p in browsePaths]}"
         )
-        emitter.emit(browse_path_v2_event)
+        self._emit_mcps(emitter, mcps)
         logger.debug(f"Completed emitting all DataFlow MCPs for {dataflow.urn}")
 
         if dag.dag_id == _DATAHUB_CLEANUP_DAG:
