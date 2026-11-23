@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 
 from .base import Phase, PhaseResult
+from ..constants import ENTITY_INDEX_PATTERN
 from ..context import SeededEntity, TestContext
 from ..datahub_client import DataHubClient
 from ..docker_compose import DockerComposeClient
@@ -30,11 +31,11 @@ _IO_POOL_EXPECTED_VERSION = 4
 # scenario. Earlier debug images didn't enforce this.
 _PLATFORMS_TO_REGISTER: tuple[str, ...] = ("test",)
 
-# Entity-type → ES alias mapping. Mirrors ValidationPhase's mapping so the
-# wait-for-drain step queries the same index the validators eventually do.
+# Entity types the drain step waits on, and where to look for them. Mirrors
+# ValidationPhase's mapping so both query the same indices.
 _ENTITY_TYPE_TO_ES_ALIAS: dict[str, str] = {
-    "dashboard": "dashboardindex_v2",
-    "dataset": "datasetindex_v2",
+    "dashboard": ENTITY_INDEX_PATTERN,
+    "dataset": ENTITY_INDEX_PATTERN,
 }
 
 # Default budget for waiting on MCL → ES propagation after seed writes.

@@ -3,7 +3,11 @@ from typing import List, Optional
 
 from pydantic import Field, field_validator
 
+from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
+from datahub.ingestion.source.repository_documents.paths import (
+    validate_platform_instance,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -14,6 +18,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 class RepositoryDocumentsSourceConfigBase(
     StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
+    PlatformInstanceConfigMixin,
 ):
     """Settings shared by every git-host documents source."""
 
@@ -97,6 +102,13 @@ class RepositoryDocumentsSourceConfigBase(
             "repository name."
         ),
     )
+
+    @field_validator("platform_instance")
+    @classmethod
+    def _validate_platform_instance(cls, value: Optional[str]) -> Optional[str]:
+        # The instance is part of every source id and of the
+        # dataPlatformInstance URN; see validate_platform_instance.
+        return validate_platform_instance(value)
 
     @field_validator("okf_bundle_roots")
     @classmethod

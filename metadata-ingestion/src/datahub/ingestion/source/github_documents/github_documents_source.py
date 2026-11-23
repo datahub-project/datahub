@@ -28,6 +28,7 @@ PROP_GITHUB_DIRECTORY_PATH = "github_directory_path"
 @platform_name("GitHub")
 @config_class(GitHubDocumentsSourceConfig)
 @support_status(SupportStatus.ALPHA)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class GitHubDocumentsSource(RepositoryDocumentsSourceBase[GitHubDocumentsSourceConfig]):
     """

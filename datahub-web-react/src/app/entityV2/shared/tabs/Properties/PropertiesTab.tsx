@@ -20,6 +20,7 @@ import { TabRenderType } from '@app/entityV2/shared/types';
 import Loading from '@app/sharedV2/Loading';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EditColumn } from '@src/app/entityV2/shared/tabs/Properties/Edit/EditColumn';
+import { canEditDisplayedStructuredProperties } from '@src/app/entityV2/shared/tabs/Properties/structuredPropertyPrivileges';
 import { Maybe, SchemaFieldEntity } from '@src/types.generated';
 
 const PROPERTY_ROW_KEY = 'qualifiedName';
@@ -105,9 +106,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
         },
     ];
 
-    const canEditProperties =
-        (entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties) &&
-        !properties?.disableEdit;
+    const canEditProperties = canEditDisplayedStructuredProperties(entityData, !!fieldPath) && !properties?.disableEdit;
 
     if (canEditProperties) {
         propertyTableColumns.push({
