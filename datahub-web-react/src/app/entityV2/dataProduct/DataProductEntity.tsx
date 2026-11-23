@@ -140,9 +140,6 @@ export class DataProductEntity implements Entity<DataProduct> {
         },
         {
             component: SidebarDomainSection,
-            properties: {
-                updateOnly: true,
-            },
         },
         {
             component: SidebarApplicationSection,

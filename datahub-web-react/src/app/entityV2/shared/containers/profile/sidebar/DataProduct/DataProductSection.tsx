@@ -199,6 +199,7 @@ export default function DataProductSection({ readOnly }: Props) {
                             event.stopPropagation();
                         }}
                         actionPrivilege={canEditDataProducts}
+                        dataTestId="set-data-product-button"
                     />
                 }
             />

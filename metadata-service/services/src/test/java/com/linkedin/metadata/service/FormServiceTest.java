@@ -9,6 +9,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.FormAssociation;
 import com.linkedin.common.FormAssociationArray;
+import com.linkedin.common.FormPromptAssociation;
+import com.linkedin.common.FormPromptAssociationArray;
 import com.linkedin.common.Forms;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -21,6 +23,9 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptArray;
+import com.linkedin.form.FormPromptType;
+import com.linkedin.form.FormType;
+import com.linkedin.form.StructuredPropertyParams;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.PrimitivePropertyValue;
@@ -376,6 +381,200 @@ public class FormServiceTest {
             anyString(),
             eq(entityUrn),
             eq(ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME)));
+  }
+
+  /**
+   * An assignee's session is not the system actor. The prompted value and the forms completion are
+   * both written as the system actor; the prompt's audit stamp stays the assignee.
+   */
+  @Test
+  public void testPromptCompletionWritesAsSystemAndKeepsCallerOnThePrompt() throws Exception {
+    final Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:form-assignee");
+    final OperationContext userContext =
+        TestOperationContexts.userContextNoSearchAuthorization(userUrn);
+    assertFalse(userContext.isSystemAuth());
+
+    final Urn entityUrn = datasetUrns(1).get(0);
+    final Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:testProperty");
+    final SystemEntityClient mockClient = promptResponseClient(entityUrn);
+
+    new FormService(mockClient)
+        .submitStructuredPropertyPromptResponse(
+            userContext,
+            entityUrn,
+            propertyUrn,
+            new PrimitivePropertyValueArray(ImmutableList.of(PrimitivePropertyValue.create("a"))),
+            TEST_FORM_URN,
+            TEST_PROMPT_ID);
+
+    final ArgumentCaptor<OperationContext> propertyContext =
+        ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockClient)
+        .ingestProposal(propertyContext.capture(), any(MetadataChangeProposal.class), eq(false));
+    assertTrue(propertyContext.getValue().isSystemAuth());
+
+    @SuppressWarnings("unchecked")
+    final ArgumentCaptor<List<MetadataChangeProposal>> formsMcps =
+        ArgumentCaptor.forClass(List.class);
+    final ArgumentCaptor<OperationContext> formsContext =
+        ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockClient).batchIngestProposals(formsContext.capture(), formsMcps.capture(), eq(false));
+    assertTrue(formsContext.getValue().isSystemAuth());
+
+    final FormAssociation completed =
+        deserializeForms(formsMcps.getValue().get(0)).getCompletedForms().stream()
+            .filter(form -> form.getUrn().equals(TEST_FORM_URN))
+            .findFirst()
+            .orElseThrow();
+    final FormPromptAssociation prompt =
+        completed.getCompletedPrompts().stream()
+            .filter(completedPrompt -> TEST_PROMPT_ID.equals(completedPrompt.getId()))
+            .findFirst()
+            .orElseThrow();
+    assertEquals(prompt.getLastModified().getActor(), userUrn);
+
+    verify(mockClient, never())
+        .ingestProposal(eq(userContext), any(MetadataChangeProposal.class), anyBoolean());
+    verify(mockClient, never())
+        .batchIngestProposals(eq(userContext), anyCollection(), anyBoolean());
+  }
+
+  @Test
+  public void testPromptCompletionFailurePropagates() throws Exception {
+    final OperationContext userContext =
+        TestOperationContexts.userContextNoSearchAuthorization(
+            UrnUtils.getUrn("urn:li:corpuser:form-assignee"));
+    final Urn entityUrn = datasetUrns(1).get(0);
+    final SystemEntityClient mockClient = promptResponseClient(entityUrn);
+    when(mockClient.batchIngestProposals(any(OperationContext.class), anyCollection(), eq(false)))
+        .thenThrow(new RuntimeException("forms rejected"));
+
+    final RuntimeException thrown =
+        expectThrows(
+            RuntimeException.class,
+            () ->
+                new FormService(mockClient)
+                    .submitStructuredPropertyPromptResponse(
+                        userContext,
+                        entityUrn,
+                        UrnUtils.getUrn("urn:li:structuredProperty:testProperty"),
+                        new PrimitivePropertyValueArray(
+                            ImmutableList.of(PrimitivePropertyValue.create("a"))),
+                        TEST_FORM_URN,
+                        TEST_PROMPT_ID));
+    assertEquals(thrown.getMessage(), "forms rejected");
+  }
+
+  private static SystemEntityClient promptResponseClient(final Urn entityUrn) throws Exception {
+    final SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
+    final FormPromptAssociation incomplete = new FormPromptAssociation().setId(TEST_PROMPT_ID);
+    final FormAssociation association =
+        new FormAssociation()
+            .setUrn(TEST_FORM_URN)
+            .setCompletedPrompts(new FormPromptAssociationArray())
+            .setIncompletePrompts(new FormPromptAssociationArray(ImmutableList.of(incomplete)));
+    final Forms forms =
+        new Forms()
+            .setIncompleteForms(new FormAssociationArray(ImmutableList.of(association)))
+            .setCompletedForms(new FormAssociationArray());
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(DATASET_ENTITY_NAME),
+            eq(entityUrn),
+            eq(ImmutableSet.of(FORMS_ASPECT_NAME))))
+        .thenReturn(entityResponse(entityUrn, FORMS_ASPECT_NAME, forms.data()));
+
+    final FormInfo formInfo =
+        new FormInfo()
+            .setName("Test Form")
+            .setType(FormType.COMPLETION)
+            .setPrompts(
+                new FormPromptArray(
+                    ImmutableList.of(new FormPrompt().setId(TEST_PROMPT_ID).setRequired(true))));
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(FORM_ENTITY_NAME),
+            eq(TEST_FORM_URN),
+            eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
+        .thenReturn(entityResponse(TEST_FORM_URN, FORM_INFO_ASPECT_NAME, formInfo.data()));
+    return mockClient;
+  }
+
+  @Test
+  public void testIsPromptForStructuredPropertyRequiresMatchingPromptAndAssignedForm()
+      throws Exception {
+    final Urn entityUrn = datasetUrns(1).get(0);
+    final Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:testProperty");
+    final SystemEntityClient mockClient = mockEntityClient(List.of(entityUrn), Map.of());
+    final FormInfo formInfo =
+        new FormInfo()
+            .setName("Test Form")
+            .setPrompts(
+                new FormPromptArray(
+                    ImmutableList.of(
+                        new FormPrompt()
+                            .setId(TEST_PROMPT_ID)
+                            .setTitle("Prompt")
+                            .setType(FormPromptType.STRUCTURED_PROPERTY)
+                            .setStructuredPropertyParams(
+                                new StructuredPropertyParams().setUrn(propertyUrn)))));
+    when(mockClient.getV2(
+            eq(OP_CONTEXT),
+            eq(FORM_ENTITY_NAME),
+            eq(TEST_FORM_URN),
+            eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
+        .thenReturn(entityResponse(TEST_FORM_URN, FORM_INFO_ASPECT_NAME, formInfo.data()));
+    stubEntityForms(mockClient, entityUrn, formsWithIncomplete(TEST_FORM_URN));
+    final FormService service = new FormService(mockClient);
+
+    assertTrue(
+        service.isPromptForStructuredProperty(
+            OP_CONTEXT,
+            TEST_FORM_URN,
+            entityUrn,
+            TEST_PROMPT_ID,
+            FormPromptType.STRUCTURED_PROPERTY,
+            propertyUrn));
+    assertFalse(
+        service.isPromptForStructuredProperty(
+            OP_CONTEXT,
+            TEST_FORM_URN,
+            entityUrn,
+            TEST_PROMPT_ID,
+            FormPromptType.STRUCTURED_PROPERTY,
+            UrnUtils.getUrn("urn:li:structuredProperty:otherProperty")),
+        "a response may only set the property its prompt asks for");
+    assertFalse(
+        service.isPromptForStructuredProperty(
+            OP_CONTEXT,
+            TEST_FORM_URN,
+            entityUrn,
+            TEST_PROMPT_ID,
+            FormPromptType.FIELDS_STRUCTURED_PROPERTY,
+            propertyUrn),
+        "the prompt type must match");
+
+    stubEntityForms(mockClient, entityUrn, emptyForms());
+    assertFalse(
+        service.isPromptForStructuredProperty(
+            OP_CONTEXT,
+            TEST_FORM_URN,
+            entityUrn,
+            TEST_PROMPT_ID,
+            FormPromptType.STRUCTURED_PROPERTY,
+            propertyUrn),
+        "the form must be assigned to the entity");
+  }
+
+  private static void stubEntityForms(
+      final SystemEntityClient mockClient, final Urn entityUrn, final Forms forms)
+      throws Exception {
+    when(mockClient.getV2(
+            eq(OP_CONTEXT),
+            eq(DATASET_ENTITY_NAME),
+            eq(entityUrn),
+            eq(ImmutableSet.of(FORMS_ASPECT_NAME))))
+        .thenReturn(entityResponse(entityUrn, FORMS_ASPECT_NAME, forms.data()));
   }
 
   /**
