@@ -649,6 +649,54 @@ class MicroStrategyClient:
         )
         return SqlView.model_validate(payload if isinstance(payload, dict) else {})
 
+    def get_report_instance_prompts(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: str,
+    ) -> List[Dict[str, Any]]:
+        """GET /api/reports/{id}/instances/{instanceId}/prompts: the
+        instance's prompts, each with `key`, `id`, `type`, `required` and,
+        when it has one, `defaultAnswer`."""
+        payload = self._get_json(
+            f"/api/reports/{report_id}/instances/{instance_id}/prompts",
+            project_id=project_id,
+            timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
+            max_attempts=1,
+        )
+        return [
+            prompt
+            for prompt in self._extract_list(payload, "prompts")
+            if isinstance(prompt, dict)
+        ]
+
+    def answer_report_prompts_with_defaults(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: str,
+        prompts: List[Dict[str, Any]],
+    ) -> None:
+        """PUT /api/reports/{id}/instances/{instanceId}/prompts/answers with
+        `useDefault: true` for each prompt, identified by key, then id."""
+        answers: List[Dict[str, Any]] = []
+        for prompt in prompts:
+            answer: Dict[str, Any] = {"useDefault": True}
+            for field in ("key", "id", "type"):
+                value = prompt.get(field)
+                if value is not None:
+                    answer[field] = value
+            answers.append(answer)
+        self._request(
+            "PUT",
+            f"/api/reports/{report_id}/instances/{instance_id}/prompts/answers",
+            project_id=project_id,
+            expected_statuses={200, 204},
+            json={"prompts": answers},
+            timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
+            max_attempts=1,
+        )
+
     def delete_dossier_instance(
         self,
         project_id: str,

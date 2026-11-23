@@ -106,6 +106,16 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     execution_timeouts: int = 0
     executions_skipped_after_timeouts: int = 0
     execution_timeout_limit_projects: LossyList[str] = field(default_factory=LossyList)
+    # Shape of Report Services document definitions that carry
+    # visualizations: top-level keys, the keys each visualization has, and
+    # the scalar fields of one visualization per sampled document. Recorded
+    # to learn which field holds the title a grid shows in Strategy, since
+    # most document grids carry default names such as GridGraph1e3.
+    document_definition_keys: "TopKDict[str, int]" = field(default_factory=_int_top_k)
+    document_visualization_keys: "TopKDict[str, int]" = field(
+        default_factory=_int_top_k
+    )
+    document_visualization_samples: LossyList[str] = field(default_factory=LossyList)
     # What the Modeling document definition yielded: document-level derived
     # metrics found, and how many of them carried a formula.
     document_model_definition_failures: int = 0
@@ -175,6 +185,12 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     semantic_models_emitted: int = 0
     semantic_model_datasets_emitted: int = 0
     semantic_model_metrics_emitted: int = 0
+    # Report SQL views refused (406) because the report's prompts were
+    # unanswered; of those, answered with defaults and read, or skipped
+    # because a required prompt had no default.
+    prompted_report_sql_views: int = 0
+    prompted_reports_answered: int = 0
+    prompted_reports_without_defaults: int = 0
     # Catalog metrics left out by semantic_model_metric_scope=referenced.
     semantic_model_metrics_out_of_scope: int = 0
     semantic_model_relationships_emitted: int = 0
@@ -498,6 +514,15 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_failed_metric_model(self, metric_id: str) -> None:
         self.failed_metric_model_ids.append(metric_id)
+
+    def report_prompted_report_sql_view(self) -> None:
+        self.prompted_report_sql_views += 1
+
+    def report_prompted_report_answered(self) -> None:
+        self.prompted_reports_answered += 1
+
+    def report_prompted_report_without_defaults(self) -> None:
+        self.prompted_reports_without_defaults += 1
 
     def report_semantic_model_emitted(self) -> None:
         self.semantic_models_emitted += 1

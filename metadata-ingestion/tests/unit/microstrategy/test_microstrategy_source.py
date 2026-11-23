@@ -14,6 +14,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAPIError,
     MicroStrategyAuthError,
+    MicroStrategyClient,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.lineage import WarehouseLineageContext
@@ -29,6 +30,7 @@ from datahub.ingestion.source.microstrategy.models import (
     ReportDefinition,
     SqlView,
 )
+from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.source import (
     MicroStrategySource,
     _LazyProjectLineage,
@@ -4378,3 +4380,144 @@ def test_per_report_report_pass_does_not_execute_a_report_a_dossier_settled() ->
         "project-1.ds-shared": ["sales_db.sales.fact_sales"],
         "project-1.report-solo": ["sales_db.sales.fact_report_solo"],
     }
+
+
+class _PromptedReportClient:
+    """A report whose SQL view is refused with 406 until its prompts are
+    answered, and whose prompts are as given."""
+
+    def __init__(self, prompts: List[Dict[str, Any]]) -> None:
+        self.prompts = prompts
+        self.answered: List[List[Dict[str, Any]]] = []
+        self.deleted: List[str] = []
+
+    def create_report_instance(self, project_id: str, report_id: str) -> str:
+        return "instance-1"
+
+    def get_report_sql_view(
+        self, project_id: str, report_id: str, instance_id: str
+    ) -> SqlView:
+        if not self.answered:
+            raise MicroStrategyAPIError("406 Not Acceptable", status_code=406)
+        return SqlView.model_validate({"sqlStatement": "select a from t"})
+
+    def get_report_instance_prompts(
+        self, project_id: str, report_id: str, instance_id: str
+    ) -> List[Dict[str, Any]]:
+        return self.prompts
+
+    def answer_report_prompts_with_defaults(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: str,
+        prompts: List[Dict[str, Any]],
+    ) -> None:
+        self.answered.append(prompts)
+
+    def delete_report_instance(
+        self, project_id: str, report_id: str, instance_id: str
+    ) -> bool:
+        self.deleted.append(instance_id)
+        return True
+
+
+_DEFAULTED_PROMPT = {
+    "key": "P1",
+    "id": "prompt-1",
+    "type": "ELEMENTS",
+    "required": True,
+    "defaultAnswer": [{"id": "h1;elem", "name": "Elem"}],
+}
+
+
+def test_prompted_report_is_skipped_without_the_flag() -> None:
+    source = _source()
+    client = _PromptedReportClient([_DEFAULTED_PROMPT])
+    source.client = client  # type: ignore[assignment]
+
+    assert source._report_sql_statement("project-1", "report-1", "ctx") is None
+    assert client.answered == []
+    assert client.deleted == ["instance-1"]
+    assert source.report.prompted_report_sql_views == 1
+    assert source.report.prompted_reports_answered == 0
+
+
+def test_prompted_report_is_read_after_answering_its_defaults() -> None:
+    source = _source({"answer_report_prompts_with_defaults": True})
+    client = _PromptedReportClient([_DEFAULTED_PROMPT])
+    source.client = client  # type: ignore[assignment]
+
+    assert (
+        source._report_sql_statement("project-1", "report-1", "ctx")
+        == "select a from t"
+    )
+    assert client.answered == [[_DEFAULTED_PROMPT]]
+    assert client.deleted == ["instance-1"]
+    assert source.report.prompted_reports_answered == 1
+
+
+def test_prompted_report_with_a_required_prompt_without_default_is_skipped() -> None:
+    source = _source({"answer_report_prompts_with_defaults": True})
+    client = _PromptedReportClient(
+        [{"key": "P1", "type": "VALUE", "required": True, "name": "Store"}]
+    )
+    source.client = client  # type: ignore[assignment]
+
+    assert source._report_sql_statement("project-1", "report-1", "ctx") is None
+    assert client.answered == []
+    assert client.deleted == ["instance-1"]
+    assert source.report.prompted_reports_without_defaults == 1
+
+
+def test_answering_defaults_sends_use_default_per_prompt() -> None:
+    client = MicroStrategyClient(
+        MicroStrategyConfig.model_validate(
+            {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+        ),
+        MicroStrategyReport(),
+    )
+    with mock.patch.object(client, "_request") as request:
+        client.answer_report_prompts_with_defaults(
+            "project-1", "report-1", "instance-1", [_DEFAULTED_PROMPT]
+        )
+    method, path = request.call_args.args[:2]
+    assert (method, path) == (
+        "PUT",
+        "/api/reports/report-1/instances/instance-1/prompts/answers",
+    )
+    assert request.call_args.kwargs["json"] == {
+        "prompts": [
+            {"useDefault": True, "key": "P1", "id": "prompt-1", "type": "ELEMENTS"}
+        ]
+    }
+
+
+def test_document_visualization_shape_is_recorded_for_grid_titles() -> None:
+    source = _source()
+    dashboard = DashboardDefinition.from_api_response(
+        object_id="doc-1",
+        object_name="Daily Comp Sales",
+        description=None,
+        response={
+            "chapters": [
+                {
+                    "key": "L1",
+                    "name": "Layout 1",
+                    "visualizations": [
+                        {"key": "K1", "name": "GridGraph1e3", "title": "Comp Sales"}
+                    ],
+                }
+            ],
+            "datasets": [],
+        },
+        report=source.report,
+    )
+
+    source._record_document_visualization_shape(
+        {"chapters": [], "datasets": []}, dashboard
+    )
+
+    assert source.report.document_definition_keys == {"chapters": 1, "datasets": 1}
+    assert source.report.document_visualization_keys["title"] == 1
+    assert '"title": "Comp Sales"' in source.report.document_visualization_samples[0]

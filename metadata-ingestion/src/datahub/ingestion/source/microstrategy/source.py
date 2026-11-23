@@ -1,3 +1,4 @@
+import json
 import logging
 from dataclasses import dataclass, field
 from typing import (
@@ -95,6 +96,7 @@ from datahub.ingestion.source.microstrategy.models import (
     ProjectKey,
     ReportDefinition,
     ReportDerivedMetric,
+    SqlView,
     Visualization,
     extract_document_derived_metric_definitions,
     extract_embedded_metric_definitions,
@@ -135,6 +137,12 @@ _ERROR_SUMMARY_MAX_CHARS = 300
 # Modeling document answers that mean the whole project lacks access. 404 is
 # left out: the endpoint can answer it for a single unmodelled document.
 _MODEL_DOCUMENT_PROJECT_WIDE_STATUSES = frozenset({403, 501})
+# Strategy answers a report instance's SQL view with 406 Not Acceptable
+# while the report's prompts are unanswered.
+_PROMPTED_SQL_VIEW_STATUS = 406
+# Document visualization shape samples kept in the report, and their size.
+_DOCUMENT_VISUALIZATION_SAMPLES = 10
+_DOCUMENT_VISUALIZATION_SAMPLE_CHARS = 800
 
 
 class _PredefinedFoldersUnavailable(Exception):
@@ -1772,6 +1780,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             ]
         if is_document_object(dashboard_object) and not dashboard.visualizations:
             self.report.report_document_definition_without_visualizations()
+        elif is_document_object(dashboard_object):
+            self._record_document_visualization_shape(response, dashboard)
         if self.config.extract_lineage and self.config.extract_visualization_details:
             self._enrich_visualization_details(project_id, dashboard_object, dashboard)
         if self.config.extract_lineage:
@@ -1785,6 +1795,36 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if self.config.extract_metric_expressions:
             self._enrich_metric_expressions(project_id, dashboard)
         return dashboard
+
+    def _record_document_visualization_shape(
+        self, response: Dict[str, object], dashboard: DashboardDefinition
+    ) -> None:
+        """Key counts for every document visualization, and the scalar
+        fields of the first visualization of the first documents seen. Keys
+        and short scalars only, so the report stays small."""
+        for key in response:
+            self.report.document_definition_keys[str(key)] += 1
+        for visualization in dashboard.visualizations:
+            for key in visualization.raw:
+                self.report.document_visualization_keys[str(key)] += 1
+        if (
+            len(self.report.document_visualization_samples)
+            < _DOCUMENT_VISUALIZATION_SAMPLES
+        ):
+            raw = dashboard.visualizations[0].raw
+            scalars = {
+                str(key): value
+                for key, value in raw.items()
+                if isinstance(value, (str, int, float, bool))
+            }
+            sample = json.dumps(
+                {"document": dashboard.name, "visualization": scalars},
+                sort_keys=True,
+                default=str,
+            )
+            self.report.document_visualization_samples.append(
+                sample[:_DOCUMENT_VISUALIZATION_SAMPLE_CHARS]
+            )
 
     @timed_phase("model_document")
     def _model_document(
@@ -2497,11 +2537,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._record_execution(project_id, None)
 
         try:
-            sql_view = self.client.get_report_sql_view(
-                project_id=project_id,
-                report_id=report_id,
-                instance_id=instance_id,
+            sql_view = self._report_sql_view_answering_prompts(
+                project_id, report_id, instance_id, context
             )
+            if sql_view is None:
+                return None
         except (MicroStrategyAPIError, ValidationError) as error:
             # ValidationError: a response body that does not fit SqlView.
             self.report.report_report_sql_view_api_failure()
@@ -2520,6 +2560,71 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if not sql_statement:
             self.report.report_sql_view_without_statement()
         return sql_statement
+
+    def _report_sql_view_answering_prompts(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: str,
+        context: str,
+    ) -> Optional[SqlView]:
+        """The instance's SQL view. Strategy refuses it with 406 while the
+        report's prompts are unanswered; with answer_report_prompts_with_defaults
+        the prompts are answered with their defaults and the view read once
+        more. None when the report was skipped as prompted (counted and
+        warned here); other failures raise."""
+        try:
+            return self.client.get_report_sql_view(
+                project_id=project_id,
+                report_id=report_id,
+                instance_id=instance_id,
+            )
+        except MicroStrategyAPIError as error:
+            if error.status_code != _PROMPTED_SQL_VIEW_STATUS:
+                raise
+            refused = error
+        self.report.report_prompted_report_sql_view()
+        if not self.config.answer_report_prompts_with_defaults:
+            self.report.warning(
+                title="Prompted Report Skipped for Warehouse Lineage",
+                message=(
+                    "The report's SQL view needs its prompts answered; enable "
+                    "answer_report_prompts_with_defaults to answer them with "
+                    "their defaults."
+                ),
+                context=context,
+                exc=refused,
+            )
+            return None
+        prompts = self.client.get_report_instance_prompts(
+            project_id, report_id, instance_id
+        )
+        unanswerable = [
+            str(prompt.get("name") or prompt.get("key") or prompt.get("id"))
+            for prompt in prompts
+            if prompt.get("required") and prompt.get("defaultAnswer") in (None, [], "")
+        ]
+        if not prompts or unanswerable:
+            self.report.report_prompted_report_without_defaults()
+            self.report.warning(
+                title="Prompted Report Has No Default Answers",
+                message=(
+                    "Skipping warehouse lineage for this report: a required "
+                    "prompt has no default answer."
+                ),
+                context=f"{context}, prompts={unanswerable or 'none listed'}",
+            )
+            return None
+        self.client.answer_report_prompts_with_defaults(
+            project_id, report_id, instance_id, prompts
+        )
+        sql_view = self.client.get_report_sql_view(
+            project_id=project_id,
+            report_id=report_id,
+            instance_id=instance_id,
+        )
+        self.report.report_prompted_report_answered()
+        return sql_view
 
     @timed_phase("dashboard_instance")
     def _dashboard_instance(

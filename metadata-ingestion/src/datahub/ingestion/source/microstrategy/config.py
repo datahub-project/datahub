@@ -392,6 +392,19 @@ class MicroStrategyConfig(
             "resolve a dashboard instance."
         ),
     )
+    answer_report_prompts_with_defaults: bool = Field(
+        default=False,
+        description=(
+            "Whether to answer a prompted report's prompts with their default "
+            "answers when its SQL view is refused (HTTP 406) because prompts "
+            "are unanswered, then read the SQL view again. Without it a "
+            "prompted report's dataset gets no warehouse lineage. A report "
+            "with a required prompt that has no default is still skipped. Off "
+            "by default: Strategy does not document whether answering the last "
+            "prompt of a report instance starts the report's execution against "
+            "the warehouse."
+        ),
+    )
     dashboard_instance_resolve_only: bool = Field(
         default=False,
         description=(
