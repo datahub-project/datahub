@@ -5,8 +5,6 @@ const isSaas = process.env.DOCUSAURUS_IS_SAAS === "true";
 // archive.docs.datahub.com (see the version dropdown below). Cross-site links
 // open in a new tab; within-site version switching stays in the same tab.
 const ARCHIVE_BASE = "https://archive.docs.datahub.com/docs";
-const EXTERNAL_LINK_ICON =
-  '<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>';
 // [version label, path under /docs/<version>/]. Every version links to its
 // /features page EXCEPT 0.13.1, which has no features page in the archive and
 // so points to its version home instead.
@@ -175,8 +173,9 @@ module.exports = {
             },
             // Cross-site links to the standalone archive open in a new tab.
             ...ARCHIVED_VERSIONS.map(([label, path]) => ({
-              type: "html",
-              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="${ARCHIVE_BASE}/${path}">${label}${EXTERNAL_LINK_ICON}</a>`,
+              label,
+              href: `${ARCHIVE_BASE}/${path}`,
+              target: "_blank",
             })),
           ],
         },
