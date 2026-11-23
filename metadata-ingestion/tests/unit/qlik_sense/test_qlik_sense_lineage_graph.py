@@ -1,7 +1,7 @@
 import base64
 import hashlib
 import json
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 from urllib.parse import quote
 
@@ -199,6 +199,7 @@ def _run(
     keep_unread_items: bool = False,
     graph: Optional[MagicMock] = None,
     script_read_failed: bool = False,
+    items: Optional[List[Union[App, QlikDataset]]] = None,
 ) -> Tuple[QlikSenseSource, Dict[str, List[str]], Dict[str, List[str]]]:
     space = MagicMock(id="space-1")
     space.name = "Finance"
@@ -240,6 +241,8 @@ def _run(
             [f"{ETL_APP}#Curve", "qri:app:sense://unread-app#Tbl"],
         ),
     ]
+    if items is not None:
+        api.get_items.return_value = items
     for item in api.get_items.return_value:
         if isinstance(item, App):
             item.script_read_failed = script_read_failed
@@ -272,6 +275,47 @@ def test_qvd_lineage_links_apps_through_datasets(mock_api_cls: MagicMock) -> Non
     # added, as the dataset is not built by one app.
     assert added == {_urn("space-1.stored.qvd"): [curve]}
     assert not source.reporter.failures
+
+
+@pytest.mark.parametrize("loader_first", [True, False])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_table_links_tables_of_another_app_it_loads(
+    mock_api_cls: MagicMock, loader_first: bool
+) -> None:
+    etl = _app(
+        "etl-app",
+        [
+            LineageTable(
+                qri=f"{ETL_APP}#Curve",
+                label="Curve",
+                source_qris=[f"{SOURCE_QVD}#Curve"],
+            )
+        ],
+    )
+    # Such as a BINARY load, which reads the other app's tables directly.
+    report = _app(
+        "report-app",
+        [
+            LineageTable(
+                qri=f"{REPORT_APP}#Tbl",
+                label="Prices",
+                source_qris=[
+                    f"{ETL_APP}#Curve",
+                    # An app the run does not ingest has no URN to link.
+                    "qri:app:sense://other-app#Tbl",
+                ],
+            )
+        ],
+    )
+
+    source, written, _ = _run(
+        mock_api_cls,
+        DATASETS,
+        items=[report, etl] if loader_first else [etl, report],
+    )
+
+    assert written[_urn("report-app.prices")] == [_urn("etl-app.curve")]
+    assert not source.reporter.warnings
 
 
 @pytest.mark.parametrize(
