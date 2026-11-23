@@ -17,8 +17,10 @@ import com.linkedin.metadata.aspect.batch.PatchMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
+import com.linkedin.metadata.aspect.patch.template.TemplateUtil;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -181,16 +183,26 @@ public class PatchItemImpl implements PatchMCP {
 
   public ChangeItemImpl applyPatch(RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
     warnOnOversizedPatchContent();
+    if (!aspectRetriever.getEntityRegistry().getAspectTemplateEngine().hasTemplate(aspectName)) {
+      // No template to interpret the paths: apply the RFC 6902 ops generically, but only to
+      // fields the aspect has. Validation trims unknown fields, so a patch to any other path
+      // would otherwise succeed while dropping its change.
+      List<String> unknownPaths =
+          TemplateUtil.unknownPaths(
+              getPatch(),
+              aspectSpec.getPegasusSchema(),
+              genericJsonPatch != null ? genericJsonPatch.getArrayPrimaryKeys() : Map.of());
+      if (!unknownPaths.isEmpty()) {
+        throw new ValidationException(
+            String.format(
+                "Patch paths %s do not exist in aspect %s of %s",
+                unknownPaths, getAspectName(), getUrn()));
+      }
+      return applyGenericPatch(recordTemplate, aspectRetriever);
+    }
     if (genericJsonPatch != null
         && (!genericJsonPatch.getArrayPrimaryKeys().isEmpty()
             || genericJsonPatch.isForceGenericPatch())) {
-      return applyGenericPatch(recordTemplate, aspectRetriever);
-    }
-    // Plugin-defined aspects have no template, so plain RFC 6902 ops go through the generic path.
-    // Stock aspects without a template keep rejecting PATCH: their validators and clients were
-    // written assuming none arrives.
-    if (aspectSpec.isDefinedByPlugin()
-        && !aspectRetriever.getEntityRegistry().getAspectTemplateEngine().hasTemplate(aspectName)) {
       return applyGenericPatch(recordTemplate, aspectRetriever);
     }
     return applyTemplatePatch(recordTemplate, aspectRetriever);

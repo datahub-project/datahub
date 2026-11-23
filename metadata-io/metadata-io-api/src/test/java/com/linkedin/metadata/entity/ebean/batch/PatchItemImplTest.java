@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
@@ -28,8 +29,6 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.entity.validation.ValidationException;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -694,22 +693,22 @@ public class PatchItemImplTest {
   }
 
   /**
-   * A plugin-defined aspect has no template, so plain RFC 6902 ops go through the generic path.
-   * {@code subTypes} stands in for one: it has no template and is marked as plugin-defined here.
+   * An aspect without a registered template (a stock one here; every plugin-defined aspect is
+   * another) applies plain RFC 6902 ops through the generic path.
    */
   @Test
-  public void testPatchPluginAspectWithoutTemplate() {
+  public void testPatchAspectWithoutTemplate() {
     assertFalse(entityRegistry.getAspectTemplateEngine().hasTemplate(SUB_TYPES_ASPECT_NAME));
 
     ChangeItemImpl created =
-        pluginPatch(
+        patchFor(
                 SUB_TYPES_ASPECT_NAME,
                 "[{\"op\":\"add\",\"path\":\"/typeNames\",\"value\":[\"View\"]}]")
             .applyPatch(null, aspectRetriever);
     assertEquals(created.getRecordTemplate(), new SubTypes().setTypeNames(new StringArray("View")));
 
     ChangeItemImpl appended =
-        pluginPatch(
+        patchFor(
                 SUB_TYPES_ASPECT_NAME,
                 "[{\"op\":\"add\",\"path\":\"/typeNames/-\",\"value\":\"Table\"}]")
             .applyPatch(created.getRecordTemplate(), aspectRetriever);
@@ -718,35 +717,39 @@ public class PatchItemImplTest {
         new SubTypes().setTypeNames(new StringArray("View", "Table")));
 
     ChangeItemImpl removed =
-        pluginPatch(SUB_TYPES_ASPECT_NAME, "[{\"op\":\"remove\",\"path\":\"/typeNames/0\"}]")
+        patchFor(SUB_TYPES_ASPECT_NAME, "[{\"op\":\"remove\",\"path\":\"/typeNames/0\"}]")
             .applyPatch(appended.getRecordTemplate(), aspectRetriever);
     assertEquals(
         removed.getRecordTemplate(), new SubTypes().setTypeNames(new StringArray("Table")));
   }
 
-  /** Stock aspects without a template still reject PATCH; the generic fallback is plugin-only. */
+  /**
+   * A patch to a path the aspect does not have is rejected rather than trimmed away. This is the
+   * path a field-level tag on the non-editable schema produces ({@code schemaFieldInfo} only exists
+   * in the editable schema); before, the write succeeded and the tag was dropped.
+   */
   @Test
-  public void testPatchStockAspectWithoutTemplateIsStillRejected() {
-    MetadataChangeProposal mcp =
-        patchMcp(
-            SUB_TYPES_ASPECT_NAME,
-            "[{\"op\":\"add\",\"path\":\"/typeNames\",\"value\":[\"View\"]}]");
-    PatchItemImpl patchItem = PatchItemImpl.builder().build(mcp, auditStamp, entityRegistry);
-    assertFalse(patchItem.getAspectSpec().isDefinedByPlugin());
-    assertThrows(
-        UnsupportedOperationException.class, () -> patchItem.applyPatch(null, aspectRetriever));
+  public void testPatchToUnknownPathOnAspectWithoutTemplateIsRejected() {
+    PatchItemImpl patchItem =
+        patchFor(
+            SCHEMA_METADATA_ASPECT_NAME,
+            "[{\"op\":\"add\",\"path\":\"/schemaFieldInfo/col_a/globalTags/tags/urn:li:tag:my_tag\","
+                + "\"value\":{\"tag\":\"urn:li:tag:my_tag\"}}]");
+    ValidationException e =
+        expectThrows(ValidationException.class, () -> patchItem.applyPatch(null, aspectRetriever));
+    assertTrue(e.getMessage().contains("/schemaFieldInfo/col_a"), e.getMessage());
   }
 
   /**
-   * Invalid patches on plugin aspects must surface as client errors (the API layers map
+   * Invalid patches on aspects without a template must surface as client errors (the API layers map
    * ValidationException and IllegalArgumentException to 4xx), not as wrapped server errors.
    */
   @Test
-  public void testInvalidPatchOnPluginAspectIsClientError() {
+  public void testInvalidPatchOnAspectWithoutTemplateIsClientError() {
     assertThrows(
         ValidationException.class,
         () ->
-            pluginPatch(
+            patchFor(
                     CONTAINER_ASPECT_NAME,
                     "[{\"op\":\"add\",\"path\":\"/container\",\"value\":\"urn:li:corpuser:not_a_container\"}]")
                 .applyPatch(null, aspectRetriever));
@@ -754,14 +757,14 @@ public class PatchItemImplTest {
     assertThrows(
         ValidationException.class,
         () ->
-            pluginPatch(
+            patchFor(
                     SUB_TYPES_ASPECT_NAME,
                     "[{\"op\":\"add\",\"path\":\"/typeNames/-\",\"value\":\"View\"}]")
                 .applyPatch(null, aspectRetriever));
     assertThrows(
         ValidationException.class,
         () ->
-            pluginPatch(SUB_TYPES_ASPECT_NAME, "[{\"op\":\"remove\",\"path\":\"/typeNames/0\"}]")
+            patchFor(SUB_TYPES_ASPECT_NAME, "[{\"op\":\"remove\",\"path\":\"/typeNames/0\"}]")
                 .applyPatch(null, aspectRetriever));
     // An op the JSON patch library rejects (index out of range). The message must not quote the
     // stored aspect.
@@ -769,24 +772,15 @@ public class PatchItemImplTest {
         expectThrows(
             IllegalArgumentException.class,
             () ->
-                pluginPatch(
-                        SUB_TYPES_ASPECT_NAME, "[{\"op\":\"remove\",\"path\":\"/typeNames/5\"}]")
+                patchFor(SUB_TYPES_ASPECT_NAME, "[{\"op\":\"remove\",\"path\":\"/typeNames/5\"}]")
                     .applyPatch(
                         new SubTypes().setTypeNames(new StringArray("storedValue")),
                         aspectRetriever));
     assertFalse(e.getMessage().contains("storedValue"), e.getMessage());
   }
 
-  /** Builds the patch against a registry in which {@code aspectName} is plugin-defined. */
-  private PatchItemImpl pluginPatch(String aspectName, String ops) {
-    AspectSpec pluginAspect =
-        spy(entityRegistry.getEntitySpec(DATASET_ENTITY_NAME).getAspectSpec(aspectName));
-    pluginAspect.setRegistryName("test-plugin");
-    EntitySpec dataset = spy(entityRegistry.getEntitySpec(DATASET_ENTITY_NAME));
-    doReturn(pluginAspect).when(dataset).getAspectSpec(aspectName);
-    EntityRegistry pluginRegistry = spy(entityRegistry);
-    doReturn(dataset).when(pluginRegistry).getEntitySpec(DATASET_ENTITY_NAME);
-    return PatchItemImpl.builder().build(patchMcp(aspectName, ops), auditStamp, pluginRegistry);
+  private PatchItemImpl patchFor(String aspectName, String ops) {
+    return PatchItemImpl.builder().build(patchMcp(aspectName, ops), auditStamp, entityRegistry);
   }
 
   private MetadataChangeProposal patchMcp(String aspectName, String ops) {

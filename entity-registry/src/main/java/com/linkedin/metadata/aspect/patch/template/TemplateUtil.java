@@ -10,12 +10,21 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.data.schema.ArrayDataSchema;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.MapDataSchema;
+import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.data.schema.UnionDataSchema;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import com.linkedin.util.Pair;
+import jakarta.json.JsonObject;
 import jakarta.json.JsonPatch;
 import jakarta.json.JsonValue;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class TemplateUtil {
 
@@ -116,5 +125,74 @@ public class TemplateUtil {
   /** Simply decode a JSON-patch encoded value * */
   private static String decodeValue(String value) {
     return value.replace("~1", "/").replace("~0", "~");
+  }
+
+  /**
+   * The paths (and move/copy sources) in {@code jsonPatch} that do not resolve to a field of {@code
+   * schema}. Validation trims unknown fields, so without this check a patch to a misspelled or
+   * unsupported path would be dropped silently while the write succeeds.
+   *
+   * @param arrayPrimaryKeys top-level array fields addressed by key (see {@link
+   *     ArrayMergingTemplate}); each key takes one path segment, a value-keyed array one
+   */
+  public static List<String> unknownPaths(
+      JsonPatch jsonPatch, RecordDataSchema schema, Map<String, List<String>> arrayPrimaryKeys) {
+    return jsonPatch.toJsonArray().stream()
+        .map(JsonValue::asJsonObject)
+        .flatMap(op -> Stream.of(op.getString("path", null), fromOf(op)))
+        .filter(path -> path != null && !resolves(path, schema, arrayPrimaryKeys))
+        .distinct()
+        .collect(Collectors.toList());
+  }
+
+  private static String fromOf(JsonObject op) {
+    return op.containsKey("from") ? op.getString("from", null) : null;
+  }
+
+  private static boolean resolves(
+      String path, RecordDataSchema schema, Map<String, List<String>> arrayPrimaryKeys) {
+    String[] segments = path.split("/", -1);
+    DataSchema current = schema;
+    for (int i = 1; i < segments.length; i++) {
+      String segment = decodeValue(segments[i]);
+      DataSchema deref = current.getDereferencedDataSchema();
+      switch (deref.getType()) {
+        case RECORD:
+          RecordDataSchema.Field field = ((RecordDataSchema) deref).getField(segment);
+          if (field == null) {
+            return false;
+          }
+          current = field.getType();
+          if (i == 1 && arrayPrimaryKeys.containsKey(segment)) {
+            DataSchema fieldSchema = current.getDereferencedDataSchema();
+            if (fieldSchema instanceof ArrayDataSchema) {
+              // Keyed array: the key segments stand in for the index.
+              i += Math.max(1, arrayPrimaryKeys.get(segment).size());
+              if (i >= segments.length) {
+                return true;
+              }
+              current = ((ArrayDataSchema) fieldSchema).getItems();
+            }
+          }
+          break;
+        case MAP:
+          current = ((MapDataSchema) deref).getValues();
+          break;
+        case ARRAY:
+          current = ((ArrayDataSchema) deref).getItems();
+          break;
+        case UNION:
+          DataSchema member = ((UnionDataSchema) deref).getTypeByMemberKey(segment);
+          if (member == null) {
+            return false;
+          }
+          current = member;
+          break;
+        default:
+          // A primitive, enum or fixed value has no children.
+          return false;
+      }
+    }
+    return true;
   }
 }

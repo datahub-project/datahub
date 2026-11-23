@@ -2,8 +2,12 @@ package com.linkedin.metadata.aspect.patch.template;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.dataset.DatasetProperties;
 import jakarta.json.Json;
 import jakarta.json.JsonPatch;
+import java.util.List;
+import java.util.Map;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -71,5 +75,43 @@ public class TemplateUtilTest {
     JsonNode node = TemplateUtil.OBJECT_MAPPER.readTree(json);
 
     Assert.assertTrue(node.has(longName), "Property name beyond the default limit must parse");
+  }
+
+  @Test
+  public void testUnknownPaths() {
+    JsonPatch patch =
+        Json.createPatch(
+            Json.createArrayBuilder()
+                .add(op("add", "/customProperties/any~1key"))
+                .add(op("remove", "/tags/0/context"))
+                .add(op("add", "/description"))
+                .add(op("add", "/noSuchField/x"))
+                .add(op("add", "/description/tooDeep"))
+                .build());
+
+    Assert.assertEquals(
+        TemplateUtil.unknownPaths(patch, new DatasetProperties().schema(), Map.of()),
+        List.of("/tags/0/context", "/noSuchField/x", "/description/tooDeep"));
+  }
+
+  @Test
+  public void testUnknownPathsWithKeyedArray() {
+    JsonPatch patch =
+        Json.createPatch(
+            Json.createArrayBuilder()
+                .add(op("add", "/tags//urn:li:tag:foo/context"))
+                .add(op("add", "/tags//urn:li:tag:foo/noSuchField"))
+                .build());
+
+    Assert.assertEquals(
+        TemplateUtil.unknownPaths(
+            patch,
+            new GlobalTags().schema(),
+            Map.of("tags", List.of("attribution\u241fsource", "tag"))),
+        List.of("/tags//urn:li:tag:foo/noSuchField"));
+  }
+
+  private static jakarta.json.JsonObjectBuilder op(String op, String path) {
+    return Json.createObjectBuilder().add("op", op).add("path", path).add("value", "x");
   }
 }
