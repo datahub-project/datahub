@@ -1639,7 +1639,7 @@
   changeType: UPSERT
   aspect:
     name: Semantic
-    description: "Semantic search. Embeds the query and retrieves one window of nearest neighbors for the requested entity types that semantic search covers, inside the caller's filter and the default search filters. The page, the total, and the facets cover those neighbors. An entity type that semantic search does not cover is left out, and a request with no such type returns no results."
+    description: "Semantic search. Embeds the query and retrieves one window of nearest neighbors for the requested entity types that semantic search covers, inside the caller's filter and the default search filters. The page, the total, and the facets cover those neighbors. An entity type that semantic search does not cover is left out, and a request with no such type returns no results. A query that is an entity URN (lowercase urn:li, an entity type, and a key) uses similarity instead."
     dialect: ELASTICSEARCH
     apiVersion: 2
     editable: false
@@ -1647,7 +1647,11 @@
     # next. Each entity type uses its default embedding profile.
     retrieval:
       combine: vector
-    routes: []
+    # A query that is an entity URN finds the entities similar to it. Any other query, including
+    # URN:LI in capitals or a URN with no key, matches no route and stays here.
+    routes:
+      - queryRegex: "^urn:li:[a-z][a-zA-Z0-9]*:.+$"
+        template: urn:li:searchTemplate:similarity
 - entityUrn: urn:li:searchTemplate:similarity
   entityType: searchTemplate
   aspectName: searchTemplateProperties

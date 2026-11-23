@@ -637,6 +637,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showManageTags",
           "featureFlags.showNavBarRedesign",
           "featureFlags.showProductUpdates",
+          "featureFlags.showGithubStarPrompt",
           "featureFlags.productUpdatesJsonUrl",
           "featureFlags.productUpdatesJsonFallbackResource",
           "featureFlags.showStatsTabRedesign",
@@ -881,6 +882,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.v3.templates.rollout.scrollEntitiesPercent",
           "elasticsearch.search.v3.templates.rollout.aggregateEntities",
           "elasticsearch.search.v3.templates.rollout.aggregateEntitiesPercent",
+          "elasticsearch.search.v3.templates.rollout.semanticSearch",
+          "elasticsearch.search.v3.templates.rollout.semanticSearchPercent",
           // Additional DataHub services and features
           "businessAttribute.fetchRelatedEntitiesBatchSize",
           "businessAttribute.fetchRelatedEntitiesCount",

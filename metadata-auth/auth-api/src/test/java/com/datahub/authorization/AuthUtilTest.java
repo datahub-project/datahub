@@ -731,7 +731,8 @@ public class AuthUtilTest {
             TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
             TEST_ENTITY_1,
             List.of(TEST_TAG),
-            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE,
+            UPDATE),
         "Expected EDIT_ENTITY_TAGS to authorize tag modifications without EDIT_ENTITY");
 
     assertFalse(
@@ -739,15 +740,17 @@ public class AuthUtilTest {
             TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
             TEST_ENTITY_1,
             List.of(TEST_TAG),
-            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
-        "Expected user without EDIT_ENTITY_TAGS to be denied");
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE,
+            UPDATE),
+        "Expected user without tag privileges to be denied");
 
     assertTrue(
         AuthUtil.isAPIAuthorizedForTagModification(
             TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
             TEST_ENTITY_1,
             Collections.emptyList(),
-            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE,
+            UPDATE),
         "Expected empty tag list to skip authorization");
 
     Authorizer datasetColTagsAuthorizer =
@@ -761,7 +764,8 @@ public class AuthUtilTest {
             TestAuthSession.from(TEST_AUTH_A, datasetColTagsAuthorizer),
             TEST_ENTITY_1,
             List.of(TEST_TAG),
-            PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE),
+            PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE,
+            UPDATE),
         "Expected EDIT_DATASET_COL_TAGS to authorize dataset column tag modifications");
   }
 
@@ -832,14 +836,16 @@ public class AuthUtilTest {
   @Test
   public void testTagModificationPrivilegeGroup() {
     assertEquals(
-        AuthUtil.tagModificationPrivilegeGroup(PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+        AuthUtil.tagModificationPrivilegeGroup(
+            TEST_ENTITY_1, UPDATE, PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
         new DisjunctivePrivilegeGroup(
             List.of(
                 new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY")),
                 new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY_TAGS")))));
 
     assertEquals(
-        AuthUtil.tagModificationPrivilegeGroup(PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE),
+        AuthUtil.tagModificationPrivilegeGroup(
+            TEST_ENTITY_1, UPDATE, PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE),
         new DisjunctivePrivilegeGroup(
             List.of(
                 new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY")),
@@ -860,32 +866,114 @@ public class AuthUtilTest {
         AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
             TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
             TEST_ENTITY_1,
-            List.of(TEST_PROPERTY)),
+            List.of(TEST_PROPERTY),
+            UPDATE),
         "Expected EDIT_ENTITY_PROPERTIES to authorize structured property modifications without EDIT_ENTITY");
 
     assertFalse(
         AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
             TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
             TEST_ENTITY_1,
-            List.of(TEST_PROPERTY)),
-        "Expected user without EDIT_ENTITY_PROPERTIES to be denied");
+            List.of(TEST_PROPERTY),
+            UPDATE),
+        "Expected user without property privileges to be denied");
 
     assertTrue(
         AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
             TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
             TEST_ENTITY_1,
-            Collections.emptyList()),
+            Collections.emptyList(),
+            UPDATE),
         "Expected empty property list to skip authorization");
+  }
+
+  @Test
+  public void testSchemaFieldWriteAcceptsDatasetOrSchemaFieldPolicy() {
+    final Urn dataset = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
+    final Urn field =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD),col_a)");
+    final Urn otherField =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD),col_b)");
+    final Urn property = UrnUtils.getUrn("urn:li:structuredProperty:certifier");
+    final Urn tag = UrnUtils.getUrn("urn:li:tag:Legacy");
+    String actor = TEST_AUTH_A.getActor().toUrnStr();
+
+    Authorizer datasetProperties =
+        mockAuthorizer(Map.of(actor, Map.of("EDIT_DATASET_COL_PROPERTIES", Set.of(dataset))));
+    assertTrue(
+        AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+            TestAuthSession.from(TEST_AUTH_A, datasetProperties), field, List.of(property), UPDATE),
+        "Expected a column-properties grant on the parent dataset to allow the schema field write");
+
+    Authorizer fieldEntity = mockAuthorizer(Map.of(actor, Map.of("EDIT_ENTITY", Set.of(field))));
+    assertTrue(
+        AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+            TestAuthSession.from(TEST_AUTH_A, fieldEntity), field, List.of(property), UPDATE),
+        "Expected Edit Entity on the schema field to allow the property write");
+    assertTrue(
+        AuthUtil.isAuthorizedForStructuredPropertyModification(
+            TestAuthSession.from(TEST_AUTH_A, fieldEntity), field, List.of(property), UPDATE),
+        "Expected the GraphQL check to accept the schema field policy");
+    assertTrue(
+        AuthUtil.isCoarseSubResourceWriteAuthorized(
+            TestAuthSession.from(TEST_AUTH_A, fieldEntity),
+            ChangeType.UPSERT,
+            field,
+            Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
+            true),
+        "Expected the ingest gate to accept the schema field policy");
+
+    Authorizer otherFieldEntity =
+        mockAuthorizer(Map.of(actor, Map.of("EDIT_ENTITY", Set.of(otherField))));
+    assertFalse(
+        AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+            TestAuthSession.from(TEST_AUTH_A, otherFieldEntity), field, List.of(property), UPDATE),
+        "Expected a policy on a different schema field to deny the write");
+    assertFalse(
+        AuthUtil.isCoarseSubResourceWriteAuthorized(
+            TestAuthSession.from(TEST_AUTH_A, otherFieldEntity),
+            ChangeType.UPSERT,
+            field,
+            Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
+            true),
+        "Expected the ingest gate to deny a policy on a different schema field");
+
+    Authorizer fieldTags = mockAuthorizer(Map.of(actor, Map.of("EDIT_ENTITY_TAGS", Set.of(field))));
+    assertTrue(
+        AuthUtil.isAPIAuthorizedForTagModification(
+            TestAuthSession.from(TEST_AUTH_A, fieldTags),
+            field,
+            List.of(tag),
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE,
+            UPDATE),
+        "Expected Edit Entity Tags on the schema field to allow the tag write");
+    assertTrue(
+        AuthUtil.isCoarseSubResourceWriteAuthorized(
+            TestAuthSession.from(TEST_AUTH_A, fieldTags),
+            ChangeType.UPSERT,
+            field,
+            Constants.GLOBAL_TAGS_ASPECT_NAME,
+            true),
+        "Expected the ingest gate to accept a schema field tag policy");
   }
 
   @Test
   public void testStructuredPropertyModificationPrivilegeGroup() {
     assertEquals(
-        AuthUtil.structuredPropertyModificationPrivilegeGroup(),
+        AuthUtil.structuredPropertyModificationPrivilegeGroup(TEST_ENTITY_1, UPDATE),
         new DisjunctivePrivilegeGroup(
             List.of(
                 new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY")),
                 new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY_PROPERTIES")))));
+    assertEquals(
+        AuthUtil.structuredPropertyModificationPrivilegeGroup(TEST_ENTITY_1, CREATE),
+        new DisjunctivePrivilegeGroup(
+            List.of(
+                new ConjunctivePrivilegeGroup(List.of("CREATE_ENTITY")),
+                new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY")))),
+        "A create does not add Edit Entity Properties");
   }
 
   @Test
@@ -899,7 +987,8 @@ public class AuthUtilTest {
               TestAuthSession.from(TEST_AUTH_B, mock(Authorizer.class)),
               TEST_ENTITY_1,
               List.of(TEST_TAG),
-              PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+              PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE,
+              UPDATE),
           "Expected REST API authorization disabled to bypass tag checks");
     } finally {
       setRestApiAuthorizationEnabled(previous);

@@ -294,9 +294,10 @@ public class BootstrapMCPUtilTest {
   }
 
   /**
-   * The shipped search-templates step writes the keywordRerank fulltext and the semantic template.
-   * The rollback revision documented for operators runs the revert seed under its own upgrade id,
-   * which writes fulltext back without its keywordRerank sections and leaves the rest alone.
+   * The shipped search-templates step writes the keywordRerank fulltext and the semantic template,
+   * which routes an entity URN to similarity. The rollback revision documented for operators runs
+   * the revert seed under its own upgrade id, which writes fulltext back without its keywordRerank
+   * sections and leaves the rest alone.
    */
   @Test
   public void testSearchTemplatesRevisionRunsTheRevertSeed() throws IOException {
@@ -304,8 +305,11 @@ public class BootstrapMCPUtilTest {
     Map<String, SearchTemplateProperties> written = searchTemplates(shipped, "shipped");
     assertEquals(
         written.get(SEARCH_TEMPLATE_FULLTEXT_URN).getRetrieval().getCombine(), "keywordRerank");
+    SearchTemplateProperties semantic = written.get("urn:li:searchTemplate:semantic");
+    assertEquals(semantic.getRetrieval().getCombine(), "vector");
+    assertEquals(semantic.getRoutes().size(), 1);
     assertEquals(
-        written.get("urn:li:searchTemplate:semantic").getRetrieval().getCombine(), "vector");
+        semantic.getRoutes().get(0).getTemplate().toString(), "urn:li:searchTemplate:similarity");
     assertEquals(
         written.get("urn:li:searchTemplate:similarity").getRetrieval().getQuerySource(),
         "anchorEntity");
@@ -337,6 +341,31 @@ public class BootstrapMCPUtilTest {
     // The delimiter switch is consumed, so the renderer still sees its own placeholders
     assertTrue(fulltext.getQuery().contains("{{fuzzy}}"));
     assertFalse(fulltext.getQuery().contains("<%"));
+  }
+
+  /**
+   * The rollback revision for the semantic URN route runs its own seed under its own upgrade id,
+   * which writes semantic back without routes and leaves the rest alone.
+   */
+  @Test
+  public void testSearchTemplatesRevisionRunsTheSemanticRevertSeed() throws IOException {
+    BootstrapMCPConfigFile.MCPTemplate shipped = searchTemplatesStep();
+    environmentVariables.set(
+        SEARCH_TEMPLATES_REVISION_ENV,
+        "{\"version\":\"v19-revert\","
+            + "\"mcps_location\":\"bootstrap_mcps/search-templates-semantic-revert.yaml\","
+            + "\"force\":true}");
+    BootstrapMCPConfigFile.MCPTemplate revert = searchTemplatesStep();
+    assertTrue(revert.isForce());
+    assertNotEquals(
+        new BootstrapMCPStep(OP_CONTEXT, mock(EntityService.class), revert).id(),
+        new BootstrapMCPStep(OP_CONTEXT, mock(EntityService.class), shipped).id());
+
+    Map<String, SearchTemplateProperties> reverted = searchTemplates(revert, "revert");
+    assertEquals(reverted.keySet(), Set.of("urn:li:searchTemplate:semantic"));
+    SearchTemplateProperties semantic = reverted.get("urn:li:searchTemplate:semantic");
+    assertTrue(semantic.getRoutes().isEmpty());
+    assertEquals(semantic.getRetrieval().getCombine(), "vector");
   }
 
   /**

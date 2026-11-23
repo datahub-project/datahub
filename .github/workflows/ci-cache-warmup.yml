@@ -16,8 +16,7 @@
 # unpruned prefix-hit union, so the consumers are restore-only and this workflow
 # is the single writer.
 #
-# This workflow runs on every push to the default branch and to release/hotfix
-# branches. When the exact key already exists the lookup-only restore hits and
+# This workflow runs on every push to the default branch and to release branches. When the exact key already exists the lookup-only restore hits and
 # the leg exits in seconds; on a miss (dependency manifests changed, or the entry
 # was evicted) it rebuilds the environments and saves one copy. Keys and cache
 # paths must stay byte-identical to the restore steps in the consuming workflows.
@@ -27,7 +26,6 @@ on:
     branches:
       - master
       - "releases/**"
-      - "hotfixes/**"
   workflow_dispatch:
 
 # Keyed on the ref: this workflow only runs on pushes and manual dispatches, so
@@ -44,8 +42,7 @@ jobs:
     # ref-scoped copy nothing can read.
     if: |
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
-      startsWith(github.ref, 'refs/heads/releases/') ||
-      startsWith(github.ref, 'refs/heads/hotfixes/')
+      startsWith(github.ref, 'refs/heads/releases/')
     # One leg per cache backend (see top).
     strategy:
       fail-fast: false
@@ -105,8 +102,7 @@ jobs:
     name: Warm smoke-test lint uv cache (${{ matrix.runner }})
     if: |
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
-      startsWith(github.ref, 'refs/heads/releases/') ||
-      startsWith(github.ref, 'refs/heads/hotfixes/')
+      startsWith(github.ref, 'refs/heads/releases/')
     strategy:
       fail-fast: false
       matrix:
@@ -151,8 +147,7 @@ jobs:
     name: Warm metadata-ingestion uv cache (${{ matrix.runner }})
     if: |
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
-      startsWith(github.ref, 'refs/heads/releases/') ||
-      startsWith(github.ref, 'refs/heads/hotfixes/')
+      startsWith(github.ref, 'refs/heads/releases/')
     strategy:
       fail-fast: false
       matrix:
@@ -210,8 +205,7 @@ jobs:
     name: Warm datahub-web-react yarn cache (${{ matrix.runner }})
     if: |
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
-      startsWith(github.ref, 'refs/heads/releases/') ||
-      startsWith(github.ref, 'refs/heads/hotfixes/')
+      startsWith(github.ref, 'refs/heads/releases/')
     strategy:
       fail-fast: false
       matrix:
@@ -254,8 +248,7 @@ jobs:
     name: Warm playwright lint yarn cache (${{ matrix.runner }})
     if: |
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
-      startsWith(github.ref, 'refs/heads/releases/') ||
-      startsWith(github.ref, 'refs/heads/hotfixes/')
+      startsWith(github.ref, 'refs/heads/releases/')
     strategy:
       fail-fast: false
       matrix:
@@ -299,8 +292,7 @@ jobs:
     name: Warm docs-website yarn cache (${{ matrix.runner }})
     if: |
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
-      startsWith(github.ref, 'refs/heads/releases/') ||
-      startsWith(github.ref, 'refs/heads/hotfixes/')
+      startsWith(github.ref, 'refs/heads/releases/')
     strategy:
       fail-fast: false
       matrix:
@@ -343,8 +335,7 @@ jobs:
     name: Warm docker-unified uv and yarn caches (ubuntu-24.04)
     if: |
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
-      startsWith(github.ref, 'refs/heads/releases/') ||
-      startsWith(github.ref, 'refs/heads/hotfixes/')
+      startsWith(github.ref, 'refs/heads/releases/')
     runs-on: ubuntu-24.04
     env:
       DATAHUB_TELEMETRY_ENABLED: false

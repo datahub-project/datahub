@@ -507,7 +507,9 @@ class TestClassicalEmbeddingProvider:
         """
         A search that names the similarity template with a document URN as the query: the anchor
         document's stored chunk vectors are the query, the anchor is left out of its own neighbors,
-        and neighbors below a cosine of 0.8 are dropped from a window of 500.
+        and neighbors below a cosine of 0.8 are dropped from a window of 500. The semantic template
+        routes a query that is an entity URN to similarity, so naming semantic with the same URN
+        serves the same neighbors.
 
         The classical provider is lexical, so the fixture is lexical too: a copy of the anchor's
         text must come back, and a document that shares little of its text must rank below it.
@@ -530,33 +532,43 @@ class TestClassicalEmbeddingProvider:
             auth_session, "data access request process", [anchor_urn, copy_urn]
         )
 
-        result = _search_semantic_template(
-            auth_session, anchor_urn, template=SIMILARITY_TEMPLATE_URN
-        )
-        if "errors" in result:
-            pytest.fail(f"GraphQL errors from document similarity: {result['errors']}")
-        search_data = result["data"]["searchAcrossEntities"]
-        explanation = search_data.get("vectorRetrieval")
-        assert explanation, (
-            "No vectorRetrieval explanation: the vector rung did not serve"
-        )
-        assert explanation["outcome"] == "served", explanation
-        assert explanation["profile"] == EXPECTED_EMBEDDING_KEY, explanation
-        assert explanation["entityTypes"] == ["document"], explanation
-        assert explanation["filterInVectorSearch"] is True, explanation
-        # The similarity window, not the semantic page window, shows which template served
-        assert explanation["k"] == 500, explanation
-
-        result_urns = [item["entity"]["urn"] for item in search_data["searchResults"]]
-        assert copy_urn in result_urns, (
-            f"{copy_urn} not among the neighbors of {anchor_urn}: {result_urns}"
-        )
-        assert anchor_urn not in result_urns, result_urns
-        if other_urn in result_urns:
-            assert result_urns.index(copy_urn) < result_urns.index(other_urn), (
-                result_urns
+        for template in (SIMILARITY_TEMPLATE_URN, SEMANTIC_TEMPLATE_URN):
+            result = _search_semantic_template(
+                auth_session, anchor_urn, template=template
             )
-        logger.info(
-            f"✓ Similarity to {anchor_urn} returned its copy at "
-            f"#{result_urns.index(copy_urn) + 1} of {len(result_urns)}"
-        )
+            if "errors" in result:
+                pytest.fail(
+                    f"GraphQL errors from document similarity through {template}: "
+                    f"{result['errors']}"
+                )
+            search_data = result["data"]["searchAcrossEntities"]
+            explanation = search_data.get("vectorRetrieval")
+            assert explanation, (
+                f"No vectorRetrieval explanation through {template}: "
+                "the vector rung did not serve"
+            )
+            assert explanation["outcome"] == "served", explanation
+            assert explanation["profile"] == EXPECTED_EMBEDDING_KEY, explanation
+            assert explanation["entityTypes"] == ["document"], explanation
+            assert explanation["filterInVectorSearch"] is True, explanation
+            # The similarity window, not the semantic page window of 60 for this count, shows
+            # that similarity served, also when the search names semantic
+            assert explanation["k"] == 500, (template, explanation)
+
+            result_urns = [
+                item["entity"]["urn"] for item in search_data["searchResults"]
+            ]
+            assert copy_urn in result_urns, (
+                f"{copy_urn} not among the neighbors of {anchor_urn} through "
+                f"{template}: {result_urns}"
+            )
+            assert anchor_urn not in result_urns, (template, result_urns)
+            if other_urn in result_urns:
+                assert result_urns.index(copy_urn) < result_urns.index(other_urn), (
+                    template,
+                    result_urns,
+                )
+            logger.info(
+                f"✓ Similarity to {anchor_urn} through {template} returned its copy at "
+                f"#{result_urns.index(copy_urn) + 1} of {len(result_urns)}"
+            )
