@@ -1,7 +1,9 @@
 version: "2"
 services:
   openldap:
-    image: osixia/openldap:latest
+    # Pinned: `latest` now points at the 2.6.x rewrite, whose entrypoint rejects
+    # the `--copy-service --loglevel debug` command below and exits 1.
+    image: osixia/openldap:1.5.0
     command: --copy-service --loglevel debug
     container_name: test-openldap
     domainname: "example.org"
