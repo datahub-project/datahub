@@ -482,11 +482,25 @@ def _timestamp_key(node: Dict, *fields: str) -> Tuple[int, datetime]:
         value = node.get(field_name)
         if value:
             parsed = parse_dbt_timestamp(value)
+            # dbt Cloud reports year-1 dates (0001-01-01) for sources that were
+            # never freshness-checked; see max_loaded_at in _parse_into_dbt_node.
             if parsed.year > 1:
                 if parsed.tzinfo is not None:
                     parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
                 return (1, parsed)
     return _NO_TIMESTAMP
+
+
+def _latest(copies: List[Dict], *fields: str) -> Dict:
+    """The copy with the latest timestamp among ``fields``, then the newest run."""
+    return max(copies, key=lambda c: (_timestamp_key(c, *fields), _run_key(c)))
+
+
+def _has_run_time(node: Dict) -> bool:
+    return (
+        _timestamp_key(node, "executeCompletedAt", "executeStartedAt", "runGeneratedAt")
+        != _NO_TIMESTAMP
+    )
 
 
 def _run_key(node: Dict) -> int:
@@ -507,8 +521,9 @@ def _is_padding(node: Dict) -> bool:
     seeds and snapshots; rows the run did not execute carry ``status: null``
     and no timings. ``skip`` is not a signal: genuinely skipped nodes have
     ``skip: true`` and a status, and padding rows have ``skip: false``.
+    Ephemeral models never have a status, so they are not padding either.
     """
-    return node.get("status") is None
+    return node.get("status") is None and node.get("materializedType") != "ephemeral"
 
 
 @dataclass
@@ -524,6 +539,9 @@ class _MergedRawNodes:
     nodes_merged: int
     padding_dropped: int
     not_built_by_any_job: List[str]
+    # Test copies without a run time, dropped because they cannot be ordered
+    # against the copies that have one.
+    untimed_test_copies_dropped: int
     exposures_deduplicated: int
 
 
@@ -546,6 +564,7 @@ def _merge_raw_nodes(
     nodes_merged = 0
     padding_dropped = 0
     not_built_by_any_job: List[str] = []
+    untimed_test_copies_dropped = 0
 
     for (resource_type, unique_id), copies in groups.items():
         if len(copies) > 1:
@@ -553,29 +572,23 @@ def _merge_raw_nodes(
         if resource_type in _BUILT_RESOURCE_TYPES:
             built = [c for c in copies if not _is_padding(c)]
             if built:
-                winner = max(
-                    built,
-                    key=lambda c: (
-                        _timestamp_key(c, "executeCompletedAt", "executeStartedAt"),
-                        _run_key(c),
-                    ),
-                )
+                winner = _latest(built, "executeCompletedAt", "executeStartedAt")
                 padding_dropped += len(copies) - len(built)
             else:
                 winner = max(copies, key=_run_key)
+                padding_dropped += len(copies) - 1
                 not_built_by_any_job.append(unique_id)
         elif resource_type == "source":
-            winner = max(
-                copies,
-                key=lambda c: (
-                    _timestamp_key(c, "snapshottedAt", "maxLoadedAt"),
-                    _run_key(c),
-                ),
-            )
+            winner = _latest(copies, "snapshottedAt", "maxLoadedAt")
+        elif resource_type == "test":
+            # Results are ordered by run time downstream, so a copy without
+            # one is only kept when it is the sole copy.
+            timed = [c for c in copies if _has_run_time(c)]
+            winner = max(timed or copies, key=_run_key)
+            extra_test_copies.extend(c for c in timed if c is not winner)
+            untimed_test_copies_dropped += len(copies) - max(len(timed), 1)
         else:
             winner = max(copies, key=_run_key)
-            if resource_type == "test":
-                extra_test_copies.extend(c for c in copies if c is not winner)
         nodes.append(winner)
 
     exposures_by_id: Dict[str, Dict] = {}
@@ -592,6 +605,7 @@ def _merge_raw_nodes(
         nodes_merged=nodes_merged,
         padding_dropped=padding_dropped,
         not_built_by_any_job=not_built_by_any_job,
+        untimed_test_copies_dropped=untimed_test_copies_dropped,
         exposures_deduplicated=len(raw_exposures) - len(exposures_by_id),
     )
 
@@ -954,11 +968,18 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             total_count = (
                 (data.get("extra") or {}).get("pagination", {}).get("total_count")
             )
-            if (
-                not page
-                or len(page) < _DBT_CLOUD_JOBS_PAGE_SIZE
-                or (total_count is not None and offset >= total_count)
-            ):
+            if total_count is None:
+                if len(page) < _DBT_CLOUD_JOBS_PAGE_SIZE:
+                    break
+            elif offset >= total_count:
+                break
+            elif not page:
+                logger.warning(
+                    f"dbt Cloud returned no jobs at offset {offset} although it "
+                    f"reports {total_count} jobs; the job list may be incomplete."
+                )
+                break
+            if not page:
                 break
 
         logger.info(f"Found {len(jobs)} jobs in dbt Cloud account {account_id}")
@@ -1296,6 +1317,18 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         self.report.auto_discovery_exposures_deduplicated = (
             merged.exposures_deduplicated
         )
+        if merged.untimed_test_copies_dropped:
+            self.report.auto_discovery_untimed_test_results_dropped = (
+                merged.untimed_test_copies_dropped
+            )
+            self.report.warning(
+                title="dbt Cloud test results without a run time were dropped",
+                message="Some discovered jobs returned test results with no "
+                "execution time. They cannot be ordered against the results of "
+                "other jobs, so only results with a run time were kept for "
+                "those tests.",
+                context=f"{merged.untimed_test_copies_dropped} result(s)",
+            )
 
         nodes = [self._parse_into_dbt_node(node) for node in merged.nodes]
         nodes_by_name = {node.dbt_name: node for node in nodes}
@@ -1395,8 +1428,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         test_result = None
         if not node["skip"]:
-            # Results of one test from several jobs are ordered by this time,
-            # so it must come from the run, not from ingestion time.
+            # Results of one test from several jobs are ordered by this time.
+            # The ingestion-time fallback only ever applies to a test whose
+            # every copy lacks a run time, of which a single one is kept.
             executed_at = next(
                 (
                     parse_dbt_timestamp(node[key])

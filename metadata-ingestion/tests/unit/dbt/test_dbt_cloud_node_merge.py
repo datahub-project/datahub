@@ -252,15 +252,92 @@ def test_merge_stats() -> None:
         _padding(model, job_id=2, run_id=20),
         _padding(model, job_id=3, run_id=30),
         _padding(seed, job_id=1, run_id=10, resource_type="seed"),
+        _padding(seed, job_id=2, run_id=20, resource_type="seed"),
+        _padding(seed, job_id=3, run_id=30, resource_type="seed"),
         _built("model.my_pkg.single", job_id=1, run_id=10),
     ]
 
     merged = _merge(rows)
 
-    assert merged.copies_seen == 5
-    assert merged.nodes_merged == 1
-    assert merged.padding_dropped == 2
+    assert merged.copies_seen == 7
+    assert merged.nodes_merged == 2
+    # Two padding copies lost to the built copy, two to the newest padding copy.
+    assert merged.padding_dropped == 4
     assert merged.not_built_by_any_job == [seed]
+
+
+def test_ephemeral_models_are_never_reported_as_unbuilt() -> None:
+    """Ephemeral models have no build status in any run."""
+    model = "model.my_pkg.stg_orders"
+    rows = [
+        {**_padding(model, job_id=1, run_id=10), "materializedType": "ephemeral"},
+        {**_padding(model, job_id=2, run_id=20), "materializedType": "ephemeral"},
+    ]
+
+    merged = _merge(rows)
+
+    assert _winner_job(merged, model) == 2
+    assert merged.not_built_by_any_job == []
+    assert merged.padding_dropped == 0
+
+
+def test_skipped_node_is_a_real_result_not_padding() -> None:
+    """dbt marks skipped nodes with a status and skip=true; padding has neither."""
+    model = "model.my_pkg.orders"
+    rows = [
+        _built(
+            model,
+            job_id=1,
+            run_id=10,
+            status="skipped",
+            completed_at=None,
+        ),
+        _padding(model, job_id=2, run_id=20),
+    ]
+    rows[0]["skip"] = True
+
+    merged = _merge(rows)
+
+    assert _winner_job(merged, model) == 1
+    assert merged.padding_dropped == 1
+
+
+def test_untimed_test_copies_are_not_merged_with_timed_ones() -> None:
+    """A result without a run time cannot be ordered, so it must not be
+    merged next to one that can, where it would be stamped with ingestion
+    time and pass for the latest."""
+    test_id = "test.my_pkg.not_null_orders_id"
+    timed = _test_row(test_id, job_id=1, run_id=10, status="fail")
+    untimed = _test_row(test_id, job_id=2, run_id=20, status="pass")
+    untimed["executeCompletedAt"] = None
+
+    merged = _merge([timed, untimed])
+
+    (kept,) = merged.nodes
+    assert kept["jobId"] == 1
+    assert merged.extra_test_copies == []
+    assert merged.untimed_test_copies_dropped == 1
+
+
+def test_all_untimed_test_copies_keep_only_the_newest_run() -> None:
+    test_id = "test.my_pkg.not_null_orders_id"
+    rows = [
+        {
+            **_test_row(test_id, job_id=1, run_id=10, status="fail"),
+            "executeCompletedAt": None,
+        },
+        {
+            **_test_row(test_id, job_id=2, run_id=20, status="pass"),
+            "executeCompletedAt": None,
+        },
+    ]
+
+    merged = _merge(rows)
+
+    (kept,) = merged.nodes
+    assert kept["jobId"] == 2
+    assert merged.extra_test_copies == []
+    assert merged.untimed_test_copies_dropped == 1
 
 
 def test_execution_times_compare_across_timezone_offsets() -> None:

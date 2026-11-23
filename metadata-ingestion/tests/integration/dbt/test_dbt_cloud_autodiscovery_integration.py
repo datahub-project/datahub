@@ -1033,6 +1033,13 @@ class TestAutoDiscoveryNodeMerge:
             DBTCloudJob(id=100, generate_docs=True),
             DBTCloudJob(id=200, generate_docs=True),
         ]
+        exposure = {
+            "uniqueId": "exposure.test_project.weekly_report",
+            "name": "weekly_report",
+            "resourceType": "exposure",
+            "exposureType": "dashboard",
+            "dependsOn": ["model.test_project.test_model"],
+        }
         mock_graphql.side_effect = _graphql_by_job(
             {
                 100: {
@@ -1040,25 +1047,35 @@ class TestAutoDiscoveryNodeMerge:
                     "models": [
                         _model_row(job_id=100, run_id=10, owner="old", built=False)
                     ],
+                    "exposures": [{**exposure, "jobId": 100, "runId": 10}],
                 },
                 200: {
                     **_EMPTY_JOB,
                     "models": [
                         _model_row(job_id=200, run_id=20, owner="newer", built=False)
                     ],
+                    "exposures": [{**exposure, "jobId": 200, "runId": 20}],
                 },
             }
         )
         source = _auto_discovery_source()
 
-        (node,) = next(source.load_projects()).nodes
+        project = next(source.load_projects())
 
+        (node,) = project.nodes
         assert node.meta == {"owner": "newer"}
         assert source.report.auto_discovery_nodes_not_built_by_any_job == 1
+        assert list(source.report.auto_discovery_nodes_not_built_by_any_job_list) == [
+            "model.test_project.test_model"
+        ]
         assert any(
             w.title == "dbt Cloud node not built by any discovered job"
             for w in source.report.warnings
         )
+        assert [e.unique_id for e in project.exposures] == [
+            "exposure.test_project.weekly_report"
+        ]
+        assert source.report.auto_discovery_exposures_deduplicated == 1
 
     @mock.patch.object(DBTCloudSource, "_send_graphql_query")
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")

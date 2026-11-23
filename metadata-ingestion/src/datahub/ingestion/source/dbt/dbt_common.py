@@ -451,6 +451,7 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
         default_factory=LossyList
     )
     auto_discovery_test_results_merged: int = 0
+    auto_discovery_untimed_test_results_dropped: int = 0
     auto_discovery_exposures_deduplicated: int = 0
 
     sql_parser_parse_failures_list: LossyList[str] = field(default_factory=LossyList)

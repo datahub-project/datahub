@@ -276,6 +276,51 @@ class TestGetJobsForProject:
         assert mock_get.call_args_list[1].kwargs["params"]["offset"] == 100
 
     @mock.patch("datahub.ingestion.source.dbt.dbt_cloud.requests.get")
+    def test_get_jobs_stops_when_the_total_is_reached(
+        self, mock_get: mock.Mock
+    ) -> None:
+        """A full last page must not trigger a further, empty request."""
+        response = mock.Mock()
+        response.status_code = 200
+        response.json.return_value = {
+            "data": [{"id": i, "generate_docs": True} for i in range(100)],
+            "extra": {"pagination": {"count": 100, "total_count": 100}},
+        }
+        mock_get.return_value = response
+
+        jobs = DBTCloudSource._get_jobs_for_project(
+            "https://test.getdbt.com", "token", 123, 456, 789
+        )
+
+        assert len(jobs) == 100
+        assert mock_get.call_count == 1
+
+    @mock.patch("datahub.ingestion.source.dbt.dbt_cloud.requests.get")
+    def test_get_jobs_keeps_paging_after_a_short_page(
+        self, mock_get: mock.Mock
+    ) -> None:
+        """A short page before the total is reached is not the end."""
+
+        def page(start: int, count: int) -> mock.Mock:
+            response = mock.Mock()
+            response.status_code = 200
+            response.json.return_value = {
+                "data": [
+                    {"id": start + i, "generate_docs": True} for i in range(count)
+                ],
+                "extra": {"pagination": {"count": count, "total_count": 100}},
+            }
+            return response
+
+        mock_get.side_effect = [page(0, 50), page(50, 50)]
+
+        jobs = DBTCloudSource._get_jobs_for_project(
+            "https://test.getdbt.com", "token", 123, 456, 789
+        )
+
+        assert [job.id for job in jobs] == list(range(100))
+
+    @mock.patch("datahub.ingestion.source.dbt.dbt_cloud.requests.get")
     def test_get_jobs_reads_job_type(self, mock_get: mock.Mock) -> None:
         mock_response = mock.Mock()
         mock_response.status_code = 200
