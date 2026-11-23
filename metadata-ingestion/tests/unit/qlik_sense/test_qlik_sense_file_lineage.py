@@ -815,6 +815,32 @@ def _model_table(name: str, alias: str, qri: str) -> Dict:
     }
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_stores_of_a_table_by_name_and_alias_in_competing_branches_are_not_linked(
+    mock_api_cls: MagicMock,
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        script="""
+IF vEnv = 'prod' THEN
+  STORE Customers INTO [lib://Sales Space:Lake/prod/customers.qvd] (qvd);
+ELSE
+  STORE AllCustomers INTO [lib://Sales Space:Lake/dev/customers.qvd] (qvd);
+END IF
+""",
+        tables=[
+            _model_table(
+                "Customers", "AllCustomers", "qri:db:sqlserver://sales#dbo.Customers"
+            )
+        ],
+    )
+
+    assert _stored_files(_graph_app_writes(source, app)) == {}
+    assert len(source.reporter.qvd_stores_in_competing_branches) == 2
+
+
 def _stored_files(writes: Dict[str, str]) -> Dict[str, str]:
     return {urn: upstreams for urn, upstreams in writes.items() if "abs," in urn}
 
