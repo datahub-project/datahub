@@ -575,6 +575,31 @@ def test_app_table_links_data_model_tables_of_another_app_it_loads(
 
 
 @pytest.mark.parametrize(
+    "unknown_by", [None, "graph_tables_unmatched", "lineage_graph_missing"]
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_whose_tables_are_unknown_is_recorded_so(
+    mock_api_cls: MagicMock, unknown_by: Optional[str]
+) -> None:
+    data_model = _app("dm-app", [])
+    table = _data_model_table()
+    table.tableQri = f"{SOURCE_QVD}#Orders"
+    table.graphQri = f"{DATA_MODEL_APP}#Ord"
+    data_model.tables = [table]
+    if unknown_by:
+        setattr(data_model, unknown_by, True)
+    source = _source(mock_api_cls, DATASETS)
+
+    with patch.object(source.app_state, "record") as record:
+        list(source._gen_recorded_app_workunit(data_model))
+
+    # A later run that keeps the app from its checkpoint must not take its
+    # tables as complete.
+    checkpoint = record.call_args.args[1]
+    assert (checkpoint.table_urns_by_qri is None) == bool(unknown_by)
+
+
+@pytest.mark.parametrize(
     "unlisted, written_whole",
     [
         # Qlik traces QVDs, so one without a QRI may be the source.
