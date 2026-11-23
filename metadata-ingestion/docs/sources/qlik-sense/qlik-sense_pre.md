@@ -2,19 +2,19 @@
 
 The `qlik-sense` module ingests metadata from Qlik Cloud and from Qlik Sense Enterprise on Windows (on-prem). Set `tenant_hostname` and `api_key` for Qlik Cloud, or the `on_prem` block for Qlik Sense Enterprise on Windows. One recipe reads one deployment; to ingest both, run two recipes with different `platform_instance` values.
 
-| Metadata                                        | Qlik Cloud                                                                                                        | On-prem                                         |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Spaces and streams                              | Spaces, as containers                                                                                             | Streams, as containers                          |
-| Apps                                            | Container and dashboard                                                                                           | Container and dashboard                         |
-| Sheets and charts                               | Yes                                                                                                               | Yes                                             |
-| App tables                                      | From the data model, the lineage graph and the load script                                                        | From the load script, or the data model if read |
-| Qlik datasets                                   | Yes, with schema; files on connections of unknown storage are named by connection and path, and datasets the API key can't list are named from the lineage graph, both without a schema | No                                              |
-| QVDs                                            | QVD datasets in spaces, and QVDs on connections of unknown storage, named by connection and path without a schema | QVD files that load scripts read or write       |
-| Lineage from databases                          | From load script `SELECT` statements                                                                              | From load script `SELECT` statements            |
-| Lineage from files on cloud storage             | Azure Storage, Amazon S3 and Google Cloud Storage connections                                                     | QVDs on connections mapped in `file_connection_to_storage` |
-| Chart input fields and column-level lineage     | Yes                                                                                                               | Yes                                             |
-| Owners                                          | Yes                                                                                                               | Yes, by Qlik user id                            |
-| Skipping unchanged apps (`skip_unchanged_apps`) | No                                                                                                                | Yes                                             |
+| Metadata                                        | Qlik Cloud                                                                                                                                                                              | On-prem                                                    |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Spaces and streams                              | Spaces, as containers                                                                                                                                                                   | Streams, as containers                                     |
+| Apps                                            | Container and dashboard                                                                                                                                                                 | Container and dashboard                                    |
+| Sheets and charts                               | Yes                                                                                                                                                                                     | Yes                                                        |
+| App tables                                      | From the data model, the lineage graph and the load script                                                                                                                              | From the load script, or the data model if read            |
+| Qlik datasets                                   | Yes, with schema; files on connections of unknown storage are named by connection and path, and datasets the API key can't list are named from the lineage graph, both without a schema | No                                                         |
+| QVDs                                            | QVD datasets in spaces, and QVDs on connections of unknown storage, named by connection and path without a schema                                                                       | QVD files that load scripts read or write                  |
+| Lineage from databases                          | From load script `SELECT` statements                                                                                                                                                    | From load script `SELECT` statements                       |
+| Lineage from files on cloud storage             | Azure Storage, Amazon S3 and Google Cloud Storage connections                                                                                                                           | QVDs on connections mapped in `file_connection_to_storage` |
+| Chart input fields and column-level lineage     | Yes                                                                                                                                                                                     | Yes                                                        |
+| Owners                                          | Yes                                                                                                                                                                                     | Yes, by Qlik user id                                       |
+| Skipping unchanged apps (`skip_unchanged_apps`) | No                                                                                                                                                                                      | Yes                                                        |
 
 ### Prerequisites
 
@@ -26,12 +26,12 @@ Before running ingestion, make sure the machine that runs it can reach Qlik and 
 2. Get the tenant hostname from the **About** tab after you log in to Qlik Cloud.
 3. Give the API key's user access to every space you want to ingest. Some metadata needs more than view access:
 
-| Metadata                                                 | Access needed                                                             |
-| -------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Load scripts, and lineage from them                      | Owner of the app, or **Can manage** or **Can operate** in a managed space |
-| Data connections, for their platform and files' storage  | **Can consume data** in the space that holds the connection               |
+| Metadata                                                 | Access needed                                                                                                                         |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Load scripts, and lineage from them                      | Owner of the app, or **Can manage** or **Can operate** in a managed space                                                             |
+| Data connections, for their platform and files' storage  | **Can consume data** in the space that holds the connection                                                                           |
 | QVDs and other Qlik datasets an app loads or stores into | Access to the space that holds the dataset. Without it, a dataset in an app's lineage graph is named from the graph, without a schema |
-| Scripts apps include with `$(Include=...)`               | **Can view** in the space that holds the file                             |
+| Scripts apps include with `$(Include=...)`               | **Can view** in the space that holds the file                                                                                         |
 
 #### Qlik Sense Enterprise on Windows
 
