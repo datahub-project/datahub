@@ -402,6 +402,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # and those that lineage links to, which get a dataset.
         self._unmapped_files: Dict[str, str] = {}
         self._linked_unmapped_files: Set[str] = set()
+        # Datasets emitted at the end of the run for the apps whose lineage
+        # names them, added to those apps' checkpoints so a later run that
+        # keeps an app keeps them too.
+        self._app_end_of_run_urns: Dict[str, Set[str]] = {}
         # Upstream graphs of the apps read this run, and the resources only
         # they name, by URN, with their labels and the app tables storing into
         # them.
@@ -2115,7 +2119,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if table_urn is None:
                 continue
             if storage is None:
-                self._linked_unmapped_files.add(file_urn)
+                self._link_unmapped_file(app.id, file_urn)
             urns = upstreams.setdefault(file_urn, [])
             if table_urn not in urns:
                 urns.append(table_urn)
@@ -2218,8 +2222,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.file_sources_resolved += 1
         urn = next(iter(urns))
         if urn in unmapped:
-            self._linked_unmapped_files.add(urn)
+            self._link_unmapped_file(app_id, urn)
         return urn
+
+    def _link_unmapped_file(self, app_id: str, urn: str) -> None:
+        self._linked_unmapped_files.add(urn)
+        self._app_end_of_run_urns.setdefault(app_id, set()).add(urn)
+
+    def _record_end_of_run_urns(self) -> None:
+        for app_id, urns in self._app_end_of_run_urns.items():
+            self.app_state.add_urns(app_id, urns)
 
     def _learn_field_names(self, names: Iterable[str]) -> None:
         for name in names:
@@ -3746,6 +3758,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.on_prem is not None:
             yield from self._gen_binary_lineage()
         yield from self._gen_unmapped_file_entities()
+        self._record_end_of_run_urns()
         if self.qlik_api.opened_without_data:
             self.reporter.warning(
                 title="Qlik apps read without their data",
