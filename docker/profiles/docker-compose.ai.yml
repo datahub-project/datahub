@@ -31,7 +31,8 @@ x-datahub-ai-service-dev: &datahub-ai-service-dev
 services:
   # Not in the plain `quickstart` profile yet: `datahub docker quickstart` starts that
   # profile with the latest release's images, and no release has published this image
-  # yet. Add `quickstart` here once one does.
+  # yet. Add `quickstart` here once one does, and stop docker/build.gradle's
+  # generateQuickstartComposeConfig from removing the frontend's DATAHUB_AI_SERVICE_URL.
   datahub-ai-service-quickstart:
     <<: *datahub-ai-service
     profiles:

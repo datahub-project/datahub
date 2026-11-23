@@ -614,6 +614,10 @@ task generateQuickstartComposeConfig {
         }
         // DATAHUB_SEARCH_VOLUME=osdata must resolve to a declared volume.
         config['volumes'].putIfAbsent('osdata', [name: 'datahub_osdata'])
+        // The released quickstart doesn't run datahub-ai-service yet (see docker-compose.ai.yml).
+        // With no URL the frontend answers 404 on /mcp, as when MCP is off; with one it would
+        // proxy to a missing host and answer 503. Drop this once quickstart runs the service.
+        config['services']['frontend-quickstart']['environment'].remove('DATAHUB_AI_SERVICE_URL')
 
         // Configure YAML dump options to match Docker Compose format
         def dumpOptions = new org.yaml.snakeyaml.DumperOptions()
