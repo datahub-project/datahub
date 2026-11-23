@@ -72,6 +72,7 @@ from datahub.ingestion.source.qlik_sense.config import (
     QlikSourceReport,
 )
 from datahub.ingestion.source.qlik_sense.data_classes import (
+    DATABASE_QRI_PREFIX,
     FIELD_TYPE_MAPPING,
     KNOWN_DATA_PLATFORM_MAPPING,
     QLIK_DATASET_QRI_PREFIX,
@@ -274,6 +275,37 @@ def _qvd_fields(writes: List[QvdWrite], reads: List[str]) -> Optional[List[str]]
 
 # Why the QVD writes of an app with an unresolved STORE are not all known.
 UNRESOLVED_STORE = "a STORE path could not be resolved"
+
+
+# The SQL keyword Qlik keeps at the start of a reload statement that ran SQL.
+RELOAD_SQL_RE = re.compile(r"^\s*SQL\b(?P<sql>.*)$", re.IGNORECASE | re.DOTALL)
+QUOTE_CHARACTERS = '[]"`'
+
+
+def _label_parts(label: str) -> List[str]:
+    return [part.strip().strip(QUOTE_CHARACTERS).lower() for part in label.split(".")]
+
+
+def _urn_names_table(urn: str, source_qri: str, label: str) -> bool:
+    """Whether a dataset URN is the database table a lineage graph node, such
+    as `qri:db:sqlserver://<hash>#<hash>` labelled `dbo.orders`, names. The
+    label leaves out the database, and the URN's case may differ from it."""
+    dataset = DatasetUrn.from_string(urn)
+    scheme = source_qri[len(DATABASE_QRI_PREFIX) :].partition("://")[0].lower()
+    platform = KNOWN_DATA_PLATFORM_MAPPING.get(scheme)
+    if platform and dataset.platform != builder.make_data_platform_urn(platform):
+        return False
+    parts = _label_parts(label)
+    return dataset.name.lower().split(".")[-len(parts) :] == parts
+
+
+class _ReloadSql(BaseModel):
+    """A SQL statement of an app's last reload, with the tables it reads."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    upstream_urns: List[str]
+    result: SqlParsingResult
 
 
 def _qlik_app_id(qri: str) -> Optional[str]:
@@ -2474,11 +2506,157 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             None,
         )
 
+    def _parse_reload_sql(self, app: App, labels: List[str]) -> List[_ReloadSql]:
+        """The SQL statements of the app's last reload that may read a table
+        one of `labels` names. Qlik ran them with variables set and included
+        scripts inlined, so they hold SQL the load script only builds at run
+        time, such as from a list of tables in a file."""
+        names = {_label_parts(label)[-1] for label in labels}
+        parsed: List[_ReloadSql] = []
+        unqualified: List[str] = []
+        for statement in app.reload_statements or []:
+            match = RELOAD_SQL_RE.match(statement.statement)
+            if not match:
+                continue
+            sql = match.group("sql").strip()
+            if (
+                not any(name in sql.lower() for name in names)
+                or "$(" in sql
+                or is_connector_sql(sql)
+            ):
+                continue
+            connection_name = statement.discriminator.strip().rstrip(";").strip()
+            connection = self._resolve_script_connection(connection_name, app.spaceId)
+            if connection is None:
+                unresolved = f"{app.id}: {redact_connection(connection_name)}"
+                if unresolved not in self.reporter.unresolved_data_connections:
+                    self.reporter.unresolved_data_connections.append(unresolved)
+                continue
+            result = self._parse_script_sql(sql, connection)
+            if (
+                result.debug_info.table_error
+                and connection.platform in BACKTICK_QUOTED_PLATFORMS
+                and "[" in sql
+            ):
+                result = self._parse_script_sql(brackets_to_backticks(sql), connection)
+            if result.debug_info.table_error:
+                self.reporter.warning(
+                    title="Unable to parse Qlik reload SQL",
+                    message="Lineage to the tables the statement reads is skipped.",
+                    context=f"app={app.id}, connection="
+                    f"{redact_connection(connection_name)}, "
+                    f"error={_error_type(result.debug_info.table_error)}",
+                )
+                continue
+            upstream_urns = [
+                urn
+                for urn in result.in_tables
+                if has_qualified_name(
+                    urn, connection.platform, connection.platform_instance
+                )
+            ]
+            unqualified.extend(
+                urn for urn in result.in_tables if urn not in upstream_urns
+            )
+            if upstream_urns:
+                parsed.append(_ReloadSql(upstream_urns=upstream_urns, result=result))
+        if unqualified:
+            self.reporter.warning(
+                title="Qlik reload SQL table is missing its database or schema",
+                message="Lineage to these tables is skipped. Set `database` and "
+                "`default_schema` for their connection in "
+                "`data_connection_to_platform_instance`.",
+                context=f"app={app.id}, tables={sorted(set(unqualified))}",
+            )
+        return parsed
+
+    def _reload_sql_tables(
+        self, app: App, script_tables: Dict[str, ScriptTableLineage]
+    ) -> Dict[str, ScriptTableLineage]:
+        """Lineage of the graph tables whose database sources the load script
+        doesn't trace, from the SQL of the app's last reload, by table QRI.
+        The graph names each source table by a label such as `dbo.orders`,
+        which is linked only when exactly one table the SQL reads matches it."""
+        tables = [
+            table
+            for table in app.lineage_tables
+            if table.database_source_labels
+            and not (
+                table.qri in script_tables and script_tables[table.qri].upstream_urns
+            )
+        ]
+        if not tables or not app.reload_statements:
+            return {}
+        statements = self._parse_reload_sql(
+            app,
+            [label for t in tables for label in t.database_source_labels.values()],
+        )
+        lineages: Dict[str, ScriptTableLineage] = {}
+        for table in tables:
+            fields = {field.lower(): field for field in table.fields}
+            lineage = ScriptTableLineage(
+                label=table.label,
+                identifier=self._lineage_table_identifier(app.id, table),
+            )
+            for source_qri, label in table.database_source_labels.items():
+                matches = {
+                    urn
+                    for statement in statements
+                    for urn in statement.upstream_urns
+                    if _urn_names_table(urn, source_qri, label)
+                }
+                if len(matches) != 1:
+                    if matches:
+                        self.reporter.ambiguous_reload_sql_sources.append(
+                            f"{app.id}: {label} matches {sorted(matches)}"
+                        )
+                    continue
+                urn = matches.pop()
+                if urn not in lineage.upstream_urns:
+                    lineage.upstream_urns.append(urn)
+                for statement in statements:
+                    if urn not in statement.upstream_urns:
+                        continue
+                    for column in statement.result.column_lineage or []:
+                        # The graph table's fields are Qlik's names, which may
+                        # differ in case from the columns.
+                        field = fields.get(column.downstream.column.lower())
+                        if field is None:
+                            continue
+                        upstreams = lineage.column_upstreams.setdefault(field, [])
+                        upstreams.extend(
+                            upstream
+                            for upstream in column_refs_to_schema_field_urns(
+                                ref for ref in column.upstreams if ref.table == urn
+                            )
+                            if upstream not in upstreams
+                        )
+            if lineage.upstream_urns:
+                self.reporter.reload_sql_tables_with_lineage += 1
+                lineages[table.qri] = lineage
+        return lineages
+
     def _gen_lineage_tables_workunit(
         self, app: App, script_tables: Dict[str, ScriptTableLineage]
     ) -> Iterable[MetadataWorkUnit]:
+        reload_tables = self._reload_sql_tables(app, script_tables)
         for table in app.lineage_tables:
             script_table = script_tables.get(table.qri)
+            reload_table = reload_tables.get(table.qri)
+            if reload_table is not None:
+                script_table = (
+                    reload_table
+                    if script_table is None
+                    else script_table.model_copy(
+                        update={
+                            "upstream_urns": reload_table.upstream_urns,
+                            "column_upstreams": {
+                                **reload_table.column_upstreams,
+                                **script_table.column_upstreams,
+                            },
+                        }
+                    )
+                )
             identifier = self._lineage_table_identifier(app.id, table)
             dataset_urn = self._gen_qlik_dataset_urn(identifier)
             schema = self._table_schema(
@@ -2516,6 +2694,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     if app.tables_read_failed
                     else "the table's field lineage could not be read"
                     if table.field_lineage_failed
+                    else "the SQL of the app's last reload could not be read"
+                    if app.reload_statements_read_failed
+                    and any(
+                        qri.startswith(DATABASE_QRI_PREFIX) for qri in table.source_qris
+                    )
                     else None
                 ),
                 script_fields=(
@@ -4088,6 +4271,23 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 title="Unable to read Qlik dataset lineage",
                 message="Lineage from the apps that store these datasets is skipped.",
                 context=_bounded_list(self.qlik_api.lineage_read_failures),
+            )
+        if self.qlik_api.reload_statement_read_failures:
+            self.reporter.warning(
+                title="Unable to read the SQL of Qlik apps' last reload",
+                message="Database tables that only the SQL of these apps' last "
+                "reload names are left out, and the lineage of the apps' tables "
+                "that read databases is only added to this run.",
+                context=_bounded_list(self.qlik_api.reload_statement_read_failures),
+            )
+        if self.reporter.ambiguous_reload_sql_sources:
+            self.reporter.warning(
+                title="Qlik lineage graph database table matches several tables",
+                message="The SQL of the app's last reload reads more than one "
+                "table the graph's label could name, so lineage to it is skipped.",
+                context=_bounded_list(
+                    sorted(self.reporter.ambiguous_reload_sql_sources)
+                ),
             )
         if self.qlik_api.upstream_graph_read_failures:
             self.reporter.warning(

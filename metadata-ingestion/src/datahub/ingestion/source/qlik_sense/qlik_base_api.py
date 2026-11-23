@@ -97,6 +97,7 @@ class QlikBaseAPI(ABC):
         self.lineage_read_failures: List[str] = []
         # Apps whose upstream lineage graph could not be read.
         self.upstream_graph_read_failures: List[str] = []
+        self.reload_statement_read_failures: List[str] = []
         self.field_lineage_failures: List[str] = []
         # Apps opened without their data because opening them with it failed.
         self.opened_without_data: List[str] = []

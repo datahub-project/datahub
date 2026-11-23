@@ -143,6 +143,10 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     number_of_spaces: int = 0
     script_tables_found: int = 0
     script_tables_with_lineage: int = 0
+    # Lineage graph tables linked to the database tables the SQL of the app's
+    # last reload reads.
+    reload_sql_tables_with_lineage: int = 0
+    ambiguous_reload_sql_sources: LossyList[str] = field(default_factory=LossyList)
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
     qvds_found: int = 0
     # QVD paths a load script names that resolve to no single file, such as a

@@ -23,6 +23,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     ListedDataset,
     QlikDataset,
     QlikTable,
+    ReloadStatement,
     SchemaField,
     UnchangedApp,
     UnreadItem,
@@ -39,11 +40,17 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     MetadataChangeProposalClass,
+    OtherSchemaClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    StringTypeClass,
     SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.urns import SchemaFieldUrn
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 BASE_URL = "https://tenant.example.com/api/v1"
 CLOUD_CONFIG = {"tenant_hostname": "tenant.example.com", "api_key": "key"}
@@ -224,6 +231,7 @@ def _source(
     api.opened_without_data = []
     api.include_read_failures = []
     api.upstream_graph_read_failures = []
+    api.reload_statement_read_failures = []
     api.get_user_name.return_value = None
     api.list_datasets.return_value = datasets
     api.get_items.return_value = [
@@ -2283,3 +2291,291 @@ def test_app_with_unknown_tables_records_them_as_unknown(
 
     # Recorded as unknown, so a later 404 isn't read as "the app has no tables".
     assert source.app_state.record.call_args.args[1].tables_unknown
+
+
+ORDERS_DB_TABLE = "qri:db:sqlserver://Hash#Orders"
+RELOAD_CONFIG = {
+    "data_connection_to_platform_instance": {
+        "Sales": {"platform": "mssql", "database": "shop"},
+        "Finance:Archive": {"platform": "mssql", "database": "archive"},
+    }
+}
+SHOP_ORDERS = make_dataset_urn("mssql", "shop.dbo.orders")
+
+
+def _reload_app(
+    statements: Optional[List[ReloadStatement]],
+    source_qri: str = ORDERS_DB_TABLE,
+    read_failed: bool = False,
+) -> App:
+    app = _app(
+        "etl-app",
+        [
+            LineageTable(
+                qri=f"{ETL_APP}#Orders",
+                label="Orders",
+                source_qris=[source_qri],
+                database_source_labels={}
+                if read_failed
+                else {source_qri: "dbo.[ORDERS]"},
+                fields=["ORDER_ID", "Amount"],
+            )
+        ],
+    )
+    app.reload_statements = statements
+    app.reload_statements_read_failed = read_failed
+    return app
+
+
+def _reload_source(mock_api_cls: MagicMock, app: App) -> QlikSenseSource:
+    source = _source(mock_api_cls, DATASETS, items=[app], config=RELOAD_CONFIG)
+    mock_api_cls.return_value.get_data_connections.return_value = {}
+    return source
+
+
+def _sql(connection: str, sql: str) -> ReloadStatement:
+    return ReloadStatement(discriminator=f"{connection};", statement=f"SQL {sql}")
+
+
+def _upstream_lineage(
+    workunits: Iterable[MetadataWorkUnit], urn: str
+) -> Optional[UpstreamLineageClass]:
+    return next(
+        (
+            lineage
+            for wu in workunits
+            if wu.get_urn() == urn
+            for lineage in [wu.get_aspect_of_type(UpstreamLineageClass)]
+            if lineage
+        ),
+        None,
+    )
+
+
+def _schema_graph(urn: str, fields: List[str]) -> MagicMock:
+    """DataHub, holding the schema of one dataset."""
+    schema = SchemaMetadataClass(
+        schemaName="orders",
+        platform="urn:li:dataPlatform:mssql",
+        version=0,
+        hash="",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=name,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="varchar",
+            )
+            for name in fields
+        ],
+    )
+    graph = MagicMock()
+    graph.get_entities.side_effect = lambda entity_name, urns, **kwargs: {
+        u: {SchemaMetadataClass.ASPECT_NAME: (schema, None)} for u in urns if u == urn
+    }
+    graph.get_aspect.return_value = None
+    graph._make_schema_resolver.side_effect = lambda platform, platform_instance, env: (
+        SchemaResolver(
+            platform=platform, platform_instance=platform_instance, env=env, graph=graph
+        )
+    )
+    return graph
+
+
+@pytest.mark.parametrize(
+    "graph, columns",
+    [
+        pytest.param(
+            None, ["Amount<-amount", "ORDER_ID<-order_id"], id="schema unknown"
+        ),
+        pytest.param(
+            # The source keeps its columns' case, unlike Qlik's fields.
+            _schema_graph(SHOP_ORDERS, ["Order_ID", "AMOUNT", "Other"]),
+            ["Amount<-AMOUNT", "ORDER_ID<-Order_ID"],
+            id="schema in DataHub",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_graph_database_table_resolves_through_reload_sql(
+    mock_api_cls: MagicMock, graph: Optional[MagicMock], columns: List[str]
+) -> None:
+    app = _reload_app(
+        [
+            ReloadStatement(discriminator="RESIDENT Config;", statement=""),
+            _sql(
+                "Finance:Sales",
+                "/* built from a config file */ SELECT * FROM dbo.ORDERS WHERE 0 = 0"
+                if graph
+                else "SELECT order_id, AMOUNT FROM dbo.ORDERS WHERE 0 = 0",
+            ),
+            _sql("Finance:Sales", "SELECT * FROM dbo.customers"),
+        ]
+    )
+    source = _source(
+        mock_api_cls, DATASETS, items=[app], config=RELOAD_CONFIG, graph=graph
+    )
+    mock_api_cls.return_value.get_data_connections.return_value = {}
+
+    lineage = _upstream_lineage(source.get_workunits_internal(), _urn("etl-app.orders"))
+
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == [SHOP_ORDERS]
+    # Fields keep Qlik's names, and columns the source's, so a SELECT * only
+    # maps the columns DataHub holds that the table has.
+    assert (
+        sorted(
+            f"{SchemaFieldUrn.from_string(f.downstreams[0]).field_path}"
+            f"<-{SchemaFieldUrn.from_string(f.upstreams[0]).field_path}"
+            for f in lineage.fineGrainedLineages or []
+            if f.downstreams and f.upstreams
+        )
+        == columns
+    )
+    assert source.reporter.reload_sql_tables_with_lineage == 1
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_reload_sql_join_maps_only_columns_of_the_graph_source(
+    mock_api_cls: MagicMock,
+) -> None:
+    app = _reload_app(
+        [
+            _sql(
+                "Finance:Sales",
+                "SELECT o.order_id, c.amount FROM dbo.orders o "
+                "JOIN dbo.customers c ON o.customer_id = c.id",
+            )
+        ]
+    )
+    source = _reload_source(mock_api_cls, app)
+
+    lineage = _upstream_lineage(source.get_workunits_internal(), _urn("etl-app.orders"))
+
+    # The graph names only the orders table, so the customers column, which
+    # the table has no edge to, is left out.
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == [SHOP_ORDERS]
+    assert [
+        SchemaFieldUrn.from_string(f.downstreams[0]).field_path
+        for f in lineage.fineGrainedLineages or []
+        if f.downstreams
+    ] == ["ORDER_ID"]
+
+
+@pytest.mark.parametrize(
+    "statements, source_qri, unresolved",
+    [
+        pytest.param(
+            [
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders"),
+                _sql("Finance:Archive", "SELECT * FROM dbo.orders"),
+            ],
+            ORDERS_DB_TABLE,
+            [],
+            id="two databases",
+        ),
+        pytest.param(
+            [_sql("Finance:Sales", "SELECT * FROM dbo.orders")],
+            "qri:db:databricks://Hash#Orders",
+            [],
+            id="other platform",
+        ),
+        pytest.param(
+            [
+                _sql("Finance:Unknown", "SELECT * FROM dbo.orders"),
+                _sql("Finance:Unknown", "SELECT * FROM dbo.orders WHERE 0 = 0"),
+            ],
+            ORDERS_DB_TABLE,
+            ["etl-app: Finance:Unknown"],
+            id="unresolved connection",
+        ),
+        pytest.param(
+            [_sql("Finance:Sales", "SELECT * FROM sales.orders")],
+            ORDERS_DB_TABLE,
+            [],
+            id="other schema",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_graph_database_table_links_only_one_matching_reload_table(
+    mock_api_cls: MagicMock,
+    statements: List[ReloadStatement],
+    source_qri: str,
+    unresolved: List[str],
+) -> None:
+    source = _reload_source(mock_api_cls, _reload_app(statements, source_qri))
+
+    written, added = _lineage(source.get_workunits_internal())
+
+    assert written == {_urn("etl-app.orders"): []}
+    assert not added
+    assert list(source.reporter.unresolved_data_connections) == unresolved
+    assert bool(source.reporter.ambiguous_reload_sql_sources) is (
+        len(statements) == 2 and not unresolved
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unread_reload_sql_only_adds_to_table_lineage(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _reload_source(mock_api_cls, _reload_app(None, read_failed=True))
+
+    written, _ = _lineage(source.get_workunits_internal())
+
+    # The edges an earlier run read from the reload SQL must stay.
+    assert _urn("etl-app.orders") not in written
+
+
+def test_database_sources_are_read_with_the_reload_sql(
+    requests_mock: requests_mock_module.Mocker,
+) -> None:
+    requests_mock.get(f"{BASE_URL}/api-keys", json={})
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    node = quote(REPORT_APP, safe="")
+    table = f"{REPORT_APP}#Tbl"
+    requests_mock.get(
+        f"{BASE_URL}/lineage-graphs/nodes/{node}/actions/expand?level=TABLE",
+        json={
+            "graph": {
+                "nodes": {table: {"label": "Orders"}},
+                "edges": [{"source": ORDERS_DB_TABLE, "target": table}],
+            }
+        },
+    )
+    # Only the upstream graph labels the database tables.
+    requests_mock.get(
+        f"{BASE_URL}/lineage-graphs/nodes/{node}?level=TABLE&up=1",
+        json={
+            "graph": {
+                "nodes": {ORDERS_DB_TABLE: {"label": "dbo.ORDERS"}},
+                "edges": [{"source": ORDERS_DB_TABLE, "target": table}],
+            }
+        },
+    )
+    requests_mock.get(
+        f"{BASE_URL}/apps/report-app/data/lineage",
+        json=[{"discriminator": "Finance:Sales;", "statement": "SQL SELECT 1"}],
+    )
+
+    tables = api.get_table_lineage(REPORT_APP)
+    assert tables is not None
+    assert tables[0].database_source_labels == {}
+    app = _app("report-app", tables)
+    app.qri = REPORT_APP
+    api._read_reload_statements(app)
+
+    assert tables[0].database_source_labels == {ORDERS_DB_TABLE: "dbo.ORDERS"}
+    assert app.reload_statements == [
+        ReloadStatement(discriminator="Finance:Sales;", statement="SQL SELECT 1")
+    ]
+
+    requests_mock.get(f"{BASE_URL}/apps/report-app/data/lineage", status_code=500)
+    api._read_reload_statements(app)
+
+    assert app.reload_statements_read_failed
+    assert [f.split(":")[0] for f in api.reload_statement_read_failures] == [
+        "report-app"
+    ]

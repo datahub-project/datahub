@@ -108,6 +108,7 @@ Each Qlik dataset links upstream to the app tables that `STORE` into it, so line
 
 - Only datasets in spaces allowed by `space_pattern`, and visible to the API key, are ingested as Qlik datasets. Give the API key's user access to the spaces that hold the QVDs to see the whole chain.
 - A Qlik dataset that an app loads but the API key can't list, such as a QVD in a space its user can't see, is named from the app's upstream lineage graph. So is a file the load script can't name from its storage or by its connection and path (see [Lineage from files on cloud storage](#lineage-from-files-on-azure-storage-amazon-s3-and-google-cloud-storage-qlik-cloud)). It is ingested as a Qlik Sense dataset named by Qlik's label for it, without a schema, with the Qlik ID (QRI) in its URN, and links upstream to the tables of the apps Qlik saw store into it, when the run ingests those apps. These edges are only added, never removed; remove an edge in DataHub when an app no longer stores into the dataset. This costs two requests per app that loads datasets or files. A dataset listed in a space that `space_pattern` leaves out stays out. Once its space or storage is visible, the dataset gets its usual URN and the QRI-named one is no longer emitted.
+- A database table in the lineage graph, which Qlik names only by its platform and a label such as `dbo.orders`, is linked through the SQL of the app's last reload. This covers SQL the load script builds at run time, such as a loop over a list of tables read from a file, or SQL in an included script the API key can't read. Qlik records each statement it ran with its connection and its variables set. The connector parses the `SELECT`s that name the table, resolving their connection as for load script SQL (see [Data connections](#data-connections)), and links the table when exactly one table they read matches the label and the platform. Map connections in spaces the API key can't see in `data_connection_to_platform_instance`, with their `database`. The table is matched in DataHub whatever its case, as for load script SQL, and the columns a `SELECT *` reads come from its schema in DataHub. This costs two requests per app whose graph names database tables. A label that matches tables in more than one database is skipped and reported.
 - With `include_column_lineage` (on by default), the connector also reads the field level of the lineage graph for each table and for each dataset an app stores into. This adds column-level lineage between app tables and datasets, and gives a table the script drops after storing it its field names. It costs one request per table. A field loaded under a new name is linked only when its source field's name is known this run.
 
 A table's lineage is replaced each run, as its app owns it. When something it loads could not be read this run, such as the list of datasets or the app's load script, the lineage read this run is added to the table's existing lineage instead, and the run reports a warning.
@@ -281,7 +282,7 @@ Column-level lineage is resolved against the upstream schemas in DataHub at read
 - Scripts pulled in with `$(Include=...)` are read only on Qlik Cloud, in the cases listed in [Included scripts](#included-scripts-qlik-cloud), and a `SUB` the script calls but does not define is not read.
 - A table loaded with `RESIDENT` from another script table gets no lineage.
 - A file loaded through a variable that varies as the script runs, as in a `FOR EACH` loop over `FileList(...)`, is not named from the app's last value, so the table's file lineage is only added to.
-- Database tables in Qlik Cloud's lineage graph are not linked, as Qlik identifies them by an opaque hash; their lineage comes from the load script instead.
+- Database tables in Qlik Cloud's lineage graph are linked only through the SQL of the app's last reload, as Qlik identifies their database by an opaque hash. A table whose SQL Qlik did not record, or whose label matches more than one table that SQL reads, gets its lineage from the load script only.
 - Qlik answers "Forbidden" for datasets and spaces the API key's user cannot access. Those datasets are only named from the lineage graph of the apps that load them, without their schema.
 - A file named from the lineage graph and also resolved from another app's load script is ingested as two datasets until its storage is set in `file_connection_to_storage`.
 - `file_connection_to_storage` does not accept `wasb://` and `wasbs://` URIs.
@@ -342,6 +343,14 @@ Apps read or store files through these connections, but their storage is not kno
 #### "Unable to read Qlik upstream lineage graph" (Qlik Cloud)
 
 The upstream lineage graph of these apps could not be read, so sources only the graph names, such as QVDs in spaces the API key's user can't see, are left out of their tables' lineage, and the tables' lineage is only added to this run. Datasets the last run named from the graph are kept. The graph is read again on the next run.
+
+#### "Unable to read the SQL of Qlik apps' last reload" (Qlik Cloud)
+
+The statements of these apps' last reload could not be read, so database tables that only that SQL names are left out of their tables' lineage, and the lineage of the apps' tables that read databases is only added to this run. The statements are read again on the next run.
+
+#### "Qlik lineage graph database table matches several tables" (Qlik Cloud)
+
+The SQL of the app's last reload reads tables in more than one database that the graph's label, such as `dbo.orders`, could name, so the table is not linked. Qlik does not say which database the graph's table is in.
 
 #### "Unable to read included Qlik scripts" (Qlik Cloud)
 

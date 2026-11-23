@@ -267,6 +267,7 @@ def _cloud_run(
         api.opened_without_data = []
         api.include_read_failures = []
         api.upstream_graph_read_failures = []
+        api.reload_statement_read_failures = []
         api.get_user_name.return_value = None
         ctx = PipelineContext(run_id=run_id, pipeline_name="qlik-cloud", graph=graph)
         source = QlikSenseSource(
