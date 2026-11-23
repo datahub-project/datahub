@@ -149,6 +149,54 @@ public class DeleteEntityServiceGuardHandlingTest {
         () -> _deleteEntityService.deleteReferencesTo(opContext, container, false));
   }
 
+  /** The graph-only removal a hard delete runs before the entity: each referrer is cleaned. */
+  @Test
+  public void testDeleteGraphReferencesRemovesEachReferrer() throws Exception {
+    final Urn container = UrnUtils.getUrn("urn:li:container:d1006cf3-3ff9-48e3-85cd-26eb23775ab2");
+    final Urn dataset1 = UrnUtils.toDatasetUrn("snowflake", "guard_test_one", "DEV");
+    final Urn dataset2 = UrnUtils.toDatasetUrn("snowflake", "guard_test_two", "DEV");
+    mockTwoReferrers(container, dataset1, dataset2, new IllegalArgumentException("rejected"));
+
+    _deleteEntityService.deleteGraphReferences(opContext, container);
+
+    verify(_entityService)
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(dataset2.toString()),
+            eq(Constants.CONTAINER_ASPECT_NAME),
+            anyMap(),
+            eq(true));
+  }
+
+  @Test
+  public void testCountGraphReferrersClosesTheScrollItOpened() {
+    final Urn container = UrnUtils.getUrn("urn:li:container:d1006cf3-3ff9-48e3-85cd-26eb23775ab2");
+    when(_graphService.scrollRelatedEntities(
+            any(OperationContext.class),
+            nullable(Set.class),
+            eq(newFilter("urn", container.toString())),
+            nullable(Set.class),
+            eq(EMPTY_FILTER),
+            eq(ImmutableSet.of()),
+            eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+            eq(Edge.EDGE_SORT_CRITERION),
+            nullable(String.class),
+            eq("5m"),
+            eq(1),
+            nullable(Long.class),
+            nullable(Long.class)))
+        .thenReturn(
+            RelatedEntitiesScrollResult.builder()
+                .numResults(7)
+                .pageSize(1)
+                .scrollId("scroll-1")
+                .entities(ImmutableList.of())
+                .build());
+
+    assertEquals(_deleteEntityService.countGraphReferrers(opContext, container), 7);
+    verify(_graphService).closeRelatedEntitiesScroll(opContext, "scroll-1");
+  }
+
   @DataProvider(name = "conditionalReferenceWrites")
   public Object[][] conditionalReferenceWrites() {
     return new Object[][] {{false}, {true}};

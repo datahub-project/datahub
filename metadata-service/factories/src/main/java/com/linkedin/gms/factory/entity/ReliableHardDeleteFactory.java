@@ -47,7 +47,7 @@ public class ReliableHardDeleteFactory {
       @Qualifier("timeseriesAspectService") final TimeseriesAspectService timeseriesAspectService,
       @Qualifier("reliableHardDelete") final ReliableHardDelete reliableHardDelete,
       final ObjectProvider<HardDeleteDispatcher> dispatcher,
-      @Value("${hardDelete.graph-reference-cleanup-limit:5000}")
+      @Value("${hardDelete.graph-reference-cleanup-limit:100}")
           final int graphReferenceCleanupLimit) {
     final HardDeleteDispatcher resolvedDispatcher = dispatcher.getIfAvailable();
     if (resolvedDispatcher != null) {

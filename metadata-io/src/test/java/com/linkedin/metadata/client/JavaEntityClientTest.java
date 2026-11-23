@@ -128,7 +128,7 @@ public class JavaEntityClientTest {
         _timeseriesAspectService,
         new ReliableHardDelete(_entityService, reliableHardDelete),
         dispatcher,
-        5000);
+        100);
   }
 
   /** Without the service (system-update, tests): today's code. */
@@ -257,6 +257,9 @@ public class JavaEntityClientTest {
     Urn urn = UrnUtils.getUrn("urn:li:tag:bothDeclined");
     DeleteCeiling ceiling = new DeleteCeiling(Map.of("tagKey", 1L), 1L);
     HardDeleteDispatcher dispatcher = mock(HardDeleteDispatcher.class);
+    doReturn(HardDeleteDispatcher.Offer.of(HardDeleteDispatcher.Outcome.DECLINED))
+        .when(dispatcher)
+        .offer(any(), any());
     when(_entityService.captureDeleteCeiling(opContext, urn)).thenReturn(Optional.of(ceiling));
     when(_entityService.deleteUrn(opContext, urn, ceiling))
         .thenReturn(
@@ -283,9 +286,10 @@ public class JavaEntityClientTest {
         getJavaEntityClient(hardDeleteService(true, dispatcher))
             .deleteReferencesThenEntity(opContext, urn);
 
-    verify(dispatcher, times(1)).dispatch(any(), any());
-    verify(dispatcher).dispatch(opContext, HardDeleteRequest.entityAndReferences(urn, ceiling));
+    verify(dispatcher, times(1)).offer(any(), any());
+    verify(dispatcher).offer(opContext, HardDeleteRequest.entityAndReferences(urn, ceiling));
     final InOrder inOrder = inOrder(_deleteEntityService, _entityService);
+    inOrder.verify(_entityService).validateKeyDelete(opContext, urn);
     inOrder.verify(_deleteEntityService).countGraphReferrers(opContext, urn);
     inOrder.verify(_deleteEntityService).deleteGraphReferences(opContext, urn);
     inOrder.verify(_entityService).deleteUrn(opContext, urn, ceiling);
@@ -298,7 +302,10 @@ public class JavaEntityClientTest {
     verify(_deleteEntityService, never()).deleteReferencesTo(opContext, urn, false);
   }
 
-  /** Over the limit, the client's cleanup reports that only the entity was deleted. */
+  /**
+   * Over the limit, only the entity is deleted and the graph references are left, and the cleanup
+   * still removes the other references.
+   */
   @Test
   void testDeleteReferencesThenEntityOverTheLimitReportsEntityOnly() throws Exception {
     Urn urn = UrnUtils.getUrn("urn:li:tag:overLimit");
@@ -321,7 +328,7 @@ public class JavaEntityClientTest {
                         ChangeType.DELETE,
                         true,
                         0))));
-    when(_deleteEntityService.countGraphReferrers(opContext, urn)).thenReturn(5001);
+    when(_deleteEntityService.countGraphReferrers(opContext, urn)).thenReturn(101);
 
     EntityClient.ReferencesCleanup references =
         getJavaEntityClient(hardDeleteService(true, null))
@@ -334,7 +341,7 @@ public class JavaEntityClientTest {
 
     references.run();
 
-    verify(_deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
+    verify(_deleteEntityService).deleteReferencesTo(opContext, urn, List.of());
   }
 
   /** Taken: nothing runs here, now or when the caller runs the cleanup. */
@@ -343,7 +350,9 @@ public class JavaEntityClientTest {
     Urn urn = UrnUtils.getUrn("urn:li:tag:bothTaken");
     DeleteCeiling ceiling = new DeleteCeiling(Map.of("tagKey", 1L), 1L);
     HardDeleteDispatcher dispatcher = mock(HardDeleteDispatcher.class);
-    when(dispatcher.dispatch(any(), any())).thenReturn(true);
+    doReturn(HardDeleteDispatcher.Offer.of(HardDeleteDispatcher.Outcome.QUEUED))
+        .when(dispatcher)
+        .offer(any(), any());
     when(_entityService.captureDeleteCeiling(opContext, urn)).thenReturn(Optional.of(ceiling));
 
     EntityClient.ReferencesCleanup references =

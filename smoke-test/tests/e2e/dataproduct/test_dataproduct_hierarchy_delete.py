@@ -60,27 +60,7 @@ def _assert_gone(graph_client: DataHubGraph, urn: str) -> None:
     assert not graph_client.exists(urn)
 
 
-@with_test_retry()
-def _assert_child_released(graph_client: DataHubGraph, child: str) -> None:
-    child_properties = graph_client.get_aspect(child, DataProductPropertiesClass)
-    assert child_properties is not None
-    assert child_properties.parentDataProduct is None
-
-
-@with_test_retry()
-def _assert_no_parent_edge(graph_client: DataHubGraph, child: str, parent: str) -> None:
-    parents = [
-        e.urn
-        for e in graph_client.get_related_entities(
-            child,
-            relationship_types=["IsPartOf"],
-            direction=DataHubGraph.RelationshipDirection.OUTGOING,
-        )
-    ]
-    assert parent not in parents
-
-
-def test_parent_with_child_is_deleted_and_child_released(auth_session, graph_client):
+def test_parent_delete_is_refused_until_child_is_released(auth_session, graph_client):
     suffix = unique_suffix()
     parent = f"urn:li:dataProduct:delete_guard_parent_{suffix}"
     child = f"urn:li:dataProduct:delete_guard_child_{suffix}"
@@ -103,19 +83,25 @@ def test_parent_with_child_is_deleted_and_child_released(auth_session, graph_cli
         assert child_properties is not None
         assert child_properties.parentDataProduct == parent
 
-        # One child is under the reference-cleanup limit, so the GraphQL delete clears the
-        # child's pointer and then removes the parent.
+        # The GraphQL delete runs the same guard, so it is refused while the child points here.
         res = execute_graphql(
             auth_session,
             DELETE_DATA_PRODUCT_QUERY,
             {"urn": parent},
+            expect_errors=True,
         )
-        assert not res.get("errors"), res.get("errors")
+        assert res.get("errors"), (
+            "GraphQL delete should be refused while a child points here"
+        )
+        assert "has child Data Products" in res["errors"][0]["message"]
+        assert graph_client.exists(parent)
+
+        # Once the child no longer points at the parent, the delete goes through.
+        _emit_data_product(graph_client, child, f"Child {suffix}", parent=None)
+        res = execute_graphql(auth_session, DELETE_DATA_PRODUCT_QUERY, {"urn": parent})
         assert res["data"]["deleteDataProduct"] is True
 
         _assert_gone(graph_client, parent)
-        _assert_child_released(graph_client, child)
-        _assert_no_parent_edge(graph_client, child, parent)
     finally:
         for urn in (child, parent):
             try:

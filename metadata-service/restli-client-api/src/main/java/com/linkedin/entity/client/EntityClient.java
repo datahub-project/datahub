@@ -539,7 +539,10 @@ public interface EntityClient {
        * Graph references were removed, then the entity was deleted. {@link #run()} cleans the rest.
        */
       REFERENCES_THEN_ENTITY,
-      /** The referrer count was over the limit: only the entity was hard-deleted. */
+      /**
+       * The referrer count was over the limit: only the entity was hard-deleted. {@link #run()}
+       * still cleans the references that are not graph edges.
+       */
       ENTITY_ONLY,
       /** The delete was handed to another process, which also cleans the references. */
       HANDED_OFF

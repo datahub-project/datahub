@@ -435,10 +435,11 @@ datahub:
 # In-process hard delete.
 hardDelete:
   # Most incoming graph edges an entity-and-references delete removes before deleting the entity,
-  # when the delete runs in this process. Above this, the entity is hard-deleted and its references
-  # are left: the key delete drops the graph edges, and walking that many referrers here is not
-  # worth it. 0 never cleans references in-process.
-  graph-reference-cleanup-limit: ${DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT:5000}
+  # when the delete runs in this process. Above this, only the entity is hard-deleted: the key
+  # delete drops the graph edges, so those references are left, and walking that many referrers
+  # here is not worth it. References that are not graph edges are still cleaned. 0 never removes
+  # graph references in-process. Raise it to remove more references before the entity goes.
+  graph-reference-cleanup-limit: ${DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT:100}
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}

@@ -73,13 +73,15 @@ the section.
 method no longer compiles, and a class that overrode it has to override the new method. The old
 override is no longer called.
 
-On GMS, this delete now removes the relationships other entities hold to the deleted one, then
-deletes it, when there are at most 5000 of those relationships. Deleting the entity first dropped
-them from the graph, so they stayed on the other entities. Set
+On GMS, this delete now checks that the delete is allowed, removes the relationships other entities
+hold to the deleted one, then deletes it, when there are at most 100 of those relationships. A
+delete that is refused leaves those relationships in place. Deleting the entity first dropped them
+from the graph, so they stayed on the other entities. Set
 `DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`
-(`hardDelete.graph-reference-cleanup-limit`) to change that limit. Above the limit, or at `0`,
-only the entity is hard-deleted and the other entities keep their pointers.
-`ReferencesCleanup.choice()` reports which one happened.
+(`hardDelete.graph-reference-cleanup-limit`) to raise or lower that limit. Above the limit, or at
+`0`, only the entity is hard-deleted and the other entities keep their pointers to it; references
+that are not graph relationships are still removed. `ReferencesCleanup.choice()` reports which one
+happened.
 
 The UI and GraphQL use this for hard deletes of applications, assertions, business attributes,
 data products, domains, forms, glossary terms and nodes, groups, incidents, ownership types, page
@@ -101,8 +103,8 @@ ingestion run is not affected.
 Deleting the product in the UI, or with the GraphQL `deleteDataProduct` mutation, removes the
 parent and clears the parent on each child, so the children stay and become top-level products
 ([PR #21481](https://github.com/datahub-project/datahub/pull/21481)). That cleanup runs when the
-product has at most 5000 incoming relationships
-(`DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`, default 5000). Above that limit the children
+product has at most 100 incoming relationships
+(`DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`, default 100). Above that limit the children
 are left pointing at the parent, the delete is rejected, and the parent stays.
 
 ### Rest.li status codes for rejected writes
