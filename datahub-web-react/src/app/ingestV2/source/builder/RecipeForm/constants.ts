@@ -131,6 +131,7 @@ import {
 import {
     CONFLUENCE_DOCUMENTS_IMPORT_MODE,
     GITHUB_DOCUMENTS_IMPORT_MODE,
+    GITLAB_DOCUMENTS_IMPORT_MODE,
     NOTION_DOCUMENTS_IMPORT_MODE,
 } from '@app/ingestV2/source/builder/RecipeForm/documentImportMode';
 import {
@@ -158,13 +159,16 @@ import {
     DREMIO_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/dremio';
 import {
-    GITHUB_DOCUMENTS_BRANCH,
     GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT,
-    GITHUB_DOCUMENTS_FILE_EXTENSIONS,
-    GITHUB_DOCUMENTS_PATH_PREFIX,
     GITHUB_DOCUMENTS_REPOSITORY,
     GITHUB_DOCUMENTS_TOKEN,
 } from '@app/ingestV2/source/builder/RecipeForm/github-documents';
+import {
+    GITLAB_DOCUMENTS_BASE_URL,
+    GITLAB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT,
+    GITLAB_DOCUMENTS_REPOSITORY,
+    GITLAB_DOCUMENTS_TOKEN,
+} from '@app/ingestV2/source/builder/RecipeForm/gitlab-documents';
 import {
     GLUE,
     GLUE_AWS_ACCESS_KEY_ID,
@@ -441,6 +445,11 @@ import {
     REDSHIFT_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/redshift';
 import {
+    REPOSITORY_DOCUMENTS_BRANCH,
+    REPOSITORY_DOCUMENTS_FILE_EXTENSIONS,
+    REPOSITORY_DOCUMENTS_PATH_PREFIX,
+} from '@app/ingestV2/source/builder/RecipeForm/repository-documents';
+import {
     FOLDER_ALLOW,
     FOLDER_DENY,
     INGEST_APPLICATIONS,
@@ -537,6 +546,7 @@ import {
     DATABRICKS,
     DBT_CLOUD,
     GITHUB_DOCUMENTS,
+    GITLAB_DOCUMENTS,
     INFORMIX,
     MATILLION_DPC,
     MICROSTRATEGY,
@@ -1104,13 +1114,26 @@ export const RECIPE_FIELDS: RecipeFields = {
         fields: [
             GITHUB_DOCUMENTS_TOKEN,
             GITHUB_DOCUMENTS_REPOSITORY,
-            GITHUB_DOCUMENTS_BRANCH,
-            GITHUB_DOCUMENTS_PATH_PREFIX,
-            GITHUB_DOCUMENTS_FILE_EXTENSIONS,
+            REPOSITORY_DOCUMENTS_BRANCH,
+            REPOSITORY_DOCUMENTS_PATH_PREFIX,
+            REPOSITORY_DOCUMENTS_FILE_EXTENSIONS,
             GITHUB_DOCUMENTS_IMPORT_MODE,
         ],
         filterFields: [],
         advancedFields: [GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT],
+    },
+    [GITLAB_DOCUMENTS]: {
+        fields: [
+            GITLAB_DOCUMENTS_TOKEN,
+            GITLAB_DOCUMENTS_BASE_URL,
+            GITLAB_DOCUMENTS_REPOSITORY,
+            REPOSITORY_DOCUMENTS_BRANCH,
+            REPOSITORY_DOCUMENTS_PATH_PREFIX,
+            REPOSITORY_DOCUMENTS_FILE_EXTENSIONS,
+            GITLAB_DOCUMENTS_IMPORT_MODE,
+        ],
+        filterFields: [],
+        advancedFields: [GITLAB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT],
     },
     [CONFLUENCE]: {
         fields: [

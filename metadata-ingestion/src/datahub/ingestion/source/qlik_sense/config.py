@@ -148,13 +148,15 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     unresolved_qvd_paths: LossyList[str] = field(default_factory=LossyList)
     # QVDs loaded without a table label, which Qlik names itself.
     unlabelled_qvd_loads: LossyList[str] = field(default_factory=LossyList)
-    # Apps Qlik Cloud has no lineage graph for, read as having no tables.
+    # Apps Qlik Cloud has no lineage graph for whose last read had no tables
+    # with a QRI, so their tables get none and use load script lineage.
     apps_without_lineage_graph: LossyList[str] = field(default_factory=LossyList)
     unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
     file_sources_resolved: int = 0
     # File data connections whose files an app reads but whose storage is not
-    # known: add them to file_connection_to_storage.
-    unresolved_file_connections: LossyList[str] = field(default_factory=LossyList)
+    # known: add them to file_connection_to_storage. Kept whole, since there are
+    # only as many as the tenant has connections and each needs mapping.
+    unresolved_file_connections: List[str] = field(default_factory=list)
     apps_read: int = 0
     apps_skipped_unchanged: int = 0
     # Apps read again because checking whether they changed failed.

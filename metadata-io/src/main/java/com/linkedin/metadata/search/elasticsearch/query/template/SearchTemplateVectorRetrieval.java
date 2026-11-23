@@ -1,10 +1,13 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.search.VectorStoreConfiguration;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.hybrid.v3.V3HybridKnnRequestBuilder;
 import io.datahubproject.metadata.context.OperationContext;
+import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,7 +23,7 @@ import javax.annotation.Nullable;
  */
 public final class SearchTemplateVectorRetrieval {
   /** Changes when a vector rung serves a request differently, so cached results are not shared. */
-  public static final int EXECUTION_VERSION = 1;
+  public static final int EXECUTION_VERSION = 2;
 
   /** Neighbors one native kNN request returns. A larger {@code candidateCap} is clamped to it. */
   public static final int MAX_K = V3HybridKnnRequestBuilder.MAX_K;
@@ -64,8 +67,10 @@ public final class SearchTemplateVectorRetrieval {
 
   /**
    * Similarity could not run: the query is not an entity URN, the viewer may not see that entity,
-   * the default search filters leave it out, or it has no embedding profile, no stored vectors, or
-   * more than {@link #MAX_ANCHOR_CHUNKS} stored chunks for it. The search fails.
+   * the default search filters or the search's document visibility rule leave it out, its type has
+   * no embedding profile, or it has no stored vectors or more than {@link #MAX_ANCHOR_CHUNKS}
+   * stored chunks for that profile. The search fails. A profile that cannot be read or selected is
+   * {@link #UNAVAILABLE} instead.
    */
   public static final String NO_ANCHOR = "noAnchor";
 
@@ -89,7 +94,8 @@ public final class SearchTemplateVectorRetrieval {
       Set.of(EmbeddingProfileRegistry.ELASTICSEARCH, EmbeddingProfileRegistry.OPENSEARCH);
 
   public static final String MIN_SCORE_DEPRECATION =
-      "SearchFlags.minScore is deprecated as a vector leg floor; use retrieval.minSimilarity";
+      "SearchFlags.minScore is deprecated as a vector leg floor; use SearchFlags.minSimilarity,"
+          + " or retrieval.minSimilarity in a template";
 
   private SearchTemplateVectorRetrieval() {}
 
@@ -170,6 +176,61 @@ public final class SearchTemplateVectorRetrieval {
   }
 
   /**
+   * The entity a similarity query names, or null when the query is not an entity URN. Bind and the
+   * rung both read the anchor here, as routing reads the query: a route that misses is tried again
+   * without the structured prefix, so the prefix is dropped before the rest is trimmed. The GraphQL
+   * keyword search resolvers escape each {@code /} as {@code \/}, so that escape is undone, for the
+   * anchor only. The semantic search resolver passes the query as typed, so there the unescape
+   * changes nothing unless the query holds a literal {@code \/}. Rest.li, OpenAPI and SDK callers
+   * do not escape either, so a literal {@code \/} in their query is read as {@code /} too.
+   */
+  @Nullable
+  public static Urn anchorUrn(@Nonnull String query) {
+    final String text =
+        query.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)
+            ? query.substring(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX.length())
+            : query;
+    try {
+      return Urn.createFromString(text.trim().replace("\\/", "/"));
+    } catch (URISyntaxException e) {
+      return null;
+    }
+  }
+
+  // Reasons an anchor selects no profile that are about its entity type, so the request is at fault
+  private static final Set<String> ENTITY_TYPE_REASONS =
+      Set.of(
+          SearchTemplateGates.ENTITY_NOT_ENABLED,
+          SearchTemplateGates.ENTITY_NOT_ADVERTISED,
+          EmbeddingProfileRegistry.NO_DEFAULT);
+
+  /**
+   * The failure for an anchor whose entity type selects no single embedding profile, given the
+   * reason from {@link SearchTemplateGates#anchorProfileFailure}. A reason about the entity type is
+   * {@link #noAnchor}. An unknown or unavailable profile, an empty selection, or several profiles
+   * is a fault of the template or the registry: it fails closed as {@link #UNAVAILABLE}, so it is
+   * not reported as a bad request.
+   */
+  @Nonnull
+  public static SearchTemplateFailClosedException anchorWithoutProfile(
+      @Nonnull OperationContext opContext,
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull Urn anchor,
+      @Nullable String reason) {
+    if (reason != null && ENTITY_TYPE_REASONS.contains(reason)) {
+      return noAnchor(opContext, template, anchor + " has no embedding profile to search with");
+    }
+    SearchTemplateMetrics.vectorRetrieval(opContext, UNAVAILABLE);
+    return new SearchTemplateFailClosedException(
+        "Search template "
+            + template.getUrn()
+            + " cannot resolve one embedding profile for "
+            + anchor.getEntityType()
+            + ": "
+            + reason);
+  }
+
+  /**
    * Counts {@link #NO_ANCHOR} and returns the failure for a similarity search that cannot use its
    * anchor. Bind and the rung both fail through it, so an anchor the viewer may not use and one
    * with no stored vectors read the same way.
@@ -180,7 +241,7 @@ public final class SearchTemplateVectorRetrieval {
       @Nonnull MergedSearchTemplate template,
       @Nonnull String reason) {
     SearchTemplateMetrics.vectorRetrieval(opContext, NO_ANCHOR);
-    return new SearchTemplateFailClosedException(
+    return new SearchTemplateNoAnchorException(
         "Search template " + template.getUrn() + " finds similar entities, and " + reason);
   }
 }

@@ -37,6 +37,7 @@ import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -340,10 +341,12 @@ public class BrowseV2ResolverTest {
 
     resolver.get(mockEnv).get();
 
+    ArgumentCaptor<OperationContext> contextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
     ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
     Mockito.verify(mockClient)
         .browseV2(
-            any(),
+            contextCaptor.capture(),
             eq(Collections.singletonList(Constants.DOCUMENT_ENTITY_NAME)),
             eq(""),
             filterCaptor.capture(),
@@ -356,6 +359,9 @@ public class BrowseV2ResolverTest {
         appliedFilter.getOr().stream()
             .flatMap(clause -> clause.getAnd().stream())
             .anyMatch(c -> "showInGlobalContext".equals(c.getField())));
+    // A similarity anchor is held to the same defaults
+    Assert.assertEquals(
+        contextCaptor.getValue().getSearchContext().getAnchorFilter(), appliedFilter);
   }
 
   @Test
