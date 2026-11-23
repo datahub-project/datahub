@@ -6,6 +6,7 @@ import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.sink import Sink
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.reporting.datahub_ingestion_run_summary_provider import (
     DatahubIngestionRunSummaryProvider,
     DatahubIngestionRunSummaryProviderConfig,
@@ -287,3 +288,65 @@ def test_on_completion_masks_report_and_summary() -> None:
         "source": {"failures": ["pw=***REDACTED:DB_PASS***"]}
     }
     SecretRegistry.reset_instance()
+
+
+def test_recipe_from_model_without_raw_dict_is_json_with_secrets_redacted() -> None:
+    # Pipeline.create(dict) without raw_config makes get_raw_dict() fall back to
+    # dumping the model, after Pipeline.__init__ has set datahub_api.client_mode.
+    pipeline_config = PipelineConfig.from_dict(
+        {
+            "source": {"type": "file", "config": {"path": "x.json"}},
+            "sink": {"type": "console"},
+            "datahub_api": {"server": "http://localhost:8080", "token": "tok-123"},
+        }
+    )
+    assert pipeline_config.datahub_api is not None
+    pipeline_config.datahub_api.client_mode = ClientMode.INGESTION
+    ctx = PipelineContext(run_id="cli-run", pipeline_config=pipeline_config)
+
+    provider = DatahubIngestionRunSummaryProvider(
+        sink=MagicMock(spec=Sink), report_recipe=True, ctx=ctx
+    )
+
+    recipe = provider._get_recipe_to_report(ctx)
+    assert "tok-123" not in recipe
+    datahub_api = json.loads(recipe)["datahub_api"]
+    assert datahub_api["client_mode"] == ClientMode.INGESTION.value
+    assert datahub_api["token"] == "********"
+
+
+def test_recipe_redacts_extra_headers() -> None:
+    server = "http://localhost:8080"
+    pipeline_config = PipelineConfig.from_dict(
+        {
+            "source": {"type": "file", "config": {"path": "x.json"}},
+            "sink": {
+                "type": "datahub-rest",
+                "config": {
+                    "server": server,
+                    "extra_headers": {"Authorization": "Basic dXNlcjpwYXNz"},
+                },
+            },
+            "datahub_api": {
+                "server": server,
+                "extra_headers": {
+                    "authorization": "Bearer api-secret",
+                    "X-Custom": "opaque-value",
+                },
+            },
+        }
+    )
+    ctx = PipelineContext(run_id="cli-run", pipeline_config=pipeline_config)
+    provider = DatahubIngestionRunSummaryProvider(
+        sink=MagicMock(spec=Sink), report_recipe=True, ctx=ctx
+    )
+
+    recipe = provider._get_recipe_to_report(ctx)
+    for secret in ("dXNlcjpwYXNz", "api-secret", "opaque-value"):
+        assert secret not in recipe
+    reported = json.loads(recipe)
+    assert reported["sink"]["config"]["extra_headers"] == {"Authorization": "********"}
+    assert reported["datahub_api"]["extra_headers"] == {
+        "authorization": "********",
+        "X-Custom": "********",
+    }
