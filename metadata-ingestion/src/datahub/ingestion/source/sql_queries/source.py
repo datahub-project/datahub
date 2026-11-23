@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, Optional, Union
+from typing import Iterable, Optional, Tuple, Union
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -41,8 +41,18 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
+from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 
 logger = logging.getLogger(__name__)
+
+
+def _casefold_pair(
+    db: Optional[str], schema: Optional[str]
+) -> Tuple[Optional[str], Optional[str]]:
+    return (
+        db.lower() if db is not None else None,
+        schema.lower() if schema is not None else None,
+    )
 
 
 @platform_name("SQL Queries", id="sql-queries")
@@ -230,16 +240,49 @@ class SqlQueriesSource(Source):
                 side,
                 query_entry.query,
             )
+        default_db = query_entry.default_db or self.config.default_db
+        default_schema = query_entry.default_schema or self.config.default_schema
         self.aggregator.add_observed_query(
             ObservedQuery(
                 query=query_entry.query,
                 timestamp=query_entry.timestamp,
                 user=query_entry.user,
                 session_id=query_entry.session_id,
-                default_db=self.config.default_db,
-                default_schema=self.config.default_schema,
+                default_db=default_db,
+                default_schema=default_schema,
                 override_dialect=self.config.override_dialect,
+                query_hash=self._per_row_query_hash(
+                    query_entry.query, default_db, default_schema
+                ),
             )
+        )
+
+    def _per_row_query_hash(
+        self, query: str, default_db: Optional[str], default_schema: Optional[str]
+    ) -> Optional[str]:
+        """Fingerprint a query resolved against defaults other than the config's.
+
+        The aggregator fingerprints SQL text alone, so the same text resolved
+        against two databases would collapse onto one Query and last-write-win
+        its lineage. Queries resolved against the config defaults keep the
+        aggregator's own fingerprint, so their Query URNs don't change. The pair
+        is encoded with repr so an identifier containing a delimiter can't
+        collide with a different pair.
+
+        Identifiers are compared case-insensitively: platforms fold unquoted
+        names to different cases (Snowflake upper, MSSQL lower) and DataHub
+        URNs are lower-cased for most platforms, so case alone must not split
+        one Query into two.
+        """
+        row_defaults = _casefold_pair(default_db, default_schema)
+        if row_defaults == _casefold_pair(
+            self.config.default_db, self.config.default_schema
+        ):
+            return None
+        return get_query_fingerprint(
+            query,
+            platform=self.config.platform,
+            secondary_id=repr(row_defaults),
         )
 
     def is_temp_table(self, name: str) -> bool:

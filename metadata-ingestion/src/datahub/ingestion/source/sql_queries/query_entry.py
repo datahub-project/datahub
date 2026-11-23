@@ -37,6 +37,10 @@ class QueryEntry(BaseModel):
     downstream_tables: List[DatasetUrn] = Field(default_factory=list)
     upstream_tables: List[DatasetUrn] = Field(default_factory=list)
     session_id: Optional[str] = None
+    # Per-row overrides for the source-level default_db/default_schema, so one
+    # run can span records from different databases.
+    default_db: Optional[str] = None
+    default_schema: Optional[str] = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
@@ -44,6 +48,15 @@ class QueryEntry(BaseModel):
     @classmethod
     def parse_timestamp(cls, v: Any) -> Any:
         return None if v is None else parse_user_datetime(str(v))
+
+    @field_validator("default_db", "default_schema", mode="before")
+    @classmethod
+    def blank_default_is_none(cls, v: Any) -> Any:
+        # Exported logs often carry "" when no database was selected. That must
+        # fall back to the config default exactly like an omitted value.
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
     @field_validator("user", mode="before")
     @classmethod

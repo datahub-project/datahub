@@ -2,6 +2,7 @@ import json
 import warnings
 from contextlib import nullcontext
 from datetime import datetime, timezone
+from typing import Dict, List
 from unittest.mock import Mock
 
 import pytest
@@ -26,6 +27,7 @@ from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
 from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
     AutoWorkunitsReporterProcessor,
 )
+from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
@@ -688,6 +690,125 @@ class TestSqlQueriesSource:
         source = SqlQueriesSource(pipeline_context, config)
         assert source.config.incremental_lineage is False
         assert len(source.get_workunit_processors()) == 1
+
+    def test_per_row_schema_overrides_config_default(
+        self, pipeline_context, query_file_with
+    ):
+        source = _make_source(
+            pipeline_context,
+            query_file_with([]),
+            default_db="config_db",
+            default_schema="config_schema",
+        )
+        source.aggregator.add_observed_query = Mock()
+
+        def observed_for(entry):
+            source.aggregator.add_observed_query.reset_mock()
+            source._add_query_to_aggregator(entry)
+            return source.aggregator.add_observed_query.call_args.args[0]
+
+        # Each dimension overrides independently; the other falls back to config.
+        schema_override = observed_for(
+            QueryEntry(query="SELECT 1 FROM t", default_schema="row_schema")
+        )
+        assert schema_override.default_schema == "row_schema"
+        assert schema_override.default_db == "config_db"
+
+        db_override = observed_for(
+            QueryEntry(query="SELECT 1 FROM t", default_db="row_db")
+        )
+        assert db_override.default_db == "row_db"
+        assert db_override.default_schema == "config_schema"
+
+        # The fields must also populate from a parsed JSONL row, not only direct
+        # construction — that is the shape the feature targets.
+        parsed = QueryEntry.create(
+            {
+                "query": "SELECT 1 FROM t",
+                "default_db": "row_db",
+                "default_schema": "row_schema",
+            },
+            context=_entry_context(source.config, source.report),
+        )
+        observed = observed_for(parsed)
+        assert observed.default_db == "row_db"
+        assert observed.default_schema == "row_schema"
+
+    def test_per_row_defaults_disambiguate_query_hash(
+        self, pipeline_context, query_file_with
+    ):
+        source = _make_source(
+            pipeline_context,
+            query_file_with([]),
+            default_db="config_db",
+            default_schema="config_schema",
+        )
+        source.aggregator.add_observed_query = Mock()
+
+        def observed_for(entry):
+            source.aggregator.add_observed_query.reset_mock()
+            source._add_query_to_aggregator(entry)
+            return source.aggregator.add_observed_query.call_args.args[0]
+
+        # Identical SQL under different per-row defaults must not collide on one
+        # fingerprint, or the aggregator last-write-wins the cross-db lineage.
+        a = observed_for(QueryEntry(query="SELECT 1 FROM t", default_db="db_a"))
+        b = observed_for(QueryEntry(query="SELECT 1 FROM t", default_db="db_b"))
+        assert a.query_hash and b.query_hash and a.query_hash != b.query_hash
+
+        # No per-row defaults: fingerprinting is left to the aggregator so query
+        # URNs stay unchanged for existing file-based users.
+        plain = observed_for(QueryEntry(query="SELECT 1 FROM t"))
+        assert plain.query_hash is None
+
+        # A blank per-row value falls back to the config default just like an
+        # omitted one, so it must not get a distinct fingerprint.
+        blank = observed_for(QueryEntry(query="SELECT 1 FROM t", default_db=""))
+        assert blank.query_hash is None
+        assert blank.default_db == "config_db"
+
+        # A per-row value equal to the config default resolves identically, so
+        # it shares the Query URN of rows that omit it.
+        same = observed_for(QueryEntry(query="SELECT 1 FROM t", default_db="config_db"))
+        assert same.query_hash is None
+
+        # Identifier case doesn't change what a name resolves to, so it must
+        # neither split a Query from the config default nor from another row.
+        upper = observed_for(
+            QueryEntry(query="SELECT 1 FROM t", default_db="CONFIG_DB")
+        )
+        assert upper.query_hash is None
+        a_upper = observed_for(QueryEntry(query="SELECT 1 FROM t", default_db="DB_A"))
+        assert a_upper.query_hash == a.query_hash
+
+    def test_per_row_defaults_resolve_unqualified_tables(
+        self, pipeline_context, query_file_with
+    ):
+        sql = "INSERT INTO target SELECT * FROM src"
+        path = query_file_with(
+            [
+                json.dumps({"query": sql, "default_db": db, "default_schema": "sch"})
+                for db in ("db_a", "db_b")
+            ]
+        )
+        source = _make_source(pipeline_context, path, use_schema_resolver=False)
+
+        lineage: Dict[str, List[str]] = {}
+        for wu in source.get_workunits_internal():
+            if not isinstance(wu, MetadataWorkUnit):
+                continue
+            aspect = wu.get_aspect_of_type(UpstreamLineageClass)
+            if aspect is not None:
+                lineage[wu.get_urn()] = [u.dataset for u in aspect.upstreams]
+
+        def urn(name):
+            return f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{name},PROD)"
+
+        assert set(lineage) == {urn("db_a.sch.target"), urn("db_b.sch.target")}
+        assert lineage == {
+            urn("db_a.sch.target"): [urn("db_a.sch.src")],
+            urn("db_b.sch.target"): [urn("db_b.sch.src")],
+        }
 
 
 class TestErrorHandling:
