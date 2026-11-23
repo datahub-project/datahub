@@ -177,8 +177,8 @@ This is much slower, about a minute per large app, and reads one app at a time u
 
 A `BINARY` statement loads another app's data model into an app. On Qlik Sense Enterprise it loads from a `.qvf` file, not from an app id ([Qlik help](https://help.qlik.com/en-US/sense/November2025/Subsystems/Hub/Content/Sense_Hub/Scripting/ScriptRegularStatements/Binary.htm)), so the file doesn't say which app it holds. The tables it brings in are the tables of the app's data model that the load script doesn't create itself, so BINARY lineage needs `read_data_model: true`. Each is ingested as an app table and linked upstream:
 
-- to the tables of the same name of the app the file was exported from, when `binary_file_to_app` maps the file to that app's id, with column-level lineage between their fields. Only tables that app ingests are linked, and only when the run reads it or keeps it unchanged. A table the script also loads into under the same name is still linked, unless the script drops it with `DROP TABLE` first.
-- otherwise, to the file itself, a dataset with the `Qlik App File` subtype, named and placed in folders as a QVD is (see [QVD paths](#qvd-paths)). The file's tables are not known here, so a table the script also loads under the same name is not linked. When the script also creates tables it doesn't name, such as an unlabelled `LOAD` or a `Generic` load, or includes another script, the tables the file brings in aren't known, so none are linked; map the file instead.
+- to the tables of the same name of the app the file was exported from, when `binary_file_to_app` maps the file to that app's id, with column-level lineage between their fields. Only tables that app ingests are linked, and only when the run reads it or keeps it unchanged. A table the script also loads into under the same name is still linked, unless the script drops it with `DROP TABLE` first or loads it with a `Replace` prefix, which in a full reload drops the table and loads it again. If the source app isn't read or kept, or doesn't ingest the table, the table's lineage from earlier runs is kept and only added to.
+- otherwise, to the file itself, a dataset with the `Qlik App File` subtype, named and placed in folders as a QVD is (see [QVD paths](#qvd-paths)). The file's tables are not known here, so a table the script also loads under the same name is not linked. When the script also creates tables it doesn't name, such as an unlabelled `LOAD`, a `Generic` load or a table labelled with a variable the connector can't expand (`$(vTable): LOAD ...`), or includes another script, the tables the file brings in aren't known, so none are linked; map the file instead.
 
 ```yaml
 on_prem:
@@ -187,7 +187,7 @@ on_prem:
     "lib://Apps/Sales Model.qvf": "<id of the Sales Model app>"
 ```
 
-A `binary_file_to_app` path matches the path as the script names it, or the file path it resolves to. BINARY loads that get no lineage are listed in `binary_loads_without_lineage` in the report, with the reason.
+A `binary_file_to_app` path matches the path as the script names it, or the file path it resolves to, ignoring case and slash direction. BINARY loads that get no lineage are listed in `binary_loads_without_lineage` in the report, with the reason. When an app's data model can't be loaded, or a BINARY path uses a variable and the app's variables can't be read, the app counts as partly read, so its last read is kept rather than its BINARY tables removed.
 
 #### Chart input fields
 
