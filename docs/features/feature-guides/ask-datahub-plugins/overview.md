@@ -20,7 +20,7 @@ Plugins unlock powerful capabilities that go beyond what metadata alone can prov
 
 ## Available Plugins
 
-DataHub provides built-in plugin templates for popular tools. For connecting to other MCP Servers — including internal services, custom APIs, or any tool with an MCP server — use the **Custom MCP** option.
+DataHub provides built-in plugin templates for Databricks, dbt Cloud, GitHub, and Snowflake. BigQuery and Glean are connected with the **Custom MCP** option, as are other MCP servers — including internal services, custom APIs, or any tool with an MCP server.
 
 | Plugin         | Description                                         | Guide                                         |
 | -------------- | --------------------------------------------------- | --------------------------------------------- |
@@ -55,7 +55,7 @@ You must have the **Manage Platform Settings** privilege to configure plugins.
 
 1. Navigate to **Settings > AI > Plugins**
 2. Click **+ Create** in the top-right corner
-3. Select a built-in plugin template (Snowflake, dbt Cloud, GitHub) or choose **Custom MCP** for other tools
+3. Select a built-in plugin template (Databricks, dbt Cloud, GitHub, Snowflake) or choose **Custom MCP** for other tools
 
 <p align="center">
   <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/plugins_settings_page.png"/>

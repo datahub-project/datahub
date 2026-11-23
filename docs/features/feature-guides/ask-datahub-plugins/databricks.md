@@ -27,8 +27,8 @@ Because the plugin uses **OAuth**, each user authenticates with their own Databr
 
 ## Prerequisites
 
-- A Databricks workspace with [Managed MCP Servers](https://docs.databricks.com/aws/en/generative-ai/mcp/connect-external-services) enabled
-- Admin access to create OAuth app connections in Databricks (**Settings > App connections**)
+- A Databricks workspace with **Managed MCP Servers** enabled. A workspace admin turns this on from the workspace **Previews** page (see [Databricks managed MCP servers](https://docs.databricks.com/aws/en/generative-ai/mcp/managed-mcp))
+- A Databricks account admin to create the OAuth app connection in the account console
 - DataHub Cloud with Ask DataHub Plugins enabled
 - Platform admin access in DataHub to configure the plugin
 
@@ -38,8 +38,14 @@ The Databricks plugin uses **User OAuth** authentication — each user authentic
 
 ### Step 1: Create an OAuth App Connection in Databricks
 
-1. In Databricks, navigate to **Settings > App connections**
-2. Click **Add connection** and fill in the details:
+App connections are created in the Databricks **account console**, not in workspace settings. See [Enable or disable partner OAuth applications](https://docs.databricks.com/aws/en/integrations/enable-disable-oauth) in the Databricks documentation.
+
+:::caution Use a new app connection
+Do not reuse the client ID of the service principal that runs DataHub ingestion. A service principal is not an OAuth app, and signing in with its client ID fails with `OAuth application with client ID ... isn't available in the account`.
+:::
+
+1. Log in to the account console (`accounts.cloud.databricks.com`, or `accounts.azuredatabricks.net` on Azure) and click **Settings**
+2. On the **App connections** tab, click **Add connection** and fill in the details:
 
 | Field                        | Value                                                    |
 | ---------------------------- | -------------------------------------------------------- |
@@ -60,7 +66,7 @@ The **Redirect URL** must match the OAuth Callback URL shown in the DataHub plug
 
 ### Step 2: Collect Credentials
 
-After creating the connection, a dialog will show your **Client ID** and **Client Secret**. Copy both immediately — the client secret won't be shown again.
+After creating the connection, a dialog will show your **Client ID** and **Client Secret**. Copy both immediately — the client secret won't be shown again. Databricks lists the secret above the client ID, so check which value you are copying.
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/databricks_oauth_credentials.png"/>
@@ -69,30 +75,29 @@ After creating the connection, a dialog will show your **Client ID** and **Clien
 ### Step 3: Create Plugin in DataHub
 
 1. Navigate to **Settings > AI > Plugins** in DataHub
-2. Click **+ Create** and select **Custom MCP**
+2. Click **+ Create** and select **Databricks MCP**. If your DataHub version does not list it, select **Custom MCP** and set **Authentication Type** to `User OAuth (Each user authenticates)`
 3. Fill in the plugin details:
 
-| Field                   | Value                                               |
-| ----------------------- | --------------------------------------------------- |
-| **Name**                | `Databricks`                                        |
-| **Description**         | A description for the plugin                        |
-| **MCP Server URL**      | `https://<your-workspace-hostname>/api/2.0/mcp/sql` |
-| **Authentication Type** | `User OAuth (Each user authenticates)`              |
+| Field              | Value                                               |
+| ------------------ | --------------------------------------------------- |
+| **Name**           | `Databricks`                                        |
+| **Description**    | A description for the plugin                        |
+| **MCP Server URL** | `https://<your-workspace-hostname>/api/2.0/mcp/sql` |
 
-4. DataHub will automatically discover the OAuth configuration from Databricks, including the authorization URL, token URL, and available scopes. Provide the following:
+4. DataHub will automatically discover the OAuth configuration from Databricks, including the authorization URL (`https://<your-workspace-hostname>/oidc/v1/authorize`), token URL (`https://<your-workspace-hostname>/oidc/v1/token`), and available scopes. Provide the following:
 
-| Field              | Value                    |
-| ------------------ | ------------------------ |
-| **Client ID**      | From Step 2              |
-| **Client Secret**  | From Step 2              |
-| **Default Scopes** | `sql` (minimum required) |
+| Field              | Value                 |
+| ------------------ | --------------------- |
+| **Client ID**      | From Step 2           |
+| **Client Secret**  | From Step 2           |
+| **Default Scopes** | `sql, offline_access` |
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/databricks_plugin_config.png"/>
 </p>
 
 :::info Access Scopes
-The `sql` scope is the minimum required for Ask DataHub to execute queries. If you selected **All APIs** when creating the Databricks app connection, additional scopes will be available — select only what you need.
+Request only scopes that are granted on the Databricks app connection. Discovery lists every scope Databricks supports, and with **Custom MCP** all of them are selected by default; Databricks then rejects the sign-in with `scopes ... are not assigned to the client`. `sql` is required for Ask DataHub to execute queries, and `offline_access` lets DataHub refresh the user's token so they stay connected. The **Databricks MCP** template selects these two for you.
 :::
 
 5. Optionally add **Instructions for the AI Assistant**, ensure **Enable for Ask DataHub** is on, and click **Create**
@@ -106,8 +111,13 @@ Navigate to **Settings > My AI Settings**, find the **Databricks** plugin, and c
 ### OAuth Fails
 
 - Verify the **Redirect URL** in Databricks matches the OAuth Callback URL shown in DataHub exactly
-- Ensure the Client ID and Client Secret are entered correctly
-- If your workspace has [IP access restrictions](https://docs.databricks.com/aws/en/security/network/front-end/ip-access-list), ensure DataHub's outbound IPs are allowlisted
+- Ensure the Client ID and Client Secret are entered correctly, and that the client ID belongs to an app connection rather than a service principal
+- `scopes ... are not assigned to the client`: remove from **Default Scopes** any scope not granted on the app connection
+- When editing a saved plugin, re-enter the client secret to enable **Test Connection**
+
+### Sign-in Succeeds but Requests Return 403
+
+If your workspace uses [IP access lists](https://docs.databricks.com/aws/en/security/network/front-end/ip-access-list), Databricks blocks DataHub's requests until DataHub's outbound IP addresses are allowed. Ask your DataHub representative for your instance's outbound IPs, then add them to the workspace allow list. To check whether IP access lists are enabled, run `databricks ip-access-lists list` with the Databricks CLI.
 
 ### Query Failures
 
