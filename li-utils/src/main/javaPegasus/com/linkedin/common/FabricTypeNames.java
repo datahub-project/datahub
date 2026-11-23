@@ -6,6 +6,8 @@ import com.linkedin.data.schema.NamedDataSchema;
 import com.linkedin.data.schema.validator.ValidatorContext;
 import com.linkedin.data.template.RecordTemplate;
 import java.util.Arrays;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -38,6 +40,20 @@ public final class FabricTypeNames {
   /** Uppercase letters, digits and underscores, starting with a letter, at most 64 characters. */
   public static boolean isWellFormed(@Nullable String name) {
     return name != null && WELL_FORMED.matcher(name).matches();
+  }
+
+  /**
+   * An environment from configuration, normalized as it is stored: upper-cased (as built-in values
+   * always were) and accepted when built-in or shaped like a custom environment id. Whether a
+   * custom value is registered is checked by the server. Empty for a malformed value.
+   */
+  @Nonnull
+  public static Optional<String> canonical(@Nullable String value) {
+    if (value == null) {
+      return Optional.empty();
+    }
+    String upper = value.trim().toUpperCase(Locale.ROOT);
+    return isWellFormed(upper) ? Optional.of(upper) : Optional.empty();
   }
 
   /** True when the name equals a built-in symbol ignoring case, so it can't be a custom name. */

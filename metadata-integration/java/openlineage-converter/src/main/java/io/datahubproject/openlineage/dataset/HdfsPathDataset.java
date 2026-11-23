@@ -31,6 +31,15 @@ public class HdfsPathDataset extends SparkDataset {
     this.datasetPath = datasetPath;
   }
 
+  /**
+   * @param env a FabricType value or the id of a registered customFabricType
+   */
+  public HdfsPathDataset(
+      String platform, String name, String platformInstance, String env, String datasetPath) {
+    super(platform, platformInstance, name, env);
+    this.datasetPath = datasetPath;
+  }
+
   public HdfsPathDataset(String pathUri, String platformInstance, FabricType fabricType) {
     super("hdfs", platformInstance, pathUri, fabricType);
     this.datasetPath = pathUri;
@@ -70,9 +79,8 @@ public class HdfsPathDataset extends SparkDataset {
           String rawName = getRawNameFromUri(pathUri, pathSpec.getPathSpecList());
           if (rawName != null) {
             String platformInstance = pathSpec.platformInstance.orElse(null);
-            FabricType fabricType = datahubConf.getFabricType();
             return new HdfsPathDataset(
-                platform, getDatasetName(rawName), platformInstance, fabricType, rawName);
+                platform, getDatasetName(rawName), platformInstance, datahubConf.getEnv(), rawName);
           }
         }
       }

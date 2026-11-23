@@ -20,7 +20,10 @@ public class DatahubOpenlineageConfig {
   // Pipeline/Flow configuration
   @Builder.Default private final String pipelineName = null;
   private final String orchestrator;
-  @Builder.Default private final FabricType fabricType = FabricType.PROD;
+  // The environment of emitted datasets and pipelines: a FabricType value or a custom environment
+  // (the id of a registered customFabricType). Set with env(String), or with fabricType(FabricType)
+  // as before.
+  @Builder.Default private final String env = FabricType.PROD.name();
   // Domain URNs (urn:li:domain:<id>) attached to the emitted DataFlow and DataJob. OpenLineage has
   // no domain facet, so this is the only way to convey domain ownership for a pipeline.
   @Builder.Default private final List<String> domains = Collections.emptyList();
@@ -69,6 +72,25 @@ public class DatahubOpenlineageConfig {
   @Builder.Default private final boolean lowerCaseDatasetUrns = false;
   @Builder.Default private final boolean removeLegacyLineage = false;
   @Builder.Default private final boolean enhancedMergeIntoExtraction = false;
+
+  /**
+   * The environment as a FabricType, as before this config held a String. A custom environment
+   * reads as {@code $UNKNOWN}; use {@link #getEnv()} for the actual value.
+   */
+  public FabricType getFabricType() {
+    try {
+      return FabricType.valueOf(env);
+    } catch (IllegalArgumentException e) {
+      return FabricType.$UNKNOWN;
+    }
+  }
+
+  public static class DatahubOpenlineageConfigBuilder {
+    /** Sets a built-in environment; kept so existing callers compile unchanged. */
+    public DatahubOpenlineageConfigBuilder fabricType(FabricType fabricType) {
+      return env(fabricType.name());
+    }
+  }
 
   public List<PathSpec> getPathSpecsForPlatform(String platform) {
     if ((pathSpecs == null) || (pathSpecs.isEmpty())) {

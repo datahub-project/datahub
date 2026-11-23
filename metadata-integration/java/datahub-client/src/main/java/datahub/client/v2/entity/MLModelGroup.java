@@ -2,7 +2,6 @@ package datahub.client.v2.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.common.FabricType;
 import com.linkedin.common.TimeStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DataPlatformUrn;
@@ -721,9 +720,8 @@ public class MLModelGroup extends Entity
 
       try {
         DataPlatformUrn platformUrn = new DataPlatformUrn(platform);
-        FabricType fabricType = FabricType.valueOf(env);
-
-        MlModelGroupUrn urn = new MlModelGroupUrn(platformUrn, groupId, fabricType);
+        // A FabricType value or a registered custom environment; malformed values throw.
+        MlModelGroupUrn urn = new MlModelGroupUrn(platformUrn, groupId, env);
         MLModelGroup modelGroup = new MLModelGroup(urn);
 
         // Cache MLModelGroupProperties aspect if any properties are provided

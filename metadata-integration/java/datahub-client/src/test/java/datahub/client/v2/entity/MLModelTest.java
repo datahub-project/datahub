@@ -75,7 +75,9 @@ public class MLModelTest {
 
   @Test(expected = IllegalArgumentException.class)
   public void testMLModelBuilderInvalidEnvironment() {
-    MLModel.builder().platform("tensorflow").name("my_model").env("INVALID_ENV").build();
+    // A well-formed unknown env (e.g. INVALID_ENV) may be a registered custom env, which the
+    // server checks on write; a malformed one is still rejected here.
+    MLModel.builder().platform("tensorflow").name("my_model").env("invalid-env").build();
   }
 
   @Test
@@ -611,5 +613,23 @@ public class MLModelTest {
     } catch (UnsupportedOperationException expected) {
       // expected
     }
+  }
+
+  @Test
+  public void testCustomEnvironment() {
+    MLModel model = MLModel.builder().platform("pytorch").name("m").env("MY_ENV").build();
+
+    assertTrue(model.getUrn().toString().endsWith(",MY_ENV)"));
+  }
+
+  @Test
+  public void testMalformedEnvironmentStillRejected() {
+    org.testng.Assert.assertThrows(
+        IllegalArgumentException.class,
+        () -> MLModel.builder().platform("pytorch").name("m").env("my-env").build());
+    // Built-in values stay case-sensitive here, as before.
+    org.testng.Assert.assertThrows(
+        IllegalArgumentException.class,
+        () -> MLModel.builder().platform("pytorch").name("m").env("prod").build());
   }
 }

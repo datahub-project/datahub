@@ -3,6 +3,7 @@ package datahub.spark.conf;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.FabricType;
+import com.linkedin.common.FabricTypeNames;
 import com.linkedin.common.urn.DataJobUrn;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -170,7 +171,7 @@ public class SparkConfigParser {
     builder.isSpark(true);
     builder.filePartitionRegexpPattern(
         SparkConfigParser.getFilePartitionRegexpPattern(sparkConfig));
-    builder.fabricType(SparkConfigParser.getCommonFabricType(sparkConfig));
+    builder.env(SparkConfigParser.getCommonEnv(sparkConfig));
     builder.includeSchemaMetadata(SparkConfigParser.isIncludeSchemaMetadata(sparkConfig));
     builder.materializeDataset(SparkConfigParser.isDatasetMaterialize(sparkConfig));
     builder.pathSpecs(SparkConfigParser.getPathSpecListMap(sparkConfig));
@@ -202,6 +203,22 @@ public class SparkConfigParser {
     return builder.build();
   }
 
+  /**
+   * The env of emitted datasets: a FabricType value or the id of a registered customFabricType,
+   * upper-cased. A malformed value falls back to PROD, as an unknown value always has.
+   */
+  public static String getCommonEnv(Config datahubConfig) {
+    String envString =
+        datahubConfig.hasPath(DATASET_ENV_KEY) ? datahubConfig.getString(DATASET_ENV_KEY) : "PROD";
+    return FabricTypeNames.canonical(envString)
+        .orElseGet(
+            () -> {
+              log.warn("Invalid env ({}). Setting env to default PROD", envString);
+              return FabricType.PROD.name();
+            });
+  }
+
+  /** The env as a FabricType; a custom env reads as PROD here. Use {@link #getCommonEnv}. */
   public static FabricType getCommonFabricType(Config datahubConfig) {
     String fabricTypeString =
         datahubConfig.hasPath(DATASET_ENV_KEY)
@@ -255,16 +272,19 @@ public class SparkConfigParser {
       }
       if (connectionConfig.hasPath(FABRIC_TYPE_KEY)) {
         String envValue = connectionConfig.getString(FABRIC_TYPE_KEY);
-        try {
-          // Normalize + validate the env at config-load time so a bad value is reported once,
-          // loudly, with the exact recipe path — instead of being silently dropped to the job
-          // default fabric per dataset during URN construction (which would emit URNs under the
-          // wrong env and dangle lineage with no actionable signal).
-          detailBuilder.env(Optional.of(FabricType.valueOf(envValue.toUpperCase())));
-        } catch (IllegalArgumentException e) {
+        // Normalize + validate the env at config-load time so a bad value is reported once,
+        // loudly, with the exact recipe path — instead of being silently dropped to the job
+        // default fabric per dataset during URN construction (which would emit URNs under the
+        // wrong env and dangle lineage with no actionable signal). A well-formed custom env is
+        // accepted here; DataHub rejects it on write unless it is registered.
+        Optional<String> env = FabricTypeNames.canonical(envValue);
+        if (env.isPresent()) {
+          detailBuilder.envName(env);
+        } else {
           log.error(
-              "Invalid env '{}' for connection '{}' (under {}.\"{}\".{}); must be one of {}. "
-                  + "Ignoring this connection's env; its datasets will use the job default fabric.",
+              "Invalid env '{}' for connection '{}' (under {}.\"{}\".{}); must be one of {} or a"
+                  + " registered custom environment. Ignoring this connection's env; its datasets"
+                  + " will use the job default fabric.",
               envValue,
               namespace,
               DATASET_CONNECTIONS_KEY,

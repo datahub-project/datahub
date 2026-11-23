@@ -220,6 +220,23 @@ Rest.li and the `datahub delete` CLI. A bulk delete that removes parents and chi
 reject some parents on the first pass; run it again, or delete the children first. Rolling back an
 ingestion run is not affected.
 
+### Unrecognized environments in Spark and OpenLineage settings
+
+The Spark lineage agent and DataHub's OpenLineage endpoint no longer replace an unrecognized
+environment with a default. Before, a misspelled value such as `env = staging` (the built-in
+value is `STG`) was silently turned into `PROD`, or, for a per-connection `env`, into the job's
+environment, so lineage was recorded under the wrong environment. Now the value is used as written,
+in uppercase, and DataHub rejects the metadata if it is neither a built-in environment nor a
+registered custom environment. If lineage from Spark or OpenLineage stops appearing after the
+upgrade, check these settings for a misspelled environment:
+
+- `spark.datahub.metadata.dataset.env`
+- `spark.datahub.metadata.dataset.connections."<namespace>".env`
+- `datahub.openlineage.env` and `datahub.openlineage.commonDatasetEnv` (OpenLineage endpoint)
+
+A value that isn't shaped like an environment name at all, such as one containing `-`, is still
+ignored as before and falls back to the default.
+
 ### Rest.li status codes for rejected writes
 
 When a validator rejects a Rest.li request that was previously answered with HTTP 500, such as

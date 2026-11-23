@@ -1,8 +1,10 @@
 package com.linkedin.common;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import java.util.Optional;
 import org.testng.annotations.Test;
 
 public class FabricTypeNamesTest {
@@ -28,6 +30,16 @@ public class FabricTypeNamesTest {
     assertFalse(FabricTypeNames.isWellFormed("2ENV"));
     assertFalse(FabricTypeNames.isWellFormed("A".repeat(65)));
     assertFalse(FabricTypeNames.isWellFormed(""));
+  }
+
+  @Test
+  public void testCanonicalConfigValues() {
+    assertEquals(FabricTypeNames.canonical("prod"), Optional.of("PROD"));
+    assertEquals(FabricTypeNames.canonical(" Dev "), Optional.of("DEV"));
+    assertEquals(FabricTypeNames.canonical("my_env"), Optional.of("MY_ENV"));
+    assertEquals(FabricTypeNames.canonical("my-env"), Optional.empty());
+    assertEquals(FabricTypeNames.canonical(""), Optional.empty());
+    assertEquals(FabricTypeNames.canonical(null), Optional.empty());
   }
 
   @Test

@@ -50,7 +50,7 @@ public class ProtobufDataset {
   public static class Builder {
     private DataPlatformUrn dataPlatformUrn;
     private DatasetUrn datasetUrn;
-    private FabricType fabricType;
+    private String env;
     private AuditStamp auditStamp;
     private byte[] protocBytes;
     private String messageName;
@@ -91,7 +91,15 @@ public class ProtobufDataset {
     }
 
     public Builder setFabricType(FabricType fabricType) {
-      this.fabricType = fabricType;
+      this.env = fabricType == null ? null : fabricType.name();
+      return this;
+    }
+
+    /**
+     * @param env a FabricType value or the id of a registered customFabricType
+     */
+    public Builder setEnv(String env) {
+      this.env = env;
       return this;
     }
 
@@ -135,7 +143,7 @@ public class ProtobufDataset {
               new ProtobufGraph(fileSet, messageName, filename),
               schema,
               auditStamp,
-              fabricType)
+              env)
           .setMetadataChangeProposalVisitors(List.of(new TagVisitor()))
           .setFieldVisitor(new ProtobufExtensionFieldVisitor())
           .setDatasetVisitor(
@@ -186,6 +194,27 @@ public class ProtobufDataset {
       String schema,
       AuditStamp auditStamp,
       FabricType fabricType) {
+    this(
+        builder,
+        dataPlatformUrn,
+        datasetUrn,
+        graph,
+        schema,
+        auditStamp,
+        fabricType == null ? null : fabricType.name());
+  }
+
+  /**
+   * @param env a FabricType value or the id of a registered customFabricType
+   */
+  public ProtobufDataset(
+      ProtobufDataset.Builder builder,
+      DataPlatformUrn dataPlatformUrn,
+      DatasetUrn datasetUrn,
+      ProtobufGraph graph,
+      String schema,
+      AuditStamp auditStamp,
+      String env) {
     this.builder = builder;
     this.schemaSource = Optional.ofNullable(schema);
     this.auditStamp = auditStamp;
@@ -199,7 +228,7 @@ public class ProtobufDataset {
     this.datasetUrn =
         datasetUrn != null
             ? datasetUrn
-            : new DatasetUrn(dataPlatformUrn, this.graph.getFullName(), fabricType);
+            : new DatasetUrn(dataPlatformUrn, this.graph.getFullName(), env);
     this.contextBuilder =
         VisitContext.builder().datasetUrn(this.datasetUrn).auditStamp(this.auditStamp);
   }

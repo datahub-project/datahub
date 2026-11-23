@@ -276,7 +276,7 @@ public class OpenLineageToDataHub {
           connectionDetail != null);
     }
     String platformInstance = getPlatformInstance(mappingConfig, platform, connectionDetail);
-    FabricType env = getEnv(mappingConfig, platform, connectionDetail);
+    String env = getEnv(mappingConfig, platform, connectionDetail);
     DatasetUrn urn = DatahubUtils.createDatasetUrn(platform, platformInstance, datasetName, env);
     return Optional.of(urn);
   }
@@ -312,28 +312,29 @@ public class OpenLineageToDataHub {
     return null;
   }
 
-  private static FabricType getEnv(
+  /** A FabricType value or a registered custom environment. */
+  private static String getEnv(
       DatahubOpenlineageConfig mappingConfig, String platform, ConnectionInstanceDetail detail) {
-    FabricType fabricType = mappingConfig.getFabricType();
-    if (detail != null && detail.getEnv().isPresent()) {
-      // env is validated to a FabricType at config-load time, so it is used directly here.
-      return detail.getEnv().get();
+    if (detail != null && detail.getEnvName().isPresent()) {
+      // env is validated at config-load time, so it is used directly here.
+      return detail.getEnvName().get();
     }
     if (mappingConfig.getPathSpecs() != null
         && mappingConfig.getPathSpecs().containsKey(platform)) {
       List<PathSpec> pathSpecs = mappingConfig.getPathSpecs().get(platform);
       for (PathSpec pathSpec : pathSpecs) {
         if (pathSpec.getEnv().isPresent()) {
+          // Built-in values only, as before: an unknown value is ignored rather than used as a
+          // custom env, so a misconfigured path spec keeps falling back to the job env.
           try {
-            fabricType = FabricType.valueOf(pathSpec.getEnv().get());
-            return fabricType;
+            return FabricType.valueOf(pathSpec.getEnv().get()).name();
           } catch (IllegalArgumentException e) {
             log.warn("Invalid environment value: {}", pathSpec.getEnv().get());
           }
         }
       }
     }
-    return fabricType;
+    return mappingConfig.getEnv();
   }
 
   private static String getPlatformInstance(

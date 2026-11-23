@@ -4,7 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.iceberg.catalog.Utils.*;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.linkedin.common.FabricType;
+import com.linkedin.common.FabricTypeNames;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
@@ -309,7 +309,7 @@ public class DataHubIcebergWarehouse {
   public DatasetUrn createDataset(
       TableIdentifier tableIdentifier, boolean view, IcebergBatch icebergBatch) {
     String datasetName = platformInstance + "." + UUID.randomUUID();
-    DatasetUrn datasetUrn = new DatasetUrn(platformUrn(), datasetName, fabricType());
+    DatasetUrn datasetUrn = new DatasetUrn(platformUrn(), datasetName, env());
 
     createResource(datasetUrn, tableIdentifier, view, icebergBatch);
 
@@ -419,8 +419,12 @@ public class DataHubIcebergWarehouse {
         resourceInfo);
   }
 
-  private FabricType fabricType() {
-    return icebergWarehouse.getEnv();
+  /**
+   * The warehouse env as stored: a FabricType value or a registered custom environment. The typed
+   * getEnv() reads a custom env as $UNKNOWN, which must never reach a dataset URN.
+   */
+  private String env() {
+    return FabricTypeNames.get(icebergWarehouse, "env");
   }
 
   @SneakyThrows

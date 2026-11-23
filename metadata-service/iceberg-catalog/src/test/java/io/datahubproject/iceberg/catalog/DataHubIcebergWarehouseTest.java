@@ -695,6 +695,27 @@ public class DataHubIcebergWarehouseTest {
     verify(entityService).ingestProposal(same(operationContext), same(mockAspectsBatch), eq(false));
   }
 
+  /** A custom env is stored as a string; the typed getter would read it as $UNKNOWN. */
+  @Test
+  public void testCreateDatasetUsesCustomEnv() throws Exception {
+    IcebergWarehouseInfo info = new IcebergWarehouseInfo();
+    com.linkedin.common.FabricTypeNames.set(info, "env", "MY_ENV");
+    DataHubIcebergWarehouse warehouse =
+        new DataHubIcebergWarehouse(
+            "test-platform",
+            info,
+            entityService,
+            secretService,
+            cacheEvictionService,
+            operationContext);
+
+    DatasetUrn result =
+        warehouse.createDataset(TableIdentifier.of("db", "table"), false, mock(IcebergBatch.class));
+
+    assertEquals(result.getEnv(), "MY_ENV");
+    assertTrue(result.toString().endsWith(",MY_ENV)"));
+  }
+
   @Test
   public void testCreateDataset() throws Exception {
     String platformInstance = "test-platform";
