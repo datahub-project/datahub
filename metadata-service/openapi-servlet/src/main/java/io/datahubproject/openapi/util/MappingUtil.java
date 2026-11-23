@@ -19,6 +19,7 @@ import com.linkedin.data.ByteString;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
@@ -471,8 +472,11 @@ public class MappingUtil {
       String actorUrn,
       EntityService<ChangeItemImpl> entityService,
       boolean async) {
-    return ingestBatchProposal(opContext, List.of(serviceProposal), actorUrn, entityService, async)
-        .get(0);
+    List<Pair<String, Boolean>> results =
+        ingestBatchProposal(opContext, List.of(serviceProposal), actorUrn, entityService, async);
+    return results.isEmpty()
+        ? Pair.of(String.valueOf(serviceProposal.getEntityUrn()), false)
+        : results.get(0);
   }
 
   public static List<Pair<String, Boolean>> ingestBatchProposal(
@@ -591,6 +595,9 @@ public class MappingUtil {
     }
     if (metadataChangeProposal.getAspectName() != null) {
       serviceProposal.setAspectName(metadataChangeProposal.getAspectName());
+    }
+    if (metadataChangeProposal.getHeaders() != null) {
+      serviceProposal.setHeaders(new StringMap(metadataChangeProposal.getHeaders()));
     }
 
     if (auditHeader != null) {

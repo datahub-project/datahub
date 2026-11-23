@@ -235,9 +235,10 @@ dropped, because existence is checked against the entity as it was before the ba
 The header has no effect on timeseries aspects, such as `datasetProfile`. Writing one still creates the entity if it
 doesn't exist.
 
-With the default locking, the existence check locks the entity's key aspect inside the write transaction, so a
-concurrent hard delete can't land between the check and the write. With `OPTIMISTIC_LOCKING_ENABLED=true` the check
-takes no lock, so a hard delete that commits between the check and the write can still leave the written aspect behind.
+On SQL storage with the default locking, the existence check locks the entity's key aspect inside the write
+transaction, so a concurrent hard delete can't land between the check and the write. With
+`OPTIMISTIC_LOCKING_ENABLED=true`, or on Cassandra, the check takes no lock and is best effort: a hard delete that
+commits between the check and the write can still leave the written aspect behind.
 
 ### Synchronous ElasticSearch Updates
 

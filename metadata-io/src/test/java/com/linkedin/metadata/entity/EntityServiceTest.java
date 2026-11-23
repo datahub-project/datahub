@@ -3400,6 +3400,29 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME));
   }
 
+  @Test
+  public void testIfEntityExistsDropsWriteWhenTimeseriesWriteCreatesEntity() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,ifEntityExistsTimeseries,PROD)");
+    ChangeItemImpl profileUpsert =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(DATASET_PROFILE_ASPECT_NAME)
+            .recordTemplate(new DatasetProfile().setTimestampMillis(0L).setRowCount(1L))
+            .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(opContext.getAspectRetriever());
+
+    _entityServiceImpl.ingestProposal(
+        opContext, batchOf(ifEntityExistsTagPatch(entityUrn), profileUpsert), false);
+
+    assertTrue(_entityServiceImpl.exists(opContext, entityUrn, true));
+    assertNull(
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME));
+  }
+
   private AspectsBatchImpl batchOf(BatchItem... items) {
     return AspectsBatchImpl.builder()
         .retrieverContext(opContext.getRetrieverContext())

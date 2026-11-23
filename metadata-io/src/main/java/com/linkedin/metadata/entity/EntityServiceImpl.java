@@ -2532,12 +2532,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         log.warn("MCP observer call site failed; ingest continuing", t);
       }
     }
+    final AspectsBatch batch =
+        DefaultAspectsUtil.withoutGuardedWritesToEntitiesCreatedByTimeseries(
+            opContext, aspectsBatch, this);
     Stream<IngestResult> timeseriesIngestResults =
-        ingestTimeseriesProposal(opContext, aspectsBatch, async);
+        ingestTimeseriesProposal(opContext, batch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =
-        async
-            ? ingestProposalAsync(opContext, aspectsBatch)
-            : ingestProposalSync(opContext, aspectsBatch);
+        async ? ingestProposalAsync(opContext, batch) : ingestProposalSync(opContext, batch);
 
     return Stream.concat(nonTimeseriesIngestResults, timeseriesIngestResults)
         .collect(Collectors.toList());

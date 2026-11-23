@@ -137,6 +137,49 @@ public class DefaultAspectsUtil {
         .buildWithoutValidation();
   }
 
+  /**
+   * Timeseries writes create their entity before the rest of the batch is applied, so guarded
+   * writes to the same entity are checked here, against the entity as it was before the batch.
+   */
+  public static AspectsBatch withoutGuardedWritesToEntitiesCreatedByTimeseries(
+      @Nonnull OperationContext opContext,
+      @Nonnull AspectsBatch batch,
+      @Nonnull EntityService<?> entityService) {
+    final Set<Urn> timeseriesUrns =
+        batch.getMCPItems().stream()
+            .filter(DefaultAspectsUtil::isTimeseries)
+            .map(BatchItem::getUrn)
+            .collect(Collectors.toSet());
+    final Set<Urn> guardedUrns =
+        batch.getMCPItems().stream()
+            .filter(item -> !isTimeseries(item) && requiresExistingEntity(item))
+            .map(BatchItem::getUrn)
+            .filter(timeseriesUrns::contains)
+            .collect(Collectors.toSet());
+    if (guardedUrns.isEmpty()) {
+      return batch;
+    }
+    // forUpdate routes the read to the primary, so replica lag can't drop a write.
+    final Set<Urn> existingUrns = entityService.exists(opContext, guardedUrns, true, true);
+    return AspectsBatchImpl.builder()
+        .retrieverContext(batch.getRetrieverContext())
+        .items(
+            batch.getItems().stream()
+                .filter(
+                    item ->
+                        !(item instanceof MCPItem mcpItem
+                            && !isTimeseries(mcpItem)
+                            && requiresExistingEntity(mcpItem)
+                            && guardedUrns.contains(mcpItem.getUrn())
+                            && !existingUrns.contains(mcpItem.getUrn())))
+                .toList())
+        .buildWithoutValidation();
+  }
+
+  private static boolean isTimeseries(@Nonnull MCPItem item) {
+    return item.getAspectSpec() != null && item.getAspectSpec().isTimeseries();
+  }
+
   private static boolean requiresExistingEntity(@Nonnull MCPItem item) {
     return item.getHeader(Constants.IF_ENTITY_EXISTS_HEADER_NAME)
         .map(Boolean::parseBoolean)
