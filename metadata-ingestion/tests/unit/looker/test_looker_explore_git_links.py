@@ -60,9 +60,11 @@ def with_graph(
     return source
 
 
-def link(url: str, stamp: AuditStampClass) -> InstitutionalMemoryMetadataClass:
+def link(
+    url: str, stamp: AuditStampClass, label: str = LABEL
+) -> InstitutionalMemoryMetadataClass:
     return InstitutionalMemoryMetadataClass(
-        url=url, description=LABEL, createStamp=stamp
+        url=url, description=label, createStamp=stamp
     )
 
 
@@ -214,12 +216,27 @@ def test_file_path_is_url_encoded_in_link(looker_source_factory: SourceFactory) 
     )
 
 
-def test_hand_made_link_with_same_label_is_left_untouched(
+def test_any_link_with_the_label_is_managed(
+    looker_source_factory: SourceFactory,
+) -> None:
+    """The label alone marks a link as managed, so a hand-made one at another URL is replaced."""
+    source = with_graph(
+        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True),
+        link(OLD_URL, USER_STAMP),
+    )
+    patch = link_patches(source)[0]
+    assert ops(patch) == [
+        ("remove", path_for(OLD_URL)),
+        ("add", path_for(ORDERS_URL)),
+    ]
+
+
+def test_link_with_another_label_is_left_alone(
     looker_source_factory: SourceFactory,
 ) -> None:
     source = with_graph(
         looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True),
-        link(OLD_URL, USER_STAMP),
+        link(ORDERS_URL, USER_STAMP, label="Docs"),
     )
     patch = link_patches(source)[0]
     assert ops(patch) == [("add", path_for(ORDERS_URL))]

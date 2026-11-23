@@ -982,23 +982,15 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         if git_ref is None:
             return []
         url = git_ref.get_url_for_file_path(quote(path, safe="/"))
-        # Empty without a DataHub connection: add only, stale links stay.
-        existing = self._existing_git_links(explore_urn)
-        # The fixed stamp marks a link as ingestion-written; links added by hand get a real time.
-        stale_urls = {
-            link.url
-            for link in existing
-            if link.createStamp.time == 0
-            and link.createStamp.actor == DEFAULT_ACTOR_URN
-            and link.url != url
-        }
+        # Every link with the label is managed here. Empty without a DataHub
+        # connection: add only, stale links stay.
+        existing_urls = {link.url for link in self._existing_git_links(explore_urn)}
         patch = HasInstitutionalMemoryPatch(explore_urn)
-        for stale_url in sorted(stale_urls):
+        for stale_url in sorted(existing_urls - {url}):
             patch.remove_institutional_memory_by_url_and_label(
                 stale_url, EXPLORE_GIT_LINK_LABEL
             )
-        # Any link already at this url and label is left as is, including one added by hand.
-        if all(link.url != url for link in existing):
+        if url not in existing_urls:
             patch.add_institutional_memory_by_url_and_label(
                 InstitutionalMemoryMetadataClass(
                     url=url,

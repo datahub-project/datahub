@@ -19,6 +19,8 @@ VIEW_FIELD_TYPE_ATTRIBUTE = "type"
 VIEW_FIELD_INTERVALS_ATTRIBUTE = "intervals"
 VIEW_FIELD_TIMEFRAMES_ATTRIBUTE = "timeframes"
 
+# Identifies the links the looker source manages on Explores: links with this label are
+# replaced or removed on each run, so changing it would orphan links already written.
 EXPLORE_GIT_LINK_LABEL = "View in Git"
 # Looker's default when a project has no production branch configured.
 LOOKER_DEFAULT_GIT_BRANCH = "master"
