@@ -1,6 +1,7 @@
 import json
 import logging
 import ssl
+import threading
 import time
 from contextlib import contextmanager
 from typing import Callable, Dict, Iterator, List, Literal, Optional, Set, Union
@@ -31,6 +32,32 @@ _TRANSIENT_CONNECT_ERRORS = (
     WebSocketTimeoutException,
     WebSocketConnectionClosedException,
 )
+# A refused connection means nothing listens on the Engine port, as while the
+# Engine service restarts, which takes minutes rather than seconds.
+REFUSED_RETRY_SECONDS = 15.0
+REFUSED_BUDGET_SECONDS = 300.0
+
+
+class RefusedConnectionBudget:
+    """How long connections to one Engine are retried while it refuses them.
+    It is shared by all workers and counts from the first refusal, so an Engine
+    that stays down fails each app read at once instead of after its own wait."""
+
+    def __init__(self, seconds: float = REFUSED_BUDGET_SECONDS) -> None:
+        self._seconds = seconds
+        self._lock = threading.Lock()
+        self._refused_since: Optional[float] = None
+
+    def allows_retry(self) -> bool:
+        with self._lock:
+            now = time.monotonic()
+            if self._refused_since is None:
+                self._refused_since = now
+            return now - self._refused_since < self._seconds
+
+    def connected(self) -> None:
+        with self._lock:
+            self._refused_since = None
 
 
 class EngineError(RuntimeError):
@@ -51,12 +78,13 @@ class WebsocketConnection:
         match_response_id: bool = False,
         sslopt: Optional[Dict[str, object]] = None,
         timeout: Optional[float] = None,
+        refusals: Optional[RefusedConnectionBudget] = None,
     ) -> None:
         self._match_response_id = match_response_id
         # Applies to the handshake and to each receive.
         self._timeout = timeout
         self.socket_connection: Optional[WebSocket] = self._connect(
-            url, header, sslopt or {}, timeout
+            url, header, sslopt or {}, timeout, refusals
         )
         self.request_id = 0
         # Engine object handles, innermost last; -1 is the global handle.
@@ -68,6 +96,7 @@ class WebsocketConnection:
         header: Dict[str, str],
         sslopt: Dict[str, object],
         timeout: Optional[float],
+        refusals: Optional[RefusedConnectionBudget],
     ) -> WebSocket:
         def connect() -> WebSocket:
             return create_connection(
@@ -81,16 +110,31 @@ class WebsocketConnection:
                 timeout=timeout,
             )
 
-        for attempt in range(1, CONNECT_ATTEMPTS):
+        attempt = 1
+        while True:
             try:
-                return connect()
+                connection = connect()
             except _TRANSIENT_CONNECT_ERRORS as e:
+                if isinstance(e, ConnectionRefusedError) and refusals is not None:
+                    if not refusals.allows_retry():
+                        raise
+                    logger.info(
+                        f"Engine at {url} refused the connection, retrying: {e}"
+                    )
+                    time.sleep(REFUSED_RETRY_SECONDS)
+                    continue
+                if attempt >= CONNECT_ATTEMPTS:
+                    raise
                 logger.info(
                     f"Retrying Engine connection to {url} after attempt "
                     f"{attempt} failed: {e}"
                 )
                 time.sleep(CONNECT_RETRY_SECONDS * attempt)
-        return connect()
+                attempt += 1
+                continue
+            if refusals is not None:
+                refusals.connected()
+            return connection
 
     @classmethod
     def for_cloud(
@@ -124,6 +168,7 @@ class WebsocketConnection:
         assert_hostname: Union[str, Literal[False], None] = None,
         key_password: Optional[str] = None,
         timeout: Optional[float] = None,
+        refusals: Optional[RefusedConnectionBudget] = None,
     ) -> "WebsocketConnection":
         # Direct Engine access. Certificate auth does not go through the proxy,
         # and the engine interleaves JSON-RPC replies with push notifications.
@@ -145,6 +190,7 @@ class WebsocketConnection:
             match_response_id=True,
             sslopt=sslopt,
             timeout=timeout,
+            refusals=refusals,
         )
 
     @property

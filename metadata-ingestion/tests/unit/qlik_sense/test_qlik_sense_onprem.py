@@ -30,7 +30,9 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     infer_data_connection,
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import (
+    REFUSED_RETRY_SECONDS,
     EngineError,
+    RefusedConnectionBudget,
     WebsocketConnection,
 )
 from datahub.metadata.schema_classes import (
@@ -1673,6 +1675,52 @@ def test_cloud_app_read_failure_closes_engine_session(
     )
     websocket.close_websocket.assert_called_once()
     assert api.unread_items == [UnreadItem(name="app-1", cause="Access denied")]
+
+
+def _open_onprem_engine(refusals: RefusedConnectionBudget) -> WebsocketConnection:
+    return WebsocketConnection.for_on_prem(
+        host="qlik.example.com",
+        port=4747,
+        app_id="app-1",
+        user_header="UserDirectory=INTERNAL; UserId=sa_engine",
+        client_cert="/secrets/client.pem",
+        client_key="/secrets/client_key.pem",
+        root_cert="/secrets/root.pem",
+        refusals=refusals,
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.sleep")
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refused_engine_connection_waits_for_the_engine(
+    mock_connect: MagicMock, mock_sleep: MagicMock
+) -> None:
+    # More refusals than transient errors are retried, as an Engine restart takes.
+    mock_connect.side_effect = [ConnectionRefusedError()] * 5 + [MagicMock()]
+    refusals = RefusedConnectionBudget()
+
+    _open_onprem_engine(refusals)
+
+    assert mock_connect.call_count == 6
+    assert {call.args for call in mock_sleep.call_args_list} == {
+        (REFUSED_RETRY_SECONDS,)
+    }
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.sleep")
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refused_engine_connection_fails_at_once_after_the_budget(
+    mock_connect: MagicMock, mock_sleep: MagicMock
+) -> None:
+    mock_connect.side_effect = ConnectionRefusedError()
+    # Other workers have already waited out the budget.
+    spent = RefusedConnectionBudget(seconds=0)
+
+    with pytest.raises(ConnectionRefusedError):
+        _open_onprem_engine(spent)
+
+    assert mock_connect.call_count == 1
+    mock_sleep.assert_not_called()
 
 
 @patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
