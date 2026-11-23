@@ -4,9 +4,11 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_SETTINGS_ASPEC
 
 import com.datahub.context.OperationFingerprint;
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
@@ -35,9 +37,11 @@ public class HidePropertyValidator extends AspectPayloadValidator {
       OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
+    // A PATCH has no merged aspect yet; it is checked at pre-commit.
     return validateSettingsUpserts(
         mcpItems.stream()
             .filter(i -> STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME.equals(i.getAspectName()))
+            .filter(i -> !ChangeType.PATCH.equals(i.getChangeType()))
             .collect(Collectors.toList()));
   }
 
@@ -46,7 +50,18 @@ public class HidePropertyValidator extends AspectPayloadValidator {
       OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
+    // Settings that were already invalid are not reported, so they don't block unrelated patches.
+    return validateSettingsUpserts(
+        changeMCPs.stream()
+            .filter(PatchOperationUtils::isAppliedPatch)
+            .filter(
+                item -> {
+                  StructuredPropertySettings before =
+                      item.getPreviousAspect(StructuredPropertySettings.class);
+                  return before == null
+                      || StructuredPropertyUtils.validatePropertySettings(before, false);
+                })
+            .collect(Collectors.toList()));
   }
 
   @VisibleForTesting
