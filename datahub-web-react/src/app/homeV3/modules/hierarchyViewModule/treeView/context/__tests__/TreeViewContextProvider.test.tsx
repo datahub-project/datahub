@@ -1,10 +1,11 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import TreeViewContextProvider from '@app/homeV3/modules/hierarchyViewModule/treeView/context/TreeViewContextProvider';
 import useTreeViewContext from '@app/homeV3/modules/hierarchyViewModule/treeView/context/useTreeViewContext';
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 
@@ -20,15 +21,20 @@ function asyncNode(overrides: Partial<TreeNode> = {}): TreeNode {
 
 function renderTreeContext(initialNode: TreeNode) {
     const loadChildren = vi.fn();
+    // renderHook doesn't pass props to the wrapper, so the wrapper reads nodes from this closure.
+    let nodes = [initialNode];
     const hook = renderHook(() => useTreeViewContext(), {
-        initialProps: { nodes: [initialNode] },
-        wrapper: ({ children, nodes }: React.PropsWithChildren<{ nodes: TreeNode[] }>) => (
+        wrapper: ({ children }: { children?: React.ReactNode }) => (
             <TreeViewContextProvider nodes={nodes} loadChildren={loadChildren}>
                 {children}
             </TreeViewContextProvider>
         ),
     });
-    return { ...hook, loadChildren };
+    const rerender = (props: { nodes: TreeNode[] }) => {
+        nodes = props.nodes;
+        hook.rerender();
+    };
+    return { ...hook, rerender, loadChildren };
 }
 
 describe('TreeViewContextProvider getIsExpandable', () => {

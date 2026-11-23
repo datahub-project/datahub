@@ -35,7 +35,7 @@ export class ViewSelectPage extends BasePage {
     this.conditionSelect = page.getByTestId('condition-select');
     this.conditionOperatorSelect = page.getByTestId('condition-operator-select');
     this.entitySearchInput = page.getByTestId('entity-search-input');
-    this.dropdownSearchInput = page.getByTestId('dropdown-search-input');
+    this.dropdownSearchInput = page.getByTestId('dropdown-search-input').filter({ visible: true });
     this.footerButtonUpdate = page.getByTestId('footer-button-update');
     this.viewBuilderSave = page.getByTestId('view-builder-save');
     this.resultsContainer = page.getByTestId('browse-v2-results');
@@ -211,15 +211,11 @@ export class ViewSelectPage extends BasePage {
   async openViewDropdown(viewName: string): Promise<void> {
     await this.viewsButton.click();
     await this.waitForPopoverOpen();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
 
     const selectedViewItem = this.getSelectedViewItem(viewName);
     await selectedViewItem.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
 
     await selectedViewItem.hover();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
 
     const dropdownTrigger = this.getViewDropdownTrigger(selectedViewItem);
     await dropdownTrigger.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });

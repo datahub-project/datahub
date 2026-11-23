@@ -33,6 +33,10 @@ DEFAULT_TEST_WEIGHT = 1.0
 # default (or a historical duration) and inflate a batch.
 SKIPPED_TEST_WEIGHT_SECONDS = 0.01
 
+# Predicted pytest wall clock CI aims for per batch when sizing a smart-selected
+# matrix (size_batches). Excludes the ~7 min of stack start-up every batch pays.
+TARGET_BATCH_WALL_SECONDS = 8 * 60
+
 
 @dataclass(frozen=True)
 class ModuleShard:
@@ -297,6 +301,59 @@ def plan_collected_items(
         missing_weight_ids=missing_weight_ids,
         default_weight=default_weight,
     )
+
+
+def max_predicted_wall(packed: PackedSuite) -> float:
+    return max((plan.predicted_wall for plan in packed.plans), default=0.0)
+
+
+def size_batches(
+    items: Sequence[Any],
+    max_batches: int,
+    xdist_workers: int,
+    target_wall: float = TARGET_BATCH_WALL_SECONDS,
+    test_weights: dict[str, float] | None = None,
+) -> PackedSuite:
+    """Pack ``items`` into the fewest batches whose long pole is <= the target.
+
+    The target is ``target_wall``, raised to the slowest single scope when one
+    scope alone exceeds it: a loadscope never splits across workers, so past
+    that point more batches only add stack start-up cost. Never more batches
+    than scopes (an extra batch would be empty) nor than ``max_batches``; when
+    nothing meets the target, use the most allowed.
+    """
+    if test_weights is None:
+        test_weights = load_pytest_test_weights()
+    scope_count = len({loadscope_key(item.nodeid) for item in items})
+    limit = min(max_batches, scope_count)
+    if limit < 1:
+        return PackedSuite(
+            plans=[],
+            items_by_scope={},
+            shards=[],
+            missing_weight_ids=[],
+            default_weight=compute_default_test_weight(test_weights),
+        )
+    packed = plan_collected_items(items, 1, xdist_workers, test_weights)
+    target = max(target_wall, slowest_scope_seconds(packed))
+    # ponytail: linear scan re-packs per n; packing is ~ms, n <= 20.
+    for n in range(1, limit + 1):
+        if n > 1:
+            packed = plan_collected_items(items, n, xdist_workers, test_weights)
+        if max_predicted_wall(packed) <= target:
+            return packed
+    return packed
+
+
+def slowest_scope_seconds(packed: PackedSuite) -> float:
+    """Wall-clock floor: a scope runs on one worker, so it cannot be split."""
+    return max((shard.total_seconds for shard in packed.shards), default=0.0)
+
+
+def items_for_scopes(items: Sequence[Any], scopes: Sequence[str]) -> list[Any]:
+    """Items whose loadscope key is in ``scopes``: one batch of a precomputed plan."""
+    wanted = set(scopes)
+    return [item for item in items if loadscope_key(item.nodeid) in wanted]
 
 
 def items_for_batch(packed: PackedSuite, batch_number: int) -> list[Any]:

@@ -1,15 +1,26 @@
 import json
 import os
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Dict, Iterator
+from typing import Any, Callable, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, patch
 
+import google.auth
 import pytest
+import requests
+from google.auth.credentials import AnonymousCredentials
+from google.cloud import bigquery
+from sqlalchemy import text
 
+from datahub.ingestion.source.bigquery_v2 import bigquery_connection
+from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryAuthType,
     BigQueryConnectionConfig,
 )
+from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 
 try:
     from datahub.ingestion.source.fivetran.config import BigQueryDestinationConfig
@@ -430,3 +441,227 @@ class TestFivetranBigQueryDestinationConfig:
             )
             assert config._credentials is not None
             mock_build.assert_not_called()  # SA path does not use build_credentials_from_wif_dict
+
+
+_JOB_REF = {"projectId": "my-project", "jobId": "job_1", "location": "US"}
+_QUERY_CONFIG = {"query": {"query": "select 1"}}
+_REPLIES: Dict[str, Dict[str, Any]] = {
+    "insert": {
+        "jobReference": _JOB_REF,
+        "status": {"state": "RUNNING"},
+        "configuration": _QUERY_CONFIG,
+    },
+    "jobs": {
+        "jobReference": _JOB_REF,
+        "status": {"state": "DONE"},
+        "configuration": _QUERY_CONFIG,
+    },
+    "queries": {
+        "jobReference": _JOB_REF,
+        "jobComplete": True,
+        "totalRows": "1",
+        "schema": {"fields": [{"name": "x", "type": "INTEGER"}]},
+        "rows": [{"f": [{"v": "1"}]}],
+    },
+    "tables": {"tables": []},
+    "projects": {"projects": []},
+}
+
+
+class _FakeBigQueryApi:
+    """Answers like the BigQuery REST API, except that the first request of kind
+    `lose` never gets a reply, as when the network drops it."""
+
+    def __init__(self, lose: str) -> None:
+        self.calls: List[str] = []
+        release = self._release = threading.Event()
+        calls = self.calls
+
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def _reply(self) -> None:
+                self.rfile.read(int(self.headers.get("Content-Length") or 0))
+                path = self.path.split("?")[0]
+                if self.command == "POST":
+                    kind = "insert"
+                elif path.endswith("/tables"):
+                    kind = "tables"
+                elif "/queries/" in path:
+                    kind = "queries"
+                elif "/jobs/" in path:
+                    kind = "jobs"
+                else:
+                    kind = "projects"
+                calls.append(kind)
+                if kind == lose and calls.count(kind) == 1:
+                    release.wait(30)
+                    self.close_connection = True
+                    return
+                body = json.dumps(_REPLIES[kind]).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            do_GET = do_POST = _reply
+
+            def log_message(self, format: str, *args: Any) -> None:
+                pass
+
+        self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self._server.daemon_threads = True
+        self.url = f"http://127.0.0.1:{self._server.server_port}"
+
+    def __enter__(self) -> "_FakeBigQueryApi":
+        threading.Thread(target=self._server.serve_forever, daemon=True).start()
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        self._release.set()
+        self._server.shutdown()
+        self._server.server_close()
+
+
+def _client(url: str) -> bigquery.Client:
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection.build_credentials_from_wif_dict",
+        return_value=(AnonymousCredentials(), None),
+    ):
+        config = BigQueryConnectionConfig(
+            auth_type="workload_identity_federation",
+            gcp_wif_configuration_json=_wif_dict(),
+            project_on_behalf="my-project",
+            extra_client_options={"client_options": {"api_endpoint": url}},
+        )
+    return config.get_bigquery_client()
+
+
+def _run_with_deadline(fn: Callable[[], Any], seconds: float = 15) -> Dict[str, Any]:
+    outcome: Dict[str, Any] = {}
+
+    def target() -> None:
+        try:
+            outcome["value"] = fn()
+        except Exception as e:
+            outcome["error"] = e
+
+    worker = threading.Thread(target=target, daemon=True)
+    worker.start()
+    worker.join(seconds)
+    assert not worker.is_alive(), "still waiting for a reply that will never come"
+    return outcome
+
+
+class TestBigQueryRequestTimeout:
+    @pytest.fixture(autouse=True)
+    def _short_default_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(bigquery_connection, "_DEFAULT_REQUEST_TIMEOUT_SEC", 1)
+
+    def test_lost_list_tables_reply_is_retried(self) -> None:
+        with _FakeBigQueryApi(lose="tables") as api:
+            client = _client(api.url)
+            outcome = _run_with_deadline(
+                lambda: list(client.list_tables("my-project.my_dataset"))
+            )
+        assert outcome == {"value": []}
+        assert api.calls == ["tables", "tables"]
+
+    def test_lost_query_results_reply_is_retried(self) -> None:
+        with _FakeBigQueryApi(lose="queries") as api:
+            client = _client(api.url)
+            outcome = _run_with_deadline(
+                lambda: [tuple(row.values()) for row in client.query("select 1")]
+            )
+        assert outcome == {"value": [(1,)]}
+        assert api.calls.count("queries") == 2
+
+    def test_explicit_timeout_is_kept(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(bigquery_connection, "_DEFAULT_REQUEST_TIMEOUT_SEC", 30)
+        with _FakeBigQueryApi(lose="projects") as api:
+            client = _client(api.url)
+            outcome = _run_with_deadline(
+                lambda: list(client.list_projects(timeout=0.5)), seconds=10
+            )
+        assert outcome == {"value": []}
+        assert api.calls == ["projects", "projects"]
+
+    @pytest.mark.parametrize("timeout,default", [(None, 1), (0.5, 30)])
+    def test_timeout_passed_by_position(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        timeout: Optional[float],
+        default: int,
+    ) -> None:
+        monkeypatch.setattr(
+            bigquery_connection, "_DEFAULT_REQUEST_TIMEOUT_SEC", default
+        )
+        with _FakeBigQueryApi(lose="projects") as api:
+            session = _client(api.url)._http
+            # AuthorizedSession.request(method, url, data, headers, max_allowed_time, timeout)
+            outcome = _run_with_deadline(
+                lambda: session.request(
+                    "GET", f"{api.url}/projects", None, None, None, timeout
+                ),
+                seconds=10,
+            )
+        assert isinstance(outcome["error"], requests.exceptions.Timeout)
+
+    def test_profiler_without_credential_retries_lost_reply(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            google.auth,
+            "default",
+            lambda *args, **kwargs: (AnonymousCredentials(), "my-project"),
+        )
+        with _FakeBigQueryApi(lose="insert") as api:
+            monkeypatch.setenv("BIGQUERY_EMULATOR_HOST", api.url)
+            config = BigQueryV2Config.model_validate(
+                {"project_on_behalf": "my-project"}
+            )
+            engine = (
+                BigqueryProfiler(config=config, report=BigQueryV2Report())
+                .get_profiler_instance("my-project")
+                .base_engine
+            )
+
+            def select_one() -> List[Any]:
+                with engine.connect() as conn:
+                    return [tuple(row) for row in conn.execute(text("select 1"))]
+
+            outcome = _run_with_deadline(select_one)
+        assert outcome == {"value": [(1,)]}
+        assert api.calls.count("insert") == 2
+
+    @pytest.mark.skipif(
+        BigQueryDestinationConfig is None, reason="fivetran extra not installed"
+    )
+    def test_fivetran_reader_without_credential_retries_lost_reply(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from datahub.ingestion.source.fivetran.config import (
+            FivetranLogConfig,
+            FivetranSourceReport,
+        )
+        from datahub.ingestion.source.fivetran.fivetran_log_db_reader import (
+            FivetranLogDbReader,
+        )
+
+        monkeypatch.setattr(
+            google.auth,
+            "default",
+            lambda *args, **kwargs: (AnonymousCredentials(), "my-project"),
+        )
+        with _FakeBigQueryApi(lose="insert") as api:
+            monkeypatch.setenv("BIGQUERY_EMULATOR_HOST", api.url)
+            config = FivetranLogConfig(
+                destination_platform="bigquery",
+                bigquery_destination_config={"dataset": "my_log_dataset"},
+            )
+            outcome = _run_with_deadline(
+                lambda: FivetranLogDbReader(config, FivetranSourceReport())
+            )
+        assert "error" not in outcome
+        assert api.calls.count("insert") == 2

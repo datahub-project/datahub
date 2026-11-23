@@ -14,6 +14,7 @@ import com.linkedin.common.Edge;
 import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetProperties;
@@ -25,6 +26,7 @@ import com.linkedin.metadata.Constants;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -41,6 +43,28 @@ public class DatasetMapperTest {
       Urn.createFromTuple(Constants.DATASET_ENTITY_NAME, "parent");
   private static final Urn TEST_ACTOR_URN =
       Urn.createFromTuple(Constants.CORP_USER_ENTITY_NAME, "actor");
+
+  @Test
+  public void testEditablePrimaryKeysMapped() {
+    final com.linkedin.dataset.EditablePrimaryKeys input =
+        new com.linkedin.dataset.EditablePrimaryKeys()
+            .setPrimaryKeys(new StringArray(List.of("col_a", "col_b")));
+    final EntityResponse response =
+        new EntityResponse()
+            .setEntityName(Constants.DATASET_ENTITY_NAME)
+            .setUrn(TEST_DATASET_URN)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    Map.of(
+                        Constants.EDITABLE_PRIMARY_KEYS_ASPECT_NAME,
+                        new com.linkedin.entity.EnvelopedAspect()
+                            .setValue(new Aspect(input.data())))));
+
+    final Dataset actual = DatasetMapper.map(null, response);
+
+    Assert.assertEquals(
+        actual.getEditablePrimaryKeys().getPrimaryKeys(), List.of("col_a", "col_b"));
+  }
 
   @Test
   public void testDatasetPropertiesMapperWithCreatedAndLastModified() {

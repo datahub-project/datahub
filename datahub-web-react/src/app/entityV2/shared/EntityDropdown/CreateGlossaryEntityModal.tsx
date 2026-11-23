@@ -248,6 +248,9 @@ function CreateGlossaryEntityModal(props: Props) {
                     onClick: createGlossaryEntity,
                     variant: 'filled',
                     disabled: createButtonDisabled || !canCreateGlossaryEntity,
+                    tooltip: canCreateGlossaryEntity
+                        ? undefined
+                        : t('createGlossary.noCreatePermission', { entityName }),
                     buttonDataTestId: 'glossary-entity-modal-create-button',
                 },
             ]}

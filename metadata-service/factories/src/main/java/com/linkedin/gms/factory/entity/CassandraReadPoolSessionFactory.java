@@ -6,10 +6,8 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.CassandraConfiguration;
 import com.linkedin.metadata.config.ReadPoolConfiguration;
 import java.net.InetSocketAddress;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
@@ -51,9 +49,12 @@ public class CassandraReadPoolSessionFactory {
             : cassandra.getDatacenter();
 
     List<InetSocketAddress> addresses =
-        Arrays.stream(hosts.split(","))
-            .map(host -> new InetSocketAddress(host.trim(), port))
-            .collect(Collectors.toList());
+        CassandraContactPoints.parse(
+            hosts,
+            port,
+            StringUtils.hasText(readPool.getHosts())
+                ? "cassandra.readPool.hosts"
+                : "cassandra.hosts");
 
     CqlSessionBuilder csb =
         CqlSession.builder()

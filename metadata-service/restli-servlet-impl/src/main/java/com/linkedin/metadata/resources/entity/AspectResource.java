@@ -30,7 +30,6 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.resources.operations.Utils;
@@ -134,6 +133,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     this.entitySearchService = entitySearchService;
   }
 
+  @VisibleForTesting
+  void setTimeseriesAspectService(TimeseriesAspectService timeseriesAspectService) {
+    this.timeseriesAspectService = timeseriesAspectService;
+  }
+
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
    * TODO: Get rid of this and migrate to getAspect.
@@ -170,7 +174,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
           final VersionedAspect aspect =
               _entityService.getVersionedAspect(opContext, urn, aspectName, version);
           if (aspect == null) {
-              log.warn("Did not find urn: {} aspect: {} version: {}", urn, aspectName, version);
               throw RestliUtils.nonExceptionResourceNotFound();
           }
           if (aspectName != null
@@ -228,7 +231,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
           }
           if (latestValue) {
             response.setLimit(1);
-          } else {
+          } else if (limit != null) {
+            // The response field is a long, so an omitted limit would be unboxed into
+            // setLimit(long) and fail the request with an NPE. Omitting it means the server default.
             response.setLimit(limit);
           }
           List<EnvelopedAspect> values =
@@ -332,7 +337,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
     return RestliUtils.toTask(opContext, () -> {
       log.debug("Proposals: {}", metadataChangeProposals);
-      try {
         final AspectsBatch batch = AspectsBatchImpl.builder()
                 .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext(),
                     opContext.getValidationContext().isAlternateValidation(),
@@ -352,12 +356,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         List<IngestResult> results =
                 _entityService.ingestProposal(opContext, batch, asyncBool);
 
-            // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
-            return RESTLI_SUCCESS;
-          } catch (ValidationException e) {
-            throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
-          }
-        },
+        // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
+        return RESTLI_SUCCESS;
+      },
         MetricRegistry.name(this.getClass(), "ingestProposal"));
   }
 

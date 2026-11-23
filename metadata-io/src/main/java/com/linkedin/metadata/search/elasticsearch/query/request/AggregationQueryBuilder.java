@@ -4,8 +4,10 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.ESUtils.toParentField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -36,23 +38,21 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.filter.Filters;
-import org.opensearch.search.aggregations.bucket.filter.FiltersAggregator;
 import org.opensearch.search.aggregations.bucket.filter.ParsedFilters;
 import org.opensearch.search.aggregations.bucket.missing.ParsedMissing;
 import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
@@ -111,6 +111,13 @@ public class AggregationQueryBuilder {
       facetsToAggregate.addAll(defaultFacetFields);
     }
     facets.stream().filter(this::isValidAggregate).forEach(facetsToAggregate::add);
+    if (mergesEnvironmentFacets()
+        && (facetsToAggregate.contains(ESUtils.ORIGIN_FIELD)
+            || facetsToAggregate.contains(ESUtils.ENV_FIELD))) {
+      Stream.of(ESUtils.ORIGIN_FIELD, ESUtils.ENV_FIELD)
+          .filter(allFacetFields::contains)
+          .forEach(facetsToAggregate::add);
+    }
     return facetsToAggregate.stream()
         .map(f -> facetToAggregationBuilder(opContext, f))
         .collect(Collectors.toList());
@@ -160,9 +167,6 @@ public class AggregationQueryBuilder {
 
   private boolean isValidAggregate(final String inputFacet) {
     List<String> facets = List.of(inputFacet.split(AGGREGATION_SEPARATOR_CHAR));
-    if (facets.size() == 1 && unlabeledHasValuesSource(facets.get(0)).isPresent()) {
-      return true;
-    }
     boolean isValid =
         !facets.isEmpty()
             && ((facets.size() == 1
@@ -214,18 +218,12 @@ public class AggregationQueryBuilder {
                 "Unknown special type: " + specialTypeFields.get(0));
         }
       } else {
-        Optional<String> unlabeledSource = unlabeledHasValuesSource(facet);
-        if (unlabeledSource.isPresent()) {
-          String path = v3FieldResolver.exactPath(unlabeledSource.get(), Intent.FILTER);
-          aggBuilder = unlabeledHasValuesAggregation(inputFacet, path);
-        } else {
-          aggBuilder =
-              facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
-                  ? entityTypeAggregation(opContext, inputFacet, maxTermBuckets)
-                  : AggregationBuilders.terms(inputFacet)
-                      .field(getAggregationField(opContext, facet, opContext.getAspectRetriever()))
-                      .size(maxTermBuckets);
-        }
+        aggBuilder =
+            facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
+                ? entityTypeAggregation(opContext, inputFacet, maxTermBuckets)
+                : AggregationBuilders.terms(inputFacet)
+                    .field(getAggregationField(opContext, facet, opContext.getAspectRetriever()))
+                    .size(maxTermBuckets);
       }
       if (lastAggBuilder != null) {
         aggBuilder = aggBuilder.subAggregation(lastAggBuilder);
@@ -234,20 +232,6 @@ public class AggregationQueryBuilder {
     }
     // Logic to build nested facets
     return lastAggBuilder;
-  }
-
-  /**
-   * A removed {@code has*} boolean is not a terms field. True counts documents where the source
-   * exists, and false counts documents where it is missing.
-   */
-  @Nonnull
-  public static AggregationBuilder unlabeledHasValuesAggregation(
-      @Nonnull String name, @Nonnull String path) {
-    return AggregationBuilders.filters(
-        name,
-        new FiltersAggregator.KeyedFilter("true", QueryBuilders.existsQuery(path)),
-        new FiltersAggregator.KeyedFilter(
-            "false", QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery(path))));
   }
 
   /** V2 derives the entity type from the index name. Search V3 overrides this. */
@@ -308,23 +292,16 @@ public class AggregationQueryBuilder {
     return facetsFromAnnotation;
   }
 
-  /** Search V3 indexes a has* boolean only when the field has a searchLabel. V2 keeps every one. */
+  /**
+   * Search V3 indexes a shared has* boolean for a labeled field and a direct one for an unlabeled
+   * field, so every declared boolean is a terms facet, as in V2. A field V3 does not search has
+   * none.
+   */
   private boolean publishesHasValuesFacet(@Nonnull SearchableAnnotation annotation) {
     if (annotation.getHasValuesFieldName().isEmpty()) {
       return false;
     }
-    if (v3FieldResolver == null) {
-      return true;
-    }
-    return annotation.resolvedForV3().indexedFieldName().isPresent();
-  }
-
-  @Nonnull
-  private Optional<String> unlabeledHasValuesSource(@Nonnull String facet) {
-    if (v3FieldResolver == null) {
-      return Optional.empty();
-    }
-    return v3FieldResolver.unlabeledHasValuesSource(facet);
+    return v3FieldResolver == null || annotation.isV3Searchable();
   }
 
   private String computeDisplayName(String name) {
@@ -359,6 +336,9 @@ public class AggregationQueryBuilder {
       if (entry.getValue() instanceof ParsedMissing) {
         processMissingAggregations(entry, aggregationMetadataList);
       }
+    }
+    if (mergesEnvironmentFacets()) {
+      mergeAliasedFacets(aggregationMetadataList);
     }
     return addFiltersToAggregationMetadata(
         aggregationMetadataList, filter, opContext, aspectRetriever);
@@ -781,6 +761,61 @@ public class AggregationQueryBuilder {
     }
 
     return filtersToDisplayName;
+  }
+
+  /**
+   * Search V3 does not expand "origin"/"env" filters to each other (see ESUtils), so merged counts
+   * would include entities that selecting the value cannot return. Keep the facets separate there.
+   */
+  private boolean mergesEnvironmentFacets() {
+    return v3FieldResolver == null;
+  }
+
+  /**
+   * Both "env" and "origin" are shown as "Environment" and filters on either are expanded to both
+   * fields (see {@link ESUtils#FIELDS_TO_EXPANDED_FIELDS_LIST}), so both facets get the summed
+   * counts. "origin" is the facet the UI reads, so it is added whenever only "env" has values. No
+   * entity indexes both fields, so summing does not double count.
+   */
+  @VisibleForTesting
+  public static void mergeAliasedFacets(
+      @Nonnull List<AggregationMetadata> aggregationMetadataList) {
+    AggregationMetadata originFacet =
+        aggregationMetadataList.stream()
+            .filter(a -> ESUtils.ORIGIN_FIELD.equals(a.getName()))
+            .findFirst()
+            .orElse(null);
+    AggregationMetadata envFacet =
+        aggregationMetadataList.stream()
+            .filter(a -> ESUtils.ENV_FIELD.equals(a.getName()))
+            .findFirst()
+            .orElse(null);
+
+    if (envFacet == null) {
+      return;
+    }
+
+    final Map<String, Long> mergedCounts = new HashMap<>(envFacet.getAggregations());
+    if (originFacet == null) {
+      originFacet =
+          new AggregationMetadata()
+              .setName(ESUtils.ORIGIN_FIELD)
+              .setDisplayName(envFacet.getDisplayName(), SetMode.IGNORE_NULL);
+      aggregationMetadataList.add(originFacet);
+    } else {
+      originFacet
+          .getAggregations()
+          .forEach((value, count) -> mergedCounts.merge(value, count, Long::sum));
+    }
+    setAggregationCounts(originFacet, mergedCounts);
+    setAggregationCounts(envFacet, mergedCounts);
+  }
+
+  private static void setAggregationCounts(
+      @Nonnull AggregationMetadata facet, @Nonnull Map<String, Long> counts) {
+    facet.setAggregations(new LongMap(counts));
+    facet.setFilterValues(
+        new FilterValueArray(SearchUtil.convertToFilters(counts, Collections.emptySet())));
   }
 
   private void processMissingAggregations(

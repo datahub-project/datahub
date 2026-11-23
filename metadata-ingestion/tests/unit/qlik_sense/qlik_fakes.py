@@ -7,6 +7,8 @@ ON_PREM = {
     "client_cert": "/secrets/client.pem",
     "client_key": "/secrets/client_key.pem",
     "root_cert": "/secrets/root.pem",
+    # The Engine fakes don't model the data model read; it has its own test.
+    "read_data_model": False,
 }
 ONPREM_CONFIG = {"on_prem": ON_PREM}
 

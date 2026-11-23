@@ -32,11 +32,13 @@ import com.linkedin.mxe.Topics;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.ServerSocket;
+import java.io.UncheckedIOException;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.channels.ServerSocketChannel;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -56,8 +58,13 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.eclipse.jetty.server.Connector;
+import org.eclipse.jetty.server.ServerConnector;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.jetty.JettyServerCustomizer;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.test.context.ActiveProfiles;
@@ -69,6 +76,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.utility.DockerImageName;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 @Slf4j
@@ -79,7 +87,8 @@ import org.testng.annotations.Test;
     classes = {
       OpenAPISpringTestServer.class,
       OpenAPISpringTestServerConfiguration.class,
-      SchemaRegistryControllerTestConfiguration.class
+      SchemaRegistryControllerTestConfiguration.class,
+      SchemaRegistryControllerTest.ReservedPortJettyConfiguration.class
     })
 @EnableKafka
 @TestPropertySource(properties = {"kafka.consumer.stopOnDeserializationError=false"})
@@ -89,7 +98,14 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   @MockitoBean MetricUtils metricUtils;
 
   private static final String CONFLUENT_PLATFORM_VERSION = "8.2.2";
-  private static final int SERVER_PORT = allocateFreePort();
+
+  // The port must be known before the context starts (kafka.schemaRegistry.url is read when the
+  // serializer beans are created), but Jetty only binds once the context has refreshed, after
+  // the Kafka container has started. Bind the socket now and hand the bound channel to Jetty's
+  // connector, so nothing else can take the port in between.
+  private static final AtomicReference<ServerSocketChannel> RESERVED_CHANNEL =
+      new AtomicReference<>(reservePort());
+  private static final int SERVER_PORT = RESERVED_CHANNEL.get().socket().getLocalPort();
 
   // ConfluentKafkaContainer is KRaft-aware; the deprecated containers.KafkaContainer wait
   // still looks for classic [KafkaServer id=…] logs and fails on cp-kafka 8.x.
@@ -112,11 +128,52 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
         () -> "http://localhost:" + SERVER_PORT + "/schema-registry/api/");
   }
 
-  private static int allocateFreePort() {
-    try (ServerSocket socket = new ServerSocket(0)) {
-      return socket.getLocalPort();
+  private static ServerSocketChannel reservePort() {
+    try {
+      ServerSocketChannel channel = ServerSocketChannel.open();
+      channel.bind(new InetSocketAddress(0));
+      return channel;
     } catch (IOException e) {
-      throw new IllegalStateException("Failed to allocate free port for schema registry test", e);
+      throw new IllegalStateException("Failed to reserve a port for schema registry test", e);
+    }
+  }
+
+  /** Releases the port if the context failed before Jetty took the channel over. */
+  @AfterClass(alwaysRun = true)
+  public void releaseUnclaimedPort() throws IOException {
+    ServerSocketChannel channel = RESERVED_CHANNEL.getAndSet(null);
+    if (channel != null) {
+      channel.close();
+    }
+  }
+
+  /** Makes Jetty serve on the channel bound by {@link #reservePort()} instead of binding anew. */
+  @TestConfiguration
+  static class ReservedPortJettyConfiguration {
+    @Bean
+    JettyServerCustomizer reservedPortCustomizer() {
+      return server -> {
+        // Clear the reference only once Jetty owns the channel, so releaseUnclaimedPort() still
+        // closes it if the handoff fails.
+        ServerSocketChannel channel = RESERVED_CHANNEL.get();
+        if (channel == null) {
+          throw new IllegalStateException(
+              "Reserved port " + SERVER_PORT + " was already handed to a previous Jetty server");
+        }
+        for (Connector connector : server.getConnectors()) {
+          if (connector instanceof ServerConnector serverConnector
+              && serverConnector.getPort() == SERVER_PORT) {
+            try {
+              serverConnector.open(channel);
+            } catch (IOException e) {
+              throw new UncheckedIOException(e);
+            }
+            RESERVED_CHANNEL.compareAndSet(channel, null);
+            return;
+          }
+        }
+        throw new IllegalStateException("No Jetty connector configured for port " + SERVER_PORT);
+      };
     }
   }
 

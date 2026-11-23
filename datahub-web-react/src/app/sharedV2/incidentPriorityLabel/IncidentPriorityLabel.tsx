@@ -32,6 +32,13 @@ const Icons = Object.fromEntries(
     ]),
 );
 
+/** The priority's icon alone, for places that render their own label (e.g. table group headers). */
+export const IncidentPriorityIcon = ({ priority }: { priority: string }) => {
+    const iconSrc = priorityIcons[priority];
+    // 16px to match the phosphor icons it sits next to; the SVGs default to their 22px artboard.
+    return iconSrc ? <StyledImage src={iconSrc} alt={getCapitalizeWord(priority)} width={16} height={16} /> : null;
+};
+
 export const IncidentPriorityLabel = ({ priority, title: titleProp, style }: IncidentPriorityLabelProps) => {
     const title = titleProp ?? (priority ? getCapitalizeWord(priority) : priority);
     const { icon, type } = Icons[priority] || {};

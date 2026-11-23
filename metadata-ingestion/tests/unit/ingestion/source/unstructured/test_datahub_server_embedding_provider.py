@@ -447,10 +447,10 @@ def test_connector_capability_passes_graph_and_closes_only_owned(
 ):
     check: Callable[[Optional[DataHubGraph]], CapabilityReport]
     if source_name == "confluence":
-        from datahub.ingestion.source.confluence.confluence_config import (
+        from datahub.ingestion.source.confluence.config import (
             ConfluenceSourceConfig,
         )
-        from datahub.ingestion.source.confluence.confluence_source import (
+        from datahub.ingestion.source.confluence.source import (
             ConfluenceSource,
         )
 
