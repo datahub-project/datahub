@@ -24,6 +24,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import sqlalchemy as sa
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.catalog import TableType
 from databricks.sdk.service.sql import (
     ServiceError,
     StatementResponse,
@@ -39,6 +40,12 @@ from datahub.ingestion.source.unity.config import (
     UnityCatalogSourceConfig,
 )
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
+from datahub.ingestion.source.unity.proxy_types import (
+    Catalog,
+    CustomCatalogType,
+    Schema,
+    Table,
+)
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 
@@ -81,6 +88,44 @@ def statement_response(
 ) -> StatementResponse:
     return StatementResponse(
         statement_id="stmt-1", status=StatementStatus(state=state, error=error)
+    )
+
+
+def unity_schema(catalog_type: Optional[CustomCatalogType] = None) -> Schema:
+    """Schema `main.sales`."""
+    catalog = Catalog(
+        id="main",
+        name="main",
+        comment=None,
+        metastore=None,
+        owner=None,
+        type=catalog_type,
+    )
+    return Schema(
+        id="main.sales", name="sales", catalog=catalog, comment=None, owner=None
+    )
+
+
+def unity_table(catalog_type: Optional[CustomCatalogType] = None) -> Table:
+    """Table `main.sales.orders`, with no columns."""
+    return Table(
+        id="main.sales.orders",
+        name="orders",
+        comment=None,
+        schema=unity_schema(catalog_type),
+        columns=[],
+        storage_location=None,
+        data_source_format=None,
+        table_type=TableType.MANAGED,
+        owner=None,
+        generation=None,
+        created_at=None,
+        created_by=None,
+        updated_at=None,
+        updated_by=None,
+        table_id=None,
+        view_definition=None,
+        properties={},
     )
 
 

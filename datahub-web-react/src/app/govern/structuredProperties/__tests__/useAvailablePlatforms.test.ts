@@ -1,10 +1,10 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { Mock, vi } from 'vitest';
 
 import useAvailablePlatforms from '@app/govern/structuredProperties/useAvailablePlatforms';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@app/useEntityRegistry');
 vi.mock('@src/graphql/search.generated');

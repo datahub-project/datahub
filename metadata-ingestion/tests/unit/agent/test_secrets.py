@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Dict, List
 
 import pytest
@@ -9,6 +10,7 @@ from datahub.ingestion.agent.secrets import (
     EnvVarResolver,
     MappingResolver,
     SecretResolver,
+    default_resolvers,
     resolve_config,
     resolve_config_collecting,
 )
@@ -62,15 +64,23 @@ def test_collecting_records_nested_ref(monkeypatch):
     assert "nestedsecret" in out.secret_values
 
 
+def _isolated_home(monkeypatch: pytest.MonkeyPatch, home: Path) -> None:
+    """The resolver reads the selected profile under HOME; never the real one."""
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("DATAHUB_PROFILE", raising=False)
+    config_utils.reset_profile_cache()
+
+
 def test_datahubenv_refs_resolve_through_the_gms_block(monkeypatch, tmp_path):
     """The file nests under `gms:`, so a flat top-level lookup found nothing.
 
     The DATAHUB_GMS_* names the CLI documents as env vars, which people carry
     into recipes out of habit, resolve through the dotted path they alias.
     """
-    env_file = tmp_path / "datahubenv"
-    env_file.write_text("gms:\n  server: http://gms:8080\n  token: tok-abc\n")
-    monkeypatch.setattr(config_utils, "DATAHUB_CONFIG_PATH", str(env_file))
+    _isolated_home(monkeypatch, tmp_path)
+    (tmp_path / ".datahubenv").write_text(
+        "gms:\n  server: http://gms:8080\n  token: tok-abc\n"
+    )
     resolver = DatahubEnvResolver()
     assert resolver.resolve("gms.server") == "http://gms:8080"
     assert resolver.resolve("DATAHUB_GMS_TOKEN") == "tok-abc"
@@ -79,9 +89,8 @@ def test_datahubenv_refs_resolve_through_the_gms_block(monkeypatch, tmp_path):
 def test_datahubenv_resolver_declines_what_it_cannot_supply(monkeypatch, tmp_path):
     """A miss must return None so the caller raises "unresolved ref" rather
     than substituting a subtree or a partial path."""
-    env_file = tmp_path / "datahubenv"
-    env_file.write_text("gms:\n  server: http://gms:8080\n")
-    monkeypatch.setattr(config_utils, "DATAHUB_CONFIG_PATH", str(env_file))
+    _isolated_home(monkeypatch, tmp_path)
+    (tmp_path / ".datahubenv").write_text("gms:\n  server: http://gms:8080\n")
     resolver = DatahubEnvResolver()
     assert resolver.resolve("gms") is None
     assert resolver.resolve("gms.server.deeper") is None
@@ -206,3 +215,31 @@ def test_a_modifier_that_keeps_the_whole_value_or_recipe_text_resolves(
     config: Dict[str, object] = {"value": value}
     probe = resolve_config_collecting(config, _resolvers).config
     assert probe == resolve_env_variables(config, _ingest_environ())
+
+
+def test_datahubenv_resolver_declines_on_an_unknown_profile(monkeypatch, tmp_path):
+    _isolated_home(monkeypatch, tmp_path)
+    monkeypatch.setenv("DATAHUB_PROFILE", "missing")
+    assert DatahubEnvResolver().resolve("DATAHUB_GMS_URL") is None
+
+
+def test_recipe_connection_refs_follow_a_selected_profile(monkeypatch, tmp_path):
+    """Through the real chain: exported DATAHUB_GMS_* must not pair with (or
+    override) a profile chosen by name."""
+    from datahub.cli.config_utils import persist_raw_datahub_config, profile_path
+
+    _isolated_home(monkeypatch, tmp_path)
+    persist_raw_datahub_config(
+        {"gms": {"server": "https://selected.example.com/gms"}},
+        profile_path("selected"),
+    )
+    monkeypatch.setenv("DATAHUB_PROFILE", "selected")
+    monkeypatch.setenv("DATAHUB_GMS_URL", "https://other.example.com/gms")
+    monkeypatch.setenv("DATAHUB_GMS_TOKEN", "other-instance-token")
+    monkeypatch.setenv("MY_PW", "pw")
+    recipe: Dict[str, object] = {"server": "${DATAHUB_GMS_URL}", "password": "${MY_PW}"}
+    out = resolve_config(recipe, default_resolvers())
+    assert out == {"server": "https://selected.example.com/gms", "password": "pw"}
+    # The profile has no token; the exported one belongs to another instance.
+    with pytest.raises(ValueError, match="DATAHUB_GMS_TOKEN"):
+        resolve_config({"token": "${DATAHUB_GMS_TOKEN}"}, default_resolvers())

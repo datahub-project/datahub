@@ -16,6 +16,9 @@ public final class SearchTemplateMetrics {
   public static final String ROUTE_DEPTH = "search.template.route.depth";
   public static final String LADDER_DEPTH = "search.template.ladder.depth";
   public static final String FALLBACK = "search.template.fallback";
+  public static final String KEYWORD_RERANK_KEPT = "search.template.keywordRerank.kept";
+  public static final String VECTOR_RETRIEVAL = "search.template.vectorRetrieval";
+  public static final String KEYWORD_FALLBACK = "search.template.keywordFallback";
   public static final String RUNG = "search.template.rung";
   public static final String CLAUSE_BUDGET = "search.template.clause.budget.reduction";
   public static final String CACHE_AGE = "search.template.cache.age";
@@ -28,7 +31,8 @@ public final class SearchTemplateMetrics {
       Set.of(
           SearchTemplateSurfaces.SEARCH_ENTITIES,
           SearchTemplateSurfaces.SCROLL_ENTITIES,
-          SearchTemplateSurfaces.AGGREGATE_ENTITIES);
+          SearchTemplateSurfaces.AGGREGATE_ENTITIES,
+          SearchTemplateSurfaces.SEMANTIC_SEARCH);
 
   private static final Set<String> SLOTS =
       Set.of(
@@ -71,6 +75,32 @@ public final class SearchTemplateMetrics {
 
   public static void fallback(@Nonnull OperationContext opContext, @Nonnull String kind) {
     counter(opContext, FALLBACK, "kind", kind);
+  }
+
+  /**
+   * A keywordRerank rung kept keyword order, by reason. Not a template fallback: hybrid read off or
+   * a request without Document rows keeps keyword order by design.
+   */
+  public static void keywordRerankKept(
+      @Nonnull OperationContext opContext, @Nonnull String reason) {
+    counter(opContext, KEYWORD_RERANK_KEPT, "reason", reason);
+  }
+
+  /**
+   * A vector rung decision, by outcome: one of {@link SearchTemplateVectorRetrieval}'s outcomes.
+   * Not a template fallback: an empty window, a clamped cap, a floor, or a page past the window are
+   * expected states. Only a failure that follows {@code next} is also counted as a ladder fallback.
+   */
+  public static void vectorRetrieval(@Nonnull OperationContext opContext, @Nonnull String outcome) {
+    counter(opContext, VECTOR_RETRIEVAL, "outcome", outcome);
+  }
+
+  /**
+   * Semantic search served keyword results because it could not embed the query and the caller
+   * opted in, by the reason the embedding failed.
+   */
+  public static void keywordFallback(@Nonnull OperationContext opContext, @Nonnull String reason) {
+    counter(opContext, KEYWORD_FALLBACK, "reason", reason);
   }
 
   public static void rung(

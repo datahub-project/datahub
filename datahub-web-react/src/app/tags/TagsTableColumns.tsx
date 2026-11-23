@@ -4,7 +4,6 @@ import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVerti
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
-import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
@@ -13,6 +12,7 @@ import { DeprecatedMenuIcon } from '@app/entityV2/shared/EntityDropdown/Deprecat
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
+import Highlight from '@app/sharedV2/text/Highlight';
 import { getTagColor } from '@app/tags/utils';
 import { UnionType } from '@src/app/search/utils/constants';
 import { generateOrFilters } from '@src/app/search/utils/generateOrFilters';

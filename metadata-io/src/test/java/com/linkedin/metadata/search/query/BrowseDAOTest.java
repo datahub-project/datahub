@@ -32,6 +32,7 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
 import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -331,7 +332,8 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
                 null,
                 new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH),
                 ForkJoinPool.commonPool(),
-                SearchTemplateComponentRegistry.empty()));
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none()));
     try {
       assertBrowseQuery(elastic, "", "*", "match_all");
       assertBrowseQuery(elastic, "", "orders", "simple_query_string");
@@ -385,7 +387,8 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
                 null,
                 new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH, catalog),
                 ForkJoinPool.commonPool(),
-                SearchTemplateComponentRegistry.empty()));
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none()));
     try {
       SearchRequest single = browseRequest(elastic, "dataset-path");
       SearchRequest across = browseAcrossRequest(elastic, "dataset-path");

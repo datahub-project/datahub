@@ -3,7 +3,10 @@ import {
     canShowEditDeprecation,
     getDeprecationMenuActions,
     getSelectableStages,
+    isDeleteDisabled,
     isGlossaryTermVersion,
+    isMoveDisabled,
+    shouldDisplayChildDeletionWarning,
     suggestNextVersionLabel,
 } from '@app/entityV2/shared/EntityDropdown/utils';
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
@@ -126,5 +129,49 @@ describe('isGlossaryTermVersion', () => {
         expect(isGlossaryTermVersion(EntityType.GlossaryTerm, versioned)).toBe(true);
         expect(isGlossaryTermVersion(EntityType.GlossaryTerm, {} as GenericEntityProperties)).toBe(false);
         expect(isGlossaryTermVersion(EntityType.Dataset, versioned)).toBe(false);
+    });
+});
+
+describe('isDeleteDisabled', () => {
+    describe('DataProduct deletion', () => {
+        it('disables delete when user lacks canDeleteEntity', () => {
+            const entityData = { privileges: { canDeleteEntity: false } as EntityPrivileges };
+            expect(isDeleteDisabled(EntityType.DataProduct, entityData as GenericEntityProperties, null)).toBe(true);
+        });
+
+        it('enables delete when user has canDeleteEntity', () => {
+            const entityData = { privileges: { canDeleteEntity: true } as EntityPrivileges };
+            expect(isDeleteDisabled(EntityType.DataProduct, entityData as GenericEntityProperties, null)).toBe(false);
+        });
+
+        it('disables delete while the data product has child data products', () => {
+            const entityData = {
+                privileges: { canDeleteEntity: true } as EntityPrivileges,
+                children: { relationships: [], total: 2 },
+            };
+            expect(isDeleteDisabled(EntityType.DataProduct, entityData as GenericEntityProperties, null)).toBe(true);
+        });
+    });
+});
+
+describe('shouldDisplayChildDeletionWarning', () => {
+    const withChildren = (canDeleteEntity: boolean) =>
+        ({
+            privileges: { canDeleteEntity } as EntityPrivileges,
+            children: { relationships: [], total: 1 },
+        }) as GenericEntityProperties;
+
+    it('explains child data products only to users who could otherwise delete', () => {
+        expect(shouldDisplayChildDeletionWarning(EntityType.DataProduct, withChildren(true), null)).toBe(true);
+        expect(shouldDisplayChildDeletionWarning(EntityType.DataProduct, withChildren(false), null)).toBe(false);
+    });
+});
+
+describe('isMoveDisabled', () => {
+    it('follows canManageEntity for data products', () => {
+        const canManage = { privileges: { canManageEntity: true } as EntityPrivileges };
+        const cannotManage = { privileges: { canManageEntity: false } as EntityPrivileges };
+        expect(isMoveDisabled(EntityType.DataProduct, canManage as GenericEntityProperties, null)).toBe(false);
+        expect(isMoveDisabled(EntityType.DataProduct, cannotManage as GenericEntityProperties, null)).toBe(true);
     });
 });

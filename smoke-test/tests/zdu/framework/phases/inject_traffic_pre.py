@@ -135,7 +135,7 @@ class InjectTrafficPrePhase(Phase):
 
         warnings: list[str] = []
         for urn in urns:
-            doc_id = urn  # ES doc id is the URN; get_doc URL-encodes it.
+            doc_id = urn  # get_doc looks the doc up by its urn field.
             old_doc = self._safe_get_doc(old_idx, doc_id)
             new_doc = self._safe_get_doc(new_idx, doc_id)
             if old_doc is None:

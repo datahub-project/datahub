@@ -1,0 +1,21 @@
+# Restores the v18 semantic search template, which has no routes. v19 routes a query that is an
+# entity URN on semantic to similarity. To turn that route off, run one system-update with this
+# file:
+#   DATAHUB_SEARCH_TEMPLATES_REVISION='{"version":"v19-revert","mcps_location":"bootstrap_mcps/search-templates-semantic-revert.yaml","force":true}'
+# then unset the variable. force runs it again after a re-apply. See docs/how/breaking-changes.md.
+# Only semantic changes. similarity stays stored and runs only when a search names it.
+- entityUrn: urn:li:searchTemplate:semantic
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Semantic
+    description: "Semantic search. Embeds the query and retrieves one window of nearest neighbors for the requested entity types that semantic search covers, inside the caller's filter and the default search filters. The page, the total, and the facets cover those neighbors. An entity type that semantic search does not cover is left out, and a request with no such type returns no results."
+    dialect: ELASTICSEARCH
+    apiVersion: 2
+    editable: false
+    # One kNN window, sized like the semantic search page window. No candidateCap, no floor, and no
+    # next. Each entity type uses its default embedding profile.
+    retrieval:
+      combine: vector
+    routes: []

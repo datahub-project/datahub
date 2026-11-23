@@ -7,8 +7,6 @@ import styled from 'styled-components';
 
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 
-const { TabPane } = Tabs;
-
 interface Props extends TabsProps {
     defaultPath: string;
     tabs: Array<{
@@ -56,19 +54,18 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
                 size="large"
                 onTabClick={(tab: string) => onTabChange && onTabChange(tab)}
                 onChange={(newPath) => history.replace(`${url}/${newPath}`)}
+                items={tabs.map((tab) => ({
+                    key: tab.path.replace('/', ''),
+                    // rc-tabs doesn't forward data-* from items, so the antd 4 TabPane test id goes on the label
+                    label: (
+                        <span data-testid={`tab-${tab.path.replace('/', '').toLowerCase()}`}>
+                            {tab.customTitle ? tab.customTitle : tab.name}
+                        </span>
+                    ),
+                    disabled: !tab.display?.enabled(),
+                }))}
                 {...props}
-            >
-                {tabs.map((tab) => {
-                    return (
-                        <TabPane
-                            tab={tab.customTitle ? tab.customTitle : tab.name}
-                            key={tab.path.replace('/', '')}
-                            disabled={!tab.display?.enabled()}
-                            data-testid={`tab-${tab.path.replace('/', '').toLowerCase()}`}
-                        />
-                    );
-                })}
-            </Tabs>
+            />
             <Switch>
                 <Route exact path={path}>
                     <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${defaultPath}`} />

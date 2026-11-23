@@ -640,4 +640,96 @@ public class TraceServiceImplTest {
 
     assertNull(TraceServiceImpl.extractTraceIdEpochMillis(systemMetadata));
   }
+
+  @Test
+  public void testSearchStaysPendingDuringCommitGrace() throws Exception {
+    Map<Urn, List<String>> aspectNames =
+        Collections.singletonMap(TEST_URN, Collections.singletonList(ASPECT_NAME));
+    stubPrimaryActive(TEST_TRACE_ID);
+    when(systemMetadataService.findAspectsByUrn(
+            any(OperationContext.class), eq(TEST_URN), anyList(), eq(true)))
+        .thenReturn(Collections.emptyList());
+    stubOffsetPast(TEST_TRACE_ID);
+
+    TraceStatus status = trace(TEST_TRACE_ID, aspectNames, Duration.ofHours(1).toMillis());
+    assertEquals(status.getPrimaryStorage().getWriteStatus(), TraceWriteStatus.ACTIVE_STATE);
+    assertEquals(status.getSearchStorage().getWriteStatus(), TraceWriteStatus.PENDING);
+    assertEquals(
+        status.getSearchStorage().getWriteMessage(), TraceOffsetMessages.SEARCH_VISIBILITY_GRACE);
+    assertTrue(status.isSuccess());
+  }
+
+  @Test
+  public void testSearchErrorsOnceCommitGraceHasElapsed() throws Exception {
+    long graceMillis = Duration.ofMinutes(2).toMillis();
+    String traceId =
+        SystemTelemetryContext.TRACE_ID_GENERATOR.generateTraceId(
+            Instant.now().toEpochMilli() - graceMillis - 1_000);
+    Map<Urn, List<String>> aspectNames =
+        Collections.singletonMap(TEST_URN, Collections.singletonList(ASPECT_NAME));
+    stubPrimaryActive(traceId);
+    when(systemMetadataService.findAspectsByUrn(
+            any(OperationContext.class), eq(TEST_URN), anyList(), eq(true)))
+        .thenReturn(Collections.emptyList());
+    stubOffsetPast(traceId);
+
+    TraceStatus status = trace(traceId, aspectNames, graceMillis);
+    assertEquals(status.getPrimaryStorage().getWriteStatus(), TraceWriteStatus.ACTIVE_STATE);
+    assertEquals(status.getSearchStorage().getWriteStatus(), TraceWriteStatus.ERROR);
+    assertEquals(status.getSearchStorage().getWriteMessage(), TraceOffsetMessages.PROCESSED_PAST);
+    assertFalse(status.isSuccess());
+  }
+
+  private void stubOffsetPast(String traceId) {
+    Map<String, TraceStorageStatus> past = new LinkedHashMap<>();
+    past.put(
+        ASPECT_NAME,
+        TraceStorageStatus.fail(TraceWriteStatus.ERROR, TraceOffsetMessages.PROCESSED_PAST));
+    when(mcpTraceReader.tracePendingStatuses(any(), eq(traceId), any(), anyBoolean()))
+        .thenAnswer(invocation -> pendingForRequested(invocation.getArgument(0), past));
+  }
+
+  private static Map<Urn, Map<String, TraceStorageStatus>> pendingForRequested(
+      Map<Urn, List<String>> requested, Map<String, TraceStorageStatus> status) {
+    if (requested == null || !requested.containsKey(TEST_URN)) {
+      return Collections.emptyMap();
+    }
+    return Collections.singletonMap(TEST_URN, status);
+  }
+
+  private void stubPrimaryActive(String traceId) throws Exception {
+    SystemMetadata systemMetadata = new SystemMetadata();
+    Map<String, String> properties = new HashMap<>();
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, traceId);
+    systemMetadata.setProperties(new StringMap(properties));
+
+    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
+    envelopedAspect.setCreated(new AuditStamp().setTime(Instant.now().toEpochMilli()));
+    envelopedAspect.setSystemMetadata(systemMetadata);
+
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setAspects(
+        new EnvelopedAspectMap(Collections.singletonMap(ASPECT_NAME, envelopedAspect)));
+    entityResponse.setEntityName(TEST_URN.getEntityType());
+    entityResponse.setUrn(TEST_URN);
+
+    when(entityService.getEntitiesV2(any(), anyString(), anySet(), anySet(), anyBoolean()))
+        .thenReturn(Collections.singletonMap(TEST_URN, entityResponse));
+  }
+
+  private TraceStatus trace(String traceId, Map<Urn, List<String>> aspectNames, long graceMillis) {
+    TraceServiceImpl service =
+        TraceServiceImpl.builder()
+            .entityRegistry(operationContext.getEntityRegistry())
+            .systemMetadataService(systemMetadataService)
+            .entityService(entityService)
+            .mcpTraceReader(mcpTraceReader)
+            .mcpFailedTraceReader(mcpFailedTraceReader)
+            .searchCommitGraceMillis(graceMillis)
+            .build();
+    return service
+        .trace(operationContext, traceId, aspectNames, false, false)
+        .get(TEST_URN)
+        .get(ASPECT_NAME);
+  }
 }

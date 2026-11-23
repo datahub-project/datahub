@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.kafka.trace;
 import static com.linkedin.gms.factory.kafka.common.AdminClientFactory.buildKafkaAdminClient;
 import static com.linkedin.mxe.ConsumerGroups.MCP_CONSUMER_GROUP_ID_VALUE;
 
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.messaging.KafkaMessagingEnabled;
 import com.linkedin.metadata.trace.MCLTraceReader;
@@ -17,12 +18,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Import;
 
 // All beans here read Kafka admin/consumer state for message tracing. They cannot be created when
 // the messaging transport is not Kafka (e.g. pgqueue), since AdminClient construction requires a
 // valid bootstrap.servers and the topics don't exist on non-Kafka transports.
 @Configuration
 @KafkaMessagingEnabled
+// The trace admin client applies MSK IAM, which needs the shared AWS credentials installed first.
+@Import(AwsClientFactory.class)
+@DependsOn("defaultAwsCredentialsProvider")
 public class KafkaTraceReaderFactory {
 
   @Value("${trace.pollMaxAttempts:5}")

@@ -19,7 +19,7 @@ import report_aspect_changes as rac
 def test_resolve_base_returns_latest_stable_cloud_tag_from_global_list():
     """Happy path: `git tag --list` returns version-sorted tags; first non-rc
     `-cloud` tag is returned. Verifies the global (ancestry-independent)
-    lookup — stable cloud releases are typically on parallel hotfix branches,
+    lookup — stable cloud releases are typically on parallel branches,
     not ancestors of acryl-main, so an ancestry-based `git describe` would
     miss them.
     """

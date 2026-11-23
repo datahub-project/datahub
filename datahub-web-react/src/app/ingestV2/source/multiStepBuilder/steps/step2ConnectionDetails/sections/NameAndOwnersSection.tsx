@@ -1,6 +1,6 @@
 import { Input, spacing } from '@components';
 import { Form } from 'antd';
-import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
+import useFormInstance from 'antd/es/form/hooks/useFormInstance';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';

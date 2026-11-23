@@ -1,8 +1,9 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
 import useTree from '@app/homeV3/modules/hierarchyViewModule/treeView/useTree';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 

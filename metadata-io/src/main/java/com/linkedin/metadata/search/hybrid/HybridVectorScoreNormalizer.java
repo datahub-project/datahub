@@ -45,8 +45,8 @@ public final class HybridVectorScoreNormalizer {
       // returns [0, 1]. OpenSearch 2.19.0 changed faiss cosine from "1 + cosine" to a direct
       // [0, 1] scale (opensearch-project/k-NN#2561), and the Lucene engine has always emitted
       // (1 + cosine) / 2. Halving again would compress vector scores to [0, 0.5] and under-weight
-      // them relative to Elasticsearch. Hybrid read requires OpenSearch 3.5+, so the pre-2.19
-      // faiss/nmslib "1 + cosine" scale never reaches this code.
+      // them relative to Elasticsearch. OpenSearch 2.19+ faiss cosine is already on a [0, 1]
+      // scale, so this path does not undo the pre-2.19 faiss "1 + cosine" encoding.
       if (DOT_PRODUCT_METRICS.contains(metric)) {
         return normalizeOpenSearchInnerProduct(rawScore);
       }

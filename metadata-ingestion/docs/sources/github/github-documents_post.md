@@ -42,13 +42,13 @@ sink:
 
 #### Plain-body serialization
 
-Files are imported as **plain markdown or text**, except OKF concepts (below). Other document metadata lives in DataHub aspects and `customProperties`.
+Files are imported as **plain markdown or text** by default. Set `enable_okf: true` to import OKF concepts (below). Other document metadata lives in DataHub aspects and `customProperties`.
 
 #### Open Knowledge Format bundles
 
-You can import [Open Knowledge Format (OKF) 0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md) concepts alongside ordinary documentation. A concept must be a Markdown file inside an OKF bundle and have a `type` key in its YAML frontmatter. A `type` key alone does not enable OKF handling for a Hugo page or another document outside a bundle.
+Opt in with `enable_okf: true` to import [Open Knowledge Format (OKF) 0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md) concepts alongside ordinary documentation. A concept must be a Markdown file inside an OKF bundle and have a `type` key in its YAML frontmatter. A `type` key alone does not enable OKF handling for a Hugo page or another document outside a bundle.
 
-The source discovers bundle roots from `index.md` files whose frontmatter contains `okf_version`:
+With OKF enabled, the source discovers bundle roots from `index.md` files whose frontmatter contains `okf_version`:
 
 ```markdown
 ---
@@ -70,6 +70,7 @@ source:
   config:
     github_token: "${GITHUB_TOKEN}"
     repository: example-org/analytics
+    enable_okf: true
     okf_bundle_roots: [context]
 ```
 
@@ -117,7 +118,7 @@ Mapped owners, tags, and terms carry attribution with `origin: okf`, `bundle` (t
 
 An owner maps when it is an email address, a `corpuser` or `corpGroup` URN, or a user that exists in DataHub. Tag names map directly to tag URNs without an existence check. A glossary term maps when it is a URN or the name of exactly one catalog term. Values that cannot be mapped remain in raw frontmatter and increment `okf_unresolved_values`. Invalid typed OKF values increment `okf_invalid_values` and produce warnings. Catalog changes alone do not retry unresolved values on unchanged files; edit the file to trigger a retry. Owner-existence and term-name lookups are cached for each run.
 
-If a file stops being a concept, a graph connection lets the source UPSERT an empty `okfProperties` record, remove its OKF-attributed associations, and UPSERT an empty subtype list only when the stored subtype still equals the previous OKF type. The source never emits aspect DELETEs. An aspect without `raw` is neutral and is treated like an absent aspect; GraphQL returns null for it. Subsequent runs leave an already neutral aspect alone. All top-level fields are optional to permit this neutral value; when `raw` is present, `bundle`, `conceptId`, and `type` are set. A subtype edited in DataHub is preserved. Without a graph, previous OKF metadata cannot be cleared. Setting `enable_okf: false` disables discovery and mapping and also clears previous OKF state when a graph is available, unless the server is known not to support the aspect.
+If a file stops being a concept, a graph connection lets the source UPSERT an empty `okfProperties` record, remove its OKF-attributed associations, and UPSERT an empty subtype list only when the stored subtype still equals the previous OKF type. The source never emits aspect DELETEs. An aspect without `raw` is neutral and is treated like an absent aspect; GraphQL returns null for it. Subsequent runs leave an already neutral aspect alone. All top-level fields are optional to permit this neutral value; when `raw` is present, `bundle`, `conceptId`, and `type` are set. A subtype edited in DataHub is preserved. Without a graph, previous OKF metadata cannot be cleared. Setting `enable_okf: false` disables discovery and mapping and also clears previous OKF state when a graph is available.
 
 The source resolves the configured branch head once and lists and reads files at that commit SHA. It stops if the head cannot be resolved, so the content, blob SHA, and revision commit refer to one snapshot. GitHub links and branch custom properties retain the configured branch.
 
@@ -136,9 +137,13 @@ Each imported file document stores these `customProperties` keys:
 
 Cloud sync-back may additionally write `last_exported_content_hash` to prevent re-import loops after export. The source skips a file when its new source hash matches stored `source_content_hash`, or its whole-file text hash matches `last_exported_content_hash`. Documents without `source_content_hash` are re-imported once unless the sync-back loop check matches.
 
+#### Several GitHub hosts
+
+Document IDs are built from the repository path. If two sources ingest the same `owner/repo` path from different hosts, such as github.com and GitHub Enterprise, give each a different `platform_instance` so their documents don't overwrite each other. The instance is part of every document ID and becomes the documents' data platform instance; without it, the data platform instance is the repository. Instance names cannot be blank or contain `.`, `,`, `(` or `)`; surrounding spaces are removed. Changing `platform_instance` on an existing source creates new documents; with stateful ingestion enabled, the old ones are soft-deleted.
+
 #### Server compatibility
 
-With a graph connection (`datahub-rest` sink or `datahub_api`), the source checks server support for `okfProperties` once per run. If unsupported, it warns, sets `okf_disabled_reason`, and imports full file text without OKF aspects, patches, or cleanup writes. If the registry cannot be read, it warns and follows `enable_okf`; writes may be rejected by an older server, so set `enable_okf: false` to import plain text. Without a graph, server support is not checked and `enable_okf` controls the output. A later run against a supporting server re-imports bundle files using OKF handling.
+OKF import is disabled by default. Set `enable_okf: true` only when your DataHub server supports the `okfProperties` aspect. The config flag alone controls OKF import; the source does not check the server registry or silently disable OKF. Enabling OKF on a server without the aspect fails the ingestion run when the server rejects the writes.
 
 #### Stateful ingestion
 
@@ -149,8 +154,9 @@ Enable `stateful_ingestion.enabled: true` (recommended for scheduled syncs) to s
 - Maximum file size is 1 MB per file (larger files are skipped).
 - Requires network access from the ingestion executor to `api.github.com`.
 - Binary formats are not parsed; use text/markdown files.
-- GitHub may truncate recursive tree listings for very large repositories; narrow `path_prefix` or split across sources.
-- Imports are capped by `max_files` (default 500) per run.
+- GitHub may truncate recursive tree listings for very large repositories. The run then reports a `Repository tree truncated` warning and keeps every document imported by earlier runs, so files missing from the partial listing are not removed. Narrow `path_prefix` or split across sources.
+- Imports are capped by `max_files` (default 500) per run. When more files match, the run reports a `Matching files truncated by max_files` warning and keeps every document imported by earlier runs.
+- Documents for files deleted from the repository are only removed by a run that lists the whole repository, without either warning above.
 
 ### Troubleshooting
 
@@ -158,4 +164,4 @@ Enable `stateful_ingestion.enabled: true` (recommended for scheduled syncs) to s
 - **Branch not found**: Confirm the branch exists and is spelled correctly.
 - **No files imported**: Check `path_prefix` and `file_extensions` filters.
 - **Documents not removed after GitHub delete**: Ensure `stateful_ingestion.enabled: true` and the pipeline has a graph connection for checkpoint storage.
-- **Partial import on large repos**: Check ingestion report warnings for `github-tree-truncated` or `github-files-truncated`.
+- **Partial import on large repos**: Check the ingestion report for a `Repository tree truncated` or `Matching files truncated by max_files` warning.
