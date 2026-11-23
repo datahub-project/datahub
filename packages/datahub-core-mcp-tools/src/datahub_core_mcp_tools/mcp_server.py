@@ -89,12 +89,19 @@ def disable_list_changed_capabilities(mcp_instance: FastMCP) -> None:
     host has no session to send ``notifications/*/list_changed`` over, so clients
     that trust the advertisement keep a stale tool list after an admin changes it.
     ``false`` is the honest signal: re-list rather than cache indefinitely.
+
+    On the 2026-07-28 protocol the flags follow whether ``subscriptions/listen`` is
+    served instead (FastMCP serves it from 4.2.5), so drop that handler too: its
+    in-process bus can't reach clients connected to another replica.
     """
-    mcp_instance._mcp_server.notification_options = NotificationOptions(
+    server = mcp_instance._mcp_server
+    server.notification_options = NotificationOptions(
         prompts_changed=False,
         resources_changed=False,
         tools_changed=False,
     )
+    server._request_handlers.pop("subscriptions/listen", None)
+    server.subscriptions = None
 
 
 def register_tool(
