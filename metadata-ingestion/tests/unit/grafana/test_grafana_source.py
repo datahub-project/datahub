@@ -1,7 +1,9 @@
+from typing import List
 from unittest.mock import patch
 
 import pytest
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import make_container_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -14,6 +16,7 @@ from datahub.ingestion.source.grafana.models import (
     FolderKey,
     Panel,
 )
+from datahub.metadata.schema_classes import ContainerClass
 
 
 @pytest.fixture
@@ -85,8 +88,35 @@ def test_process_dashboard(mock_api, mock_source, mock_dashboard):
     assert mock_source.report.charts_scanned == 1
 
 
+def _dashboard_container_urn(source: GrafanaSource, dashboard: Dashboard) -> str:
+    return make_container_urn(
+        DashboardContainerKey(
+            platform=source.config.platform,
+            instance=source.config.platform_instance,
+            dashboard_id=dashboard.uid,
+            folder_id=dashboard.folder_id,
+        )
+    )
+
+
+def _dashboard_parents(
+    workunits: List[MetadataWorkUnit], dashboard_container_urn: str
+) -> List[str]:
+    parents = []
+    for wu in workunits:
+        if wu.get_urn() != dashboard_container_urn:
+            continue
+        container = wu.get_aspect_of_type(ContainerClass)
+        if container is not None:
+            parents.append(container.container)
+    return parents
+
+
 @patch("datahub.ingestion.source.grafana.grafana_source.GrafanaAPIClient")
-def test_process_dashboard_with_folder(mock_api, mock_source, mock_dashboard):
+def test_process_dashboard_with_folder(
+    mock_api, mock_source, mock_folder, mock_dashboard
+):
+    list(mock_source._process_folder(mock_folder))
     workunit_list = list(mock_source._process_dashboard(mock_dashboard))
 
     folder_urn = make_container_urn(
@@ -96,23 +126,10 @@ def test_process_dashboard_with_folder(mock_api, mock_source, mock_dashboard):
             folder_id="1",
         )
     )
-    dashboard_container_urn = make_container_urn(
-        DashboardContainerKey(
-            platform=mock_source.config.platform,
-            instance=mock_source.config.platform_instance,
-            dashboard_id=mock_dashboard.uid,
-            folder_id=mock_dashboard.folder_id,
-        )
-    )
-
-    # The dashboard container must be placed inside its folder container
-    folder_memberships = [
-        wu
-        for wu in workunit_list
-        if wu.metadata.entityUrn == dashboard_container_urn
-        and getattr(wu.metadata.aspect, "container", None) == folder_urn
-    ]
-    assert len(folder_memberships) == 1
+    assert _dashboard_parents(
+        workunit_list, _dashboard_container_urn(mock_source, mock_dashboard)
+    ) == [folder_urn]
+    assert not mock_source.report.dashboards_without_folder_container
 
 
 @patch("datahub.ingestion.source.grafana.grafana_source.GrafanaAPIClient")
@@ -131,30 +148,34 @@ def test_process_dashboard_general_folder(mock_api, mock_source):
     workunit_list = list(mock_source._process_dashboard(dashboard))
 
     assert dashboard.folder_id == "0"
-    general_folder_urn = make_container_urn(
-        FolderKey(
-            platform=mock_source.config.platform,
-            instance=mock_source.config.platform_instance,
-            folder_id="0",
-        )
-    )
-    dashboard_container_urn = make_container_urn(
-        DashboardContainerKey(
-            platform=mock_source.config.platform,
-            instance=mock_source.config.platform_instance,
-            dashboard_id=dashboard.uid,
-            folder_id=dashboard.folder_id,
-        )
-    )
+    dashboard_container_urn = _dashboard_container_urn(mock_source, dashboard)
+    assert any(wu.get_urn() == dashboard_container_urn for wu in workunit_list)
+    # General has no folder container, so the dashboard container has no parent.
+    assert _dashboard_parents(workunit_list, dashboard_container_urn) == []
+    assert not mock_source.report.dashboards_without_folder_container
 
-    assert any(
-        workunit.metadata.entityUrn == dashboard_container_urn
-        for workunit in workunit_list
+
+@patch("datahub.ingestion.source.grafana.grafana_source.GrafanaAPIClient")
+def test_dashboard_in_excluded_folder_gets_no_parent(
+    mock_api, mock_config, mock_context, mock_folder, mock_dashboard
+):
+    mock_config.folder_pattern = AllowDenyPattern(deny=["Test Folder"])
+    mock_api.return_value.get_folders.return_value = [mock_folder]
+    mock_api.return_value.get_dashboards.return_value = [mock_dashboard]
+    source = GrafanaSource(mock_config, mock_context)
+
+    workunit_list = list(source.get_workunits_internal())
+
+    assert source.report.folders_scanned == 0
+    assert (
+        _dashboard_parents(
+            workunit_list, _dashboard_container_urn(source, mock_dashboard)
+        )
+        == []
     )
-    assert all(
-        getattr(workunit.metadata.aspect, "container", None) != general_folder_urn
-        for workunit in workunit_list
-    )
+    assert list(source.report.dashboards_without_folder_container) == [
+        "dash1 (folder id 1)"
+    ]
 
 
 @patch("datahub.ingestion.source.grafana.grafana_source.GrafanaAPIClient")

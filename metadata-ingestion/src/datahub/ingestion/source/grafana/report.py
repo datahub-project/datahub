@@ -1,8 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 
 @dataclass
@@ -29,6 +30,13 @@ class GrafanaSourceReport(StaleEntityRemovalSourceReport):
     permission_warnings: int = 0
     datasource_warnings: int = 0
     panel_parsing_warnings: int = 0
+
+    # Dashboards whose folder container was not emitted this run (folder
+    # excluded by folder_pattern, not listed by /api/folders, or a failed folder
+    # fetch), so they were not placed in a folder.
+    dashboards_without_folder_container: LossyList[str] = field(
+        default_factory=LossyList
+    )
 
     def report_dashboard_scanned(self) -> None:
         self.dashboards_scanned += 1
