@@ -172,6 +172,61 @@ def test_playwright_shadow_and_full_suite_sections() -> None:
     assert "Selected specs" not in full
 
 
+def test_playwright_smart_section_lists_tagged_specs_without_a_p0_baseline() -> None:
+    body = render.render_playwright_section(
+        {
+            **P0_PLAN,
+            "runMode": "smart",
+            "selectionMode": "smart",
+            "selectionReason": "specs tagged search plus the tests the change affects",
+            "specs": [
+                {
+                    "path": "search/search.spec.ts",
+                    "reasons": ["tagged search"],
+                    "selectedTests": 9,
+                    "totalTests": 9,
+                }
+            ],
+        }
+    )
+    assert "**Selection:** `smart`: specs tagged search" in body
+    assert "| `search/search.spec.ts` | 9/9 | `tagged search` |" in body
+    assert "Baseline" not in body
+
+
+def test_playwright_section_shows_the_shadow_smart_selection() -> None:
+    body = render.render_playwright_section(
+        {
+            **P0_PLAN,
+            "smartShadow": {
+                "selectionMode": "smart",
+                "selectionReason": "specs tagged search",
+                "specs": ["search/search.spec.ts"],
+            },
+        }
+    )
+    assert (
+        "**Smart selection (shadow, not run):** `smart`, 1 spec file: specs tagged search"
+        in body
+    )
+
+
+def test_playwright_shadow_line_shows_the_predicted_size() -> None:
+    body = render.render_playwright_section(
+        {
+            **P0_PLAN,
+            "smartShadow": {
+                "selectionMode": "smart",
+                "selectionReason": "specs tagged search",
+                "specs": ["search/search.spec.ts", "lineage/graph.spec.ts"],
+                "totalShards": 2,
+                "predictedSeconds": 600.0,
+            },
+        }
+    )
+    assert "2 spec files (~10 min predicted on 2 shard(s)): specs tagged search" in body
+
+
 def test_compose_handles_missing_sections() -> None:
     env = {"SHORT_SHA": "abc1234", "RUN_URL": "https://example.test/run/1"}
     both = render.compose("### pytest smoke tests\n", P0_PLAN, env)

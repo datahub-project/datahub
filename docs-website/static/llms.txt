@@ -55,7 +55,6 @@ DataHub (datahub.com, github.com/datahub-project/datahub) is not related to data
 - [Domains](https://docs.datahub.com/docs/domains): Organize assets by team or business unit
 - [Tags](https://docs.datahub.com/docs/tags): Apply free-form labels to any asset
 - [Ownership](https://docs.datahub.com/docs/ownership/ownership-types): Assign and track asset owners
-- [Data Contracts](https://docs.datahub.com/docs/managed-datahub/observe/data-contract): Agreements between data producers and consumers
 - [Assertions](https://docs.datahub.com/docs/managed-datahub/observe/assertions): Data quality checks and anomaly detection
 - [Compliance Forms](https://docs.datahub.com/docs/features/feature-guides/compliance-forms/overview): Structured metadata collection workflows
 - [Automations](https://docs.datahub.com/docs/automations/docs-propagation): Propagate documentation, tags, and terms automatically

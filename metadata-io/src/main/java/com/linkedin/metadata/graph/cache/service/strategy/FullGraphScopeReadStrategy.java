@@ -31,19 +31,24 @@ public class FullGraphScopeReadStrategy implements GraphScopeReadStrategy {
       int maxDepth) {
     String cacheKey = FullGraphScopeStrategy.cacheKey(definition, source);
     readBackend.ensureFreshKey(definition, source, cacheKey, null, direction);
-    GraphReadResult miss = readBackend.missFromFreshness(definition, cacheKey, direction);
-    if (miss != null) {
-      return miss;
+    GraphReadResult freshnessMiss = readBackend.missFromFreshness(definition, cacheKey, direction);
+    if (freshnessMiss != null) {
+      readBackend.recordCachedRead(
+          definition, "miss", ((GraphReadResult.Miss) freshnessMiss).reason());
+      return freshnessMiss;
     }
     GraphComponentContext component = readBackend.resolveComponent(definition, cacheKey);
     if (component == null) {
-      return GraphReadResult.miss(ReadMissReason.ABSENT);
+      return readMiss(definition, ReadMissReason.ABSENT);
     }
     if (!readBackend.coverageSatisfies(definition, component.coverage(), direction)) {
-      return GraphReadResult.miss(ReadMissReason.INSUFFICIENT_COVERAGE);
+      return readMiss(definition, ReadMissReason.INSUFFICIENT_COVERAGE);
     }
-    return readBackend.expandFromComponent(
-        definition, direction, roots, limit, maxDepth, component, cacheKey);
+    GraphReadResult hit =
+        readBackend.expandFromComponent(
+            definition, direction, roots, limit, maxDepth, component, cacheKey);
+    recordExpand(definition, cacheKey, direction, hit);
+    return hit;
   }
 
   @Nonnull
@@ -75,23 +80,61 @@ public class FullGraphScopeReadStrategy implements GraphScopeReadStrategy {
       int maxDepth) {
     String cacheKey = FullGraphScopeStrategy.cacheKey(definition, source);
     readBackend.ensureFreshKey(definition, source, cacheKey, null, TraversalDirection.FORWARD);
-    AncestorWalkResult miss =
+    AncestorWalkResult freshnessMiss =
         readBackend.walkMissFromFreshness(definition, cacheKey, TraversalDirection.FORWARD);
-    if (miss != null) {
-      return miss;
+    if (freshnessMiss != null) {
+      readBackend.recordCachedRead(
+          definition, "miss", ((AncestorWalkResult.Miss) freshnessMiss).reason());
+      return freshnessMiss;
     }
     GraphComponentContext component = readBackend.resolveComponent(definition, cacheKey);
     if (component == null) {
-      return AncestorWalkResult.miss(ReadMissReason.ABSENT);
+      return walkMiss(definition, ReadMissReason.ABSENT);
     }
     if (!readBackend.coverageSatisfies(
         definition, component.coverage(), TraversalDirection.FORWARD)) {
-      return AncestorWalkResult.miss(ReadMissReason.INSUFFICIENT_COVERAGE);
+      return walkMiss(definition, ReadMissReason.INSUFFICIENT_COVERAGE);
     }
-    return AncestorWalkResult.fromAncestors(
-        component
-            .view()
-            .orderedForwardAncestors(seed, GraphReadDepthResolver.resolve(definition, maxDepth)));
+    AncestorWalkResult hit =
+        AncestorWalkResult.fromAncestors(
+            component
+                .view()
+                .orderedForwardAncestors(
+                    seed, GraphReadDepthResolver.resolve(definition, maxDepth)));
+    readBackend.recordCachedRead(
+        definition,
+        readBackend.isFresh(definition, cacheKey, TraversalDirection.FORWARD) ? "hit" : "stale_hit",
+        null);
+    return hit;
+  }
+
+  @Nonnull
+  private GraphReadResult readMiss(
+      @Nonnull EntityGraphDefinition definition, @Nonnull ReadMissReason reason) {
+    readBackend.recordCachedRead(definition, "miss", reason);
+    return GraphReadResult.miss(reason);
+  }
+
+  private void recordExpand(
+      @Nonnull EntityGraphDefinition definition,
+      @Nonnull String cacheKey,
+      @Nonnull TraversalDirection direction,
+      @Nonnull GraphReadResult result) {
+    if (result.isMiss()) {
+      readBackend.recordCachedRead(definition, "miss", ((GraphReadResult.Miss) result).reason());
+      return;
+    }
+    readBackend.recordCachedRead(
+        definition,
+        readBackend.isFresh(definition, cacheKey, direction) ? "hit" : "stale_hit",
+        null);
+  }
+
+  @Nonnull
+  private AncestorWalkResult walkMiss(
+      @Nonnull EntityGraphDefinition definition, @Nonnull ReadMissReason reason) {
+    readBackend.recordCachedRead(definition, "miss", reason);
+    return AncestorWalkResult.miss(reason);
   }
 
   @Nonnull

@@ -116,6 +116,38 @@ describe('read-only editor', () => {
         expect(srcset).toContain('/ok.png');
     });
 
+    it('keeps a raster data uri on an image and drops it everywhere else', () => {
+        const png = 'data:image/png;base64,iVBORw0KGgo=';
+        const doc = documentFor(
+            [
+                `<img src="${png}" alt="shot">`,
+                `<a href="${png}">not a link target</a>`,
+                '<img src="data:image/svg+xml;base64,PHN2Zz4=" alt="svg">',
+                '<img src="data:text/html;base64,PGh0bWw+" alt="html">',
+            ].join(''),
+        );
+        expect(doc.querySelector('img[alt="shot"]')?.getAttribute('src')).toBe(png);
+        expect(doc.querySelector('a')?.hasAttribute('href')).toBe(false);
+        expect(doc.querySelector('img[alt="svg"]')?.hasAttribute('src')).toBe(false);
+        expect(doc.querySelector('img[alt="html"]')?.hasAttribute('src')).toBe(false);
+    });
+
+    it('renders a markdown data image', () => {
+        const png = 'data:image/png;base64,iVBORw0KGgo=';
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Editor content={`![shot](${png})`} readOnly />
+            </ThemeProvider>,
+        );
+        expect(screen.getByRole('img', { name: 'shot' })).toHaveAttribute('src', png);
+    });
+
+    it('drops a data image larger than the cap', () => {
+        const png = `data:image/png;base64,${'A'.repeat(2_000_000)}`;
+        const doc = documentFor(`<img src="${png}" alt="huge">`);
+        expect(doc.querySelector('img')?.hasAttribute('src')).toBe(false);
+    });
+
     it('does not fetch a backslash url from a table background or an svg image', () => {
         const markup = [
             '<table background="/\\evil.example/x.png"><tr><td>x</td></tr></table>',
@@ -125,7 +157,7 @@ describe('read-only editor', () => {
         expect(doc.querySelector('table')?.hasAttribute('background')).toBe(false);
         expect(doc.querySelector('svg')?.innerHTML ?? '').not.toContain('evil.example');
 
-        const rendered = render(<div>{readOnlyHtmlToReact(markup)}</div>);
+        const rendered = render(<div>{readOnlyHtmlToReact(markup).nodes}</div>);
         expect(rendered.container.querySelector('table')?.hasAttribute('background')).toBe(false);
         expect(rendered.container.querySelector('svg')?.innerHTML ?? '').not.toContain('evil.example');
     });
@@ -154,6 +186,31 @@ describe('read-only editor', () => {
         expect(screen.getByTestId('mention-Bob')).toHaveTextContent('urn:li:corpuser:bob');
         expect(screen.getByTestId('mention-Alice').closest('p')).toHaveTextContent(/^Owned by/);
         expect(document.querySelector('span.mentions')).toBeNull();
+    });
+
+    it('passes the distinct mention urns, in document order, to mentionsProvider', () => {
+        const mentionsProvider = vi.fn(({ children }: { urns: string[]; children: React.ReactNode }) => (
+            <div data-testid="mentions-provider">{children}</div>
+        ));
+        renderEditor({
+            content: '[@Bob](urn:li:corpuser:bob), [@Alice](urn:li:corpuser:alice) and [@Bob](urn:li:corpuser:bob).',
+            mentionView: ({ name }) => <span data-testid={`mention-${name}`}>{name}</span>,
+            mentionsProvider,
+        });
+
+        expect(mentionsProvider).toHaveBeenCalledTimes(1);
+        expect(mentionsProvider.mock.calls[0][0].urns).toEqual(['urn:li:corpuser:bob', 'urn:li:corpuser:alice']);
+        expect(screen.getByTestId('mentions-provider')).toContainElement(screen.getByTestId('mention-Alice'));
+    });
+
+    it('does not render mentionsProvider for content without mentions', () => {
+        const mentionsProvider = vi.fn(({ children }: { urns: string[]; children: React.ReactNode }) => (
+            <>{children}</>
+        ));
+        renderEditor({ content: 'No mentions here.', mentionView: () => null, mentionsProvider });
+
+        expect(screen.getByText('No mentions here.')).toBeInTheDocument();
+        expect(mentionsProvider).not.toHaveBeenCalled();
     });
 
     it('keeps a font size and drops the rest of the style', () => {
@@ -270,6 +327,19 @@ describe('read-only editor', () => {
         expect(html.toLowerCase()).not.toContain('<script');
     });
 
+    it('applies read-only content styles to the inner content node', () => {
+        renderEditor({ content: 'A sentence long enough to wrap in a narrow column.' });
+
+        expect(document.querySelector('.datahub-editor-content')).not.toBeNull();
+        const css = Array.from(document.querySelectorAll('style'))
+            .map((node) => node.textContent ?? '')
+            .join('\n');
+        // A bare ":where" is concatenated onto the root class and matches nothing.
+        expect(css).toContain(' :where(.datahub-editor-content)');
+        expect(css).not.toMatch(/[^\s]:where\(\.datahub-editor-content\)/);
+        expect(css).toMatch(/white-space:\s*normal/);
+    });
+
     it('shows the placeholder without calling the editor when content is empty', () => {
         renderEditor({ content: '', placeholder: 'Add documentation' });
         expect(screen.getByText('Add documentation')).toBeInTheDocument();
@@ -283,5 +353,39 @@ describe('read-only editor', () => {
             </ThemeProvider>,
         );
         expect(await screen.findByTestId('editor-impl')).toBeInTheDocument();
+    });
+});
+
+describe('read-only task lists', () => {
+    it('keeps a completed task checked and every task read-only', () => {
+        render(<>{readOnlyHtmlToReact(toReadOnlyHtml('- [x] Ship it\n- [ ] Test it')).nodes}</>);
+
+        const [done, open] = screen.getAllByRole('checkbox') as HTMLInputElement[];
+        expect(done.checked).toBe(true);
+        expect(open.checked).toBe(false);
+        expect(done.disabled).toBe(true);
+    });
+
+    it('keeps an expanded details section open', () => {
+        const markup = '<details open=""><summary>More</summary><p>Body</p></details>';
+        const { container } = render(<div>{readOnlyHtmlToReact(markup).nodes}</div>);
+
+        expect(container.querySelector('details')?.open).toBe(true);
+    });
+
+    it('updates a checkbox when the content changes without remounting', () => {
+        const { rerender } = render(
+            <ThemeProvider theme={themeV2}>
+                <Editor content="- [x] Ship it" readOnly />
+            </ThemeProvider>,
+        );
+        expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
+
+        rerender(
+            <ThemeProvider theme={themeV2}>
+                <Editor content="- [ ] Ship it" readOnly />
+            </ThemeProvider>,
+        );
+        expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(false);
     });
 });

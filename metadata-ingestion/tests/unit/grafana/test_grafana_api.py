@@ -4,9 +4,14 @@ import pytest
 import requests
 from pydantic import SecretStr
 
+from datahub.ingestion.source.grafana.constants import (
+    FOLDER_FETCH_ERROR_TITLE,
+    FOLDER_PARSE_ERROR_TITLE,
+)
 from datahub.ingestion.source.grafana.grafana_api import GrafanaAPIClient
 from datahub.ingestion.source.grafana.models import Dashboard, Folder
 from datahub.ingestion.source.grafana.report import GrafanaSourceReport
+from tests.unit.conftest import log_contexts, log_titles
 
 
 @pytest.fixture
@@ -66,9 +71,11 @@ def test_get_folders_success(api_client, mock_session):
 
     mock_session.get.side_effect = [first_response, second_response]
 
-    folders = api_client.get_folders()
+    listing = api_client.get_folders()
 
+    folders = listing.folders
     assert len(folders) == 2
+    assert listing.unparseable == 0
     assert all(isinstance(f, Folder) for f in folders)
     assert folders[0].id == "1"
     assert folders[0].title == "Folder 1"
@@ -77,10 +84,10 @@ def test_get_folders_success(api_client, mock_session):
 def test_get_folders_error(api_client, mock_session):
     mock_session.get.side_effect = requests.exceptions.RequestException("API Error")
 
-    folders = api_client.get_folders()
-
-    assert len(folders) == 0
+    assert api_client.get_folders().folders == []
     assert len(api_client.report.failures) == 1
+    # A network error is not a permission problem.
+    assert api_client.report.permission_warnings == 0
 
 
 def test_get_dashboard_success(api_client, mock_session):
@@ -183,3 +190,114 @@ def test_get_dashboards_error(api_client, mock_session):
 
     assert len(dashboards) == 0
     assert len(api_client.report.failures) == 1
+
+
+def _json_response(body: object) -> MagicMock:
+    response = MagicMock()
+    response.json.return_value = body
+    return response
+
+
+def _http_error_response(status_code: int) -> MagicMock:
+    error_response = requests.Response()
+    error_response.status_code = status_code
+    response = MagicMock()
+    response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+        response=error_response
+    )
+    return response
+
+
+def test_get_folders_skips_malformed_folder(api_client, mock_session):
+    # A bad folder first on the page must not cost the folders after it,
+    # or the pages after it.
+    mock_session.get.side_effect = [
+        _json_response([{"title": "No id"}, {"id": "1", "title": "Folder 1"}]),
+        _json_response([{"id": 3, "title": "Folder 3"}]),
+        _json_response([]),
+    ]
+
+    listing = api_client.get_folders()
+
+    assert [f.id for f in listing.folders] == ["1", "3"]
+    assert listing.unparseable == 1
+    assert api_client.report.folders_unparseable == 1
+    assert log_titles(api_client.report.warnings) == {FOLDER_PARSE_ERROR_TITLE}
+    assert any("No id" in c for c in log_contexts(api_client.report.warnings))
+    # Whether a skipped folder fails the run is the source's decision.
+    assert not api_client.report.failures
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param({"message": "bad gateway"}, id="object"),
+        pytest.param({}, id="empty-object"),
+        pytest.param(None, id="null"),
+    ],
+)
+def test_get_folders_stops_on_non_list_page(api_client, mock_session, body):
+    # A non-list body (e.g. a proxy error) must end paging with a failure, even
+    # when it is empty, and must never request another page.
+    mock_session.get.side_effect = [
+        _json_response(body),
+        AssertionError("get_folders requested another page"),
+    ]
+
+    assert api_client.get_folders().folders == []
+    assert log_titles(api_client.report.failures) == {FOLDER_FETCH_ERROR_TITLE}
+
+
+def _json_decode_error_response() -> MagicMock:
+    response = MagicMock()
+    response.json.side_effect = requests.exceptions.JSONDecodeError(
+        "Expecting value", "<html>", 0
+    )
+    return response
+
+
+@pytest.mark.parametrize(
+    "second_page",
+    [
+        pytest.param(
+            requests.exceptions.ConnectionError("connection reset"), id="network"
+        ),
+        pytest.param(_json_response({"message": "bad gateway"}), id="not-a-list"),
+        pytest.param(_json_decode_error_response(), id="not-json"),
+    ],
+)
+def test_get_folders_keeps_earlier_pages_when_later_page_fails(
+    api_client, mock_session, second_page
+):
+    mock_session.get.side_effect = [
+        _json_response([{"id": 1, "title": "Folder 1"}]),
+        second_page,
+    ]
+
+    listing = api_client.get_folders()
+
+    assert [f.id for f in listing.folders] == ["1"]
+    assert log_titles(api_client.report.failures) == {FOLDER_FETCH_ERROR_TITLE}
+    assert any(c.startswith("page 2") for c in log_contexts(api_client.report.failures))
+
+
+@pytest.mark.parametrize(
+    "fetch",
+    [
+        pytest.param(lambda client: client.get_folders(), id="get_folders"),
+        pytest.param(lambda client: client.get_dashboard("uid"), id="get_dashboard"),
+        pytest.param(lambda client: client.get_dashboards(), id="get_dashboards"),
+    ],
+)
+@pytest.mark.parametrize(
+    "status_code, expected_permission_warnings",
+    [(401, 1), (403, 1), (500, 0)],
+)
+def test_counts_only_permission_errors(
+    api_client, mock_session, fetch, status_code, expected_permission_warnings
+):
+    mock_session.get.return_value = _http_error_response(status_code)
+
+    fetch(api_client)
+
+    assert api_client.report.permission_warnings == expected_permission_warnings

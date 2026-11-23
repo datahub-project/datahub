@@ -19,9 +19,6 @@ def isolated_dev_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(datahub_dev, "INSTANCES_FILE", directory / "instances.json")
     monkeypatch.setattr(datahub_dev, "CONFIG_FILE", directory / "config.json")
     monkeypatch.setattr(local, "LOCAL_DATA_ROOT", tmp_path / ".datahub/local/stacks")
-    monkeypatch.setattr(
-        local, "SHARED_OPENSEARCH_DIR", tmp_path / ".datahub/local/opensearch-3"
-    )
 
 
 # These are standalone paid agent experiments, rather than pytest suites.

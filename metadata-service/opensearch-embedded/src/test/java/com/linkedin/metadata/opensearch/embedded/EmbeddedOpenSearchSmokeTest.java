@@ -1,6 +1,7 @@
 package com.linkedin.metadata.opensearch.embedded;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
@@ -78,6 +79,14 @@ public class EmbeddedOpenSearchSmokeTest {
   @Test
   public void bootAndHealthCheck() throws IOException {
     assertEquals(200, request("GET", "/_cluster/health", null));
+    try (var root = URI.create("http://localhost:" + port + "/").toURL().openStream()) {
+      String info = new String(root.readAllBytes(), StandardCharsets.UTF_8);
+      assertTrue(
+          info,
+          Pattern.compile("\"number\"\\s*:\\s*\"" + System.getProperty("opensearch.major") + "\\.")
+              .matcher(info)
+              .find());
+    }
     // Script execution catches an incompatible ANTLR runtime even when health is green.
     assertEquals(
         200, request("POST", "/_scripts/painless/_execute", "{\"script\":{\"source\":\"1+1\"}}"));

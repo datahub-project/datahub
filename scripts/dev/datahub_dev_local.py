@@ -24,14 +24,16 @@ sys.path.insert(0, str(_REPO_ROOT / "metadata-ingestion/src/datahub/cli"))
 from _opensearch_manager import (  # noqa: E402
     SharedOpenSearchManager,
     delete_prefixes,
+    distribution_script,
+    validate_major,
     index_prefix,
     request_json,
+    selected_major,
 )
 from _profile_store import profile_path_in, write_profile_text  # noqa: E402
 
 # Keep stack data separate from other local launchers sharing the instance registry.
 LOCAL_DATA_ROOT = Path.home() / ".datahub/local/stacks"
-SHARED_OPENSEARCH_DIR = Path.home() / ".datahub/local/opensearch-3"
 OWNER = "datahub-dev-oss-local-v1"
 INSTANCE_RECORD = "instance.json"
 LOCAL_PORT_BASE = {"gms": 8080, "frontend": 9002}
@@ -50,11 +52,28 @@ def local_ports(slot: int) -> dict[str, int]:
     return {name: port + slot * 1000 for name, port in LOCAL_PORT_BASE.items()}
 
 
+def shared_opensearch_dir(major: str) -> Path:
+    return Path.home() / f".datahub/local/opensearch-{validate_major(major)}"
+
+
+def recorded_major(entry: Mapping[str, object]) -> str:
+    # Before selection was introduced, every local stack ran OpenSearch 3.
+    return validate_major(str(entry.get("opensearch_version", "3")))
+
+
+def resolve_major(entry: Mapping[str, object] | None) -> str:
+    return recorded_major(entry) if entry else selected_major()
+
+
 def is_owned_entry(entry: Mapping[str, object]) -> bool:
+    try:
+        directory = shared_opensearch_dir(recorded_major(entry))
+    except ValueError:
+        return False
     return (
         entry.get("mode") == "local"
         and entry.get("local_owner") == OWNER
-        and entry.get("opensearch_dir") == str(SHARED_OPENSEARCH_DIR)
+        and entry.get("opensearch_dir") == str(directory)
     )
 
 
@@ -197,8 +216,10 @@ def stack_running(worktree_id: str, ports: Mapping[str, int] | None = None) -> b
     )
 
 
-def opensearch_manager() -> SharedOpenSearchManager:
-    return SharedOpenSearchManager(SHARED_OPENSEARCH_DIR, _REPO_ROOT)
+def opensearch_manager(major: str) -> SharedOpenSearchManager:
+    return SharedOpenSearchManager(
+        shared_opensearch_dir(major), _REPO_ROOT, major=major
+    )
 
 
 def _stack_names(worktree_id: str, processes: int = 0) -> list[str]:
@@ -320,7 +341,7 @@ def _prepare_shared_opensearch(
     fresh: bool,
     registry: Mapping[str, Mapping[str, object]],
 ) -> str | None:
-    manager = opensearch_manager()
+    manager = opensearch_manager(recorded_major(_require_owned(worktree_id)))
     try:
         port = manager.get_or_start()
         usage, shards = shard_inventory(port)
@@ -329,7 +350,18 @@ def _prepare_shared_opensearch(
             delete_prefixes(port, _prefixes(worktree_id, processes))
             usage, shards = shard_inventory(port)
         return shard_budget_error(
-            usage, shards, worktree_id, processes, shards_per_instance(registry, shards)
+            usage,
+            shards,
+            worktree_id,
+            processes,
+            shards_per_instance(
+                {
+                    key: entry
+                    for key, entry in registry.items()
+                    if is_owned_entry(entry) and recorded_major(entry) == manager.major
+                },
+                shards,
+            ),
         )
     except (RuntimeError, OSError, ValueError, urllib.error.URLError) as error:
         return f"shared OpenSearch is not usable: {error}"
@@ -443,8 +475,7 @@ def cmd_start_local(
     artifacts = [
         repo_root / "metadata-service/war/build/libs/war.war",
         repo_root / "datahub-upgrade/build/libs/datahub-upgrade.jar",
-        repo_root
-        / "metadata-service/opensearch-embedded/build/install/opensearch-embedded/bin/opensearch-embedded",
+        distribution_script(repo_root, recorded_major(record)),
     ]
     if not launcher.exists():
         _log(f"ERROR: launcher not found at {launcher}")
@@ -457,6 +488,7 @@ def cmd_start_local(
                 ":metadata-service:war:bootJar",
                 ":datahub-upgrade:bootJar",
                 ":metadata-service:opensearch-embedded:installDist",
+                f"-PopensearchVersion={recorded_major(record)}",
                 "-x",
                 "test",
             ],
@@ -493,7 +525,9 @@ def cmd_start_local(
         "--frontend-port",
         str(ports["frontend"]),
         "--shared-opensearch-dir",
-        str(SHARED_OPENSEARCH_DIR),
+        str(shared_opensearch_dir(recorded_major(record))),
+        "--opensearch",
+        recorded_major(record),
         "--env-file",
         str(env_file),
         "--skip-build",
@@ -691,7 +725,7 @@ def cmd_status_local(
     ready = bool(services) and all(service["healthy"] for service in services.values())
     if quiet:
         return 0 if ready else 1
-    manager = opensearch_manager()
+    manager = opensearch_manager(recorded_major(_require_owned(worktree_id)))
     status = manager.status()
     if status["healthy"]:
         try:
@@ -737,7 +771,7 @@ def cmd_nuke_local(worktree_id: str, ports: dict[str, int], keep_data: bool) -> 
             lock.unlink(missing_ok=True)
         _log("Stack stopped; H2 data, profiles and indices kept")
         return 0
-    manager = opensearch_manager()
+    manager = opensearch_manager(recorded_major(_require_owned(worktree_id)))
     try:
         # An unbooted directory has no indices. Avoid starting a node just to delete it.
         if (data_dir / ".gms-lite").exists():

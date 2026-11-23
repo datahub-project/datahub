@@ -216,7 +216,7 @@ _aspect_migration(
     entity_type="dashboard",
     action="es",
     expected_schema_version=4,
-    expected_es_fields=["urn"],   # always present in dashboardindex_v2 _source
+    expected_es_fields=["urn"],   # always present in dashboardindex_v3 _source
 ),
 ```
 

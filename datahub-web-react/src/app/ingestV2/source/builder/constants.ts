@@ -35,6 +35,7 @@ import fivetranLogo from '@images/fivetranlogo.png';
 import flinkLogo from '@images/flinklogo.svg';
 import gcsLogo from '@images/gcslogo.svg';
 import githubLogo from '@images/githublogo.png';
+import gitlabLogo from '@images/gitlablogo.png';
 import glueLogo from '@images/gluelogo.png';
 import googleDocsLogo from '@images/googledocslogo.svg';
 import grafanaLogo from '@images/grafana.png';
@@ -185,6 +186,9 @@ export const NOTION = 'notion';
 const GITHUB = 'github';
 export const GITHUB_DOCUMENTS = 'github-documents';
 const GITHUB_URN = `urn:li:dataPlatform:${GITHUB}`;
+const GITLAB = 'gitlab';
+export const GITLAB_DOCUMENTS = 'gitlab-documents';
+const GITLAB_URN = `urn:li:dataPlatform:${GITLAB}`;
 const NOTION_URN = `urn:li:dataPlatform:${NOTION}`;
 export const OKTA = 'okta';
 const OKTA_URN = `urn:li:dataPlatform:${OKTA}`;
@@ -229,6 +233,11 @@ const ODCS = 'odcs';
 const ODCS_URN = `urn:li:dataPlatform:${ODCS}`;
 export const DATABRICKS = 'databricks';
 const DATABRICKS_URN = `urn:li:dataPlatform:${DATABRICKS}`;
+// Tile source types that metadata-ingestion registers as an alias of another source
+// (source_registry.register_alias). The connector registry lists only the target.
+export const SOURCE_TYPE_ALIASES: Record<string, string> = {
+    [DATABRICKS]: UNITY_CATALOG,
+};
 const DATAPROC_METASTORE = 'dataproc-metastore';
 const DATAPROC_METASTORE_URN = `urn:li:dataPlatform:${DATAPROC_METASTORE}`;
 export const DBT_CLOUD = 'dbt-cloud';
@@ -361,6 +370,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [MYSQL_URN]: mysqlLogo,
     [CONFLUENCE_URN]: confluenceLogo,
     [GITHUB_URN]: githubLogo,
+    [GITLAB_URN]: gitlabLogo,
     [NOTION_URN]: notionLogo,
     [OKTA_URN]: oktaLogo,
     [ORACLE_URN]: oracleLogo,
@@ -444,6 +454,7 @@ export const SOURCE_TO_PLATFORM_URN = {
     [DATAHUB_LINEAGE_FILE]: DATAHUB_URN,
     [DATAHUB_BUSINESS_GLOSSARY]: DATAHUB_URN,
     [GITHUB_DOCUMENTS]: GITHUB_URN,
+    [GITLAB_DOCUMENTS]: GITLAB_URN,
     [POWER_BI_REPORT_SERVER]: POWER_BI_URN,
     [HIVE_METASTORE]: HIVE_URN,
     [OPENAPI_SOURCE]: OPENAPI_URN,
