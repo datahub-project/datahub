@@ -335,6 +335,25 @@ public final class SearchTemplateGates {
   }
 
   /**
+   * Why one entity type selects no single profile for a similarity anchor, or null when it selects
+   * exactly one: an entity gate, a registry resolution failure, or {@link #SEVERAL_PROFILES}.
+   */
+  @Nullable
+  public String anchorProfileFailure(
+      @Nonnull MergedSearchTemplate template, @Nonnull String entityType, @Nullable String system) {
+    EmbeddingProfileRegistry.Resolution resolution =
+        profiles.resolve(selection(template), entityType, system);
+    String gate = joinGate(resolution, entityType);
+    if (gate != null) {
+      return gate;
+    }
+    if (resolution.failure() != null) {
+      return resolution.failure();
+    }
+    return resolution.profileIds().size() == 1 ? null : SEVERAL_PROFILES;
+  }
+
+  /**
    * The profiles selection the vector leg resolves. {@code profiles} wins. Otherwise a semantic
    * shape that names an embedding through the deprecated {@code model} or {@code field} selects
    * that id, with no alias. A legacy knn with no combine keeps its field as opaque syntax and

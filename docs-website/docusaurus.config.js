@@ -418,6 +418,14 @@ module.exports = {
             to: '/docs/features/feature-guides/asset-profiles',
           },
           {
+            from: '/docs/managed-datahub/observe/data-contract',
+            to: '/docs/managed-datahub/observe/assertions',
+          },
+          {
+            from: '/docs/api/tutorials/data-contracts',
+            to: '/docs/api/tutorials/assertions',
+          },
+          {
             from: '/docs/posts',
             to: '/docs/features/feature-guides/custom-home-page',
           },

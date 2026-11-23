@@ -81,6 +81,12 @@ public class ResolvedSearchTemplate {
   private boolean skipResultCache;
 
   /**
+   * A vector rung served the page, set by the walk. Semantic search serves no other page. Not part
+   * of the cache identity.
+   */
+  private boolean vectorServed;
+
+  /**
    * The similarity anchor bind checked, and whether this viewer may use it: view authorization lets
    * them see it, and the default search filters keep it. A similarity rung for that anchor reuses
    * the answer either way. Unset when bind did not check it or the check did not finish, so the
@@ -158,6 +164,10 @@ public class ResolvedSearchTemplate {
 
   public void setSkipResultCache(boolean skipResultCache) {
     this.skipResultCache = skipResultCache;
+  }
+
+  public void setVectorServed(boolean vectorServed) {
+    this.vectorServed = vectorServed;
   }
 
   public void setAnchorCheck(@Nonnull String anchor, boolean usable) {

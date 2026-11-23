@@ -19,6 +19,7 @@ import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
 import com.linkedin.metadata.graph.LineageCountResult;
@@ -846,5 +847,50 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
             null);
     assertEquals(finalResult.getEntities().size(), total - count * 2);
     assertNull(finalResult.getScrollId());
+  }
+
+  @Test
+  public void testScrollLineageFiltersIncludeColumnLineage() throws Exception {
+    GraphService service = getGraphService();
+    Urn upstreamField =
+        Urn.createFromString("urn:li:schemaField:(" + dataset1Urn.toString() + ",col_a)");
+    Urn downstreamField =
+        Urn.createFromString("urn:li:schemaField:(" + dataset2Urn.toString() + ",col_a)");
+    Urn owner = Urn.createFromString("urn:li:corpuser:someone");
+
+    service.addEdge(
+        operationContext,
+        new Edge(downstreamField, upstreamField, downstreamOf, null, null, null, null, null));
+    service.addEdge(
+        operationContext,
+        new Edge(dataset2Urn, dataset1Urn, downstreamOf, null, null, null, null, null));
+    service.addEdge(
+        operationContext, new Edge(dataset1Urn, owner, hasOwner, null, null, null, null, null));
+    syncAfterWrite();
+
+    // Same filter the scroll endpoint applies, with no urn anchor
+    GraphFilters lineageFilters = GraphFilters.forLineage(operationContext.getLineageRegistry());
+    lineageFilters.setRelationshipFilter(
+        newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.UNDIRECTED));
+
+    RelatedEntitiesScrollResult result =
+        service.scrollRelatedEntities(
+            operationContext, lineageFilters, Edge.EDGE_SORT_CRITERION, null, "5m", 10, null, null);
+
+    Set<String> edges =
+        result.getEntities().stream()
+            .map(
+                e ->
+                    e.getSourceUrn()
+                        + " -"
+                        + e.getRelationshipType()
+                        + "-> "
+                        + e.getDestinationUrn())
+            .collect(Collectors.toSet());
+    assertEquals(
+        edges,
+        Set.of(
+            downstreamField + " -" + downstreamOf + "-> " + upstreamField,
+            dataset2Urn + " -" + downstreamOf + "-> " + dataset1Urn));
   }
 }
