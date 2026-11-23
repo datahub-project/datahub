@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from datahub.ingestion.source.qlik_sense.file_lineage import (
     FilePlatform,
     FileStorage,
+    normalized_file_path,
 )
 from datahub.metadata.urns import DatasetUrn
 
@@ -376,6 +377,15 @@ class QvdReference(BaseModel):
     def as_written(self) -> str:
         return f"lib://{self.connection}/{self.path}" if self.connection else self.path
 
+    def same_file(self, other: "QvdReference") -> bool:
+        # Paths compare as the file datasets name them; connection names
+        # resolve whatever their case.
+        return (self.connection or "").lower() == (
+            other.connection or ""
+        ).lower() and normalized_file_path(self.path) == normalized_file_path(
+            other.path
+        )
+
 
 class BinaryStatement(BaseModel):
     """The app file a BINARY statement loads the data model of."""
@@ -422,7 +432,7 @@ def stores_in_competing_branches(stores: List[QvdStore]) -> List[QvdStore]:
         branches = {branch.block: branch.branch for branch in store.branches}
         if any(
             other.label.lower() == store.label.lower()
-            and other.file != store.file
+            and not other.file.same_file(store.file)
             and any(
                 branches.get(branch.block, branch.branch) != branch.branch
                 for branch in other.branches
