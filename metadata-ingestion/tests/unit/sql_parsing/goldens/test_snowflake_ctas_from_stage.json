@@ -1,0 +1,31 @@
+{
+    "query_type": "CREATE_TABLE_AS_SELECT",
+    "query_type_props": {
+        "kind": "TABLE"
+    },
+    "query_fingerprint": "78c1e6cf46eda4e5f438ddb6d74084ff4b42b3495f5d6ea551e1e5726270157c",
+    "in_tables": [],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.t,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.t,PROD)",
+                "column": "$1",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "$1 AS \"_COL_0\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "CREATE TABLE t AS SELECT $? FROM @stg/p"
+    }
+}

@@ -123,6 +123,24 @@ public final class SearchTemplateCapabilities {
   public static final Set<String> COMBINES =
       Set.of(COMBINE_VECTOR, COMBINE_KEYWORD_RERANK, "vectorThenKeyword", "vectorFilter");
 
+  /**
+   * A template reaches a vector rung and a {@link #legacyKnn} rung. The search cache runs the first
+   * once per page, and the second reranks the first cache batch, so bind rejects the template.
+   */
+  public static final String VECTOR_WITH_LEGACY_KNN = "vectorWithLegacyKnn";
+
+  /** A failed vector rung follows the ladder's {@code next}. */
+  public static final String ON_FAILURE_NEXT = "next";
+
+  /** Closed {@code retrieval.onFailure} values. Unset is {@code fail}: the search fails. */
+  public static final Set<String> ON_FAILURES = Set.of("fail", ON_FAILURE_NEXT);
+
+  /**
+   * A scope leaves out a requested type on a request that does not walk a ladder, so no other rung
+   * could serve that type: scroll, filter, aggregation, and count.
+   */
+  public static final String SCOPE_NOT_WALKED = "scopeNotWalked";
+
   public static final String QUERY_SOURCE_ANCHOR_ENTITY = "anchorEntity";
   public static final Set<String> QUERY_SOURCES = Set.of("text", QUERY_SOURCE_ANCHOR_ENTITY);
   public static final String PROFILE_SCORE_WEIGHTED_SUM = "weightedSum";
@@ -206,24 +224,58 @@ public final class SearchTemplateCapabilities {
 
   /**
    * Fails a template whose resolved embedding profiles this build cannot run for the requested
-   * entity types. Checked after {@link #requireSupported}, when the request is known.
+   * entity types, or, on scroll, whose scope leaves out a requested type. Checked after {@link
+   * #requireSupported}, when the request is known.
    */
   public static void requireResolvable(
       @Nonnull MergedSearchTemplate template,
       @Nonnull SearchTemplateGates gates,
       @Nullable Collection<String> entityTypes,
       @Nullable String system,
-      boolean documentRerank) {
-    String code = gates.bindingRejection(template, entityTypes, system, documentRerank);
+      boolean documentRerank,
+      boolean scroll) {
+    String code = resolvableRejection(template, gates, entityTypes, system, documentRerank, scroll);
     if (code != null) {
       throw unsupported(rejectionDetail(template, code));
     }
   }
 
   /**
+   * Fails a template whose scope leaves out a requested type, for a filter, aggregation, or count,
+   * which render the bound template once and do not walk a ladder. Scroll is checked at bind.
+   */
+  public static void requireWholeScope(
+      @Nonnull MergedSearchTemplate template, @Nonnull Collection<String> entityTypes) {
+    if (leavesOut(template, entityTypes)) {
+      throw unsupported(rejectionDetail(template, SCOPE_NOT_WALKED));
+    }
+  }
+
+  private static boolean leavesOut(
+      @Nonnull MergedSearchTemplate template, @Nonnull Collection<String> entityTypes) {
+    return !SearchTemplateGates.assigned(template, entityTypes).containsAll(entityTypes);
+  }
+
+  /** Bounded reason {@link #requireResolvable} fails, or null. */
+  @Nullable
+  static String resolvableRejection(
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull SearchTemplateGates gates,
+      @Nullable Collection<String> entityTypes,
+      @Nullable String system,
+      boolean documentRerank,
+      boolean scroll) {
+    if (scroll && entityTypes != null && leavesOut(template, entityTypes)) {
+      return SCOPE_NOT_WALKED;
+    }
+    return gates.bindingRejection(template, entityTypes, system, documentRerank);
+  }
+
+  /**
    * Bounded reason a merged template cannot run, or null when its sections are runnable. {@code
-   * rankingPreset}, {@code rankingWindow}, {@code knn}, {@code mergeJoin}, {@code retrievalMode},
-   * {@code retrievalBridge}, or a code from {@link SearchTemplateGates#rejectionCode}.
+   * rankingPreset}, {@code rankingWindow}, {@code knn}, {@code vectorScroll}, {@code mergeJoin},
+   * {@code retrievalMode}, {@code retrievalBridge}, {@code retrievalCandidateCap}, or a code from
+   * {@link SearchTemplateGates#rejectionCode}.
    */
   @Nullable
   public static String rejectionCode(
@@ -246,6 +298,11 @@ public final class SearchTemplateCapabilities {
       }
       if (component.getMode() == SearchTemplateComponentMode.OWN_RUNG && scroll) {
         return "componentScroll";
+      }
+      // An own-rung component returns its own hits, which the rung's scope cannot restrict
+      if (component.getMode() == SearchTemplateComponentMode.OWN_RUNG
+          && template.getScope() != null) {
+        return "componentScope";
       }
     }
     SearchTemplateRanking ranking = template.getRanking();
@@ -270,6 +327,10 @@ public final class SearchTemplateCapabilities {
         && !documentRerank
         && effectiveCombine(template) == null) {
       return "knn";
+    }
+    // A vector rung has no keyword query for a scroll cursor to continue.
+    if (scroll && admitsVectorHits(template)) {
+      return "vectorScroll";
     }
     if (template.getLadder() != null
         && template.getLadder().hasJoin()
@@ -297,6 +358,10 @@ public final class SearchTemplateCapabilities {
     if (bridge != null && !SearchTemplateLoader.emptyRetrieval(retrievalWithBridge(bridge))) {
       return "retrievalBridge";
     }
+    // Write rejects it too; a template stored before that check fails here.
+    if (retrieval.getCandidateCap() != null && retrieval.getCandidateCap() < 1) {
+      return "retrievalCandidateCap";
+    }
     return null;
   }
 
@@ -308,6 +373,7 @@ public final class SearchTemplateCapabilities {
     return switch (code) {
       case "component" -> "component";
       case "componentScroll" -> "component scroll";
+      case "componentScope" -> "own-rung component on a scoped rung";
       case "rankingPreset" -> "ranking preset " + ranking.getPreset();
       case "rankingWindow" -> "ranking windowSizer " + ranking.getWindowSizer();
       case "knn" -> "knn";
@@ -317,6 +383,10 @@ public final class SearchTemplateCapabilities {
       case SearchTemplateGates.PROFILE_SCOPE -> "profiles that do not cover the scope";
       case SearchTemplateGates.MIN_SIMILARITY -> "minSimilarity on a profile that is not cosine";
       case "retrievalBridge" -> "retrieval bridge";
+      case "vectorScroll" -> "vector retrieval on scroll";
+      case SCOPE_NOT_WALKED ->
+          "scope that leaves out a requested entity type on a request that does not walk";
+      case "retrievalCandidateCap" -> "retrieval candidateCap below 1";
       default ->
           SearchTemplateGates.CAPABILITIES.contains(code)
               ? "capability " + code + ", which this build does not run"
@@ -428,6 +498,33 @@ public final class SearchTemplateCapabilities {
 
   public static boolean keywordRerank(@Nonnull MergedSearchTemplate template) {
     return COMBINE_KEYWORD_RERANK.equals(effectiveCombine(template));
+  }
+
+  /**
+   * Whether the rung's scope assigns it Document from the requested types. A rung searches only its
+   * assigned types, so a request that can run document rerank reranks a rung only when this holds.
+   * Unset scope assigns the whole request.
+   */
+  public static boolean assignsDocument(
+      @Nonnull MergedSearchTemplate template, @Nonnull Collection<String> entityTypes) {
+    return SearchTemplateHybrid.includesDocument(
+        SearchTemplateGates.assigned(template, entityTypes));
+  }
+
+  /** A knn section that no combine reads, such as a field-only knn: the legacy document rerank. */
+  public static boolean legacyKnn(@Nonnull MergedSearchTemplate template) {
+    return template.getKnn() != null && effectiveCombine(template) == null;
+  }
+
+  /** The rung retrieves by corpus kNN: {@code combine: vector}, or the legacy vector mode. */
+  public static boolean vectorRetrieval(@Nonnull MergedSearchTemplate template) {
+    return COMBINE_VECTOR.equals(effectiveCombine(template));
+  }
+
+  /** Any combine other than keywordRerank lets the vector leg admit hits. */
+  public static boolean admitsVectorHits(@Nonnull MergedSearchTemplate template) {
+    String combine = effectiveCombine(template);
+    return combine != null && !COMBINE_KEYWORD_RERANK.equals(combine);
   }
 
   /**

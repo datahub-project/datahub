@@ -11,7 +11,7 @@ import {
     handleFileDownload,
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/mentions/constants';
-import { URL_ATTRIBUTES, isSafeHref, scrubSrcset } from '@components/components/Editor/readOnlyHtml';
+import { URL_ATTRIBUTES, isSafeHref, isSafeImageSource, scrubSrcset } from '@components/components/Editor/readOnlyHtml';
 import type { EditorMentionViewProps } from '@components/components/Editor/types';
 import { FileNode } from '@components/components/FileNode/FileNode';
 
@@ -228,13 +228,16 @@ function elementAttributes(element: HTMLElement): Record<string, unknown> {
             return;
         }
         if (name === 'srcset') {
-            const srcset = scrubSrcset(attr.value);
+            const allowImageData = element.tagName === 'IMG';
+            const srcset = scrubSrcset(attr.value, allowImageData ? isSafeImageSource : isSafeHref);
             if (srcset === null) return;
             props.srcSet = srcset;
             return;
         }
         if (URL_ATTRIBUTE_NAMES.has(name)) {
-            if (!isSafeHref(attr.value)) return;
+            const safe =
+                name === 'src' && element.tagName === 'IMG' ? isSafeImageSource(attr.value) : isSafeHref(attr.value);
+            if (!safe) return;
             props[REACT_URL_ATTRIBUTE_NAMES[name] ?? name] = attr.value;
             return;
         }

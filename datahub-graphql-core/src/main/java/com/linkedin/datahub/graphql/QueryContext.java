@@ -48,6 +48,15 @@ public interface QueryContext {
   int getMaxParentDepth();
 
   /**
+   * Max datasets one {@code siblingGroups} request may ask for; 0 turns the query off. GMS reads
+   * graphQL.query.maxSiblingGroupUrns, which defaults to 0; contexts built without that
+   * configuration also leave the query off.
+   */
+  default int getMaxSiblingGroupUrns() {
+    return 0;
+  }
+
+  /**
    * Optional request-scoped context for tracking visited URNs during relationship resolution (cycle
    * detection). Present for GraphQL requests; resolvers should short-circuit when a URN was already
    * visited in this request.

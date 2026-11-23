@@ -4,9 +4,11 @@ import { unstable_batchedUpdates } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
+import GithubStarSlide from '@app/onboarding/GithubStarSlide';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ANT_NOTIFICATION_Z_INDEX } from '@app/sharedV2/constants';
 import { checkShouldSkipWelcomeModal, setSkipWelcomeModal } from '@app/sharedV2/localStorageUtils';
+import { useAppConfig } from '@app/useAppConfig';
 import {
     SlideContainer,
     SlideDescription,
@@ -72,7 +74,9 @@ export const WelcomeToDataHubModal = () => {
     const { isModalTourOpen, closeModalTour } = useOnboardingTour();
     const shouldSkipWelcomeModal = checkShouldSkipWelcomeModal();
     const isDocumentationSlideEnabled = false;
-    const TOTAL_CAROUSEL_SLIDES = isDocumentationSlideEnabled ? 5 : 4;
+    const { config: appConfig, loaded: isAppConfigLoaded } = useAppConfig();
+    const isGithubStarSlideEnabled = appConfig.featureFlags.showGithubStarPrompt;
+    const TOTAL_CAROUSEL_SLIDES = 4 + (isDocumentationSlideEnabled ? 1 : 0) + (isGithubStarSlideEnabled ? 1 : 0);
     const MODAL_IMAGE_WIDTH_RAW = 620;
     const MODAL_IMAGE_WIDTH = `${MODAL_IMAGE_WIDTH_RAW}px`;
     const MODAL_WIDTH_NUM = MODAL_IMAGE_WIDTH_RAW + 45; // Add padding
@@ -85,14 +89,15 @@ export const WelcomeToDataHubModal = () => {
         setPrefetchSlide(null);
     }, []);
 
-    // Automatic tour for first-time home page visitors
+    // Automatic tour for first-time home page visitors. Waits for app config so
+    // flag-gated slides don't appear after the tour has started.
     useEffect(() => {
-        if (!shouldSkipWelcomeModal) {
+        if (!shouldSkipWelcomeModal && isAppConfigLoaded) {
             clearPrefetch();
             setShouldShow(true);
             setCurrentSlide(0);
         }
-    }, [clearPrefetch, shouldSkipWelcomeModal]);
+    }, [clearPrefetch, shouldSkipWelcomeModal, isAppConfigLoaded]);
 
     // Manual tour trigger from Product Tour buttons
     useEffect(() => {
@@ -252,9 +257,10 @@ export const WelcomeToDataHubModal = () => {
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
         // closeTour is stable for the lifetime of an open modal; depending on currentSlide
-        // would re-bind on every slide change without changing behavior.
+        // would re-bind on every slide change without changing behavior. The slide count can
+        // change after opening (the GitHub slide appears once app config loads), so re-bind then.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [shouldShow]);
+    }, [shouldShow, TOTAL_CAROUSEL_SLIDES]);
 
     // Track page view when modal opens
     useEffect(() => {
@@ -407,6 +413,7 @@ export const WelcomeToDataHubModal = () => {
                             <VideoContainer>{tourVideo(3, videoSources.aiDocs, aiDocumentationPoster)}</VideoContainer>
                         </SlideContainer>
                     )}
+                    {isGithubStarSlideEnabled && <GithubStarSlide />}
                     <SlideContainer>
                         <SlideTitle>{t('welcome.slideReadyTitle')}</SlideTitle>
                         <SlideDescription>{t('welcome.slideReadyDescription')}</SlideDescription>
