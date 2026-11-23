@@ -148,6 +148,9 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     unresolved_qvd_paths: LossyList[str] = field(default_factory=LossyList)
     # QVDs loaded without a table label, which Qlik names itself.
     unlabelled_qvd_loads: LossyList[str] = field(default_factory=LossyList)
+    binary_loads_found: int = 0
+    # BINARY loads whose tables get no lineage, with the reason.
+    binary_loads_without_lineage: LossyList[str] = field(default_factory=LossyList)
     # Apps Qlik Cloud has no lineage graph for whose last read had no tables
     # with a QRI, so their tables get none and use load script lineage.
     apps_without_lineage_graph: LossyList[str] = field(default_factory=LossyList)
@@ -309,6 +312,19 @@ class QlikOnPremConfig(ConfigModel):
         default=["ServerLogFolder", "ArchivedLogsFolder"],
         description="Folder data connections whose QVDs are not ingested. By "
         "default the connections the monitoring apps read their logs through.",
+    )
+    binary_file_to_app: Dict[str, str] = Field(
+        default={},
+        description="App files that BINARY statements load -> the id of the app "
+        "each file was exported from, for example "
+        "`{'lib://Apps/Sales Model.qvf': '<app id>'}`. Qlik Sense Enterprise "
+        "only loads BINARY from a .qvf file, which doesn't say which app it "
+        "holds. A mapped BINARY load links the app's tables to that app's "
+        "tables of the same name, with column lineage between their fields. "
+        "An unmapped one links them to the file instead. Paths match as the "
+        "script names them, or as the file path they resolve to. Needs "
+        "`read_data_model`, as the load script doesn't name the tables a "
+        "BINARY load brings in.",
     )
 
     @model_validator(mode="after")

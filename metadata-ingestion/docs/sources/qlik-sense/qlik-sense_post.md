@@ -173,6 +173,22 @@ On-prem, the connector opens each app without its data by default, so table fiel
 
 This is much slower, about a minute per large app, and reads one app at a time unless `max_workers` is set. The Engine keeps an app it opened with its data in memory until the engine's app cache time, set in the QMC, has passed since its last session, as it does for an app users open ([Qlik support article](https://community.qlik.com/t5/Official-Support-Articles/Why-does-the-Qlik-Sense-Memory-usage-remain-high/ta-p/1805698)). Schedule such runs outside peak hours. When opening an app with its data is denied, as section access can deny it to the service user, or times out while the data loads, the app is read without its data instead and listed in the run's "Qlik apps read without their data" warning.
 
+#### Lineage through BINARY loads (on-prem)
+
+A `BINARY` statement loads another app's data model into an app. On Qlik Sense Enterprise it loads from a `.qvf` file, not from an app id ([Qlik help](https://help.qlik.com/en-US/sense/November2025/Subsystems/Hub/Content/Sense_Hub/Scripting/ScriptRegularStatements/Binary.htm)), so the file doesn't say which app it holds. The tables it brings in are the tables of the app's data model that the load script doesn't create itself, so BINARY lineage needs `read_data_model: true`. Each is ingested as an app table and linked upstream:
+
+- to the tables of the same name of the app the file was exported from, when `binary_file_to_app` maps the file to that app's id, with column-level lineage between their fields. Only tables that app ingests are linked, and only when the run reads it or keeps it unchanged.
+- otherwise, to the file itself, a dataset with the `Qlik App File` subtype, named and placed in folders as a QVD is (see [QVD paths](#qvd-paths)). When the script also creates tables it doesn't name, such as an unlabelled `LOAD` or a `Generic` load, or includes another script, the tables the file brings in aren't known, so none are linked; map the file instead.
+
+```yaml
+on_prem:
+  read_data_model: true
+  binary_file_to_app:
+    "lib://Apps/Sales Model.qvf": "<id of the Sales Model app>"
+```
+
+A `binary_file_to_app` path matches the path as the script names it, or the file path it resolves to. BINARY loads that get no lineage are listed in `binary_loads_without_lineage` in the report, with the reason.
+
 #### Chart input fields
 
 Each chart lists the Qlik table fields it reads as input fields, and its inputs are narrowed to the tables those fields belong to. Fields are taken from the chart's dimensions and measure expressions, including master measures. A field shared by several tables, such as a key field, is listed for each of them.
@@ -276,6 +292,10 @@ A `SELECT` that cannot be parsed is skipped, for example one that uses an unexpa
 #### `unresolved_qvd_paths` in the report (on-prem)
 
 A path the connector can't resolve to one file is listed, such as a wildcard, a variable the app doesn't have, a path relative to the `Directory` statement, or a `lib://` path of a connection that isn't a folder connection and isn't in `file_connection_to_storage`. Set missing variables in `script_variables`, map one share reached by different names with `qvd_folder_aliases`, and map storage connections in `file_connection_to_storage`.
+
+#### `binary_loads_without_lineage` in the report (on-prem)
+
+Each entry gives the app, the file and the reason its BINARY load wasn't linked. Set `read_data_model: true` when the data model wasn't read, map the file in `binary_file_to_app` when the script creates tables it doesn't name, and include the mapped app in the run.
 
 #### `unresolved_file_connections` in the report, or "Qlik file connections have no known storage" (Qlik Cloud)
 

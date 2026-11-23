@@ -110,6 +110,7 @@ from datahub.ingestion.source.qlik_sense.qvd_lineage import (
     QvdPathResolver,
     QvdWrite,
     app_qvd_lineage,
+    canonical_path,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     BACKTICK_QUOTED_PLATFORMS,
@@ -118,6 +119,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     VARIABLE_REFERENCE_RE,
     DataConnectionInfo,
     ParsedScript,
+    QvdReference,
     ResolvedConnection,
     ScriptTable,
     ScriptTableLineage,
@@ -264,6 +266,25 @@ def _qlik_app_id(qri: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
+class _BinaryLoad(BaseModel):
+    """The tables an on-prem app's BINARY statement brings in, by identifier,
+    and the app file, by URN, when it is linked to the file."""
+
+    tables: Dict[str, ScriptTableLineage] = {}
+    paths: Dict[str, str] = {}
+
+
+class _BinaryLink(BaseModel):
+    """A table an app BINARY loads from another app, linked once every app has
+    been read."""
+
+    app_id: str
+    source_app_id: str
+    table: str
+    dataset_urn: str
+    fields: List[str]
+
+
 class PendingTableLineage(BaseModel):
     """What an app table's lineage is built from, kept until the end of the
     run when a source field's name, or a source app's tables, are only read
@@ -305,6 +326,10 @@ class _ResolvedSources(BaseModel):
     urns: List[str] = []
     # False when a source could not be resolved this run.
     complete: bool = True
+
+
+def _as_written(file: QvdReference) -> str:
+    return f"lib://{file.connection}/{file.path}" if file.connection else file.path
 
 
 def _bounded_list(items: List[str], limit: int = 10) -> str:
@@ -393,6 +418,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._apps_qvds_unknown: Dict[str, str] = {}
         self._unresolved_qvd_loads = 0
         self._unlabelled_qvd_loads = 0
+        # On-prem, the URNs each app read or kept this run produced, the data
+        # model fields of the apps BINARY loads come from, and the tables
+        # linked to them once every app has been read.
+        self._app_urns: Dict[str, Set[str]] = {}
+        self._app_model_fields: Dict[str, Dict[str, List[str]]] = {}
+        self._binary_links: List[_BinaryLink] = []
         # The data model fields of the app being emitted, by table identifier.
         self._data_model_fields: Dict[str, List[QlikDatasetSchemaField]] = {}
         # Datasets and the app table QRIs stored into them, linked once every
@@ -607,6 +638,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._apps_tables_unknown.add(app_id)
             self._apps_qvds_unknown[app_id] = "it has no last read to keep"
             return []
+        self._app_urns.setdefault(app_id, set()).update(previous.urns)
+        if previous.data_model_fields is not None:
+            self._app_model_fields[app_id] = previous.data_model_fields
         if previous.qvds is None:
             self._apps_qvds_unknown[app_id] = (
                 "its last read was recorded before QVD lineage"
@@ -640,6 +674,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     urns=urns,
                     table_urns_by_qri=self._kept_table_urns(app.id),
                     qvds=self._app_qvds.get(app.id),
+                    data_model_fields=self._app_model_fields.get(app.id),
                 ),
             )
         self.reporter.apps_skipped_unchanged += 1
@@ -677,6 +712,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 partial_reads=previous.partial_reads + 1,
                 table_urns_by_qri=previous.table_urns_by_qri,
                 qvds=previous.qvds,
+                data_model_fields=previous.data_model_fields,
             ),
         )
         return _PartialRead.KEPT
@@ -712,6 +748,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 if app.tables_read_failed
                 else self._app_table_urns(app),
                 qvds=self._app_qvds.get(app.id),
+                data_model_fields=self._app_model_fields.get(app.id),
             ),
         )
 
@@ -1328,6 +1365,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         app_id: str,
     ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self._gen_qlik_dataset_urn(table_identifier)
+        self._app_urns.setdefault(app_id, set()).add(dataset_urn)
 
         yield self._gen_entity_status_aspect(dataset_urn)
 
@@ -2484,8 +2522,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if self.config.on_prem is not None
             else None
         )
+        binary_load = None
         if qvd_lineage is not None:
-            script_tables = self._merge_qvd_tables(script_tables, qvd_lineage)
+            script_tables = self._merge_tables(script_tables, qvd_lineage.tables)
+            # Read, even with no tables, so a BINARY load from it isn't
+            # reported as from an app the run didn't read.
+            self._app_urns.setdefault(app.id, set())
+            self._record_model_fields(app)
+            binary_load = self._binary_load(app, parsed)
+            script_tables = self._merge_tables(script_tables, binary_load.tables)
         self._use_data_model_field_names(script_tables)
         matched_script_tables = self._match_script_tables(
             app.lineage_tables, script_tables
@@ -2570,8 +2615,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             replace_lineage=not app.tables_read_failed,
         )
         if qvd_lineage is not None:
-            yield from self._gen_qvd_entities(qvd_lineage)
-        else:
+            yield from self._gen_file_entities(
+                qvd_lineage.paths, DatasetSubTypes.QLIK_QVD
+            )
+        if binary_load is not None:
+            yield from self._gen_file_entities(
+                binary_load.paths, DatasetSubTypes.QLIK_APP_FILE
+            )
+        if qvd_lineage is None:
             yield from self._gen_file_store_lineage(app, parsed, set(table_fields))
         if fingerprint:
             # Skipping an unchanged app trusts this fingerprint, so it is written
@@ -2738,24 +2789,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _app_qvd_lineage(
         self, app: App, parsed: ParsedScript, script_tables: List[ScriptTableLineage]
     ) -> AppQvdLineage:
-        on_prem = self.config.on_prem
-        assert on_prem is not None
-        resolver = QvdPathResolver(
-            folders={
-                name: info.folder_path
-                for name, info in self._get_data_connections().items()
-                if info.folder_path
-            },
-            ignored_connections=on_prem.qvd_ignored_connections,
-            folder_aliases=on_prem.qvd_folder_aliases,
-            variables_known=not app.variables_read_failed,
-            storage_urns={
-                name: partial(self._file_urn, storage, detail)
-                for name, detail in self.config.file_connection_to_storage.items()
-                if detail.storage_uri
-                and (storage := file_storage_of_uri(detail.storage_uri))
-            },
-        )
+        resolver = self._qvd_path_resolver(app)
         lineage = app_qvd_lineage(
             app.id,
             parsed,
@@ -2804,17 +2838,39 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._app_qvds[app.id] = lineage.qvds
         return lineage
 
+    def _qvd_path_resolver(self, app: App) -> QvdPathResolver:
+        on_prem = self.config.on_prem
+        assert on_prem is not None
+        return QvdPathResolver(
+            folders={
+                name: info.folder_path
+                for name, info in self._get_data_connections().items()
+                if info.folder_path
+            },
+            ignored_connections=on_prem.qvd_ignored_connections,
+            folder_aliases=on_prem.qvd_folder_aliases,
+            variables_known=not app.variables_read_failed,
+            storage_urns={
+                name: partial(self._file_urn, storage, detail)
+                for name, detail in self.config.file_connection_to_storage.items()
+                if detail.storage_uri
+                and (storage := file_storage_of_uri(detail.storage_uri))
+            },
+        )
+
     @staticmethod
-    def _merge_qvd_tables(
-        script_tables: List[ScriptTableLineage], lineage: AppQvdLineage
+    def _merge_tables(
+        script_tables: List[ScriptTableLineage],
+        tables: Dict[str, ScriptTableLineage],
     ) -> List[ScriptTableLineage]:
-        """App tables loaded from or stored into QVDs, merged into the script
-        tables of the same name, so each table is ingested once."""
+        """App tables found another way, such as loaded from or stored into
+        QVDs, merged into the script tables of the same name, so each table is
+        ingested once."""
         by_identifier = {
             table.identifier: table for table in script_tables if not table.mapping
         }
         merged = list(script_tables)
-        for identifier, qvd_table in lineage.tables.items():
+        for identifier, qvd_table in tables.items():
             table = by_identifier.get(identifier)
             if table is None:
                 merged.append(qvd_table)
@@ -2827,15 +2883,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 known.extend(urn for urn in upstreams if urn not in known)
         return merged
 
-    def _gen_qvd_entities(self, lineage: AppQvdLineage) -> Iterable[MetadataWorkUnit]:
-        # Emitted by every app that touches the QVD, so it stays while any of
-        # them does; its schema and lineage come from all of them at the end.
+    def _gen_file_entities(
+        self, paths: Dict[str, str], subtype: str
+    ) -> Iterable[MetadataWorkUnit]:
+        # Emitted by every app that touches the file, so it stays while any of
+        # them does; a QVD's schema and lineage come from all of them at the end.
         # The folders too: each app's checkpoint only keeps what it emitted,
         # so they are deduplicated per app, not per run.
         containers = ContainerWUCreator(
             self.platform, self.config.platform_instance, self.config.env
         )
-        for urn, path in lineage.paths.items():
+        for urn, path in paths.items():
             yield self._gen_entity_status_aspect(urn)
             name = posixpath.basename(path)
             yield MetadataChangeProposalWrapper(
@@ -2846,7 +2904,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     else name,
                     qualifiedName=path,
                     customProperties={
-                        Constant.TYPE: DatasetSubTypes.QLIK_QVD,
+                        Constant.TYPE: subtype,
                         "path": path,
                     },
                 ),
@@ -2856,7 +2914,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 yield dpi_aspect
             yield MetadataChangeProposalWrapper(
                 entityUrn=urn,
-                aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_QVD]),
+                aspect=SubTypes(typeNames=[subtype]),
             ).as_workunit()
             # In Folder containers from the server and share (or drive) down,
             # as the data lake sources place files; without a container the
@@ -2864,6 +2922,159 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # relative path has no known root to start the folders from.
             if CANONICAL_ABSOLUTE_PATH_RE.match(path):
                 yield from containers.create_container_hierarchy(path.lstrip("/"), urn)
+
+    def _record_model_fields(self, app: App) -> None:
+        on_prem = self.config.on_prem
+        assert on_prem is not None
+        # Only for the apps BINARY loads come from, as the checkpoint keeps them.
+        if app.id in on_prem.binary_file_to_app.values() and app.data_model_tables:
+            self._app_model_fields[app.id] = {
+                table.name.lower(): [field.name for field in table.fields]
+                for table in app.data_model_tables
+            }
+
+    def _binary_source_app(
+        self, file: QvdReference, resolver: QvdPathResolver
+    ) -> Optional[str]:
+        """The app `binary_file_to_app` says the file was exported from, matched
+        by the path as the script names it or the file it resolves to."""
+        on_prem = self.config.on_prem
+        assert on_prem is not None
+        apps = {
+            canonical_path(path): app_id
+            for path, app_id in on_prem.binary_file_to_app.items()
+        }
+        resolved = resolver.resolve(file)
+        return apps.get(canonical_path(_as_written(file))) or (
+            apps.get(resolved) if resolved else None
+        )
+
+    def _binary_load(self, app: App, parsed: ParsedScript) -> _BinaryLoad:
+        """The app's tables a BINARY statement loads: the data model's tables
+        the script doesn't create itself."""
+        binary = _BinaryLoad()
+        file = parsed.binary_file
+        written = (
+            _as_written(file) if file is not None else parsed.unresolved_binary_path
+        )
+        if written is None:
+            return binary
+        self.reporter.binary_loads_found += 1
+
+        def without_lineage(reason: str) -> _BinaryLoad:
+            self.reporter.binary_loads_without_lineage.append(
+                f"{app.id}: {written}: {reason}"
+            )
+            return binary
+
+        if file is None:
+            return without_lineage("the path names no single file")
+        if not app.data_model_tables:
+            return without_lineage(
+                "the app's data model was not read, see on_prem.read_data_model"
+            )
+        resolver = self._qvd_path_resolver(app)
+        source_app_id = self._binary_source_app(file, resolver)
+        if source_app_id == app.id:
+            return without_lineage("binary_file_to_app maps it to the app itself")
+        created = {label.lower() for label in parsed.table_labels}
+        loaded = [
+            table
+            for table in app.data_model_tables
+            if table.name.lower() not in created
+        ]
+        upstream_urns: List[str] = []
+        if source_app_id is None:
+            if parsed.has_unnamed_tables or parsed.has_includes:
+                # Any data model table could be one of those.
+                return without_lineage(
+                    "the script creates tables it doesn't name, so the tables "
+                    "the file brings in are not known; map the file in "
+                    "binary_file_to_app"
+                )
+            urn = resolver.storage_urn(file)
+            if urn is None:
+                path = resolver.resolve(file)
+                if path is None:
+                    return without_lineage(
+                        "its data connection is not a known folder connection"
+                    )
+                urn = self._gen_qlik_dataset_urn(path)
+                binary.paths[urn] = path
+            upstream_urns = [urn]
+        for table in loaded:
+            identifier = app_table_identifier(app.id, table.name)
+            fields = [field.name for field in table.fields]
+            binary.tables[identifier] = ScriptTableLineage(
+                label=table.name,
+                identifier=identifier,
+                upstream_urns=upstream_urns,
+                column_upstreams={field: [] for field in fields},
+            )
+            if source_app_id is not None:
+                self._binary_links.append(
+                    _BinaryLink(
+                        app_id=app.id,
+                        source_app_id=source_app_id,
+                        table=table.name,
+                        dataset_urn=self._gen_qlik_dataset_urn(identifier),
+                        fields=fields,
+                    )
+                )
+        return binary
+
+    def _gen_binary_lineage(self) -> Iterable[MetadataWorkUnit]:
+        """Links tables an app BINARY loads to the tables of the app the file
+        was exported from, once every app has been read. Added to the lineage
+        the app's read wrote whole, so it is replaced each time the app is read."""
+        unread: Set[Tuple[str, str]] = set()
+        for link in self._binary_links:
+            source_urns = self._app_urns.get(link.source_app_id)
+            if source_urns is None:
+                unread.add((link.app_id, link.source_app_id))
+                continue
+            source_urn = self._gen_qlik_dataset_urn(
+                app_table_identifier(link.source_app_id, link.table)
+            )
+            # Only a table the source app ingests, so the edge never points
+            # at a dataset that doesn't exist.
+            if source_urn not in source_urns:
+                continue
+            source_fields = self._app_model_fields.get(link.source_app_id, {}).get(
+                link.table.lower(), []
+            )
+            yield from self._patch_upstreams(
+                link.dataset_urn,
+                [source_urn],
+                DatasetLineageType.COPY,
+                self._column_lineage(
+                    [
+                        FineGrainedLineage(
+                            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                            upstreams=[
+                                builder.make_schema_field_urn(source_urn, field)
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                            downstreams=[
+                                builder.make_schema_field_urn(link.dataset_urn, field)
+                            ],
+                        )
+                        for field in link.fields
+                        if field in source_fields
+                    ]
+                ),
+            )
+        for app_id, source_app_id in sorted(unread):
+            self.reporter.binary_loads_without_lineage.append(
+                f"{app_id}: app {source_app_id} was not read or kept this run"
+            )
+        if self.reporter.binary_loads_without_lineage:
+            self.reporter.warning(
+                title="Some Qlik BINARY loads have no lineage",
+                message="The tables these apps load with BINARY are not linked "
+                "to their source. See binary_loads_without_lineage.",
+                context=_bounded_list(list(self.reporter.binary_loads_without_lineage)),
+            )
 
     def _gen_qvd_lineage(self) -> Iterable[MetadataWorkUnit]:
         """Schema and lineage of on-prem QVDs, from every app that writes or
@@ -3403,6 +3614,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         yield from self._gen_dataset_store_lineage()
         yield from self._gen_stored_table_types()
         yield from self._gen_qvd_lineage()
+        if self.config.on_prem is not None:
+            yield from self._gen_binary_lineage()
         if self.qlik_api.opened_without_data:
             self.reporter.warning(
                 title="Qlik apps read without their data",
