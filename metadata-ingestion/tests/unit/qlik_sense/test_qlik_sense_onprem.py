@@ -1723,6 +1723,30 @@ def test_refused_engine_connection_fails_at_once_after_the_budget(
     mock_sleep.assert_not_called()
 
 
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.monotonic")
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.sleep")
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_engine_connection_resets_the_refusal_budget(
+    mock_connect: MagicMock, mock_sleep: MagicMock, mock_monotonic: MagicMock
+) -> None:
+    mock_connect.side_effect = [
+        ConnectionRefusedError(),
+        ConnectionRefusedError(),
+        MagicMock(),
+        ConnectionRefusedError(),
+        MagicMock(),
+    ]
+    # The later refusal comes after the first refusal's budget would have run out.
+    mock_monotonic.side_effect = [0.0, 290.0, 400.0]
+    refusals = RefusedConnectionBudget(seconds=300)
+
+    _open_onprem_engine(refusals)
+    _open_onprem_engine(refusals)
+
+    assert mock_connect.call_count == 5
+    assert mock_sleep.call_count == 3
+
+
 @patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
 def test_onprem_websocket_skips_notifications(mock_connect: MagicMock) -> None:
     socket = MagicMock()
