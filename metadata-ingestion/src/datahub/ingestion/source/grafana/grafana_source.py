@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, List, Set
+from typing import Dict, Iterable, List, Optional
 
 import requests
 
@@ -24,6 +24,8 @@ from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.grafana.constants import (
     DASHBOARD_FOLDER_NOT_INGESTED_MESSAGE,
     DASHBOARD_FOLDER_NOT_INGESTED_TITLE,
+    DASHBOARD_WITHOUT_FOLDER_ID_MESSAGE,
+    DASHBOARD_WITHOUT_FOLDER_ID_TITLE,
     GRAFANA_BASIC_EXTRACTION,
     GRAFANA_DASHBOARD_EXTRACTION,
     GRAFANA_FOLDER_EXTRACTION,
@@ -46,6 +48,7 @@ from datahub.ingestion.source.grafana.models import (
     DashboardContainerKey,
     Folder,
     FolderKey,
+    FolderPlacement,
 )
 from datahub.ingestion.source.grafana.report import (
     GrafanaSourceReport,
@@ -96,9 +99,9 @@ class GrafanaSource(StatefulIngestionSourceBase):
         self.platform_instance = self.config.platform_instance
         self.env = self.config.env
         self.report = GrafanaSourceReport()
-        # Filled by the folder stage, read by the dashboard stage that follows it.
-        self._emitted_folder_ids: Set[str] = set()
-        self._filtered_folder_ids: Set[str] = set()
+        # Folder id -> PLACED or FILTERED. Filled by the folder stage, read by
+        # the dashboard stage that follows it.
+        self._folder_placements: Dict[str, FolderPlacement] = {}
 
         self.api_client = GrafanaAPIClient(
             base_url=self.config.url,
@@ -224,8 +227,10 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 if self.config.folder_pattern.allowed(folder.title):
                     self.report.report_folder_scanned()
                     yield from self._process_folder(folder)
+                    # Only after the container's workunits were all yielded.
+                    self._folder_placements[folder.id] = FolderPlacement.PLACED
                 else:
-                    self._filtered_folder_ids.add(folder.id)
+                    self._folder_placements[folder.id] = FolderPlacement.FILTERED
 
         # Process dashboards
         with self.report.new_stage(GRAFANA_DASHBOARD_EXTRACTION):
@@ -242,7 +247,6 @@ class GrafanaSource(StatefulIngestionSourceBase):
             sub_types=[BIContainerSubTypes.LOOKER_FOLDER],
             description=folder.description,
         )
-        self._emitted_folder_ids.add(folder.id)
 
     def _process_dashboard(self, dashboard: Dashboard) -> Iterable[MetadataWorkUnit]:
         """Process dashboard and its panels"""
@@ -364,24 +368,36 @@ class GrafanaSource(StatefulIngestionSourceBase):
         """Place the dashboard in its folder, but only if that folder's container
         was emitted this run, so the dashboard never points at a missing parent."""
         folder_id = dashboard.folder_id
-        if folder_id is None:
-            self.report.report_dashboard_without_folder_id()
-        elif folder_id == GRAFANA_GENERAL_FOLDER_ID:
-            pass  # General is Grafana's root; there is no container to join.
-        elif folder_id in self._emitted_folder_ids:
+        placement = self._folder_placement(folder_id)
+        if placement == FolderPlacement.PLACED:
+            assert folder_id is not None
             yield from add_dataset_to_container(
                 container_key=self._folder_key(folder_id),
                 dataset_urn=dashboard_container_key.as_urn(),
             )
-        elif folder_id in self._filtered_folder_ids:
+        elif placement == FolderPlacement.FILTERED:
             self.report.report_dashboard_in_filtered_folder()
-        else:
+        elif placement == FolderPlacement.NOT_INGESTED:
             self.report.report_dashboard_without_folder_container()
             self.report.warning(
                 title=DASHBOARD_FOLDER_NOT_INGESTED_TITLE,
                 message=DASHBOARD_FOLDER_NOT_INGESTED_MESSAGE,
                 context=f"{dashboard.title} (uid {dashboard.uid}, folder id {folder_id})",
             )
+        elif placement == FolderPlacement.NO_FOLDER_ID:
+            self.report.report_dashboard_without_folder_id()
+            self.report.warning(
+                title=DASHBOARD_WITHOUT_FOLDER_ID_TITLE,
+                message=DASHBOARD_WITHOUT_FOLDER_ID_MESSAGE,
+                context=f"{dashboard.title} (uid {dashboard.uid})",
+            )
+
+    def _folder_placement(self, folder_id: Optional[str]) -> FolderPlacement:
+        if folder_id is None:
+            return FolderPlacement.NO_FOLDER_ID
+        if folder_id == GRAFANA_GENERAL_FOLDER_ID:
+            return FolderPlacement.GENERAL
+        return self._folder_placements.get(folder_id, FolderPlacement.NOT_INGESTED)
 
     def _add_input_fields_to_chart(
         self, chart_urn: str, dataset_urn: str, input_fields: List[SchemaFieldClass]

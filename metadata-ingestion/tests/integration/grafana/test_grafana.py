@@ -1,7 +1,7 @@
 import json
 import logging
 from base64 import b64encode
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import pytest
 import pytest_docker.plugin
@@ -280,6 +280,10 @@ def verify_grafana_entities_provisioned(timeout: int = 180) -> None:
             return
 
 
+def _grafana_config(test_api_key: str, **overrides: object) -> Dict[str, object]:
+    return {"url": BASE_URL, "service_account_token": test_api_key, **overrides}
+
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_grafana_basic_ingest(
     loaded_grafana, pytestconfig, tmp_path, test_resources_dir, test_api_key
@@ -292,13 +296,12 @@ def test_grafana_basic_ingest(
                 "run_id": "grafana-test",
                 "source": {
                     "type": "grafana",
-                    "config": {
-                        "url": "http://localhost:3000",
-                        "service_account_token": test_api_key,
-                        "ingest_tags": False,
-                        "ingest_owners": False,
+                    "config": _grafana_config(
+                        test_api_key,
+                        ingest_tags=False,
+                        ingest_owners=False,
                         **EXCLUDE_FOLDER_CONFIG,
-                    },
+                    ),
                 },
                 "sink": {
                     "type": "file",
@@ -332,12 +335,11 @@ def test_grafana_ingest(
                 "run_id": "grafana-test",
                 "source": {
                     "type": "grafana",
-                    "config": {
-                        "url": "http://localhost:3000",
-                        "service_account_token": test_api_key,
-                        "ingest_tags": True,
-                        "ingest_owners": True,
-                        "connection_to_platform_map": {
+                    "config": _grafana_config(
+                        test_api_key,
+                        ingest_tags=True,
+                        ingest_owners=True,
+                        connection_to_platform_map={
                             "test-postgres": {
                                 "platform": "postgres",
                                 "database": "grafana",
@@ -350,10 +352,10 @@ def test_grafana_ingest(
                                 "env": "PROD",
                             },
                         },
-                        "platform_instance": "local-grafana",
-                        "env": "PROD",
+                        platform_instance="local-grafana",
+                        env="PROD",
                         **EXCLUDE_FOLDER_CONFIG,
-                    },
+                    ),
                 },
                 "sink": {
                     "type": "file",
@@ -375,7 +377,6 @@ def test_grafana_ingest(
         )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
 def test_grafana_dashboard_placed_in_folder(loaded_grafana, tmp_path, test_api_key):
     """A dashboard provisioned into a folder is placed in that folder's container."""
     output_file = tmp_path / "grafana_folder_mcps.json"
@@ -384,11 +385,10 @@ def test_grafana_dashboard_placed_in_folder(loaded_grafana, tmp_path, test_api_k
             "run_id": "grafana-folder-test",
             "source": {
                 "type": "grafana",
-                "config": {
-                    "url": BASE_URL,
-                    "service_account_token": test_api_key,
-                    "dashboard_pattern": {"allow": [FOLDER_DASHBOARD_TITLE]},
-                },
+                "config": _grafana_config(
+                    test_api_key,
+                    dashboard_pattern={"allow": [FOLDER_DASHBOARD_TITLE]},
+                ),
             },
             "sink": {"type": "file", "config": {"filename": str(output_file)}},
         }
@@ -414,5 +414,5 @@ def test_grafana_dashboard_placed_in_folder(loaded_grafana, tmp_path, test_api_k
     report = pipeline.source.get_report()
     assert isinstance(report, GrafanaSourceReport)
     assert report.dashboards_without_folder_container == 0
-    # If Grafana stops sending meta.folderId, folder placement silently stops.
+    # Guards against Grafana no longer sending meta.folderId.
     assert report.dashboards_without_folder_id == 0

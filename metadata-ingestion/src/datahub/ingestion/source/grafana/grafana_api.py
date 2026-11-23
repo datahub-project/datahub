@@ -1,7 +1,7 @@
 """API client for Grafana metadata extraction"""
 
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Sequence, Union
 
 import requests
 import urllib3.exceptions
@@ -13,7 +13,10 @@ from datahub.ingestion.source.grafana.constants import (
     FOLDER_PARSE_ERROR_MESSAGE,
     FOLDER_PARSE_ERROR_TITLE,
     FOLDER_UNEXPECTED_RESPONSE_MESSAGE,
+    FOLDERS_UNPARSEABLE_MESSAGE,
+    FOLDERS_UNPARSEABLE_TITLE,
     HTTP_PERMISSION_STATUS_CODES,
+    MAX_REPORT_CONTEXT_CHARS,
 )
 from datahub.ingestion.source.grafana.models import Dashboard, Folder
 from datahub.ingestion.source.grafana.report import GrafanaSourceReport
@@ -21,13 +24,27 @@ from datahub.ingestion.source.grafana.report import GrafanaSourceReport
 logger = logging.getLogger(__name__)
 
 
+def _truncate(value: object) -> str:
+    return str(value)[:MAX_REPORT_CONTEXT_CHARS]
+
+
 def _folder_context(folder: object) -> str:
-    if isinstance(folder, dict):
-        return (
+    if isinstance(folder, dict) and any(
+        folder.get(key) is not None for key in ("id", "uid", "title")
+    ):
+        return _truncate(
             f"id={folder.get('id')}, uid={folder.get('uid')}, "
             f"title={folder.get('title')}"
         )
-    return str(folder)[:200]
+    return _truncate(folder)
+
+
+def _is_permission_error(e: requests.exceptions.RequestException) -> bool:
+    # A requests.Response is falsy for 4xx/5xx, so compare against None.
+    return (
+        e.response is not None
+        and e.response.status_code in HTTP_PERMISSION_STATUS_CODES
+    )
 
 
 class GrafanaAPIClient:
@@ -85,16 +102,17 @@ class GrafanaAPIClient:
                 response.raise_for_status()
 
                 batch = response.json()
-                if not batch:
-                    break
+                # Check the shape before emptiness: a non-list page (e.g. a
+                # proxy error body) is a failure even when it is {} or null,
+                # and a non-empty one would otherwise never end paging.
                 if not isinstance(batch, list):
-                    # A non-list page (e.g. a proxy error body) never empties,
-                    # so stop instead of paging forever.
                     self.report.failure(
                         title=FOLDER_FETCH_ERROR_TITLE,
                         message=FOLDER_UNEXPECTED_RESPONSE_MESSAGE,
-                        context=f"page {page}: {str(batch)[:200]}",
+                        context=_truncate(f"page {page}: {batch}"),
                     )
+                    break
+                if not batch:
                     break
 
                 folders.extend(self._parse_folders(batch))
@@ -103,19 +121,25 @@ class GrafanaAPIClient:
                 self.report.failure(
                     title=FOLDER_FETCH_ERROR_TITLE,
                     message=FOLDER_FETCH_ERROR_MESSAGE,
-                    context=str(page),
+                    context=f"page {page}",
                     exc=e,
                 )
-                if (
-                    e.response is not None
-                    and e.response.status_code in HTTP_PERMISSION_STATUS_CODES
-                ):
+                if _is_permission_error(e):
                     self.report.report_permission_warning()
                 break
 
+        if self.report.folders_unparseable:
+            # A failure, not only the per-folder warnings: stale-entity removal
+            # is skipped only on failures, and would otherwise soft-delete the
+            # skipped folders' containers while dashboards still point at them.
+            self.report.failure(
+                title=FOLDERS_UNPARSEABLE_TITLE,
+                message=FOLDERS_UNPARSEABLE_MESSAGE,
+                context=f"{self.report.folders_unparseable} folder(s)",
+            )
         return folders
 
-    def _parse_folders(self, batch: List[object]) -> List[Folder]:
+    def _parse_folders(self, batch: Sequence[object]) -> List[Folder]:
         """Validate each folder separately so one bad entry costs only itself."""
         folders: List[Folder] = []
         for folder in batch:
@@ -147,7 +171,7 @@ class GrafanaAPIClient:
                 context=uid,
                 exc=e,
             )
-            if e.response and e.response.status_code in (401, 403):
+            if _is_permission_error(e):
                 self.report.report_permission_warning()
             return None
 
@@ -186,7 +210,7 @@ class GrafanaAPIClient:
                     context=str(page),
                     exc=e,
                 )
-                if e.response and e.response.status_code in (401, 403):
+                if _is_permission_error(e):
                     self.report.report_permission_warning()
                 break
 

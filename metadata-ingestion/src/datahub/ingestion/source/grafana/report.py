@@ -33,8 +33,10 @@ class GrafanaSourceReport(StaleEntityRemovalSourceReport):
     # Dashboards not placed in a folder. General-folder dashboards are not counted.
     dashboards_in_filtered_folders: int = 0  # folder excluded by folder_pattern
     dashboards_without_folder_container: int = 0  # folder not ingested; warned
-    dashboards_without_folder_id: int = 0  # Grafana returned no folderId
-    folders_unparseable: int = 0  # skipped by get_folders; warned
+    dashboards_without_folder_id: int = 0  # Grafana returned no folderId; warned
+
+    # Folders skipped because Grafana returned them in an unexpected shape
+    folders_unparseable: int = 0
 
     def report_dashboard_scanned(self) -> None:
         self.dashboards_scanned += 1

@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
@@ -310,3 +311,13 @@ class DashboardContainerKey(ContainerKey):
 
     dashboard_id: str
     folder_id: Optional[str] = None
+
+
+class FolderPlacement(StrEnum):
+    """What happens to a dashboard's folder link in one ingestion run."""
+
+    PLACED = "placed"  # folder container emitted this run
+    GENERAL = "general"  # Grafana's root folder; no container exists
+    FILTERED = "filtered"  # folder excluded by folder_pattern
+    NOT_INGESTED = "not_ingested"  # folder not returned by /api/folders
+    NO_FOLDER_ID = "no_folder_id"  # Grafana sent no meta.folderId

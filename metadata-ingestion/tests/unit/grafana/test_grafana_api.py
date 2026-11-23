@@ -7,10 +7,12 @@ from pydantic import SecretStr
 from datahub.ingestion.source.grafana.constants import (
     FOLDER_FETCH_ERROR_TITLE,
     FOLDER_PARSE_ERROR_TITLE,
+    FOLDERS_UNPARSEABLE_TITLE,
 )
 from datahub.ingestion.source.grafana.grafana_api import GrafanaAPIClient
 from datahub.ingestion.source.grafana.models import Dashboard, Folder
 from datahub.ingestion.source.grafana.report import GrafanaSourceReport
+from tests.unit.conftest import log_contexts, log_titles
 
 
 @pytest.fixture
@@ -195,6 +197,16 @@ def _json_response(body: object) -> MagicMock:
     return response
 
 
+def _http_error_response(status_code: int) -> MagicMock:
+    error_response = requests.Response()
+    error_response.status_code = status_code
+    response = MagicMock()
+    response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+        response=error_response
+    )
+    return response
+
+
 def test_get_folders_skips_malformed_folder(api_client, mock_session):
     # A bad folder first on the page must not cost the folders after it,
     # or the pages after it.
@@ -207,22 +219,51 @@ def test_get_folders_skips_malformed_folder(api_client, mock_session):
     folders = api_client.get_folders()
 
     assert [f.id for f in folders] == ["1", "3"]
-    assert not api_client.report.failures
-    assert [w.title for w in api_client.report.warnings] == [FOLDER_PARSE_ERROR_TITLE]
-    [context] = api_client.report.warnings[0].context
-    assert context.startswith("id=2, uid=None, title=None")
     assert api_client.report.folders_unparseable == 1
+    assert FOLDER_PARSE_ERROR_TITLE in log_titles(api_client.report.warnings)
+    assert any("id=2" in c for c in log_contexts(api_client.report.warnings))
+    # Reported as a failure too, so stale-entity removal does not soft-delete
+    # the skipped folder's container.
+    assert log_titles(api_client.report.failures) == {FOLDERS_UNPARSEABLE_TITLE}
 
 
-def test_get_folders_stops_on_non_list_page(api_client, mock_session):
-    # A non-list body (e.g. a proxy error) must end paging, not loop forever.
+@pytest.mark.parametrize(
+    "entry, expected_context",
+    [
+        pytest.param(None, "None", id="not-a-dict"),
+        pytest.param({"name": "x"}, "{'name': 'x'}", id="no-identifying-fields"),
+    ],
+)
+def test_get_folders_reports_raw_entry_without_identifiers(
+    api_client, mock_session, entry, expected_context
+):
     mock_session.get.side_effect = [
-        _json_response({"message": "bad gateway", "status": "error"}),
+        _json_response([entry, {"id": 1, "title": "Folder 1"}]),
+        _json_response([]),
+    ]
+
+    assert [f.id for f in api_client.get_folders()] == ["1"]
+    assert expected_context in log_contexts(api_client.report.warnings)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param({"message": "bad gateway"}, id="object"),
+        pytest.param({}, id="empty-object"),
+        pytest.param(None, id="null"),
+    ],
+)
+def test_get_folders_stops_on_non_list_page(api_client, mock_session, body):
+    # A non-list body (e.g. a proxy error) must end paging with a failure, even
+    # when it is empty, and must never request another page.
+    mock_session.get.side_effect = [
+        _json_response(body),
         AssertionError("get_folders requested another page"),
     ]
 
     assert api_client.get_folders() == []
-    assert [f.title for f in api_client.report.failures] == [FOLDER_FETCH_ERROR_TITLE]
+    assert log_titles(api_client.report.failures) == {FOLDER_FETCH_ERROR_TITLE}
 
 
 def test_get_folders_keeps_earlier_pages_when_later_page_fails(
@@ -236,20 +277,49 @@ def test_get_folders_keeps_earlier_pages_when_later_page_fails(
     folders = api_client.get_folders()
 
     assert [f.id for f in folders] == ["1"]
-    [failure] = api_client.report.failures
-    assert [c.split(" ")[0] for c in failure.context] == ["2"]
-    # A network error is not a permission problem.
+    assert log_contexts(api_client.report.failures) == {"page 2"}
+
+
+@pytest.mark.parametrize(
+    "status_code, expected_permission_warnings",
+    [(401, 1), (403, 1), (500, 0)],
+)
+def test_get_folders_counts_only_permission_errors(
+    api_client, mock_session, status_code, expected_permission_warnings
+):
+    mock_session.get.return_value = _http_error_response(status_code)
+
+    assert api_client.get_folders() == []
+    assert api_client.report.permission_warnings == expected_permission_warnings
+
+
+def test_get_folders_network_error_is_not_permission_error(api_client, mock_session):
+    mock_session.get.side_effect = requests.exceptions.ConnectionError("reset")
+
+    api_client.get_folders()
+
     assert api_client.report.permission_warnings == 0
 
 
-def test_get_folders_counts_permission_error(api_client, mock_session):
-    forbidden = requests.Response()
-    forbidden.status_code = 403
-    response = MagicMock()
-    response.raise_for_status.side_effect = requests.exceptions.HTTPError(
-        response=forbidden
-    )
-    mock_session.get.return_value = response
+@pytest.mark.parametrize(
+    "status_code, expected_permission_warnings", [(403, 1), (500, 0)]
+)
+def test_get_dashboard_counts_only_permission_errors(
+    api_client, mock_session, status_code, expected_permission_warnings
+):
+    mock_session.get.return_value = _http_error_response(status_code)
 
-    assert api_client.get_folders() == []
-    assert api_client.report.permission_warnings == 1
+    assert api_client.get_dashboard("test-uid") is None
+    assert api_client.report.permission_warnings == expected_permission_warnings
+
+
+@pytest.mark.parametrize(
+    "status_code, expected_permission_warnings", [(403, 1), (500, 0)]
+)
+def test_get_dashboards_counts_only_permission_errors(
+    api_client, mock_session, status_code, expected_permission_warnings
+):
+    mock_session.get.return_value = _http_error_response(status_code)
+
+    assert api_client.get_dashboards() == []
+    assert api_client.report.permission_warnings == expected_permission_warnings

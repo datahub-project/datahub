@@ -1,54 +1,67 @@
-from typing import Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
+from typing import Dict, Iterator, List, Optional, Set, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import StructuredLogEntry
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.grafana.constants import (
     DASHBOARD_FOLDER_NOT_INGESTED_TITLE,
+    DASHBOARD_WITHOUT_FOLDER_ID_TITLE,
 )
 from datahub.ingestion.source.grafana.grafana_config import GrafanaSourceConfig
 from datahub.ingestion.source.grafana.grafana_source import GrafanaSource
-from datahub.ingestion.source.grafana.models import Dashboard, Folder, Panel
+from datahub.ingestion.source.grafana.models import (
+    Dashboard,
+    DashboardContainerKey,
+    Folder,
+    FolderKey,
+    Panel,
+)
 from datahub.metadata.schema_classes import (
     ContainerClass,
     ContainerPropertiesClass,
     SubTypesClass,
-    _Aspect,
+)
+from tests.unit.conftest import (
+    aspects_by_urn,
+    aspects_of_type,
+    log_contexts,
+    log_titles,
 )
 
-AspectT = TypeVar("AspectT", bound=_Aspect)
-
 GRAFANA_API_CLIENT = "datahub.ingestion.source.grafana.grafana_source.GrafanaAPIClient"
+PLATFORM_INSTANCE = "test-instance"
+FOLDER_TITLE = "Test Folder"
+DASHBOARD_UID = "dash1"
+
+FOLDER_COUNTERS = (
+    "dashboards_in_filtered_folders",
+    "dashboards_without_folder_container",
+    "dashboards_without_folder_id",
+)
 
 
 @pytest.fixture
-def mock_config():
+def mock_config() -> GrafanaSourceConfig:
     return GrafanaSourceConfig(
         url="http://grafana.test",
         service_account_token="test-token",
-        platform_instance="test-instance",
+        platform_instance=PLATFORM_INSTANCE,
     )
 
 
 @pytest.fixture
-def mock_context():
+def mock_context() -> PipelineContext:
     return PipelineContext(run_id="test")
 
 
 @pytest.fixture
-def mock_api():
+def mock_api() -> Iterator[MagicMock]:
     with patch(GRAFANA_API_CLIENT) as mock_api_class:
         yield mock_api_class.return_value
-
-
-@pytest.fixture
-def mock_folder():
-    return Folder(id="1", title="Test Folder", description="Test Description")
 
 
 def _make_dashboard(folder_id: Optional[Union[int, str]]) -> Dashboard:
@@ -56,7 +69,7 @@ def _make_dashboard(folder_id: Optional[Union[int, str]]) -> Dashboard:
         {} if folder_id is None else {"folderId": folder_id}
     )
     return Dashboard(
-        uid="dash1",
+        uid=DASHBOARD_UID,
         title="Test Dashboard",
         description="Test Description",
         version="1",
@@ -75,15 +88,11 @@ def _make_dashboard(folder_id: Optional[Union[int, str]]) -> Dashboard:
     )
 
 
-@pytest.fixture
-def mock_dashboard(mock_folder):
-    return _make_dashboard(mock_folder.id)
-
-
 def _run(
     config: GrafanaSourceConfig,
     ctx: PipelineContext,
     mock_api: MagicMock,
+    *,
     folders: List[Folder],
     dashboards: List[Dashboard],
 ) -> Tuple[GrafanaSource, List[MetadataWorkUnit]]:
@@ -93,29 +102,34 @@ def _run(
     return source, list(source.get_workunits_internal())
 
 
-def _dashboard_container_urn(source: GrafanaSource, dashboard: Dashboard) -> str:
-    return source._dashboard_container_key(dashboard).as_urn()
+# Expected URNs are built here, not with the source's own key helpers, so a
+# regression in key construction cannot change the expected value with it.
+def _folder_urn(folder_id: str) -> str:
+    return FolderKey(
+        platform="grafana", instance=PLATFORM_INSTANCE, folder_id=folder_id
+    ).as_urn()
 
 
-def _folder_urn(source: GrafanaSource, folder: Folder) -> str:
-    return source._folder_key(folder.id).as_urn()
+def _dashboard_container_urn(folder_id: Optional[str]) -> str:
+    return DashboardContainerKey(
+        platform="grafana",
+        instance=PLATFORM_INSTANCE,
+        dashboard_id=DASHBOARD_UID,
+        folder_id=folder_id,
+    ).as_urn()
 
 
-def _aspects(
-    workunits: List[MetadataWorkUnit], urn: str, aspect_type: Type[AspectT]
-) -> List[AspectT]:
-    aspects = [
-        wu.get_aspect_of_type(aspect_type) for wu in workunits if wu.get_urn() == urn
-    ]
-    return [aspect for aspect in aspects if aspect is not None]
+def _parents(workunits: List[MetadataWorkUnit], urn: str) -> List[str]:
+    aspects = aspects_by_urn(workunits).get(urn, [])
+    return [c.container for c in aspects_of_type(aspects, ContainerClass)]
 
 
-def _dashboard_parents(workunits: List[MetadataWorkUnit], urn: str) -> List[str]:
-    return [c.container for c in _aspects(workunits, urn, ContainerClass)]
-
-
-def _is_emitted(workunits: List[MetadataWorkUnit], urn: str) -> bool:
-    return any(wu.get_urn() == urn for wu in workunits)
+def _emitted_container_urns(workunits: List[MetadataWorkUnit]) -> Set[str]:
+    return {
+        urn
+        for urn, aspects in aspects_by_urn(workunits).items()
+        if aspects_of_type(aspects, ContainerPropertiesClass)
+    }
 
 
 def _chart_urns(workunits: List[MetadataWorkUnit]) -> Set[str]:
@@ -124,38 +138,27 @@ def _chart_urns(workunits: List[MetadataWorkUnit]) -> Set[str]:
     }
 
 
-def _emitted_container_urns(workunits: List[MetadataWorkUnit]) -> Set[str]:
-    return {
-        wu.get_urn()
-        for wu in workunits
-        if wu.get_aspect_of_type(ContainerPropertiesClass) is not None
-    }
+def _folder_counters(source: GrafanaSource) -> Dict[str, int]:
+    return {name: getattr(source.report, name) for name in FOLDER_COUNTERS}
 
 
-def _folder_not_ingested_warnings(source: GrafanaSource) -> List[StructuredLogEntry]:
-    return [
-        w
-        for w in source.report.warnings
-        if w.title == DASHBOARD_FOLDER_NOT_INGESTED_TITLE
-    ]
-
-
-def test_process_folder_emits_folder_container(mock_api, mock_config, mock_context):
+@pytest.mark.usefixtures("mock_api")
+def test_process_folder_emits_folder_container(mock_config, mock_context):
     source = GrafanaSource(mock_config, mock_context)
     folder = Folder(id="7", title="Team Folder", description="Team dashboards")
 
-    workunits = list(source._process_folder(folder))
+    aspects = aspects_by_urn(source._process_folder(folder))[_folder_urn("7")]
 
-    folder_urn = _folder_urn(source, folder)
-    properties = _aspects(workunits, folder_urn, ContainerPropertiesClass)
+    properties = aspects_of_type(aspects, ContainerPropertiesClass)
     assert [(p.name, p.description) for p in properties] == [
         ("Team Folder", "Team dashboards")
     ]
-    sub_types = _aspects(workunits, folder_urn, SubTypesClass)
+    sub_types = aspects_of_type(aspects, SubTypesClass)
     assert [s.typeNames for s in sub_types] == [[BIContainerSubTypes.LOOKER_FOLDER]]
 
 
-def test_process_dashboard_emits_charts(mock_api, mock_config, mock_context):
+@pytest.mark.usefixtures("mock_api")
+def test_process_dashboard_emits_charts(mock_config, mock_context):
     source = GrafanaSource(mock_config, mock_context)
 
     workunits = list(source._process_dashboard(_make_dashboard(folder_id=None)))
@@ -164,101 +167,108 @@ def test_process_dashboard_emits_charts(mock_api, mock_config, mock_context):
     assert source.report.charts_scanned == 1
 
 
+@pytest.mark.parametrize(
+    "folder, dashboard_folder_id",
+    [
+        pytest.param(Folder(id="1", title=FOLDER_TITLE), "1", id="string-ids"),
+        # Grafana sends ids as integers on both /api/folders and dashboard meta.
+        pytest.param(
+            Folder.model_validate({"id": 7, "title": FOLDER_TITLE}), 7, id="int-ids"
+        ),
+    ],
+)
 def test_dashboard_placed_in_ingested_folder(
-    mock_api, mock_config, mock_context, mock_folder, mock_dashboard
+    mock_api, mock_config, mock_context, folder, dashboard_folder_id
 ):
     # Runs the real folder-then-dashboard order of get_workunits_internal.
     source, workunits = _run(
-        mock_config, mock_context, mock_api, [mock_folder], [mock_dashboard]
+        mock_config,
+        mock_context,
+        mock_api,
+        folders=[folder],
+        dashboards=[_make_dashboard(folder_id=dashboard_folder_id)],
     )
 
-    parents = _dashboard_parents(
-        workunits, _dashboard_container_urn(source, mock_dashboard)
-    )
-    assert parents == [_folder_urn(source, mock_folder)]
+    folder_id = str(dashboard_folder_id)
+    parents = _parents(workunits, _dashboard_container_urn(folder_id))
+    assert parents == [_folder_urn(folder_id)]
     # The parent must be a container this run emitted, not just a matching key.
     assert set(parents) <= _emitted_container_urns(workunits)
-    assert source.report.folders_scanned == 1
-    assert source.report.dashboards_scanned == 1
-    assert source.report.dashboards_without_folder_container == 0
-    assert not _folder_not_ingested_warnings(source)
+    assert _folder_counters(source) == dict.fromkeys(FOLDER_COUNTERS, 0)
+    assert not source.report.warnings
 
 
-def test_general_folder_dashboard_has_no_parent(mock_api, mock_config, mock_context):
-    # Grafana returns the General folder as the integer 0
-    dashboard = _make_dashboard(folder_id=0)
-
-    source, workunits = _run(mock_config, mock_context, mock_api, [], [dashboard])
-
-    dashboard_container_urn = _dashboard_container_urn(source, dashboard)
-    assert _is_emitted(workunits, dashboard_container_urn)
-    assert not _dashboard_parents(workunits, dashboard_container_urn)
-    assert source.report.dashboards_without_folder_container == 0
-    assert source.report.dashboards_without_folder_id == 0
-    assert source.report.dashboards_in_filtered_folders == 0
-    assert not _folder_not_ingested_warnings(source)
-
-
-def test_integer_folder_ids_match(mock_api, mock_config, mock_context):
-    # Grafana sends folder ids as integers on both /api/folders and dashboard meta.
-    folder = Folder.model_validate({"id": 7, "title": "Team Folder"})
-    dashboard = _make_dashboard(folder_id=7)
-
-    source, workunits = _run(mock_config, mock_context, mock_api, [folder], [dashboard])
-
-    assert _dashboard_parents(
-        workunits, _dashboard_container_urn(source, dashboard)
-    ) == [_folder_urn(source, folder)]
-    assert not _folder_not_ingested_warnings(source)
-
-
-def test_dashboard_in_excluded_folder_has_no_parent_and_no_warning(
-    mock_api, mock_config, mock_context, mock_folder, mock_dashboard
+@pytest.mark.parametrize(
+    "dashboard_folder_id, folders, deny, expected_counter, expected_warning",
+    [
+        # General is Grafana's root folder, sent as the integer 0.
+        pytest.param(0, [], None, None, None, id="general"),
+        pytest.param(
+            "1",
+            [Folder(id="1", title=FOLDER_TITLE)],
+            [FOLDER_TITLE],
+            "dashboards_in_filtered_folders",
+            None,
+            id="excluded-folder",
+        ),
+        # e.g. a nested folder /api/folders does not list, or a failed page
+        pytest.param(
+            "1",
+            [],
+            None,
+            "dashboards_without_folder_container",
+            DASHBOARD_FOLDER_NOT_INGESTED_TITLE,
+            id="unlisted-folder",
+        ),
+        pytest.param(
+            None,
+            [],
+            None,
+            "dashboards_without_folder_id",
+            DASHBOARD_WITHOUT_FOLDER_ID_TITLE,
+            id="no-folder-id",
+        ),
+    ],
+)
+def test_dashboard_not_placed_in_folder(
+    mock_api,
+    mock_config,
+    mock_context,
+    dashboard_folder_id,
+    folders,
+    deny,
+    expected_counter,
+    expected_warning,
 ):
-    mock_config.folder_pattern = AllowDenyPattern(deny=[mock_folder.title])
+    if deny:
+        mock_config.folder_pattern = AllowDenyPattern(deny=deny)
 
     source, workunits = _run(
-        mock_config, mock_context, mock_api, [mock_folder], [mock_dashboard]
+        mock_config,
+        mock_context,
+        mock_api,
+        folders=folders,
+        dashboards=[_make_dashboard(folder_id=dashboard_folder_id)],
     )
 
-    dashboard_container_urn = _dashboard_container_urn(source, mock_dashboard)
-    assert source.report.folders_scanned == 0
-    assert _is_emitted(workunits, dashboard_container_urn)
-    assert not _dashboard_parents(workunits, dashboard_container_urn)
-    assert source.report.dashboards_in_filtered_folders == 1
-    assert source.report.dashboards_without_folder_container == 0
-    assert not _folder_not_ingested_warnings(source)
+    folder_id = None if dashboard_folder_id is None else str(dashboard_folder_id)
+    dashboard_container_urn = _dashboard_container_urn(folder_id)
+    assert dashboard_container_urn in _emitted_container_urns(workunits)
+    assert not _parents(workunits, dashboard_container_urn)
+    expected_counters = dict.fromkeys(FOLDER_COUNTERS, 0)
+    if expected_counter:
+        expected_counters[expected_counter] = 1
+    assert _folder_counters(source) == expected_counters
+    if expected_warning:
+        assert log_titles(source.report.warnings) == {expected_warning}
+        [context] = log_contexts(source.report.warnings)
+        assert DASHBOARD_UID in context
+    else:
+        assert not source.report.warnings
 
 
-def test_dashboard_in_unlisted_folder_warns(
-    mock_api, mock_config, mock_context, mock_dashboard
-):
-    # e.g. a nested folder /api/folders does not list, or a failed folder page
-    source, workunits = _run(mock_config, mock_context, mock_api, [], [mock_dashboard])
-
-    dashboard_container_urn = _dashboard_container_urn(source, mock_dashboard)
-    assert _is_emitted(workunits, dashboard_container_urn)
-    assert not _dashboard_parents(workunits, dashboard_container_urn)
-    assert source.report.dashboards_without_folder_container == 1
-    warnings = _folder_not_ingested_warnings(source)
-    assert len(warnings) == 1
-    assert list(warnings[0].context) == ["Test Dashboard (uid dash1, folder id 1)"]
-
-
-def test_dashboard_without_folder_id_is_counted(mock_api, mock_config, mock_context):
-    dashboard = _make_dashboard(folder_id=None)
-
-    source, workunits = _run(mock_config, mock_context, mock_api, [], [dashboard])
-
-    dashboard_container_urn = _dashboard_container_urn(source, dashboard)
-    assert _is_emitted(workunits, dashboard_container_urn)
-    assert not _dashboard_parents(workunits, dashboard_container_urn)
-    assert source.report.dashboards_without_folder_id == 1
-    assert source.report.dashboards_without_folder_container == 0
-    assert not _folder_not_ingested_warnings(source)
-
-
-def test_chart_urns_omit_platform_instance_when_unset(mock_api, mock_context):
+@pytest.mark.usefixtures("mock_api")
+def test_chart_urns_omit_platform_instance_when_unset(mock_context):
     config = GrafanaSourceConfig(
         url="http://grafana.test",
         service_account_token="test-token",
