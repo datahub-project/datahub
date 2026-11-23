@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict, List, Tuple, cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 from unittest.mock import MagicMock, create_autospec, patch
 
 import boto3
@@ -2632,10 +2632,11 @@ def test_password_without_username_is_rejected() -> None:
     [
         ({"username": "user", "password": "pass"}, ("user", "pass")),
         ({"username": "user"}, ("user", "")),
+        ({"password": ""}, None),
     ],
 )
-def test_username_with_or_without_password_is_accepted(
-    credentials: Dict[str, Any], expected_http_auth: Tuple[str, str]
+def test_credentials_without_a_dropped_password_are_accepted(
+    credentials: Dict[str, Any], expected_http_auth: Optional[Tuple[str, str]]
 ) -> None:
     config = ElasticsearchSourceConfig.model_validate(credentials)
     assert config.http_auth == expected_http_auth
