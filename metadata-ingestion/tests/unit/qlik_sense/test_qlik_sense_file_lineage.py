@@ -834,6 +834,23 @@ def test_unresolved_file_keeps_lineage_when_its_inputs_were_not_read(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_is_not_named_by_its_connection_when_connections_were_not_listed(
+    mock_api_cls: MagicMock,
+) -> None:
+    # The connection may be one whose storage the listing would have given,
+    # so the last run's edges stay rather than move to a connection-named file.
+    writes = _graph_app_run(
+        mock_api_cls,
+        {},
+        [UnreadItem(name=UNREAD_DATA_CONNECTIONS, cause="timeout")],
+        script=STORE_SCRIPT,
+    )
+
+    assert writes[ORDERS] == f"patch:{RATES}"
+    assert not [urn for urn in writes if "sales space:lake" in urn]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_unresolved_file_of_an_app_with_includes_only_adds(
     mock_api_cls: MagicMock,
 ) -> None:
