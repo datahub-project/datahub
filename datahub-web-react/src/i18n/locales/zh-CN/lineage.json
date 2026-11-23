@@ -71,6 +71,7 @@
     "levelFilter.directTooltip": "显示直接相关的数据资产",
     "levelFilter.indirect": "间接",
     "levelFilter.indirectTooltip": "显示间接相关的数据资产",
+    "loadError": "无法加载数据血缘，请重试。",
     "manageLineage.changeToHome": "设为主节点",
     "manageLineage.dashboardNoDownstream": "仪表板实体没有下游数据血缘",
     "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",

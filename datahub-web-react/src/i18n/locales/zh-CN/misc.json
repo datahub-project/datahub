@@ -145,6 +145,7 @@
     "marketplace.cardSubProducts_other": "{{count}} 个子产品",
     "marketplace.collapseAll": "全部折叠",
     "marketplace.createTooltip": "创建数据产品",
+    "marketplace.createUnauthorized": "你没有在此处创建数据产品的权限。请尝试在你管理的数据域的“数据产品”标签页中创建。",
     "marketplace.dataProductsSection": "数据产品",
     "marketplace.emptyFilterDescription": "没有符合所选筛选条件的数据产品。",
     "marketplace.emptyFilterTitle": "无匹配的数据产品",

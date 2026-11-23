@@ -158,6 +158,9 @@
     "users.ssoTitle": "配置单点登录（SSO）",
     "welcome.docsLink": "DataHub 文档",
     "welcome.getStarted": "开始使用",
+    "welcome.githubRepoDescription": "面向数据与 AI 技术栈的元数据平台",
+    "welcome.githubStargazers": "加入为 DataHub 点亮星标的 {{stars}} 名开发者",
+    "welcome.githubStargazersNoCount": "加入为 DataHub 点亮星标的开发者行列",
     "welcome.loadingVideo": "正在加载视频…",
     "welcome.modalTitle": "欢迎使用 DataHub",
     "welcome.slideDocsDescription": "在提升可发现性的同时，节省大量人工工作",
@@ -168,6 +171,8 @@
     "welcome.slideImpactTitle": "从容应对破坏性变更",
     "welcome.slideLineageDescription": "全面了解数据被创建和转换的来龙去脉",
     "welcome.slideLineageTitle": "了解数据的来源",
+    "welcome.slideGithubDescription": "如果 DataHub 对你的团队有帮助，在 GitHub 上点亮星标也能帮助其他数据团队发现它。",
+    "welcome.slideGithubTitle": "觉得不错？",
     "welcome.slideReadyDescription": "浏览我们详尽的文档，或直接开始探索你的数据",
     "welcome.slideReadyTitle": "准备好开始了吗？"
 }
