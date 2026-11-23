@@ -1254,6 +1254,18 @@ def test_binary_load_mapped_to_an_app_links_its_tables_and_columns(
             False,
             id="a Replace preceding load",
         ),
+        pytest.param(
+            "Replace Concatenate (Orders) LOAD id, amount "
+            "FROM [lib://QVD Data/raw/more.qvd] (qvd);",
+            False,
+            id="a Replace load that adds to the table",
+        ),
+        pytest.param(
+            "Concatenate (Orders) LOAD id, amount "
+            "FROM [lib://QVD Data/raw/more.qvd] (qvd);",
+            True,
+            id="a load that adds to the table by name",
+        ),
     ],
 )
 def test_binary_load_mapped_to_an_app_keeps_a_table_the_script_loads_into(
