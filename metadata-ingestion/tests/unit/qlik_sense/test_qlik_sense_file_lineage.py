@@ -209,6 +209,12 @@ def test_path_resolves_with_the_variables_of_the_last_reload(
                 qri_connection_id=qri_part_id("eu-west-1/sales"),
             ),
         ),
+        # A location on another platform than the connector's is not trusted.
+        (
+            'CUSTOM CONNECT TO "provider=QvWebStorageProviderConnectorPackage.exe;'
+            'sourceType=File_AzureStorageConnector;blobContainerPath=s3://sales;"',
+            None,
+        ),
         # A connection that does not say where its files are.
         (
             'CUSTOM CONNECT TO "provider=QvWebStorageProviderConnectorPackage.exe;'
