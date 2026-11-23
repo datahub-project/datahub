@@ -243,6 +243,68 @@ The parent is saved in the same write as the product, so a failed request never 
 
 The request is rejected, and nothing is written, if `parentDataProduct` is not a Data Product URN or the parent does not exist. The same checks apply when the parent is set through OpenAPI, Rest.li, or YAML.
 
+#### Query the hierarchy via API
+
+A single `dataProduct` GraphQL query returns a product's parent, its ancestors and its direct children:
+
+```graphql
+query {
+  dataProduct(urn: "urn:li:dataProduct:vendor_equities") {
+    urn
+    properties {
+      name
+      # The direct parent. Null for a top-level product.
+      parentDataProduct {
+        urn
+        properties {
+          name
+        }
+      }
+    }
+    # Every ancestor, nearest first, up to the top-level product.
+    parentDataProducts {
+      urn
+    }
+    # The direct children.
+    childDataProducts(input: { query: "*", count: 50 }) {
+      total
+      nextScrollId
+      searchResults {
+        entity {
+          urn
+          ... on DataProduct {
+            properties {
+              name
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+`childDataProducts` returns up to `count` children per call. When `nextScrollId` is not null, pass it as `scrollId` in the next call's `input` to get the next page. Use `count: 0` to get only `total`. Grandchildren are returned by querying `childDataProducts` on each child. To list top-level products, use `getRootDataProducts(input: { start: 0, count: 25 })`.
+
+A product's role in the hierarchy follows from the same response:
+
+| Role                      | `properties.parentDataProduct` | `childDataProducts.total` |
+| ------------------------- | ------------------------------ | ------------------------- |
+| Child                     | set                            | 0                         |
+| Parent                    | null                           | greater than 0            |
+| Both a child and a parent | set                            | greater than 0            |
+| Not part of a hierarchy   | null                           | 0                         |
+
+Roles change when the parent pointer changes, whether through the UI, the `moveDataProduct` mutation, OpenAPI, Rest.li or YAML:
+
+- **Assigning a parent:** the product becomes a child, and the new parent becomes a parent.
+- **Removing a parent** (`moveDataProduct` with `parentDataProduct` set to null): the product is no longer a child. The old parent stops being a parent if this was its last child.
+- **Moving to another parent:** both of the above apply, to the old parent and the new one.
+- **Deleting a child:** the parent stops being a parent once its last child is deleted. Soft-deleted children are not counted.
+- **Deleting a parent:** blocked while the parent has children.
+
+A product's own `parentDataProduct` changes as soon as the write succeeds. The parent's `childDataProducts` comes from the search index, so it reflects the change after indexing completes, usually within a few seconds.
+
 ### Creating a Data Product (YAML + git)
 
 DataHub ships with a YAML-based Data Product spec for defining and managing Data Products as code.
