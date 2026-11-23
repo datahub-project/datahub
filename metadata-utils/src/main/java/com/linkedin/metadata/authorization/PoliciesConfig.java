@@ -106,6 +106,12 @@ public class PoliciesConfig {
   public static final Privilege MANAGE_DOMAINS_PRIVILEGE =
       Privilege.of("MANAGE_DOMAINS", "Manage Domains", "Create and remove Asset Domains.");
 
+  public static final Privilege MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ALL_DATA_PRODUCTS",
+          "Manage All Data Products",
+          "Create, edit, and remove Data Products in any Domain.");
+
   public static final Privilege MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE =
       Privilege.of(
           "MANAGE_GLOBAL_ANNOUNCEMENTS",
@@ -287,6 +293,7 @@ public class PoliciesConfig {
           VIEW_ANALYTICS_PRIVILEGE,
           GET_ANALYTICS_PRIVILEGE,
           MANAGE_DOMAINS_PRIVILEGE,
+          MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE,
           MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
           MANAGE_INGESTION_PRIVILEGE,
           MANAGE_SECRETS_PRIVILEGE,
