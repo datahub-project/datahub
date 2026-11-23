@@ -292,6 +292,24 @@ public class SearchDocumentTransformer {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
     boolean entityHasSearchableAspects = !entitySpec.getSearchableFieldSpecs().isEmpty();
 
+    // The flat (V2) entity document is written one aspect at a time with partial updates, so a
+    // timeseries aspect writing a field that a versioned aspect also declares replaces that
+    // aspect's value on every event (e.g. assertionRunEvent.batchSpec.customProperties clearing
+    // assertionInfo.customProperties). The versioned aspect owns the field. V3 keeps each aspect
+    // under its own namespace, so it is left alone.
+    if (aspectSpec.isTimeseries() && !extractedSearchableFields.isEmpty() && !v3Projection()) {
+      Set<String> versionedFieldNames =
+          entitySpec.getAspectSpecs().stream()
+              .filter(spec -> !spec.isTimeseries())
+              .flatMap(spec -> spec.getSearchableFieldSpecs().stream())
+              .map(spec -> spec.getSearchableAnnotation().getFieldName())
+              .collect(Collectors.toSet());
+      extractedSearchableFields
+          .keySet()
+          .removeIf(
+              spec -> versionedFieldNames.contains(spec.getSearchableAnnotation().getFieldName()));
+    }
+
     if (!extractedSearchableFields.isEmpty()
         || !extractedSearchScoreFields.isEmpty()
         || !extractedSearchRefFields.isEmpty()) {
