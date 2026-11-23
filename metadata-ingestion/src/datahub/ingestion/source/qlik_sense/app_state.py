@@ -1,5 +1,5 @@
 import threading
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -145,6 +145,17 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
         if self.stale_job_id and (stale is None or stale.run_id != last.run_id):
             return None
         return last.state.apps
+
+    def add_urns(self, app_id: str, urns: Iterable[str]) -> None:
+        """Adds entities emitted at the end of the run to the checkpoint this
+        run recorded for the app, if any."""
+        if not self.is_checkpointing_enabled():
+            return
+        current = self.state_provider.get_current_checkpoint(self.job_id)
+        checkpoint = current.state.apps.get(app_id) if current is not None else None
+        if checkpoint is not None:
+            known = set(checkpoint.urns)
+            checkpoint.urns.extend(urn for urn in sorted(urns) if urn not in known)
 
     def record(self, app_id: str, checkpoint: AppCheckpoint) -> None:
         if not self.is_checkpointing_enabled():
