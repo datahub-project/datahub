@@ -221,6 +221,8 @@ QLIK_APP_QRI_RE = re.compile(r"^qri:app:(?:sense|dataprep)://([^#]+)")
 # Qlik Cloud datasets, such as QVDs stored in a space.
 QLIK_DATASET_QRI_PREFIX = "qri:qdf:"
 QVD_EXTENSION = ".qvd"
+# Every Qlik Cloud space's connection to its own data files.
+DATA_FILES_CONNECTION = "datafiles"
 
 
 def _is_qvd(dataset: Union[QlikDataset, ListedDataset]) -> bool:
@@ -369,6 +371,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._apps_with_includes: Set[str] = set()
         self._reported_include_apps: Set[str] = set()
         self._resolved_file_qris: Set[str] = set()
+        # Files on connections of unknown storage, by URN, as `lib://` paths,
+        # and those that lineage links to, which get a dataset.
+        self._unmapped_files: Dict[str, str] = {}
+        self._linked_unmapped_files: Set[str] = set()
         self._allowed_space_ids: Set[str] = set()
         self._reported_no_graph = False
         # Datasets with a column edge whose source field could not be named.
@@ -1962,6 +1968,25 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             lowercase=detail.convert_urns_to_lowercase if detail else False,
         )
 
+    def _unmapped_file_urn(self, connection: str, path: str) -> Optional[str]:
+        """A Qlik dataset for a file on a connection whose storage is unknown,
+        named by the connection and path, so the apps that write and read it
+        still join. Only a connection named with its space is the same one in
+        every app, and DataFiles hold Qlik's own datasets."""
+        space, _, name = connection.strip().partition(":")
+        path = normalized_file_path(path)
+        qualified = f"{space}:{name}/{path}"
+        if (
+            not (space and name and path)
+            or name.lower() == DATA_FILES_CONNECTION
+            # Characters a dataset URN can't hold.
+            or any(char in qualified for char in ",()")
+        ):
+            return None
+        urn = self._gen_qlik_dataset_urn(qualified.lower())
+        self._unmapped_files.setdefault(urn, f"lib://{qualified}")
+        return urn
+
     def _gen_file_store_lineage(
         self, app: App, parsed: ParsedScript, table_urns: Set[str]
     ) -> Iterable[MetadataWorkUnit]:
@@ -1974,26 +1999,33 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if store.file.connection is None:
                 continue
             storage, detail = self._file_storage(store.file.connection, app.spaceId)
-            if storage is None:
+            file_urn: Optional[str] = None
+            if storage is not None:
+                file_urn = self._file_urn(storage, detail, store.file.path)
+            else:
                 info = self._find_data_connection(store.file.connection, app.spaceId)
+                if info is not None and info.file_platform is None:
+                    continue
                 if (
-                    info is not None
-                    and info.file_platform is not None
-                    and store.file.connection
+                    store.file.connection
                     not in self.reporter.unresolved_file_connections
                 ):
                     self.reporter.unresolved_file_connections.append(
                         store.file.connection
                     )
+                file_urn = self._unmapped_file_urn(
+                    store.file.connection, store.file.path
+                )
+            if file_urn is None:
                 continue
             table_urn = self._stored_table_urn(app, store.label, table_urns)
             # A table the app doesn't ingest, such as one a script variable
             # names, has no dataset to link.
             if table_urn is None:
                 continue
-            urns = upstreams.setdefault(
-                self._file_urn(storage, detail, store.file.path), []
-            )
+            if storage is None:
+                self._linked_unmapped_files.add(file_urn)
+            urns = upstreams.setdefault(file_urn, [])
             if table_urn not in urns:
                 urns.append(table_urn)
         for file_urn, urns in upstreams.items():
@@ -2042,6 +2074,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         unconfirmed: Set[str] = set()
         # Unconfirmed URNs whose storage location hashes to the QRI's part.
         likely: Set[str] = set()
+        # Files on connections of unknown storage, named by connection and path.
+        unmapped: Set[str] = set()
         unknown = False
         for reference in candidates.references:
             storage, detail = self._file_storage(reference.connection, space_id)
@@ -2051,7 +2085,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     # A visible connection of another kind, such as DataFiles,
                     # can't hold a file on this storage.
                     continue
-                unknown = True
                 if (
                     reference.connection
                     not in self.reporter.unresolved_file_connections
@@ -2059,6 +2092,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     self.reporter.unresolved_file_connections.append(
                         reference.connection
                     )
+                unmapped_urn = self._unmapped_file_urn(
+                    reference.connection, reference.path
+                )
+                if unmapped_urn is None:
+                    unknown = True
+                else:
+                    unmapped.add(unmapped_urn)
                 continue
             if storage.platform != candidates.platform or (
                 storage.qri_connection_id is not None
@@ -2073,6 +2113,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             urns = confirmed
         elif unknown:
             return None
+        elif unmapped:
+            urns = unconfirmed | unmapped
         elif len(unconfirmed) > 1 and len(likely & unconfirmed) == 1:
             # Such as the prod and dev branches of an IF, of which only one ran.
             urns = likely & unconfirmed
@@ -2083,7 +2125,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if file_qri not in self._resolved_file_qris:
             self._resolved_file_qris.add(file_qri)
             self.reporter.file_sources_resolved += 1
-        return next(iter(urns))
+        urn = next(iter(urns))
+        if urn in unmapped:
+            self._linked_unmapped_files.add(urn)
+        return urn
 
     def _learn_field_names(self, names: Iterable[str]) -> None:
         for name in names:
@@ -2570,7 +2615,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             replace_lineage=not app.tables_read_failed,
         )
         if qvd_lineage is not None:
-            yield from self._gen_qvd_entities(qvd_lineage)
+            yield from self._gen_file_entities(qvd_lineage.paths)
         else:
             yield from self._gen_file_store_lineage(app, parsed, set(table_fields))
         if fingerprint:
@@ -2827,26 +2872,31 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 known.extend(urn for urn in upstreams if urn not in known)
         return merged
 
-    def _gen_qvd_entities(self, lineage: AppQvdLineage) -> Iterable[MetadataWorkUnit]:
-        # Emitted by every app that touches the QVD, so it stays while any of
+    def _gen_file_entities(self, paths: Dict[str, str]) -> Iterable[MetadataWorkUnit]:
+        # A QVD is emitted by every app that touches it, so it stays while any of
         # them does; its schema and lineage come from all of them at the end.
         # The folders too: each app's checkpoint only keeps what it emitted,
         # so they are deduplicated per app, not per run.
         containers = ContainerWUCreator(
             self.platform, self.config.platform_instance, self.config.env
         )
-        for urn, path in lineage.paths.items():
+        for urn, path in paths.items():
             yield self._gen_entity_status_aspect(urn)
             name = posixpath.basename(path)
+            subtype = (
+                DatasetSubTypes.QLIK_QVD
+                if name.lower().endswith(QVD_EXTENSION)
+                else DatasetSubTypes.QLIK_DATASET
+            )
             yield MetadataChangeProposalWrapper(
                 entityUrn=urn,
                 aspect=DatasetProperties(
                     name=name[: -len(QVD_EXTENSION)]
-                    if name.endswith(QVD_EXTENSION)
+                    if subtype == DatasetSubTypes.QLIK_QVD
                     else name,
                     qualifiedName=path,
                     customProperties={
-                        Constant.TYPE: DatasetSubTypes.QLIK_QVD,
+                        Constant.TYPE: subtype,
                         "path": path,
                     },
                 ),
@@ -2856,7 +2906,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 yield dpi_aspect
             yield MetadataChangeProposalWrapper(
                 entityUrn=urn,
-                aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_QVD]),
+                aspect=SubTypes(typeNames=[subtype]),
             ).as_workunit()
             # In Folder containers from the server and share (or drive) down,
             # as the data lake sources place files; without a container the
@@ -3403,6 +3453,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         yield from self._gen_dataset_store_lineage()
         yield from self._gen_stored_table_types()
         yield from self._gen_qvd_lineage()
+        yield from self._gen_file_entities(
+            {urn: self._unmapped_files[urn] for urn in self._linked_unmapped_files}
+        )
         if self.qlik_api.opened_without_data:
             self.reporter.warning(
                 title="Qlik apps read without their data",
@@ -3422,8 +3475,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if self.reporter.unresolved_file_connections:
             self.reporter.warning(
                 title="Qlik file connections have no known storage",
-                message="Files apps read through these data connections are left "
-                "out of their tables' lineage. Add each connection to "
+                message="Files on these data connections are named by the "
+                "connection and path when it is named with its space, so they "
+                "only join the Qlik apps that write and read them; files on the "
+                "others are left out of lineage. Add each connection to "
                 "`file_connection_to_storage` with the URI of its storage.",
                 context=_bounded_list(
                     sorted(self.reporter.unresolved_file_connections)

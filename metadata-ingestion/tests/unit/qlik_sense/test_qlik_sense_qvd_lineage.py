@@ -11,7 +11,6 @@ from datahub.ingestion.source.qlik_sense.data_classes import App, UnreadItem
 from datahub.ingestion.source.qlik_sense.qlik_base_api import UNREAD_DATA_CONNECTIONS
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.qvd_lineage import (
-    AppQvdLineage,
     QvdPathResolver,
     app_qvd_lineage,
     canonical_path,
@@ -620,15 +619,15 @@ def test_every_app_emits_the_folders_of_its_qvds(mock_api_cls: MagicMock) -> Non
         PipelineContext(run_id="test-qvd-lineage"),
     )
 
-    def folder_urns(lineage: AppQvdLineage) -> List[str]:
+    def folder_urns(paths: Dict[str, str]) -> List[str]:
         return [
             wu.get_urn()
-            for wu in source._gen_qvd_entities(lineage)
+            for wu in source._gen_file_entities(paths)
             if wu.get_aspect_of_type(ContainerPropertiesClass)
         ]
 
-    first = folder_urns(AppQvdLineage(paths={CLEAN: "//nas/qvd/clean/orders.qvd"}))
-    second = folder_urns(AppQvdLineage(paths={RAW: "//nas/qvd/raw/orders.qvd"}))
+    first = folder_urns({CLEAN: "//nas/qvd/clean/orders.qvd"})
+    second = folder_urns({RAW: "//nas/qvd/raw/orders.qvd"})
 
     # Each app's checkpoint keeps only what it emitted, so the server and
     # share it shares with the other app are emitted by both.
@@ -645,7 +644,7 @@ def _qvd_folders(config: Dict[str, Any], path: str) -> List[Tuple[str, str]]:
         )
     return [
         (wu.get_urn(), properties.name)
-        for wu in source._gen_qvd_entities(AppQvdLineage(paths={_urn(path): path}))
+        for wu in source._gen_file_entities({_urn(path): path})
         if (properties := wu.get_aspect_of_type(ContainerPropertiesClass))
     ]
 

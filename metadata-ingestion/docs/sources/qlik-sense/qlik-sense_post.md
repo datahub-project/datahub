@@ -122,9 +122,11 @@ file_connection_to_storage:
 
 A file is named `<container or bucket>/<folder>/<path>`, as the `abs`, `s3` and `gcs` sources name a file when their `path_specs` ingest files individually. Names keep the case of the path the script reads; set `convert_urns_to_lowercase: true` on a mapping when the storage source is run with that option.
 
+When neither is known, a file on a connection named with its space (`lib://<space>:<connection>/<path>`) is ingested as a Qlik Sense dataset named `<space>:<connection>/<path>`, in lowercase, so the apps that store it and the apps that load it still join through it, but it does not join the storage's own dataset. Once the storage is mapped, the file links to that dataset instead, and stale-metadata removal drops the Qlik Sense one. A connection named without its space may be another space's connection of the same name, and a space's `DataFiles` connection holds Qlik datasets, so files on those are left out.
+
 A file is linked only when one connection could hold it:
 
-- When the script reads the same path through another connection whose storage is not known, the file is left out.
+- When the script reads the same path through another connection whose storage is not known, and that connection is not named with its space, the file is left out.
 - When two connections known only from `storage_uri` could hold it, such as the prod and dev branches of an `IF`, the one whose Azure container path or Google Cloud Storage bucket matches the file's QRI is linked, and otherwise neither is.
 - When the data connections or an app's variables could not be read, files that are not resolved keep their lineage from the last run.
 
@@ -279,7 +281,7 @@ A path the connector can't resolve to one file is listed, such as a wildcard, a 
 
 #### `unresolved_file_connections` in the report, or "Qlik file connections have no known storage" (Qlik Cloud)
 
-Apps read files through these connections, but their storage is not known. Add each one to `file_connection_to_storage` with its `storage_uri`, or give the API key's user **Can consume data** in the connection's space.
+Apps read or store files through these connections, but their storage is not known. Files on those named with their space are linked only between Qlik apps, by connection and path; the others are left out of lineage. Add each one to `file_connection_to_storage` with its `storage_uri`, or give the API key's user **Can consume data** in the connection's space.
 
 #### "Lineage of Qlik app table only added to"
 
