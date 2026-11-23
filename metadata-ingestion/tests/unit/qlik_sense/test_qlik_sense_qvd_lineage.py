@@ -1358,6 +1358,14 @@ def test_replace_load_drops_and_creates_its_table(script: str) -> None:
     assert parsed.dropped_tables == ["Orders"]
 
 
+@pytest.mark.parametrize("label", ["$(vT)", "[$(vT)]"])
+def test_table_named_by_an_unknown_variable_has_no_name(label: str) -> None:
+    parsed = parse_script(f"LIB CONNECT TO 'db';\n{label}: SQL SELECT a FROM s.t;")
+    # Not a table literally named $(vT), which would be a dataset of its own.
+    assert [table.label_unknown for table in parsed.tables] == [True]
+    assert parsed.has_unnamed_tables
+
+
 def test_tables_the_script_drops_are_known() -> None:
     parsed = parse_script("DROP TABLES [Order Lines], 'Regions', Calendar;")
     assert parsed.dropped_tables == ["Order Lines", "Regions", "Calendar"]

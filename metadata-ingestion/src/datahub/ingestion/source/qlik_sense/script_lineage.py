@@ -806,6 +806,12 @@ def _load_path(statement: str) -> Optional[str]:
     return _unquote(source.group("path").strip()).strip() if source else None
 
 
+def _named_by(label: Optional[str]) -> Optional[str]:
+    """The table name a label gives, or None when a variable the parser
+    couldn't expand names it."""
+    return None if label is None or "$(" in label else label
+
+
 def _unquote(name: str) -> str:
     if len(name) > 1 and QUOTE_PAIRS.get(name[0]) == name[-1]:
         return name[1:-1]
@@ -1110,8 +1116,11 @@ class _ScriptParser(BaseModel):
                 else:
                     # A reshaping under the preceding loads hides the fields.
                     crosstable = None if reshaped else self.pending_crosstable
+                written_label = label or self.pending_label
                 known_label = (
-                    label or self.pending_label or _from_table_name(sql.group("sql"))
+                    _named_by(written_label)
+                    if written_label
+                    else _from_table_name(sql.group("sql"))
                 )
                 table_label = known_label or f"table_{len(self.tables) + 1}"
                 self._record_table(
@@ -1175,10 +1184,10 @@ class _ScriptParser(BaseModel):
                 # loads included.
                 self._record_file_load(statement)
                 if not (skip or mapping or self.pending_skip or self.pending_mapping):
-                    self._qvd_load(label or self.pending_label, statement)
+                    self._qvd_load(_named_by(label or self.pending_label), statement)
                 # A preceding LOAD's label names the table a later Concatenate
                 # or Join without a target adds to.
-                self.last_label = label or self.pending_label
+                self.last_label = _named_by(label or self.pending_label)
             self._clear_pending()
 
     def _file_statement(self, statement: str) -> bool:
@@ -1299,7 +1308,7 @@ class _ScriptParser(BaseModel):
         Concatenate or Join add to another table."""
         if mapping or merged or self.pending_mapping or self.pending_merge:
             return
-        if label is None or "$(" in label or generic or self.pending_generic:
+        if _named_by(label) is None or generic or self.pending_generic:
             # Qlik names the table, or the tables, or a variable the parser
             # can't expand does.
             self.has_unnamed_tables = True
