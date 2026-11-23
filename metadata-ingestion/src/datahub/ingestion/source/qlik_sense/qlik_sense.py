@@ -2012,9 +2012,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         urn = self._gen_qlik_dataset_urn(resource_qri.lower())
         self._graph_named_resources[urn] = label
         self._app_end_of_run_urns[app_id].add(urn)
-        self._graph_resource_writers.setdefault(urn, set()).update(
-            upstreams.stored_from.get(table_qri, [])
-        )
+        # The dataset is the whole resource, so a store into any of its tables
+        # is an upstream, as for listed datasets.
+        writers = self._graph_resource_writers.setdefault(urn, set())
+        for stored_qri, writer_qris in upstreams.stored_from.items():
+            if resource_qri in (stored_qri, stored_qri.rpartition("#")[0]):
+                writers.update(writer_qris)
         return urn
 
     def _keep_graph_named_urns(self, app_id: str) -> None:

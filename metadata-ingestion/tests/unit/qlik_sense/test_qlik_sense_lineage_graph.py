@@ -550,15 +550,35 @@ def test_unlisted_dataset_is_named_from_the_upstream_graph(
     assert not source.reporter.failures
 
 
+@pytest.mark.parametrize(
+    "source_qris, stored_qri",
+    [
+        pytest.param(
+            [UNLISTED_QVD, HIDDEN_QVD], UNLISTED_QVD, id="named_at_resource_level"
+        ),
+        # The writer's stored table is named apart from the table read.
+        pytest.param(
+            [f"{UNLISTED_QVD}#Prices", HIDDEN_QVD],
+            f"{UNLISTED_QVD}#PricesOut",
+            id="stored_under_another_table_name",
+        ),
+    ],
+)
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
-def test_source_named_at_resource_level_is_named_from_the_upstream_graph(
-    mock_api_cls: MagicMock,
+def test_graph_named_source_gets_every_writer_of_its_resource(
+    mock_api_cls: MagicMock, source_qris: List[str], stored_qri: str
 ) -> None:
     upstreams = LineageUpstreams(
         resource_labels={UNLISTED_QVD: "prices.qvd", HIDDEN_QVD: "hidden.qvd"},
-        stored_from={UNLISTED_QVD: [WRITER_TABLE]},
+        stored_from={
+            stored_qri: [WRITER_TABLE],
+            f"{UNLISTED_QVD}2#Prices": [f"{WRITER_TABLE}2"],
+        },
     )
-    items = _reader_and_writer(upstreams, source_qris=[UNLISTED_QVD, HIDDEN_QVD])
+    items = _reader_and_writer(upstreams, source_qris=source_qris)
+    writer = items[1]
+    assert isinstance(writer, App)
+    writer.lineage_tables.append(LineageTable(qri=f"{WRITER_TABLE}2", label="Out2"))
     _, written, added = _run(mock_api_cls, DATASETS, items=items)
 
     # The one listed in a space the recipe leaves out is still not named.
