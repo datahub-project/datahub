@@ -84,3 +84,15 @@ def test_env_casing_preserved() -> None:
 def test_non_s3_uri_raises() -> None:
     with pytest.raises(ValueError):
         make_s3_urn("gs://my-bucket/k", "PROD")
+
+
+def test_platform_instance_matches_s3_source_urn() -> None:
+    path = "my-bucket/data/folder(1)/file.parquet"
+    assert make_s3_urn_for_lineage(
+        f"s3://{path}", "DEV", platform_instance="lake"
+    ) == make_dataset_urn_with_platform_instance("s3", path, "lake", "DEV")
+    assert make_s3_urn(
+        f"s3://{path}", "DEV", platform_instance="lake"
+    ) == make_dataset_urn_with_platform_instance(
+        "s3", "my-bucket/data/folder(1)/file_parquet", "lake", "DEV"
+    )

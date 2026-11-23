@@ -77,6 +77,29 @@ The S3 connector creates dataset entities for the storage locations, and the Glu
 
 For cross-account S3 access, refer to the [S3 connector's cross-account documentation](https://docs.datahub.com/docs/generated/ingestion/sources/s3#cross-account-access).
 
+**Matching S3 datasets ingested by the S3 source:**
+
+The storage lineage edge only lands on the S3 dataset when Glue builds exactly the URN the S3 source emitted. Two things can make them differ:
+
+- The S3 recipe sets a `platform_instance` or a different `env`. Set the same values under `target_platform_configs.s3`; they also apply to S3 nodes in Glue job lineage.
+- The table `Location` points below the table folder, which is common for partitioned tables (`s3://my-bucket/my_table/dt=2024-01-01`) and for snapshot tables whose folder changes on every run (`s3://my-bucket/my_table/run=1700000000`). The S3 source names the dataset after the `{table}` folder of its path spec, so copy the same `path_specs` into `datalake_lineage_config` and Glue folds the Location to that folder.
+
+```yaml
+source:
+  type: glue
+  config:
+    emit_storage_lineage: true
+    target_platform_configs:
+      s3:
+        platform_instance: lake # same as the S3 recipe
+        env: PROD # same as the S3 recipe
+    datalake_lineage_config:
+      path_specs: # copied from the S3 recipe
+        - include: "s3://my-bucket/{table}/*/*.parquet"
+```
+
+A Location is folded only when a path spec with `{table}` matches it; without a matching spec the raw Location is used, as before. A Location that a spec `exclude`s or `tables_filter_pattern` filters out emits no storage lineage, and `ignore_non_path_spec_path: true` also drops Locations that match no spec. `strip_urls` has no effect on Glue. Each table folder should be covered by a single spec, as in the [Snowflake external stage guidance](https://docs.datahub.com/docs/generated/ingestion/sources/snowflake#data-lake-lineage-path-specs-for-external-stages). With neither `target_platform_configs.s3` nor `datalake_lineage_config` set, storage lineage URNs are unchanged.
+
 #### Compatibility
 
 To capture lineage across Glue jobs and databases, a requirements must be met – otherwise the AWS API is unable to report any lineage. The job must be created in Glue Studio with the "Generate classic script" option turned on (this option can be accessed in the "Script" tab). Any custom scripts that do not have the proper annotations will not have reported lineage.
