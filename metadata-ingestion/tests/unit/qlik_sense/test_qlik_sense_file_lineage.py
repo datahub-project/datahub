@@ -1,5 +1,5 @@
 import json
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -703,8 +703,31 @@ def _graph_app_run(
     tables: Optional[List[Dict]] = None,
     file_path: str = "landing/orders.csv",
 ) -> Dict[str, str]:
-    """Each table's upstreams as a whole UpstreamLineage write lists them, or
-    "patch:" and those a patch adds."""
+    return _graph_app_writes(
+        *_graph_app_source(
+            mock_api_cls,
+            file_connection_to_storage,
+            unread,
+            variables_read_failed,
+            script,
+            datasets_listed,
+            tables,
+            file_path=file_path,
+        )
+    )
+
+
+def _graph_app_source(
+    mock_api_cls: MagicMock,
+    file_connection_to_storage: Dict,
+    unread: List[UnreadItem],
+    variables_read_failed: bool = False,
+    script: str = SCRIPT,
+    datasets_listed: bool = True,
+    tables: Optional[List[Dict]] = None,
+    data_connections: Optional[Dict[str, DataConnectionInfo]] = None,
+    file_path: str = "landing/orders.csv",
+) -> Tuple[QlikSenseSource, App]:
     api = mock_api_cls.return_value
     api.unread_items = unread
     api.list_datasets.return_value = (
@@ -721,7 +744,7 @@ def _graph_app_run(
         PipelineContext(run_id="test-file-lineage"),
     )
     source._allowed_space_ids = {"space-1"}
-    source._data_connections = {}
+    source._data_connections = data_connections or {}
     app = App.model_validate(
         {
             "id": "app-1",
@@ -747,6 +770,12 @@ def _graph_app_run(
             ],
         }
     )
+    return source, app
+
+
+def _graph_app_writes(source: QlikSenseSource, app: App) -> Dict[str, str]:
+    """Each table's upstreams as a whole UpstreamLineage write lists them, or
+    "patch:" and those a patch adds."""
     writes: Dict[str, str] = {}
     for wu in source._gen_app_workunit(app):
         lineage = wu.get_aspect_of_type(UpstreamLineageClass)
@@ -818,17 +847,17 @@ def test_stored_qvd_on_mapped_storage_links_the_stored_table(
 
     stored = {urn: upstreams for urn, upstreams in writes.items() if "qvd," in urn}
     # Scratch is not a table the app ingests, so its QVD has nothing to link.
-    # Without the storage, the QVD is named by its connection and path.
-    assert stored == {
-        (
-            "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qvd/orders.qvd,PROD)"
-            if mapped
-            else UNMAPPED_ORDERS_QVD
-        ): (
-            # Not removed as stale: it is the storage's dataset.
-            f"not primary patch:{ORDERS}"
-        )
-    }
+    # Without the storage, the QVD is only linked at the end of the run.
+    assert stored == (
+        {
+            "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qvd/orders.qvd,PROD)": (
+                # Not removed as stale: it is the storage's dataset.
+                f"not primary patch:{ORDERS}"
+            )
+        }
+        if mapped
+        else {}
+    )
 
 
 @pytest.mark.parametrize("stored_label", ["Customers", "AllCustomers"])
@@ -874,6 +903,10 @@ def _model_table(name: str, alias: str, qri: str) -> Dict:
     }
 
 
+def _stored_files(writes: Dict[str, str]) -> Dict[str, str]:
+    return {urn: upstreams for urn, upstreams in writes.items() if "abs," in urn}
+
+
 def _store_app(tables: List[Dict]) -> App:
     return App.model_validate(
         {
@@ -888,44 +921,170 @@ def _store_app(tables: List[Dict]) -> App:
     )
 
 
+@pytest.mark.parametrize("read", [True, False])
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
-def test_stored_qvd_on_unknown_storage_reports_the_connection(
-    mock_api_cls: MagicMock,
+def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
+    mock_api_cls: MagicMock, read: bool
 ) -> None:
     source = _source(
         {},
         {CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)},
+        script="Orders: LOAD * FROM [lib://Sales Space:Lake/qvd/orders.qvd] (qvd);",
     )
+    storing_app = _store_app([]).model_copy(update={"id": "app-2"})
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
 
-    workunits = list(
+    assert not list(
         source._gen_file_store_lineage(
-            _store_app([]), parse_script(STORE_SCRIPT), {ORDERS}
+            storing_app, parse_script(STORE_SCRIPT), {stored}
         )
     )
+    # A later app's lineage graph reads the file, so it exists.
+    if read:
+        assert source._resolve_file_source(
+            "app-1", _file_qri("adls", "lake", "qvd/orders.qvd")
+        )
+    workunits = list(source._gen_unmapped_file_entities())
 
-    # Named by its connection and path instead.
-    assert {wu.get_urn() for wu in workunits} == {UNMAPPED_ORDERS_QVD}
     assert source.reporter.unresolved_file_connections == [CONNECTION]
+    lineage = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+    ]
+    if read:
+        # Named by its connection and path.
+        assert {wu.get_urn() for wu in workunits} == {UNMAPPED_ORDERS_QVD}
+        assert [wu.get_urn() for wu in lineage] == [UNMAPPED_ORDERS_QVD]
+        assert stored in str(lineage[0].metadata.aspect)
+        # In the storing app's checkpoint too.
+        assert UNMAPPED_ORDERS_QVD in source._app_end_of_run_urns["app-2"]
+        assert not source.reporter.unread_stored_files
+    else:
+        assert not workunits
+        assert "app-2" not in source._app_end_of_run_urns
+        assert list(source.reporter.unread_stored_files) == [
+            "lib://Sales Space:Lake/qvd/orders.qvd"
+        ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_stored_qvd_on_a_visible_connection_without_file_storage_is_skipped(
+    mock_api_cls: MagicMock,
+) -> None:
+    folder = "Sales Space:Some Folder"
+    source = _source({}, {folder: DataConnectionInfo(name="Some Folder")})
+
+    assert not list(
+        source._gen_file_store_lineage(
+            _store_app([]),
+            parse_script(f"STORE Orders INTO [lib://{folder}/x.qvd] (qvd);"),
+            {ORDERS},
+        )
+    )
+    assert not list(source._gen_unmapped_file_entities())
+    # Not a file connection, so there is no storage to map.
+    assert not source.reporter.unresolved_file_connections
+    assert not source.reporter.unread_stored_files
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_stored_label_naming_two_load_model_tables_links_neither(
     mock_api_cls: MagicMock,
 ) -> None:
-    source = _source({}, {})
-    by_name = "qri:db:sqlserver://sales#dbo.Customers"
-    by_alias = "qri:db:sqlserver://sales#dbo.CustomersArchive"
-    app = _store_app(
-        [
-            _model_table("Customers", "AllCustomers", by_name),
-            _model_table("CustomersArchive", "Customers", by_alias),
-        ]
+    writes = _graph_app_run(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        script="STORE Customers INTO [lib://Sales Space:Lake/qvd/customers.qvd] (qvd);",
+        tables=[
+            _model_table(
+                "Customers", "AllCustomers", "qri:db:sqlserver://sales#dbo.Customers"
+            ),
+            _model_table(
+                "CustomersArchive",
+                "Customers",
+                "qri:db:sqlserver://sales#dbo.CustomersArchive",
+            ),
+        ],
     )
-    table_urns = {
-        make_dataset_urn("qlik-sense", qri.lower()) for qri in (by_name, by_alias)
-    }
 
-    assert source._stored_table_urn(app, "Customers", table_urns) is None
+    assert _stored_files(writes) == {}
+
+
+@pytest.mark.parametrize(
+    "script, linked",
+    [
+        pytest.param(
+            """
+IF vEnv = 'prod' THEN
+  STORE Orders INTO [lib://Sales Space:Lake/prod/orders.qvd] (qvd);
+ELSE
+  STORE Orders INTO [lib://Sales Space:Lake/dev/orders.qvd] (qvd);
+END IF
+""",
+            [],
+            id="IF and ELSE store into different files",
+        ),
+        pytest.param(
+            """
+SWITCH vEnv
+CASE 'prod'
+  STORE Orders INTO [lib://Sales Space:Lake/prod/orders.qvd] (qvd);
+DEFAULT
+  STORE Orders INTO [lib://Sales Space:Lake/dev/orders.qvd] (qvd);
+END SWITCH
+""",
+            [],
+            id="SWITCH cases store into different files",
+        ),
+        pytest.param(
+            """
+IF vEnv = 'prod' THEN
+  STORE Orders INTO [lib://Sales Space:Lake/prod/orders.qvd] (qvd);
+END IF
+""",
+            ["prod"],
+            id="single IF",
+        ),
+        pytest.param(
+            """
+IF vEnv = 'prod' THEN
+  STORE Orders INTO [lib://Sales Space:Lake/prod/orders.qvd] (qvd);
+ELSE
+  STORE Orders INTO [lib://Sales Space:Lake/prod/orders.qvd] (qvd);
+END IF
+STORE Orders INTO [lib://Sales Space:Lake/dev/orders.qvd] (qvd);
+""",
+            ["prod", "dev"],
+            id="branches agree and a STORE outside the block",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_stores_in_competing_branches_are_not_linked(
+    mock_api_cls: MagicMock, script: str, linked: List[str]
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        script=f"Orders:\nLOAD * FROM [lib://Sales Space:Lake/landing/orders.csv] (txt);\n{script}",
+    )
+
+    assert _stored_files(_graph_app_writes(source, app)) == {
+        f"urn:li:dataset:(urn:li:dataPlatform:abs,lake/{env}/orders.qvd,PROD)": (
+            f"not primary patch:{ORDERS}"
+        )
+        for env in linked
+    }
+    competing = not linked
+    assert bool(source.reporter.qvd_stores_in_competing_branches) == competing
+    assert (
+        "Qlik STOREs in competing branches are not linked"
+        in [w.title for w in source.reporter.warnings]
+    ) == competing
 
 
 @pytest.mark.parametrize(
@@ -1172,36 +1331,81 @@ def test_included_scripts_are_read_into_the_script() -> None:
     ).has_includes
 
 
-def test_included_script_is_read_once_a_run_per_space() -> None:
+@pytest.mark.parametrize("separator", [";", ""])
+def test_include_with_a_variable_in_its_path_keeps_the_next_label(
+    separator: str,
+) -> None:
+    parsed = parse_script(
+        f"$(Include=lib://$(vPrefix)Common/x.qvs){separator}\n"
+        "Orders: LOAD *; SQL SELECT * FROM sales.orders;"
+    )
+
+    assert [table.label for table in parsed.tables] == ["Orders"]
+    assert parsed.has_includes
+
+
+def test_include_outside_a_lib_path_is_not_read() -> None:
+    files = {"common.qvs": "X: LOAD * FROM [lib://S:Lake/x.csv];"}
+    parsed = parse_script(inline_includes("$(Include=common.qvs);", {}, files.get))
+
+    assert not parsed.file_loads
+    assert parsed.has_includes
+
+
+def _include_api() -> QlikAPI:
     with patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session"):
-        api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+        return QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+
+
+def _engine(*replies: object) -> MagicMock:
     engine = MagicMock()
-    engine.websocket_send_request.side_effect = [
+    engine.websocket_send_request.side_effect = list(replies)
+    return engine
+
+
+def test_included_script_is_read_once_a_run_per_space() -> None:
+    api = _include_api()
+    engine = _engine(
         {"qContent": "X: LOAD 1 AS a AUTOGENERATE 1;"},
-        EngineError({"code": 5, "message": "Access denied"}),
-        ConnectionError("socket closed"),
-        {"qContent": "W: LOAD 3 AS a AUTOGENERATE 1;"},
         {"qContent": "Y: LOAD 2 AS a AUTOGENERATE 1;"},
-        {},
-    ]
+    )
 
     for _ in range(2):
-        assert api._read_include(engine, "space-1", "lib://DataFiles/x.qvs")
-        assert api._read_include(engine, "space-1", "lib://B:DataFiles/y.qvs") is None
-    # A failure other than the Engine's may pass, so it is read again.
-    assert api._read_include(engine, "space-1", "lib://DataFiles/w.qvs") is None
-    assert api._read_include(engine, "space-1", "lib://DataFiles/w.qvs")
+        assert api._read_include(engine, "space-1", "lib://DataFiles/x.qvs") == (
+            "X: LOAD 1 AS a AUTOGENERATE 1;"
+        )
     # A path without a space resolves in the reading app's space.
     assert api._read_include(engine, "space-2", "lib://DataFiles/x.qvs") == (
         "Y: LOAD 2 AS a AUTOGENERATE 1;"
     )
-    assert api._read_include(engine, "space-2", "lib://DataFiles/z.qvs") is None
-    assert engine.websocket_send_request.call_count == 6
-    assert [failure.split(": ")[0] for failure in api.include_read_failures] == [
-        "lib://B:DataFiles/y.qvs",
-        "lib://DataFiles/w.qvs",
-        "lib://DataFiles/z.qvs",
-    ]
+    assert engine.websocket_send_request.call_count == 2
+    assert api.include_read_failures == []
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [EngineError({"code": 5, "message": "Access denied"}), {}],
+)
+def test_include_the_engine_refuses_is_not_read_again(reply: object) -> None:
+    api = _include_api()
+    engine = _engine(reply)
+
+    for _ in range(2):
+        assert api._read_include(engine, "space-1", "lib://B:DataFiles/y.qvs") is None
+    assert engine.websocket_send_request.call_count == 1
+    assert len(api.include_read_failures) == 1
+
+
+def test_include_read_failing_outside_the_engine_is_read_again() -> None:
+    api = _include_api()
+    engine = _engine(
+        ConnectionError("socket closed"),
+        {"qContent": "W: LOAD 3 AS a AUTOGENERATE 1;"},
+    )
+
+    assert api._read_include(engine, "space-1", "lib://DataFiles/w.qvs") is None
+    assert api._read_include(engine, "space-1", "lib://DataFiles/w.qvs")
+    assert len(api.include_read_failures) == 1
 
 
 _INCLUDED_LOADS = {

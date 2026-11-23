@@ -162,6 +162,12 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     # known: add them to file_connection_to_storage. Kept whole, since there are
     # only as many as the tenant has connections and each needs mapping.
     unresolved_file_connections: List[str] = field(default_factory=list)
+    # Files on connections of unknown storage that apps store into but no
+    # app's lineage graph reads, so they may not exist and are left out.
+    unread_stored_files: LossyList[str] = field(default_factory=LossyList)
+    # Cloud STOREs of a table into different files from competing IF or SWITCH
+    # branches, which are not linked.
+    qvd_stores_in_competing_branches: LossyList[str] = field(default_factory=LossyList)
     apps_read: int = 0
     apps_skipped_unchanged: int = 0
     # Apps read again because checking whether they changed failed.
@@ -219,8 +225,9 @@ class FileStorageDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
 class QlikOnPremConfig(ConfigModel):
     server: str = Field(
         min_length=1,
-        description="Qlik Sense Enterprise hostname. Must match the certificate name. "
-        "Repository Service and Engine ports are reached on this host.",
+        description="Qlik Sense Enterprise central node hostname or IP address. "
+        "Repository Service and Engine ports are reached on this host. When it is "
+        "not the name on the server certificate, set `server_cert_hostname`.",
     )
     client_cert: str = Field(
         min_length=1,
@@ -284,9 +291,10 @@ class QlikOnPremConfig(ConfigModel):
         "objects (sheets, stories, master items), its reload time, the data connections, this "
         "recipe and the connector version are all unchanged since the last run, and DataHub "
         "still holds that run's metadata for it. Its entities are kept, not soft-deleted. "
-        "Requires stateful ingestion. Set `stateful_ingestion.ignore_old_state` for one run "
-        "to force a full read, for example after ingesting upstream schemas that column-level "
-        "lineage should resolve against.",
+        "Requires stateful ingestion. Turn it off for one run to read every app again, "
+        "for example after ingesting upstream schemas that column-level lineage should "
+        "resolve against; `stateful_ingestion.ignore_old_state` also does that but skips "
+        "stale metadata removal for that run.",
     )
 
     read_data_model: bool = Field(
@@ -298,8 +306,9 @@ class QlikOnPremConfig(ConfigModel):
         "data, which is much faster, and table fields come only from the load "
         "script. Opening an app with its data loads it into Engine memory until "
         "the app cache time set in the QMC has passed since its last session, "
-        "reads one app at a time unless `max_workers` is set, and fails for apps "
-        "whose section access denies the service user their data.",
+        "reads one app at a time unless `max_workers` is set. An app whose data "
+        "can't be loaded, such as when section access denies it to the service "
+        "user, is read without its data and reported.",
     )
     qvd_folder_aliases: Dict[str, str] = Field(
         default={},
@@ -323,7 +332,9 @@ class QlikOnPremConfig(ConfigModel):
         "only loads BINARY from a .qvf file, which doesn't say which app it "
         "holds. A mapped BINARY load links the app's tables to that app's "
         "tables of the same name, with column lineage between their fields. "
-        "An unmapped one links them to the file instead. Paths match as the "
+        "An unmapped one links them to the file instead, unless the script "
+        "also creates tables it doesn't name or includes other scripts, when "
+        "they get no lineage. Paths match as the "
         "script names them, or as the file path they resolve to. Needs "
         "`read_data_model`, as the load script doesn't name the tables a "
         "BINARY load brings in.",
@@ -414,8 +425,8 @@ class QlikSourceConfig(
     # Qlik space identifier
     space_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter Qlik spaces in ingestion."
-        "Mention 'personal_space' if entities of personal space need to ingest",
+        description="Regex patterns to filter Qlik spaces in ingestion, or streams "
+        "on-prem. On Qlik Cloud, allow 'personal_space' to ingest personal spaces.",
     )
     ingest_owner: Optional[bool] = Field(
         default=True,
@@ -448,9 +459,10 @@ class QlikSourceConfig(
     # Qlik app dataset upstream tables from data connection to platform instance mapping
     data_connection_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},
-        description="A mapping of the Qlik app dataset upstream tables from data connection to platform instance."
-        "Use 'data_connection_name' as key. Set `platform`, `database` and `default_schema` when they "
-        "cannot be inferred from the data connection.",
+        description="Platform, database, schema and platform instance of the tables "
+        "that load script `SELECT`s read, keyed by data connection name. Set `platform`, "
+        "`database` and `default_schema` when they cannot be inferred from the data "
+        "connection.",
     )
     script_variables: Dict[str, str] = Field(
         default={},

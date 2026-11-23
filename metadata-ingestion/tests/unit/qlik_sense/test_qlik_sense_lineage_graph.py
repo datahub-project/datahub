@@ -338,6 +338,38 @@ def test_app_table_links_tables_of_another_app_it_loads(
     assert not source.reporter.warnings
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_table_lineage_is_only_added_to_when_the_app_it_loads_may_be_unread(
+    mock_api_cls: MagicMock,
+) -> None:
+    # `other-app` may be in the space that could not be listed, so the last
+    # run's edge to its table must stay.
+    mock_api_cls.return_value.unread_items = [
+        UnreadItem(name="items of space space-2", cause="timeout")
+    ]
+    report = _app(
+        "report-app",
+        [
+            LineageTable(
+                qri=f"{REPORT_APP}#Tbl",
+                label="Prices",
+                source_qris=["qri:app:sense://other-app#Tbl"],
+            )
+        ],
+    )
+
+    source, written, _ = _run(
+        mock_api_cls, DATASETS, keep_unread_items=True, items=[report]
+    )
+
+    assert _urn("report-app.prices") not in written
+    assert any(
+        "app=report-app" in str(w.context)
+        for w in source.reporter.warnings
+        if w.title == "Lineage of Qlik app table only added to"
+    )
+
+
 @pytest.mark.parametrize("loader_first", [True, False])
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_app_table_gets_column_lineage_from_another_app_it_loads(

@@ -83,6 +83,7 @@ class _Qlik:
         self.data_model_fails_for: Set[str] = set()
         self.variables: Dict[str, Dict[str, str]] = {}
         self.variables_fail_for: Set[str] = set()
+        self.connections_fail = False
 
     def qrs_get(
         self, url: str, params: Optional[Dict[str, str]] = None, **_: object
@@ -111,6 +112,8 @@ class _Qlik:
                 return FakeResponse({}, status_code=503)
             return FakeResponse(self.objects)
         if url.endswith("/dataconnection/full"):
+            if self.connections_fail:
+                return FakeResponse({}, status_code=503)
             return FakeResponse([self.data_connection, *self.extra_connections])
         raise AssertionError(url)
 
@@ -926,6 +929,24 @@ def test_kept_unchanged_app_still_writes_its_qvd(
     assert _qvd_upstreams(second_wus) == [writer]
 
 
+def test_app_read_while_data_connections_were_unread_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _qvd_qlik()
+    qlik.connections_fail = True
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    opens = qlik.engine_opens
+
+    # Its lib:// QVDs were unresolved, so it is not kept as unchanged even
+    # though the connections still can't be listed.
+    second, _ = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert second.reporter.apps_skipped_unchanged == 0
+    assert qlik.engine_opens == opens + 2
+
+
 def test_app_checkpoint_from_before_qvd_lineage_is_read_again(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
@@ -1084,3 +1105,71 @@ def test_binary_tables_are_kept_when_a_read_cant_find_them(
     assert "Unable to fully read Qlik app" in [
         warning.title for warning in second.reporter.warnings
     ]
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        pytest.param("data model", id="its data model can't be read"),
+        pytest.param("engine", id="it is partly read and kept"),
+    ],
+)
+def test_binary_load_keeps_column_lineage_when_the_model_app_is_not_fully_read(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+    failure: str,
+) -> None:
+    qlik = _binary_qlik("Binary [lib://QVD Data/sales model.qvf];")
+    datahub = _DataHub(mock_datahub_graph)
+    on_prem: Dict[str, object] = {
+        "read_data_model": True,
+        "binary_file_to_app": {"lib://QVD Data/sales model.qvf": "app-1"},
+    }
+    _, first_wus = _run(
+        mock_datahub_graph, qlik, "run-1", on_prem=on_prem, skip_unchanged_apps=False
+    )
+    datahub.write(first_wus)
+
+    if failure == "data model":
+        qlik.data_model_fails_for = {"app-1"}
+    else:
+        qlik.engine_fails_for = {"app-1"}
+    _, second_wus = _run(
+        mock_datahub_graph, qlik, "run-2", on_prem=on_prem, skip_unchanged_apps=False
+    )
+
+    # The model app's fields come from its checkpoint.
+    [lineage] = _written_lineage(second_wus, FRONT_ORDERS)
+    assert [upstream.dataset for upstream in lineage.upstreams] == [MODEL_ORDERS]
+    assert lineage.fineGrainedLineages is not None
+    assert [fg.upstreams for fg in lineage.fineGrainedLineages] == [
+        [f"urn:li:schemaField:({MODEL_ORDERS},{field})"] for field in ["id", "amount"]
+    ]
+
+
+def test_binary_load_only_adds_lineage_when_the_model_apps_fields_are_unknown(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _binary_qlik("Binary [lib://QVD Data/sales model.qvf];")
+    qlik.data_model_fails_for = {"app-1"}
+    _, workunits = _run(
+        mock_datahub_graph,
+        qlik,
+        "run-1",
+        on_prem={
+            "read_data_model": True,
+            "binary_file_to_app": {"lib://QVD Data/sales model.qvf": "app-1"},
+        },
+        skip_unchanged_apps=False,
+    )
+
+    # Written whole, it would drop the column edges an earlier run wrote.
+    assert not _written_lineage(workunits, FRONT_ORDERS)
+    assert any(
+        wu.get_urn() == FRONT_ORDERS
+        and isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.changeType == "PATCH"
+        and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+        and wu.metadata.aspect is not None
+        and MODEL_ORDERS in json.dumps(json.loads(wu.metadata.aspect.value))
+        for wu in workunits
+    )
