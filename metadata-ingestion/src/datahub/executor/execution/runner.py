@@ -40,6 +40,7 @@ from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def _expand_pip_req(req: str) -> str:
