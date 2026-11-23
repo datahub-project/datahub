@@ -1,10 +1,11 @@
-from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
+from typing import Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import StructuredLogEntry
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.grafana.constants import (
@@ -50,8 +51,10 @@ def mock_folder():
     return Folder(id="1", title="Test Folder", description="Test Description")
 
 
-def _make_dashboard(folder_id: Optional[Any]) -> Dashboard:
-    meta: Dict[str, Any] = {} if folder_id is None else {"folderId": folder_id}
+def _make_dashboard(folder_id: Optional[Union[int, str]]) -> Dashboard:
+    meta: Dict[str, Union[int, str]] = (
+        {} if folder_id is None else {"folderId": folder_id}
+    )
     return Dashboard(
         uid="dash1",
         title="Test Dashboard",
@@ -115,7 +118,21 @@ def _is_emitted(workunits: List[MetadataWorkUnit], urn: str) -> bool:
     return any(wu.get_urn() == urn for wu in workunits)
 
 
-def _folder_not_ingested_warnings(source: GrafanaSource) -> List[Any]:
+def _chart_urns(workunits: List[MetadataWorkUnit]) -> Set[str]:
+    return {
+        wu.get_urn() for wu in workunits if wu.get_urn().startswith("urn:li:chart:")
+    }
+
+
+def _emitted_container_urns(workunits: List[MetadataWorkUnit]) -> Set[str]:
+    return {
+        wu.get_urn()
+        for wu in workunits
+        if wu.get_aspect_of_type(ContainerPropertiesClass) is not None
+    }
+
+
+def _folder_not_ingested_warnings(source: GrafanaSource) -> List[StructuredLogEntry]:
     return [
         w
         for w in source.report.warnings
@@ -143,8 +160,7 @@ def test_process_dashboard_emits_charts(mock_api, mock_config, mock_context):
 
     workunits = list(source._process_dashboard(_make_dashboard(folder_id=None)))
 
-    chart_urns = {wu.get_urn() for wu in workunits if "urn:li:chart:" in wu.get_urn()}
-    assert chart_urns == {"urn:li:chart:(grafana,test-instance.dash1.1)"}
+    assert _chart_urns(workunits) == {"urn:li:chart:(grafana,test-instance.dash1.1)"}
     assert source.report.charts_scanned == 1
 
 
@@ -156,9 +172,12 @@ def test_dashboard_placed_in_ingested_folder(
         mock_config, mock_context, mock_api, [mock_folder], [mock_dashboard]
     )
 
-    assert _dashboard_parents(
+    parents = _dashboard_parents(
         workunits, _dashboard_container_urn(source, mock_dashboard)
-    ) == [_folder_urn(source, mock_folder)]
+    )
+    assert parents == [_folder_urn(source, mock_folder)]
+    # The parent must be a container this run emitted, not just a matching key.
+    assert set(parents) <= _emitted_container_urns(workunits)
     assert source.report.folders_scanned == 1
     assert source.report.dashboards_scanned == 1
     assert source.report.dashboards_without_folder_container == 0
@@ -175,6 +194,21 @@ def test_general_folder_dashboard_has_no_parent(mock_api, mock_config, mock_cont
     assert _is_emitted(workunits, dashboard_container_urn)
     assert not _dashboard_parents(workunits, dashboard_container_urn)
     assert source.report.dashboards_without_folder_container == 0
+    assert source.report.dashboards_without_folder_id == 0
+    assert source.report.dashboards_in_filtered_folders == 0
+    assert not _folder_not_ingested_warnings(source)
+
+
+def test_integer_folder_ids_match(mock_api, mock_config, mock_context):
+    # Grafana sends folder ids as integers on both /api/folders and dashboard meta.
+    folder = Folder.model_validate({"id": 7, "title": "Team Folder"})
+    dashboard = _make_dashboard(folder_id=7)
+
+    source, workunits = _run(mock_config, mock_context, mock_api, [folder], [dashboard])
+
+    assert _dashboard_parents(
+        workunits, _dashboard_container_urn(source, dashboard)
+    ) == [_folder_urn(source, folder)]
     assert not _folder_not_ingested_warnings(source)
 
 
@@ -233,5 +267,4 @@ def test_chart_urns_omit_platform_instance_when_unset(mock_api, mock_context):
 
     workunits = list(source._process_dashboard(_make_dashboard(folder_id=None)))
 
-    chart_urns = {wu.get_urn() for wu in workunits if "urn:li:chart:" in wu.get_urn()}
-    assert chart_urns == {"urn:li:chart:(grafana,dash1.1)"}
+    assert _chart_urns(workunits) == {"urn:li:chart:(grafana,dash1.1)"}

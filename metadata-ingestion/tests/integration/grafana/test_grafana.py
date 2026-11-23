@@ -407,10 +407,12 @@ def test_grafana_dashboard_placed_in_folder(loaded_grafana, tmp_path, test_api_k
             mcp["aspect"]["json"]["container"]
         )
         for mcp in mcps
-        if mcp["entityType"] == "container" and mcp.get("aspectName") == "container"
+        if mcp.get("entityType") == "container" and mcp.get("aspectName") == "container"
     }
     assert container_links == {FOLDER_DASHBOARD_TITLE: FOLDER_TITLE}
 
     report = pipeline.source.get_report()
     assert isinstance(report, GrafanaSourceReport)
     assert report.dashboards_without_folder_container == 0
+    # If Grafana stops sending meta.folderId, folder placement silently stops.
+    assert report.dashboards_without_folder_id == 0

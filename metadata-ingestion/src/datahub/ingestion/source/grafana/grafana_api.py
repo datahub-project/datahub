@@ -7,10 +7,27 @@ import requests
 import urllib3.exceptions
 from pydantic import SecretStr, ValidationError
 
+from datahub.ingestion.source.grafana.constants import (
+    FOLDER_FETCH_ERROR_MESSAGE,
+    FOLDER_FETCH_ERROR_TITLE,
+    FOLDER_PARSE_ERROR_MESSAGE,
+    FOLDER_PARSE_ERROR_TITLE,
+    FOLDER_UNEXPECTED_RESPONSE_MESSAGE,
+    HTTP_PERMISSION_STATUS_CODES,
+)
 from datahub.ingestion.source.grafana.models import Dashboard, Folder
 from datahub.ingestion.source.grafana.report import GrafanaSourceReport
 
 logger = logging.getLogger(__name__)
+
+
+def _folder_context(folder: object) -> str:
+    if isinstance(folder, dict):
+        return (
+            f"id={folder.get('id')}, uid={folder.get('uid')}, "
+            f"title={folder.get('title')}"
+        )
+    return str(folder)[:200]
 
 
 class GrafanaAPIClient:
@@ -70,30 +87,48 @@ class GrafanaAPIClient:
                 batch = response.json()
                 if not batch:
                     break
+                if not isinstance(batch, list):
+                    # A non-list page (e.g. a proxy error body) never empties,
+                    # so stop instead of paging forever.
+                    self.report.failure(
+                        title=FOLDER_FETCH_ERROR_TITLE,
+                        message=FOLDER_UNEXPECTED_RESPONSE_MESSAGE,
+                        context=f"page {page}: {str(batch)[:200]}",
+                    )
+                    break
 
-                for folder in batch:
-                    try:
-                        folders.append(Folder.model_validate(folder))
-                    except ValidationError as e:
-                        self.report.warning(
-                            title="Folder Parse Error",
-                            message="Skipped a folder Grafana returned in an unexpected shape; its dashboards will not be placed in a folder",
-                            context=str(folder.get("id", folder))
-                            if isinstance(folder, dict)
-                            else str(folder),
-                            exc=e,
-                        )
+                folders.extend(self._parse_folders(batch))
                 page += 1
             except requests.exceptions.RequestException as e:
                 self.report.failure(
-                    title="Folder Fetch Error",
-                    message="Failed to fetch folders on page; dashboards in folders on this or later pages will not be placed in a folder",
+                    title=FOLDER_FETCH_ERROR_TITLE,
+                    message=FOLDER_FETCH_ERROR_MESSAGE,
                     context=str(page),
                     exc=e,
                 )
-                self.report.report_permission_warning()  # Likely a permission issue
+                if (
+                    e.response is not None
+                    and e.response.status_code in HTTP_PERMISSION_STATUS_CODES
+                ):
+                    self.report.report_permission_warning()
                 break
 
+        return folders
+
+    def _parse_folders(self, batch: List[object]) -> List[Folder]:
+        """Validate each folder separately so one bad entry costs only itself."""
+        folders: List[Folder] = []
+        for folder in batch:
+            try:
+                folders.append(Folder.model_validate(folder))
+            except ValidationError as e:
+                self.report.report_folder_unparseable()
+                self.report.warning(
+                    title=FOLDER_PARSE_ERROR_TITLE,
+                    message=FOLDER_PARSE_ERROR_MESSAGE,
+                    context=_folder_context(folder),
+                    exc=e,
+                )
         return folders
 
     def get_dashboard(self, uid: str) -> Optional[Dashboard]:

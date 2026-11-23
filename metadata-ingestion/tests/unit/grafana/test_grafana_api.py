@@ -4,6 +4,10 @@ import pytest
 import requests
 from pydantic import SecretStr
 
+from datahub.ingestion.source.grafana.constants import (
+    FOLDER_FETCH_ERROR_TITLE,
+    FOLDER_PARSE_ERROR_TITLE,
+)
 from datahub.ingestion.source.grafana.grafana_api import GrafanaAPIClient
 from datahub.ingestion.source.grafana.models import Dashboard, Folder
 from datahub.ingestion.source.grafana.report import GrafanaSourceReport
@@ -185,18 +189,67 @@ def test_get_dashboards_error(api_client, mock_session):
     assert len(api_client.report.failures) == 1
 
 
+def _json_response(body: object) -> MagicMock:
+    response = MagicMock()
+    response.json.return_value = body
+    return response
+
+
 def test_get_folders_skips_malformed_folder(api_client, mock_session):
-    first_response = MagicMock()
-    first_response.json.return_value = [
-        {"id": "1", "title": "Folder 1"},
-        {"id": "2"},  # no title
+    # A bad folder first on the page must not cost the folders after it,
+    # or the pages after it.
+    mock_session.get.side_effect = [
+        _json_response([{"id": "2"}, {"id": "1", "title": "Folder 1"}]),
+        _json_response([{"id": 3, "title": "Folder 3"}]),
+        _json_response([]),
     ]
-    second_response = MagicMock()
-    second_response.json.return_value = []
-    mock_session.get.side_effect = [first_response, second_response]
+
+    folders = api_client.get_folders()
+
+    assert [f.id for f in folders] == ["1", "3"]
+    assert not api_client.report.failures
+    assert [w.title for w in api_client.report.warnings] == [FOLDER_PARSE_ERROR_TITLE]
+    [context] = api_client.report.warnings[0].context
+    assert context.startswith("id=2, uid=None, title=None")
+    assert api_client.report.folders_unparseable == 1
+
+
+def test_get_folders_stops_on_non_list_page(api_client, mock_session):
+    # A non-list body (e.g. a proxy error) must end paging, not loop forever.
+    mock_session.get.side_effect = [
+        _json_response({"message": "bad gateway", "status": "error"}),
+        AssertionError("get_folders requested another page"),
+    ]
+
+    assert api_client.get_folders() == []
+    assert [f.title for f in api_client.report.failures] == [FOLDER_FETCH_ERROR_TITLE]
+
+
+def test_get_folders_keeps_earlier_pages_when_later_page_fails(
+    api_client, mock_session
+):
+    mock_session.get.side_effect = [
+        _json_response([{"id": 1, "title": "Folder 1"}]),
+        requests.exceptions.ConnectionError("connection reset"),
+    ]
 
     folders = api_client.get_folders()
 
     assert [f.id for f in folders] == ["1"]
-    assert not api_client.report.failures
-    assert [w.title for w in api_client.report.warnings] == ["Folder Parse Error"]
+    [failure] = api_client.report.failures
+    assert [c.split(" ")[0] for c in failure.context] == ["2"]
+    # A network error is not a permission problem.
+    assert api_client.report.permission_warnings == 0
+
+
+def test_get_folders_counts_permission_error(api_client, mock_session):
+    forbidden = requests.Response()
+    forbidden.status_code = 403
+    response = MagicMock()
+    response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+        response=forbidden
+    )
+    mock_session.get.return_value = response
+
+    assert api_client.get_folders() == []
+    assert api_client.report.permission_warnings == 1

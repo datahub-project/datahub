@@ -96,6 +96,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
         self.platform_instance = self.config.platform_instance
         self.env = self.config.env
         self.report = GrafanaSourceReport()
+        # Filled by the folder stage, read by the dashboard stage that follows it.
         self._emitted_folder_ids: Set[str] = set()
         self._filtered_folder_ids: Set[str] = set()
 
@@ -247,7 +248,6 @@ class GrafanaSource(StatefulIngestionSourceBase):
         """Process dashboard and its panels"""
         chart_urns = []
 
-        # First create the dashboard container
         dashboard_container_key = self._dashboard_container_key(dashboard)
 
         # Generate dashboard container first
@@ -365,18 +365,18 @@ class GrafanaSource(StatefulIngestionSourceBase):
         was emitted this run, so the dashboard never points at a missing parent."""
         folder_id = dashboard.folder_id
         if folder_id is None:
-            self.report.dashboards_without_folder_id += 1
+            self.report.report_dashboard_without_folder_id()
+        elif folder_id == GRAFANA_GENERAL_FOLDER_ID:
+            pass  # General is Grafana's root; there is no container to join.
         elif folder_id in self._emitted_folder_ids:
             yield from add_dataset_to_container(
                 container_key=self._folder_key(folder_id),
                 dataset_urn=dashboard_container_key.as_urn(),
             )
-        elif folder_id == GRAFANA_GENERAL_FOLDER_ID:
-            return
         elif folder_id in self._filtered_folder_ids:
-            self.report.dashboards_in_filtered_folders += 1
+            self.report.report_dashboard_in_filtered_folder()
         else:
-            self.report.dashboards_without_folder_container += 1
+            self.report.report_dashboard_without_folder_container()
             self.report.warning(
                 title=DASHBOARD_FOLDER_NOT_INGESTED_TITLE,
                 message=DASHBOARD_FOLDER_NOT_INGESTED_MESSAGE,
