@@ -744,21 +744,22 @@ def test_stored_qvd_on_mapped_storage_links_the_stored_table(
     )
 
 
+@pytest.mark.parametrize("stored_label", ["Customers", "AllCustomers"])
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_stored_qvd_links_the_load_model_table_by_its_qri(
-    mock_api_cls: MagicMock,
+    mock_api_cls: MagicMock, stored_label: str
 ) -> None:
     customers_qri = "qri:db:sqlserver://sales#dbo.Customers"
     writes = _graph_app_run(
         mock_api_cls,
         {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
         [],
-        script="STORE Customers INTO [lib://Sales Space:Lake/qvd/customers.qvd] (qvd);",
+        script=f"STORE {stored_label} INTO [lib://Sales Space:Lake/qvd/customers.qvd] (qvd);",
         tables=[
             {
                 "tableName": "Customers",
                 "boxType": "blackbox",
-                "tableAlias": "Customers",
+                "tableAlias": "AllCustomers",
                 "dataconnectorName": "Sales SQL",
                 "connectionInfo": {"id": "conn-1", "sourceConnectorID": "sqlserver"},
                 "spaceId": "space-1",

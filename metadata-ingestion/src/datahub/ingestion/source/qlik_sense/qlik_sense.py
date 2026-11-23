@@ -2016,11 +2016,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         urn = self._gen_qlik_dataset_urn(app_table_identifier(app.id, label))
         if urn in table_urns:
             return urn
-        # A load-model table is ingested under its QRI, not the app and label.
+        # A load-model table is ingested under its QRI, not the app and label,
+        # and the script may name it by its alias.
         urns = {
             self._gen_qlik_dataset_urn(table.tableQri.lower())
             for table in app.tables
-            if table.tableQri and table.tableName.lower() == label.lower()
+            if table.tableQri
+            and label.lower() in (table.tableName.lower(), table.tableAlias.lower())
         } & table_urns
         return next(iter(urns)) if len(urns) == 1 else None
 
