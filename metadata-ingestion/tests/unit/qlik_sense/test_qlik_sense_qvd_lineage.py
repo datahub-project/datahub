@@ -1281,28 +1281,36 @@ def test_binary_load_mapped_to_an_app_keeps_a_table_the_script_loads_into(
 
 
 @pytest.mark.parametrize(
-    "extra_script",
+    "front_script",
     [
         pytest.param(
-            "Replace LOAD id, amount FROM [lib://QVD Data/raw/orders.qvd] (qvd);",
+            FRONT_SCRIPT
+            + "Replace LOAD id, amount FROM [lib://QVD Data/raw/orders.qvd] (qvd);",
             id="an unlabelled Replace load",
         ),
         pytest.param(
-            "$(vTable): Replace LOAD id, amount FROM [lib://QVD Data/raw/more.qvd] (qvd);",
+            FRONT_SCRIPT
+            + "$(vTable): Replace LOAD id, amount FROM [lib://QVD Data/raw/more.qvd] (qvd);",
             id="a Replace load labelled with a variable",
         ),
         pytest.param(
-            "DROP TABLE $(vTable);\n"
+            FRONT_SCRIPT + "DROP TABLE $(vTable);\n"
             "Orders: LOAD id, amount FROM [lib://QVD Data/raw/more.qvd] (qvd);",
             id="a DROP of a variable",
+        ),
+        pytest.param(
+            "Binary [lib://Apps/Sales Model.qvf];\n"
+            "LIB CONNECT TO 'db';\n"
+            "Replace Concatenate SQL SELECT id, amount FROM db.orders;",
+            id="a Replace Concatenate SELECT with no table to add to",
         ),
     ],
 )
 def test_binary_load_mapped_to_an_app_whose_script_drops_unnamed_tables_gets_no_lineage(
-    extra_script: str,
+    front_script: str,
 ) -> None:
     model = _app("model-app", MODEL_SCRIPT, ORDERS_MODEL)
-    front = _app("front-app", FRONT_SCRIPT + extra_script, FRONT_MODEL)
+    front = _app("front-app", front_script, FRONT_MODEL)
     source, aspects = _run([model, front], on_prem=MAPPED)
 
     assert _urn("model-app.orders") not in _written_upstreams(
@@ -1562,6 +1570,16 @@ def test_tables_the_script_drops_are_known() -> None:
             id="a Replace preceding load labelled with a variable",
         ),
         pytest.param("DROP TABLES Regions, [$(vT)];", id="a variable DROP"),
+        pytest.param(
+            "Binary [lib://Apps/Sales Model.qvf];\n"
+            "Replace Concatenate SQL SELECT id FROM db.orders;",
+            id="a Replace Concatenate SELECT with no table to add to",
+        ),
+        pytest.param(
+            "Binary [lib://Apps/Sales Model.qvf];\n"
+            "Replace Concatenate LOAD id;\nSQL SELECT id FROM db.orders;",
+            id="a Replace Concatenate preceding load with no table to add to",
+        ),
     ],
 )
 def test_tables_the_script_drops_without_a_name_are_flagged(script: str) -> None:

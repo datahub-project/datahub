@@ -1167,7 +1167,16 @@ class _ScriptParser(BaseModel):
 
         sql = SQL_RE.match(statement)
         if sql:
-            if not (skip or self.pending_skip):
+            if skip or self.pending_skip:
+                # Not read for lineage, but a Replace still drops a table.
+                self._record_table(
+                    None,
+                    merged=bool(merge),
+                    mapping=mapping,
+                    generic=generic,
+                    replace=replace,
+                )
+            else:
                 if not self.pending_loads:
                     crosstable = _crosstable(prefix.group(0) if prefix else "")
                 else:
