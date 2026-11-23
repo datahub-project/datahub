@@ -360,8 +360,9 @@ def test_qvd_lineage_runs_from_etl_app_through_qvd_to_reporting_app() -> None:
 def test_qvds_of_a_storage_connection_take_the_file_dataset_qlik_cloud_uses() -> None:
     # Not a folder connection, so Qlik gives no folder for it.
     etl = ETL_SCRIPT.replace("lib://QVD Data/clean", "lib://Lake - Azure/Clean")
+    # Separators doubled where a variable left a path part empty.
     report = REPORT_SCRIPT.replace(
-        "lib://Shared QVDs/clean", "lib://$(vPrefix)Lake - Azure/Clean"
+        "lib://Shared QVDs/clean", "lib://$(vPrefix)Lake - Azure//Clean"
     )
     source, aspects = _run(
         [_app("etl-app", etl), _app("report-app", report)],
