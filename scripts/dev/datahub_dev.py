@@ -170,6 +170,7 @@ CONFIG_FILE: Path = DATAHUB_DEV_DIR / "config.json"
 PORT_BASE: Dict[str, int] = {
     "DATAHUB_MAPPED_GMS_PORT": 8080,
     "DATAHUB_MAPPED_FRONTEND_PORT": 9002,
+    "DATAHUB_MAPPED_AI_PORT": 9005,
     "DATAHUB_MAPPED_MYSQL_PORT": 3306,
     "DATAHUB_MAPPED_ELASTIC_PORT": 9200,
     "DATAHUB_MAPPED_KAFKA_BROKER_PORT": 9092,
@@ -472,12 +473,22 @@ def _default_config() -> DevToolingConfig:
                 "datahub-mae-consumer",
             ),
             "metadata-io/": (None, None),
+            # The image bundles both packages; the dev container runs their sources.
+            "packages/datahub-ai-service/": (
+                ":packages:datahub-ai-service:docker",
+                "datahub-ai-service",
+            ),
+            "packages/datahub-core-mcp-tools/": (
+                ":packages:datahub-ai-service:docker",
+                "datahub-ai-service",
+            ),
         },
         rebuild_module_aliases={
             "gms": "datahub-gms",
             "frontend": "datahub-frontend-react",
             "mce": "datahub-mce-consumer",
             "mae": "datahub-mae-consumer",
+            "ai": "datahub-ai-service",
         },
         services=[
             ServiceConfig(
