@@ -6,7 +6,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 > **Note**: Ask DataHub Plugins is currently in **Private Beta**. To enable this feature, please reach out to your DataHub customer support representative.
 
-The **Databricks Plugin** connects Ask DataHub to your Databricks workspace via the [Databricks MCP server](https://docs.databricks.com/aws/en/generative-ai/mcp/connect-external-services), enabling conversational analytics directly from the chat. Like the Snowflake plugin, DataHub acts as the **semantic layer** — finding the right data — while Databricks serves as the **data layer** — executing queries and returning results.
+The **Databricks Plugin** connects Ask DataHub to your Databricks workspace via the [Databricks MCP server](https://docs.databricks.com/aws/en/generative-ai/mcp/managed-mcp), enabling conversational analytics directly from the chat. Like the Snowflake plugin, DataHub acts as the **semantic layer** — finding the right data — while Databricks serves as the **data layer** — executing queries and returning results.
 
 ## Why Connect Databricks?
 
