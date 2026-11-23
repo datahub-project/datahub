@@ -495,3 +495,27 @@ def test_nested_panels_with_missing_fields():
     assert panel2.id == "2"
     assert panel2.title is None
     assert panel2.type == "text"
+
+
+def test_dashboard_records_skipped_panels():
+    dashboard = Dashboard.model_validate(
+        {
+            "dashboard": {
+                "uid": "dash1",
+                "title": "Test Dashboard",
+                "panels": [
+                    {"id": "1", "type": "graph"},
+                    {"id": "2", "type": "graph", "title": ["not", "a", "string"]},
+                    {
+                        "type": "row",
+                        "panels": [{"id": "3", "type": "table", "title": {}}],
+                    },
+                ],
+            }
+        }
+    )
+
+    assert [p.id for p in dashboard.panels] == ["1"]
+    assert len(dashboard.skipped_panels) == 2
+    assert "id=2" in dashboard.skipped_panels[0]
+    assert "id=3" in dashboard.skipped_panels[1]

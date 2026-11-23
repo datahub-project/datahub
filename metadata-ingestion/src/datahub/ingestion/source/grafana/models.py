@@ -192,12 +192,20 @@ class Dashboard(_GrafanaBaseModel):
     schema_version: Optional[str] = Field(default=None, alias="schemaVersion")
     folder_id: Optional[str] = None
     created_by: Optional[str] = None
+    # Panels dropped while parsing, as "id=..., type=..." descriptions. The
+    # model has no report, so the source reports them.
+    skipped_panels: List[str] = Field(default_factory=list)
 
     @staticmethod
     def extract_panels(
-        panels_data: List[Dict[str, Any]], skip_text_panels: bool = False
+        panels_data: List[Dict[str, Any]],
+        skip_text_panels: bool = False,
+        skipped_panels: Optional[List[str]] = None,
     ) -> List[Panel]:
-        """Extract panels, including nested ones, skipping invalid panels."""
+        """Extract panels, including nested ones, skipping invalid panels.
+
+        Each invalid panel is described in ``skipped_panels`` when given.
+        """
         panels: List[Panel] = []
         for panel_data in panels_data:
             if panel_data.get("type") == "row" and panel_data.get("panels"):
@@ -205,32 +213,29 @@ class Dashboard(_GrafanaBaseModel):
                     if p and p.get("type") != "row":
                         if skip_text_panels and p.get("type") == "text":
                             continue
-                        try:
-                            panels.append(Panel.model_validate(p))
-                        except Exception as e:
-                            logger.debug(
-                                f"Error parsing nested panel (id={p.get('id')}, type={p.get('type')}): {e}. "
-                                f"Panel data: {p}. Skipping this panel."
-                            )
-                            logger.warning(
-                                f"Skipping panel with validation errors (id={p.get('id')}, type={p.get('type')}): "
-                                f"Missing or invalid fields. Enable debug logging for details."
-                            )
+                        Dashboard._parse_panel(p, panels, skipped_panels)
             elif panel_data.get("type") != "row":
                 if skip_text_panels and panel_data.get("type") == "text":
                     continue
-                try:
-                    panels.append(Panel.model_validate(panel_data))
-                except Exception as e:
-                    logger.debug(
-                        f"Error parsing panel (id={panel_data.get('id')}, type={panel_data.get('type')}): {e}. "
-                        f"Panel data: {panel_data}. Skipping this panel."
-                    )
-                    logger.warning(
-                        f"Skipping panel with validation errors (id={panel_data.get('id')}, type={panel_data.get('type')}): "
-                        f"Missing or invalid fields. Enable debug logging for details."
-                    )
+                Dashboard._parse_panel(panel_data, panels, skipped_panels)
         return panels
+
+    @staticmethod
+    def _parse_panel(
+        panel_data: Dict[str, Any],
+        panels: List[Panel],
+        skipped_panels: Optional[List[str]],
+    ) -> None:
+        try:
+            panels.append(Panel.model_validate(panel_data))
+        except Exception as e:
+            description = f"id={panel_data.get('id')}, type={panel_data.get('type')}"
+            logger.debug(
+                f"Error parsing panel ({description}): {e}. "
+                f"Panel data: {panel_data}. Skipping this panel."
+            )
+            if skipped_panels is not None:
+                skipped_panels.append(description)
 
     @staticmethod
     def _set_dashboard_defaults(result: Dict[str, Any]) -> None:
@@ -264,18 +269,26 @@ class Dashboard(_GrafanaBaseModel):
 
             _panel_data = dashboard_data.get("panels", [])
             panels = []
+            skipped_panels: List[str] = []
 
             skip_text_panels = dashboard_data.get("_skip_text_panels", False)
 
             if _panel_data and all(isinstance(p, dict) for p in _panel_data):
                 try:
-                    panels = cls.extract_panels(_panel_data, skip_text_panels)
+                    panels = cls.extract_panels(
+                        _panel_data, skip_text_panels, skipped_panels
+                    )
                 except Exception as e:
-                    logger.warning(f"Error extracting panels from dashboard: {e}")
+                    logger.debug(f"Error extracting panels from dashboard: {e}")
+                    skipped_panels.append(f"all panels ({type(e).__name__})")
             else:
                 panels = _panel_data
 
-            result = {**dashboard_data, "panels": panels}
+            result = {
+                **dashboard_data,
+                "panels": panels,
+                "skipped_panels": skipped_panels,
+            }
 
             if (meta := data.get("meta")) is not None:
                 # We only want to set folder_id and created_by from meta if we get it

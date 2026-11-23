@@ -29,6 +29,8 @@ class GrafanaSourceReport(StaleEntityRemovalSourceReport):
     permission_warnings: int = 0
     datasource_warnings: int = 0
     panel_parsing_warnings: int = 0
+    dashboards_unparseable: int = 0  # skipped by get_dashboard; warned
+    dashboard_search_hits_skipped: int = 0  # malformed search result; warned
 
     def report_dashboard_scanned(self) -> None:
         self.dashboards_scanned += 1
@@ -41,6 +43,12 @@ class GrafanaSourceReport(StaleEntityRemovalSourceReport):
 
     def report_dataset_scanned(self) -> None:
         self.datasets_scanned += 1
+
+    def report_dashboard_unparseable(self) -> None:
+        self.dashboards_unparseable += 1
+
+    def report_dashboard_search_hit_skipped(self) -> None:
+        self.dashboard_search_hits_skipped += 1
 
     # Lineage reporting methods
     def report_lineage_extracted(self) -> None:

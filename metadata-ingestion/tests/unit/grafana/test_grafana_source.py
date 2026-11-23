@@ -1,12 +1,15 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.grafana.grafana_config import GrafanaSourceConfig
 from datahub.ingestion.source.grafana.grafana_source import GrafanaSource
 from datahub.ingestion.source.grafana.models import Dashboard, Folder, Panel
+
+GRAFANA_REQUESTS_GET = "datahub.ingestion.source.grafana.grafana_source.requests.get"
 
 
 @pytest.fixture
@@ -136,3 +139,73 @@ def test_source_platform_instance_none():
     ctx = PipelineContext(run_id="test")
     source = GrafanaSource(config, ctx)
     assert source.platform_instance is None
+
+
+def _basic_mode_source(mock_context: PipelineContext) -> GrafanaSource:
+    config = GrafanaSourceConfig(
+        url="http://grafana.test",
+        service_account_token="test-token",
+        basic_mode=True,
+    )
+    return GrafanaSource(config, mock_context)
+
+
+def _search_response(body: object) -> MagicMock:
+    response = MagicMock()
+    response.json.return_value = body
+    return response
+
+
+def test_basic_mode_skips_malformed_search_results(mock_context):
+    source = _basic_mode_source(mock_context)
+    items = [
+        {"uid": "ok", "title": "OK", "url": "/d/ok"},
+        {"uid": "no-url", "title": "No URL"},
+        "not an object",
+    ]
+    with patch(GRAFANA_REQUESTS_GET, return_value=_search_response(items)):
+        workunits = list(source.get_workunits_internal())
+
+    assert {wu.get_urn() for wu in workunits} == {"urn:li:dashboard:(grafana,ok)"}
+    assert source.report.dashboard_search_hits_skipped == 2
+    assert not source.report.failures
+
+
+@pytest.mark.parametrize(
+    "json_result",
+    [
+        {"message": "proxy error"},
+        requests.exceptions.JSONDecodeError("Expecting value", "<html>", 0),
+    ],
+)
+def test_basic_mode_reports_non_list_response(mock_context, json_result):
+    source = _basic_mode_source(mock_context)
+    response = MagicMock()
+    if isinstance(json_result, Exception):
+        response.json.side_effect = json_result
+    else:
+        response.json.return_value = json_result
+    with patch(GRAFANA_REQUESTS_GET, return_value=response):
+        workunits = list(source.get_workunits_internal())
+
+    assert not workunits
+    assert len(source.report.failures) == 1
+
+
+def test_process_dashboard_reports_skipped_panels(mock_source):
+    dashboard = Dashboard.model_validate(
+        {
+            "dashboard": {
+                "uid": "dash1",
+                "title": "Test Dashboard",
+                "panels": [{"id": "2", "type": "graph", "title": ["bad"]}],
+            }
+        }
+    )
+
+    list(mock_source._process_dashboard(dashboard))
+
+    assert mock_source.report.panel_parsing_warnings == 1
+    [warning] = mock_source.report.warnings
+    [context] = warning.context
+    assert "dash1" in context and "id=2" in context

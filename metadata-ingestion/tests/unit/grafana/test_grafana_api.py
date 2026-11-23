@@ -1,3 +1,4 @@
+from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -183,3 +184,77 @@ def test_get_dashboards_error(api_client, mock_session):
 
     assert len(dashboards) == 0
     assert len(api_client.report.failures) == 1
+
+
+def _json_response(body: object) -> MagicMock:
+    response = MagicMock()
+    response.json.return_value = body
+    return response
+
+
+def _dashboard_body(uid: str) -> Dict[str, object]:
+    return {"dashboard": {"uid": uid, "title": uid, "panels": []}}
+
+
+def test_get_folders_stops_after_short_page(api_client, mock_session):
+    api_client.page_size = 2
+    mock_session.get.side_effect = [
+        _json_response([{"id": 1, "title": "a"}, {"id": 2, "title": "b"}]),
+        _json_response([{"id": 3, "title": "c"}]),
+        AssertionError("get_folders requested a page after a short page"),
+    ]
+
+    assert [f.id for f in api_client.get_folders()] == ["1", "2", "3"]
+
+
+def test_get_folders_stops_when_page_repeats(api_client, mock_session):
+    # An API that ignores the page parameter returns the same full page forever.
+    api_client.page_size = 1
+    mock_session.get.side_effect = [
+        _json_response([{"id": 1, "title": "a"}]),
+        _json_response([{"id": 1, "title": "a"}]),
+        AssertionError("get_folders kept paging"),
+    ]
+
+    assert [f.id for f in api_client.get_folders()] == ["1"]
+    assert len(api_client.report.warnings) == 1
+
+
+def test_get_dashboards_stops_when_page_repeats(api_client, mock_session):
+    api_client.page_size = 1
+    mock_session.get.side_effect = [
+        _json_response([{"uid": "a"}]),
+        _json_response(_dashboard_body("a")),
+        _json_response([{"uid": "a"}]),
+        AssertionError("get_dashboards kept paging"),
+    ]
+
+    assert [d.uid for d in api_client.get_dashboards()] == ["a"]
+    assert len(api_client.report.warnings) == 1
+
+
+def test_get_dashboards_skips_bad_search_hits_and_dashboards(api_client, mock_session):
+    mock_session.get.side_effect = [
+        _json_response(
+            [{"title": "no uid"}, "not an object", {"uid": "bad"}, {"uid": "ok"}]
+        ),
+        _json_response({"dashboard": {"uid": "bad"}}),  # no title or panels
+        _json_response(_dashboard_body("ok")),
+    ]
+
+    dashboards = api_client.get_dashboards()
+
+    assert [d.uid for d in dashboards] == ["ok"]
+    assert api_client.report.dashboard_search_hits_skipped == 2
+    assert api_client.report.dashboards_unparseable == 1
+    assert not api_client.report.failures
+
+
+def test_get_dashboard_skips_non_object_body_with_skip_text_panels(
+    api_client, mock_session
+):
+    api_client.skip_text_panels = True
+    mock_session.get.return_value = _json_response(["not", "a", "dashboard"])
+
+    assert api_client.get_dashboard("x") is None
+    assert api_client.report.dashboards_unparseable == 1

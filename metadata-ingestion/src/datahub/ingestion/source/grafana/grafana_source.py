@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 import requests
 
@@ -22,6 +22,15 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
+from datahub.ingestion.source.grafana.constants import (
+    BASIC_MODE_ITEM_SKIPPED_MESSAGE,
+    BASIC_MODE_ITEM_SKIPPED_TITLE,
+    BASIC_MODE_RESPONSE_ERROR_MESSAGE,
+    BASIC_MODE_RESPONSE_ERROR_TITLE,
+    MAX_REPORT_CONTEXT_CHARS,
+    PANEL_SKIPPED_MESSAGE,
+    PANEL_SKIPPED_TITLE,
+)
 from datahub.ingestion.source.grafana.entity_mcp_builder import (
     build_chart_mcps,
     build_dashboard_mcps,
@@ -157,16 +166,33 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 )
                 return
 
-            dashboards = response.json()
+            try:
+                dashboards = response.json()
+            except requests.exceptions.JSONDecodeError as e:
+                self.report.failure(
+                    title=BASIC_MODE_RESPONSE_ERROR_TITLE,
+                    message=BASIC_MODE_RESPONSE_ERROR_MESSAGE,
+                    exc=e,
+                )
+                return
+            if not isinstance(dashboards, list):
+                self.report.failure(
+                    title=BASIC_MODE_RESPONSE_ERROR_TITLE,
+                    message=BASIC_MODE_RESPONSE_ERROR_MESSAGE,
+                    context=str(dashboards)[:MAX_REPORT_CONTEXT_CHARS],
+                )
+                return
 
             for item in dashboards:
-                if not self.config.dashboard_pattern.allowed(item.get("title", "")):
+                fields = self._basic_mode_fields(item)
+                if fields is None:
+                    continue
+                if not self.config.dashboard_pattern.allowed(fields["title"]):
                     continue
 
-                uid = item["uid"]
-                title = item["title"]
-                url_path = item["url"]
-                full_url = f"{self.config.url}{url_path}"
+                uid = fields["uid"]
+                title = fields["title"]
+                full_url = f"{self.config.url}{fields['url']}"
 
                 dashboard_urn = make_dashboard_urn(
                     platform=self.platform,
@@ -185,11 +211,11 @@ class GrafanaSource(StatefulIngestionSourceBase):
                         key: str(value)
                         for key, value in {
                             "displayName": title,
-                            "id": item["id"],
+                            "id": item.get("id"),
                             "uid": uid,
                             "title": title,
-                            "uri": item["uri"],
-                            "type": item["type"],
+                            "uri": item.get("uri"),
+                            "type": item.get("type"),
                             "folderId": item.get("folderId"),
                             "folderUid": item.get("folderUid"),
                             "folderTitle": item.get("folderTitle"),
@@ -242,9 +268,32 @@ class GrafanaSource(StatefulIngestionSourceBase):
             description=folder.description,
         )
 
+    def _basic_mode_fields(self, item: object) -> Optional[Dict[str, str]]:
+        """Return uid, title and url of a basic-mode search result, or None (and
+        a warning) when one is missing."""
+        if isinstance(item, dict):
+            fields = {key: item.get(key) for key in ("uid", "title", "url")}
+            if all(isinstance(value, str) and value for value in fields.values()):
+                return {key: str(value) for key, value in fields.items()}
+        self.report.report_dashboard_search_hit_skipped()
+        self.report.warning(
+            title=BASIC_MODE_ITEM_SKIPPED_TITLE,
+            message=BASIC_MODE_ITEM_SKIPPED_MESSAGE,
+            context=str(item)[:MAX_REPORT_CONTEXT_CHARS],
+        )
+        return None
+
     def _process_dashboard(self, dashboard: Dashboard) -> Iterable[MetadataWorkUnit]:
         """Process dashboard and its panels"""
         chart_urns = []
+
+        for skipped_panel in dashboard.skipped_panels:
+            self.report.report_panel_parsing_warning()
+            self.report.warning(
+                title=PANEL_SKIPPED_TITLE,
+                message=PANEL_SKIPPED_MESSAGE,
+                context=f"{dashboard.title} (uid {dashboard.uid}): {skipped_panel}",
+            )
 
         # First create the dashboard container
         dashboard_container_key = DashboardContainerKey(
