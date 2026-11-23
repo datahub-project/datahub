@@ -16,7 +16,7 @@ import logging
 import re
 import sys
 import traceback
-from typing import Any, Dict, Iterator, List, Optional, Set, TextIO
+from typing import Any, Callable, Dict, Iterator, List, Optional, Set, TextIO
 
 from datahub.masking.constants import (
     CIRCUIT_OPEN_MESSAGE,
@@ -322,6 +322,25 @@ class StreamMaskingWrapper:
         return getattr(self._original, name)
 
 
+class _MaskedFormat:
+    """A handler's format(), with registered secrets masked in what it returns."""
+
+    def __init__(
+        self,
+        original: Callable[[logging.LogRecord], str],
+        masking_filter: SecretMaskingFilter,
+    ) -> None:
+        self.original = original
+        self._masking_filter = masking_filter
+
+    def __call__(self, record: logging.LogRecord) -> str:
+        formatted = self.original(record)
+        try:
+            return self._masking_filter.mask_text(formatted)
+        except Exception:
+            return MASKING_ERROR_MESSAGE
+
+
 def _covered_loggers() -> "list[logging.Logger]":
     """Root plus all named loggers except masking's own diagnostic channel,
     which must stay unmasked so the causes of a suppression remain visible.
@@ -380,7 +399,8 @@ def install_masking_filter(
     max_message_size: int = 5000,
     install_stdout_wrapper: bool = True,
 ) -> SecretMaskingFilter:
-    """Attach a masking filter to every logging handler and wrap stdout/stderr.
+    """Attach a masking filter to every logging handler, mask what each handler
+    formats, and wrap stdout/stderr.
 
     Filters attach to handlers, not loggers: a filter on a logger only applies
     to records emitted directly on it, while propagated records from child
@@ -397,6 +417,8 @@ def install_masking_filter(
         if not any(isinstance(f, SecretMaskingFilter) for f in handler.filters):
             handler.addFilter(masking_filter)
             attached_count += 1
+        if not isinstance(handler.format, _MaskedFormat):
+            handler.format = _MaskedFormat(handler.format, masking_filter)  # type: ignore[method-assign]
     if attached_count:
         logger.debug(f"Attached masking filter to {attached_count} handler(s)")
 
@@ -421,6 +443,8 @@ def uninstall_masking_filter() -> None:
         for existing in list(handler.filters):
             if isinstance(existing, SecretMaskingFilter):
                 handler.removeFilter(existing)
+        if isinstance(handler.format, _MaskedFormat):
+            handler.format = handler.format.original  # type: ignore[assignment]
         if not isinstance(handler, logging.StreamHandler):
             continue
         stream = getattr(handler, "stream", None)

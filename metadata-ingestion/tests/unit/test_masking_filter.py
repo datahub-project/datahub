@@ -11,6 +11,7 @@ Tests:
 """
 
 import builtins
+import json
 import logging
 import os
 import sys
@@ -23,6 +24,7 @@ from typing import Callable, Iterator, NoReturn, Optional, Union
 from unittest.mock import Mock, patch
 
 import pytest
+from pythonjsonlogger.json import JsonFormatter
 from sentry_sdk.utils import exceptions_from_error_tuple
 
 from datahub.masking import (
@@ -39,6 +41,7 @@ from datahub.masking.masking_filter import (
     SecretMaskingFilter,
     StreamMaskingWrapper,
     _filterable_handlers,
+    _MaskedFormat,
     install_masking_filter,
     uninstall_masking_filter,
 )
@@ -871,17 +874,20 @@ class TestInstallation:
         registry.register_secret("TEST", "test_value")
 
         probe_handler = logging.NullHandler()
+        original_format = probe_handler.format
         logging.getLogger().addHandler(probe_handler)
         try:
             install_masking_filter(registry)
             assert any(
                 isinstance(f, SecretMaskingFilter) for f in probe_handler.filters
             )
+            assert isinstance(probe_handler.format, _MaskedFormat)
 
             uninstall_masking_filter()
             assert not any(
                 isinstance(f, SecretMaskingFilter) for f in probe_handler.filters
             )
+            assert probe_handler.format == original_format
         finally:
             logging.getLogger().removeHandler(probe_handler)
 
@@ -1000,6 +1006,54 @@ class TestInstallation:
             probe_logger.removeHandler(handler)
             probe_logger.propagate = True
 
+    def test_json_file_output_is_masked(self, tmp_path):
+        """A formatter that renders exc_info and extra fields itself, writing to
+        a file: a value found only in traceback paths, and a secret in a field
+        the filter does not mask, in its JSON-escaped form."""
+        path_value = os.path.splitext(os.path.basename(__file__))[0]
+        escaped_secret = 'pa"ss-w\u00f6rd-value'
+        registry = SecretRegistry()
+        registry.register_secret("DB_USER", path_value)
+        registry.register_secret("DB_PASSWORD", escaped_secret)
+        log_file = tmp_path / "ingestion.log"
+        handler = logging.FileHandler(log_file)
+        handler.setFormatter(JsonFormatter("%(message)s"))
+        probe_logger = logging.getLogger("app.json_file_probe")
+        probe_logger.addHandler(handler)
+        probe_logger.propagate = False
+        try:
+            install_masking_filter(registry)
+            try:
+                raise ValueError("query failed")
+            except ValueError:
+                probe_logger.exception(
+                    "ingestion failed", extra={"detail": escaped_secret}
+                )
+        finally:
+            probe_logger.removeHandler(handler)
+            probe_logger.propagate = True
+            handler.close()
+
+        written = log_file.read_text()
+        assert "ValueError: query failed" in written
+        assert "***REDACTED:DB_USER***" in written
+        assert path_value not in written
+        assert '"detail": "***REDACTED:DB_PASSWORD***"' in written
+        assert "ss-w" not in written
+
+    def test_formatted_output_is_withheld_when_masking_raises(self):
+        handler = logging.StreamHandler(StringIO())
+        logging.getLogger().addHandler(handler)
+        try:
+            masking_filter = install_masking_filter(SecretRegistry())
+            record = logging.LogRecord(
+                "app", logging.ERROR, __file__, 1, "token %s", (SECRET,), None
+            )
+            with patch.object(masking_filter, "mask_text", side_effect=RuntimeError):
+                assert handler.format(record) == MASKING_ERROR_MESSAGE
+        finally:
+            logging.getLogger().removeHandler(handler)
+
     def test_double_install(self):
         """Repeated installation stacks no duplicate filters or wrappers."""
         registry = SecretRegistry()
@@ -1013,6 +1067,8 @@ class TestInstallation:
                 f for f in probe_handler.filters if isinstance(f, SecretMaskingFilter)
             ]
             assert len(masking_filters) == 1
+            assert isinstance(probe_handler.format, _MaskedFormat)
+            assert not isinstance(probe_handler.format.original, _MaskedFormat)
             assert isinstance(sys.stdout, StreamMaskingWrapper)
             assert not isinstance(sys.stdout._original, StreamMaskingWrapper)
         finally:
@@ -1484,6 +1540,40 @@ class TestRegexSecurityFixes:
         # Should NOT match as regex
         assert masking_filter.mask_text("Pattern: 123") == "Pattern: 123"
         assert masking_filter.mask_text("Value: testvalue") == "Value: testvalue"
+
+    @pytest.mark.parametrize(
+        "secret, render",
+        [
+            pytest.param('pa"ss-w\u00f6rd', lambda s: json.dumps({"pw": s}), id="json"),
+            pytest.param(
+                "CORP\\svc-user",
+                lambda s: json.dumps(f"users: {[s]!r}"),
+                id="repr_inside_json",
+            ),
+            pytest.param(
+                'pa"ss-value',
+                lambda s: json.dumps(json.dumps({"pw": s})),
+                id="json_inside_json",
+            ),
+            pytest.param(
+                "it's-secret-value",
+                lambda s: repr(f'{s} "quoted"'),
+                id="repr_with_both_quotes",
+            ),
+        ],
+    )
+    def test_escaped_secret_is_masked(
+        self,
+        registry: SecretRegistry,
+        masking_filter: SecretMaskingFilter,
+        secret: str,
+        render: Callable[[str], str],
+    ) -> None:
+        registry.register_secret("DB_PASSWORD", secret)
+
+        masked = masking_filter.mask_text(render(secret))
+
+        assert masked == render("***REDACTED:DB_PASSWORD***")
 
 
 class TestNestedConfigHandling:
