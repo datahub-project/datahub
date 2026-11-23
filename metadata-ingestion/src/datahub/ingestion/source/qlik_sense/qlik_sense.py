@@ -2003,7 +2003,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         Qlik datasets. Only added to: other apps, read or not, may store into
         the same file."""
         upstreams: Dict[str, List[str]] = {}
-        competing = stores_in_competing_branches(parsed.qvd_stores)
+        competing = stores_in_competing_branches(
+            parsed.qvd_stores,
+            lambda store: (
+                self._stored_table_urn(app, store.label, table_urns)
+                or store.label.lower()
+            ),
+        )
         if competing:
             self._report_competing_stores(app, competing)
         for store in parsed.qvd_stores:
