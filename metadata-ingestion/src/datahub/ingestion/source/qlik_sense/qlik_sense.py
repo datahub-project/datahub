@@ -1986,12 +1986,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                         store.file.connection
                     )
                 continue
-            table_urn = self._gen_qlik_dataset_urn(
-                app_table_identifier(app.id, store.label)
-            )
+            table_urn = self._stored_table_urn(app, store.label, table_urns)
             # A table the app doesn't ingest, such as one a script variable
             # names, has no dataset to link.
-            if table_urn not in table_urns:
+            if table_urn is None:
                 continue
             urns = upstreams.setdefault(
                 self._file_urn(storage, detail, store.file.path), []
@@ -2011,6 +2009,20 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     # A file on storage is not this source's to remove when stale.
                     is_primary_source=False,
                 )
+
+    def _stored_table_urn(
+        self, app: App, label: str, table_urns: Set[str]
+    ) -> Optional[str]:
+        urn = self._gen_qlik_dataset_urn(app_table_identifier(app.id, label))
+        if urn in table_urns:
+            return urn
+        # A load-model table is ingested under its QRI, not the app and label.
+        urns = {
+            self._gen_qlik_dataset_urn(table.tableQri.lower())
+            for table in app.tables
+            if table.tableQri and table.tableName.lower() == label.lower()
+        } & table_urns
+        return next(iter(urns)) if len(urns) == 1 else None
 
     def _resolve_file_source(self, app_id: str, file_qri: str) -> Optional[str]:
         """The dataset of a file in an app's lineage graph, such as a CSV on
