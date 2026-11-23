@@ -4,7 +4,10 @@ from typing import AbstractSet, Dict, List, Optional, Set
 
 from pydantic import BaseModel, Field
 
-from datahub.ingestion.source.qlik_sense.file_lineage import FileStorage
+from datahub.ingestion.source.qlik_sense.file_lineage import (
+    FilePlatform,
+    FileStorage,
+)
 from datahub.metadata.urns import DatasetUrn
 
 CONNECT_RE = re.compile(
@@ -412,7 +415,7 @@ class DataConnectionInfo(BaseModel):
     # The storage of a Qlik Cloud file data connection, such as Azure Storage.
     file_storage: Optional[FileStorage] = None
     # The platform of its files, known even when its storage is not.
-    file_platform: Optional[str] = None
+    file_platform: Optional[FilePlatform] = None
 
 
 class ResolvedConnection(BaseModel):

@@ -26,6 +26,7 @@ import datahub.emitter.mce_builder as builder
 from datahub._version import __version__
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_entity_to_container, gen_containers
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -305,6 +306,17 @@ class _ResolvedSources(BaseModel):
     urns: List[str] = []
     # False when a source could not be resolved this run.
     complete: bool = True
+
+
+def _patch_workunits(
+    patch: MetadataPatchProposal, is_primary_source: bool
+) -> Iterable[MetadataWorkUnit]:
+    for mcp in patch.build():
+        yield MetadataWorkUnit(
+            id=MetadataWorkUnit.generate_workunit_id(mcp),
+            mcp_raw=mcp,
+            is_primary_source=is_primary_source,
+        )
 
 
 def _bounded_list(items: List[str], limit: int = 10) -> str:
@@ -2002,13 +2014,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 patch.add_upstream_lineage(
                     Upstream(dataset=urn, type=DatasetLineageType.COPY)
                 )
-            for mcp in patch.build():
-                yield MetadataWorkUnit(
-                    id=MetadataWorkUnit.generate_workunit_id(mcp),
-                    mcp_raw=mcp,
-                    # A file on storage is not this source's to remove when stale.
-                    is_primary_source=False,
-                )
+            # A file on storage is not this source's to remove when stale.
+            yield from _patch_workunits(patch, is_primary_source=False)
 
     def _stored_table_urn(
         self, app: App, label: str, table_urns: Set[str]
@@ -3035,13 +3042,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     owned - fields_unknown,
                 ):
                     patch.remove_fine_grained_lineage(lineage)
-        for mcp in patch.build():
-            yield MetadataWorkUnit(
-                id=MetadataWorkUnit.generate_workunit_id(mcp),
-                mcp_raw=mcp,
-                # A file on storage is not this source's to remove when stale.
-                is_primary_source=self._is_own_dataset(qvd_urn),
-            )
+        # A file on storage is not this source's to remove when stale.
+        yield from _patch_workunits(
+            patch, is_primary_source=self._is_own_dataset(qvd_urn)
+        )
 
     def _is_own_dataset(self, urn: str) -> bool:
         return DatasetUrn.from_string(urn).platform == builder.make_data_platform_urn(
