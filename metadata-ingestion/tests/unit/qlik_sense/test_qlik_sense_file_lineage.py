@@ -894,14 +894,14 @@ def test_stored_qvd_on_unknown_storage_reports_the_connection(
         {CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)},
     )
 
-    assert (
-        list(
-            source._gen_file_store_lineage(
-                _store_app([]), parse_script(STORE_SCRIPT), {ORDERS}
-            )
+    workunits = list(
+        source._gen_file_store_lineage(
+            _store_app([]), parse_script(STORE_SCRIPT), {ORDERS}
         )
-        == []
     )
+
+    # Named by its connection and path instead.
+    assert {wu.get_urn() for wu in workunits} == {UNMAPPED_ORDERS_QVD}
     assert source.reporter.unresolved_file_connections == [CONNECTION]
 
 
