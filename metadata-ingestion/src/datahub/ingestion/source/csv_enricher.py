@@ -1,11 +1,8 @@
 import csv
-import pathlib
+import io
 import time
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
-from urllib import parse
-
-import requests
 
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import make_schema_field_urn
@@ -20,6 +17,8 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.fs.fs_base import get_path_schema
+from datahub.ingestion.fs.fs_registry import fs_registry
 from datahub.ingestion.source_config.csv_enricher import CSVEnricherConfig
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -834,28 +833,25 @@ class CSVEnricherSource(Source):
         # present in the file. Excel is known to add a BOM to CSV files.
         # As per https://stackoverflow.com/a/63508823/5004662,
         # this is also safe with normal files that don't have a BOM.
-        parsed_location = parse.urlparse(self.config.filename)
-        if parsed_location.scheme in ("http", "https"):
-            try:
-                resp = requests.get(self.config.filename)
-                resp.raise_for_status()  # Raise an exception for HTTP error status codes
-                decoded_content = resp.content.decode("utf-8-sig")
-                rows = list(
-                    csv.DictReader(
-                        decoded_content.splitlines(),
-                        delimiter=self.config.delimiter,
-                        restval="",
-                    )
-                )
-            except Exception as e:
-                raise ConfigurationError(
-                    f"Cannot read remote file {self.config.filename}: {e}"
-                ) from e
-        else:
-            with open(pathlib.Path(self.config.filename), encoding="utf-8-sig") as f:
-                rows = list(
-                    csv.DictReader(f, delimiter=self.config.delimiter, restval="")
-                )
+        schema = get_path_schema(self.config.filename)
+        try:
+            fs_class = fs_registry.get(schema)
+        except ConfigurationError as e:
+            # The registry's own hint names a non-existent extra (e.g. [https]).
+            raise ConfigurationError(
+                f"Reading {schema} paths needs extra dependencies: "
+                f"pip install 'acryl-datahub[csv-enricher]'"
+            ) from e
+        try:
+            stream = fs_class.create().open(self.config.filename)
+        except Exception as e:
+            if schema == "file":
+                raise
+            raise ConfigurationError(
+                f"Cannot read remote file {self.config.filename}: {e}"
+            ) from e
+        with io.TextIOWrapper(stream, encoding="utf-8-sig") as f:
+            rows = list(csv.DictReader(f, delimiter=self.config.delimiter, restval=""))
 
         for row in rows:
             # We need the resource to move forward
