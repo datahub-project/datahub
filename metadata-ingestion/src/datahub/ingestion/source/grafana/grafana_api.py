@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Union
 
 import requests
 import urllib3.exceptions
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 
 from datahub.ingestion.source.grafana.models import Dashboard, Folder
 from datahub.ingestion.source.grafana.report import GrafanaSourceReport
@@ -71,12 +71,23 @@ class GrafanaAPIClient:
                 if not batch:
                     break
 
-                folders.extend(Folder.model_validate(folder) for folder in batch)
+                for folder in batch:
+                    try:
+                        folders.append(Folder.model_validate(folder))
+                    except ValidationError as e:
+                        self.report.warning(
+                            title="Folder Parse Error",
+                            message="Skipped a folder Grafana returned in an unexpected shape; its dashboards will not be placed in a folder",
+                            context=str(folder.get("id", folder))
+                            if isinstance(folder, dict)
+                            else str(folder),
+                            exc=e,
+                        )
                 page += 1
             except requests.exceptions.RequestException as e:
                 self.report.failure(
                     title="Folder Fetch Error",
-                    message="Failed to fetch folders on page",
+                    message="Failed to fetch folders on page; dashboards in folders on this or later pages will not be placed in a folder",
                     context=str(page),
                     exc=e,
                 )

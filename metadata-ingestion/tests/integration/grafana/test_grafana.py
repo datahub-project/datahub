@@ -1,3 +1,4 @@
+import json
 import logging
 from base64 import b64encode
 from typing import List, Optional
@@ -11,6 +12,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.grafana.report import GrafanaSourceReport
 from datahub.testing import mce_helpers
 from tests.test_helpers import fs_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
@@ -19,7 +21,16 @@ pytestmark = pytest.mark.integration_batch_5
 
 FROZEN_TIME = "2024-07-12 12:00:00"
 
-EXPECTED_DASHBOARDS = {"Test Integration Dashboard"}
+FOLDER_TITLE = "Team Folder"
+FOLDER_DASHBOARD_TITLE = "Team Folder Dashboard"
+EXPECTED_DASHBOARDS = {"Test Integration Dashboard", FOLDER_DASHBOARD_TITLE}
+
+# Grafana gives folders random ids, and folder and dashboard container URNs
+# include the folder id, so the golden-file tests leave the folder out.
+EXCLUDE_FOLDER_CONFIG = {
+    "folder_pattern": {"deny": [FOLDER_TITLE]},
+    "dashboard_pattern": {"deny": [FOLDER_DASHBOARD_TITLE]},
+}
 
 logger = logging.getLogger(__name__)
 
@@ -286,6 +297,7 @@ def test_grafana_basic_ingest(
                         "service_account_token": test_api_key,
                         "ingest_tags": False,
                         "ingest_owners": False,
+                        **EXCLUDE_FOLDER_CONFIG,
                     },
                 },
                 "sink": {
@@ -340,6 +352,7 @@ def test_grafana_ingest(
                         },
                         "platform_instance": "local-grafana",
                         "env": "PROD",
+                        **EXCLUDE_FOLDER_CONFIG,
                     },
                 },
                 "sink": {
@@ -360,3 +373,44 @@ def test_grafana_ingest(
                 r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
             ],
         )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_grafana_dashboard_placed_in_folder(loaded_grafana, tmp_path, test_api_key):
+    """A dashboard provisioned into a folder is placed in that folder's container."""
+    output_file = tmp_path / "grafana_folder_mcps.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "grafana-folder-test",
+            "source": {
+                "type": "grafana",
+                "config": {
+                    "url": BASE_URL,
+                    "service_account_token": test_api_key,
+                    "dashboard_pattern": {"allow": [FOLDER_DASHBOARD_TITLE]},
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": str(output_file)}},
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mcps = json.loads(output_file.read_text())
+    container_names = {
+        mcp["entityUrn"]: mcp["aspect"]["json"]["name"]
+        for mcp in mcps
+        if mcp.get("aspectName") == "containerProperties"
+    }
+    container_links = {
+        container_names.get(mcp["entityUrn"]): container_names.get(
+            mcp["aspect"]["json"]["container"]
+        )
+        for mcp in mcps
+        if mcp["entityType"] == "container" and mcp.get("aspectName") == "container"
+    }
+    assert container_links == {FOLDER_DASHBOARD_TITLE: FOLDER_TITLE}
+
+    report = pipeline.source.get_report()
+    assert isinstance(report, GrafanaSourceReport)
+    assert report.dashboards_without_folder_container == 0

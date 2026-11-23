@@ -183,3 +183,20 @@ def test_get_dashboards_error(api_client, mock_session):
 
     assert len(dashboards) == 0
     assert len(api_client.report.failures) == 1
+
+
+def test_get_folders_skips_malformed_folder(api_client, mock_session):
+    first_response = MagicMock()
+    first_response.json.return_value = [
+        {"id": "1", "title": "Folder 1"},
+        {"id": "2"},  # no title
+    ]
+    second_response = MagicMock()
+    second_response.json.return_value = []
+    mock_session.get.side_effect = [first_response, second_response]
+
+    folders = api_client.get_folders()
+
+    assert [f.id for f in folders] == ["1"]
+    assert not api_client.report.failures
+    assert [w.title for w in api_client.report.warnings] == ["Folder Parse Error"]
