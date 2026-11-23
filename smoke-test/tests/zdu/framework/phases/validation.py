@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Literal, cast
 
 from .base import Phase, PhaseResult
+from ..constants import ENTITY_INDEX_PATTERN
 from ..context import IOObservation, TestContext, ValidationResult
 from ..es_client import ElasticsearchClient
 from ..scenario_executor import ScenarioTypeRegistry
@@ -180,8 +181,8 @@ class ValidationPhase(Phase):
         return results
 
     _ENTITY_TYPE_TO_ES_ALIAS: dict[str, str] = {
-        "dashboard": "dashboardindex_v2",
-        "dataset": "datasetindex_v2",
+        "dashboard": ENTITY_INDEX_PATTERN,
+        "dataset": ENTITY_INDEX_PATTERN,
     }
 
     @classmethod
