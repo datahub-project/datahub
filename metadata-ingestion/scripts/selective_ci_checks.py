@@ -103,6 +103,9 @@ class ConnectorEntry:
     extra_test_paths: list[str] = field(default_factory=list)
     extra_source_paths: list[str] = field(default_factory=list)
     test_paths: list[str] = field(default_factory=list)  # legacy, validate-only
+    # False when connector.yaml declares the connector has no integration tests
+    # (unit tests only), so changing it alone does not trip the safety net.
+    integration_tests: bool = True
 
 
 @dataclass(frozen=True)
@@ -230,6 +233,15 @@ def load_connector_registry(repo_root: Path) -> list[ConnectorEntry]:
         else:
             data = {}
 
+        integration_tests = data.get("integration_tests", True)
+        if not isinstance(integration_tests, bool):
+            print(
+                f"ERROR: {connector_yaml}: integration_tests must be true or false, "
+                f"got {integration_tests!r}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
         # Convention: test_path defaults to tests/integration/{source_dir_name}/
         test_path = data.get("test_path")
         if test_path is None:
@@ -244,6 +256,7 @@ def load_connector_registry(repo_root: Path) -> list[ConnectorEntry]:
                 extra_test_paths=data.get("extra_test_paths", []),
                 extra_source_paths=data.get("extra_source_paths", []),
                 test_paths=data.get("test_paths", []),
+                integration_tests=integration_tests,
             )
         )
 
@@ -595,10 +608,14 @@ def classify(changed_files: list[str], repo_root: Path) -> CIDecisions:
             test_paths.update(ep_mapping.source_to_tests.get(source_dir, set()))
 
     # Safety net: if we found changed source dirs but produced no tests,
-    # something is wrong — fall back to running everything.
-    if changed_source_dirs and not test_paths:
+    # something is wrong — fall back to running everything. Connectors that
+    # declare `integration_tests: false` are covered by unit tests (testQuick)
+    # only, so producing no integration tests for them is expected.
+    unit_tested_only = {c.source_dir for c in registry if not c.integration_tests}
+    unexplained_dirs = changed_source_dirs - unit_tested_only
+    if unexplained_dirs and not test_paths:
         print(
-            f"  WARNING: Changed source dirs {sorted(changed_source_dirs)} produced no "
+            f"  WARNING: Changed source dirs {sorted(unexplained_dirs)} produced no "
             f"test matrix entries. Falling back to run_all_integration=true.",
             file=sys.stderr,
         )
@@ -629,6 +646,12 @@ def validate(repo_root: Path) -> list[str]:
         for tp in all_paths:
             if tp and not (mi / tp).exists():
                 errors.append(f"{c.source_dir}: test path '{tp}' does not exist")
+        # A connector that has integration tests must not opt out of them.
+        if not c.integration_tests and any(all_paths):
+            errors.append(
+                f"{c.source_dir}: declares integration_tests: false but has "
+                f"integration tests at {[tp for tp in all_paths if tp]}"
+            )
 
     # 2. Warn about test dirs not covered by any connector
     # A test dir is covered if: listed in registry test_path/extra_test_paths/test_paths,
