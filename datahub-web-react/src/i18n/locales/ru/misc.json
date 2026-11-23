@@ -248,6 +248,7 @@
     "marketplace.home": "Главная дата-продуктов",
     "marketplace.applicationFilter.placeholder": "Фильтр приложений",
     "marketplace.createTooltip": "Создать дата-продукт",
+    "marketplace.createUnauthorized": "Здесь нет прав на создание дата-продуктов. Попробуйте создать дата-продукт на вкладке «Дата-продукты» домена, которым вы управляете.",
     "marketplace.cardAssets_other": "{{count}} ассетов",
     "marketplace.cardAssets_one": "{{count}} ассет",
     "marketplace.cardAssets_few": "{{count}} ассета",
