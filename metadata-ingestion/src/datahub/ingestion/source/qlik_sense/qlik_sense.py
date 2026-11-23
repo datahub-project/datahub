@@ -267,15 +267,20 @@ def _qlik_app_id(qri: str) -> Optional[str]:
 
 class PendingTableLineage(BaseModel):
     """What an app table's lineage is built from, kept until the end of the
-    run when a source field's name is only read later."""
+    run when a source field's name, or a source app's tables, are only read
+    later."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     app_id: str
     table_label: str
     dataset_urn: str
-    upstream_urns: List[str]
-    # Why a table-level source or the app's script or tables were not read.
+    # Table-level sources in Qlik's lineage graph, resolved when the lineage
+    # is written.
+    source_qris: List[str]
+    script_upstream_urns: List[str]
+    # Why the app's script or tables, or the table's field lineage, were not
+    # read.
     incomplete_reason: Optional[str]
     script_fields: List[FineGrainedLineage]
     field_source_qris: Dict[str, List[str]]
@@ -1781,7 +1786,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     ) -> "_ResolvedSources":
         """URNs of the sources this run ingests. A source that can't be resolved
         this run, because the datasets or its app could not be read, makes the
-        result incomplete. With `own_app_id`, only that app's tables are linked."""
+        result incomplete. `own_app_id` is the app whose table it is."""
         resolved = _ResolvedSources()
         for source_qri in source_qris:
             urn, known = self._resolve_source(source_qri, dataset_urn, own_app_id)
@@ -1799,8 +1804,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         a URN, which is only added."""
         app_id = _qlik_app_id(table_qri)
         if app_id is not None:
-            if own_app_id is not None and app_id != own_app_id:
-                return None, True
+            # Such as a BINARY load of another app; a table of an app the run
+            # does not ingest has no URN and is left out.
             urn = self._app_table_urns_by_qri.get(table_qri)
             if not self._app_tables_known(app_id):
                 # A table the graph names this run is still added, but the
@@ -2140,21 +2145,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     },
                 ),
             ).as_workunit()
-            resolved = self._resolve_lineage_sources(
-                table.source_qris, dataset_urn, own_app_id=app.id
-            )
-            upstream_urns = list(resolved.urns)
-            if script_table:
-                upstream_urns.extend(
-                    urn
-                    for urn in script_table.upstream_urns
-                    if urn not in upstream_urns
-                )
             pending = PendingTableLineage(
                 app_id=app.id,
                 table_label=table.label,
                 dataset_urn=dataset_urn,
-                upstream_urns=upstream_urns,
+                source_qris=table.source_qris,
+                script_upstream_urns=script_table.upstream_urns if script_table else [],
                 incomplete_reason=(
                     "the app's load script could not be read"
                     if app.script_read_failed
@@ -2162,9 +2158,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     if app.tables_read_failed
                     else "the table's field lineage could not be read"
                     if table.field_lineage_failed
-                    else "an upstream source could not be resolved, see the "
-                    "app's other warnings"
-                    if not resolved.complete
                     else None
                 ),
                 script_fields=(
@@ -2174,6 +2167,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 ),
                 field_source_qris=table.field_source_qris,
             )
+            if self._reads_an_app_not_yet_read(app.id, table):
+                # Its tables are only known once that app is read.
+                self._pending_table_lineage.append(pending)
+                continue
             graph_fields = self._graph_column_lineage(
                 dataset_urn, table.field_source_qris, own_app_id=app.id
             )
@@ -2186,6 +2183,24 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self._pending_table_lineage.append(pending)
                 continue
             yield from self._gen_table_lineage(pending, graph_fields)
+
+    def _reads_an_app_not_yet_read(self, app_id: str, table: LineageTable) -> bool:
+        source_apps = {
+            _qlik_app_id(qri)
+            for qri in [
+                *table.source_qris,
+                *(
+                    qri.rpartition("#")[0]
+                    for qris in table.field_source_qris.values()
+                    for qri in qris
+                ),
+            ]
+        } - {None, app_id}
+        return any(
+            source_app not in self._apps_tables_known
+            and source_app not in self._apps_tables_unknown
+            for source_app in source_apps
+        )
 
     def _gen_pending_table_lineage(self) -> Iterable[MetadataWorkUnit]:
         for pending in self._pending_table_lineage:
@@ -2201,10 +2216,25 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self, pending: "PendingTableLineage", graph_fields: List[FineGrainedLineage]
     ) -> Iterable[MetadataWorkUnit]:
         fine_grained = self._column_lineage([*pending.script_fields, *graph_fields])
-        reason = pending.incomplete_reason or (
-            "a source field's name was not read"
-            if pending.dataset_urn in self._unnamed_field_lineage
-            else None
+        resolved = self._resolve_lineage_sources(
+            pending.source_qris, pending.dataset_urn, own_app_id=pending.app_id
+        )
+        upstream_urns = list(resolved.urns)
+        upstream_urns.extend(
+            urn for urn in pending.script_upstream_urns if urn not in upstream_urns
+        )
+        reason = (
+            pending.incomplete_reason
+            or (
+                "an upstream source could not be resolved, see the app's other warnings"
+                if not resolved.complete
+                else None
+            )
+            or (
+                "a source field's name was not read"
+                if pending.dataset_urn in self._unnamed_field_lineage
+                else None
+            )
         )
         if reason is None:
             # The app owns its tables, so the lineage is written whole, which
@@ -2214,7 +2244,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 aspect=UpstreamLineage(
                     upstreams=[
                         Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
-                        for urn in pending.upstream_urns
+                        for urn in upstream_urns
                     ],
                     fineGrainedLineages=fine_grained,
                 ),
@@ -2234,7 +2264,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         yield from self._patch_upstreams(
             pending.dataset_urn,
-            pending.upstream_urns,
+            upstream_urns,
             DatasetLineageType.TRANSFORMED,
             fine_grained,
         )
