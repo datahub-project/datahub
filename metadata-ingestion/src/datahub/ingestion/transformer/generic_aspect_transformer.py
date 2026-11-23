@@ -64,7 +64,7 @@ class GenericAspectTransformer(
             self._record_mcp(envelope.record)
         return envelope if envelope.record.aspect is not None else None
 
-    def transform(
+    def _transform_envelopes(
         self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
         """

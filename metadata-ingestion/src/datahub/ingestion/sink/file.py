@@ -15,8 +15,19 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
     UsageAggregationClass,
 )
+from datahub.utilities.deprecation import called_from_datahub, warn_deprecated
 
 logger = logging.getLogger(__name__)
+
+_MCE_SINK_DEPRECATION_MESSAGE = (
+    "Writing a MetadataChangeEvent to the file sink (FileSink.write_record_async) "
+    "is deprecated and will be removed in a future release. "
+    "Use MetadataChangeProposalWrapper instead."
+)
+_WRITE_MCE_FILE_DEPRECATION_MESSAGE = (
+    "Writing MetadataChangeEvents with write_metadata_file is deprecated and will be "
+    "removed in a future release. Use MetadataChangeProposalWrapper instead."
+)
 
 
 def _to_obj_for_file(
@@ -75,6 +86,11 @@ class FileSink(Sink[FileSinkConfig, SinkReport]):
         ],
         write_callback: WriteCallback,
     ) -> None:
+        if (
+            isinstance(record_envelope.record, MetadataChangeEventClass)
+            and not called_from_datahub()
+        ):
+            warn_deprecated(_MCE_SINK_DEPRECATION_MESSAGE)
         record = record_envelope.record
         obj = _to_obj_for_file(
             record, simplified_structure=not self.config.legacy_nested_json_string
@@ -139,6 +155,16 @@ def write_metadata_file(
     # Convert records to JSON string
     content = "[\n"
     record_list = list(records)  # Convert iterable to list
+
+    if (
+        any(
+            isinstance(record, MetadataChangeEventClass)
+            or (isinstance(record, dict) and "proposedSnapshot" in record)
+            for record in record_list
+        )
+        and not called_from_datahub()
+    ):
+        warn_deprecated(_WRITE_MCE_FILE_DEPRECATION_MESSAGE)
 
     for i, record in enumerate(record_list):
         if i > 0:

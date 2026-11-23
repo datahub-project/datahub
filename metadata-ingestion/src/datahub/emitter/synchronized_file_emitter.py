@@ -1,11 +1,12 @@
 import logging
 import pathlib
-from typing import Callable, Optional, Union
+from typing import Callable, List, Optional, Union
 
 import filelock
 
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.file import read_metadata_file
@@ -13,8 +14,14 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+from datahub.utilities.deprecation import warn_deprecated
 
 logger = logging.getLogger(__name__)
+
+_MCE_DEPRECATION_MESSAGE = (
+    "Passing a MetadataChangeEvent to SynchronizedFileEmitter.emit is deprecated and will be "
+    "removed in a future release. Use MetadataChangeProposalWrapper instead."
+)
 
 
 class SynchronizedFileEmitter(Closeable, Emitter):
@@ -37,6 +44,20 @@ class SynchronizedFileEmitter(Closeable, Emitter):
         ],
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
+        new_items: List[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ] = [item]
+        if isinstance(item, MetadataChangeEvent):
+            # No caller check: datahub never passes an MCE here on its own, and
+            # CompositeEmitter forwards the user's MCE as it is.
+            warn_deprecated(_MCE_DEPRECATION_MESSAGE)
+            # An MCE without aspects has no MCPs; keep it so it is not silently lost.
+            new_items = list(mcps_from_mce(item)) or [item]
+
         with self._lock:
             if self._filename.exists():
                 metadata = list(read_metadata_file(self._filename))
@@ -44,7 +65,7 @@ class SynchronizedFileEmitter(Closeable, Emitter):
                 metadata = []
 
             logger.debug("Emitting metadata: %s", item)
-            metadata.append(item)
+            metadata.extend(new_items)
 
             write_metadata_file(self._filename, metadata)
 

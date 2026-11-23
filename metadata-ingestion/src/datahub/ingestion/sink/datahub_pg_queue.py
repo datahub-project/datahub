@@ -17,8 +17,16 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from datahub.pgqueue.config import PgQueueEmitterConfig
 from datahub.pgqueue.emitter import DatahubPgQueueEmitter
+from datahub.utilities.deprecation import called_from_datahub, warn_deprecated
 
 logger = logging.getLogger(__name__)
+
+_MCE_SINK_DEPRECATION_MESSAGE = (
+    "Writing a MetadataChangeEvent to the datahub-pg-queue sink "
+    "(DatahubPgQueueSink.write_record_async) "
+    "is deprecated and will be removed in a future release. "
+    "Use MetadataChangeProposalWrapper instead."
+)
 
 
 class PgQueueSinkConfig(PgQueueEmitterConfig):
@@ -50,6 +58,11 @@ class DatahubPgQueueSink(Sink[PgQueueSinkConfig, SinkReport]):
         ],
         write_callback: WriteCallback,
     ) -> None:
+        if (
+            isinstance(record_envelope.record, MetadataChangeEvent)
+            and not called_from_datahub()
+        ):
+            warn_deprecated(_MCE_SINK_DEPRECATION_MESSAGE)
         queue_callback = _KafkaCallback(self.report, record_envelope, write_callback)
         try:
             record = record_envelope.record

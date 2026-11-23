@@ -584,7 +584,7 @@ class SetAttributionTransformer(BaseTransformer):
         for supported_aspect in SUPPORTED_ASPECTS:
             aspect_type = ASPECT_MAP.get(supported_aspect)
             if aspect_type:
-                aspect_obj = builder.get_aspect_if_available(mce, aspect_type)
+                aspect_obj = builder._get_aspect_if_available(mce, aspect_type)
                 if aspect_obj:
                     aspect_name = cast(
                         Literal["globalTags", "ownership", "glossaryTerms"],
@@ -634,7 +634,7 @@ class SetAttributionTransformer(BaseTransformer):
                 metadata=record_metadata,
             )
 
-    def transform(
+    def _transform_envelopes(
         self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
         """Transform records by converting UPSERT aspects to PATCH with attribution.

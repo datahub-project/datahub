@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Iterable
 
-from datahub.emitter.mce_builder import set_aspect
+from datahub.emitter.mce_builder import _set_aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.incremental_lineage_helper import (
     convert_upstream_lineage_to_patch,
@@ -40,7 +40,7 @@ class AutoIncrementalLineageProcessor(
 
             if isinstance(wu.metadata, MetadataChangeEventClass):
                 lineage_aspect = wu.get_aspect_of_type(UpstreamLineageClass)
-                set_aspect(wu.metadata, None, UpstreamLineageClass)
+                _set_aspect(wu.metadata, None, UpstreamLineageClass)
                 if len(wu.metadata.proposedSnapshot.aspects) > 0:
                     yield wu
 

@@ -27,11 +27,19 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.schema_classes import ChangeTypeClass
+from datahub.utilities.deprecation import called_from_datahub, warn_deprecated
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
+
+_MCE_SINK_DEPRECATION_MESSAGE = (
+    "Writing a MetadataChangeEvent to the datahub-kafka sink "
+    "(DatahubKafkaSink.write_record_async) "
+    "is deprecated and will be removed in a future release. "
+    "Use MetadataChangeProposalWrapper instead."
+)
 
 # Change types GMS accepts over async Kafka ingestion for non-timeseries
 # aspects: MCPItem.CHANGE_TYPES (UPSERT/UPDATE/CREATE/CREATE_ENTITY) plus PATCH.
@@ -258,6 +266,11 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, KafkaSinkReport]):
         ],
         write_callback: WriteCallback,
     ) -> None:
+        if (
+            isinstance(record_envelope.record, MetadataChangeEvent)
+            and not called_from_datahub()
+        ):
+            warn_deprecated(_MCE_SINK_DEPRECATION_MESSAGE)
         kafka_callback = _KafkaCallback(
             self.report,
             record_envelope,

@@ -6,11 +6,11 @@ import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.sink.file import write_metadata_file
-from datahub.ingestion.source.file import read_metadata_file
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
+    MetadataChangeEventClass,
     MetadataChangeProposalClass,
     OwnerClass,
     OwnershipClass,
@@ -261,7 +261,9 @@ def test_fail_on_output_mces_fails_even_when_golden_matches(
 ) -> None:
     golden = _write_json(tmp_path / "golden.json", basic_1)
     output = tmp_path / "output.json"
-    write_metadata_file(output, read_metadata_file(golden))
+    write_metadata_file(
+        output, [MetadataChangeEventClass.from_obj(obj) for obj in basic_1]
+    )
     assert_metadata_files_equal(output, golden)
     with pytest.raises(pytest.fail.Exception, match="MCE"):
         assert_metadata_files_equal(output, golden, fail_on_output_mces=True)

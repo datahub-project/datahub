@@ -103,6 +103,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
 )
 from datahub.utilities.caller_context import identify_caller
+from datahub.utilities.deprecation import find_stack_level
 from datahub.utilities.server_config_util import RestServiceConfig, ServiceFeature
 
 if TYPE_CHECKING:
@@ -840,7 +841,9 @@ class DataHubRestEmitter(Closeable, Emitter):
                 self.emit_mcp(item, emit_mode=emit_mode)
             else:
                 warnings.warn(
-                    MCE_DEPRECATION_MESSAGE, DataHubDeprecationWarning, stacklevel=2
+                    MCE_DEPRECATION_MESSAGE,
+                    DataHubDeprecationWarning,
+                    stacklevel=find_stack_level(),
                 )
                 self._emit_mce(item, emit_mode)
         except Exception as e:

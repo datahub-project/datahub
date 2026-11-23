@@ -10,12 +10,14 @@ from typing import Any, Iterable, Iterator, List, Optional, Tuple, Type, Union
 import ijson
 from pydantic import field_validator
 from pydantic.fields import Field
+from typing_extensions import deprecated
 
 from datahub.configuration.common import ConfigEnum
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.errors import DataHubDeprecationWarning
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -56,8 +58,26 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.schema_classes import UsageAggregationClass
+from datahub.utilities.deprecation import (
+    called_from_datahub,
+    log_deprecation_once,
+    warn_deprecated,
+)
 
 logger = logging.getLogger(__name__)
+
+_ITERATE_MCE_FILE_DEPRECATION_MESSAGE = (
+    "GenericFileSource.iterate_mce_file is deprecated and will be removed in a future "
+    "release. Use read_metadata_file on a file of MCPs instead."
+)
+_ITERATE_GENERIC_FILE_MCE_DEPRECATION_MESSAGE = (
+    "Reading MetadataChangeEvents with GenericFileSource.iterate_generic_file is deprecated "
+    "and will be removed in a future release. Use a file of MCPs instead."
+)
+_READ_MCE_FILE_DEPRECATION_MESSAGE = (
+    "Reading MetadataChangeEvents with read_metadata_file is deprecated and will be removed "
+    "in a future release. Use a file of MCPs instead."
+)
 
 
 class FileReadMode(ConfigEnum):
@@ -358,8 +378,11 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
         else:
             yield contents
 
+    @deprecated(
+        _ITERATE_MCE_FILE_DEPRECATION_MESSAGE, category=DataHubDeprecationWarning
+    )
     def iterate_mce_file(self, path: str) -> Iterator[MetadataChangeEvent]:
-        # TODO: Remove this method, as it appears to be unused.
+        log_deprecation_once(_ITERATE_MCE_FILE_DEPRECATION_MESSAGE)
         schema = get_path_schema(path)
         fs_class = fs_registry.get(schema)
         fs = fs_class.create()
@@ -384,18 +407,23 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
             try:
                 deserialize_start_time = datetime.datetime.now()
                 item = _from_obj_for_file(obj)
-                if item is not None:
-                    deserialize_duration = (
-                        datetime.datetime.now() - deserialize_start_time
-                    )
-                    self.report.add_deserialize_time(deserialize_duration)
-                    yield i, item
+                if item is None:
+                    continue
+                self.report.add_deserialize_time(
+                    datetime.datetime.now() - deserialize_start_time
+                )
             except Exception as e:
                 self.report.failure(
                     message="Failed to deserialize metadata",
                     context=f"{file_status.path}-{i}",
                     exc=e,
                 )
+                continue
+            # Checked at each yield, so the caller is the frame iterating this generator;
+            # get_workunits_internal reports MCEs itself.
+            if isinstance(item, MetadataChangeEvent) and not called_from_datahub():
+                warn_deprecated(_ITERATE_GENERIC_FILE_MCE_DEPRECATION_MESSAGE)
+            yield i, item
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -478,7 +506,46 @@ def read_metadata_file(
         MetadataChangeProposalWrapper,
     ]
 ]:
-    # This simplified version of the FileSource can be used for testing purposes.
+    """Read a metadata file; each MetadataChangeEvent with aspects is read as one MCP per aspect."""
+    # Decided here, not in the generator: a generator only sees the frame that iterates it.
+    warn_on_mce = not called_from_datahub()
+    return _read_metadata_file_as_mcps(file, warn_on_mce)
+
+
+def _read_metadata_file_as_mcps(
+    file: pathlib.Path, warn_on_mce: bool
+) -> Iterator[
+    Union[
+        MetadataChangeEvent,
+        MetadataChangeProposal,
+        MetadataChangeProposalWrapper,
+    ]
+]:
+    for item in _read_metadata_file_raw(file):
+        if isinstance(item, MetadataChangeEvent):
+            if warn_on_mce:
+                warn_on_mce = False
+                warn_deprecated(_READ_MCE_FILE_DEPRECATION_MESSAGE)
+            mcps = list(mcps_from_mce(item))
+            if mcps:
+                yield from mcps
+            else:
+                # An MCE without aspects has no MCPs; keep it so it is not silently lost.
+                yield item
+        else:
+            yield item
+
+
+def _read_metadata_file_raw(
+    file: pathlib.Path,
+) -> Iterator[
+    Union[
+        MetadataChangeEvent,
+        MetadataChangeProposal,
+        MetadataChangeProposalWrapper,
+    ]
+]:
+    """Read a metadata file as written, MetadataChangeEvents included (for golden-file checks)."""
     with file.open("r") as f:
         for obj in json.load(f):
             item = _from_obj_for_file(obj)

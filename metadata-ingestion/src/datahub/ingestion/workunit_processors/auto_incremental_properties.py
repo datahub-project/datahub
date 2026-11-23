@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Iterable
 
-from datahub.emitter.mce_builder import set_aspect
+from datahub.emitter.mce_builder import _set_aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.incremental_properties_helper import (
     convert_dataset_properties_to_patch,
@@ -40,7 +40,7 @@ class AutoIncrementalPropertiesProcessor(
 
             if isinstance(wu.metadata, MetadataChangeEventClass):
                 properties_aspect = wu.get_aspect_of_type(DatasetPropertiesClass)
-                set_aspect(wu.metadata, None, DatasetPropertiesClass)
+                _set_aspect(wu.metadata, None, DatasetPropertiesClass)
                 if len(wu.metadata.proposedSnapshot.aspects) > 0:
                     yield wu
 

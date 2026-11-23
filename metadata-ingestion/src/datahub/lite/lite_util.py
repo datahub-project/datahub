@@ -9,6 +9,7 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback, Sink
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.lite.lite_local import (
+    _MCE_WRITE_DEPRECATION_MESSAGE,
     AspectVersion,
     Browseable,
     DataHubLiteLocal,
@@ -17,6 +18,7 @@ from datahub.lite.lite_local import (
 )
 from datahub.lite.lite_registry import lite_registry
 from datahub.metadata.schema_classes import MetadataChangeEventClass, _Aspect
+from datahub.utilities.deprecation import called_from_datahub, warn_deprecated
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,8 @@ class DataHubLiteWrapper(DataHubLiteLocal):
         *,
         if_version_match: Optional[int] = None,
     ) -> Dict[str, int]:
+        if isinstance(record, MetadataChangeEventClass) and not called_from_datahub():
+            warn_deprecated(_MCE_WRITE_DEPRECATION_MESSAGE)
         versions = self.lite.write(record, if_version_match=if_version_match)
         record_envelope = RecordEnvelope(record=record, metadata={})
         self.forward_to.write_record_async(

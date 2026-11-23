@@ -49,7 +49,8 @@ def check() -> None:
     "--unpack-mces",
     default=False,
     is_flag=True,
-    help="Deprecated and has no effect: MCEs are always converted into MCPs.",
+    help="MCEs are always converted into MCPs.",
+    deprecated="It has no effect and will be removed in a future release.",
 )
 def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
     """Check the schema of a metadata (MCE or MCP) JSON file."""

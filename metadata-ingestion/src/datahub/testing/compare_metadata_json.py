@@ -15,7 +15,7 @@ from deepdiff import DeepDiff
 
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.sink.file import write_metadata_file
-from datahub.ingestion.source.file import read_metadata_file
+from datahub.ingestion.source.file import _read_metadata_file_raw
 from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.testing.mcp_diff import CannotCompareMCPs, MCPDiff, get_aspects_by_urn
 from datahub.testing.pytest_hooks import get_golden_settings
@@ -117,7 +117,7 @@ def assert_metadata_files_equal(
         # This will clean up nulls, double serialization, and other formatting issues.
         with tempfile.NamedTemporaryFile() as temp:
             try:
-                golden_metadata = read_metadata_file(pathlib.Path(golden_path))
+                golden_metadata = _read_metadata_file_raw(pathlib.Path(golden_path))
                 write_metadata_file(pathlib.Path(temp.name), golden_metadata)
                 golden = load_json_file(temp.name)
                 golden_parsed = True

@@ -16,6 +16,11 @@ from datahub.utilities.type_annotations import get_class_from_annotation
 
 LiteConfig = TypeVar("LiteConfig", bound=ConfigModel)
 
+_MCE_WRITE_DEPRECATION_MESSAGE = (
+    "Passing a MetadataChangeEvent to DataHubLiteLocal.write is deprecated and will be "
+    "removed in a future release. Use MetadataChangeProposalWrapper instead."
+)
+
 
 class AutoComplete(ConfigModel):
     success_path: str
@@ -107,7 +112,8 @@ class DataHubLiteLocal(Generic[LiteConfig], Closeable, metaclass=ABCMeta):
     ) -> Dict[str, int]:
         """Atomically write a record and return its aspect versions.
 
-        Only MCPs accept a version condition; -1 requires an absent aspect.
+        Passing an MCE is deprecated. Only MCPs accept a version condition; -1 requires an
+        absent aspect.
         Versions returned inside a transaction are provisional until it commits.
         """
         pass

@@ -1,3 +1,4 @@
+import functools
 import logging
 from dataclasses import dataclass
 from typing import Iterable, Optional, Type, TypeVar, Union, overload
@@ -14,8 +15,15 @@ from datahub.metadata.schema_classes import (
     GenericAspectClass,
     _Aspect,
 )
+from datahub.utilities.deprecation import warn_deprecated
 
 logger = logging.getLogger(__name__)
+
+_MCE_WORKUNIT_DEPRECATION_MESSAGE = (
+    "Building a MetadataWorkUnit from a MetadataChangeEvent (MetadataWorkUnit(mce=...), "
+    "MetadataWorkUnit.from_metadata or auto_workunit) is deprecated and will be removed "
+    "in a future release. Use MetadataChangeProposalWrapper(...).as_workunit() instead."
+)
 
 T_Aspect = TypeVar("T_Aspect", bound=_Aspect)
 
@@ -86,6 +94,7 @@ class MetadataWorkUnit(WorkUnit):
             assert not (mce or mcp)
             self.metadata = mcp_raw
         elif mce and not mcp:
+            _warn_mce_workunit_deprecated()
             self.metadata = mce
         elif mcp and not mce:
             self.metadata = mcp
@@ -193,3 +202,11 @@ class MetadataWorkUnit(WorkUnit):
             return MetadataWorkUnit(id=workunit_id, mcp=metadata)
         else:
             raise ValueError(f"Unexpected metadata type {type(metadata)}")
+
+
+# A work unit is built once per record inside pipelines; Python's per-location dedupe does not
+# survive a warnings-filter change during the run (seen as one line per MCE under datahub
+# ingest), so warn once per process.
+@functools.lru_cache(maxsize=None)
+def _warn_mce_workunit_deprecated() -> None:
+    warn_deprecated(_MCE_WORKUNIT_DEPRECATION_MESSAGE)

@@ -1,5 +1,7 @@
 from typing import Callable, Iterable, Optional, Union
 
+from typing_extensions import deprecated
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import ControlRecord, PipelineContext, RecordEnvelope
 from datahub.ingestion.api.transform import Transformer
@@ -8,8 +10,17 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+from datahub.utilities.deprecation import warn_deprecated
+
+_AUTO_HELPER_TRANSFORMER_DEPRECATION_MESSAGE = (
+    "AutoHelperTransformer is deprecated and will be removed in a future release. "
+    "Use the helper in the source's get_workunit_processors instead."
+)
 
 
+# category=None marks it for type checkers only; __init__ warns through warn_deprecated so the
+# warning points at the caller and is logged once.
+@deprecated(_AUTO_HELPER_TRANSFORMER_DEPRECATION_MESSAGE, category=None)
 class AutoHelperTransformer(Transformer):
     """Converts an auto_* source helper into a transformer.
 
@@ -23,6 +34,7 @@ class AutoHelperTransformer(Transformer):
         self,
         converter: Callable[[Iterable[MetadataWorkUnit]], Iterable[MetadataWorkUnit]],
     ):
+        warn_deprecated(_AUTO_HELPER_TRANSFORMER_DEPRECATION_MESSAGE)
         self.converter = converter
 
     def transform(
