@@ -24,5 +24,7 @@ VIEW_FIELD_TIMEFRAMES_ATTRIBUTE = "timeframes"
 EXPLORE_GIT_LINK_LABEL = "View in Git"
 # Looker's default when a project has no production branch configured.
 LOOKER_DEFAULT_GIT_BRANCH = "master"
+# LookML IDE link path: /projects/<project>/files/<url-encoded repo path>
+LOOKML_LINK_PATH_PATTERN = re.compile(r"^/projects/[^/]+/files/(.+)$")
 # SCP-style SSH remotes like git@github.com:org/repo.git
 GIT_SCP_REMOTE_PATTERN = re.compile(r"^[^@/]+@([^:/]+):(.+)$")

@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import time
 from dataclasses import dataclass
 from json import JSONDecodeError
 from typing import (
@@ -995,7 +996,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 InstitutionalMemoryMetadataClass(
                     url=url,
                     description=EXPLORE_GIT_LINK_LABEL,
-                    createStamp=AuditStampClass(time=0, actor=DEFAULT_ACTOR_URN),
+                    createStamp=AuditStampClass(
+                        time=int(time.time() * 1000), actor=DEFAULT_ACTOR_URN
+                    ),
                     settings=InstitutionalMemoryMetadataSettingsClass(
                         showInAssetPreview=True
                     ),

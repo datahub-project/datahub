@@ -103,6 +103,9 @@ def path_for(url: str) -> str:
     [
         (ORDERS_LINK, "views/sales/orders.view.lkml"),
         ("/projects/proj/files/orders.explore.lkml", "orders.explore.lkml"),
+        # A project, or a repo folder, named "files" must not be taken for the marker.
+        ("/projects/files/files/views%2Fa.view.lkml", "views/a.view.lkml"),
+        ("/projects/proj/files/files%2Fa.view.lkml", "files/a.view.lkml"),
         ("/projects/proj/files/", None),
         ("/explore/sales/orders", None),
         (None, None),
@@ -149,12 +152,16 @@ def test_first_add(looker_source_factory: SourceFactory) -> None:
     assert isinstance(graph, mock.MagicMock)
     graph.get_aspect.assert_any_call(ORDERS_URN, InstitutionalMemoryClass)
     assert ops(patches[0]) == [("add", path_for(ORDERS_URL))]
-    assert patches[0]["patch"][0]["value"] == {
+    value = patches[0]["patch"][0]["value"]
+    created = value.pop("createStamp")
+    assert value == {
         "url": ORDERS_URL,
         "description": LABEL,
-        "createStamp": {"time": 0, "actor": "urn:li:corpuser:__ingestion"},
         "settings": {"showInAssetPreview": True},
     }
+    assert created["actor"] == "urn:li:corpuser:__ingestion"
+    # Stamped with the time the link is added, not the epoch.
+    assert created["time"] > 1_700_000_000_000
 
 
 def test_each_project_gets_its_own_repo(looker_source_factory: SourceFactory) -> None:

@@ -55,6 +55,7 @@ from datahub.ingestion.source.looker.looker_config import (
 from datahub.ingestion.source.looker.looker_constant import (
     GIT_SCP_REMOTE_PATTERN,
     IMPORTED_PROJECTS_PREFIX,
+    LOOKML_LINK_PATH_PATTERN,
 )
 from datahub.ingestion.source.looker.looker_dataclasses import ProjectInclude
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
@@ -212,10 +213,9 @@ def lookml_file_path_from_link(lookml_link: Optional[str]) -> Optional[str]:
     """Repo-relative path from a LookML IDE link like "/projects/p/files/views%2Fa.view.lkml?line=3"."""
     if not lookml_link:
         return None
-    _, found, encoded_path = urlsplit(lookml_link).path.partition("/files/")
-    if not found or not encoded_path:
-        return None
-    return unquote(encoded_path)
+    # Anchored on the link layout, so a project named "files" is not mistaken for the marker.
+    match = LOOKML_LINK_PATH_PATTERN.match(urlsplit(lookml_link).path)
+    return unquote(match[1]) if match else None
 
 
 def https_repo_url_from_git_remote(remote: str) -> Optional[str]:
