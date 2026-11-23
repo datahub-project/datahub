@@ -30,8 +30,6 @@ source:
       classification: "urn:li:structuredProperty:io.acryl.privacy.classification"
 ```
 
-`filename` accepts a local path, an `http://` or `https://` URL, or an `s3://bucket/key` path. HTTP(S) URLs are fetched without authentication, so presigned S3 URLs work through `https://`. For `s3://` paths, credentials come from the default AWS credential chain (environment variables, shared config/profile, EC2 instance profile, or IRSA on Kubernetes); the identity needs `s3:GetObject` on the object.
-
 With that config, CSV columns `owner_team` and `classification` are interpreted as structured properties.
 
 When `write_semantics` is set to `OVERRIDE`, structured properties are replaced as part of the full entity-level overwrite behavior. This means structured properties not present in mapped CSV columns will be removed from the entity.
@@ -43,3 +41,10 @@ Note that you have the option in your recipe config to write as a PATCH or as an
 ### Prerequisites
 
 Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
+
+#### Reading from S3 or HTTP
+
+`filename` accepts a local path, an `http://` or `https://` URL, or an `s3://bucket/key` path. Reading from a URL needs the plugin's dependencies: `pip install 'acryl-datahub[csv-enricher]'`.
+
+- HTTP(S) URLs are fetched without authentication, so presigned S3 URLs work through `https://`.
+- For `s3://` paths, credentials come from the default AWS credential chain (environment variables, shared config/profile, EC2 instance profile, or IRSA on Kubernetes). The identity needs `s3:GetObject` on the object.

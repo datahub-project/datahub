@@ -280,6 +280,8 @@ Requirements:
 
 ### Breaking Changes
 
+- [#21531](https://github.com/datahub-project/datahub/pull/21531) **(Ingestion / CSV Enricher)** `filename` can now be an `s3://` path as well as a local path or `http(s)://` URL. Reading from `http(s)://` or `s3://` now needs the plugin's dependencies, which a bare `acryl-datahub` install does not include. A `filename` with any other scheme (for example `gs://`) now fails at config validation. **Action:** if you read the CSV from a URL, install `acryl-datahub[csv-enricher]`.
+
 - [#21472](https://github.com/datahub-project/datahub/pull/21472) **(Ingestion / Informatica)** A run that cannot list all projects, folders, Taskflows or Mapping Tasks now fails instead of finishing with a warning. Stale metadata removal is paused for that run, so objects it did not read are no longer soft-deleted. A folder or Taskflow that fails to process is still a warning, but what it ingested in the previous run is kept instead of soft-deleted. A Taskflow whose definition cannot be exported keeps its `orchestrate` job from the previous run. Datasets that appear only in Informatica lineage are no longer soft-deleted by this source, and a dataset another connector soft-deleted is no longer restored by it.
   **Action:** if runs now fail, fix the permission or API error named in the report. Datasets this source soft-deleted before upgrading stay deleted until the connector that owns them ingests them again.
 

@@ -722,17 +722,23 @@ class CSVEnricherSource(Source):
         # this is also safe with normal files that don't have a BOM.
         schema = get_path_schema(self.config.filename)
         try:
-            fs = fs_registry.get(schema).create()
-            with io.TextIOWrapper(
-                fs.open(self.config.filename), encoding="utf-8-sig"
-            ) as f:
-                rows = list(csv.DictReader(f, delimiter=self.config.delimiter))
+            fs_class = fs_registry.get(schema)
+        except ConfigurationError as e:
+            # The registry's own hint names a non-existent extra (e.g. [https]).
+            raise ConfigurationError(
+                f"Reading {schema} paths needs extra dependencies: "
+                f"pip install 'acryl-datahub[csv-enricher]'"
+            ) from e
+        try:
+            stream = fs_class.create().open(self.config.filename)
         except Exception as e:
             if schema == "file":
                 raise
             raise ConfigurationError(
                 f"Cannot read remote file {self.config.filename}: {e}"
             ) from e
+        with io.TextIOWrapper(stream, encoding="utf-8-sig") as f:
+            rows = list(csv.DictReader(f, delimiter=self.config.delimiter))
 
         for row in rows:
             # We need the resource to move forward

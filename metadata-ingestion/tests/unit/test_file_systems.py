@@ -226,6 +226,8 @@ def test_get_path_schema():
     assert get_path_schema("https://example.com/file.txt") == "https"
     assert get_path_schema("/local/path/file.txt") == "file"
     assert get_path_schema("relative/path/file.txt") == "file"
+    assert get_path_schema(r"C:\data\file.txt") == "file"
+    assert get_path_schema("d:/data/file.txt") == "file"
 
 
 @patch("datahub.ingestion.fs.s3_fs.smart_open")
