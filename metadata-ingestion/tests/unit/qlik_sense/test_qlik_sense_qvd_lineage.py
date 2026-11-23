@@ -1270,6 +1270,38 @@ def test_binary_load_mapped_to_an_app_keeps_a_table_the_script_loads_into(
     assert _urn("//nas/qvd/raw/more.qvd") in upstreams
 
 
+@pytest.mark.parametrize(
+    "extra_script",
+    [
+        pytest.param(
+            "Replace LOAD id, amount FROM [lib://QVD Data/raw/orders.qvd] (qvd);",
+            id="an unlabelled Replace load",
+        ),
+        pytest.param(
+            "$(vTable): Replace LOAD id, amount FROM [lib://QVD Data/raw/more.qvd] (qvd);",
+            id="a Replace load labelled with a variable",
+        ),
+        pytest.param(
+            "DROP TABLE $(vTable);\n"
+            "Orders: LOAD id, amount FROM [lib://QVD Data/raw/more.qvd] (qvd);",
+            id="a DROP of a variable",
+        ),
+    ],
+)
+def test_binary_load_mapped_to_an_app_whose_script_drops_unnamed_tables_gets_no_lineage(
+    extra_script: str,
+) -> None:
+    model = _app("model-app", MODEL_SCRIPT, ORDERS_MODEL)
+    front = _app("front-app", FRONT_SCRIPT + extra_script, FRONT_MODEL)
+    source, aspects = _run([model, front], on_prem=MAPPED)
+
+    assert _urn("model-app.orders") not in _written_upstreams(
+        aspects, _urn("front-app.orders")
+    )
+    [entry] = source.reporter.binary_loads_without_lineage
+    assert entry.startswith("front-app:")
+
+
 def test_binary_load_links_its_tables_to_the_app_file() -> None:
     source, aspects = _run([_app("front-app", FRONT_SCRIPT, FRONT_MODEL)])
 
@@ -1477,3 +1509,22 @@ def test_table_named_by_an_unknown_variable_has_no_name(label: str) -> None:
 def test_tables_the_script_drops_are_known() -> None:
     parsed = parse_script("DROP TABLES [Order Lines], 'Regions', Calendar;")
     assert parsed.dropped_tables == ["Order Lines", "Regions", "Calendar"]
+    assert not parsed.drops_unnamed_tables
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        pytest.param("Replace LOAD * INLINE [a\n1];", id="an unlabelled Replace load"),
+        pytest.param("$(vT): Replace LOAD * INLINE [a\n1];", id="a variable label"),
+        pytest.param(
+            "$(vT): Replace LOAD id;\nSQL SELECT id FROM db.orders;",
+            id="a Replace preceding load labelled with a variable",
+        ),
+        pytest.param("DROP TABLES Regions, [$(vT)];", id="a variable DROP"),
+    ],
+)
+def test_tables_the_script_drops_without_a_name_are_flagged(script: str) -> None:
+    parsed = parse_script(script)
+    assert parsed.drops_unnamed_tables
+    assert all("$(" not in name for name in parsed.dropped_tables)

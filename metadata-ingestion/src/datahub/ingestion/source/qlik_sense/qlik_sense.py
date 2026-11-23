@@ -143,6 +143,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     infer_data_connection,
     is_connector_sql,
     is_inline_connection,
+    merged_variables,
     parse_script,
     reads_unknown_fields,
     redact_connection,
@@ -232,6 +233,11 @@ QLIK_APP_QRI_RE = re.compile(r"^qri:app:(?:sense|dataprep)://([^#]+)")
 QVD_EXTENSION = ".qvd"
 # Every Qlik Cloud space's connection to its own data files.
 DATA_FILES_CONNECTION = "datafiles"
+
+
+def _is_data_files(connection: str) -> bool:
+    space, qualified, name = connection.strip().partition(":")
+    return (name if qualified else space).lower() == DATA_FILES_CONNECTION
 
 
 def _is_qvd(dataset: Union[QlikDataset, ListedDataset]) -> bool:
@@ -2070,20 +2076,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _app_variables(self, app: App) -> Dict[str, str]:
-        # The app's own values, as its last reload left them, beat the recipe's.
-        # An expression definition (`=...`) the connector can't evaluate, or
-        # an empty one such as a variable cleared at the end of the script,
-        # leaves the recipe's value in place.
-        recipe = self.config.script_variables
-        return {
-            **recipe,
-            **{
-                name: value
-                for name, value in app.variables.items()
-                if not value.lstrip().startswith("=")
-                and (value.strip() or name not in recipe)
-            },
-        }
+        return merged_variables(self.config.script_variables, app.variables)
 
     def _file_source_resolver(
         self, app: App, parsed: ParsedScript
@@ -2189,7 +2182,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         qualified = f"{space}:{name}/{path}"
         if (
             not (space and name and path)
-            or name.lower() == DATA_FILES_CONNECTION
+            or _is_data_files(connection)
             # Characters a dataset URN can't hold.
             or any(char in qualified for char in ",()")
         ):
@@ -2329,9 +2322,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             storage, detail = self._file_storage(reference.connection, space_id)
             if storage is None:
                 info = self._find_data_connection(reference.connection, space_id)
-                if info is not None and info.file_platform != candidates.platform:
-                    # A visible connection of another kind, such as DataFiles,
-                    # can't hold a file on this storage.
+                if _is_data_files(reference.connection) or (
+                    info is not None and info.file_platform != candidates.platform
+                ):
+                    # DataFiles, listed or not, and a visible connection of
+                    # another kind can't hold a file on this storage.
                     continue
                 unmapped_urn = self._unmapped_storage_file_urn(
                     reference.connection, reference.path
@@ -3321,6 +3316,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         source_app_id = self._binary_source_app(file, resolved)
         if source_app_id == app.id:
             return without_lineage("binary_file_to_app maps it to the app itself")
+        if source_app_id is not None and parsed.drops_unnamed_tables:
+            # Any data model table could be one the script dropped and loaded again.
+            return without_lineage(
+                "the script drops or replaces tables it doesn't name, so the "
+                "tables the file brings in are not known"
+            )
         created = {label.lower() for label in parsed.table_labels}
         if source_app_id is not None:
             # A load under a BINARY table's name adds to it, or Qlik renames

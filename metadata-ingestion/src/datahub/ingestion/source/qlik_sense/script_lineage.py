@@ -462,8 +462,10 @@ class ParsedScript(BaseModel):
     # creates a table Qlik names, so the script's tables are not all known.
     table_labels: List[str] = []
     has_unnamed_tables: bool = False
-    # Labels of the tables the script drops.
+    # Labels of the tables the script drops, and whether it drops or replaces
+    # a table it doesn't name.
     dropped_tables: List[str] = []
+    drops_unnamed_tables: bool = False
 
 
 class ScriptTableLineage(BaseModel):
@@ -813,6 +815,24 @@ def _expand_variables(statement: str, variables: Dict[str, str]) -> str:
     )
 
 
+def merged_variables(
+    recipe: Dict[str, str], app_variables: Dict[str, str]
+) -> Dict[str, str]:
+    """The recipe's `script_variables` with the app's own values, as its last
+    reload left them, on top. An expression definition (`=...`) the connector
+    can't evaluate, or an empty one such as a variable cleared at the end of
+    the script, leaves the recipe's value in place."""
+    return {
+        **recipe,
+        **{
+            name: value
+            for name, value in app_variables.items()
+            if not value.lstrip().startswith("=")
+            and (value.strip() or name not in recipe)
+        },
+    }
+
+
 def unquoted_values(variables: Dict[str, str]) -> Dict[str, str]:
     """A variable set with SET keeps the quotes around its value, which a path
     built from it, such as $(vFolder)orders.qvd, must not hold. A value that
@@ -1014,6 +1034,7 @@ class _ScriptParser(BaseModel):
     table_labels: List[str] = []
     has_unnamed_tables: bool = False
     dropped_tables: List[str] = []
+    drops_unnamed_tables: bool = False
     # The current statement before the script's variables are expanded.
     raw_statement: str = ""
     flow: _ControlFlowTracker = Field(default_factory=_ControlFlowTracker)
@@ -1252,10 +1273,12 @@ class _ScriptParser(BaseModel):
             return True
         drop = DROP_TABLES_RE.match(statement)
         if drop:
-            self.dropped_tables.extend(
-                _unquote(name.strip())
-                for name in TABLE_NAME_RE.findall(drop.group("names"))
-            )
+            for name in TABLE_NAME_RE.findall(drop.group("names")):
+                dropped = _named_by(_unquote(name.strip()))
+                if dropped is None:
+                    self.drops_unnamed_tables = True
+                else:
+                    self.dropped_tables.append(dropped)
             return True
         return False
 
@@ -1363,6 +1386,8 @@ class _ScriptParser(BaseModel):
             # Qlik names the table, or the tables, or a variable the parser
             # can't expand does.
             self.has_unnamed_tables = True
+            if replace or self.pending_replace:
+                self.drops_unnamed_tables = True
             return
         if name.lower() not in (known.lower() for known in self.table_labels):
             self.table_labels.append(name)
@@ -1432,7 +1457,7 @@ class _ScriptParser(BaseModel):
 
 def _varying_variables(script: str) -> Set[str]:
     """Variables the script assigns more than once, or in an IF, SWITCH, loop
-    or SUB, so their value where the script reads them need not be the one
+    or SUB, and SUB parameters, so their value where the script reads them need not be the one
     the app's last reload left."""
     counts: Counter[str] = Counter()
     varying: Set[str] = set()
@@ -1446,6 +1471,14 @@ def _varying_variables(script: str) -> Set[str]:
                 variable = FOR_VARIABLE_RE.match(control.group("forloop"))
                 if variable:
                     varying.add(variable.group("name"))
+            if control.group("sub"):
+                header = SUB_NAME_RE.match(control.group("sub"))
+                if header:
+                    varying.update(
+                        param.strip()
+                        for param in _split_top_level(header.group("params") or "")
+                        if param.strip()
+                    )
             if any(
                 control.group(group)
                 for group in ("if", "switch", "sub", "forloop", "doloop")
@@ -1486,8 +1519,8 @@ def inline_includes(
 ) -> str:
     """The script with each $(Include) and $(Must_Include) replaced by the
     script of the file it names, as Qlik splices it in at reload, including
-    the includes of that file. The path is expanded with the app's variables,
-    as its last reload left them. An include whose path doesn't expand, reads
+    the includes of that file. The path is expanded with `app_variables`, the
+    values the app's last reload left merged over the recipe's. An include whose path doesn't expand, reads
     a variable the script varies, or that `read` can't read, stays, so the
     script still counts as including scripts that are not read."""
     variables = unquoted_values(app_variables)
@@ -1550,6 +1583,7 @@ def parse_script(
         table_labels=parser.table_labels,
         has_unnamed_tables=parser.has_unnamed_tables,
         dropped_tables=parser.dropped_tables,
+        drops_unnamed_tables=parser.drops_unnamed_tables,
     )
 
 

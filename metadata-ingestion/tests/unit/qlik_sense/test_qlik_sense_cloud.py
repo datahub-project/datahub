@@ -356,6 +356,15 @@ def test_unread_included_script_is_a_warning(mock_api_cls: MagicMock) -> None:
     ]
 
 
+# A cleared or `=` expression app value leaves the recipe's in place.
+@pytest.mark.parametrize(
+    "app_variables, recipe_variables",
+    [
+        ({"vCommon": "'Common:'"}, {}),
+        ({"vCommon": ""}, {"vCommon": "Common:"}),
+        ({"vCommon": "=Upper('x:')"}, {"vCommon": "Common:"}),
+    ],
+)
 @patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
 @patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
 @patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
@@ -363,8 +372,14 @@ def test_app_script_holds_the_scripts_it_includes(
     mock_session_cls: MagicMock,
     mock_websocket_cls: MagicMock,
     mock_app_cls: MagicMock,
+    app_variables: Dict[str, str],
+    recipe_variables: Dict[str, str],
 ) -> None:
-    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    api = QlikAPI(
+        QlikSourceConfig.model_validate(
+            {**CLOUD_CONFIG, "script_variables": recipe_variables}
+        )
+    )
     app = _cloud_app()
     mock_app_cls.model_validate.return_value = app
     included = "Rates: LOAD * FROM [lib://Common:Lake/rates.csv];"
@@ -383,7 +398,7 @@ def test_app_script_holds_the_scripts_it_includes(
         patch.object(api, "_get_app_used_tables", return_value=[]),
         patch.object(api, "get_table_lineage", return_value=[]),
         patch.object(api, "_read_data_model", return_value=[]),
-        patch.object(api, "_read_variables", return_value={"vCommon": "'Common:'"}),
+        patch.object(api, "_read_variables", return_value=app_variables),
     ):
         api._get_app("app-1")
 
