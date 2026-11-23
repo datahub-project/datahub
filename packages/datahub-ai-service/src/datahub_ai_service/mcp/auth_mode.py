@@ -17,6 +17,9 @@ from loguru import logger
 from datahub_core_mcp_tools.gms_server_info import GmsServerInfo
 
 PROBE_TTL_SECONDS = 60.0
+# An unclear answer is kept only this long, so it's asked again soon, while
+# requests queued behind a probe that timed out don't each run their own.
+UNCLEAR_PROBE_TTL_SECONDS = 5.0
 _ME_PROBE = {"query": "query authProbe { me { corpUser { urn } } }"}
 
 
@@ -94,9 +97,12 @@ class GmsAuthDetector:
             if self._probed is not None and self._clock() < self._probed[0]:
                 return self._probed[1]
             result = self._probe(self._gms_url, self._timeout_seconds)
-            # An unclear answer is asked again next time rather than remembered.
-            if result is not GmsAuth.UNKNOWN:
-                self._probed = (self._clock() + PROBE_TTL_SECONDS, result)
+            ttl = (
+                UNCLEAR_PROBE_TTL_SECONDS
+                if result is GmsAuth.UNKNOWN
+                else PROBE_TTL_SECONDS
+            )
+            self._probed = (self._clock() + ttl, result)
             return result
 
     def _record(self, result: GmsAuth) -> GmsAuth:

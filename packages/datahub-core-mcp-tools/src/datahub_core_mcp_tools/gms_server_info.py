@@ -17,6 +17,9 @@ from .version_requirements import parse_version
 
 SERVER_INFO_CACHE_TTL_SECONDS = 60.0
 CONFIG_REQUEST_TIMEOUT_SECONDS = 10.0
+# How long a failed /config fetch is remembered. Requests queued behind a fetch
+# that timed out then fail at once instead of each waiting out its own timeout.
+SERVER_INFO_FAILURE_TTL_SECONDS = 5.0
 
 # GMS reports this when its build has no release tag (GitVersion.java's fallback
 # for local and unreleased builds). No release ships it, so it means "unknown".
@@ -81,24 +84,32 @@ def fetch_gms_config(gms_url: str) -> Mapping[str, Any]:
     return config
 
 
+class GmsServerInfoUnavailableError(Exception):
+    """GMS /config failed moments ago; not asked again until the retry window ends."""
+
+
 class GmsServerInfoCache:
     """Per-GMS-URL ``GmsServerInfo``, fetched at most once per TTL.
 
-    Owned by a host, not module-global. Failures are not cached and propagate,
-    so a caller can fail closed while GMS is unreachable.
+    Owned by a host, not module-global. A failure propagates, so a caller can
+    fail closed while GMS is unreachable, and is remembered briefly: callers in
+    that window get ``GmsServerInfoUnavailableError`` without another fetch.
     """
 
     def __init__(
         self,
         *,
         ttl_seconds: float = SERVER_INFO_CACHE_TTL_SECONDS,
+        failure_ttl_seconds: float = SERVER_INFO_FAILURE_TTL_SECONDS,
         fetch_config: Callable[[str], Mapping[str, Any]] = fetch_gms_config,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._ttl_seconds = ttl_seconds
+        self._failure_ttl_seconds = failure_ttl_seconds
         self._fetch_config = fetch_config
         self._clock = clock
         self._entries: dict[str, tuple[float, GmsServerInfo]] = {}
+        self._failures: dict[str, tuple[float, Exception]] = {}
         self._lock = threading.Lock()
 
     def get(self, gms_url: str) -> GmsServerInfo:
@@ -109,6 +120,16 @@ class GmsServerInfoCache:
             entry = self._entries.get(key)
             if entry is not None and self._clock() < entry[0]:
                 return entry[1]
-            info = GmsServerInfo.from_config(self._fetch_config(key))
+            failure = self._failures.get(key)
+            if failure is not None and self._clock() < failure[0]:
+                raise GmsServerInfoUnavailableError(
+                    f"GMS /config at {key} failed moments ago: {failure[1]}"
+                ) from failure[1]
+            try:
+                info = GmsServerInfo.from_config(self._fetch_config(key))
+            except Exception as e:
+                self._failures[key] = (self._clock() + self._failure_ttl_seconds, e)
+                raise
+            self._failures.pop(key, None)
             self._entries[key] = (self._clock() + self._ttl_seconds, info)
             return info

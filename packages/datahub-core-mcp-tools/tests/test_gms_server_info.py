@@ -2,7 +2,11 @@ from typing import Any, Mapping
 
 import pytest
 
-from datahub_core_mcp_tools.gms_server_info import GmsServerInfo, GmsServerInfoCache
+from datahub_core_mcp_tools.gms_server_info import (
+    GmsServerInfo,
+    GmsServerInfoCache,
+    GmsServerInfoUnavailableError,
+)
 
 
 def _config(version: str | None, server_env: str | None = "core") -> dict[str, Any]:
@@ -101,14 +105,21 @@ def test_cached_per_url_for_the_ttl(gms: _FakeGms, cache: GmsServerInfoCache) ->
     assert cache.get("http://gms:8080").version == "v1.8.0"
 
 
-def test_failures_propagate_and_are_not_cached(
+def test_failures_propagate_and_are_retried_after_a_short_window(
     gms: _FakeGms, cache: GmsServerInfoCache
 ) -> None:
     gms.error = ConnectionError("GMS is down")
     with pytest.raises(ConnectionError):
         cache.get("http://gms:8080")
 
+    # Within the window, callers fail at once without asking GMS again.
     gms.error = None
+    gms.now = 4
+    with pytest.raises(GmsServerInfoUnavailableError):
+        cache.get("http://gms:8080")
+    assert len(gms.calls) == 1
+
+    gms.now = 6
     assert cache.get("http://gms:8080").version == "v1.7.0"
     assert len(gms.calls) == 2
 

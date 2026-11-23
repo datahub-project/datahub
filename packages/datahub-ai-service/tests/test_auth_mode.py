@@ -118,10 +118,15 @@ def test_older_gms_is_probed_once_a_minute(
     assert gms.probes == 2
 
 
-def test_unclear_answers_are_asked_again(gms: _Gms, detector: GmsAuthDetector) -> None:
+def test_unclear_answers_are_asked_again_soon(
+    gms: _Gms, detector: GmsAuthDetector
+) -> None:
     gms.probe_result = GmsAuth.UNKNOWN
     assert detector.detect() is GmsAuth.UNKNOWN
     gms.probe_result = GmsAuth.ON
+    gms.now = 4
+    assert detector.detect() is GmsAuth.UNKNOWN
+    gms.now = 6
     assert detector.detect() is GmsAuth.ON
     assert gms.probes == 2
 
