@@ -190,6 +190,18 @@ def test_path_resolves_with_the_variables_of_the_last_reload(
         ),
         (
             'CUSTOM CONNECT TO "provider=QvWebStorageProviderConnectorPackage.exe;'
+            "sourceType=File_AzureStorageConnector;"
+            'blobContainerPath=https://account.blob.core.windows.net/lake;"',
+            FileStorage(
+                platform="abs",
+                location="lake",
+                qri_connection_id=qri_part_id(
+                    "https://account.blob.core.windows.net/lake"
+                ),
+            ),
+        ),
+        (
+            'CUSTOM CONNECT TO "provider=QvWebStorageProviderConnectorPackage.exe;'
             'sourceType=File_AmazonS3ConnectorV2;region=eu-west-1;bucketName=sales;"',
             FileStorage(
                 platform="s3",

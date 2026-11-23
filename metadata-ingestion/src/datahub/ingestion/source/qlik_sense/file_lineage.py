@@ -130,6 +130,13 @@ def file_storage_of_connection(connect_statement: str) -> Optional[FileStorage]:
     location = properties.get(connector.location_property, "").strip("/")
     if not all(values) or not location:
         return None
+    # Qlik Cloud saves the container as an HTTPS URL, but DataHub names files
+    # on Azure Storage from the container on.
+    if connector.platform == "abs" and is_azure_path(location):
+        storage = file_storage_of_uri(location)
+        if storage is None:
+            return None
+        location = storage.location
     return FileStorage(
         platform=connector.platform,
         location=location,
