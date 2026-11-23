@@ -127,6 +127,13 @@ export function useFitView(loaded: boolean): boolean {
     return pendingFits > 0;
 }
 
+/** Whether any node's lineage fetch is in flight, e.g. from expanding it. */
+export function useIsExpanding(): boolean {
+    const { nodes } = useContext(LineageNodesContext);
+    // Not memoized: fetches write fetchStatus into `nodes` in place, and which version they bump varies
+    return Array.from(nodes.values()).some((node) => Object.values(node.fetchStatus).includes(FetchStatus.LOADING));
+}
+
 const SETTLED_DELAY_MS = 250;
 
 /**

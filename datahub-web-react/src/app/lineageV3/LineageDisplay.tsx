@@ -4,14 +4,18 @@ import { useOnSelectionChange, useReactFlow } from 'reactflow';
 import { LINEAGE_ANNOTATION_NODE_NAME } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
 import useAddAnnotationNodes from '@app/lineageV3/LineageAnnotationNode/useAddAnnotationNodes';
 import { DATA_FLOW_LINEAGE_CONTROL_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
-import { useFitView, useLineageSettled, useTrackLineageView } from '@app/lineageV3/LineageDisplay.hooks';
+import {
+    useFitView,
+    useIsExpanding,
+    useLineageSettled,
+    useTrackLineageView,
+} from '@app/lineageV3/LineageDisplay.hooks';
 import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/LineageFilterNodeBasic';
 import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
 import LineageSidebar from '@app/lineageV3/LineageSidebar';
 import LineageVisualization from '@app/lineageV3/LineageVisualization';
 import {
     ColumnRef,
-    FetchStatus,
     LineageDisplayContext,
     LineageEntity,
     LineageNodesContext,
@@ -103,7 +107,7 @@ export default function LineageDisplay({
         return addAnnotationNodes(flowNodes, levelsInfo, levelsMap ?? new Map());
     }, [isModuleView, addAnnotationNodes, flowNodes, levelsInfo, levelsMap]);
 
-    const { rootUrn, rootType, nodes, adjacencyList, nodeVersion, dataVersion } = useContext(LineageNodesContext);
+    const { rootUrn, rootType, nodes, adjacencyList, nodeVersion } = useContext(LineageNodesContext);
     const loaded = initialized !== undefined ? initialized && nodeVersion > 0 : nodeVersion > 0;
 
     // Track lineage view analytics
@@ -146,12 +150,7 @@ export default function LineageDisplay({
     useEffect(() => setEdges(flowEdges), [flowEdges, getEdge, setEdges]);
 
     const fitting = useFitView(loaded);
-    const expanding = useMemo(
-        () => Array.from(nodes.values()).some((node) => Object.values(node.fetchStatus).includes(FetchStatus.LOADING)),
-        // Expansion writes fetchStatus into `nodes` in place, and bumps dataVersion when it does
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [nodes, dataVersion],
-    );
+    const expanding = useIsExpanding();
     // Not `loaded`: a home node whose lineage is empty, or only soft-deleted, never bumps nodeVersion
     const fetched = initialized ?? nodeVersion > 0;
     const settled = useLineageSettled(!fetched || expanding || entitiesLoading, fitting);

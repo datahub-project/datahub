@@ -2,7 +2,11 @@ import { act, renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { ReactFlowProvider } from 'reactflow';
 
-import { useFitView, useLineageSettled } from '@app/lineageV3/LineageDisplay.hooks';
+import { useFitView, useIsExpanding, useLineageSettled } from '@app/lineageV3/LineageDisplay.hooks';
+import { FetchStatus, LineageEntity, LineageNodesContext, NodeContext } from '@app/lineageV3/common';
+import { entityNodeDefault } from '@app/lineageV3/queries/useSearchAcrossLineage';
+
+import { EntityType, LineageDirection } from '@types';
 
 const fitView = vi.hoisted(() => vi.fn());
 vi.mock('reactflow', async (importOriginal) => {
@@ -94,6 +98,33 @@ describe('useLineageSettled', () => {
         expect(result.current).toBe(true);
 
         rerender({ loading: true, fitting: false });
+        expect(result.current).toBe(false);
+    });
+});
+
+describe('useIsExpanding', () => {
+    it('stops reporting an expansion once its fetch completes without a dataVersion bump', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:hive,a,PROD)';
+        const node: LineageEntity = entityNodeDefault(
+            urn,
+            EntityType.Dataset,
+            LineageDirection.Upstream,
+            EntityType.Dataset,
+        );
+        node.fetchStatus = { ...node.fetchStatus, [LineageDirection.Upstream]: FetchStatus.LOADING };
+        const nodes = new Map([[urn, node]]);
+        const { result, rerender } = renderHook(() => useIsExpanding(), {
+            initialProps: { displayVersion: [0, []] as [number, string[]] },
+            wrapper: ({ children, displayVersion }) => (
+                <LineageNodesContext.Provider value={{ nodes, displayVersion } as unknown as NodeContext}>
+                    {children}
+                </LineageNodesContext.Provider>
+            ),
+        });
+        expect(result.current).toBe(true);
+
+        node.fetchStatus = { ...node.fetchStatus, [LineageDirection.Upstream]: FetchStatus.COMPLETE };
+        rerender({ displayVersion: [1, [urn]] });
         expect(result.current).toBe(false);
     });
 });
