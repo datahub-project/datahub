@@ -9,6 +9,7 @@ References:
 """
 
 import logging
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -296,7 +297,23 @@ class Folder(_GrafanaBaseModel):
 
     id: str
     title: str
+    uid: Optional[str] = None
     description: Optional[str] = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def default_title(cls, data: Any) -> Any:
+        """Name a folder without a title after its uid or id.
+
+        Only a folder with no id is unusable. Skipping one for a missing title
+        would fail runs that remove stale metadata, and folder_pattern cannot
+        exclude a folder that never parsed.
+        """
+        if isinstance(data, dict) and not data.get("title"):
+            fallback = data.get("uid") or data.get("id")
+            if fallback is not None:
+                return {**data, "title": str(fallback)}
+        return data
 
 
 class FolderKey(ContainerKey):
@@ -310,3 +327,11 @@ class DashboardContainerKey(ContainerKey):
 
     dashboard_id: str
     folder_id: Optional[str] = None
+
+
+@dataclass
+class FolderListing:
+    """The folders /api/folders returned, and how many could not be parsed."""
+
+    folders: List[Folder] = field(default_factory=list)
+    unparseable: int = 0
