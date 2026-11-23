@@ -7,10 +7,6 @@ from pydantic import ValidationError
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.qlik_sense.app_state import (
-    AppCheckpoint,
-    QlikAppStateHandler,
-)
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
@@ -62,7 +58,9 @@ def _file_qri(scheme: str, connection_part: str, path: str) -> str:
 
 
 def _source(
-    file_connection_to_storage: Dict, connections: Dict[str, DataConnectionInfo]
+    file_connection_to_storage: Dict,
+    connections: Dict[str, DataConnectionInfo],
+    script: str = SCRIPT,
 ) -> QlikSenseSource:
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(
@@ -83,7 +81,7 @@ def _source(
             "createdDate": "2024-01-09T18:05:36.000Z",
             "modifiedDate": "2024-01-09T18:05:36.000Z",
             "spaceId": "space-1",
-            "script": SCRIPT,
+            "script": script,
             # The Engine holds LET variables as the last reload set them.
             "variables": {
                 "vPrefix": "",
@@ -92,7 +90,7 @@ def _source(
         }
     )
     source._file_sources_by_app[app.id] = source._file_source_resolver(
-        app, parse_script(SCRIPT)
+        app, parse_script(script)
     )
     source._app_space_ids[app.id] = app.spaceId
     return source
@@ -368,26 +366,54 @@ def test_file_without_known_storage_is_named_by_its_connection(
         p for wu in entities if (p := wu.get_aspect_of_type(DatasetPropertiesClass))
     )
     assert properties.qualifiedName == "lib://Sales Space:Lake/ref/regions.xlsx"
-    assert not source._unmapped_file_urn("Sales Space:DataFiles", "rates.qvd")
-    # Emitted at the end of the run, so recorded with the app that links it,
-    # for a run that keeps the app to keep the file too.
-    source.app_state = MagicMock()
-    source._record_end_of_run_urns()
-    source.app_state.add_urns.assert_called_once_with("app-1", {regions})
 
 
-def test_urns_emitted_at_the_end_of_the_run_join_the_app_checkpoint() -> None:
-    apps = {"app-1": AppCheckpoint(urns=["urn:li:dataset:kept"])}
-    handler = MagicMock()
-    handler.state_provider.get_current_checkpoint.return_value.state.apps = apps
+@pytest.mark.parametrize(
+    "connection, path",
+    [
+        # Not the same connection in every app.
+        ("Lake", "ref/regions.xlsx"),
+        # Holds Qlik's own datasets.
+        ("Sales Space:DataFiles", "rates.qvd"),
+        # Characters a dataset URN can't hold.
+        ("Sales Space:Lake", "ref/a,b.csv"),
+        ("Sales Space:Lake", "ref/rates (old).csv"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_that_cant_be_named_by_its_connection(
+    mock_api_cls: MagicMock, connection: str, path: str
+) -> None:
+    assert _source({}, {})._unmapped_file_urn(connection, path) is None
 
-    QlikAppStateHandler.add_urns(
-        handler, "app-1", {"urn:li:dataset:file", "urn:li:dataset:kept"}
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_named_by_its_connection_or_on_mapped_storage_is_ambiguous(
+    mock_api_cls: MagicMock,
+) -> None:
+    # Only one branch ran, and either connection could hold the file.
+    script = (
+        "IF vEnv = 'prod' THEN\n"
+        "Rates: LOAD * FROM [lib://Sales Space:Store/ref/rates.csv] (txt);\n"
+        "ELSE\n"
+        "Rates: LOAD * FROM [lib://Sales Space:Lake/ref/rates.csv] (txt);\n"
+        "END IF\n"
     )
-    QlikAppStateHandler.add_urns(handler, "app-2", {"urn:li:dataset:file"})
+    source = _source(
+        {
+            "Sales Space:Store": {
+                "storage_uri": "abfss://lake@account.dfs.core.windows.net"
+            }
+        },
+        {},
+        script,
+    )
 
-    assert apps["app-1"].urns == ["urn:li:dataset:kept", "urn:li:dataset:file"]
-    assert list(apps) == ["app-1"]
+    assert (
+        source._resolve_file_source("app-1", _file_qri("adls", "lake", "ref/rates.csv"))
+        is None
+    )
+    assert not list(source._gen_unmapped_file_entities())
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -759,6 +785,9 @@ def test_graph_table_links_to_the_file_its_script_loads(
     )
 
 
+UNMAPPED_ORDERS_CSV = make_dataset_urn(
+    "qlik-sense", "sales space:lake/landing/orders.csv"
+)
 UNMAPPED_ORDERS_QVD = make_dataset_urn("qlik-sense", "sales space:lake/qvd/orders.qvd")
 
 STORE_SCRIPT = """
@@ -829,15 +858,23 @@ def test_stored_qvd_links_the_load_model_table_by_its_qri(
 
 
 @pytest.mark.parametrize(
-    "listing_failed, variables_failed, written_whole",
-    [(True, False, False), (False, True, False), (False, False, True)],
+    "listing_failed, variables_failed, file_path, expected",
+    [
+        (True, False, UNQUALIFIED_FILE, f"patch:{RATES}"),
+        (False, True, UNQUALIFIED_FILE, f"patch:{RATES}"),
+        # The script's own variables still name this file, so every source is
+        # known.
+        (False, True, "landing/orders.csv", f"{UNMAPPED_ORDERS_CSV},{RATES}"),
+        (False, False, UNQUALIFIED_FILE, RATES),
+    ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_unresolved_file_keeps_lineage_when_its_inputs_were_not_read(
     mock_api_cls: MagicMock,
     listing_failed: bool,
     variables_failed: bool,
-    written_whole: bool,
+    file_path: str,
+    expected: str,
 ) -> None:
     # Without the connections, or the variables its path is built from, the
     # file may be one the last run linked, so the table's lineage is only
@@ -849,11 +886,11 @@ def test_unresolved_file_keeps_lineage_when_its_inputs_were_not_read(
         if listing_failed
         else [],
         variables_read_failed=variables_failed,
-        file_path=UNQUALIFIED_FILE,
+        file_path=file_path,
     )
 
     # The table's resolved source is still added when its file is not.
-    assert writes[ORDERS] == (RATES if written_whole else f"patch:{RATES}")
+    assert writes[ORDERS] == expected
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
