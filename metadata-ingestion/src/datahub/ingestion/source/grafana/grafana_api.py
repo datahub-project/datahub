@@ -1,7 +1,7 @@
 """API client for Grafana metadata extraction"""
 
 import logging
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Sequence, Set, Union
 
 import requests
 import urllib3.exceptions
@@ -10,16 +10,30 @@ from pydantic import SecretStr, ValidationError
 from datahub.ingestion.source.grafana.constants import (
     DASHBOARD_PARSE_ERROR_MESSAGE,
     DASHBOARD_PARSE_ERROR_TITLE,
+    FOLDER_FETCH_ERROR_MESSAGE,
+    FOLDER_FETCH_ERROR_TITLE,
+    FOLDER_PARSE_ERROR_MESSAGE,
+    FOLDER_PARSE_ERROR_TITLE,
+    FOLDER_UNEXPECTED_RESPONSE_MESSAGE,
+    HTTP_PERMISSION_STATUS_CODES,
     MAX_REPORT_CONTEXT_CHARS,
     REPEATED_PAGE_MESSAGE,
     REPEATED_PAGE_TITLE,
     SEARCH_HIT_WITHOUT_UID_MESSAGE,
     SEARCH_HIT_WITHOUT_UID_TITLE,
 )
-from datahub.ingestion.source.grafana.models import Dashboard, Folder
+from datahub.ingestion.source.grafana.models import Dashboard, Folder, FolderListing
 from datahub.ingestion.source.grafana.report import GrafanaSourceReport
 
 logger = logging.getLogger(__name__)
+
+
+def _is_permission_error(e: requests.exceptions.RequestException) -> bool:
+    # A requests.Response is falsy for 4xx/5xx, so compare against None.
+    return (
+        e.response is not None
+        and e.response.status_code in HTTP_PERMISSION_STATUS_CODES
+    )
 
 
 class GrafanaAPIClient:
@@ -62,9 +76,9 @@ class GrafanaAPIClient:
 
         return session
 
-    def get_folders(self) -> List[Folder]:
+    def get_folders(self) -> FolderListing:
         """Fetch all folders from Grafana with pagination."""
-        folders: List[Folder] = []
+        listing = FolderListing()
         previous_batch: Optional[List[object]] = None
         page = 1
         per_page = self.page_size
@@ -78,6 +92,16 @@ class GrafanaAPIClient:
                 response.raise_for_status()
 
                 batch = response.json()
+                # Check the shape before emptiness: a non-list page (e.g. a
+                # proxy error body) is a failure even when it is {} or null,
+                # and a non-empty one would otherwise never end paging.
+                if not isinstance(batch, list):
+                    self.report.failure(
+                        title=FOLDER_FETCH_ERROR_TITLE,
+                        message=FOLDER_UNEXPECTED_RESPONSE_MESSAGE,
+                        context=f"page {page}: {batch}",
+                    )
+                    break
                 if not batch:
                     break
 
@@ -86,21 +110,37 @@ class GrafanaAPIClient:
                     break
                 previous_batch = batch
 
-                folders.extend(Folder.model_validate(folder) for folder in batch)
+                self._parse_folders(batch, listing)
                 if len(batch) < per_page:
                     break
                 page += 1
             except requests.exceptions.RequestException as e:
                 self.report.failure(
-                    title="Folder Fetch Error",
-                    message="Failed to fetch folders on page",
-                    context=str(page),
+                    title=FOLDER_FETCH_ERROR_TITLE,
+                    message=FOLDER_FETCH_ERROR_MESSAGE,
+                    context=f"page {page}",
                     exc=e,
                 )
-                self.report.report_permission_warning()  # Likely a permission issue
+                if _is_permission_error(e):
+                    self.report.report_permission_warning()
                 break
 
-        return folders
+        return listing
+
+    def _parse_folders(self, batch: Sequence[object], listing: FolderListing) -> None:
+        """Validate each folder separately so one bad entry costs only itself."""
+        for folder in batch:
+            try:
+                listing.folders.append(Folder.model_validate(folder))
+            except ValidationError as e:
+                listing.unparseable += 1
+                self.report.report_folder_unparseable()
+                self.report.warning(
+                    title=FOLDER_PARSE_ERROR_TITLE,
+                    message=FOLDER_PARSE_ERROR_MESSAGE,
+                    context=str(folder),
+                    exc=e,
+                )
 
     def get_dashboard(self, uid: str) -> Optional[Dashboard]:
         """Fetch a specific dashboard by UID"""
@@ -118,7 +158,7 @@ class GrafanaAPIClient:
                 context=uid,
                 exc=e,
             )
-            if e.response and e.response.status_code in (401, 403):
+            if _is_permission_error(e):
                 self.report.report_permission_warning()
             return None
         except ValidationError as e:
@@ -177,7 +217,7 @@ class GrafanaAPIClient:
                     context=str(page),
                     exc=e,
                 )
-                if e.response and e.response.status_code in (401, 403):
+                if _is_permission_error(e):
                     self.report.report_permission_warning()
                 break
 

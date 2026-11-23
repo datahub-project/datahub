@@ -1,0 +1,30 @@
+{
+  "id": null,
+  "uid": "team-folder-dashboard",
+  "title": "Team Folder Dashboard",
+  "tags": [],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 0,
+  "time": { "from": "now-1h", "to": "now" },
+  "description": "Dashboard provisioned into a folder, so ingestion places it in a folder container",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Metrics Count",
+      "datasource": { "type": "postgres", "uid": "test-postgres" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "test-postgres" },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as count FROM test_metrics;",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

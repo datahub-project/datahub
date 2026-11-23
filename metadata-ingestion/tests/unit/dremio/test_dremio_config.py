@@ -13,6 +13,7 @@ from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
 from datahub.ingestion.source.dremio.dremio_config import (
     DremioConnectionConfig,
     DremioSourceConfig,
+    ProfileConfig,
 )
 from datahub.ingestion.source.dremio.dremio_source import DremioSource
 from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
@@ -267,3 +268,9 @@ def test_stateful_ingestion_accepts_stale_removal_fields():
     assert config.stateful_ingestion is not None
     assert config.stateful_ingestion.fail_safe_threshold == 100
     assert config.stateful_ingestion.remove_stale_metadata is False
+
+
+def test_dremio_does_not_opt_into_sampling():
+    # Dremio implements limit/offset in its own profiler but has no sampling at
+    # all, so it must not opt into use_sampling -- there is nothing to turn on.
+    assert ProfileConfig.model_validate({}).use_sampling is False
