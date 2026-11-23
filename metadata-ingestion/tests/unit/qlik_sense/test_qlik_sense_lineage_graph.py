@@ -378,6 +378,42 @@ def test_app_table_gets_column_lineage_from_another_app_it_loads(
     }
 
 
+@pytest.mark.parametrize("loader_first", [True, False])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_table_lineage_is_only_added_to_when_the_app_it_loads_is_partly_read(
+    mock_api_cls: MagicMock, loader_first: bool
+) -> None:
+    etl = _app("etl-app", [LineageTable(qri=f"{ETL_APP}#Curve", label="Curve")])
+    etl.tables_read_failed = True
+    report = _app(
+        "report-app",
+        [
+            LineageTable(
+                qri=f"{REPORT_APP}#Tbl",
+                label="Prices",
+                source_qris=[f"{ETL_APP}#Curve"],
+            )
+        ],
+    )
+
+    source, written, added = _run(
+        mock_api_cls,
+        DATASETS,
+        items=[report, etl] if loader_first else [etl, report],
+    )
+
+    # The last run's edges to the other app's tables this run could not read
+    # must stay.
+    prices = _urn("report-app.prices")
+    assert prices not in written
+    assert added[prices] == [_urn("etl-app.curve")]
+    assert any(
+        "app=report-app" in str(w.context)
+        for w in source.reporter.warnings
+        if w.title == "Lineage of Qlik app table only added to"
+    )
+
+
 @pytest.mark.parametrize(
     "unlisted, written_whole",
     [
