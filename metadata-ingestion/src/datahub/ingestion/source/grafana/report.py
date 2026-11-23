@@ -29,8 +29,10 @@ class GrafanaSourceReport(StaleEntityRemovalSourceReport):
     permission_warnings: int = 0
     datasource_warnings: int = 0
     panel_parsing_warnings: int = 0
-    dashboards_unparseable: int = 0  # skipped by get_dashboard; warned
-    dashboard_search_hits_skipped: int = 0  # malformed search result; warned
+
+    # Skipped because Grafana returned them in a shape that could not be read
+    dashboards_unparseable: int = 0  # warned
+    dashboard_search_hits_skipped: int = 0  # no uid (basic mode: title, url); warned
 
     # Dashboards not placed in a folder. General-folder dashboards are not counted.
     dashboards_in_filtered_folders: int = 0  # folder excluded by folder_pattern

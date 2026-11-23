@@ -1,15 +1,19 @@
 """API client for Grafana metadata extraction"""
 
+import json
 import logging
-from typing import Dict, List, Optional, Sequence, Set, Union
+from typing import Dict, Iterator, List, Optional, Sequence, Set, Union
 
 import requests
 import urllib3.exceptions
 from pydantic import SecretStr, ValidationError
 
 from datahub.ingestion.source.grafana.constants import (
+    DASHBOARD_FETCH_ERROR_MESSAGE,
+    DASHBOARD_FETCH_ERROR_TITLE,
     DASHBOARD_PARSE_ERROR_MESSAGE,
     DASHBOARD_PARSE_ERROR_TITLE,
+    DASHBOARD_SEARCH_ERROR_MESSAGE,
     DASHBOARD_SEARCH_ERROR_TITLE,
     DASHBOARD_SEARCH_UNEXPECTED_RESPONSE_MESSAGE,
     FOLDER_FETCH_ERROR_MESSAGE,
@@ -18,13 +22,18 @@ from datahub.ingestion.source.grafana.constants import (
     FOLDER_PARSE_ERROR_TITLE,
     FOLDER_UNEXPECTED_RESPONSE_MESSAGE,
     HTTP_PERMISSION_STATUS_CODES,
-    MAX_REPORT_CONTEXT_CHARS,
     REPEATED_PAGE_MESSAGE,
     REPEATED_PAGE_TITLE,
-    SEARCH_HIT_WITHOUT_UID_MESSAGE,
-    SEARCH_HIT_WITHOUT_UID_TITLE,
+    SEARCH_HIT_SKIPPED_MESSAGE,
+    SEARCH_HIT_SKIPPED_TITLE,
 )
-from datahub.ingestion.source.grafana.models import Dashboard, Folder, FolderListing
+from datahub.ingestion.source.grafana.models import (
+    Dashboard,
+    DashboardListing,
+    DashboardSearchHit,
+    Folder,
+    FolderListing,
+)
 from datahub.ingestion.source.grafana.report import GrafanaSourceReport
 
 logger = logging.getLogger(__name__)
@@ -81,52 +90,14 @@ class GrafanaAPIClient:
     def get_folders(self) -> FolderListing:
         """Fetch all folders from Grafana with pagination."""
         listing = FolderListing()
-        previous_batch: Optional[List[object]] = None
-        page = 1
-        per_page = self.page_size
-
-        while True:
-            try:
-                response = self.session.get(
-                    f"{self.base_url}/api/folders",
-                    params={"page": page, "limit": per_page},
-                )
-                response.raise_for_status()
-
-                batch = response.json()
-                # Check the shape before emptiness: a non-list page (e.g. a
-                # proxy error body) is a failure even when it is {} or null,
-                # and a non-empty one would otherwise never end paging.
-                if not isinstance(batch, list):
-                    self.report.failure(
-                        title=FOLDER_FETCH_ERROR_TITLE,
-                        message=FOLDER_UNEXPECTED_RESPONSE_MESSAGE,
-                        context=f"page {page}: {batch}",
-                    )
-                    break
-                if not batch:
-                    break
-
-                if batch == previous_batch:
-                    self._report_repeated_page(f"/api/folders page {page}")
-                    break
-                previous_batch = batch
-
-                self._parse_folders(batch, listing)
-                if len(batch) < per_page:
-                    break
-                page += 1
-            except requests.exceptions.RequestException as e:
-                self.report.failure(
-                    title=FOLDER_FETCH_ERROR_TITLE,
-                    message=FOLDER_FETCH_ERROR_MESSAGE,
-                    context=f"page {page}",
-                    exc=e,
-                )
-                if _is_permission_error(e):
-                    self.report.report_permission_warning()
-                break
-
+        for batch in self._iter_pages(
+            path="/api/folders",
+            params={},
+            error_title=FOLDER_FETCH_ERROR_TITLE,
+            error_message=FOLDER_FETCH_ERROR_MESSAGE,
+            unexpected_response_message=FOLDER_UNEXPECTED_RESPONSE_MESSAGE,
+        ):
+            self._parse_folders(batch, listing)
         return listing
 
     def _parse_folders(self, batch: Sequence[object], listing: FolderListing) -> None:
@@ -155,8 +126,8 @@ class GrafanaAPIClient:
             return Dashboard.model_validate(dashboard_data)
         except requests.exceptions.RequestException as e:
             self.report.warning(
-                title="Dashboard Fetch Error",
-                message="Failed to fetch dashboard",
+                title=DASHBOARD_FETCH_ERROR_TITLE,
+                message=DASHBOARD_FETCH_ERROR_MESSAGE,
                 context=uid,
                 exc=e,
             )
@@ -173,95 +144,124 @@ class GrafanaAPIClient:
             )
             return None
 
-    def get_dashboards(self) -> List[Dashboard]:
-        """Fetch all dashboards from search endpoint with pagination."""
-        dashboards: List[Dashboard] = []
+    def get_dashboards(self) -> DashboardListing:
+        """Fetch all dashboards found by /api/search, with pagination."""
+        listing = DashboardListing()
         seen_uids: Set[str] = set()
-        previous_batch: Optional[List[object]] = None
-        page = 1
-        per_page = self.page_size
+        for batch in self._iter_pages(
+            path="/api/search",
+            params={"type": "dash-db"},
+            error_title=DASHBOARD_SEARCH_ERROR_TITLE,
+            error_message=DASHBOARD_SEARCH_ERROR_MESSAGE,
+            unexpected_response_message=DASHBOARD_SEARCH_UNEXPECTED_RESPONSE_MESSAGE,
+        ):
+            for hit in self.parse_search_hits(batch):
+                if hit is None:
+                    listing.skipped += 1
+                    continue
+                if hit.uid in seen_uids:
+                    continue
+                seen_uids.add(hit.uid)
+                dashboard = self.get_dashboard(hit.uid)
+                if dashboard is None:
+                    listing.skipped += 1
+                else:
+                    listing.dashboards.append(dashboard)
+        return listing
 
+    def parse_search_hits(
+        self, batch: Sequence[object], require_title_and_url: bool = False
+    ) -> List[Optional[DashboardSearchHit]]:
+        """Validate each /api/search result; a result that cannot be used is
+        reported and returned as None, so callers can count it."""
+        hits: List[Optional[DashboardSearchHit]] = []
+        for result in batch:
+            hit: Optional[DashboardSearchHit] = None
+            try:
+                hit = DashboardSearchHit.model_validate(result)
+            except ValidationError:
+                pass
+            if (
+                hit is not None
+                and require_title_and_url
+                and not (hit.title and hit.url)
+            ):
+                hit = None
+            if hit is None:
+                self.report.report_dashboard_search_hit_skipped()
+                self.report.warning(
+                    title=SEARCH_HIT_SKIPPED_TITLE,
+                    message=SEARCH_HIT_SKIPPED_MESSAGE,
+                    context=str(result),
+                )
+            hits.append(hit)
+        return hits
+
+    def _iter_pages(
+        self,
+        path: str,
+        params: Dict[str, Union[str, int]],
+        error_title: str,
+        error_message: str,
+        unexpected_response_message: str,
+    ) -> Iterator[List[object]]:
+        """Yield each page of a paginated Grafana list endpoint.
+
+        Paging ends at the first empty page. It also ends, with a failure, on a
+        page that is not a list or that cannot be fetched, and when Grafana
+        returns a full page it has already returned, which means it is ignoring
+        the page parameter and later pages may be missing. A failure makes
+        stale-entity removal skip the run, so nothing missing is soft-deleted.
+        A repeated page shorter than the page size is the whole listing, so
+        paging just stops.
+        """
+        seen_pages: Set[str] = set()
+        page = 1
         while True:
             try:
-                params: Dict[str, Union[str, int]] = {
-                    "type": "dash-db",
-                    "page": page,
-                    "limit": per_page,
-                }
                 response = self.session.get(
-                    f"{self.base_url}/api/search",
-                    params=params,
+                    f"{self.base_url}{path}",
+                    params={**params, "page": page, "limit": self.page_size},
                 )
                 response.raise_for_status()
-
                 batch = response.json()
-                # As in get_folders: check the shape before emptiness, so a
-                # non-list body is a failure instead of being walked as hits.
-                if not isinstance(batch, list):
-                    self.report.failure(
-                        title=DASHBOARD_SEARCH_ERROR_TITLE,
-                        message=DASHBOARD_SEARCH_UNEXPECTED_RESPONSE_MESSAGE,
-                        context=f"page {page}: {batch}",
-                    )
-                    break
-                if not batch:
-                    break
-                # An identical page also stops a page full of hits without a
-                # uid, which would never produce a new uid.
-                if batch == previous_batch:
-                    self._report_repeated_page(f"/api/search page {page}")
-                    break
-                previous_batch = batch
-
-                page_uids = self._search_hit_uids(batch)
-                new_uids = [
-                    uid for uid in dict.fromkeys(page_uids) if uid not in seen_uids
-                ]
-                if page_uids and not new_uids:
-                    self._report_repeated_page(f"/api/search page {page}")
-                    break
-                seen_uids.update(new_uids)
-                for uid in new_uids:
-                    dashboard = self.get_dashboard(uid)
-                    if dashboard:
-                        dashboards.append(dashboard)
-                if len(batch) < per_page:
-                    break
-                page += 1
             except requests.exceptions.RequestException as e:
                 self.report.failure(
-                    title=DASHBOARD_SEARCH_ERROR_TITLE,
-                    message="Failed to fetch dashboards on page",
+                    title=error_title,
+                    message=error_message,
                     context=f"page {page}",
                     exc=e,
                 )
                 if _is_permission_error(e):
                     self.report.report_permission_warning()
-                break
+                return
 
-        return dashboards
+            # Check the shape before emptiness: a non-list page (e.g. a proxy
+            # error body) is a failure even when it is {} or null.
+            if not isinstance(batch, list):
+                self.report.failure(
+                    title=error_title,
+                    message=unexpected_response_message,
+                    context=f"page {page}: {batch}",
+                )
+                return
+            if not batch:
+                return
 
-    def _report_repeated_page(self, context: str) -> None:
-        # A page with nothing new means the API is repeating itself (e.g.
-        # ignoring the page parameter); the caller stops instead of looping.
-        self.report.warning(
-            title=REPEATED_PAGE_TITLE,
-            message=REPEATED_PAGE_MESSAGE,
-            context=context,
-        )
-
-    def _search_hit_uids(self, batch: List[object]) -> List[str]:
-        """Return the uid of each search result, reporting results without one."""
-        uids: List[str] = []
-        for result in batch:
-            uid = result.get("uid") if isinstance(result, dict) else None
-            if isinstance(uid, str) and uid:
-                uids.append(uid)
-                continue
-            self.report.report_dashboard_search_hit_skipped()
-            self.report.warning(
-                title=SEARCH_HIT_WITHOUT_UID_TITLE,
-                message=SEARCH_HIT_WITHOUT_UID_MESSAGE,
-                context=str(result)[:MAX_REPORT_CONTEXT_CHARS],
+            # Order-insensitive, so a page returned again in another order
+            # also counts as repeated.
+            fingerprint = json.dumps(
+                sorted(json.dumps(item, sort_keys=True, default=str) for item in batch)
             )
-        return uids
+            if fingerprint in seen_pages:
+                if len(batch) >= self.page_size:
+                    self.report.failure(
+                        title=REPEATED_PAGE_TITLE,
+                        message=REPEATED_PAGE_MESSAGE,
+                        context=f"{path} page {page}",
+                    )
+                return
+            seen_pages.add(fingerprint)
+
+            yield batch
+            page += 1

@@ -10,7 +10,9 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.grafana.constants import (
     DASHBOARD_FOLDER_NOT_INGESTED_TITLE,
+    DASHBOARD_SEARCH_ERROR_TITLE,
     DASHBOARD_WITHOUT_FOLDER_ID_TITLE,
+    DASHBOARDS_SKIPPED_TITLE,
     FOLDERS_UNPARSEABLE_TITLE,
     PANEL_SKIPPED_TITLE,
 )
@@ -19,6 +21,7 @@ from datahub.ingestion.source.grafana.grafana_source import GrafanaSource
 from datahub.ingestion.source.grafana.models import (
     Dashboard,
     DashboardContainerKey,
+    DashboardListing,
     Folder,
     FolderKey,
     FolderListing,
@@ -106,7 +109,7 @@ def _run(
     dashboards: List[Dashboard],
 ) -> Tuple[GrafanaSource, List[MetadataWorkUnit]]:
     mock_api.get_folders.return_value = FolderListing(folders=folders)
-    mock_api.get_dashboards.return_value = dashboards
+    mock_api.get_dashboards.return_value = DashboardListing(dashboards=dashboards)
     source = GrafanaSource(config, ctx)
     return source, list(source.get_workunits_internal())
 
@@ -323,7 +326,7 @@ def test_unparseable_folders_fail_run_only_when_removing_stale_metadata(
     source = GrafanaSource(mock_config, mock_context)
     source.config.stateful_ingestion = stateful_ingestion
     mock_api.get_folders.return_value = FolderListing(folders=[], unparseable=2)
-    mock_api.get_dashboards.return_value = []
+    mock_api.get_dashboards.return_value = DashboardListing()
 
     list(source.get_workunits_internal())
 
@@ -377,22 +380,58 @@ def test_basic_mode_skips_malformed_search_results(mock_context):
 @pytest.mark.parametrize(
     "json_result",
     [
-        {"message": "proxy error"},
-        requests.exceptions.JSONDecodeError("Expecting value", "<html>", 0),
+        pytest.param({"message": "proxy error"}, id="not-a-list"),
+        pytest.param(
+            requests.exceptions.JSONDecodeError("Expecting value", "<html>", 0),
+            id="not-json",
+        ),
     ],
 )
 def test_basic_mode_reports_non_list_response(mock_context, json_result):
     source = _basic_mode_source(mock_context)
-    response = MagicMock()
-    if isinstance(json_result, Exception):
-        response.json.side_effect = json_result
-    else:
-        response.json.return_value = json_result
+    response = MagicMock(**{"json.side_effect": [json_result]})
     with patch(GRAFANA_REQUESTS_GET, return_value=response):
         workunits = list(source.get_workunits_internal())
 
     assert not workunits
-    assert len(source.report.failures) == 1
+    assert log_titles(source.report.failures) == {DASHBOARD_SEARCH_ERROR_TITLE}
+
+
+@pytest.mark.parametrize(
+    "remove_stale_metadata, expect_failure",
+    [
+        pytest.param(False, False, id="stale-removal-off"),
+        pytest.param(True, True, id="stale-removal-on"),
+    ],
+)
+def test_skipped_dashboards_fail_run_only_when_removing_stale_metadata(
+    mock_api, mock_config, mock_context, remove_stale_metadata, expect_failure
+):
+    # Otherwise stale-entity removal would soft-delete a dashboard that was
+    # skipped only because Grafana returned it in a shape that could not be read.
+    source = GrafanaSource(mock_config, mock_context)
+    source.config.stateful_ingestion = StatefulStaleMetadataRemovalConfig(
+        enabled=True, remove_stale_metadata=remove_stale_metadata
+    )
+    mock_api.get_folders.return_value = FolderListing()
+    mock_api.get_dashboards.return_value = DashboardListing(skipped=1)
+
+    list(source.get_workunits_internal())
+
+    failure_titles = log_titles(source.report.failures)
+    assert (DASHBOARDS_SKIPPED_TITLE in failure_titles) == expect_failure
+
+
+def test_basic_mode_skipped_result_fails_run_when_removing_stale_metadata(
+    mock_context,
+):
+    source = _basic_mode_source(mock_context)
+    source.config.stateful_ingestion = StatefulStaleMetadataRemovalConfig(enabled=True)
+    items = [{"uid": "ok", "title": "OK", "url": "/d/ok"}, {"uid": "no-url"}]
+    with patch(GRAFANA_REQUESTS_GET, return_value=_search_response(items)):
+        list(source.get_workunits_internal())
+
+    assert log_titles(source.report.failures) == {DASHBOARDS_SKIPPED_TITLE}
 
 
 @pytest.mark.usefixtures("mock_api")

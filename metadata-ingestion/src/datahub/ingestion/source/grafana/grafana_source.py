@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Literal, Optional
+from typing import Dict, Iterable, List, Literal
 
 import requests
 from typing_extensions import assert_never
@@ -23,14 +23,14 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.grafana.constants import (
-    BASIC_MODE_ITEM_SKIPPED_MESSAGE,
-    BASIC_MODE_ITEM_SKIPPED_TITLE,
-    BASIC_MODE_RESPONSE_ERROR_MESSAGE,
     DASHBOARD_FOLDER_NOT_INGESTED_MESSAGE,
     DASHBOARD_FOLDER_NOT_INGESTED_TITLE,
     DASHBOARD_SEARCH_ERROR_TITLE,
+    DASHBOARD_SEARCH_UNEXPECTED_RESPONSE_MESSAGE,
     DASHBOARD_WITHOUT_FOLDER_ID_MESSAGE,
     DASHBOARD_WITHOUT_FOLDER_ID_TITLE,
+    DASHBOARDS_SKIPPED_MESSAGE,
+    DASHBOARDS_SKIPPED_TITLE,
     FOLDERS_UNPARSEABLE_MESSAGE,
     FOLDERS_UNPARSEABLE_TITLE,
     GRAFANA_BASIC_EXTRACTION,
@@ -38,7 +38,6 @@ from datahub.ingestion.source.grafana.constants import (
     GRAFANA_FOLDER_EXTRACTION,
     GRAFANA_GENERAL_FOLDER_ID,
     GRAFANA_PANEL_EXTRACTION,
-    MAX_REPORT_CONTEXT_CHARS,
     PANEL_SKIPPED_MESSAGE,
     PANEL_SKIPPED_TITLE,
     FolderPlacement,
@@ -168,6 +167,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
                     verify=self.config.verify_ssl,
                 )
                 response.raise_for_status()
+                results = response.json()
             except requests.exceptions.RequestException as e:
                 self.report.failure(
                     title=DASHBOARD_SEARCH_ERROR_TITLE,
@@ -175,34 +175,28 @@ class GrafanaSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
                 return
-
-            try:
-                dashboards = response.json()
-            except requests.exceptions.JSONDecodeError as e:
+            if not isinstance(results, list):
                 self.report.failure(
                     title=DASHBOARD_SEARCH_ERROR_TITLE,
-                    message=BASIC_MODE_RESPONSE_ERROR_MESSAGE,
-                    exc=e,
-                )
-                return
-            if not isinstance(dashboards, list):
-                self.report.failure(
-                    title=DASHBOARD_SEARCH_ERROR_TITLE,
-                    message=BASIC_MODE_RESPONSE_ERROR_MESSAGE,
-                    context=str(dashboards)[:MAX_REPORT_CONTEXT_CHARS],
+                    message=DASHBOARD_SEARCH_UNEXPECTED_RESPONSE_MESSAGE,
+                    context=str(results),
                 )
                 return
 
-            for item in dashboards:
-                fields = self._basic_mode_fields(item)
-                if fields is None:
+            hits = self.api_client.parse_search_hits(
+                results, require_title_and_url=True
+            )
+            self._fail_run_if_dashboards_skipped(sum(1 for hit in hits if hit is None))
+            for hit in hits:
+                if hit is None:
                     continue
-                if not self.config.dashboard_pattern.allowed(fields["title"]):
+                assert hit.title is not None and hit.url is not None
+                if not self.config.dashboard_pattern.allowed(hit.title):
                     continue
 
-                uid = fields["uid"]
-                title = fields["title"]
-                full_url = f"{self.config.url}{fields['url']}"
+                uid = hit.uid
+                title = hit.title
+                full_url = f"{self.config.url}{hit.url}"
 
                 dashboard_urn = make_dashboard_urn(
                     platform=self.platform,
@@ -221,14 +215,14 @@ class GrafanaSource(StatefulIngestionSourceBase):
                         key: str(value)
                         for key, value in {
                             "displayName": title,
-                            "id": item.get("id"),
+                            "id": hit.id,
                             "uid": uid,
                             "title": title,
-                            "uri": item.get("uri"),
-                            "type": item.get("type"),
-                            "folderId": item.get("folderId"),
-                            "folderUid": item.get("folderUid"),
-                            "folderTitle": item.get("folderTitle"),
+                            "uri": hit.uri,
+                            "type": hit.type,
+                            "folderId": hit.folder_id,
+                            "folderUid": hit.folder_uid,
+                            "folderTitle": hit.folder_title,
                         }.items()
                         if value is not None
                     },
@@ -271,7 +265,9 @@ class GrafanaSource(StatefulIngestionSourceBase):
 
         # Process dashboards
         with self.report.new_stage(GRAFANA_DASHBOARD_EXTRACTION):
-            for dashboard in self.api_client.get_dashboards():
+            dashboard_listing = self.api_client.get_dashboards()
+            self._fail_run_if_dashboards_skipped(dashboard_listing.skipped)
+            for dashboard in dashboard_listing.dashboards:
                 if self.config.dashboard_pattern.allowed(dashboard.title):
                     self.report.report_dashboard_scanned()
                     yield from self._process_dashboard(dashboard)
@@ -285,20 +281,16 @@ class GrafanaSource(StatefulIngestionSourceBase):
             description=folder.description,
         )
 
-    def _basic_mode_fields(self, item: object) -> Optional[Dict[str, str]]:
-        """Return uid, title and url of a basic-mode search result, or None (and
-        a warning) when one is missing."""
-        if isinstance(item, dict):
-            fields = {key: item.get(key) for key in ("uid", "title", "url")}
-            if all(isinstance(value, str) and value for value in fields.values()):
-                return {key: str(value) for key, value in fields.items()}
-        self.report.report_dashboard_search_hit_skipped()
-        self.report.warning(
-            title=BASIC_MODE_ITEM_SKIPPED_TITLE,
-            message=BASIC_MODE_ITEM_SKIPPED_MESSAGE,
-            context=str(item)[:MAX_REPORT_CONTEXT_CHARS],
-        )
-        return None
+    def _fail_run_if_dashboards_skipped(self, skipped: int) -> None:
+        # Stale-entity removal is skipped only on a failure. Without one it
+        # would soft-delete dashboards that were skipped only because Grafana
+        # returned them in a shape that could not be read.
+        if skipped and self._removes_stale_metadata():
+            self.report.failure(
+                title=DASHBOARDS_SKIPPED_TITLE,
+                message=DASHBOARDS_SKIPPED_MESSAGE,
+                context=f"{skipped} dashboard(s)",
+            )
 
     def _process_dashboard(self, dashboard: Dashboard) -> Iterable[MetadataWorkUnit]:
         """Process dashboard and its panels"""

@@ -63,33 +63,42 @@ DASHBOARD_WITHOUT_FOLDER_ID_MESSAGE = (
     "sending folderId."
 )
 
+DASHBOARD_FETCH_ERROR_TITLE = "Dashboard Fetch Error"
+DASHBOARD_FETCH_ERROR_MESSAGE = "Failed to fetch dashboard; it was not ingested"
 DASHBOARD_PARSE_ERROR_TITLE = "Dashboard Parse Error"
 DASHBOARD_PARSE_ERROR_MESSAGE = (
-    "Skipped a dashboard Grafana returned in an unexpected shape"
+    "Skipped a dashboard Grafana returned in an unexpected shape; it and its "
+    "charts were not ingested"
 )
-SEARCH_HIT_WITHOUT_UID_TITLE = "Dashboard Search Result Skipped"
-SEARCH_HIT_WITHOUT_UID_MESSAGE = (
-    "Skipped a dashboard search result that has no uid or is not an object"
-)
-REPEATED_PAGE_TITLE = "Paging Stopped"
-REPEATED_PAGE_MESSAGE = (
-    "Grafana returned a page with nothing new, so paging stopped; the API may "
-    "be ignoring the page parameter"
+SEARCH_HIT_SKIPPED_TITLE = "Dashboard Search Result Skipped"
+SEARCH_HIT_SKIPPED_MESSAGE = (
+    "Skipped a dashboard search result without a uid, or, in basic mode, without "
+    "a title or url"
 )
 DASHBOARD_SEARCH_ERROR_TITLE = "Dashboard Search Error"
+DASHBOARD_SEARCH_ERROR_MESSAGE = (
+    "Failed to fetch dashboards on page; dashboards on this or later pages were "
+    "not ingested"
+)
 DASHBOARD_SEARCH_UNEXPECTED_RESPONSE_MESSAGE = (
     "Grafana /api/search returned a page that is not a list; dashboards on this "
     "or later pages were not ingested"
 )
-BASIC_MODE_RESPONSE_ERROR_MESSAGE = (
-    "Grafana /api/search did not return a list of dashboards in basic mode"
+DASHBOARDS_SKIPPED_TITLE = "Dashboards could not be read"
+DASHBOARDS_SKIPPED_MESSAGE = (
+    f"Some dashboards were skipped (see {DASHBOARD_FETCH_ERROR_TITLE}, "
+    f"{DASHBOARD_PARSE_ERROR_TITLE} and {SEARCH_HIT_SKIPPED_TITLE}). So that "
+    "they are not soft-deleted, this run removes no stale metadata of any kind. "
+    "Setting stateful_ingestion.remove_stale_metadata to false stops these "
+    "failures but also stops all stale-metadata removal."
 )
-BASIC_MODE_ITEM_SKIPPED_TITLE = "Dashboard Skipped"
-BASIC_MODE_ITEM_SKIPPED_MESSAGE = (
-    "Skipped a dashboard search result missing uid, title or url in basic mode"
+REPEATED_PAGE_TITLE = "Paging Stopped"
+REPEATED_PAGE_MESSAGE = (
+    "Grafana returned a full page it had already returned, so paging stopped and "
+    "later pages may be missing; the API may be ignoring the page parameter. "
+    "This run removes no stale metadata, so nothing missing is soft-deleted."
 )
 PANEL_SKIPPED_TITLE = "Panel Skipped"
 PANEL_SKIPPED_MESSAGE = (
     "Skipped a panel with missing or invalid fields; it was not ingested as a chart"
 )
-MAX_REPORT_CONTEXT_CHARS = 200

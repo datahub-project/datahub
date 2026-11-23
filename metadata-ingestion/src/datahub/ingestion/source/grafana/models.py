@@ -199,44 +199,51 @@ class Dashboard(_GrafanaBaseModel):
 
     @staticmethod
     def extract_panels(
-        panels_data: List[Dict[str, Any]],
-        skip_text_panels: bool = False,
-        skipped_panels: Optional[List[str]] = None,
-    ) -> List[Panel]:
-        """Extract panels, including nested ones, skipping invalid panels.
+        panels_data: List[object], skip_text_panels: bool = False
+    ) -> "PanelExtraction":
+        """Extract panels, including those nested in rows.
 
-        Each invalid panel is described in ``skipped_panels`` when given.
+        A panel that cannot be read is skipped on its own and described in
+        ``PanelExtraction.skipped``; the other panels are still extracted.
         """
-        panels: List[Panel] = []
+        extraction = PanelExtraction()
         for panel_data in panels_data:
-            if panel_data.get("type") == "row" and panel_data.get("panels"):
-                for p in panel_data.get("panels", []):
-                    if p and p.get("type") != "row":
-                        if skip_text_panels and p.get("type") == "text":
-                            continue
-                        Dashboard._parse_panel(p, panels, skipped_panels)
-            elif panel_data.get("type") != "row":
-                if skip_text_panels and panel_data.get("type") == "text":
-                    continue
-                Dashboard._parse_panel(panel_data, panels, skipped_panels)
-        return panels
+            if isinstance(panel_data, Panel):  # Dashboard(panels=[Panel(...)])
+                extraction.panels.append(panel_data)
+                continue
+            if not isinstance(panel_data, dict):
+                extraction.skipped.append(_describe_entry(panel_data))
+                continue
+            if panel_data.get("type") != "row":
+                Dashboard._extract_panel(panel_data, skip_text_panels, extraction)
+                continue
+            nested = panel_data.get("panels") or []
+            if not isinstance(nested, list):
+                extraction.skipped.append(
+                    f"{_describe_panel(panel_data)} (its panels are not a list)"
+                )
+                continue
+            for nested_panel in nested:
+                if not isinstance(nested_panel, dict):
+                    extraction.skipped.append(_describe_entry(nested_panel))
+                elif nested_panel.get("type") != "row":
+                    Dashboard._extract_panel(nested_panel, skip_text_panels, extraction)
+        return extraction
 
     @staticmethod
-    def _parse_panel(
+    def _extract_panel(
         panel_data: Dict[str, Any],
-        panels: List[Panel],
-        skipped_panels: Optional[List[str]],
+        skip_text_panels: bool,
+        extraction: "PanelExtraction",
     ) -> None:
+        if skip_text_panels and panel_data.get("type") == "text":
+            return
         try:
-            panels.append(Panel.model_validate(panel_data))
+            extraction.panels.append(Panel.model_validate(panel_data))
         except Exception as e:
-            description = f"id={panel_data.get('id')}, type={panel_data.get('type')}"
-            logger.debug(
-                f"Error parsing panel ({description}): {e}. "
-                f"Panel data: {panel_data}. Skipping this panel."
-            )
-            if skipped_panels is not None:
-                skipped_panels.append(description)
+            description = _describe_panel(panel_data)
+            logger.debug(f"Skipping panel ({description}): {e}")
+            extraction.skipped.append(description)
 
     @staticmethod
     def _set_dashboard_defaults(result: Dict[str, Any]) -> None:
@@ -278,26 +285,17 @@ class Dashboard(_GrafanaBaseModel):
                 _panel_data = []
             if not isinstance(_panel_data, list):
                 raise ValueError("panels is not a list")
-            panels = []
-            skipped_panels: List[str] = []
-
-            skip_text_panels = dashboard_data.get("_skip_text_panels", False)
-
-            if _panel_data and all(isinstance(p, dict) for p in _panel_data):
-                try:
-                    panels = cls.extract_panels(
-                        _panel_data, skip_text_panels, skipped_panels
-                    )
-                except Exception as e:
-                    logger.debug(f"Error extracting panels from dashboard: {e}")
-                    skipped_panels.append(f"all panels ({type(e).__name__})")
-            else:
-                panels = _panel_data
+            # The API client sets the flag on the response it fetched, which
+            # wraps the dashboard; tests may set it on the dashboard itself.
+            skip_text_panels = bool(
+                data.get("_skip_text_panels") or dashboard_data.get("_skip_text_panels")
+            )
+            extraction = cls.extract_panels(_panel_data, skip_text_panels)
 
             result = {
                 **dashboard_data,
-                "panels": panels,
-                "skipped_panels": skipped_panels,
+                "panels": extraction.panels,
+                "skipped_panels": extraction.skipped,
             }
 
             if isinstance(meta := data.get("meta"), dict):
@@ -312,6 +310,37 @@ class Dashboard(_GrafanaBaseModel):
             return result
 
         return data
+
+
+@dataclass
+class PanelExtraction:
+    """Panels read from a dashboard, and descriptions of the ones skipped."""
+
+    panels: List[Panel] = field(default_factory=list)
+    skipped: List[str] = field(default_factory=list)
+
+
+def _describe_panel(panel_data: Dict[str, Any]) -> str:
+    return f"id={panel_data.get('id')}, type={panel_data.get('type')}"
+
+
+def _describe_entry(entry: object) -> str:
+    return f"entry that is not a panel: {entry!r}"
+
+
+class DashboardSearchHit(_GrafanaBaseModel):
+    """One result of /api/search. Only uid is required to fetch the dashboard;
+    basic mode also needs title and url."""
+
+    uid: str = Field(min_length=1)
+    title: Optional[str] = None
+    url: Optional[str] = None
+    id: Optional[str] = None
+    uri: Optional[str] = None
+    type: Optional[str] = None
+    folder_id: Optional[str] = Field(default=None, alias="folderId")
+    folder_uid: Optional[str] = Field(default=None, alias="folderUid")
+    folder_title: Optional[str] = Field(default=None, alias="folderTitle")
 
 
 class Folder(_GrafanaBaseModel):
@@ -349,6 +378,15 @@ class DashboardContainerKey(ContainerKey):
 
     dashboard_id: str
     folder_id: Optional[str] = None
+
+
+@dataclass
+class DashboardListing:
+    """The dashboards fetched, and how many search results were skipped
+    because they or their dashboard could not be read."""
+
+    dashboards: List[Dashboard] = field(default_factory=list)
+    skipped: int = 0
 
 
 @dataclass

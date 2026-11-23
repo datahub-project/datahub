@@ -294,21 +294,54 @@ def test_folder_without_title_is_named_after_uid_or_id(folder_data, expected_tit
     assert Folder.model_validate(folder_data).title == expected_title
 
 
-def test_dashboard_records_failed_panel_extraction():
-    # A row holding something that is not a panel stops panel extraction; the
-    # dashboard is still ingested and the loss is recorded for the report.
+@pytest.mark.parametrize(
+    "bad_entry, expected_skipped",
+    [
+        pytest.param(
+            "not a panel", "entry that is not a panel: 'not a panel'", id="top-level"
+        ),
+        pytest.param(
+            {"type": "row", "id": "9", "panels": ["not a panel"]},
+            "entry that is not a panel: 'not a panel'",
+            id="in-row",
+        ),
+        pytest.param(
+            {"type": "row", "id": "9", "panels": "x"},
+            "id=9, type=row (its panels are not a list)",
+            id="row-panels-not-a-list",
+        ),
+    ],
+)
+def test_dashboard_skips_only_the_malformed_panel(bad_entry, expected_skipped):
+    # One entry that is not a panel used to drop every panel on the dashboard.
     dashboard = Dashboard.model_validate(
         {
             "dashboard": {
                 "uid": "x",
                 "title": "x",
-                "panels": [{"type": "row", "panels": ["not a panel"]}],
+                "panels": [{"id": "1", "type": "graph"}, bad_entry],
             }
         }
     )
 
-    assert dashboard.panels == []
-    assert dashboard.skipped_panels == ["all panels (AttributeError)"]
+    assert [p.id for p in dashboard.panels] == ["1"]
+    assert dashboard.skipped_panels == [expected_skipped]
+
+
+def test_dashboard_skips_text_panels_when_flag_is_on_the_response():
+    # The API client sets the flag on the response, which wraps the dashboard.
+    dashboard = Dashboard.model_validate(
+        {
+            "dashboard": {
+                "uid": "x",
+                "title": "x",
+                "panels": [{"id": "1", "type": "graph"}, {"id": "2", "type": "text"}],
+            },
+            "_skip_text_panels": True,
+        }
+    )
+
+    assert [p.id for p in dashboard.panels] == ["1"]
 
 
 def test_dashboard_missing_folder_id():

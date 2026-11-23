@@ -180,7 +180,7 @@ def test_get_dashboards_success(api_client, mock_session):
         empty_response,
     ]
 
-    dashboards = api_client.get_dashboards()
+    dashboards = api_client.get_dashboards().dashboards
 
     assert len(dashboards) == 2
     assert dashboards[0].uid == "dash1"
@@ -190,9 +190,7 @@ def test_get_dashboards_success(api_client, mock_session):
 def test_get_dashboards_error(api_client, mock_session):
     mock_session.get.side_effect = requests.exceptions.RequestException("API Error")
 
-    dashboards = api_client.get_dashboards()
-
-    assert len(dashboards) == 0
+    assert api_client.get_dashboards().dashboards == []
     assert len(api_client.report.failures) == 1
 
 
@@ -206,31 +204,59 @@ def _dashboard_body(uid: str) -> Dict[str, object]:
     return {"dashboard": {"uid": uid, "title": uid, "panels": []}}
 
 
-def test_get_folders_stops_after_short_page(api_client, mock_session):
-    api_client.page_size = 2
+def test_get_folders_reads_past_short_page(api_client, mock_session):
+    # A server may cap the page below page_size, so a short page does not
+    # mean the listing is complete; only an empty page does.
+    api_client.page_size = 3
     mock_session.get.side_effect = [
         _json_response([{"id": 1, "title": "a"}, {"id": 2, "title": "b"}]),
         _json_response([{"id": 3, "title": "c"}]),
-        AssertionError("get_folders requested a page after a short page"),
+        _json_response([]),
     ]
 
     assert [f.id for f in api_client.get_folders().folders] == ["1", "2", "3"]
+    assert not api_client.report.failures
 
 
-def test_get_folders_stops_when_page_repeats(api_client, mock_session):
-    # An API that ignores the page parameter returns the same full page forever.
-    api_client.page_size = 1
+@pytest.mark.parametrize(
+    "repeat",
+    [
+        pytest.param(lambda page: page, id="same-order"),
+        pytest.param(lambda page: list(reversed(page)), id="other-order"),
+    ],
+)
+def test_get_folders_fails_when_full_page_repeats(api_client, mock_session, repeat):
+    # An API that ignores the page parameter returns the same full page
+    # forever, and later folders may be missing.
+    api_client.page_size = 2
+    page = [{"id": 1, "title": "a"}, {"id": 2, "title": "b"}]
     mock_session.get.side_effect = [
-        _json_response([{"id": 1, "title": "a"}]),
-        _json_response([{"id": 1, "title": "a"}]),
+        _json_response(page),
+        _json_response(repeat(page)),
+        AssertionError("get_folders kept paging"),
+    ]
+
+    assert [f.id for f in api_client.get_folders().folders] == ["1", "2"]
+    # A failure, so stale-entity removal does not delete what was not listed.
+    assert log_titles(api_client.report.failures) == {REPEATED_PAGE_TITLE}
+
+
+def test_get_folders_stops_quietly_when_short_page_repeats(api_client, mock_session):
+    # A repeated page shorter than page_size already held the whole listing.
+    api_client.page_size = 5
+    page = [{"id": 1, "title": "a"}]
+    mock_session.get.side_effect = [
+        _json_response(page),
+        _json_response(page),
         AssertionError("get_folders kept paging"),
     ]
 
     assert [f.id for f in api_client.get_folders().folders] == ["1"]
-    assert len(api_client.report.warnings) == 1
+    assert not api_client.report.failures
+    assert not api_client.report.warnings
 
 
-def test_get_dashboards_stops_when_page_repeats(api_client, mock_session):
+def test_get_dashboards_fails_when_full_page_repeats(api_client, mock_session):
     api_client.page_size = 1
     mock_session.get.side_effect = [
         _json_response([{"uid": "a"}]),
@@ -239,12 +265,12 @@ def test_get_dashboards_stops_when_page_repeats(api_client, mock_session):
         AssertionError("get_dashboards kept paging"),
     ]
 
-    assert [d.uid for d in api_client.get_dashboards()] == ["a"]
-    assert log_titles(api_client.report.warnings) == {REPEATED_PAGE_TITLE}
+    assert [d.uid for d in api_client.get_dashboards().dashboards] == ["a"]
+    assert log_titles(api_client.report.failures) == {REPEATED_PAGE_TITLE}
 
 
 def test_get_dashboards_stops_when_page_without_uids_repeats(api_client, mock_session):
-    # A full page of hits without a uid never yields a new uid, so only the
+    # A full page of hits without a uid never yields a dashboard, so only the
     # repeated page itself can end paging.
     api_client.page_size = 2
     page = [{"title": "a"}, {"title": "b"}]
@@ -254,8 +280,11 @@ def test_get_dashboards_stops_when_page_without_uids_repeats(api_client, mock_se
         AssertionError("get_dashboards kept paging"),
     ]
 
-    assert api_client.get_dashboards() == []
-    assert REPEATED_PAGE_TITLE in log_titles(api_client.report.warnings)
+    listing = api_client.get_dashboards()
+
+    assert listing.dashboards == []
+    assert listing.skipped == 2
+    assert REPEATED_PAGE_TITLE in log_titles(api_client.report.failures)
 
 
 @pytest.mark.parametrize(
@@ -276,7 +305,7 @@ def test_get_dashboards_reports_non_list_search_page(api_client, mock_session, b
         AssertionError("get_dashboards kept paging"),
     ]
 
-    assert api_client.get_dashboards() == []
+    assert api_client.get_dashboards().dashboards == []
     assert log_titles(api_client.report.failures) == {DASHBOARD_SEARCH_ERROR_TITLE}
     assert api_client.report.dashboard_search_hits_skipped == 0
 
@@ -321,11 +350,14 @@ def test_get_dashboards_skips_bad_search_hits_and_dashboards(api_client, mock_se
         ),
         _json_response({"dashboard": {"uid": "bad"}}),  # no title or panels
         _json_response(_dashboard_body("ok")),
+        _json_response([]),
     ]
 
-    dashboards = api_client.get_dashboards()
+    listing = api_client.get_dashboards()
 
-    assert [d.uid for d in dashboards] == ["ok"]
+    assert [d.uid for d in listing.dashboards] == ["ok"]
+    # Two results without a uid, and one dashboard that could not be parsed.
+    assert listing.skipped == 3
     assert api_client.report.dashboard_search_hits_skipped == 2
     assert api_client.report.dashboards_unparseable == 1
     assert not api_client.report.failures
