@@ -23,6 +23,8 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import jakarta.json.JsonException;
+import jakarta.json.JsonPatch;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
@@ -45,6 +47,7 @@ public class ChangeItemImpl implements ChangeMCP {
       @Nonnull AspectSpec aspectSpec,
       @Nullable RecordTemplate recordTemplate,
       GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate,
+      @Nonnull JsonPatch jsonPatch,
       @Nonnull MetadataChangeProposal metadataChangeProposal,
       @Nullable SystemMetadata systemMetadata,
       @Nonnull AuditStamp auditStamp,
@@ -63,12 +66,36 @@ public class ChangeItemImpl implements ChangeMCP {
         recordTemplate != null ? recordTemplate : genericPatchTemplate.getDefault();
 
     try {
-      builder.recordTemplate(genericPatchTemplate.applyPatch(currentValue));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+      builder.recordTemplate(genericPatchTemplate.applyPatch(currentValue, jsonPatch));
+    } catch (IOException | RuntimeException e) {
+      throw patchNotApplicable(e, aspectSpec, urn);
     }
 
     return builder.build(aspectRetriever);
+  }
+
+  /**
+   * A patch that does not apply to the value (a missing path, an index out of range, an unsupported
+   * op) is the caller's error, so it becomes an {@link IllegalArgumentException}, which the APIs
+   * report as a bad request. Anything else is rethrown. Only the root cause's message is kept:
+   * outer messages can quote the whole stored aspect.
+   */
+  private static RuntimeException patchNotApplicable(
+      @Nonnull Exception e, @Nonnull AspectSpec aspectSpec, @Nonnull Urn urn) {
+    Throwable root = e;
+    while (root.getCause() != null && root.getCause() != root) {
+      root = root.getCause();
+    }
+    if (root instanceof JsonException
+        || root instanceof IOException
+        || root instanceof IndexOutOfBoundsException
+        || root instanceof IllegalArgumentException) {
+      return new IllegalArgumentException(
+          String.format(
+              "Unable to apply patch to aspect %s of %s: %s",
+              aspectSpec.getName(), urn, root.getMessage()));
+    }
+    return e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
   }
 
   // type of change

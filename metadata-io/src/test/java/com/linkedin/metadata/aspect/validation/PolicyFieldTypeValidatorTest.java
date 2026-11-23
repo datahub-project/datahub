@@ -11,10 +11,13 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
@@ -428,6 +431,89 @@ public class PolicyFieldTypeValidatorTest {
             .count(),
         0,
         "Patch setting a valid filter field type should pass");
+  }
+
+  /**
+   * Index-addressed and append ops on the criteria array carry no object-shaped delta, so the
+   * request-stage check cannot see them; the patched policy is checked at pre-commit instead.
+   */
+  @Test
+  public void testIndexedPatchOpsAreNotCheckedAtRequestStage() {
+    String ops =
+        "[{\"op\":\"replace\",\"path\":\"/resources/filter/criteria/0\",\"value\":"
+            + "{\"field\":\"INVALID_FIELD_TYPE\",\"values\":[\"x\"],\"condition\":\"EQUALS\"}},"
+            + "{\"op\":\"add\",\"path\":\"/resources/filter/criteria/-\",\"value\":"
+            + "{\"field\":\"INVALID_FIELD_TYPE\",\"values\":[\"x\"],\"condition\":\"EQUALS\"}}]";
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(TEST_POLICY_URN, DATAHUB_POLICY_INFO_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0);
+  }
+
+  @Test
+  public void testAppliedPatchIntroducingInvalidFieldTypeRejected() {
+    assertEquals(
+        preCommitCount(
+            appliedPatch(
+                createPolicyInfoWithFilter("TYPE", "dataset"),
+                createPolicyInfoWithMultipleFilters("TYPE", "INVALID_FIELD_TYPE"))),
+        1);
+    assertEquals(
+        preCommitCount(
+            appliedPatch(
+                createPolicyInfoWithPrivilegeConstraints("DOMAIN"),
+                createPolicyInfoWithPrivilegeConstraints("INVALID_FIELD_TYPE"))),
+        1);
+  }
+
+  /** An unknown field type the policy already stores must not block an unrelated patch. */
+  @Test
+  public void testAppliedPatchKeepingStoredFieldTypeAllowed() {
+    DataHubPolicyInfo patched = createPolicyInfoWithFilter("FIELD_FROM_NEWER_BUILD", "x");
+    patched.setDescription("updated");
+    assertEquals(
+        preCommitCount(
+            appliedPatch(createPolicyInfoWithFilter("FIELD_FROM_NEWER_BUILD", "x"), patched)),
+        0);
+  }
+
+  /** Non-patch writes are checked once, at the request stage. */
+  @Test
+  public void testPreCommitIgnoresNonPatchWrites() {
+    TestMCP item =
+        appliedPatch(
+            createPolicyInfoWithFilter("TYPE", "dataset"),
+            createPolicyInfoWithFilter("INVALID_FIELD_TYPE", "x"));
+    assertEquals(preCommitCount(item.toBuilder().metadataChangeProposal(null).build()), 0);
+  }
+
+  private long preCommitCount(TestMCP item) {
+    return validator
+        .validatePreCommit(
+            OperationFingerprint.EMPTY, List.<ChangeMCP>of(item), mockRetrieverContext)
+        .count();
+  }
+
+  private TestMCP appliedPatch(DataHubPolicyInfo previous, DataHubPolicyInfo patched) {
+    SystemAspect previousSystemAspect = mock(SystemAspect.class);
+    when(previousSystemAspect.getRecordTemplate()).thenReturn(previous);
+    return TestMCP.builder()
+        .changeType(ChangeType.UPSERT)
+        .urn(TEST_POLICY_URN)
+        .entitySpec(entityRegistry.getEntitySpec(TEST_POLICY_URN.getEntityType()))
+        .aspectSpec(
+            entityRegistry
+                .getEntitySpec(TEST_POLICY_URN.getEntityType())
+                .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
+        .recordTemplate(patched)
+        .previousSystemAspect(previousSystemAspect)
+        .metadataChangeProposal(new MetadataChangeProposal().setChangeType(ChangeType.PATCH))
+        .build();
   }
 
   private DataHubPolicyInfo createPolicyInfoWithFilter(String fieldType, String value) {

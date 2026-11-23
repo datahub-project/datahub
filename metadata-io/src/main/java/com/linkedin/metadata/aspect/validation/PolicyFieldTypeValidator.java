@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -128,11 +129,7 @@ public class PolicyFieldTypeValidator extends AspectPayloadValidator {
         if (!VALID_ENTITY_FIELD_TYPES.contains(field)
             && !stored.contains(item, filterPath + "/criteria/*/field", field)) {
           exceptions.addException(
-              AspectValidationException.forItem(
-                  item,
-                  String.format(
-                      "Invalid field type '%s'. Must be one of: %s",
-                      field, String.join(", ", VALID_ENTITY_FIELD_TYPES))));
+              AspectValidationException.forItem(item, invalidFieldTypeMessage(field)));
         }
       }
     }
@@ -143,6 +140,59 @@ public class PolicyFieldTypeValidator extends AspectPayloadValidator {
       OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
+    // Index-addressed and append ops on a criteria array (e.g. /resources/filter/criteria/0 or
+    // /criteria/-) cannot be rebuilt as a partial policy at the request stage, so the patched
+    // policy is checked here. Only field types the stored policy did not already have at the same
+    // filter are reported: stored data must not block unrelated patches.
+    ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
+    changeMCPs.stream()
+        .filter(PatchOperationUtils::isAppliedPatch)
+        .forEach(
+            item -> {
+              DataHubPolicyInfo before = item.getPreviousAspect(DataHubPolicyInfo.class);
+              DataHubPolicyInfo after = item.getAspect(DataHubPolicyInfo.class);
+              reportIntroducedFieldTypes(
+                  item, filter(after, false), filter(before, false), exceptions);
+              reportIntroducedFieldTypes(
+                  item, filter(after, true), filter(before, true), exceptions);
+            });
+    return exceptions.streamAllExceptions();
+  }
+
+  @Nullable
+  private static PolicyMatchFilter filter(
+      @Nullable DataHubPolicyInfo policyInfo, boolean privilegeConstraints) {
+    if (policyInfo == null || !policyInfo.hasResources()) {
+      return null;
+    }
+    return privilegeConstraints
+        ? policyInfo.getResources().getPrivilegeConstraints()
+        : policyInfo.getResources().getFilter();
+  }
+
+  private static Set<String> criteriaFields(@Nullable PolicyMatchFilter filter) {
+    if (filter == null || !filter.hasCriteria()) {
+      return Set.of();
+    }
+    return filter.getCriteria().stream()
+        .map(PolicyMatchCriterion::getField)
+        .collect(Collectors.toSet());
+  }
+
+  private static void reportIntroducedFieldTypes(
+      ChangeMCP item,
+      @Nullable PolicyMatchFilter after,
+      @Nullable PolicyMatchFilter before,
+      ValidationExceptionCollection exceptions) {
+    Set<String> stored = criteriaFields(before);
+    criteriaFields(after).stream()
+        .filter(field -> !VALID_ENTITY_FIELD_TYPES.contains(field) && !stored.contains(field))
+        .forEach(field -> exceptions.addException(item, invalidFieldTypeMessage(field)));
+  }
+
+  private static String invalidFieldTypeMessage(String field) {
+    return String.format(
+        "Invalid field type '%s'. Must be one of: %s",
+        field, String.join(", ", VALID_ENTITY_FIELD_TYPES));
   }
 }

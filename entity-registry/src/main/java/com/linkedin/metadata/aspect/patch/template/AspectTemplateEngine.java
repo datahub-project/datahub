@@ -40,6 +40,10 @@ public class AspectTemplateEngine {
     return null;
   }
 
+  public boolean hasTemplate(String aspectSpecName) {
+    return _aspectTemplateMap.containsKey(aspectSpecName);
+  }
+
   /**
    * Applies a json patch to a record, optionally merging array fields as necessary
    *

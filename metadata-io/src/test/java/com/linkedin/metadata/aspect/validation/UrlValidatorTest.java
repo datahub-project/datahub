@@ -17,8 +17,10 @@ import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
@@ -704,5 +706,43 @@ public class UrlValidatorTest {
             mockRetrieverContext,
             null)
         .count();
+  }
+
+  /**
+   * A PATCH carries no aspect at proposal time; the picture link it sets is checked on the patched
+   * result at pre-commit. Other writes are not checked twice.
+   */
+  @Test
+  public void testInternalPictureLinkRejectedOnPatchedResult() {
+    CorpUserEditableInfo info = new CorpUserEditableInfo();
+    info.setPictureLink(new Url("https://169.254.169.254/latest/meta-data/"));
+    TestMCP upsert =
+        TestMCP.builder()
+            .changeType(ChangeType.UPSERT)
+            .urn(TEST_USER_URN)
+            .entitySpec(entityRegistry.getEntitySpec(TEST_USER_URN.getEntityType()))
+            .aspectSpec(
+                entityRegistry
+                    .getEntitySpec(TEST_USER_URN.getEntityType())
+                    .getAspectSpec(CORP_USER_EDITABLE_INFO_ASPECT_NAME))
+            .recordTemplate(info)
+            .build();
+    TestMCP patched =
+        upsert.toBuilder()
+            .metadataChangeProposal(new MetadataChangeProposal().setChangeType(ChangeType.PATCH))
+            .build();
+
+    assertEquals(
+        validator
+            .validatePreCommit(
+                OperationFingerprint.EMPTY, List.<ChangeMCP>of(patched), mockRetrieverContext)
+            .count(),
+        1);
+    assertEquals(
+        validator
+            .validatePreCommit(
+                OperationFingerprint.EMPTY, List.<ChangeMCP>of(upsert), mockRetrieverContext)
+            .count(),
+        0);
   }
 }

@@ -2,6 +2,7 @@ package com.linkedin.metadata.aspect.patch;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.batch.PatchMCP;
 import com.linkedin.metadata.utils.JacksonStreamConstraints;
@@ -99,6 +100,15 @@ public final class PatchOperationUtils {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /**
+   * Whether {@code item} is the applied result of a PATCH. It reaches pre-commit validators as an
+   * UPSERT carrying the full patched aspect, while at proposal time the PATCH carries no aspect.
+   */
+  public static boolean isAppliedPatch(@Nonnull MCPItem item) {
+    return item.getMetadataChangeProposal() != null
+        && ChangeType.PATCH.equals(item.getMetadataChangeProposal().getChangeType());
   }
 
   /**

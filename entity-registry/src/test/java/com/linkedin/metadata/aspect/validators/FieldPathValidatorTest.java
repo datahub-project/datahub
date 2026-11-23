@@ -11,11 +11,14 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -267,6 +270,86 @@ public class FieldPathValidatorTest {
                 null)
             .count(),
         0);
+  }
+
+  /**
+   * A template-less schemaMetadata PATCH can append or rewrite a single field by array index, which
+   * the proposal-time check cannot see. The patched result is checked at pre-commit.
+   */
+  @Test
+  public void testAppliedPatchIntroducingDuplicateFieldPathRejected() {
+    assertEquals(
+        preCommitCount(
+            appliedPatch(schemaWithPaths("col_a", "col_b"), schemaWithPaths("col_a", "col_a"))),
+        1);
+  }
+
+  @Test
+  public void testAppliedPatchIntroducingEmptyFieldPathRejected() {
+    assertEquals(
+        preCommitCount(appliedPatch(schemaWithPaths("col_a"), schemaWithPaths("col_a", ""))), 1);
+    assertEquals(preCommitCount(appliedPatch(null, schemaWithPaths(""))), 1);
+  }
+
+  /** Bad data already stored must not block an unrelated patch to the same aspect. */
+  @Test
+  public void testAppliedPatchKeepingExistingViolationsAllowed() {
+    assertEquals(
+        preCommitCount(
+            appliedPatch(
+                schemaWithPaths("col_a", "col_a", ""),
+                schemaWithPaths("col_a", "col_a", "", "col_b"))),
+        0);
+  }
+
+  /** Non-patch writes are checked once, as proposals. */
+  @Test
+  public void testPreCommitIgnoresNonPatchWrites() {
+    TestMCP upsert = appliedPatch(schemaWithPaths("col_a"), schemaWithPaths("col_a", "col_a"));
+    assertEquals(preCommitCount(upsert.toBuilder().metadataChangeProposal(null).build()), 0);
+  }
+
+  private long preCommitCount(TestMCP item) {
+    return test.validatePreCommit(
+            OperationFingerprint.EMPTY, List.<ChangeMCP>of(item), mockRetrieverContext)
+        .count();
+  }
+
+  private TestMCP appliedPatch(@Nullable SchemaMetadata previous, SchemaMetadata patched) {
+    SystemAspect previousSystemAspect = null;
+    if (previous != null) {
+      previousSystemAspect = mock(SystemAspect.class);
+      when(previousSystemAspect.getRecordTemplate()).thenReturn(previous);
+    }
+    return TestMCP.builder()
+        .changeType(ChangeType.UPSERT)
+        .urn(TEST_DATASET_URN)
+        .entitySpec(entityRegistry.getEntitySpec(TEST_DATASET_URN.getEntityType()))
+        .aspectSpec(
+            entityRegistry
+                .getEntitySpec(TEST_DATASET_URN.getEntityType())
+                .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
+        .recordTemplate(patched)
+        .previousSystemAspect(previousSystemAspect)
+        .metadataChangeProposal(new MetadataChangeProposal().setChangeType(ChangeType.PATCH))
+        .build();
+  }
+
+  private static SchemaMetadata schemaWithPaths(String... fieldPaths) {
+    List<SchemaField> fields = new ArrayList<>();
+    for (String fieldPath : fieldPaths) {
+      fields.add(
+          new SchemaField()
+              .setType(
+                  new SchemaFieldDataType()
+                      .setType(SchemaFieldDataType.Type.create(new StringType())))
+              .setNullable(false)
+              .setNativeDataType("string")
+              .setFieldPath(fieldPath));
+    }
+    return new SchemaMetadata()
+        .setPlatform(TEST_DATASET_URN.getPlatformEntity())
+        .setFields(new SchemaFieldArray(fields));
   }
 
   private static SchemaMetadata getMockSchemaMetadataAspect(boolean duplicateFields) {

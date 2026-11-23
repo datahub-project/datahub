@@ -1,12 +1,15 @@
 package com.linkedin.metadata.structuredproperties.validators;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -20,6 +23,8 @@ import com.linkedin.test.metadata.aspect.MockAspectRetriever;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.mockito.Mockito;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
@@ -195,5 +200,81 @@ public class ShowPropertyAsBadgeValidatorTest {
 
     // Assert no validation exceptions
     Assert.assertTrue(validationResult.findAny().isEmpty());
+  }
+
+  private static final ShowPropertyAsBadgeValidator VALIDATOR =
+      new ShowPropertyAsBadgeValidator()
+          .setConfig(
+              AspectPluginConfig.builder()
+                  .className(ShowPropertyAsBadgeValidator.class.getName())
+                  .enabled(true)
+                  .supportedOperations(
+                      List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                  .supportedEntityAspectNames(
+                      List.of(
+                          AspectPluginConfig.EntityAspectName.builder()
+                              .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                              .aspectName(STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME)
+                              .build()))
+                  .build());
+
+  /** A PATCH has no merged aspect at the request stage, so it is checked at pre-commit. */
+  @Test
+  public void testPatchNotCheckedAtRequestStage() {
+    mockExistingBadge();
+    for (boolean alternateValidation : new boolean[] {true, false}) {
+      Assert.assertEquals(
+          VALIDATOR
+              .validateProposed(
+                  OperationFingerprint.EMPTY,
+                  Set.of(HidePropertyValidatorTest.hideAndShowInFiltersPatch(alternateValidation)),
+                  retrieverContext,
+                  null)
+              .count(),
+          0);
+    }
+  }
+
+  @Test
+  public void testAppliedPatchAddingSecondBadgeRejected() {
+    mockExistingBadge();
+    Assert.assertEquals(
+        preCommitCount(
+            HidePropertyValidatorTest.appliedPatch(
+                new StructuredPropertySettings(),
+                new StructuredPropertySettings().setShowAsAssetBadge(true))),
+        1);
+  }
+
+  /** A property that already showed its badge must not be blocked by an unrelated patch. */
+  @Test
+  public void testAppliedPatchKeepingBadgeAllowed() throws CloneNotSupportedException {
+    mockExistingBadge();
+    StructuredPropertySettings badge = new StructuredPropertySettings().setShowAsAssetBadge(true);
+    Assert.assertEquals(
+        preCommitCount(
+            HidePropertyValidatorTest.appliedPatch(
+                badge, badge.copy().setShowInAssetSummary(true))),
+        0);
+  }
+
+  private long preCommitCount(TestMCP item) {
+    return VALIDATOR
+        .validatePreCommit(OperationFingerprint.EMPTY, List.<ChangeMCP>of(item), retrieverContext)
+        .count();
+  }
+
+  private void mockExistingBadge() {
+    SearchEntity existingBadge = new SearchEntity();
+    existingBadge.setEntity(EXISTING_BADGE_URN);
+    Mockito.when(
+            mockSearchRetriever.scroll(
+                Mockito.eq(Collections.singletonList(STRUCTURED_PROPERTY_ENTITY_NAME)),
+                Mockito.any(Filter.class),
+                Mockito.eq(null),
+                Mockito.eq(10)))
+        .thenReturn(
+            new ScrollResult()
+                .setEntities(new SearchEntityArray(Collections.singletonList(existingBadge))));
   }
 }

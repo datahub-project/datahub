@@ -9,16 +9,19 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.logical.LogicalParent;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
@@ -207,5 +210,32 @@ public class LogicalParentPlatformValidatorTest {
 
     Assert.assertTrue(exceptions.isEmpty());
     Mockito.verifyNoInteractions(mockAspectRetriever);
+  }
+
+  /**
+   * A PATCH carries no aspect at proposal time; its patched result reaches pre-commit as an UPSERT
+   * whose source proposal is the PATCH, and is checked there. Other writes are not checked twice.
+   */
+  @Test
+  public void rejectsNonLogicalParentPlatformOnPatchedResult() {
+    stubPlatform(UrnUtils.getUrn("urn:li:dataPlatform:snowflake"), false);
+    TestMCP upsert = (TestMCP) datasetLink(NON_LOGICAL_PARENT_DATASET);
+    ChangeMCP patched =
+        upsert.toBuilder()
+            .metadataChangeProposal(new MetadataChangeProposal().setChangeType(ChangeType.PATCH))
+            .build();
+
+    Assert.assertEquals(
+        validator
+            .validatePreCommitAspects(
+                OperationFingerprint.EMPTY, List.of(patched), retrieverContext)
+            .count(),
+        1);
+    Assert.assertEquals(
+        validator
+            .validatePreCommitAspects(
+                OperationFingerprint.EMPTY, List.<ChangeMCP>of(upsert), retrieverContext)
+            .count(),
+        0);
   }
 }

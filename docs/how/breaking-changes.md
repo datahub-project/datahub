@@ -15,6 +15,16 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### PATCH on aspects without a patch template ([#21463](https://github.com/datahub-project/datahub/pull/21463))
+
+Aspects without a built-in patch template now accept JSON Patch (RFC 6902) operations, where a
+PATCH used to fail with a server error. This covers aspects defined in model plugins and stock
+aspects such as `subTypes`, `container` and `schemaMetadata`. A patch to a path that the aspect
+does not have is rejected (HTTP 400, or 422 on Rest.li), so a change is never dropped silently. For
+example, `for_field(..., editable=False).add_tag(...)` in the Python SDK targets a path that
+`schemaMetadata` does not have, and it still fails: use the default `editable=True`. Invalid
+patches on these aspects return client errors (4xx) instead of server errors.
+
 ### Semantic search template sends an entity URN to similarity ([#21474](https://github.com/datahub-project/datahub/pull/21474))
 
 System update now writes version 19 of the shipped search templates. `urn:li:searchTemplate:semantic`

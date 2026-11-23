@@ -8,10 +8,12 @@ import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
@@ -59,6 +61,8 @@ public class ShowPropertyAsBadgeValidator extends AspectPayloadValidator {
         operationContext,
         mcpItems.stream()
             .filter(i -> STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME.equals(i.getAspectName()))
+            // A PATCH has no merged aspect yet; it is checked at pre-commit.
+            .filter(i -> !ChangeType.PATCH.equals(i.getChangeType()))
             .collect(Collectors.toList()),
         retrieverContext);
   }
@@ -68,7 +72,20 @@ public class ShowPropertyAsBadgeValidator extends AspectPayloadValidator {
       OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
+    // Only a patch that turns the badge on is checked, so a property that already shows its badge
+    // is not blocked by unrelated patches.
+    return validateSettingsUpserts(
+        operationContext,
+        changeMCPs.stream()
+            .filter(PatchOperationUtils::isAppliedPatch)
+            .filter(
+                item -> {
+                  StructuredPropertySettings before =
+                      item.getPreviousAspect(StructuredPropertySettings.class);
+                  return before == null || !before.isShowAsAssetBadge();
+                })
+            .collect(Collectors.toList()),
+        retrieverContext);
   }
 
   @VisibleForTesting
