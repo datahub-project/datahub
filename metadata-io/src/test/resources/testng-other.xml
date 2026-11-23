@@ -77,6 +77,23 @@
                     <exclude name=".*" />
                 </methods>
             </class>
+            <!-- These switch the process-wide AuthUtil REST API authorization flag. They run one
+                 class at a time in testng-opensearch.xml. -->
+            <class name="com.linkedin.metadata.aspect.validation.PrivilegeConstraintsValidatorTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.aspect.validation.PrivilegeConstraintsWriteGateParityTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.authorization.EntityAuthorizationUtilsSubResourceGateTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
             <class name="com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffectTest">
                 <methods>
                     <exclude name=".*" />
