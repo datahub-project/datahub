@@ -6,7 +6,8 @@ import useBulkDataProductMemberships from '@app/lineageV3/queries/useBulkDataPro
  * Add a sibling hook when a new rootType gains a bulk membership API, and add
  * its EntityType to BOUNDING_BOX_MEMBERSHIP_RESOLVED_ROOT_TYPES.
  */
-export default function useBulkBoundingBoxMemberships() {
-    useBulkDataProductMemberships();
+export default function useBulkBoundingBoxMemberships(): { loading: boolean } {
+    const dataProducts = useBulkDataProductMemberships();
     // Future: useBulkSemanticModelMemberships();
+    return { loading: dataProducts.loading };
 }

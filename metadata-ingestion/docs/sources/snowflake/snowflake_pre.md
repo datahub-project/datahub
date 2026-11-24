@@ -11,6 +11,9 @@ Execute the following commands as `ACCOUNTADMIN` or a user with `MANAGE GRANTS` 
 ```sql
 create or replace role datahub_role;
 
+// Note: in a schema that has its own future grant on an object type (to any role), Snowflake ignores
+// the database-level future grant for that type. Add a schema-level future grant there instead.
+
 // Grant access to a warehouse to run queries to view metadata
 grant operate, usage on warehouse "<your-warehouse>" to role datahub_role;
 
@@ -33,6 +36,14 @@ grant references on future views in database "<your-database>" to role datahub_r
 // Required if you have Dynamic Tables and want DataHub to extract them and their lineage.
 grant monitor on all dynamic tables in database "<your-database>" to role datahub_role;
 grant monitor on future dynamic tables in database "<your-database>" to role datahub_role;
+
+// Optional - required to ingest stored procedures (include_procedures, enabled by default).
+// information_schema.procedures only lists procedures the role has privileges on.
+// WARNING: USAGE on a procedure is the privilege to CALL it, and procedures run with their
+// owner's rights by default. Prefer granting on specific schemas, or set
+// include_procedures: false if this role must not be able to execute procedures.
+grant usage on all procedures in database "<your-database>" to role datahub_role;
+grant usage on future procedures in database "<your-database>" to role datahub_role;
 
 // If you ARE using Snowflake Profiling or Classification feature: Grant select privileges to your tables
 grant select on all tables in database "<your-database>" to role datahub_role;
@@ -105,6 +116,7 @@ grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 - `monitor` on `tasks` is required to list tasks via `SHOW TASKS`. Only needed if `include_tasks: true`.
 - `monitor` on `pipes` is required to list pipes via `SHOW PIPES`. Only needed if `include_pipes: true`. Snowflake does not support bulk grants on pipes, so existing pipes need a per-pipe `grant monitor on pipe ...` (future grants are fine) or the account-level `MONITOR EXECUTION` privilege (which exposes every pipe and task in the account). Pipes without one of these are missing from `SHOW PIPES` and therefore not ingested.
 - `monitor` on `dynamic tables` is required for DataHub to extract their lineage, both table-level and column-level.
+- `usage` on `procedures` is required for stored procedures to appear in `information_schema.procedures`. Only needed if `include_procedures: true` (the default). DataHub never calls procedures, but `usage` also allows calling them, and procedures run with their owner's rights by default, so anyone holding this role's credential could run them. Grant it only on the schemas you want ingested, or set `include_procedures: false`. Snowflake hides the definition of owner's-rights and secure procedures from roles that don't own them, so those may be ingested without code or lineage, or not at all.
 
 This represents the bare minimum privileges required to extract databases, schemas, views, and tables from Snowflake.
 

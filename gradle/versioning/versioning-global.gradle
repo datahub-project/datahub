@@ -126,6 +126,9 @@ if (project.hasProperty("releaseVersion")) {
         // we are unable to part the last token as an integer, so we just append SNAPSHOT to this version
         javaVersion = versionParts[0..versionParts.size()-1].join('.') + '-SNAPSHOT'
       }
+  } else {
+    // Dotted, not the hyphenated form above: jars are published under the dotted tag (-PreleaseVersion).
+    javaVersion = versionParts.join('.')
   }
 }
 

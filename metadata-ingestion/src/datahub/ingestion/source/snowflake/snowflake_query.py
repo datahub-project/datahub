@@ -592,6 +592,14 @@ class SnowflakeQuery:
         return f"""SHOW {kind} IN DATABASE {database} LIMIT {limit};"""
 
     @staticmethod
+    def show_materialized_views_for_database(db_name: str) -> str:
+        # SHOW MATERIALIZED VIEWS takes no LIMIT and drops rows past 10,000 without an error.
+        database = SnowflakeIdentifierBuilder.get_quoted_identifier_for_database(
+            db_name
+        )
+        return f"""SHOW MATERIALIZED VIEWS IN DATABASE {database};"""
+
+    @staticmethod
     def show_objects_for_schema(
         kind: SnowflakeShowKind,
         db_name: str,

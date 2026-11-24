@@ -634,7 +634,6 @@ def create_native_group(auth_session, group_id: str) -> str:
     result = execute_graphql(auth_session, CREATE_GROUP, {"input": {"name": group_id}})
     group_urn = result["data"]["createGroup"]
     assert group_urn
-    wait_for_writes_to_sync()
     return group_urn
 
 
@@ -714,7 +713,6 @@ def add_users_to_native_group(
     variables = {"input": {"groupUrn": group_urn, "userUrns": user_urns}}
     if wait_for_sync:
         execute_graphql(auth_session, ADD_GROUP_MEMBERS, variables)
-        wait_for_writes_to_sync()
     else:
         execute_graphql_no_sync_wait(auth_session, ADD_GROUP_MEMBERS, variables)
 
@@ -727,12 +725,10 @@ def remove_users_from_native_group(
         REMOVE_GROUP_MEMBERS,
         {"input": {"groupUrn": group_urn, "userUrns": user_urns}},
     )
-    wait_for_writes_to_sync()
 
 
 def delete_native_group(auth_session, group_urn: str) -> None:
     execute_graphql(auth_session, REMOVE_GROUP, {"urn": group_urn})
-    wait_for_writes_to_sync()
 
 
 def add_corp_group_membership(

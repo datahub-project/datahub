@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.EntityRelationship;
@@ -13,6 +14,7 @@ import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.generated.CorpUserInfo;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipsResult;
 import com.linkedin.datahub.graphql.generated.RelationshipDirection;
@@ -155,6 +157,16 @@ public class GmsGraphQLEngineWiringTest {
     assertFetcher("AccessTokenMetadata", "owner", LoadableTypeResolver.class);
     assertFetcher("DataPlatformInstance", "platform", LoadableTypeResolver.class);
     assertFetcher("ExecutionRequest", "source", LoadableTypeResolver.class);
+  }
+
+  @Test
+  public void testCorpUserInfoManagerIsNullWhenUnset() throws Exception {
+    QueryContext context = getMockAllowContext();
+    DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
+    when(env.getContext()).thenReturn(context);
+    when(env.getSource()).thenReturn(new CorpUserInfo());
+
+    assertNull(fetcher("CorpUserInfo", "manager").get(env));
   }
 
   private void assertFetcher(String type, String field, Class<?> expected) {

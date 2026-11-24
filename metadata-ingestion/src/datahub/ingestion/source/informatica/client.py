@@ -16,6 +16,7 @@ from typing import (
     List,
     Optional,
     Sequence,
+    Set,
     TypedDict,
 )
 from urllib.parse import urlencode
@@ -83,6 +84,19 @@ _RETRY_POLICY = Retry(
     raise_on_status=False,
 )
 
+# Export submits are not idempotent: a retry after a read timeout or a 5xx
+# from a gateway can create a second job for a request IDMC already accepted.
+# Only connection errors (never sent) and 429/503 (rejected) are retried.
+_EXPORT_SUBMIT_RETRY_POLICY = Retry(
+    total=3,
+    read=0,
+    backoff_factor=1.0,
+    status_forcelist=(429, 503),
+    allowed_methods=frozenset({"POST"}),
+    respect_retry_after_header=True,
+    raise_on_status=False,
+)
+
 
 class InformaticaClient:
     """REST API client for Informatica Cloud (IDMC)."""
@@ -98,16 +112,25 @@ class InformaticaClient:
         adapter = HTTPAdapter(max_retries=_RETRY_POLICY)
         self._session.mount("https://", adapter)
         self._session.mount("http://", adapter)
+        self._export_submit_session = requests.Session()
+        submit_adapter = HTTPAdapter(max_retries=_EXPORT_SUBMIT_RETRY_POLICY)
+        self._export_submit_session.mount("https://", submit_adapter)
+        self._export_submit_session.mount("http://", submit_adapter)
         self._session_id: Optional[str] = None
         self._base_url: Optional[str] = None
         self._session_last_validated_at: Optional[float] = None
         self._taskflow_definition_cache: Dict[str, TaskflowDefinition] = {}
+        # GUIDs a batched export already tried without returning a definition.
+        # Kept apart from the cache, which means "exported", so a retry as a
+        # one-off export per Taskflow is skipped for them.
+        self._taskflow_export_missed: Set[str] = set()
         # One-shot guard so a persistently broken ``/validSessionId`` surfaces
         # once per run instead of spamming the report on every API call.
         self._session_validation_warned: bool = False
 
     def close(self) -> None:
         self._session.close()
+        self._export_submit_session.close()
 
     def login(self) -> str:
         """Authenticate via the v2 login endpoint. Returns the session id."""
@@ -256,14 +279,24 @@ class InformaticaClient:
         params: Optional[Dict[str, Any]] = None,
         json_body: Optional[Any] = None,
         stream: bool = False,
+        session: Optional[requests.Session] = None,
     ) -> requests.Response:
         """Execute an authenticated request; retry once on 401/AUTH_01."""
+        send_session = session or self._session
         resp = self._do_send(
-            self._ensure_authenticated(), method, url, is_v3, params, json_body, stream
+            send_session,
+            self._ensure_authenticated(),
+            method,
+            url,
+            is_v3,
+            params,
+            json_body,
+            stream,
         )
         if self._is_auth_failure(resp):
             logger.info("IDMC session rejected by server, re-authenticating")
             resp = self._do_send(
+                send_session,
                 self._ensure_authenticated(clear_session=True),
                 method,
                 url,
@@ -282,6 +315,7 @@ class InformaticaClient:
 
     def _do_send(
         self,
+        session: requests.Session,
         session_id: str,
         method: str,
         url: str,
@@ -295,7 +329,7 @@ class InformaticaClient:
         }
         if json_body is not None:
             headers["Content-Type"] = "application/json"
-        resp = self._session.request(
+        resp = session.request(
             method,
             url,
             headers=headers,
@@ -335,9 +369,18 @@ class InformaticaClient:
         resp.raise_for_status()
         return self._decode_json(resp)
 
-    def _post_v3(self, path: str, json_body: Any) -> Any:
+    def _post_v3(
+        self,
+        path: str,
+        json_body: Any,
+        session: Optional[requests.Session] = None,
+    ) -> Any:
         resp = self._request(
-            "POST", f"{self._base_url}{path}", is_v3=True, json_body=json_body
+            "POST",
+            f"{self._base_url}{path}",
+            is_v3=True,
+            json_body=json_body,
+            session=session,
         )
         resp.raise_for_status()
         return self._decode_json(resp)
@@ -531,7 +574,7 @@ class InformaticaClient:
         # REST endpoints fail on modern CDI pods; fall back to a one-off v3
         # export. Callers that know the full GUID set should use
         # ``prefetch_taskflow_definitions`` (single batched job).
-        if taskflow_v3_guid:
+        if taskflow_v3_guid and taskflow_v3_guid not in self._taskflow_export_missed:
             definitions = self._download_taskflow_export_definitions([taskflow_v3_guid])
             if taskflow_v3_guid in definitions:
                 parsed = definitions[taskflow_v3_guid]
@@ -539,8 +582,11 @@ class InformaticaClient:
                 return parsed if parsed.steps else None
         return None
 
+    def has_taskflow_definition(self, taskflow_v3_guid: str) -> bool:
+        return taskflow_v3_guid in self._taskflow_definition_cache
+
     def prefetch_taskflow_definitions(self, taskflow_v3_guids: Iterable[str]) -> None:
-        """Batch-export N Taskflows in a single job and cache the parsed DAGs.
+        """Export Taskflows in ``export_batch_size`` jobs and cache the parsed DAGs.
 
         Idempotent — already-cached GUIDs are skipped.
         """
@@ -551,11 +597,19 @@ class InformaticaClient:
         ]
         if not guids:
             return
-        definitions = self._download_taskflow_export_definitions(guids)
-        self._taskflow_definition_cache.update(definitions)
+        batch_size = self.config.export_batch_size
+        prefetched = 0
+        for i in range(0, len(guids), batch_size):
+            batch = guids[i : i + batch_size]
+            definitions = self._download_taskflow_export_definitions(batch)
+            self._taskflow_definition_cache.update(definitions)
+            self._taskflow_export_missed.update(
+                g for g in batch if g not in definitions
+            )
+            prefetched += len(definitions)
         logger.info(
             "Prefetched %d/%d Taskflow definitions via batched v3 export",
-            len(definitions),
+            prefetched,
             len(guids),
         )
 
@@ -568,7 +622,7 @@ class InformaticaClient:
         """
         try:
             job_id = self.submit_export_job(guids)
-        except (InformaticaApiError, requests.HTTPError) as e:
+        except (InformaticaApiError, requests.RequestException) as e:
             self.report.warning(
                 title="IDMC Taskflow batch export submit failed",
                 message=(
@@ -583,9 +637,19 @@ class InformaticaClient:
             return {}
         status = self.wait_for_export(job_id)
         if status.state != ExportJobState.SUCCESSFUL:
-            # TIMEOUT is already reported inside wait_for_export; other
-            # non-success states get a warning with IDMC's status.message.
-            if status.state != ExportJobState.TIMEOUT:
+            # wait_for_export reports the timeout itself; this adds what it
+            # means for Taskflows and the setting to change.
+            if status.state == ExportJobState.TIMEOUT:
+                self.report.warning(
+                    title="IDMC Taskflow batch export timed out",
+                    message=(
+                        "Taskflow step DAGs will be missing for this batch. "
+                        "Lower export_batch_size (Taskflow exports are slower "
+                        "than mapping exports) or raise export_poll_timeout_secs."
+                    ),
+                    context=f"job_id={job_id}, {len(guids)} taskflow(s)",
+                )
+            else:
                 self.report.warning(
                     title="IDMC Taskflow batch export did not succeed",
                     message="Export ended in non-success state; taskflow step DAGs will be missing for this batch",
@@ -600,7 +664,7 @@ class InformaticaClient:
                 stream=True,
             )
             resp.raise_for_status()
-        except (InformaticaApiError, requests.HTTPError) as e:
+        except (InformaticaApiError, requests.RequestException) as e:
             self.report.warning(
                 title="IDMC Taskflow export package download failed",
                 message="Taskflow step DAGs will be missing for this batch.",
@@ -616,7 +680,9 @@ class InformaticaClient:
                 {"id": obj_id, "includeDependencies": False} for obj_id in object_ids
             ]
         }
-        data = self._post_v3("/public/core/v3/export", body)
+        data = self._post_v3(
+            "/public/core/v3/export", body, session=self._export_submit_session
+        )
         job_id = data.get("id", "")
         if not job_id:
             raise InformaticaApiError(f"Export job submission returned no ID: {data}")
@@ -639,7 +705,7 @@ class InformaticaClient:
         while time.time() < deadline:
             try:
                 status = self.poll_export_job(job_id)
-            except (InformaticaApiError, requests.HTTPError) as e:
+            except (InformaticaApiError, requests.RequestException) as e:
                 logger.warning("Transient error polling export job %s: %s", job_id, e)
                 time.sleep(
                     self.config.export_poll_interval_secs + random.uniform(-1, 1)

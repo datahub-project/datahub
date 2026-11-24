@@ -1,6 +1,6 @@
 import datetime as _dt
 from contextlib import ExitStack, contextmanager, nullcontext
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
@@ -55,6 +55,122 @@ def _create_sigma_api() -> SigmaAPI:
     with patch.object(SigmaAPI, "_generate_token"):
         api = SigmaAPI(config=config, report=report)
     return api
+
+
+class TestGetDataModelSpec:
+    def test_a_spec_is_returned(self) -> None:
+        api = _create_sigma_api()
+        response = MagicMock(status_code=200)
+        response.json.return_value = {"schemaVersion": 1, "pages": []}
+        with patch.object(api, "_get_api_call", return_value=response) as call:
+            assert api.get_data_model_spec("dm 1") == {"schemaVersion": 1, "pages": []}
+        assert call.call_args[0][0].endswith("/dataModels/dm%201/spec")
+
+    @pytest.mark.parametrize(
+        "failure",
+        [
+            MagicMock(
+                status_code=403,
+                raise_for_status=MagicMock(
+                    side_effect=requests.exceptions.HTTPError(
+                        response=MagicMock(status_code=403)
+                    )
+                ),
+            ),
+            requests.exceptions.ConnectionError("down"),
+        ],
+        ids=["http-403", "network"],
+    )
+    def test_failures_are_counted_and_grouped_under_one_warning(
+        self, failure: Any
+    ) -> None:
+        """Every model's failure stays visible as a context, so a 403 on every
+        model is not hidden behind the first model's transient error."""
+        api = _create_sigma_api()
+        kwargs = (
+            {"side_effect": failure}
+            if isinstance(failure, Exception)
+            else {"return_value": failure}
+        )
+        with patch.object(api, "_get_api_call", **kwargs):
+            assert api.get_data_model_spec("dm-1") is None
+            assert api.get_data_model_spec("dm-2") is None
+        assert api.report.data_model_spec_fetch_failed == 2
+        spec_warnings = [
+            w
+            for w in api.report.warnings
+            if w.title == "Sigma Data Model spec unavailable"
+        ]
+        assert len(spec_warnings) == 1
+        assert [c.split(",")[0] for c in spec_warnings[0].context] == [
+            "data_model=dm-1",
+            "data_model=dm-2",
+        ]
+
+    @staticmethod
+    def _response(status: int) -> MagicMock:
+        response = MagicMock(status_code=status)
+        if status >= 400:
+            response.raise_for_status.side_effect = requests.HTTPError(
+                response=response
+            )
+        response.json.return_value = {}
+        return response
+
+    @pytest.mark.parametrize(
+        "first, then_called",
+        [
+            ([410], False),
+            # One refusal may be that model's alone.
+            ([403], True),
+            ([403, 404, 403], False),
+            ([500, 500, 500], True),
+            # After a success a 403 is that model's alone.
+            ([200, 403, 403, 403], True),
+        ],
+    )
+    def test_only_an_unavailable_endpoint_before_any_success_stops_the_call(
+        self, first: List[int], then_called: bool
+    ) -> None:
+        api = _create_sigma_api()
+        with patch.object(
+            api, "_get_api_call", side_effect=[self._response(s) for s in first]
+        ):
+            for i, _ in enumerate(first):
+                api.get_data_model_spec(f"dm-first-{i}")
+        with patch.object(
+            api, "_get_api_call", return_value=self._response(200)
+        ) as mock_get:
+            result = api.get_data_model_spec("dm-next")
+
+        assert mock_get.called == then_called
+        assert result == ({} if then_called else None)
+        assert api.report.data_model_spec_skipped == (0 if then_called else 1)
+
+    def test_one_model_refused_repeatedly_does_not_stop_the_call(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=self._response(403)):
+            for _ in range(3):
+                api.get_data_model_spec("dm-1")
+        with patch.object(
+            api, "_get_api_call", return_value=self._response(200)
+        ) as mock_get:
+            api.get_data_model_spec("dm-2")
+
+        assert mock_get.called
+
+
+def test_only_the_first_spec_failure_is_logged(caplog: Any) -> None:
+    """A token without /spec access fails every model; the report keeps each
+    one, but the log gets one line, not one per Data Model."""
+    api = _create_sigma_api()
+    with patch.object(
+        api, "_get_api_call", side_effect=requests.exceptions.ConnectionError("x")
+    ):
+        for dm in ("dm-1", "dm-2", "dm-3"):
+            api.get_data_model_spec(dm)
+    logged = [r for r in caplog.records if "spec unavailable" in r.getMessage()]
+    assert len(logged) == 1
 
 
 class TestTokenRefreshOn401:
@@ -5195,3 +5311,102 @@ class TestMalformedPageShape:
         context = _contexts(api.report.failures)
         assert "did not have the shape" not in context
         assert "likely a bug in this connector" in context or "Transient" in context
+
+
+class TestGetWorkbookSchema:
+    def test_returns_the_document(self) -> None:
+        api = _create_sigma_api()
+        response = MagicMock(status_code=200)
+        response.json.return_value = {"sheets": {}}
+
+        with patch.object(api, "_get_api_call", return_value=response) as mock_get:
+            assert api.get_workbook_schema("wb-1") == {"sheets": {}}
+
+        assert mock_get.call_args.args[0].endswith("/workbooks/wb-1/schema")
+        assert api.report.workbook_schema_fetch_failed == 0
+
+    def test_a_failure_is_counted_not_raised(self) -> None:
+        api = _create_sigma_api()
+        response = MagicMock(status_code=500)
+        response.raise_for_status.side_effect = requests.HTTPError(response=response)
+
+        with patch.object(api, "_get_api_call", return_value=response):
+            assert api.get_workbook_schema("wb-1") is None
+
+        assert api.report.workbook_schema_fetch_failed == 1
+        assert api.report.api_call_failures_by_status_or_error == {"500": 1}
+        assert len(api.report.warnings) == 1
+
+    @staticmethod
+    def _response(status: int, body: Any = None) -> MagicMock:
+        response = MagicMock(status_code=status)
+        if status >= 400:
+            response.raise_for_status.side_effect = requests.HTTPError(
+                response=response
+            )
+        if isinstance(body, Exception):
+            response.json.side_effect = body
+        else:
+            response.json.return_value = {} if body is None else body
+        return response
+
+    @pytest.mark.parametrize(
+        "first, then_called",
+        [
+            # Gone: the endpoint, not a workbook.
+            ([(410, None)], False),
+            # One refusal may be that workbook's alone.
+            ([(404, None)], True),
+            ([(403, None)], True),
+            # Refused for several workbooks before anything succeeded.
+            ([(404, None), (403, None), (404, None)], False),
+            # Transient: re-asked for the next workbook.
+            ([(500, None)], True),
+            # Permanent, but about that workbook's request or body.
+            ([(400, None)], True),
+            ([(422, None)], True),
+            ([(200, ["not", "an", "object"])], True),
+            ([(200, requests.exceptions.JSONDecodeError("bad", "<html>", 0))], True),
+            # After a success a 404 is that workbook's alone.
+            ([(200, None), (404, None)], True),
+        ],
+    )
+    def test_only_an_unavailable_endpoint_before_any_success_stops_the_call(
+        self, first: List[Tuple[int, Any]], then_called: bool
+    ) -> None:
+        api = _create_sigma_api()
+        responses = [self._response(status, body) for status, body in first]
+        with patch.object(api, "_get_api_call", side_effect=responses):
+            for i, _ in enumerate(first):
+                api.get_workbook_schema(f"wb-first-{i}")
+        with patch.object(
+            api, "_get_api_call", return_value=self._response(200)
+        ) as mock_get:
+            result = api.get_workbook_schema("wb-2")
+
+        assert mock_get.called == then_called
+        assert result == ({} if then_called else None)
+        assert api.report.workbook_schema_skipped == (0 if then_called else 1)
+
+    def test_one_workbook_refused_repeatedly_does_not_stop_the_call(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=self._response(404)):
+            for _ in range(3):
+                api.get_workbook_schema("wb-1")
+        with patch.object(
+            api, "_get_api_call", return_value=self._response(200)
+        ) as mock_get:
+            api.get_workbook_schema("wb-2")
+
+        assert mock_get.called
+
+    def test_a_body_that_is_not_an_object_is_a_failure(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(
+            api, "_get_api_call", return_value=self._response(200, body=[1, 2])
+        ):
+            assert api.get_workbook_schema("wb-1") is None
+
+        assert api.report.workbook_schema_fetched == 0
+        assert api.report.workbook_schema_fetch_failed == 1
+        assert len(api.report.warnings) == 1

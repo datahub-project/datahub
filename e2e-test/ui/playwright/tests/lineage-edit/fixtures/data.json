@@ -1,0 +1,126 @@
+[
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_lineage_edit_upstream_subject,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "pw_lineage_edit_upstream_subject",
+        "description": "Dataset whose upstream the lineage edit spec changes",
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_lineage_edit_downstream_subject,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "pw_lineage_edit_downstream_subject",
+        "description": "Dataset whose downstream the lineage edit spec changes",
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_lineage_edit_upstream,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "pw_lineage_edit_upstream",
+        "description": "Dataset the lineage edit spec adds as an upstream",
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_lineage_edit_downstream,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "pw_lineage_edit_downstream",
+        "description": "Dataset the lineage edit spec adds as a downstream",
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_lineage_edit_anchor_upstream,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "pw_lineage_edit_anchor_upstream",
+        "description": "Seeded upstream of pw_lineage_edit_upstream_subject that the lineage edit spec never changes; once drawn, the graph has loaded",
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_lineage_edit_anchor_downstream,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "pw_lineage_edit_anchor_downstream",
+        "description": "Seeded downstream of pw_lineage_edit_downstream_subject that the lineage edit spec never changes; once drawn, the graph has loaded",
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_lineage_edit_upstream_subject,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_lineage_edit_anchor_upstream,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_lineage_edit_anchor_downstream,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_lineage_edit_downstream_subject,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  }
+]

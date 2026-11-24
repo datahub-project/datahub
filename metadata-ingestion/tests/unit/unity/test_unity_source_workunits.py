@@ -513,6 +513,53 @@ def test_view_definition_is_emitted_and_the_view_is_not_queued_for_profiling(
     assert "orders_view" not in {ref.table for ref in full_run.source.table_refs}
 
 
+@pytest.mark.parametrize(
+    "table_type, materialized",
+    [
+        (TableType.VIEW, False),
+        (TableType.MATERIALIZED_VIEW, True),
+        (TableType.STREAMING_TABLE, True),
+        (TableType.MANAGED, False),
+    ],
+)
+def test_view_properties_materialized_follows_table_type(
+    ws: MagicMock,
+    run_source: RunSource,
+    table_type: TableType,
+    materialized: bool,
+) -> None:
+    """Materialized views and streaming tables store data, although Unity gives
+    them a view definition too."""
+    ws.tables.list.return_value = [
+        _table_info(
+            "derived",
+            table_type,
+            [_column("id")],
+            view_definition=f"SELECT id FROM {CATALOG}.{SCHEMA}.orders",
+        )
+    ]
+    run = run_source(ws, _config())
+    view = run.aspect(_dataset_urn(run, "derived"), ViewPropertiesClass)
+    assert view.materialized is materialized
+
+
+def test_metric_view_without_materialization_is_not_materialized(
+    ws: MagicMock, run_source: RunSource
+) -> None:
+    ws.tables.list.return_value = [
+        _table_info(
+            "revenue_metrics",
+            TableType.METRIC_VIEW,
+            [_column("id")],
+            view_definition=f"version: 1.1\nsource: {CATALOG}.{SCHEMA}.orders\n",
+        )
+    ]
+    run = run_source(ws, _config(include_metric_views=True))
+    view = run.aspect(_dataset_urn(run, "revenue_metrics"), ViewPropertiesClass)
+    assert view.viewLanguage == "YAML"
+    assert view.materialized is False
+
+
 # --------------------------------------------------------------------------- #
 # Warehouse-dependent stages: profiling and usage                              #
 # --------------------------------------------------------------------------- #

@@ -85,9 +85,8 @@ export default function useStructuredPropertiesMenuItems(onClick: (property: Ass
 
     const searchBarItem: ItemType = useMemo(
         () => ({
-            type: 'item',
+            type: 'custom',
             key: 'search',
-            title: 'Search',
             render: () => (
                 <MenuSearchBar
                     value={query}

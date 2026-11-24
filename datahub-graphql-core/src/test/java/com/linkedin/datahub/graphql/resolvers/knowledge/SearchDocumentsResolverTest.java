@@ -16,6 +16,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DocumentSourceType;
+import com.linkedin.datahub.graphql.generated.DocumentState;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsResult;
 import com.linkedin.datahub.graphql.generated.SearchFlags;
@@ -651,6 +652,9 @@ public class SearchDocumentsResolverTest {
   public void testUnpublishedDocumentShownToGroupMember() throws Exception {
     QueryContext mockContext =
         getMockAllowContext(OTHER_USER_URN, ImmutableList.of(UrnUtils.getUrn(TEST_GROUP_URN)));
+    // The resolver derives a context that carries the anchor filter, which needs an active actor
+    when(mockContext.getOperationContext().getSessionActorContext().isActive(any(), any()))
+        .thenReturn(true);
     when(mockEnv.getContext()).thenReturn(mockContext);
     when(mockEnv.getArgument(eq("input"))).thenReturn(input);
 
@@ -731,6 +735,50 @@ public class SearchDocumentsResolverTest {
                                     && c.getValues() != null
                                     && c.getValues().contains(TEST_DOMAIN_URN)));
     assertTrue(everyClauseHasDomain, "View domain filter should be applied to all filter clauses");
+  }
+
+  /**
+   * A similarity anchor the query names must be a document these results could show, so the
+   * resolver records the visibility rule on its own: without the caller's criteria, states, or
+   * view, and with the ownership clauses unless the viewer can manage documents.
+   */
+  @Test
+  public void testHoldsASimilarityAnchorToTheVisibilityRule() throws Exception {
+    input.setTypes(ImmutableList.of("tutorial"));
+    input.setStates(ImmutableList.of(DocumentState.UNPUBLISHED));
+    input.setViewUrn(TEST_VIEW_URN);
+    when(mockViewService.getViewInfo(
+            any(OperationContext.class), eq(UrnUtils.getUrn(TEST_VIEW_URN))))
+        .thenReturn(createViewWithDomainFilter(TEST_DOMAIN_URN));
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    QueryContext manager = getMockAllowContext(TEST_USER_URN);
+    QueryContext viewer = getMockDenyContext(TEST_USER_URN);
+
+    for (QueryContext context : List.of(manager, viewer)) {
+      when(mockEnv.getContext()).thenReturn(context);
+      resolver.get(mockEnv).get();
+    }
+
+    ArgumentCaptor<OperationContext> searching = ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockService, times(2))
+        .searchDocuments(
+            searching.capture(),
+            any(String.class),
+            any(),
+            any(),
+            any(Integer.class),
+            any(Integer.class),
+            nullable(List.class),
+            nullable(com.linkedin.metadata.query.SearchFlags.class));
+    assertEquals(
+        searching.getAllValues().stream()
+            .map(context -> context.getSearchContext().getAnchorFilter())
+            .collect(Collectors.toList()),
+        List.of(
+            DocumentSearchFilterUtils.buildCombinedFilter(
+                List.of(), List.of(TEST_USER_URN), true, true),
+            DocumentSearchFilterUtils.buildCombinedFilter(
+                List.of(), List.of(TEST_USER_URN), true, false)));
   }
 
   @Test

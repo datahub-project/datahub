@@ -6,21 +6,32 @@ ext {
 
 task installRuff(type: Exec) {
   description = 'Create .venv and install ruff'
-  outputs.file(venv_ruff)
+  outputs.files(venv_ruff, "${projectDir}/${venv_name}/bin/pytest")
   commandLine 'bash', '-c',
-    "python3 -m venv ${projectDir}/${venv_name} && ${venv_python} -m pip install --quiet ruff==0.15.22"
+    "python3 -m venv ${projectDir}/${venv_name} && ${venv_python} -m pip install --quiet ruff==0.15.22 pytest"
 }
+
+def pythonFiles = providers.gradleProperty('devPythonFiles').map { it.split(',').toList() }.getOrElse(['.'])
 
 task lint(type: Exec, dependsOn: installRuff) {
   description = 'Check formatting of Python scripts'
   inputs.files(fileTree('.').include('**/*.py'))
-  commandLine 'bash', '-c',
-    "${venv_ruff} check . && ${venv_ruff} format --check ."
+  commandLine(['bash', '-c', '"$1" check "${@:2}" && "$1" format --check "${@:2}"',
+      'dev-lint', venv_ruff] + pythonFiles)
 }
 
 task lintFix(type: Exec, dependsOn: installRuff) {
   description = 'Auto-fix formatting of Python scripts'
   inputs.files(fileTree('.').include('**/*.py'))
-  commandLine 'bash', '-c',
-    "${venv_ruff} check --fix . && ${venv_ruff} format ."
+  commandLine(['bash', '-c', '"$1" check --fix "${@:2}" && "$1" format "${@:2}"',
+      'dev-lint', venv_ruff] + pythonFiles)
+}
+
+// The tests isolate HOME and the shared registry; no Docker or live services are needed.
+tasks.register('test', Exec) {
+    description = 'Run datahub-dev unit tests'
+    group = 'verification'
+    dependsOn installRuff
+    workingDir rootProject.projectDir
+    commandLine venv_python, '-m', 'pytest', 'scripts/dev/tests'
 }
