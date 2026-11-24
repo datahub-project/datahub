@@ -359,6 +359,10 @@ The upstream lineage graph of these apps could not be read, so sources only the 
 
 Each entry gives the path of an included file, the app and space that include it, and why it could not be read: an Engine error, an include cycle, nesting more than 10 levels deep, or the size limit. A path without a space, such as `lib://DataFiles/common.qvs`, resolves in the space of the app that includes it. For an access error, give the API key's user **Can view** in the space that holds the file. Until then, what the script loads is missing from lineage, and the app's lineage is only added to.
 
+#### "Unable to read included Qlik scripts" (Qlik Cloud)
+
+Each entry gives the path of an included file, the app and space that include it, and why it could not be read: an Engine error, an include cycle, nesting more than 10 levels deep, or the size limit. A path without a space, such as `lib://DataFiles/common.qvs`, resolves in the space of the app that includes it. For an access error, give the API key's user **Can view** in the space that holds the file. Until then, what the script loads is missing from lineage, and the app's lineage is only added to.
+
 #### `apps_without_lineage_graph` in the report, or "Qlik Cloud has no lineage graph for app" (Qlik Cloud)
 
 Qlik Cloud has no lineage graph for these apps, and their last read, if any, had no tables, so their tables come from the load script only. Qlik also has no graph for an app whose lineage it has not computed yet, such as right after a reload. When there is no last read to compare with, the warning is reported and the lineage of the app's tables is only added to for that run.
