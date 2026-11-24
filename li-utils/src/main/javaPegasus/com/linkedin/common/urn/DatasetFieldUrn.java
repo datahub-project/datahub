@@ -52,6 +52,13 @@ public class DatasetFieldUrn extends Urn {
   }
 
   /**
+   * @param env a FabricType symbol, or the id of a registered customFabricType
+   */
+  public DatasetFieldUrn(String dataPlatform, String datasetName, String env, String fieldPath) {
+    this(new DatasetUrn(new DataPlatformUrn(dataPlatform), datasetName, env), fieldPath);
+  }
+
+  /**
    * Creates a new instance of a {@link DatasetFieldUrn}.
    *
    * @param dataset dataset that this dataset field belongs to

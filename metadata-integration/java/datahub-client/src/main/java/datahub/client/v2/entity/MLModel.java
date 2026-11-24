@@ -1008,7 +1008,7 @@ public class MLModel extends Entity
     public Builder urn(@Nonnull MLModelUrn urn) {
       this.platform = urn.getPlatformEntity().getPlatformNameEntity();
       this.name = urn.getMlModelNameEntity();
-      this.env = urn.getOriginEntity().name();
+      this.env = urn.getEnv();
       return this;
     }
 

@@ -1,6 +1,7 @@
 package com.linkedin.util;
 
 import com.linkedin.common.FabricType;
+import com.linkedin.common.FabricTypeNames;
 import com.linkedin.data.template.Custom;
 import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
@@ -29,10 +30,8 @@ public class FabricTypeNameCoercer implements DirectCoercer<FabricType> {
     if (!(object instanceof String)) {
       throw new TemplateOutputCastException("Expected a string for FabricType, got " + object);
     }
-    try {
-      return FabricType.valueOf((String) object);
-    } catch (IllegalArgumentException e) {
-      return FabricType.$UNKNOWN;
-    }
+    String value = (String) object;
+    // A custom value is the common case for a custom env, so it is decided without an exception.
+    return FabricTypeNames.isBuiltIn(value) ? FabricType.valueOf(value) : FabricType.$UNKNOWN;
   }
 }

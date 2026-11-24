@@ -7,6 +7,7 @@ import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.Edge;
 import com.linkedin.common.EdgeArray;
+import com.linkedin.common.FabricTypeNames;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
@@ -99,7 +100,9 @@ public class DatahubJob {
   final EventFormatter eventFormatter = new EventFormatter();
 
   public static MetadataChangeProposalWrapper materializeDataset(DatasetUrn datasetUrn) {
-    DatasetKey datasetAspect = new DatasetKey().setOrigin(datasetUrn.getOriginEntity());
+    DatasetKey datasetAspect = new DatasetKey();
+    // getEnv keeps a custom env, which the FabricType accessor would turn into $UNKNOWN.
+    FabricTypeNames.set(datasetAspect, "origin", datasetUrn.getEnv());
     datasetAspect
         .setName(datasetUrn.getDatasetNameEntity())
         .setPlatform(new DataPlatformUrn(datasetUrn.getPlatformEntity().getPlatformNameEntity()));

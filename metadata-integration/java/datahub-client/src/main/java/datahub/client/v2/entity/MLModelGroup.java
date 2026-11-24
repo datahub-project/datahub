@@ -700,7 +700,7 @@ public class MLModelGroup extends Entity
     public Builder urn(@Nonnull MlModelGroupUrn urn) {
       this.platform = urn.getPlatformEntity().getPlatformNameEntity();
       this.groupId = urn.getNameEntity();
-      this.env = urn.getOriginEntity().name();
+      this.env = urn.getEnv();
       return this;
     }
 

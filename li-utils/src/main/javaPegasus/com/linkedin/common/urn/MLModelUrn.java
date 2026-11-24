@@ -12,13 +12,26 @@ public final class MLModelUrn extends Urn {
 
   private final DataPlatformUrn _platform;
   private final String _mlModelName;
-  private final FabricType _origin;
+  private final String _env;
 
   public MLModelUrn(DataPlatformUrn platform, String mlModelName, FabricType origin) {
-    super(ENTITY_TYPE, TupleKey.create(platform, mlModelName, origin));
+    this(platform, mlModelName, origin.name(), false);
+  }
+
+  /**
+   * @param env a FabricType symbol, or the id of a registered customFabricType
+   */
+  public MLModelUrn(DataPlatformUrn platform, String mlModelName, String env) {
+    this(platform, mlModelName, env, true);
+  }
+
+  private MLModelUrn(DataPlatformUrn platform, String mlModelName, String env, boolean checkEnv) {
+    super(
+        ENTITY_TYPE,
+        TupleKey.create(platform, mlModelName, checkEnv ? FabricTypeUrnParts.checkEnv(env) : env));
     this._platform = platform;
     this._mlModelName = mlModelName;
-    this._origin = origin;
+    this._env = env;
   }
 
   public DataPlatformUrn getPlatformEntity() {
@@ -29,8 +42,14 @@ public final class MLModelUrn extends Urn {
     return _mlModelName;
   }
 
+  /** The FabricType of this URN's env, or {@code $UNKNOWN} when the env is a custom value. */
   public FabricType getOriginEntity() {
-    return _origin;
+    return FabricTypeUrnParts.origin(_env);
+  }
+
+  /** The env exactly as in the URN: a FabricType symbol or a custom value. */
+  public String getEnv() {
+    return _env;
   }
 
   public static MLModelUrn createFromString(String rawUrn) throws URISyntaxException {
@@ -51,7 +70,7 @@ public final class MLModelUrn extends Urn {
           return new MLModelUrn(
               (DataPlatformUrn) key.getAs(0, DataPlatformUrn.class),
               (String) key.getAs(1, String.class),
-              (FabricType) key.getAs(2, FabricType.class));
+              (String) key.getAs(2, String.class));
         } catch (Exception e) {
           throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + e.getMessage());
         }

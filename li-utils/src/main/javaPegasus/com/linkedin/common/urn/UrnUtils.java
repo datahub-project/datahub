@@ -1,7 +1,6 @@
 package com.linkedin.common.urn;
 
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.FabricType;
 import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -23,8 +22,9 @@ public class UrnUtils {
   @Nonnull
   public static DatasetUrn toDatasetUrn(
       @Nonnull String platformName, @Nonnull String datasetName, @Nonnull String origin) {
-    return new DatasetUrn(
-        new DataPlatformUrn(platformName), datasetName, FabricType.valueOf(origin.toUpperCase()));
+    // Built-in values behave as before (case-insensitive). Other values pass through upper-cased,
+    // so a registered custom env works; a malformed one still throws IllegalArgumentException.
+    return new DatasetUrn(new DataPlatformUrn(platformName), datasetName, origin.toUpperCase());
   }
 
   public static Urn getUrn(String urnStr) {

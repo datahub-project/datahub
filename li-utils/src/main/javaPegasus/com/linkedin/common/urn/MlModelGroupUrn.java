@@ -12,13 +12,26 @@ public final class MlModelGroupUrn extends Urn {
 
   private final DataPlatformUrn _platform;
   private final String _name;
-  private final FabricType _origin;
+  private final String _env;
 
   public MlModelGroupUrn(DataPlatformUrn platform, String name, FabricType origin) {
-    super(ENTITY_TYPE, TupleKey.create(platform, name, origin));
+    this(platform, name, origin.name(), false);
+  }
+
+  /**
+   * @param env a FabricType symbol, or the id of a registered customFabricType
+   */
+  public MlModelGroupUrn(DataPlatformUrn platform, String name, String env) {
+    this(platform, name, env, true);
+  }
+
+  private MlModelGroupUrn(DataPlatformUrn platform, String name, String env, boolean checkEnv) {
+    super(
+        ENTITY_TYPE,
+        TupleKey.create(platform, name, checkEnv ? FabricTypeUrnParts.checkEnv(env) : env));
     this._platform = platform;
     this._name = name;
-    this._origin = origin;
+    this._env = env;
   }
 
   public DataPlatformUrn getPlatformEntity() {
@@ -29,8 +42,14 @@ public final class MlModelGroupUrn extends Urn {
     return _name;
   }
 
+  /** The FabricType of this URN's env, or {@code $UNKNOWN} when the env is a custom value. */
   public FabricType getOriginEntity() {
-    return _origin;
+    return FabricTypeUrnParts.origin(_env);
+  }
+
+  /** The env exactly as in the URN: a FabricType symbol or a custom value. */
+  public String getEnv() {
+    return _env;
   }
 
   public static MlModelGroupUrn createFromString(String rawUrn) throws URISyntaxException {
@@ -51,7 +70,7 @@ public final class MlModelGroupUrn extends Urn {
           return new MlModelGroupUrn(
               (DataPlatformUrn) key.getAs(0, DataPlatformUrn.class),
               (String) key.getAs(1, String.class),
-              (FabricType) key.getAs(2, FabricType.class));
+              (String) key.getAs(2, String.class));
         } catch (Exception e) {
           throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + e.getMessage());
         }
