@@ -778,7 +778,9 @@ class Mapper:
                     )
                 )
 
-        self._add_composite_model_lineage(table, ds_urn, upstream, cll_lineage)
+        composite_resolved = self._add_composite_model_lineage(
+            table, ds_urn, upstream, cll_lineage
+        )
         self._add_model_internal_lineage(table, ds_urn, upstream, cll_lineage)
 
         # Fine-grained edges between fields of this same dataset (a calculated
@@ -796,6 +798,13 @@ class Mapper:
             # the stored lineage. A calculated table has no M source: the admin
             # scan stores its DAX in `expression`, and its DAX table edges are
             # its whole lineage.
+            self.__reporter.model_internal_lineage_withheld += 1
+            return mcps
+        if (upstream or cll_lineage) and not composite_resolved:
+            # The remote table's source model did not resolve this run. An
+            # aspect with only the model-internal edges would replace the
+            # source-model edge emitted by earlier runs, so keep the stored
+            # lineage.
             self.__reporter.model_internal_lineage_withheld += 1
             return mcps
 
@@ -925,20 +934,21 @@ class Mapper:
         ds_urn: str,
         upstream: List[UpstreamClass],
         cll_lineage: List[FineGrainedLineage],
-    ) -> None:
+    ) -> bool:
         """A composite model's remote table reads one table of another
         semantic model: that table becomes the coarse upstream and each
         column the remote table mirrors gets a column-level edge. Only a
         source model and table ingested this run are linked; anything else
         is reported and gets no edge, so lineage never points at a dataset
-        URN nothing emits. Columns calculated on the remote table are local
+        URN nothing emits. Returns False when the source table did not
+        resolve, so the caller keeps the lineage stored by earlier runs. Columns calculated on the remote table are local
         DAX and are left to the DAX lineage."""
         reference = table.remote_model
         if reference is None or not self.__config.extract_composite_model_lineage:
-            return
+            return True
         source_table = self._resolve_remote_table(table, reference)
         if source_table is None:
-            return
+            return False
 
         source_urn = self.make_dataset_urn_for_table(source_table)
         first_sighting = self._first_composite_table(table)
@@ -952,12 +962,12 @@ class Mapper:
                     message="A composite model's remote table resolved to its own URN; no lineage is emitted for it. Check include_workspace_name_in_dataset_urn when two models share a name.",
                     context=self._composite_context(table, reference),
                 )
-            return
+            return True
         _add_upstream(upstream, source_urn)
         if first_sighting:
             self.__reporter.composite_model_tables_linked += 1
         if not self.__config.extract_column_level_lineage:
-            return
+            return True
 
         unresolved = self._add_composite_column_lineage(
             table, ds_urn, source_table, source_urn, cll_lineage
@@ -969,6 +979,7 @@ class Mapper:
                 message="Some columns of a composite model's remote table have no column of that source name in the ingested source table; they get no column-level lineage.",
                 context=f"{self._composite_context(table, reference)}, columns={unresolved}",
             )
+        return True
 
     def _add_composite_column_lineage(
         self,
