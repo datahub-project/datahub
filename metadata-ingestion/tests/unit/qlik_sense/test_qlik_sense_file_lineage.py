@@ -1440,11 +1440,12 @@ def test_stored_fields_get_column_lineage(mock_api_cls: MagicMock) -> None:
         [],
         script="Orders:\nLOAD * FROM [lib://Sales Space:Lake/landing/orders.csv] "
         "(txt);\nSTORE OrderId, Amount AS Total FROM Orders INTO "
-        "[lib://Sales Space:Lake/qvd/orders.qvd] (qvd);\n",
+        "[lib://Sales Space:Lake/clean/orders.parquet] (parquet);\n",
     )
 
+    # A QVD on storage gets table lineage only; see the storage QVD tests.
     ops = _upstream_ops(source._gen_app_workunit(app))[
-        "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qvd/orders.qvd,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:abs,lake/clean/orders.parquet,PROD)"
     ]
 
     column_edges = [op for op in ops if op.startswith("add /fineGrainedLineages/")]

@@ -136,6 +136,8 @@ class AppQvdLineage(BaseModel):
     qvds: AppQvds = AppQvds()
     # Canonical path of each QVD the app touches, by URN.
     paths: Dict[str, str] = {}
+    # QVDs the app touches on connections mapped to storage, by URN.
+    storage_urns: List[str] = []
     # A STORE names a data connection the resolver doesn't know.
     has_unresolved_store: bool = False
 
@@ -179,6 +181,8 @@ def app_qvd_lineage(
         # Not this connector's dataset, so only its lineage is written.
         storage_urn = resolver.storage_urn(file)
         if storage_urn is not None:
+            if storage_urn not in lineage.storage_urns:
+                lineage.storage_urns.append(storage_urn)
             return storage_urn
         path = resolver.resolve(file)
         if path is None:
@@ -212,6 +216,9 @@ def app_qvd_lineage(
             for source in sources:
                 if source not in read:
                     read.append(source)
+                # A storage file has no schema in DataHub for these fields.
+                if urn in lineage.storage_urns:
+                    continue
                 upstream = make_schema_field_urn(urn, source)
                 if upstream not in upstreams:
                     upstreams.append(upstream)
