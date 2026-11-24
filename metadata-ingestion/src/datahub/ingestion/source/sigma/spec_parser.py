@@ -40,6 +40,7 @@ _CONTROL_ELEMENT_KIND = "control"
 # a text box or a control's display, may have none.
 _TABLE_ELEMENT_KIND = "table"
 _SOURCE = "source"
+_PRIMARY_SOURCE = "primarySource"
 _KIND = "kind"
 _PAGES = "pages"
 _ELEMENTS = "elements"
@@ -172,6 +173,11 @@ class DataModelSpecIndex:
     pairs: List[JoinPredicate] = field(default_factory=list)
     unions: List[UnionOutputColumn] = field(default_factory=list)
     unreadable_join_element_ids: List[str] = field(default_factory=list)
+    # Join elements whose sides cannot be told apart: one source (by full
+    # identity) is the primary or an entry's ``right`` more than once, or the
+    # primary or an entry is unreadable. Join entries have no id of their own,
+    # so their keys cannot be attributed to one instance.
+    repeated_side_join_element_ids: List[str] = field(default_factory=list)
     unreadable_union_element_ids: List[str] = field(default_factory=list)
     # Elements whose own shape is not recognised, so a renamed key shows up
     # here instead of as a clean, empty index: by kind for an element with an
@@ -425,6 +431,9 @@ class _JoinRead:
     predicates: List[JoinPredicate]
     readable: bool
     multi_segment_refs: bool = False
+    # The entry's ``right``; None when the entry is unreadable.
+    right_owner: Optional[_Owner] = None
+    repeats_a_side: bool = False
 
 
 @dataclass
@@ -575,6 +584,7 @@ def _read_join(
         predicates=predicates,
         readable=readable,
         multi_segment_refs=multi_segment_refs,
+        right_owner=right_owner,
     )
 
 
@@ -671,6 +681,12 @@ def _read_join_element(
         return _JoinRead(predicates=[], readable=False)
     # Judged per join: one readable join must not hide a broken one.
     element = _JoinRead(predicates=[], readable=True)
+    primary = _valid(_DESCRIPTOR, raw.get(_PRIMARY_SOURCE))
+    sides: List[Optional[_Owner]] = [
+        None if primary is None else _owner(primary, own_data_model_id)
+    ]
+    if primary is None and source.joins:
+        element.readable = False
     for join in source.joins:
         read = _read_join(
             join,
@@ -683,6 +699,10 @@ def _read_join_element(
         element.multi_segment_refs = (
             element.multi_segment_refs or read.multi_segment_refs
         )
+        sides.append(read.right_owner)
+    element.repeats_a_side = bool(element.predicates) and (
+        None in sides or len(set(sides)) < len(sides)
+    )
     return element
 
 
@@ -756,6 +776,8 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
                 own_data_model_id=own_data_model_id,
             )
             index.pairs.extend(joins.predicates)
+            if joins.repeats_a_side:
+                index.repeated_side_join_element_ids.append(element_id)
             if joins.multi_segment_refs:
                 index.multi_segment_ref_element_ids.append(element_id)
             if not joins.readable:
