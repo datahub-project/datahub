@@ -776,8 +776,6 @@ transformers:
 
 | Field       | Required | Type      | Default     | Description                                                                                                   |
 | ----------- | -------- | --------- | ----------- | ------------------------------------------------------------------------------------------------------------- |
-| Field       | Required | Type      | Default     | Description                                                                                                   |
-| ----------- | -------- | --------- | ----------- | ------------------------------------------------------------------------------------------------------------  |
 | `tags`      | ✅       | List[str] |             | Full names of the tags to map. Each matching tag becomes a glossary term with the same name.                  |
 | `semantics` |          | enum      | "OVERWRITE" | Whether to OVERWRITE or PATCH the dataset-level terms on DataHub GMS. Column-level terms are always added to. |
 
@@ -785,7 +783,7 @@ transformers:
 
 The `tags_to_term` transformer maps tags to glossary terms with the same name, and removes the mapped tag:
 
-- A tag on a dataset or container becomes a term on that dataset or container.
+- A tag on a dataset or container becomes a term on that dataset or container. These tags are read from DataHub, not from the current run, so a tag is mapped only once an earlier run has ingested it. If the source sends the tag again in every run, the tag is written back after it is removed, and the entity keeps both the tag and the term.
 - A tag on a column becomes a term on the same column. This applies to the schema the source emits in the same run.
 
 Terms already set in the same run, for example by dbt `meta_mapping`, are kept.

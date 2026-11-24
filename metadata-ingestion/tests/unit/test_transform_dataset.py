@@ -97,10 +97,7 @@ from datahub.ingestion.transformer.replace_external_url import (
     ReplaceExternalUrlContainer,
     ReplaceExternalUrlDataset,
 )
-from datahub.ingestion.transformer.tags_to_terms import (
-    TagsToTermMapper,
-    _ColumnTagsToTerms,
-)
+from datahub.ingestion.transformer.tags_to_terms import TagsToTermMapper
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DatasetPropertiesClass,
@@ -4917,14 +4914,6 @@ def test_tags_to_terms_maps_column_tags_to_column_terms(mock_datahub_graph_insta
         and isinstance(o.record.aspect, models.GlossaryTermsClass)
         for o in output
     )
-
-
-def test_tags_to_terms_column_transformer_create():
-    column_transformer = _ColumnTagsToTerms.create(
-        {"tags": ["pii.email", "sensitivity:high"]},
-        PipelineContext(run_id="transformer_pipe_line"),
-    )
-    assert column_transformer.tags == {"pii.email", "sensitivity:high"}
 
 
 def test_tags_to_terms_patch_keeps_server_terms(mock_datahub_graph_instance):

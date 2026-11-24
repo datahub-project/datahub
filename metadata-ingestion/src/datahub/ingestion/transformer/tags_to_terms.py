@@ -71,7 +71,9 @@ class _ColumnTagsToTerms(DatasetSchemaMetadataTransformer):
         self.tags = tags
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "_ColumnTagsToTerms":
+    def create(  # pragma: no cover - required by the base class, never called
+        cls, config_dict: dict, ctx: PipelineContext
+    ) -> "_ColumnTagsToTerms":
         return cls(set(TagsToTermMapperConfig.model_validate(config_dict).tags))
 
     def transform_aspect(
