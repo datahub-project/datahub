@@ -251,7 +251,12 @@ SECRET_PARAMETER_MARKERS: Tuple[str, ...] = (
     "signature",
     "cert",
     "private",
+    "jwt",
+    "bearer",
 )
+# Matched as a whole word of the parameter name only: as a substring it would
+# also mask FilePath, SourceFolderPath and Pattern.
+SECRET_PARAMETER_WORD = "pat"
 # Emitted parameter values are cut to this length so one oversized value
 # cannot break the datasetProperties aspect.
 PARAMETER_VALUE_MAX_LENGTH = 1000
@@ -1075,8 +1080,10 @@ class PowerBiDashboardSourceConfig(
         "each dataset parameter, cut to 1000 characters. A parameter value is "
         "replaced by `***` when its name contains (as a substring, so over-masking "
         "is the safe direction) `secret`, `token`, `password`, `pwd`, `pass`, "
-        "`credential`, `key`, `auth`, `connection`, `sas`, `signature`, `cert` or "
-        "`private`. Role members are never ingested. Requires "
+        "`credential`, `key`, `auth`, `connection`, `sas`, `signature`, `cert`, "
+        "`private`, `jwt` or `bearer`, or has `pat` as a whole word (`PAT`, "
+        "`GitHubPAT`, `my_pat`, but not `FilePath`). Role members are never "
+        "ingested. Requires "
         "`metadata_api_mode: workspace_apis` and `extract_dataset_schema`.",
     )
     extract_composite_model_lineage: bool = pydantic.Field(

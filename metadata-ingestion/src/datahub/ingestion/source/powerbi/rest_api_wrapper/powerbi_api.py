@@ -94,6 +94,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import (
     ParsedModel,
     ParsedPartition,
     ParsedTable,
+    is_role_part,
     parse_semantic_model,
 )
 from datahub.utilities.file_backed_collections import (
@@ -1436,10 +1437,11 @@ class PowerBiAPI:
         """extract_model_properties: attach RLS filters to the tables they
         apply to and count what the mapper will emit. Role members are never
         read from the definition."""
-        tables_by_name = {table.name: table for table in dataset.tables}
+        # Table names are case-insensitive in TMDL and DAX.
+        tables_by_name = {table.name.casefold(): table for table in dataset.tables}
         for role in parsed_model.roles:
             for table_name, dax_filter in role.table_permissions.items():
-                table = tables_by_name.get(table_name)
+                table = tables_by_name.get(table_name.casefold())
                 if table is None:
                     self.reporter.rls_filters_unresolved += 1
                     self.reporter.warning(
@@ -1507,7 +1509,14 @@ class PowerBiAPI:
             return
 
         parsed_model = parse_semantic_model(definition.parts)
-        failed_parts = definition.failed_parts + parsed_model.failed_parts
+        # A role part that could not be decoded is a lost role, reported with
+        # the roles that did not parse rather than as a generic part.
+        parsed_model.failed_roles.extend(
+            part for part in definition.failed_parts if is_role_part(part)
+        )
+        failed_parts = [
+            part for part in definition.failed_parts if not is_role_part(part)
+        ] + parsed_model.failed_parts
         if failed_parts:
             self.reporter.tmdl_parts_failed += len(failed_parts)
             failed_tables = [
