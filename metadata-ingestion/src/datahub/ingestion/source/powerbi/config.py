@@ -1039,11 +1039,13 @@ class PowerBiDashboardSourceConfig(
     )
     extract_dax_reference_lineage: bool = pydantic.Field(
         default=False,
-        description="Derive lineage inside a semantic model from its DAX: a calculated "
-        "column gets column-level edges from the columns and measures its expression "
-        "reads, a measure that references another measure gets an edge from it, and a "
-        "calculated table gets table-level lineage from the tables its expression "
-        "reads. Edges are only emitted to tables and fields that exist in the model. "
+        description="Derive lineage inside a semantic model from the rest of its DAX: "
+        "a calculated column gets column-level edges from the columns and measures its "
+        "expression reads, and a measure that references another measure gets an edge "
+        "from it. A calculated table's table-level lineage from the tables its DAX "
+        "reads, and a measure's edges from columns of other tables, are emitted "
+        "without this flag. Edges are only emitted to tables and fields that exist in "
+        "the model. "
         "A DAX reference that does not resolve is counted and reported as a "
         "`DAX Reference Not Resolved` warning; DAX is only read from TMDL definitions "
         "(`metadata_api_mode: workspace_apis`), and without this flag only the "
