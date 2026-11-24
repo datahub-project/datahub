@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.domain.Domains;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.service.DataProductService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -43,9 +44,10 @@ public class DeleteDataProductResolver implements DataFetcher<CompletableFuture<
           // a data product with no domain would be undeletable by anyone (including
           // admins), because the domain-scoped check fails closed on an empty domain
           // set and no domain-scoped policy can match a product without domains.
-          if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProduct(
-                  context, dataProductUrn, domains)
-              && !AuthorizationUtils.canDeleteEntity(dataProductUrn, context)) {
+          if (!AuthorizationUtils.isEntityType(dataProductUrn, Constants.DATA_PRODUCT_ENTITY_NAME)
+              || (!DataProductAuthorizationUtils.isAuthorizedToManageDataProduct(
+                      context, dataProductUrn, domains)
+                  && !AuthorizationUtils.canDeleteEntity(dataProductUrn, context))) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }

@@ -432,6 +432,18 @@ datahub:
       # Drain-lock lease; must exceed a drain's worst-case duration, else ticks double-drain (safe, wasteful).
       drainLockLeaseMs: ${RETENTION_BUFFER_DRAIN_LOCK_LEASE_MS:60000}
 
+# In-process hard delete.
+hardDelete:
+  # Most incoming graph edges an entity-and-references delete removes before deleting the entity,
+  # when the delete runs in this process. Above this the delete is refused and nothing is removed:
+  # deleting the entity alone would leave those referrers pointing at nothing. The error says to
+  # raise this limit or to remove the references first (datahub delete references --urn <urn>).
+  # References that are not graph edges are cleaned as part of a delete that goes ahead.
+  # 0 turns graph reference cleanup off: the entity is deleted alone and its referrers are left
+  # dangling. A value above the 1000-entry page size reads more than one page of referrers, and
+  # Neo4j pages by offset, so a referrer removed between pages can make it skip another one.
+  graph-reference-cleanup-limit: ${DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT:100}
+
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
   # Writes of one reference removal during a hard delete (graph phase, search-phase formInfo/forms
@@ -1461,7 +1473,8 @@ elasticsearch:
           scrollEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SCROLL_ENTITIES_PERCENT:-1}
           aggregateEntities: ${SEARCH_V3_TEMPLATES_ROLLOUT_AGGREGATE_ENTITIES:}
           aggregateEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_AGGREGATE_ENTITIES_PERCENT:-1}
-          # Semantic search (semanticSearchAcrossEntities) through the semanticSearch surface below.
+          # Semantic search (semanticSearchAcrossEntities and semanticSearch) through the
+          # semanticSearch surface below.
           # Off unless set: blank does not use mode or percent. active serves the template to
           # semanticSearchPercent of actors, all of them when that is unset. off and shadow keep
           # semantic search on its legacy kNN search.
@@ -2248,6 +2261,7 @@ featureFlags:
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:true} # Enables glossary-based policies to be created
   structuredPropertiesInPoliciesEnabled: ${STRUCTURED_PROPERTIES_IN_POLICIES_ENABLED:true} # Enables structured properties as criteria in policies
   showTestsInHealthIcon: ${SHOW_TESTS_IN_HEALTH_ICON:false} # If enabled, shows tests status in the health icon on entity pages
+  mcpServerEnabled: ${MCP_SERVER_ENABLED:false} # If enabled, DataHub's built-in MCP server is on: datahub-ai-service serves /mcp, and the UI shows the MCP settings page and the Connect AI Tools home page module. Off: /mcp answers 404 and the UI hides both. GMS reports it in /config so the service can follow it.
   i18nEnabled: ${I18N_ENABLED:true} # If enabled, internationalization (i18n) features are active
   timeseriesAspectBatchLoadEnabled: ${TIMESERIES_ASPECT_BATCH_LOAD_ENABLED:true} # If enabled, TimeSeriesAspectResolver uses the DataLoader batch path; disable to revert to single-URN queries
   timeseriesAspectAggBatchLoadEnabled: ${TIMESERIES_ASPECT_AGG_BATCH_LOAD_ENABLED:true} # If enabled, Dashboard.statsSummary uses the batch aggregation DataLoader; disable to revert to per-URN queries
@@ -2332,6 +2346,7 @@ cache:
     lineage:
       ttlSeconds: ${CACHE_SEARCH_LINEAGE_TTL_SECONDS:86400} # 1 day
       lightningThreshold: ${CACHE_SEARCH_LINEAGE_LIGHTNING_THRESHOLD:300}
+      partialTtlSeconds: ${CACHE_SEARCH_LINEAGE_PARTIAL_TTL_SECONDS:300} # 5 minutes; results left partial by timeouts or failures, 0 disables caching them
   client:
     usageClient:
       enabled: ${CACHE_CLIENT_USAGE_CLIENT_ENABLED:true}

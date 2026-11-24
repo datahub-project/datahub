@@ -96,8 +96,9 @@ public final class SearchTemplateMetrics {
   }
 
   /**
-   * Semantic search served keyword results because it could not embed the query and the caller
-   * opted in, by the reason the embedding failed.
+   * Semantic search, or a keyword search through a template the caller named, served keyword
+   * results because it could not embed the query and the caller opted in, by the reason the
+   * embedding failed.
    */
   public static void keywordFallback(@Nonnull OperationContext opContext, @Nonnull String reason) {
     counter(opContext, KEYWORD_FALLBACK, "reason", reason);

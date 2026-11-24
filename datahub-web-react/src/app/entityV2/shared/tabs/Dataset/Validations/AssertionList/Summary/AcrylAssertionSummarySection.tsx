@@ -54,7 +54,7 @@ export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ gr
                 const url = `${entityRegistry.getEntityUrl(
                     EntityType.Dataset,
                     entityData.urn,
-                )}/${EntityTabPath.QUALITY}/List${buildAssertionUrlSearch({ type: group.type, status: status.resultType })}`;
+                )}/${EntityTabPath.QUALITY}/List${buildAssertionUrlSearch({ type: group.type, customType: group.customType, status: status.resultType })}`;
                 return (
                     <Tooltip
                         key={status.text}
