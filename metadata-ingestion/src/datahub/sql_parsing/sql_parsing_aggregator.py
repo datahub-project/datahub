@@ -426,8 +426,6 @@ class SqlAggregatorReport(Report):
     num_unique_query_fingerprints: Optional[int] = None
     num_urns_with_lineage: Optional[int] = None
     num_lineage_skipped_due_to_filters: int = 0
-    num_table_lineage_trimmed_due_to_large_size: int = 0
-    num_column_lineage_trimmed_due_to_large_size: int = 0
     # How much lineage a downstream has before MAX_UPSTREAM_TABLES_COUNT and
     # MAX_FINEGRAINEDLINEAGE_COUNT apply, and which downstreams were trimmed with
     # their original counts. Collected so the caps can be set from data.
@@ -436,6 +434,8 @@ class SqlAggregatorReport(Report):
     lineage_trimmed_downstreams: LossyDict[str, str] = dataclasses.field(
         default_factory=LossyDict
     )
+    num_table_lineage_trimmed_due_to_large_size: int = 0
+    num_column_lineage_trimmed_due_to_large_size: int = 0
 
     # Lineage consistency tracking
     num_tables_added_from_column_lineage: int = 0

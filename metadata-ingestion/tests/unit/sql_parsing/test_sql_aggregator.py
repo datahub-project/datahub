@@ -2551,73 +2551,6 @@ _DAG_B_LABELS = {"airflow-dag": "dag_b", "airflow-task": "task_b"}
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.parametrize(
-    "observed_labels,expected",
-    [
-        pytest.param([None, _DAG_A_LABELS], _DAG_A_LABELS, id="labels_added"),
-        pytest.param(
-            [_DAG_A_LABELS, _DAG_B_LABELS], _DAG_B_LABELS, id="latest_labels_win"
-        ),
-        pytest.param([_DAG_A_LABELS, None], {}, id="unlabeled_run_clears"),
-    ],
-)
-def test_query_custom_properties_from_latest_observation(
-    observed_labels: List[Optional[Dict[str, str]]], expected: Dict[str, str]
-) -> None:
-    aggregator = SqlParsingAggregator(
-        platform="bigquery",
-        generate_lineage=True,
-        generate_usage_statistics=False,
-        generate_operations=False,
-    )
-    for i, labels in enumerate(observed_labels):
-        aggregator.add_observed_query(
-            ObservedQuery(
-                query="insert into my_db.my_schema.dst select a from my_db.my_schema.src",
-                timestamp=_ts(20 + i),
-                custom_properties=labels,
-            )
-        )
-
-    query_properties = [
-        mcp.aspect
-        for mcp in aggregator.gen_metadata()
-        if isinstance(mcp.aspect, QueryPropertiesClass)
-    ]
-    assert len(query_properties) == 1
-    assert query_properties[0].customProperties == expected
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_known_query_lineage_keeps_observed_custom_properties() -> None:
-    query = "insert into my_db.my_schema.dst select a from my_db.my_schema.src"
-    aggregator = SqlParsingAggregator(
-        platform="bigquery",
-        generate_lineage=True,
-        generate_usage_statistics=False,
-        generate_operations=False,
-    )
-    aggregator.add_observed_query(
-        ObservedQuery(query=query, timestamp=_ts(20), custom_properties=_DAG_A_LABELS)
-    )
-    aggregator.add_known_query_lineage(
-        KnownQueryLineageInfo(
-            query_text=query,
-            downstream=DatasetUrn("bigquery", "my_db.my_schema.dst").urn(),
-            upstreams=[DatasetUrn("bigquery", "my_db.my_schema.src").urn()],
-        ),
-        merge_lineage=True,
-    )
-
-    query_properties = [
-        mcp.aspect
-        for mcp in aggregator.gen_metadata()
-        if isinstance(mcp.aspect, QueryPropertiesClass)
-    ]
-    assert len(query_properties) == 1
-    assert query_properties[0].customProperties == _DAG_A_LABELS
-
-
-@pytest.mark.parametrize(
     "max_upstream_tables, max_fine_grained_lineages",
     [(2, 100), (100, 3)],
     ids=["table_trim", "fine_grained_trim"],
@@ -2682,3 +2615,70 @@ def test_lineage_trim_is_reported_with_original_counts(
     assert report.max_upstream_tables_before_trim == 5
     assert report.max_fine_grained_lineages_before_trim == 5
     assert downstream in report.lineage_trimmed_downstreams
+
+
+@pytest.mark.parametrize(
+    "observed_labels,expected",
+    [
+        pytest.param([None, _DAG_A_LABELS], _DAG_A_LABELS, id="labels_added"),
+        pytest.param(
+            [_DAG_A_LABELS, _DAG_B_LABELS], _DAG_B_LABELS, id="latest_labels_win"
+        ),
+        pytest.param([_DAG_A_LABELS, None], {}, id="unlabeled_run_clears"),
+    ],
+)
+def test_query_custom_properties_from_latest_observation(
+    observed_labels: List[Optional[Dict[str, str]]], expected: Dict[str, str]
+) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="bigquery",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    for i, labels in enumerate(observed_labels):
+        aggregator.add_observed_query(
+            ObservedQuery(
+                query="insert into my_db.my_schema.dst select a from my_db.my_schema.src",
+                timestamp=_ts(20 + i),
+                custom_properties=labels,
+            )
+        )
+
+    query_properties = [
+        mcp.aspect
+        for mcp in aggregator.gen_metadata()
+        if isinstance(mcp.aspect, QueryPropertiesClass)
+    ]
+    assert len(query_properties) == 1
+    assert query_properties[0].customProperties == expected
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_known_query_lineage_keeps_observed_custom_properties() -> None:
+    query = "insert into my_db.my_schema.dst select a from my_db.my_schema.src"
+    aggregator = SqlParsingAggregator(
+        platform="bigquery",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(query=query, timestamp=_ts(20), custom_properties=_DAG_A_LABELS)
+    )
+    aggregator.add_known_query_lineage(
+        KnownQueryLineageInfo(
+            query_text=query,
+            downstream=DatasetUrn("bigquery", "my_db.my_schema.dst").urn(),
+            upstreams=[DatasetUrn("bigquery", "my_db.my_schema.src").urn()],
+        ),
+        merge_lineage=True,
+    )
+
+    query_properties = [
+        mcp.aspect
+        for mcp in aggregator.gen_metadata()
+        if isinstance(mcp.aspect, QueryPropertiesClass)
+    ]
+    assert len(query_properties) == 1
+    assert query_properties[0].customProperties == _DAG_A_LABELS
