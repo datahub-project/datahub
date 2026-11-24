@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
@@ -23,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -112,6 +114,9 @@ public class HardDeleteService {
 
   static final String GRAPH_REFERENCES_SKIPPED_METRIC =
       "datahub.hard_delete.graph_references_skipped";
+
+  /** Referrers a skipped delete names in its warning, so a repair can start from them. */
+  static final int SKIPPED_REFERRERS_LOGGED = 10;
 
   private final EntityService<?> entityService;
   private final DeleteEntityService deleteEntityService;
@@ -265,9 +270,14 @@ public class HardDeleteService {
     // only repeat the same count. It runs before anything is removed, because the key delete drops
     // the graph edges the count reads.
     final AtomicInteger referrers = new AtomicInteger();
+    final AtomicReference<List<RelatedEntity>> skippedSample = new AtomicReference<>(List.of());
     runHere.apply(
         () -> {
           referrers.set(deleteEntityService.countGraphReferrers(opContext, urn));
+          if (referrers.get() > graphReferenceCleanupLimit
+              && overLimit == GraphReferenceOverLimit.SKIP) {
+            skippedSample.set(sampleSkippedReferrers(opContext, urn));
+          }
           return noReferencesDeleted();
         });
     final boolean skipGraphReferences = referrers.get() > graphReferenceCleanupLimit;
@@ -287,7 +297,7 @@ public class HardDeleteService {
         });
     if (skipGraphReferences) {
       // Recorded only once the entity is gone, so a delete that failed is not counted as skipped.
-      recordSkippedGraphReferences(opContext, urn, referrers.get());
+      recordSkippedGraphReferences(opContext, urn, referrers.get(), skippedSample.get());
     }
     // The graph edges are gone with the entity (removed above, or dropped by the key delete): an
     // empty list leaves only the references that are not graph edges.
@@ -300,14 +310,41 @@ public class HardDeleteService {
                 () -> deleteEntityService.deleteReferencesTo(opContext, urn, false, List.of())));
   }
 
+  /**
+   * The referrers a skipped delete names. It is only a diagnostic, read before the key delete drops
+   * the edges, so a failure to read it must not fail a delete that is otherwise allowed.
+   */
+  @Nonnull
+  private List<RelatedEntity> sampleSkippedReferrers(
+      @Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
+    try {
+      return deleteEntityService.sampleGraphReferrers(opContext, urn, SKIPPED_REFERRERS_LOGGED);
+    } catch (RuntimeException e) {
+      log.warn("Could not read a sample of the graph referrers of {}", urn, e);
+      return List.of();
+    }
+  }
+
   private void recordSkippedGraphReferences(
-      @Nonnull final OperationContext opContext, @Nonnull final Urn urn, final int referrers) {
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn urn,
+      final int relationships,
+      @Nonnull final List<RelatedEntity> sample) {
+    // The key delete dropped the edges, so `datahub delete references` finds nothing until the
+    // referring entities' edges are rebuilt: restore indices for them, then delete the references.
     log.warn(
-        "Hard-deleted {} without removing the graph references to it: {} entities reference it,"
-            + " over the limit of {}. They keep its URN in their aspects.",
+        "Hard-deleted {} without removing the graph references to it: {} relationships point at"
+            + " it, over the limit of {}. The entities that held them keep its URN in their"
+            + " aspects. First referrers (urn, relationship type): {}. To repair, restore indices"
+            + " for the referring entities (restore-indices with urn, or urnLike and aspectNames),"
+            + " which rebuilds their graph edges, then run `datahub delete references --urn {}`.",
         urn,
-        referrers,
-        graphReferenceCleanupLimit);
+        relationships,
+        graphReferenceCleanupLimit,
+        sample.stream()
+            .map(entity -> entity.getUrn() + " " + entity.getRelationshipType())
+            .collect(Collectors.joining(", ")),
+        urn);
     opContext
         .getMetricUtils()
         .ifPresent(

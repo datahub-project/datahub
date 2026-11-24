@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -24,6 +25,7 @@ import static org.testng.Assert.expectThrows;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.run.DeleteEntityResponse;
@@ -415,6 +417,56 @@ public class HardDeleteServiceTest {
     verify(deleteEntityService, never()).countGraphReferrers(any(), any());
     assertEquals(references.choice(), HardDeleteService.ReferenceCleanup.Choice.PENDING);
     verifyNoDelete();
+  }
+
+  /**
+   * A skip reads a sample of the referrers for its warning, after the count and before the key
+   * delete drops the edges. A delete that cleans, or one that is refused, reads none.
+   */
+  @Test
+  public void deleteReferencesThenEntityReadsTheReferrerSampleOnlyWhenSkipping() {
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(LIMIT + 1);
+    when(deleteEntityService.sampleGraphReferrers(
+            opContext, URN, HardDeleteService.SKIPPED_REFERRERS_LOGGED))
+        .thenReturn(List.of(new RelatedEntity("OwnedBy", "urn:li:corpuser:a")));
+
+    service(true, null).deleteReferencesThenEntity(opContext, URN, Supplier::get);
+
+    final InOrder inOrder = inOrder(entityService, deleteEntityService);
+    inOrder.verify(deleteEntityService).countGraphReferrers(opContext, URN);
+    inOrder
+        .verify(deleteEntityService)
+        .sampleGraphReferrers(opContext, URN, HardDeleteService.SKIPPED_REFERRERS_LOGGED);
+    inOrder.verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
+  }
+
+  @Test
+  public void deleteReferencesThenEntityReadsNoReferrerSampleWhenItCleansOrRefuses() {
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(LIMIT);
+    service(true, null).deleteReferencesThenEntity(opContext, URN, Supplier::get);
+
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(LIMIT + 1);
+    expectThrows(
+        GraphReferenceLimitExceededException.class,
+        () ->
+            service(true, null, LIMIT, GraphReferenceOverLimit.REFUSE)
+                .deleteReferencesThenEntity(opContext, URN, Supplier::get));
+
+    verify(deleteEntityService, never()).sampleGraphReferrers(any(), any(), anyInt());
+  }
+
+  /** The sample is only a diagnostic: failing to read it does not fail the delete. */
+  @Test
+  public void deleteReferencesThenEntityStillDeletesWhenTheReferrerSampleFails() {
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(LIMIT + 1);
+    when(deleteEntityService.sampleGraphReferrers(any(), eq(URN), anyInt()))
+        .thenThrow(new IllegalStateException("graph read failed"));
+
+    final HardDeleteService.ReferenceCleanup references =
+        service(true, null).deleteReferencesThenEntity(opContext, URN, Supplier::get);
+
+    verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
+    assertEquals(references.choice(), HardDeleteService.ReferenceCleanup.Choice.ENTITY_ONLY);
   }
 
   /** Exactly the limit still cleans. */

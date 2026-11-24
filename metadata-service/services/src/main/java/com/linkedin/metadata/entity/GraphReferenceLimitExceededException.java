@@ -10,19 +10,20 @@ import javax.annotation.Nonnull;
  * IllegalArgumentException} so the GraphQL exception handler reports its message as a bad request
  * rather than a server error.
  *
- * <p>The message names no remedy a caller could try: raising the limit, or removing the references
+ * <p>The message tells the caller to ask an administrator, and says what the administrator can do
+ * without naming a mechanism one deployment lacks: raising the limit, or removing the references
  * with one {@code datahub delete references} request, walks every referrer in one request, which is
  * what the limit prevents.
  */
 public class GraphReferenceLimitExceededException extends IllegalArgumentException {
   public GraphReferenceLimitExceededException(
-      @Nonnull final Urn urn, final int referrers, final int limit) {
+      @Nonnull final Urn urn, final int relationships, final int limit) {
     super(
         String.format(
-            "Cannot delete %s: %d entities reference it, which is over the limit of %d that one"
+            "Cannot delete %s: %d relationships point at it, which is over the limit of %d that one"
                 + " delete removes, and this deployment refuses deletes over the limit. Nothing was"
-                + " deleted. Ask your administrator: a delete this large needs the delete"
-                + " workflow.",
-            urn, referrers, limit));
+                + " deleted. Ask your administrator to remove the references in smaller batches or"
+                + " to delete it outside this request.",
+            urn, relationships, limit));
   }
 }

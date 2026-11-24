@@ -191,6 +191,20 @@ public class DeleteEntityService {
     return page.getNumResults();
   }
 
+  /**
+   * Up to {@code max} of the entities that hold a graph reference to {@code urn}, in the order the
+   * graph returns them, for a caller that leaves the rest behind and wants to say where to look.
+   * One page is read and its scroll is closed, as in {@link #countGraphReferrers}. It reads the
+   * edges as they are now, so a caller reads it before the key delete drops them.
+   */
+  @Nonnull
+  public List<RelatedEntity> sampleGraphReferrers(
+      @Nonnull final OperationContext opContext, @Nonnull final Urn urn, final int max) {
+    final RelatedEntitiesScrollResult page = scrollGraphReferrers(opContext, urn, null, max);
+    _graphService.closeRelatedEntitiesScroll(opContext, page.getScrollId());
+    return List.<RelatedEntity>copyOf(page.getEntities());
+  }
+
   /** A page of at most {@code count} entities holding a graph reference to {@code urn}. */
   private RelatedEntitiesScrollResult scrollGraphReferrers(
       @Nonnull OperationContext opContext,
