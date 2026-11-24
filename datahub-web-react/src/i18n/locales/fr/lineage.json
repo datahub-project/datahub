@@ -72,6 +72,7 @@
     "levelFilter.directTooltip": "Afficher les actifs de données directement associés",
     "levelFilter.indirect": "indirect",
     "levelFilter.indirectTooltip": "Afficher les actifs de données indirectement associés",
+    "loadError": "Impossible de charger le lineage. Veuillez réessayer.",
     "manageLineage.changeToHome": "Définir comme Home",
     "manageLineage.dashboardNoDownstream": "Les entités Dashboard n'ont pas de lineage en aval",
     "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",

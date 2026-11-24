@@ -50,7 +50,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { test as base, request, type Browser } from '@playwright/test';
-import { readGmsToken, gmsTokenPath } from './login';
+import { dropExpiringGmsToken, readGmsToken, gmsTokenPath } from './login';
 import type { UserCredentials } from '../data/users';
 import { LoginPage } from '../pages/login.page';
 import { DATAHUB_GRAPHQL_PATH, gmsUrl } from '../utils/constants';
@@ -104,7 +104,7 @@ async function bootstrapGmsToken(browser: Browser, user: UserCredentials): Promi
             input: {
               type: 'PERSONAL',
               actorUrn: actorCookie.value,
-              duration: 'ONE_MONTH',
+              duration: 'ONE_DAY',
               name: `Playwright Test Token — ${user.username}`,
             },
           },
@@ -313,6 +313,7 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
       // workers_per_shard > 1 siblings poll for it instead of duplicating the
       // ingestion.
       const tokenFile = gmsTokenPath(user.username);
+      dropExpiringGmsToken(user.username);
       await withArtifactLock(tokenFile, () => bootstrapGmsToken(browser, user).then(() => undefined));
       const gmsToken = readGmsToken(user.username);
 

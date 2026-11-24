@@ -71,6 +71,7 @@
     "levelFilter.directTooltip": "顯示直接相關的資料資產",
     "levelFilter.indirect": "間接",
     "levelFilter.indirectTooltip": "顯示間接相關的資料資產",
+    "loadError": "無法載入資料血緣。請再試一次。",
     "manageLineage.changeToHome": "設為主節點",
     "manageLineage.dashboardNoDownstream": "儀表板實體沒有下游資料血緣",
     "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",

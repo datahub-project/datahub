@@ -45,6 +45,7 @@
     "inviteToken.copyTooltip": "Copiar link de convite.",
     "inviteToken.createError": "Falha ao criar Token de Convite para a função {{roleName}} : \n {{error}}",
     "inviteToken.footerText": "Copie um link de convite para enviar aos seus usuários. Ao entrar, os usuários serão automaticamente atribuídos à função selecionada.",
+    "inviteToken.footerTextNoRole": "Copie um link de convite para enviar aos seus usuários. Eles poderão criar uma conta e não receberão nenhuma função.",
     "inviteToken.generateNewLinkTooltip": "Gerar um novo link. Quaisquer links antigos não serão mais válidos.",
     "inviteToken.generateSuccess": "Novo link de convite gerado",
     "inviteToken.modalTitle": "Compartilhar Link de Convite",

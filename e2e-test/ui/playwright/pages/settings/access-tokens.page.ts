@@ -1,7 +1,7 @@
 import { Locator, Page, expect } from '@playwright/test';
 import { BaseSettingsPage, type PageOptions } from './base.settings.page';
 import { TOAST_MESSAGES } from './constants';
-import { WAIT_TIMEOUT, DEFAULT_TIMEOUT } from '../../utils/constants';
+import { WAIT_TIMEOUT, DEFAULT_TIMEOUT, SHORT_TIMEOUT } from '../../utils/constants';
 
 export class AccessTokensPage extends BaseSettingsPage {
   private readonly pageContainer: Locator;
@@ -82,11 +82,15 @@ export class AccessTokensPage extends BaseSettingsPage {
     await this.confirmButton.click();
   }
 
+  // The token list is read from the search index. The page refetches it once, 3s after a create,
+  // and on a deployed instance the new token is often not indexed by then, so reload until it is.
   async verifyTokenInList(name: string, description: string): Promise<void> {
-    await expect(this.pageContainer).toBeVisible({ timeout: WAIT_TIMEOUT });
-    await expect(this.tableBody).toBeVisible({ timeout: WAIT_TIMEOUT });
-    await expect(this.page.getByText(name)).toBeVisible({ timeout: DEFAULT_TIMEOUT });
-    await expect(this.page.getByText(description)).toBeVisible({ timeout: WAIT_TIMEOUT });
+    await expect(async () => {
+      await this.reloadPage();
+      await expect(this.tableBody).toBeVisible({ timeout: SHORT_TIMEOUT });
+      await expect(this.page.getByText(name)).toBeVisible({ timeout: SHORT_TIMEOUT });
+      await expect(this.page.getByText(description)).toBeVisible({ timeout: SHORT_TIMEOUT });
+    }).toPass({ timeout: DEFAULT_TIMEOUT });
   }
 
   async verifyTokenRemoved(name: string, description: string): Promise<void> {

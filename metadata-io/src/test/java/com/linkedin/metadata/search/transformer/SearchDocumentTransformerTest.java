@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.agentskill.AgentSkillInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -51,6 +52,7 @@ import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -1461,6 +1463,39 @@ public class SearchDocumentTransformerTest {
         indexedName.contains("data:image"),
         "Base64 image should NOT be sanitized for fields without sanitizeRichText annotation");
     assertTrue(indexedName.contains("Dataset Name"), "Original text should be preserved");
+  }
+
+  @Test
+  public void testRichTextBodyOverTheKeywordLimitIsNotTruncated() throws Exception {
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+
+    // Two-byte characters put the value well over the 32,766-byte keyword term limit, so the
+    // final word is only searchable if the value reaches the index whole.
+    String body = "é".repeat(20_000) + " tailword";
+    assertTrue(body.getBytes(StandardCharsets.UTF_8).length > ESUtils.KEYWORD_MAXLENGTH);
+
+    AgentSkillInfo skill =
+        new AgentSkillInfo().setName("skill").setDescription(body).setInstructions(body);
+    Urn urn = UrnUtils.getUrn("urn:li:agentSkill:skill1");
+    EntitySpec entitySpec = ENTITY_REGISTRY.getEntitySpec("agentSkill");
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    Optional<ObjectNode> result =
+        transformer.transformAspect(
+            opContext,
+            urn,
+            skill,
+            entitySpec.getAspectSpec("agentSkillInfo"),
+            false,
+            AuditStampUtils.createDefaultAuditStamp());
+
+    assertTrue(result.isPresent());
+    ObjectNode searchDoc = result.get();
+    assertEquals(searchDoc.get("instructions").asText(), body, "RICH_TEXT keeps the whole value");
+    assertFalse(
+        searchDoc.get("description").asText().endsWith("tailword"),
+        "TEXT is still cut to the keyword limit");
   }
 
   @Test
