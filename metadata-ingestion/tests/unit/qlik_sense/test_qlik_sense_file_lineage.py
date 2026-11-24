@@ -699,11 +699,18 @@ def _graph_app_source(
     return source, app
 
 
+def _app_and_end_of_run(
+    source: QlikSenseSource, app: App
+) -> Iterable[MetadataWorkUnit]:
+    yield from source._gen_app_workunit(app)
+    yield from source._gen_pending_table_lineage()
+
+
 def _graph_app_writes(source: QlikSenseSource, app: App) -> Dict[str, str]:
     """Each table's upstreams as a whole UpstreamLineage write lists them, or
     "patch:" and those a patch adds."""
     writes: Dict[str, str] = {}
-    for wu in source._gen_app_workunit(app):
+    for wu in _app_and_end_of_run(source, app):
         lineage = wu.get_aspect_of_type(UpstreamLineageClass)
         if lineage:
             writes[wu.get_urn()] = ",".join(u.dataset for u in lineage.upstreams)
@@ -1392,7 +1399,7 @@ def test_moved_store_removes_only_the_apps_own_edge_from_the_old_file(
     previous = AppCheckpoint(urns=[ORDERS], stored_file_urns=[DEV_ORDERS])
 
     with patch.object(QlikSenseSource, "_usable_checkpoint", return_value=previous):
-        ops = _upstream_ops(source._gen_app_workunit(app))
+        ops = _upstream_ops(_app_and_end_of_run(source, app))
 
     # The app's edge into the file it no longer stores into goes; another
     # app's edge stays. With an included script, the app may still store
@@ -1410,7 +1417,10 @@ CUSTOMERS = make_dataset_urn("qlik-sense", CUSTOMERS_QRI.lower())
 DEV_CUSTOMERS = "urn:li:dataset:(urn:li:dataPlatform:abs,lake/dev/customers.qvd,PROD)"
 
 
-@pytest.mark.parametrize("other_app_seen", ["this run", "last run"])
+@pytest.mark.parametrize(
+    "other_app_seen",
+    ["this run", "later this run", "last run", "tables unknown this run"],
+)
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_moved_store_keeps_the_edge_of_a_table_another_app_shares(
     mock_api_cls: MagicMock, other_app_seen: str
@@ -1442,11 +1452,47 @@ def test_moved_store_keeps_the_edge_of_a_table_another_app_shares(
             return_value={"app-2": other_app} if other_app_seen == "last run" else {},
         ),
     ):
-        ops = _upstream_ops(source._gen_app_workunit(app))
+        workunits = list(source._gen_app_workunit(app))
+        # An app read after this one, or one whose tables can't all be named.
+        if other_app_seen == "later this run":
+            source._table_urns_by_app["app-2"] = {CUSTOMERS}
+        elif other_app_seen == "tables unknown this run":
+            source._apps_tables_unknown.add("app-2")
+        workunits.extend(source._gen_pending_table_lineage())
+    ops = _upstream_ops(workunits)
 
     # Another app loading the same table may be what stores it into the old
     # file, so its edge stays.
     assert not [op for op in ops.get(DEV_CUSTOMERS, []) if op.startswith("remove")]
+
+
+@pytest.mark.parametrize("script", ["denied", "not read"])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unread_script_keeps_the_edges_into_files_it_stored_into(
+    mock_api_cls: MagicMock, script: str
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        script="",
+    )
+    app.script = None
+    app.script_read_failed = script == "denied"
+    graph = MagicMock()
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=ORDERS, type=DatasetLineageTypeClass.COPY)]
+    )
+    source.ctx.graph = graph
+    previous = AppCheckpoint(urns=[ORDERS], stored_file_urns=[DEV_ORDERS])
+
+    with patch.object(QlikSenseSource, "_usable_checkpoint", return_value=previous):
+        ops = _upstream_ops(_app_and_end_of_run(source, app))
+
+    # Without the script its STOREs are unknown, so the app may still store
+    # into the file.
+    assert DEV_ORDERS not in ops
+    assert source._app_stored_files[app.id] == [DEV_ORDERS]
 
 
 @pytest.mark.parametrize("read", ["no graph", "read error"])
@@ -1470,7 +1516,7 @@ def test_old_file_whose_lineage_cant_be_read_stays_in_the_checkpoint(
     previous = AppCheckpoint(urns=[ORDERS], stored_file_urns=[DEV_ORDERS])
 
     with patch.object(QlikSenseSource, "_usable_checkpoint", return_value=previous):
-        ops = _upstream_ops(source._gen_app_workunit(app))
+        ops = _upstream_ops(_app_and_end_of_run(source, app))
 
     assert DEV_ORDERS not in ops
     # A later run that can read its lineage still removes the app's edge.
@@ -1504,26 +1550,37 @@ END IF
     assert not source.reporter.qvd_stores_in_competing_branches
 
 
+@pytest.mark.parametrize(
+    "path, store_format, column_edges_expected",
+    [
+        ("clean/orders.parquet", " (parquet)", 2),
+        # The format, not the file name, tells what the file holds: a STORE
+        # without one writes a QVD, which the storage sources don't read.
+        ("clean/orders.qvd", " (parquet)", 2),
+        ("clean/orders.parquet", "", 0),
+    ],
+)
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
-def test_stored_fields_get_column_lineage(mock_api_cls: MagicMock) -> None:
+def test_stored_fields_get_column_lineage(
+    mock_api_cls: MagicMock, path: str, store_format: str, column_edges_expected: int
+) -> None:
     source, app = _graph_app_source(
         mock_api_cls,
         {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
         [],
         script="Orders:\nLOAD * FROM [lib://Sales Space:Lake/landing/orders.csv] "
         "(txt);\nSTORE OrderId, Amount AS Total FROM Orders INTO "
-        "[lib://Sales Space:Lake/clean/orders.parquet] (parquet);\n",
+        f"[lib://Sales Space:Lake/{path}]{store_format};\n",
     )
 
-    # A QVD on storage gets table lineage only; see the storage QVD tests.
-    ops = _upstream_ops(source._gen_app_workunit(app))[
-        "urn:li:dataset:(urn:li:dataPlatform:abs,lake/clean/orders.parquet,PROD)"
+    ops = _upstream_ops(_app_and_end_of_run(source, app))[
+        f"urn:li:dataset:(urn:li:dataPlatform:abs,lake/{path},PROD)"
     ]
 
     column_edges = [op for op in ops if op.startswith("add /fineGrainedLineages/")]
-    assert len(column_edges) == 2
+    assert len(column_edges) == column_edges_expected
     assert any(
         make_schema_field_urn(ORDERS, "Amount") in op and ",Total)" in op
         for op in column_edges
-    )
+    ) == bool(column_edges_expected)
     assert source.reporter.file_stores_linked == 1

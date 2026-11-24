@@ -11,6 +11,7 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -45,7 +46,9 @@ public class ReliableHardDeleteFactory {
       @Qualifier("deleteEntityService") final DeleteEntityService deleteEntityService,
       @Qualifier("timeseriesAspectService") final TimeseriesAspectService timeseriesAspectService,
       @Qualifier("reliableHardDelete") final ReliableHardDelete reliableHardDelete,
-      final ObjectProvider<HardDeleteDispatcher> dispatcher) {
+      final ObjectProvider<HardDeleteDispatcher> dispatcher,
+      @Value("${hardDelete.graph-reference-cleanup-limit:100}")
+          final int graphReferenceCleanupLimit) {
     final HardDeleteDispatcher resolvedDispatcher = dispatcher.getIfAvailable();
     if (resolvedDispatcher != null) {
       log.info(
@@ -63,6 +66,7 @@ public class ReliableHardDeleteFactory {
         deleteEntityService,
         timeseriesAspectService,
         reliableHardDelete,
-        resolvedDispatcher);
+        resolvedDispatcher,
+        graphReferenceCleanupLimit);
   }
 }

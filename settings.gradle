@@ -177,6 +177,8 @@ include ':metadata-service:iceberg-catalog'
 include ':metadata-service:events-service'
 include ':datahub-actions'
 include ':datahub-agent-context'
+include ':packages:datahub-core-mcp-tools'
+include ':packages:datahub-ai-service'
 // CVE-patched fork of com.linkedin.avroutil1:helper-all (in-repo JAR; see build.gradle dependencySubstitution)
 include 'vendor:avroutil1-helper-all-fork'
 
