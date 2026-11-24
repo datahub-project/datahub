@@ -9,6 +9,7 @@ Each app is ingested both as a container, which holds its tables, sheets and cha
 - In a published app, users' private sheets are skipped; base and community sheets are ingested.
 - Charts inside a container object's tabs are ingested as charts of the sheet. An untitled chart takes its tab label as its title.
 - Objects with no data, such as buttons, filter panes and variable inputs, are skipped.
+- On-prem, with `ingest_unpublished_apps: true` in the `on_prem` block, apps not published to a stream are ingested under a stream named `Unpublished`. `space_pattern` filters it like any other stream, so an allow list has to include `Unpublished` to ingest them.
 - On-prem, owners are ingested by their Qlik user id, which for Windows directories is the account name, so they join with users ingested from Active Directory or LDAP by username.
 
 To keep only apps and their tables, set `include_sheets_and_charts: false`. Apps are then read without their sheets, which is faster, and each app dashboard links to all of its tables. With stale metadata removal enabled, the sheets and charts an earlier run ingested are soft-deleted on the next run. They are usually most of the entities a run ingests, so dropping them can exceed `stateful_ingestion.fail_safe_threshold` (75% by default), and the run then skips stale removal and reports a failure. Raise the threshold to 100 for the first run with the option off, and set it back afterwards.
@@ -49,13 +50,13 @@ Variables set with `SET`, or with `LET` and a quoted string, are expanded in con
 The app only keeps a variable's last value, so these variables stay unknown, even after an include:
 
 - the variable of a `FOR` or `FOR EACH` loop, inside the loop
-- a variable set with `LET` from an expression inside a `SUB`, or inside a loop or an `IF` or `SWITCH` branch until the loop or block ends (see below)
-- a variable set with `LET` more than once
+- a variable set with `LET` from an expression inside a loop or an `IF` or `SWITCH` branch, until the loop or block ends (see below)
+- a variable set with `LET` more than once, including in a `SUB` called more than once
 - a variable whose `IF` branches disagree, until the block and any loop or block around it ends
-- a `SUB` parameter the script gives no literal value
+- a `SUB` parameter the script gives no literal value or sets with `LET` from an expression
 - a `SET` or `LET` that copies or reads one of these
 
-After an `IF` or `SWITCH` block that is not inside a loop or another block, a variable it set takes the app's value once the script does not set it again, as after a loop.
+After an `IF` or `SWITCH` block that is not inside a loop or another block, a variable it set, or one known before it that an include in one branch could change, takes the app's value once the script does not set it again, as after a loop. After a block or a loop, if the app doesn't have that variable, it stays unknown, and neither its `script_variables` value nor an empty value is used. A `SUB` parameter is local to the call, so it never takes the app's value.
 
 Use `script_variables` for variables neither the app nor its visible script has, for example one set to nothing after the reload, which deletes it, or a date-based folder. They're used in QVD and file paths, connection names, SQL and chart expressions:
 
@@ -69,7 +70,7 @@ script_variables:
 
 Conditions are not evaluated:
 
-- A connection or variable set inside an `IF` or `SWITCH` block is kept after the block only when every branch sets the same value. An `IF` without `ELSE` or a `SWITCH` without `DEFAULT` can run no branch, so the value from before the block must match as well.
+- A connection set inside an `IF` or `SWITCH` block is kept after the block only when every branch sets the same one. A variable keeps the value every branch gives it, otherwise taking the app's value as described above. An `IF` without `ELSE` or a `SWITCH` without `DEFAULT` can run no branch, so the value from before the block must match as well.
 - A `SUB` body is read where the script calls it, with the connection and variables in effect at that `CALL`. A `SUB` that is never called adds no tables. Quoted or numeric arguments of a `CALL` are bound to the `SUB` parameters for that call, and any other argument leaves its parameter unknown.
 - An included script is not read, so after an include the connection is unknown. A `CALL` of a `SUB` the script does not define makes the connection and all variables unknown, as an include does. After either, the table loaded last is unknown too, so a `Concatenate` or `Join` without a table name is skipped until another table is loaded.
 - A `SELECT` that runs while the connection is unknown is skipped.
@@ -92,7 +93,7 @@ A `LOAD` stacked on a `SELECT` (a preceding load) gives the table its field name
 
 When an app's data model has no tables (the app is listed under `apps_without_load_model` in the report), the connector reads the app's tables from Qlik Cloud's lineage graph. Each table is ingested as `{app id}.{table name}`, the same name a load script table gets, and links upstream to the Qlik datasets it loads, such as QVD files, and to the app tables it loads from, including another app's tables, as a `BINARY` load reads them, with column lineage between their fields.
 
-A table of an app the run does not ingest is left out. A `BINARY` load of an app that has a data model links to that app's data model tables when each table in the source app's lineage graph matches exactly one data model table by name. Otherwise the edges are only added, and edges from earlier runs are kept. A table that the load script parser also finds with a `SELECT` is ingested once, with the upstreams from both. The tables' fields and their types come from the app's data model in the Engine, as its last reload left them. A load script table whose name the parser can't read from its statement, such as an unlabelled `SELECT` from a subquery or a `SELECT` labelled with a variable it can't expand (`[$(vTable)]:`), takes the name of the one data model table with exactly its columns; otherwise it is ingested as `table_<n>`. Label such loads in the script to name them for certain. A `SELECT` with an unbracketed variable label it can't expand (`$(vTable): SQL SELECT ...`) is not ingested.
+A table of an app the run does not ingest is left out. A `BINARY` load of an app that has a data model links to a data model table of that app when the table's name matches exactly one table in the source app's lineage graph. A lineage graph table that matches no data model table is reported in a warning with the app ID and the table names; lineage from it, by a load or a `STORE`, is only added, and edges from earlier runs are kept. A table that the load script parser also finds with a `SELECT` is ingested once, with the upstreams from both. The tables' fields and their types come from the app's data model in the Engine, as its last reload left them. A load script table whose name the parser can't read from its statement, such as an unlabelled `SELECT` from a subquery or a `SELECT` labelled with a variable it can't expand (`[$(vTable)]:`), takes the name of the one data model table with exactly its columns; otherwise it is ingested as `table_<n>`. Label such loads in the script to name them for certain. A `SELECT` with an unbracketed variable label it can't expand (`$(vTable): SQL SELECT ...`) is not ingested.
 
 Each Qlik dataset links upstream to the app tables that `STORE` into it, so lineage runs from an ETL app, through the QVDs it writes, to the apps that load them. QVD datasets have the `QVD` subtype and are named without the `.qvd` extension; the dataset URN still holds the file name. Script apps (data preparation scripts) are read like analytics apps, and the QVDs they store into are linked to their tables.
 
@@ -122,7 +123,7 @@ file_connection_to_storage:
 
 `storage_uri` takes an `abfss://<container>@<account>.dfs.core.windows.net/<folder>` (or `abfs://`, or Azure HTTPS) URI that names the container, an `s3://<bucket>/<folder>` URI or a `gs://<bucket>/<folder>` URI. The scheme may be in any case.
 
-A file is named `<container or bucket>/<folder>/<path>`, as the `abs`, `s3` and `gcs` sources name a file when their `path_specs` ingest files individually. Names keep the case of the path the script reads; set `convert_urns_to_lowercase: true` on a mapping when the storage source is run with that option.
+A file is named `<container or bucket>/<folder>/<path>`, as the `abs`, `s3` and `gcs` sources name a file when their `path_specs` ingest files individually. An Azure file's name does not include its storage account, so two accounts with a container of the same name give the same URN; with several storage accounts, set `platform_instance` per connection in `file_connection_to_storage`, matching the `abs` recipe of each account. Names keep the case of the path the script reads; set `convert_urns_to_lowercase: true` on a mapping when the storage source is run with that option.
 
 A file is linked only when one connection could hold it:
 
@@ -130,7 +131,7 @@ A file is linked only when one connection could hold it:
 - When two connections known only from `storage_uri` could hold it, such as the prod and dev branches of an `IF`, the one whose Azure container path or Google Cloud Storage bucket matches the file's QRI is linked, and otherwise neither is.
 - When the data connections or an app's variables could not be read, files that are not resolved keep their lineage from the last run.
 
-The other way, a QVD an app writes with `STORE <table> INTO [lib://<connection>/<path>]` onto a connection whose storage is known gets the stored table as an upstream, so an app that loads the QVD later links through it. Only QVD stores are linked, only from tables the app ingests, and only from apps whose load script the connector reads (see [Lineage from load scripts](#lineage-from-load-scripts)). When the script stores the same table into different files from different branches of an `IF` or `SWITCH`, such as a prod and a dev path, which file it wrote can't be told, so none of them is linked and the stores are listed under `qvd_stores_in_competing_branches` in the report. As other apps may store into the same file, these edges are only added, never removed; remove an edge in DataHub when an app no longer stores into the file. An on-prem recipe that maps the same storage in `file_connection_to_storage` gives its QVDs the same datasets, so lineage joins across the two (see [QVD paths](#qvd-paths)).
+The other way, a file an app writes with `STORE <table> INTO [lib://<connection>/<path>]` onto a connection whose storage is known gets the stored table as an upstream, with column lineage for the fields it writes into text and Parquet files, so an app that loads the file later links through it. QVD, text (`(txt)`) and Parquet (`(parquet)`) stores are linked; a `STORE` with no format writes a QVD. The `abs`, `s3` and `gcs` sources don't ingest QVD files, so a stored QVD's dataset only carries this table-level lineage and joins the Qlik apps that load it; text and Parquet files join the datasets those sources ingest. A file Qlik catalogues as a dataset in a space the recipe ingests is not linked on storage, as apps that load it link to that Qlik dataset, which already gets the stored table from its own lineage graph; while the Qlik datasets can't be listed, stored files are not linked. Stores are only linked from tables the app ingests, and only from apps whose load script the connector reads (see [Lineage from load scripts](#lineage-from-load-scripts)). When the script stores the same table into different files from different branches of an `IF` or `SWITCH`, such as a prod and a dev path, which file it wrote can't be told, so none of them is linked and the stores are listed under `qvd_stores_in_competing_branches` in the report; two names of one connection, such as with and without its space, write the same file. Other apps may store into the same file, so the connector only replaces the app's own edges: it reads the file's current lineage from DataHub and drops edges from the app's tables that it no longer stores into the file, including files it stored into in the last run, which the app's checkpoint records when stateful ingestion is on. When an app's stores aren't all known this run, because a store's path or connection can't be resolved, the script includes another script, its variables or the data connections could not be read, or stores compete, its edges are only added. `file_stores_linked` in the report counts the linked stores. An on-prem recipe that maps the same storage in `file_connection_to_storage` gives its QVDs the same datasets, so lineage joins across the two (see [QVD paths](#qvd-paths)).
 
 #### Lineage through QVDs (on-prem)
 
@@ -150,7 +151,7 @@ on_prem:
     "//qlik-sense/qvd": "//qlik-sense.corp.local/qvd"
 ```
 
-A connection that is not a folder connection, such as an Azure Storage or Amazon S3 connection, has no folder in Qlik, so its QVDs are unresolved. Map it in `file_connection_to_storage` with the `storage_uri` of the container or bucket folder it points at. Its QVDs then take the `abs`, `s3` or `gcs` dataset that Qlik Cloud gives the same file, `<container or bucket>/<folder>/<path>`, so lineage joins across a Qlik Cloud and an on-prem recipe that map the same storage. The connector writes only the lineage of these files, and never removes them as stale, as they are not Qlik datasets:
+A connection that is not a folder connection, such as an Azure Storage or Amazon S3 connection, has no folder in Qlik, so its QVDs are unresolved. Map it in `file_connection_to_storage` with the `storage_uri` of the container or bucket folder it points at. Its QVDs then take the `abs`, `s3` or `gcs` dataset that Qlik Cloud gives the same file, `<container or bucket>/<folder>/<path>`, so lineage joins across a Qlik Cloud and an on-prem recipe that map the same storage. The connector writes only table-level lineage to and from these files, as they have no schema in DataHub, and never removes them as stale, as they are not Qlik datasets. When an app read in a run no longer stores into such a file, its edge into the file is removed. A folder connection listed here takes the storage dataset instead of a `qlik-sense` QVD dataset. `storage_qvds_resolved` in the report counts the QVDs linked this way, once for each app that uses them:
 
 ```yaml
 file_connection_to_storage:
@@ -163,9 +164,9 @@ Set `convert_urns_to_lowercase` as for [Qlik Cloud files](#lineage-from-files-on
 
 - Variables in a QVD path, including those set with `LET` or in an included script such as a connection prefix, are expanded with the app's variables as its last reload left them.
 - A `lib://` path may separate the connection from the path with a backslash.
-- As in Qlik, a variable the app doesn't have expands to nothing in a connection name, such as an empty connection prefix in `lib://$(vPrefix)QVD Data/`, but only when what is left names a folder or storage connection.
+- As in Qlik, a variable the app doesn't have expands to nothing in a connection name, such as an empty connection prefix in `lib://$(vPrefix)QVD Data/`, but only when what is left names a folder or storage connection and the visible script doesn't set the variable in `IF` or `SWITCH` branches that disagree.
 - Quotes a `SET` variable carries into a path are dropped.
-- Variables that stay unknown in load scripts (see [Script variables](#script-variables)) are not expanded in paths either. After a loop, a variable it set takes the app's value again. Assignments in comments, in a `SUB` that is never called and after `EXIT SCRIPT` are not counted.
+- Variables that stay unknown in load scripts (see [Script variables](#script-variables)) are not expanded in paths either. After a loop, a variable it set takes the app's value again, or stays unknown if the app doesn't have it, and a `SUB` parameter stays unknown until the call ends. Assignments in comments, in a `SUB` that is never called and after `EXIT SCRIPT` are not counted.
 
 QVDs of the connections in `qvd_ignored_connections` (by default the monitoring apps' `ServerLogFolder` and `ArchivedLogsFolder`) and the Engine's `BUFFER` QVDs are not ingested. When an app's load script can't be read, the QVDs it writes are unknown, so QVD schemas and lineage are kept from the last run.
 
@@ -225,7 +226,8 @@ The Engine loads each app's data when the connector opens the app, on Qlik Cloud
 - `max_workers` sets how many apps and datasets are read at the same time, across all spaces and streams. It defaults to 1, and to 4 on-prem when `read_data_model` is false. Each worker holds its own Engine session under the configured user.
 - On Qlik Cloud, a rate-limited (HTTP 429) REST request is retried up to 5 times. Each retry waits for the `Retry-After` time when Qlik sends one, and otherwise backs off for 0, 2, 4, 8 and 16 seconds. A request made while listing or reading a space, item or app that is still rate-limited after that fails, and that space, item or app is reported as unread or partly read, which keeps stale metadata removal from deleting its metadata.
 - On Qlik Cloud, a rate-limited Engine connection is not retried and leaves its app unread.
-- On-prem, while the Engine refuses connections, as it does while its service restarts, app reads retry every 15 seconds until the Engine has refused them for 5 minutes. After that, each app whose connection is refused is reported as partly read straight away, until a connection succeeds.
+- On-prem, while the Engine refuses connections, as it does while its service restarts, app reads retry every 15 seconds until the Engine has refused them for 5 minutes in a row. After that, each app whose connection is refused is reported as partly read straight away, until a connection attempt ends in anything other than a refusal, which starts a new 5 minutes. The run reports the longest time the Engine refused connections as an info entry.
+- Only refusals are waited for this way. When the Engine host is down or a firewall drops the connection, each app read tries to connect 3 times, waiting up to `timeout_seconds` each time, before the app is reported as partly read.
 
 ##### Partly read apps
 
@@ -272,12 +274,12 @@ Column-level lineage is resolved against the upstream schemas in DataHub at read
 - On-prem ingestion does not ingest Qlik Cloud datasets. From cloud storage connections it only links QVDs, and only for connections mapped in `file_connection_to_storage`.
 - Scripts pulled in with `$(Include=...)` or `$(Must_Include=...)` are not read, and neither is a `SUB` the script calls but does not define. Tables, QVDs and files they load have no lineage from the script. On Qlik Cloud, a file in such an app's lineage graph that its own script does not load is only added to the table's lineage, never removed.
 - A table loaded with `RESIDENT` from another script table gets no lineage.
-- A file loaded through a variable that varies as the script runs, as in a `FOR EACH` loop over `FileList(...)`, is not named from the app's last value, so the table's file lineage is only added to.
+- On Qlik Cloud, a file loaded through a variable that varies as the script runs, as in a `FOR EACH` loop over `FileList(...)`, is not named from the app's last value, so the table's file lineage is only added to.
 - Database tables in Qlik Cloud's lineage graph are not linked, as Qlik identifies them by an opaque hash; their lineage comes from the load script instead.
 - Qlik answers "Forbidden" for datasets and spaces the API key's user cannot access, so those sources are left out of lineage.
 - `file_connection_to_storage` does not accept `wasb://` and `wasbs://` URIs.
-- An unlabelled `LOAD` from a QVD is skipped, as Qlik names its table.
-- On-prem, apps whose section access denies the service user their data cannot be read with `read_data_model: true`.
+- On-prem, an unlabelled `LOAD` from a QVD is skipped, as Qlik names its table.
+- On-prem with `read_data_model: true`, apps whose section access denies the service user their data are read without their data: their tables get fields only from the load script, and the apps are listed in the "Qlik apps read without their data" warning.
 
 ### Troubleshooting
 
@@ -285,7 +287,7 @@ Most lineage gaps show up as a warning or as an entry in the ingestion report. T
 
 #### "Unable to fully read Qlik app"
 
-The app could not be read completely, for example because the Engine timed out or refused the connection. See [Partly read apps](#partly-read-apps) for what is kept. On-prem, check that the Engine (port 4747) is running and reachable, and raise `timeout_seconds` if reads time out. On Qlik Cloud, lower `max_workers` if reads are rate-limited. On-prem, an app with a `BINARY` statement whose last read ingested BINARY tables is also partly read when its data model can't be loaded, for example because section access denies its data to the service user, or when its BINARY path uses a variable and its variables can't be read. After `max_partial_reads_kept` runs its BINARY tables are let go instead. Give the service user access to the app's data in section access to keep them.
+The app could not be read completely, for example because the Engine timed out or refused the connection. See [Partly read apps](#partly-read-apps) for what is kept. On-prem, check that the Engine (`engine_port`, 4747 by default) is running and reachable, and raise `timeout_seconds` if reads time out. On Qlik Cloud, lower `max_workers` if reads are rate-limited. On-prem, an app with a `BINARY` statement whose last read ingested BINARY tables is also partly read when its data model can't be loaded, for example because section access denies its data to the service user, or when its BINARY path uses a variable and its variables can't be read. After `max_partial_reads_kept` runs its BINARY tables are let go instead. Give the service user access to the app's data in section access to keep them.
 
 #### "Unable to read Qlik app load script"
 

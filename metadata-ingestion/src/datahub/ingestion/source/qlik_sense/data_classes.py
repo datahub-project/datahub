@@ -390,9 +390,9 @@ class App(Item):
     lineage_tables: List[LineageTable] = []
     # Qlik Cloud answered 404 for the app's lineage graph.
     lineage_graph_missing: bool = False
-    # A table node of the app's lineage graph matched no data model table with
-    # a URN, so other apps' loads of it can't be resolved.
-    graph_tables_unmatched: bool = False
+    # Labels of the app's lineage graph table nodes that matched no data model
+    # table with a URN, so other apps' loads of them can't be resolved.
+    unmatched_graph_tables: List[str] = []
     # The tables of the app's data model as the last reload left them, read on
     # Qlik Cloud for apps whose tables come from the lineage graph or script.
     data_model_tables: List[DataModelTable] = []

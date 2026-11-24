@@ -28,6 +28,9 @@ class AppCheckpoint(BaseModel):
     table_urns_by_qri: Optional[Dict[str, str]] = None
     # Some of the app's tables may be missing from table_urns_by_qri.
     tables_unknown: bool = False
+    # The app's tables were read, but some of its lineage graph table nodes
+    # have no URN in table_urns_by_qri.
+    graph_tables_unresolved: bool = False
     # The QVDs the app writes and reads, on-prem. None in older state.
     qvds: Optional[AppQvds] = None
     # Table name, in lower case -> fields of the app's data model, kept for
@@ -37,6 +40,8 @@ class AppCheckpoint(BaseModel):
     # The read ingested tables the app's BINARY statement brought in, so a
     # later read that can't find them keeps them.
     binary_tables: bool = False
+    # The files on storage the app stores into, on Qlik Cloud.
+    stored_file_urns: List[str] = []
 
 
 class QlikAppCheckpointState(CheckpointStateBase):
