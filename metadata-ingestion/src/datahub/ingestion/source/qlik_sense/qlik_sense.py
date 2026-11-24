@@ -6,7 +6,7 @@ import json
 import logging
 import posixpath
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime
 from functools import partial
 from typing import (
@@ -327,6 +327,26 @@ def _path_key(path: str) -> str:
     return path.lower().replace("[", "").replace("]", "")
 
 
+def _lib_path_segments(path: str) -> Optional[List[str]]:
+    """The space, connection, folders and file of a `lib://` path. The space
+    is empty when the path doesn't name one."""
+    match = LIB_PATH_RE.match(path)
+    if not match or "$(" in path:
+        return None
+    space, _, connection = match.group("connection").rpartition(SPACE_SEPARATOR)
+    return [
+        space,
+        connection,
+        *(part for part in re.split(r"[/\\]", match.group("path")) if part),
+    ]
+
+
+def _lib_path(segments: List[str]) -> str:
+    space, connection, *rest = segments
+    qualified = f"{space}{SPACE_SEPARATOR}{connection}" if space else connection
+    return "/".join([f"lib://{qualified}", *rest])
+
+
 def _file_stem(name: str) -> str:
     base = re.split(r"[/\\]", name)[-1].lower()
     return base[: -len(QVD_EXTENSION)] if base.endswith(QVD_EXTENSION) else base
@@ -541,6 +561,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # Files on connections of unknown storage, by URN, as `lib://` paths,
         # and those that lineage links to, which get a dataset.
         self._unmapped_files: Dict[str, str] = {}
+        # How load scripts spell each `lib://` path prefix, by its lowercase
+        # key, and the number of paths it was built from.
+        self._script_spellings: Dict[str, Counter[str]] = {}
+        self._script_spellings_built_from = -1
         self._linked_unmapped_files: Set[str] = set()
         # Entities of apps whose last read is kept this run, unchanged or partly
         # read, which still hold the unmapped files they linked.
@@ -3515,12 +3539,57 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             return None
         return ids[0]
 
+    def _script_spelling(self, path: str) -> str:
+        """A `lib://` path spelled as the load scripts and stores the run read
+        spell it. Qlik ignores case in these paths and records loads in
+        lowercase, so the same space, connection or folder would otherwise be
+        named in several spellings."""
+        segments = _lib_path_segments(path)
+        if segments is None:
+            return path
+        spellings = self._lib_path_spellings()
+        spelled = []
+        for i, segment in enumerate(segments):
+            votes = spellings.get(_path_key("/".join(segments[: i + 1])))
+            # The most used spelling, and the same one every run on a tie.
+            spelled.append(
+                min(votes, key=lambda name: (-votes[name], name)) if votes else segment
+            )
+        return _lib_path(spelled)
+
+    def _lib_path_spellings(self) -> Dict[str, Counter[str]]:
+        paths = [
+            *self._unmapped_files.values(),
+            *(
+                f"lib://{reference.connection}/{reference.path}"
+                for resolver in self._file_sources_by_app.values()
+                for reference in resolver.references()
+            ),
+            *(
+                file.path
+                for files in self._reload_files.values()
+                for file in files
+                if file.stored
+            ),
+        ]
+        # Reload records are read through the end of the run, so the spellings
+        # are built again when there are more paths.
+        if len(paths) != self._script_spellings_built_from:
+            spellings: Dict[str, Counter[str]] = defaultdict(Counter)
+            for path in paths:
+                segments = _lib_path_segments(path) or []
+                for i, segment in enumerate(segments):
+                    spellings[_path_key("/".join(segments[: i + 1]))][segment] += 1
+            self._script_spellings = spellings
+            self._script_spellings_built_from = len(paths)
+        return self._script_spellings
+
     def _gen_lib_path_location(self, urn: str, path: str) -> Iterable[MetadataWorkUnit]:
         """Places a file named by its `lib://<space>:<connection>/<path>` in its
         space, under its connection and folders, as Qlik shows it. A space the
         run doesn't ingest is named, not linked, so no container is made up for
         it. Without a browse path, DataHub splits the URN at its dots."""
-        match = LIB_PATH_RE.match(path)
+        match = LIB_PATH_RE.match(self._script_spelling(path))
         if not match:
             return
         space, qualified, connection = match.group("connection").rpartition(
@@ -3685,6 +3754,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self._leave_out_unplaced(urn, label, all_read)
                 continue
             emitted.add(urn)
+            path = self._script_spelling(path)
             self._note_unseen_space(_path_space(path), "datasets")
             yield from self._gen_file_entity(
                 urn,

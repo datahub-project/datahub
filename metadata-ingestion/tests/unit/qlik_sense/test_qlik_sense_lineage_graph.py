@@ -2812,6 +2812,60 @@ def test_graph_named_dataset_takes_its_path_from_reload_files(
     )
 
 
+@pytest.mark.parametrize(
+    "script_path, path, browse",
+    [
+        pytest.param(
+            "lib://Hidden:DataFiles/Sub/Other.qvd",
+            "lib://Hidden:DataFiles/Sub/prices.qvd",
+            ["Hidden", "DataFiles", "Sub"],
+            id="same folder",
+        ),
+        pytest.param(
+            # Only the space is spelled by a script.
+            "lib://Hidden:Archive/Other.qvd",
+            "lib://Hidden:datafiles/sub/prices.qvd",
+            ["Hidden", "datafiles", "sub"],
+            id="same space",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_graph_named_dataset_path_takes_the_spelling_of_the_scripts(
+    mock_api_cls: MagicMock, script_path: str, path: str, browse: List[str]
+) -> None:
+    # Qlik records the load in lowercase; a load script spells the same space,
+    # connection and folder, so the dataset is placed beside the files named
+    # from scripts rather than under a lowercase copy of their folders.
+    upstreams = LineageUpstreams(resource_labels={UNLISTED_QVD: "Sub/prices.qvd"})
+    reader, writer = _reader_and_writer(upstreams)
+    assert isinstance(reader, App)
+    reader.script = f"LOAD * FROM [{script_path}] (qvd);"
+    source = _source(mock_api_cls, DATASETS, items=[reader, writer])
+    mock_api_cls.return_value.get_reload_statements.side_effect = lambda app_id: (
+        [_load("lib://hidden:datafiles/sub/prices.qvd")]
+        if app_id == "report-app"
+        else []
+    )
+
+    workunits = list(source.get_workunits_internal())
+
+    prices = _urn(UNLISTED_QVD)
+    [properties] = [
+        p
+        for wu in workunits
+        if wu.get_urn() == prices
+        and (p := wu.get_aspect_of_type(DatasetPropertiesClass))
+    ]
+    [browse_path] = [
+        b
+        for wu in workunits
+        if wu.get_urn() == prices and (b := wu.get_aspect_of_type(BrowsePathsV2Class))
+    ]
+    assert properties.qualifiedName == path
+    assert [e.id for e in browse_path.path] == browse
+
+
 def _unseen_spaces(source: QlikSenseSource) -> List[str]:
     return [
         entry
