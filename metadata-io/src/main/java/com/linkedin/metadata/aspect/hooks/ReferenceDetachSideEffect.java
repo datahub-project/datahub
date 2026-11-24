@@ -66,11 +66,13 @@ public abstract class ReferenceDetachSideEffect extends MCPSideEffect {
   @Nonnull
   protected abstract String deletedKeyAspectName();
 
-  /** The aspect on referencing entities that holds the reference. */
   @Nonnull
   protected abstract String referencingAspectName();
 
-  /** The search field, indexed from {@link #referencingAspectName()}, that holds the reference. */
+  /**
+   * Must be indexed from {@link #referencingAspectName()}; only entity types with that aspect are
+   * searched.
+   */
   @Nonnull
   protected abstract String searchFieldName();
 
