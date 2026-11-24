@@ -47,10 +47,10 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
             try {
               unlinkFromVersionSet(context, entityUrn);
               final var references =
-                  _entityClient.deleteEntityThenReferences(
+                  _entityClient.deleteReferencesThenEntity(
                       context.getOperationContext(), entityUrn);
 
-              // Asynchronously Delete all references to the entity (to return quickly)
+              // The entity is already gone. This removes the remaining references.
               CompletableFuture.runAsync(
                   () -> {
                     try {

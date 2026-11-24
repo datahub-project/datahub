@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContextForResource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
@@ -151,6 +152,57 @@ public class UpdateQueryResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public void testClearingSubjectsNeedsDeleteEntity() throws Exception {
+    QueryService mockService = initMockService();
+    UpdateQueryResolver resolver = new UpdateQueryResolver(mockService);
+    UpdateQueryInput clearSubjects = new UpdateQueryInput(null, ImmutableList.of());
+
+    // Edit Queries on the current subject is not enough to leave the query without any.
+    assertThrows(
+        CompletionException.class,
+        () -> resolver.get(mockEnv(getMockQueryContext(true), clearSubjects)).join());
+    Mockito.verify(mockService, Mockito.never())
+        .updateQuery(any(), any(), any(), any(), any(), any(), Mockito.anyLong());
+
+    QueryContext canDelete =
+        getMockAllowContextForResource(TEST_ACTOR_URN.toString(), "DELETE_ENTITY", TEST_QUERY_URN);
+    resolver.get(mockEnv(canDelete, clearSubjects)).get();
+    Mockito.verify(mockService, Mockito.times(1))
+        .updateQuery(
+            any(),
+            Mockito.eq(TEST_QUERY_URN),
+            any(),
+            any(),
+            any(),
+            Mockito.eq(ImmutableList.of()),
+            Mockito.anyLong());
+  }
+
+  @Test
+  public void testUpdatingQueryWithoutSubjectsNeedsDeleteEntity() {
+    QueryService mockService = initMockService();
+    Mockito.when(mockService.getQuerySubjects(any(), Mockito.eq(TEST_QUERY_URN)))
+        .thenReturn(new QuerySubjects().setSubjects(new QuerySubjectArray()));
+    UpdateQueryResolver resolver = new UpdateQueryResolver(mockService);
+    UpdateQueryInput renameOnly =
+        new UpdateQueryInput(new UpdateQueryPropertiesInput("new-name", null, null), null);
+
+    assertThrows(
+        CompletionException.class,
+        () -> resolver.get(mockEnv(getMockQueryContext(true), renameOnly)).join());
+    Mockito.verify(mockService, Mockito.never())
+        .updateQuery(any(), any(), any(), any(), any(), any(), Mockito.anyLong());
+  }
+
+  private static DataFetchingEnvironment mockEnv(QueryContext context, UpdateQueryInput input) {
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_QUERY_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(context);
+    return mockEnv;
   }
 
   private QueryService initMockService() {

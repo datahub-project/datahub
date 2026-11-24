@@ -197,6 +197,7 @@
     "marketplace.home": "Inicio de productos de datos",
     "marketplace.applicationFilter.placeholder": "Filtrar aplicaciones",
     "marketplace.createTooltip": "Crear producto de datos",
+    "marketplace.createUnauthorized": "No tiene permiso para crear productos de datos aquí. Pruebe a crear uno desde la pestaña Productos de datos de un dominio que gestione.",
     "marketplace.cardAssets_other": "{{count}} activos",
     "marketplace.cardDeprecated": "Obsoleto",
     "marketplace.cardMetaWithSubProducts": "{{assets}} · {{subProducts}}",

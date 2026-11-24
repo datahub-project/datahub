@@ -190,7 +190,7 @@ class LogHolder:
         # If partial_line ends with a '\n', then the line is complete.
         if partial_line.endswith("\n"):
             if self._echo_logs_prefix is not None:
-                logger.debug(
+                logger.info(
                     "%s%s", self._echo_logs_prefix, self._lines[-1].rstrip("\n")
                 )
 

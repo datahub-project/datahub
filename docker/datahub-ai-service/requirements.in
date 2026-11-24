@@ -1,0 +1,7 @@
+# Inputs for requirements.lock. Regenerate with:
+#   ./gradlew :packages:datahub-ai-service:lockfileUpdate
+# These three are installed from source at the build commit; only their
+# third-party dependencies are locked.
+-e ./metadata-ingestion[datahub-rest]
+-e ./packages/datahub-core-mcp-tools
+-e ./packages/datahub-ai-service

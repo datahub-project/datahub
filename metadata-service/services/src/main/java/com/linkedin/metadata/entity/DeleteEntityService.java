@@ -23,6 +23,7 @@ import com.linkedin.file.DataHubFileInfo;
 import com.linkedin.form.FormInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.aspect.plugins.validation.WriteRejectedException;
@@ -139,6 +140,92 @@ public class DeleteEntityService {
    */
   public DeleteReferencesResponse deleteReferencesTo(
       @Nonnull OperationContext opContext, final Urn urn, final boolean dryRun) {
+    return deleteReferencesTo(opContext, urn, dryRun, null);
+  }
+
+  /**
+   * Removes the graph references other entities hold to {@code urn}, one page at a time. The page
+   * is discarded once its references are removed, so the referrers are not held as one list. The
+   * entity itself is left in place; a caller deletes it after this returns, while the edges are
+   * still the ones this read.
+   */
+  public void deleteGraphReferences(@Nonnull OperationContext opContext, @Nonnull final Urn urn) {
+    try (CascadeOperationContext cascade =
+        CascadeOperationContext.begin(_metricUtils, "deleteGraphReferences", urn, -1)) {
+      RelatedEntitiesScrollResult scrollResult =
+          scrollGraphReferrers(opContext, urn, null, BATCH_SIZE);
+      int totalProcessed = 0;
+      while (true) {
+        if (!scrollResult.getEntities().isEmpty()) {
+          log.info(
+              "Processing batch of {} graph references (total processed: {}, total: {})",
+              scrollResult.getEntities().size(),
+              totalProcessed,
+              scrollResult.getNumResults());
+          for (RelatedEntities entity : scrollResult.getEntities()) {
+            deleteReference(opContext, urn, entity, cascade);
+            cascade.recordEntityProcessed();
+          }
+          totalProcessed += scrollResult.getEntities().size();
+        }
+        final String nextScrollId = scrollResult.getScrollId();
+        if (nextScrollId == null) {
+          break;
+        }
+        scrollResult = scrollGraphReferrers(opContext, urn, nextScrollId, BATCH_SIZE);
+      }
+      log.info(
+          "Graph reference cleanup complete for {}: {} references processed", urn, totalProcessed);
+    }
+  }
+
+  /**
+   * How many entities hold a graph reference to {@code urn}: the total on the first scroll page,
+   * which both stores report. One hit is requested, and that scroll is closed, including a
+   * point-in-time it opened, because the caller does not continue it.
+   */
+  public int countGraphReferrers(
+      @Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
+    final RelatedEntitiesScrollResult page = scrollGraphReferrers(opContext, urn, null, 1);
+    _graphService.closeRelatedEntitiesScroll(opContext, page.getScrollId());
+    return page.getNumResults();
+  }
+
+  /** A page of at most {@code count} entities holding a graph reference to {@code urn}. */
+  private RelatedEntitiesScrollResult scrollGraphReferrers(
+      @Nonnull OperationContext opContext,
+      final Urn urn,
+      @Nullable final String scrollId,
+      final int count) {
+    return _graphService.scrollRelatedEntities(
+        opContext,
+        null,
+        newFilter("urn", urn.toString()),
+        null,
+        EMPTY_FILTER,
+        ImmutableSet.of(),
+        newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
+        Edge.EDGE_SORT_CRITERION,
+        scrollId,
+        SCROLL_KEEP_ALIVE,
+        count,
+        null,
+        null);
+  }
+
+  /**
+   * {@link #deleteReferencesTo(OperationContext, Urn, boolean)} with the graph references taken
+   * from {@code graphReferrers} instead of the graph as it is now. An empty list removes no graph
+   * references: the caller already removed them, and the key delete has dropped the edges, so
+   * scrolling again would find none.
+   *
+   * @param graphReferrers the graph references to remove; null reads them from the graph
+   */
+  public DeleteReferencesResponse deleteReferencesTo(
+      @Nonnull OperationContext opContext,
+      final Urn urn,
+      final boolean dryRun,
+      @Nullable final List<RelatedEntities> graphReferrers) {
     // TODO: update DeleteReferencesResponse to have searchAspects and provide more helpful comment
     // in CLI
     final DeleteReferencesResponse result = new DeleteReferencesResponse();
@@ -158,20 +245,14 @@ public class DeleteEntityService {
 
       // Phase 3: Delete graph-based references (scroll all incoming relationships)
       RelatedEntitiesScrollResult scrollResult =
-          _graphService.scrollRelatedEntities(
-              opContext,
-              null,
-              newFilter("urn", urn.toString()),
-              null,
-              EMPTY_FILTER,
-              ImmutableSet.of(),
-              newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-              Edge.EDGE_SORT_CRITERION,
-              null,
-              SCROLL_KEEP_ALIVE,
-              BATCH_SIZE,
-              null,
-              null);
+          graphReferrers != null
+              ? RelatedEntitiesScrollResult.builder()
+                  .numResults(graphReferrers.size())
+                  .pageSize(graphReferrers.size())
+                  .scrollId(null)
+                  .entities(graphReferrers)
+                  .build()
+              : scrollGraphReferrers(opContext, urn, null, BATCH_SIZE);
 
       final List<RelatedAspect> relatedAspects =
           scrollResult.getEntities().stream()
@@ -211,21 +292,7 @@ public class DeleteEntityService {
           break;
         }
 
-        scrollResult =
-            _graphService.scrollRelatedEntities(
-                opContext,
-                null,
-                newFilter("urn", urn.toString()),
-                null,
-                EMPTY_FILTER,
-                ImmutableSet.of(),
-                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-                Edge.EDGE_SORT_CRITERION,
-                nextScrollId,
-                SCROLL_KEEP_ALIVE,
-                BATCH_SIZE,
-                null,
-                null);
+        scrollResult = scrollGraphReferrers(opContext, urn, nextScrollId, BATCH_SIZE);
       } while (true);
       log.info("Reference cleanup complete for {}: {} references processed", urn, totalProcessed);
     }
