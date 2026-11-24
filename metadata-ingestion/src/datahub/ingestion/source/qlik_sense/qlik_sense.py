@@ -2695,6 +2695,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.unlabelled_qvd_loads.append(f"{app.id}: {path}")
             self._unlabelled_qvd_loads += 1
         self.reporter.qvds_found += len(lineage.paths)
+        self.reporter.storage_qvds_resolved += len(lineage.storage_urns)
         if app.script is None or app.script_read_failed:
             # QVDs the script writes can't be known, so their lineage is kept.
             self._apps_qvds_unknown[app.id] = "its load script could not be read"
@@ -2790,7 +2791,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             for urn, read_fields in qvds.reads.items():
                 known = reads.setdefault(urn, [])
                 known.extend(field for field in read_fields if field not in known)
-        if not (writes or reads):
+        # Storage files are never removed as stale, so the edges of apps that
+        # stopped storing into them are only removed here.
+        stopped = self._storage_qvds_written_before()
+        if not (writes or reads or stopped):
             return
         unknown = dict(self._apps_qvds_unknown)
         if self.qlik_api.unread_items:
@@ -2807,7 +2811,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     [f"{app}: {reason}" for app, reason in sorted(unknown.items())]
                 ),
             )
-        qvd_urns = sorted({*writes, *reads})
+        qvd_urns = sorted({*writes, *reads, *stopped})
         # Read in batches up front rather than one request per QVD. Removal is
         # limited to edges from apps whose writes are known, so it runs even
         # while other apps are unknown.
@@ -2841,6 +2845,28 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._gen_qvd_upstreams(
                 urn, writes.get(urn, []), current_lineage.get(urn)
             )
+
+    def _storage_qvds_written_before(self) -> Set[str]:
+        """Storage QVDs that apps whose writes are known this run stored into
+        on their last read."""
+        failures: List[str] = []
+        urns: Set[str] = set()
+        for app_id in self._app_qvds:
+            if app_id in self._apps_qvds_unknown:
+                continue
+            previous = self._usable_checkpoint(app_id, failures)
+            if previous is not None and previous.qvds is not None:
+                urns.update(
+                    urn for urn in previous.qvds.writes if not self._is_own_dataset(urn)
+                )
+        if failures:
+            self.reporter.warning(
+                title="Unable to load the last checkpoint of a Qlik app",
+                message="Edges from these apps into storage QVDs they no longer "
+                "write are kept.",
+                context=_bounded_list(failures),
+            )
+        return urns
 
     def _report_unresolved_qvds(self) -> None:
         if not (self._unresolved_qvd_loads or self._unlabelled_qvd_loads):
@@ -2909,7 +2935,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             for write in writes
             for field in write.fields or []
-            if field.source
+            # A storage file has no schema in DataHub for these fields.
+            if field.source and self._is_own_dataset(qvd_urn)
         ]
         # Added as a patch, so lineage from elsewhere stays.
         patch = DatasetPatchBuilder(qvd_urn)

@@ -80,7 +80,7 @@ on_prem:
     "//qlik-sense/qvd": "//qlik-sense.corp.local/qvd"
 ```
 
-A connection that is not a folder connection, such as an Azure Storage or Amazon S3 connection, has no folder in Qlik, so its QVDs are unresolved. Map it in `file_connection_to_storage` with the `storage_uri` of the container or bucket folder it points at. Its QVDs then take the `abs`, `s3` or `gcs` dataset that Qlik Cloud gives the same file, `<container or bucket>/<folder>/<path>`, so lineage joins across a Qlik Cloud and an on-prem recipe that map the same storage. The connector writes only the lineage of these files, and never removes them as stale, as they are not Qlik datasets:
+A connection that is not a folder connection, such as an Azure Storage or Amazon S3 connection, has no folder in Qlik, so its QVDs are unresolved. Map it in `file_connection_to_storage` with the `storage_uri` of the container or bucket folder it points at. Its QVDs then take the `abs`, `s3` or `gcs` dataset that Qlik Cloud gives the same file, `<container or bucket>/<folder>/<path>`, so lineage joins across a Qlik Cloud and an on-prem recipe that map the same storage. The connector writes only table-level lineage to and from these files, as they have no schema in DataHub, and never removes them as stale, as they are not Qlik datasets. When an app read in a run no longer stores into such a file, its edge into the file is removed. A folder connection listed here takes the storage dataset instead of a `qlik-sense` QVD dataset. `storage_qvds_resolved` in the report counts the QVDs linked this way, once for each app that uses them:
 
 ```yaml
 file_connection_to_storage:

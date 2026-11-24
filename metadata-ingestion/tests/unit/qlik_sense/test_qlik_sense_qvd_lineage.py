@@ -12,6 +12,7 @@ from datahub.emitter.mce_builder import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import App, UnreadItem
+from datahub.ingestion.source.qlik_sense.file_lineage import qri_part_id
 from datahub.ingestion.source.qlik_sense.qlik_base_api import UNREAD_DATA_CONNECTIONS
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.qvd_lineage import (
@@ -388,6 +389,70 @@ def test_qvds_of_a_storage_connection_take_the_file_dataset_qlik_cloud_uses() ->
     # the source that could remove it when stale.
     assert set(aspects[STORAGE_QVD]) == {"patch", "lineage_ops", "not_primary_source"}
     assert not source.reporter.unresolved_qvd_paths
+
+
+def test_storage_qvd_gets_table_lineage_only() -> None:
+    report = REPORT_SCRIPT.replace(
+        "lib://Shared QVDs/clean", "lib://Lake - Azure/Clean"
+    )
+    source, aspects = _run(
+        [_app("etl-app", STORAGE_ETL_SCRIPT), _app("report-app", report)],
+        file_connection_to_storage=STORAGE_MAPPING,
+    )
+    sales = aspects[_urn("report-app.sales")]["UpstreamLineageClass"]
+
+    # The storage sources write no QVD schema, so its fields don't exist.
+    assert not _added_columns(aspects, STORAGE_QVD)
+    assert not any(
+        STORAGE_QVD in upstream
+        for cll in sales.fineGrainedLineages or []
+        for upstream in cll.upstreams or []
+    )
+    assert source.reporter.storage_qvds_resolved == 2
+    assert source.reporter.qvds_found == 1
+
+
+def test_folder_connection_mapped_to_storage_takes_the_storage_dataset() -> None:
+    clean = make_dataset_urn("abs", "lake/qlik/clean/orders.qvd")
+    _, aspects = _run(
+        [_app("etl-app", ETL_SCRIPT)],
+        file_connection_to_storage={"QVD Data": STORAGE_MAPPING["Lake - Azure"]},
+    )
+
+    assert _upstreams(aspects, clean, "add") == [_urn("etl-app.orders")]
+    assert CLEAN not in aspects and RAW not in aspects
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_cloud_and_onprem_name_a_storage_qvd_alike(mock_api_cls: MagicMock) -> None:
+    script = "Orders: LOAD id FROM [lib://Lake - Azure/Clean//orders.qvd] (qvd);"
+    cloud = QlikSenseSource(
+        QlikSourceConfig.model_validate(
+            {
+                "tenant_hostname": "tenant.example.com",
+                "api_key": "key",
+                "file_connection_to_storage": STORAGE_MAPPING,
+            }
+        ),
+        PipelineContext(run_id="test-qvd-lineage"),
+    )
+    cloud._data_connections = {}
+    cloud._app_space_ids["etl-app"] = "space-1"
+    cloud._file_sources_by_app["etl-app"] = cloud._file_source_resolver(
+        _app("etl-app", script), parse_script(script)
+    )
+    # As Qlik Cloud's lineage graph names the file: each part hashed.
+    qri = (
+        f"qri:file:adls://{qri_part_id('unknown')}"
+        f"#{qri_part_id('Clean/orders.qvd')}#{qri_part_id('item')}"
+    )
+    _, aspects = _run(
+        [_app("etl-app", STORAGE_ETL_SCRIPT.replace("/Clean/", "/Clean//"))],
+        file_connection_to_storage=STORAGE_MAPPING,
+    )
+
+    assert cloud._resolve_file_source("etl-app", qri) == STORAGE_QVD
+    assert _upstreams(aspects, STORAGE_QVD, "add") == [_urn("etl-app.orders")]
 
 
 def test_onprem_storage_connections_need_a_storage_uri() -> None:
