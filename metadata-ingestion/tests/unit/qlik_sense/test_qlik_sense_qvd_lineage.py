@@ -1545,6 +1545,72 @@ def test_binary_load_mapped_to_an_app_whose_script_includes_others_is_only_added
     )
 
 
+def test_binary_load_with_an_include_only_adds_to_a_script_only_table() -> None:
+    model = _app("model-app", MODEL_SCRIPT, ORDERS_MODEL)
+    front = _app(
+        "front-app",
+        FRONT_SCRIPT
+        + "Extra: LOAD id FROM [lib://QVD Data/raw/extra.qvd] (qvd);\n"
+        + "$(Include=lib://Scripts/extra.qvs);",
+        {**FRONT_MODEL, "Extra": ["id"]},
+    )
+    _, aspects = _run([model, front], on_prem=MAPPED)
+
+    # The included script may load into Extra, so earlier edges stay.
+    extra = _urn("front-app.extra")
+    assert "UpstreamLineageClass" not in aspects[extra]
+    assert _upstreams(aspects, extra, "add") == [_urn("//nas/qvd/raw/extra.qvd")]
+    assert not _upstreams(aspects, extra, "remove")
+
+
+SUFFIXED_MODEL_SCRIPT = (
+    MODEL_SCRIPT + "[Calendar-2024]: LOAD day FROM [lib://QVD Data/raw/cal.qvd] (qvd);"
+)
+
+
+@pytest.mark.parametrize(
+    "model_tables, linked",
+    [
+        pytest.param({"Calendar-2024": ["day"]}, True, id="source app has the table"),
+        pytest.param({}, False, id="source app lacks the table"),
+    ],
+)
+def test_binary_load_links_a_suffixed_table_only_when_the_source_app_has_it(
+    model_tables: Dict[str, List[str]], linked: bool
+) -> None:
+    model = _app("model-app", SUFFIXED_MODEL_SCRIPT, {**ORDERS_MODEL, **model_tables})
+    front = _app("front-app", FRONT_SCRIPT, {**FRONT_MODEL, "Calendar-2024": ["day"]})
+    source, aspects = _run([model, front], on_prem=MAPPED)
+
+    calendar = _urn("front-app.calendar-2024")
+    source_table = _urn("model-app.calendar-2024")
+    assert (
+        _written_upstreams(aspects, calendar) == [source_table]
+        if linked
+        else "UpstreamLineageClass" not in aspects.get(calendar, {})
+    )
+    reported = [
+        entry
+        for entry in source.reporter.binary_loads_without_lineage
+        if "Calendar-2024" in entry
+    ]
+    assert bool(reported) is not linked
+
+
+def test_unmapped_binary_load_reports_a_table_qlik_may_have_renamed() -> None:
+    front = _app(
+        "front-app",
+        FRONT_SCRIPT + "Calendar: LOAD * INLINE [week\n1];",
+        {**FRONT_MODEL, "Calendar-1": ["week"]},
+    )
+    source, aspects = _run([front])
+
+    assert _urn("front-app.calendar-1") not in aspects
+    assert _written_upstreams(aspects, _urn("front-app.orders")) == [APP_FILE]
+    [entry] = source.reporter.binary_loads_without_lineage
+    assert "Calendar-1" in entry
+
+
 def test_binary_load_links_its_tables_to_the_app_file() -> None:
     source, aspects = _run([_app("front-app", FRONT_SCRIPT, FRONT_MODEL)])
 

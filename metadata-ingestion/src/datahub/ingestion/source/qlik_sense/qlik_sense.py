@@ -297,6 +297,9 @@ class _BinaryLink(BaseModel):
     fields: List[str]
     # An included script, which is not read, could change the table.
     additive: bool = False
+    # Named like a script table Qlik renamed, such as `Sales-1` beside a
+    # `Sales` load, so it is the file's only if the source app has it.
+    maybe_renamed_script_table: bool = False
     # The table's lineage from the app's own script.
     upstream_urns: List[str] = []
     script_fields: List[FineGrainedLineage] = []
@@ -3340,9 +3343,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if table.name.lower() in created:
                 continue
             suffixed = DUPLICATE_TABLE_NAME_RE.match(table.name)
-            if suffixed and suffixed.group("name").lower() in labels:
-                # Qlik names a new table `Orders-1` when Orders already
-                # exists, so it is the script's.
+            # Qlik names a new table `Orders-1` when Orders already exists, but
+            # a real name such as `Orders-2024` looks the same.
+            maybe_renamed = bool(suffixed and suffixed.group("name").lower() in labels)
+            if maybe_renamed and source_app_id is None:
+                without_lineage(
+                    f"table {table.name} may be a script table Qlik renamed; "
+                    "map the file in binary_file_to_app"
+                )
                 continue
             identifier = app_table_identifier(app.id, table.name)
             fields = [field.name for field in table.fields]
@@ -3361,6 +3369,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     dataset_urn=dataset_urn,
                     fields=fields,
                     additive=parsed.has_includes,
+                    maybe_renamed_script_table=maybe_renamed,
                 )
         return binary
 
@@ -3428,13 +3437,31 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         earlier run wrote stay."""
         unread: Set[Tuple[str, str]] = set()
         for link in self._binary_links:
-            source_urn = self._binary_link_source(link, unread)
             source_model = self._app_model_fields.get(link.source_app_id)
-            if (
-                source_urn is None
-                and source_model is not None
-                and link.table.lower() not in source_model
-            ):
+            in_source_model = (
+                source_model is not None and link.table.lower() in source_model
+            )
+            if link.maybe_renamed_script_table and not in_source_model:
+                if link.source_app_id not in self._app_urns:
+                    unread.add((link.app_id, link.source_app_id))
+                    continue
+                self.reporter.binary_loads_without_lineage.append(
+                    f"{link.app_id}: table {link.table} is not in app "
+                    f"{link.source_app_id}'s data model, so it is taken as a "
+                    "script table Qlik renamed"
+                    if source_model is not None
+                    else f"{link.app_id}: table {link.table} may be a script "
+                    f"table Qlik renamed, and app {link.source_app_id}'s data "
+                    "model is not known"
+                )
+                continue
+            source_urn = self._binary_link_source(link, unread)
+            if source_urn is None and source_model is not None and not in_source_model:
+                if link.additive:
+                    yield from self._patch_binary_upstreams(
+                        link, None, link.script_fields
+                    )
+                    continue
                 # Not from the file, so its script lineage is written whole.
                 yield MetadataChangeProposalWrapper(
                     entityUrn=link.dataset_urn,
