@@ -1,5 +1,5 @@
 import threading
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
@@ -33,6 +33,8 @@ class AppCheckpoint(BaseModel):
     graph_tables_unresolved: bool = False
     # The QVDs the app writes and reads, on-prem. None in older state.
     qvds: Optional[AppQvds] = None
+    # The files on storage the app stores into, on Qlik Cloud.
+    stored_file_urns: List[str] = []
     # Field names of the app's tables, so a renamed load from a kept app still
     # names its source field. None in older state.
     field_names: Optional[List[str]] = None
@@ -115,6 +117,17 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
         last = self._trusted_last_apps()
         return last.get(app_id) if last is not None else None
 
+    def previous_apps(self) -> Optional[Dict[str, AppCheckpoint]]:
+        """Every app the last run recorded, or None when an earlier run left
+        state but no trusted app checkpoints, so apps may be missing."""
+        if not self.is_checkpointing_enabled():
+            return {}
+        last, stale = self._last_checkpoints()
+        if last is None and stale is None:
+            # No earlier run kept state, so there is no app to miss.
+            return {}
+        return self._trusted(last, stale)
+
     def keep_unrecorded_apps(self) -> None:
         """Carries the last read of every app this run did not record into its
         checkpoint. A failed run may not reach every app, and without this its
@@ -133,6 +146,14 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
     def _trusted_last_apps(self) -> Optional[Dict[str, AppCheckpoint]]:
         if not self.is_checkpointing_enabled():
             return None
+        return self._trusted(*self._last_checkpoints())
+
+    def _last_checkpoints(
+        self,
+    ) -> Tuple[
+        Optional[Checkpoint[QlikAppCheckpointState]],
+        Optional[Checkpoint[GenericCheckpointState]],
+    ]:
         with self._load_lock:
             last = self.state_provider.get_last_checkpoint(
                 self.job_id, QlikAppCheckpointState
@@ -144,11 +165,29 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
                 if self.stale_job_id
                 else None
             )
+        return last, stale
+
+    def _trusted(
+        self,
+        last: Optional[Checkpoint[QlikAppCheckpointState]],
+        stale: Optional[Checkpoint[GenericCheckpointState]],
+    ) -> Optional[Dict[str, AppCheckpoint]]:
         if last is None:
             return None
         if self.stale_job_id and (stale is None or stale.run_id != last.run_id):
             return None
         return last.state.apps
+
+    def add_stored_files(self, app_id: str, file_urns: List[str]) -> None:
+        """Adds files to the stored files of an app this run recorded."""
+        if not self.is_checkpointing_enabled():
+            return
+        current = self.state_provider.get_current_checkpoint(self.job_id)
+        checkpoint = current.state.apps.get(app_id) if current is not None else None
+        if checkpoint is not None:
+            checkpoint.stored_file_urns = sorted(
+                {*checkpoint.stored_file_urns, *file_urns}
+            )
 
     def record(self, app_id: str, checkpoint: AppCheckpoint) -> None:
         if not self.is_checkpointing_enabled():
