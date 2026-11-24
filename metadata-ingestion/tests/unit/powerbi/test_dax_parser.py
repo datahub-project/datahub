@@ -170,6 +170,17 @@ def test_set_functions_take_every_bare_table_argument() -> None:
     ]
 
 
+def test_generate_takes_both_tables() -> None:
+    assert _tables("GENERATE(Policies, Claims)") == ["Policies", "Claims"]
+    assert _tables("GENERATEALL(Policies, RELATEDTABLE(Claims))") == [
+        "Policies",
+        "Claims",
+    ]
+    assert extract_dax_references(
+        "GENERATEALL(Policies, Claims)"
+    ).has_row_context_iterators
+
+
 def test_bare_table_name_as_the_whole_value() -> None:
     assert _tables("Policies") == ["Policies"]
     assert _tables("VAR Base = Policies\nRETURN Base") == ["Policies"]
