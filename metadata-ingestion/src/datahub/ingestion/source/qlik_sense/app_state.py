@@ -178,6 +178,17 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
             return None
         return last.state.apps
 
+    def add_stored_files(self, app_id: str, file_urns: List[str]) -> None:
+        """Adds files to the stored files of an app this run recorded."""
+        if not self.is_checkpointing_enabled():
+            return
+        current = self.state_provider.get_current_checkpoint(self.job_id)
+        checkpoint = current.state.apps.get(app_id) if current is not None else None
+        if checkpoint is not None:
+            checkpoint.stored_file_urns = sorted(
+                {*checkpoint.stored_file_urns, *file_urns}
+            )
+
     def record(self, app_id: str, checkpoint: AppCheckpoint) -> None:
         if not self.is_checkpointing_enabled():
             return
