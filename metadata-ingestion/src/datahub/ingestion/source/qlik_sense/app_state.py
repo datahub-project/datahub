@@ -35,6 +35,9 @@ class AppCheckpoint(BaseModel):
     qvds: Optional[AppQvds] = None
     # The files on storage the app stores into, on Qlik Cloud.
     stored_file_urns: List[str] = []
+    # Field names of the app's tables, so a renamed load from a kept app still
+    # names its source field. None in older state.
+    field_names: Optional[List[str]] = None
 
 
 class QlikAppCheckpointState(CheckpointStateBase):
