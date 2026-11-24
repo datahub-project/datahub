@@ -3552,6 +3552,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if link.maybe_renamed_script_table and not in_source_model:
                 if link.source_app_id not in self._app_urns:
                     unread.add((link.app_id, link.source_app_id))
+                    yield from self._patch_binary_upstreams(
+                        link, None, link.script_fields
+                    )
                     continue
                 self.reporter.binary_loads_without_lineage.append(
                     f"{link.app_id}: table {link.table} is not in app "
