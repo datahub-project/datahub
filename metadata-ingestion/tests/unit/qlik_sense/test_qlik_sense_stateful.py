@@ -12,6 +12,8 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     PERSONAL_SPACE_DICT,
     App,
     LineageTable,
+    LineageUpstreams,
+    ListedDataset,
     Sheet,
     Space,
 )
@@ -174,8 +176,14 @@ def test_qrs_failure_does_not_soft_delete(
     ]
 
 
+UNLISTED_QVD = "qri:qdf:space://Unlisted#PricesQvd"
+
+
 def _cloud_app(
-    read_errors: List[str], script: str, lineage_tables: List[LineageTable]
+    read_errors: List[str],
+    script: str = "",
+    lineage_tables: Optional[List[LineageTable]] = None,
+    loads_unlisted_qvd: bool = False,
 ) -> App:
     app = App.model_validate(
         {
@@ -187,7 +195,7 @@ def _cloud_app(
             "modifiedDate": "2024-01-09T18:05:36.000Z",
             "spaceId": "space-1",
             "script": script,
-            "lineage_tables": lineage_tables,
+            "lineage_tables": lineage_tables or [],
         }
     )
     if not read_errors:
@@ -203,6 +211,14 @@ def _cloud_app(
             )
         ]
     app.read_errors = read_errors
+    if loads_unlisted_qvd and not read_errors:
+        app.lineage_tables = [
+            LineageTable(
+                qri="qri:app:sense://app-1#Tbl",
+                label="Prices",
+                source_qris=[f"{UNLISTED_QVD}#Prices"],
+            )
+        ]
     return app
 
 
@@ -213,6 +229,10 @@ def _cloud_run(
     script: str = "",
     lineage_tables: Optional[List[LineageTable]] = None,
     file_connection_to_storage: Optional[Dict[str, Dict[str, str]]] = None,
+    loads_unlisted_qvd: bool = False,
+    upstream_graph_unread: bool = False,
+    datasets: Optional[List[ListedDataset]] = None,
+    datasets_unread: bool = False,
 ) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
     with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI") as api_cls:
         api = api_cls.return_value
@@ -227,8 +247,20 @@ def _cloud_run(
             )
         ]
         api.get_items.return_value = [
-            _cloud_app(read_errors, script, lineage_tables or [])
+            _cloud_app(
+                read_errors,
+                script,
+                lineage_tables,
+                loads_unlisted_qvd,
+            )
         ]
+        api.list_datasets.return_value = None if datasets_unread else datasets or []
+        api.dataset_listing_error = "timed out" if datasets_unread else None
+        api.get_lineage_upstreams.return_value = LineageUpstreams(
+            resource_labels={UNLISTED_QVD: "prices.qvd"}
+        )
+        if upstream_graph_unread:
+            api.get_lineage_upstreams.side_effect = ValueError("no graph")
         api.get_data_connections.return_value = {}
         api.unread_items = []
         api.failed_user_lookups = {}
@@ -279,6 +311,46 @@ def test_cloud_partly_read_app_keeps_last_read(
     ]
 
 
+def test_graph_named_dataset_is_kept_with_a_partly_read_app(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    _, first_wus = _cloud_run(
+        mock_datahub_graph, "run-1", read_errors=[], loads_unlisted_qvd=True
+    )
+    _, second_wus = _cloud_run(
+        mock_datahub_graph,
+        "run-2",
+        read_errors=["Unable to fetch sheets"],
+        loads_unlisted_qvd=True,
+    )
+
+    prices = make_dataset_urn("qlik-sense", UNLISTED_QVD.lower())
+    assert prices in {wu.get_urn() for wu in first_wus}
+    assert prices not in {wu.get_urn() for wu in second_wus}
+    assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
+
+
+def test_graph_named_dataset_is_kept_when_the_upstream_graph_is_unread(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    _cloud_run(mock_datahub_graph, "run-1", read_errors=[], loads_unlisted_qvd=True)
+    _, second_wus = _cloud_run(
+        mock_datahub_graph,
+        "run-2",
+        read_errors=[],
+        loads_unlisted_qvd=True,
+        upstream_graph_unread=True,
+    )
+    _, third_wus = _cloud_run(
+        mock_datahub_graph, "run-3", read_errors=[], loads_unlisted_qvd=True
+    )
+
+    # Its name comes only from the graph, so a run that could not read it keeps
+    # the dataset of the last read.
+    assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
+    assert not [wu for wu in third_wus if wu.id.startswith("soft-delete-")]
+
+
 def test_cloud_partly_read_app_keeps_the_connection_named_file_it_loads(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
@@ -303,6 +375,47 @@ def test_cloud_partly_read_app_keeps_the_connection_named_file_it_loads(
     assert csv in {wu.get_urn() for wu in first_wus}
     assert csv not in {wu.get_urn() for wu in second_wus}
     assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
+
+
+@pytest.mark.parametrize(
+    "datasets, datasets_unread",
+    [
+        pytest.param(None, True, id="listing failed"),
+        # It may be the dataset the graph names, so none is named.
+        pytest.param(
+            [ListedDataset(space_id="space-1", name="other.qvd")],
+            False,
+            id="QVD without a QRI",
+        ),
+        pytest.param(
+            [ListedDataset(space_id="excluded-space", name="other.qvd")],
+            False,
+            id="QVD without a QRI in a left-out space",
+        ),
+    ],
+)
+def test_graph_named_dataset_is_kept_when_sources_cannot_be_told(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+    datasets: Optional[List[ListedDataset]],
+    datasets_unread: bool,
+) -> None:
+    _cloud_run(mock_datahub_graph, "run-1", read_errors=[], loads_unlisted_qvd=True)
+    _, second_wus = _cloud_run(
+        mock_datahub_graph,
+        "run-2",
+        read_errors=[],
+        loads_unlisted_qvd=True,
+        datasets=datasets,
+        datasets_unread=datasets_unread,
+    )
+    _, third_wus = _cloud_run(
+        mock_datahub_graph, "run-3", read_errors=[], loads_unlisted_qvd=True
+    )
+
+    prices = make_dataset_urn("qlik-sense", UNLISTED_QVD.lower())
+    assert prices not in {wu.get_urn() for wu in second_wus}
+    assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
+    assert not [wu for wu in third_wus if wu.id.startswith("soft-delete-")]
 
 
 def test_cloud_file_moves_to_its_storage_once_mapped(

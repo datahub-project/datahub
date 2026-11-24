@@ -11,7 +11,10 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     PERSONAL_SPACE_DICT,
     App,
     Item,
+    LineageGraph,
+    LineageGraphLevel,
     LineageTable,
+    LineageUpstreams,
     ListedDataset,
     QlikDataset,
     QlikTable,
@@ -149,27 +152,24 @@ class QlikAPI(QlikBaseAPI):
         encoded_qri = quote(qri, safe="")
         response = self.session.get(
             f"{self.rest_api_url}/lineage-graphs/nodes/{encoded_qri}/actions/expand"
-            f"?node={encoded_qri}&level=TABLE"
+            f"?node={encoded_qri}&level={LineageGraphLevel.TABLE}"
         )
         # Qlik has no lineage for a resource it has not loaded or stored yet, or
         # has not computed it since.
         if response.status_code == 404:
             return None
-        response.raise_for_status()
-        graph = response.json().get(Constant.GRAPH)
-        if graph is None:
-            raise ValueError(f"Lineage graph response for {qri} has no graph")
+        graph = self._graph_of(response, f"Lineage graph of {qri}")
         # Only the resource's own tables: neighbouring nodes would otherwise be
         # read as its tables, and their sources as its sources.
         tables = {
-            table_qri: LineageTable(qri=table_qri, label=node.get(Constant.LABEL) or "")
-            for table_qri, node in (graph.get(Constant.NODES) or {}).items()
+            table_qri: LineageTable(qri=table_qri, label=node.label or "")
+            for table_qri, node in graph.nodes.items()
             if table_qri.startswith(f"{qri}#")
         }
-        for edge in graph.get(Constant.EDGES) or []:
-            table = tables.get(edge.get(Constant.TARGET))
-            if table and edge.get(Constant.SOURCE):
-                table.source_qris.append(edge[Constant.SOURCE])
+        for edge in graph.edges:
+            table = tables.get(edge.target or "")
+            if table and edge.source:
+                table.source_qris.append(edge.source)
         if self.config.include_column_lineage:
             for table in tables.values():
                 # The table graph is complete without its field level, which
@@ -184,29 +184,65 @@ class QlikAPI(QlikBaseAPI):
                     self.field_lineage_failures.append(f"{table.qri}: {e}")
         return list(tables.values())
 
+    @staticmethod
+    def _graph_of(response: requests.Response, what: str) -> LineageGraph:
+        response.raise_for_status()
+        graph = response.json().get(Constant.GRAPH)
+        if graph is None:
+            raise ValueError(f"{what} response has no graph")
+        return LineageGraph.model_validate(graph)
+
+    def _upstream_graph(
+        self, qri: str, level: LineageGraphLevel, up: int
+    ) -> LineageGraph:
+        return self._graph_of(
+            self.session.get(
+                f"{self.rest_api_url}/lineage-graphs/nodes/{quote(qri, safe='')}"
+                f"?level={level}&up={up}"
+            ),
+            f"Upstream lineage of {qri}",
+        )
+
+    def get_lineage_upstreams(self, qri: str) -> LineageUpstreams:
+        """Labels of the resources upstream of the app, and the app tables two
+        levels up that store into its source tables."""
+        resources = self._upstream_graph(qri, LineageGraphLevel.RESOURCE, 1)
+        upstreams = LineageUpstreams(
+            resource_labels={
+                resource_qri: node.label
+                for resource_qri, node in resources.nodes.items()
+                if node.label
+            }
+        )
+        tables = self._upstream_graph(qri, LineageGraphLevel.TABLE, 2)
+        for edge in tables.edges:
+            if (
+                edge.source
+                and edge.target
+                and (edge.relation or "").lower() == Constant.STORE
+            ):
+                upstreams.stored_from.setdefault(edge.target, []).append(edge.source)
+        return upstreams
+
     def _add_field_lineage(self, qri: str, table: LineageTable) -> None:
         """Expanding a table node at field level gives its field nodes, named,
         and the field nodes each is loaded or stored from."""
         response = self.session.get(
             f"{self.rest_api_url}/lineage-graphs/nodes/{quote(qri, safe='')}"
-            f"/actions/expand?node={quote(table.qri, safe='')}&level=FIELD"
+            f"/actions/expand?node={quote(table.qri, safe='')}"
+            f"&level={LineageGraphLevel.FIELD}"
         )
-        response.raise_for_status()
-        graph = response.json().get(Constant.GRAPH)
-        if graph is None:
-            raise ValueError(f"Field lineage response for {table.qri} has no graph")
+        graph = self._graph_of(response, f"Field lineage of {table.qri}")
         names = {
-            field_qri: node.get(Constant.LABEL)
-            for field_qri, node in (graph.get(Constant.NODES) or {}).items()
-            if field_qri.startswith(f"{table.qri}#") and node.get(Constant.LABEL)
+            field_qri: node.label
+            for field_qri, node in graph.nodes.items()
+            if field_qri.startswith(f"{table.qri}#") and node.label
         }
         table.fields = list(names.values())
-        for edge in graph.get(Constant.EDGES) or []:
-            name = names.get(edge.get(Constant.TARGET))
-            if name and edge.get(Constant.SOURCE):
-                table.field_source_qris.setdefault(name, []).append(
-                    edge[Constant.SOURCE]
-                )
+        for edge in graph.edges:
+            name = names.get(edge.target or "")
+            if name and edge.source:
+                table.field_source_qris.setdefault(name, []).append(edge.source)
 
     def list_datasets(self) -> Optional[List[ListedDataset]]:
         datasets: List[ListedDataset] = []

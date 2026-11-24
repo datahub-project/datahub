@@ -469,7 +469,7 @@ def test_cloud_and_onprem_name_a_storage_qvd_alike(mock_api_cls: MagicMock) -> N
         file_connection_to_storage=STORAGE_MAPPING,
     )
 
-    assert cloud._resolve_file_source("etl-app", qri) == STORAGE_QVD
+    assert cloud._file_source_resolution("etl-app", qri).urn == STORAGE_QVD
     assert _upstreams(aspects, STORAGE_QVD, "add") == [_urn("etl-app.orders")]
 
 

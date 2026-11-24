@@ -22,6 +22,7 @@ from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfi
 from datahub.ingestion.source.qlik_sense.data_classes import (
     DataModelTable,
     Item,
+    LineageUpstreams,
     ListedDataset,
     Sheet,
     Space,
@@ -131,6 +132,10 @@ class QlikBaseAPI(ABC):
         """Datasets of every space, or None when they could not be listed."""
         # Enterprise on Windows has no Qlik datasets.
         return []
+
+    def get_lineage_upstreams(self, qri: str) -> LineageUpstreams:
+        # Enterprise on Windows has no lineage graph.
+        return LineageUpstreams()
 
     @abstractmethod
     def _list_items(self, space_id: str) -> Iterable[Dict]:

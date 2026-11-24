@@ -192,7 +192,9 @@ def test_path_resolves_with_the_variables_of_the_last_reload(
     source._app_space_ids[app.id] = app.spaceId
 
     assert (
-        source._resolve_file_source("app-4", _file_qri("adls", "unknown", "old/f.csv"))
+        source._file_source_resolution(
+            "app-4", _file_qri("adls", "unknown", "old/f.csv")
+        ).urn
         == "urn:li:dataset:(urn:li:dataPlatform:abs,lake/old/f.csv,PROD)"
     )
 
@@ -304,9 +306,9 @@ def test_file_resolves_through_the_mapped_storage(mock_api_cls: MagicMock) -> No
 
     # The path is built from variables with a doubled separator, which Qlik's
     # QRI does not have.
-    urn = source._resolve_file_source(
+    urn = source._file_source_resolution(
         "app-1", _file_qri("adls", "unknown", "landing/orders.csv")
-    )
+    ).urn
 
     assert urn == (
         "urn:li:dataset:(urn:li:dataPlatform:abs,"
@@ -330,16 +332,16 @@ def test_file_resolves_through_the_visible_connection(
     )
 
     assert (
-        source._resolve_file_source(
+        source._file_source_resolution(
             "app-1", _file_qri("adls", "lake", "ref/regions.xlsx")
-        )
+        ).urn
         == "urn:li:dataset:(urn:li:dataPlatform:abs,lake/ref/regions.xlsx,PROD)"
     )
     # Same path, but the QRI's connection is another container.
     assert (
-        source._resolve_file_source(
+        source._file_source_resolution(
             "app-1", _file_qri("adls", "other", "ref/regions.xlsx")
-        )
+        ).urn
         is None
     )
 
@@ -349,12 +351,14 @@ def test_file_without_known_storage_is_reported(mock_api_cls: MagicMock) -> None
     source = _source({}, {})
 
     # A bare name is the app's own space's connection, as Qlik Cloud resolves it.
-    assert source._resolve_file_source(
+    assert source._file_source_resolution(
         "app-1", _file_qri("adls", "lake", "ref/targets.csv")
-    ) == make_dataset_urn("qlik-sense", "sales space:lake/ref/targets.csv")
+    ).urn == make_dataset_urn("qlik-sense", "sales space:lake/ref/targets.csv")
     # A file the script does not read is not the connection's to report.
     assert (
-        source._resolve_file_source("app-1", _file_qri("adls", "lake", "other.csv"))
+        source._file_source_resolution(
+            "app-1", _file_qri("adls", "lake", "other.csv")
+        ).urn
         is None
     )
     assert source.reporter.unresolved_file_connections == ["Lake"]
@@ -373,9 +377,9 @@ def test_file_without_known_storage_is_named_by_its_connection(
     # Named with its space, the connection is the same in every app, so the
     # apps that write and read the file join on it.
     assert (
-        source._resolve_file_source(
+        source._file_source_resolution(
             "app-1", _file_qri("adls", "lake", "ref/regions.xlsx")
-        )
+        ).urn
         == regions
     )
     assert source.reporter.unresolved_file_connections == [CONNECTION]
@@ -519,9 +523,9 @@ def test_file_named_by_its_connection_ignores_data_files_on_the_same_path(
     )
     source = _source({}, {}, script)
 
-    assert source._resolve_file_source(
+    assert source._file_source_resolution(
         "app-1", _file_qri("adls", "lake", "ref/rates.csv")
-    ) == make_dataset_urn("qlik-sense", "sales space:lake/ref/rates.csv")
+    ).urn == make_dataset_urn("qlik-sense", "sales space:lake/ref/rates.csv")
     assert source.reporter.unresolved_file_connections == [CONNECTION]
 
 
@@ -548,7 +552,9 @@ def test_file_named_by_its_connection_or_on_mapped_storage_is_ambiguous(
     )
 
     assert (
-        source._resolve_file_source("app-1", _file_qri("adls", "lake", "ref/rates.csv"))
+        source._file_source_resolution(
+            "app-1", _file_qri("adls", "lake", "ref/rates.csv")
+        ).urn
         is None
     )
     assert not list(source._gen_unmapped_file_entities())
@@ -562,9 +568,9 @@ def test_bare_connection_name_is_the_app_spaces(mock_api_cls: MagicMock) -> None
     )
 
     assert (
-        source._resolve_file_source(
+        source._file_source_resolution(
             "app-1", _file_qri("s3", "unknown", "ref/targets.csv")
-        )
+        ).urn
         == "urn:li:dataset:(urn:li:dataPlatform:s3,sales-bucket/ref/targets.csv,PROD)"
     )
 
@@ -603,9 +609,9 @@ def test_file_mapping_without_env_uses_the_recipe_env(
     source._app_space_ids["app-1"] = "space-1"
 
     assert (
-        source._resolve_file_source(
+        source._file_source_resolution(
             "app-1", _file_qri("gcs", "sales", "ref/regions.xlsx")
-        )
+        ).urn
         == "urn:li:dataset:(urn:li:dataPlatform:gcs,sales/ref/regions.xlsx,DEV)"
     )
 
@@ -620,7 +626,9 @@ def test_mapped_storage_is_not_trusted_for_another_scheme_or_shared_path(
     )
     # An S3 file with the same path is not on the mapped Azure container.
     assert (
-        source._resolve_file_source("app-1", _file_qri("s3", "eu/b", "ref/targets.csv"))
+        source._file_source_resolution(
+            "app-1", _file_qri("s3", "eu/b", "ref/targets.csv")
+        ).urn
         is None
     )
 
@@ -644,9 +652,9 @@ def test_mapped_storage_is_not_trusted_for_another_scheme_or_shared_path(
     # Another connection the script reads the same path through, whose storage
     # is not known, could hold the file as well.
     assert (
-        source._resolve_file_source(
+        source._file_source_resolution(
             "app-2", _file_qri("adls", "unknown", "ref/regions.xlsx")
-        )
+        ).urn
         is None
     )
 
@@ -673,7 +681,8 @@ def test_prod_file_is_not_linked_when_dev_reads_the_same_path(
     )
 
     assert (
-        source._resolve_file_source("app-1", _file_qri("s3", "eu/dev", "x.csv")) is None
+        source._file_source_resolution("app-1", _file_qri("s3", "eu/dev", "x.csv")).urn
+        is None
     )
 
 
@@ -712,9 +721,9 @@ def test_branch_loads_are_told_apart_by_the_storage_location(
     )
     source._app_space_ids["app-1"] = "space-1"
 
-    resolved = source._resolve_file_source(
+    resolved = source._file_source_resolution(
         "app-1", _file_qri("adls", connection_part, "x.csv")
-    )
+    ).urn
     # Without a match, either branch may have run, so neither is linked.
     assert resolved == (
         f"urn:li:dataset:(urn:li:dataPlatform:abs,{expected},PROD)"
@@ -1116,9 +1125,9 @@ def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
     )
     # A later app's lineage graph reads the file, so it exists.
     if reader == "read":
-        assert source._resolve_file_source(
+        assert source._file_source_resolution(
             "app-1", _file_qri("adls", "lake", "qvd/orders.qvd")
-        )
+        ).urn
     # Or the reader's last read, which linked it, is kept this run.
     with patch.object(
         source.app_state,
@@ -1212,9 +1221,9 @@ def test_kept_writer_of_a_file_on_unknown_storage_links_it_when_an_app_reads_it(
         patch.object(source.app_state, "record") as record,
     ):
         source._keep_unchanged_app(UnchangedApp(id="app-2", fingerprint="f"))
-    assert source._resolve_file_source(
+    assert source._file_source_resolution(
         "app-1", _file_qri("adls", "lake", "qvd/orders.qvd")
-    )
+    ).urn
 
     workunits = list(source._gen_unmapped_file_entities())
 
@@ -1291,7 +1300,7 @@ def _keep_writer_of_unmapped_store(
     ):
         source._keep_unchanged_app(UnchangedApp(id="app-2", fingerprint="f"))
         # A fully read app's lineage graph reads the file.
-        source._resolve_file_source(
+        source._file_source_resolution(
             "app-1", _file_qri("adls", "lake", "qvd/orders.qvd")
         )
         workunits = list(source._gen_unmapped_file_entities())
@@ -1388,9 +1397,9 @@ def test_stored_qvd_on_unknown_storage_is_named_without_its_extension(
         ),
         {make_dataset_urn("qlik-sense", "app-2.orders"): []},
     )
-    assert source._resolve_file_source(
+    assert source._file_source_resolution(
         "app-1", _file_qri("adls", "lake", "qvd/Orders.QVD")
-    )
+    ).urn
 
     names = [
         props.name
@@ -1623,7 +1632,9 @@ def test_path_from_a_quoted_set_variable_resolves(mock_api_cls: MagicMock) -> No
 
     assert app.id not in source._apps_file_paths_unknown
     assert (
-        source._resolve_file_source("app-5", _file_qri("adls", "unknown", "old/f.csv"))
+        source._file_source_resolution(
+            "app-5", _file_qri("adls", "unknown", "old/f.csv")
+        ).urn
         == "urn:li:dataset:(urn:li:dataPlatform:abs,lake/old/f.csv,PROD)"
     )
 
@@ -1743,9 +1754,9 @@ def test_visible_connection_of_another_kind_does_not_block_the_file(
     source._app_space_ids[app.id] = app.spaceId
 
     assert (
-        source._resolve_file_source(
+        source._file_source_resolution(
             "app-3", _file_qri("adls", "unknown", "ref/regions.xlsx")
-        )
+        ).urn
         == "urn:li:dataset:(urn:li:dataPlatform:abs,lake/ref/regions.xlsx,PROD)"
     )
 
@@ -2225,9 +2236,9 @@ def test_writer_and_reader_spelling_a_file_in_different_case_join(
     )
 
     assert (
-        source._resolve_file_source(
+        source._file_source_resolution(
             "app-1", _file_qri("adls", "lake", "QVD/Orders.qvd")
-        )
+        ).urn
         == UNMAPPED_ORDERS_QVD
     )
     lineage = [
@@ -2248,9 +2259,9 @@ def test_file_on_a_connector_without_storage_mapping_is_not_reported(
         {}, {}, script="X: LOAD * FROM [lib://Sales Space:Ftp/x.csv] (txt);"
     )
 
-    assert source._resolve_file_source(
+    assert source._file_source_resolution(
         "app-1", _file_qri("sftp", "ftp", "x.csv")
-    ) == make_dataset_urn("qlik-sense", "sales space:ftp/x.csv")
+    ).urn == make_dataset_urn("qlik-sense", "sales space:ftp/x.csv")
     assert not source.reporter.unresolved_file_connections
 
 
@@ -2274,7 +2285,9 @@ def test_store_into_a_visible_connector_without_storage_joins_its_reader(
     file_urn = make_dataset_urn("qlik-sense", "sales space:ftp/qvd/orders.qvd")
 
     assert (
-        source._resolve_file_source("app-1", _file_qri("sftp", "ftp", "qvd/orders.qvd"))
+        source._file_source_resolution(
+            "app-1", _file_qri("sftp", "ftp", "qvd/orders.qvd")
+        ).urn
         == file_urn
     )
     lineage = [
@@ -2411,9 +2424,9 @@ def test_stored_qvd_is_the_file_another_app_loads(
 
     assert stored[file_urn] == f"not primary patch:{ORDERS}"
     assert (
-        source._resolve_file_source(
+        source._file_source_resolution(
             reader.id, _file_qri(qri_scheme, "unknown", "qvd/orders.qvd")
-        )
+        ).urn
         == file_urn
     )
 

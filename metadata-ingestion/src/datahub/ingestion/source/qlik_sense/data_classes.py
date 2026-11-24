@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Type, Union
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.qlik_sense.config import QLIK_DATETIME_FORMAT, Constant
@@ -14,6 +14,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
 )
+from datahub.utilities.str_enum import StrEnum
 
 # TODO: Replace with standardized types in sql_types.py
 FIELD_TYPE_MAPPING: Dict[
@@ -176,6 +177,40 @@ class DataModelTable(BaseModel):
         )
 
 
+class LineageGraphLevel(StrEnum):
+    RESOURCE = "RESOURCE"
+    TABLE = "TABLE"
+    FIELD = "FIELD"
+
+
+class LineageGraphNode(BaseModel):
+    label: Optional[str] = None
+
+
+class LineageGraphEdge(BaseModel):
+    source: Optional[str] = None
+    target: Optional[str] = None
+    # Such as `load` or `store`.
+    relation: Optional[str] = None
+
+
+class LineageGraph(BaseModel):
+    """The `graph` of a Qlik Cloud lineage-graphs response, nodes by QRI."""
+
+    nodes: Dict[str, LineageGraphNode] = {}
+    edges: List[LineageGraphEdge] = []
+
+    @field_validator("nodes", mode="before")
+    @classmethod
+    def _null_nodes_are_empty(cls, value: object) -> object:
+        return {} if value is None else value
+
+    @field_validator("edges", mode="before")
+    @classmethod
+    def _null_edges_are_empty(cls, value: object) -> object:
+        return [] if value is None else value
+
+
 class LineageTable(BaseModel):
     """A table node of Qlik Cloud's lineage graph, with the table nodes it is
     loaded or stored from."""
@@ -190,6 +225,24 @@ class LineageTable(BaseModel):
     # The field level could not be read, so the table's column lineage is
     # unknown this run.
     field_lineage_failed: bool = False
+
+
+# Qlik Cloud datasets, such as QVDs stored in a space.
+QLIK_DATASET_QRI_PREFIX = "qri:qdf:"
+# Qlik Cloud datasets and data connection files, the upstream resources
+# LineageUpstreams can name.
+UPSTREAM_RESOURCE_QRI_PREFIXES = (QLIK_DATASET_QRI_PREFIX, "qri:file:")
+
+
+class LineageUpstreams(BaseModel):
+    """The resources upstream of an app in Qlik Cloud's lineage graph, which
+    names nodes the API key can't list, such as datasets in spaces it has no
+    access to."""
+
+    # Resource QRI, such as a QVD's, to its label, such as `orders.qvd`.
+    resource_labels: Dict[str, str] = {}
+    # Table QRI to the QRIs of the app tables Qlik saw store into it.
+    stored_from: Dict[str, List[str]] = {}
 
 
 class ListedDataset(BaseModel):
