@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
@@ -390,6 +391,25 @@ def test_file_without_known_storage_is_named_by_its_connection(
         c.container for wu in entities if (c := wu.get_aspect_of_type(ContainerClass))
     ]
     assert containers == ([space_urn] if space_ingested else [])
+
+
+@pytest.mark.parametrize(
+    "spaces, expected",
+    [
+        ({"space-1": "SALES SPACE"}, "space-1"),
+        # Not told apart by case, so placed in neither.
+        ({"space-1": "Sales Space", "space-2": "sales space"}, None),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_lib_path_space_is_matched_regardless_of_case(
+    mock_api_cls: MagicMock, spaces: Dict[str, str], expected: Optional[str]
+) -> None:
+    source = _source({}, {})
+    source.qlik_api.spaces = spaces
+    source._allowed_space_ids = set(spaces)
+
+    assert source._ingested_space_id("Sales Space") == expected
 
 
 @pytest.mark.parametrize(
@@ -986,10 +1006,10 @@ def _store_app(tables: List[Dict]) -> App:
     )
 
 
-@pytest.mark.parametrize("read", [True, False])
+@pytest.mark.parametrize("reader", ["read", "kept", None])
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
-    mock_api_cls: MagicMock, read: bool
+    mock_api_cls: MagicMock, reader: Optional[str]
 ) -> None:
     source = _source(
         {},
@@ -1005,10 +1025,18 @@ def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
         )
     )
     # A later app's lineage graph reads the file, so it exists.
-    if read:
+    if reader == "read":
         assert source._resolve_file_source(
             "app-1", _file_qri("adls", "lake", "qvd/orders.qvd")
         )
+    # Or the reader's last read, which linked it, is kept this run.
+    if reader == "kept":
+        with patch.object(
+            source.app_state,
+            "previous",
+            return_value=AppCheckpoint(urns=[UNMAPPED_ORDERS_QVD]),
+        ):
+            assert source._keep_previous_read("app-1")
     workunits = list(source._gen_unmapped_file_entities())
 
     assert source.reporter.unresolved_file_connections == [CONNECTION]
@@ -1018,7 +1046,7 @@ def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
         if isinstance(wu.metadata, MetadataChangeProposalClass)
         and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
     ]
-    if read:
+    if reader:
         # Named by its connection and path.
         assert {wu.get_urn() for wu in workunits} == {UNMAPPED_ORDERS_QVD}
         assert [mcp.entityUrn for mcp in lineage] == [UNMAPPED_ORDERS_QVD]
