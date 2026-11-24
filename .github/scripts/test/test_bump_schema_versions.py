@@ -1452,27 +1452,26 @@ def test_detect_default_branch_fallback_to_master(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# is_release_or_hotfix_branch
+# is_release_branch
 # ---------------------------------------------------------------------------
 
 
-def test_is_release_or_hotfix_branch_bare_names():
-    assert bsv.is_release_or_hotfix_branch("releases/v0.3.12") is True
-    assert bsv.is_release_or_hotfix_branch("hotfixes/v0.3.12.1") is True
+def test_is_release_branch_bare_names():
+    assert bsv.is_release_branch("releases/v0.3.12") is True
 
 
-def test_is_release_or_hotfix_branch_strips_remote_prefixes():
-    assert bsv.is_release_or_hotfix_branch("origin/releases/v0.3.12") is True
-    assert bsv.is_release_or_hotfix_branch(
-        "refs/remotes/origin/hotfixes/v0.3.12.1"
-    ) is True
+def test_is_release_branch_strips_remote_prefixes():
+    assert bsv.is_release_branch("origin/releases/v0.3.12") is True
+    assert bsv.is_release_branch("refs/remotes/origin/releases/v0.3.12") is True
 
 
-def test_is_release_or_hotfix_branch_rejects_non_release():
-    assert bsv.is_release_or_hotfix_branch("acryl-main") is False
-    assert bsv.is_release_or_hotfix_branch("master") is False
+def test_is_release_branch_rejects_non_release():
+    assert bsv.is_release_branch("acryl-main") is False
+    assert bsv.is_release_branch("master") is False
+    # Hotfix branches are no longer a skip condition.
+    assert bsv.is_release_branch("hotfixes/v0.3.12.1") is False
     # Substring, not prefix — must be rejected.
-    assert bsv.is_release_or_hotfix_branch("feature/releases-thing") is False
+    assert bsv.is_release_branch("feature/releases-thing") is False
 
 
 # ---------------------------------------------------------------------------
@@ -1496,12 +1495,12 @@ def test_merge_base_distance_none_on_failure(monkeypatch):
 
 
 def test_nearest_ancestor_no_candidates_returns_none(monkeypatch):
-    monkeypatch.setattr(bsv, "_list_release_hotfix_refs", lambda: [])
+    monkeypatch.setattr(bsv, "_list_release_refs", lambda: [])
     assert bsv.find_nearest_ancestor_release_branch("acryl-main") is None
 
 
 def test_nearest_ancestor_release_branch_wins(monkeypatch):
-    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
+    monkeypatch.setattr(bsv, "_list_release_refs",
                         lambda: ["origin/releases/v0.3.12"])
     # release branch 2 commits back, default branch 10 commits back
     dist = {"origin/releases/v0.3.12": 2,
@@ -1512,7 +1511,7 @@ def test_nearest_ancestor_release_branch_wins(monkeypatch):
 
 
 def test_nearest_ancestor_default_nearer_returns_none(monkeypatch):
-    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
+    monkeypatch.setattr(bsv, "_list_release_refs",
                         lambda: ["origin/releases/v0.3.12"])
     dist = {"origin/releases/v0.3.12": 10,
             "refs/remotes/origin/acryl-main": 2, "acryl-main": 2}
@@ -1521,9 +1520,9 @@ def test_nearest_ancestor_default_nearer_returns_none(monkeypatch):
 
 
 def test_nearest_ancestor_tie_prefers_default(monkeypatch):
-    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
-                        lambda: ["origin/hotfixes/v0.3.12.1"])
-    dist = {"origin/hotfixes/v0.3.12.1": 5,
+    monkeypatch.setattr(bsv, "_list_release_refs",
+                        lambda: ["origin/releases/v0.3.12"])
+    dist = {"origin/releases/v0.3.12": 5,
             "refs/remotes/origin/acryl-main": 5, "acryl-main": 5}
     monkeypatch.setattr(bsv, "_merge_base_distance", lambda ref: dist.get(ref))
     # A tie means HEAD shares the same fork point with both — that's a trunk
@@ -1532,7 +1531,7 @@ def test_nearest_ancestor_tie_prefers_default(monkeypatch):
 
 
 def test_nearest_ancestor_unresolvable_default_returns_none(monkeypatch):
-    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
+    monkeypatch.setattr(bsv, "_list_release_refs",
                         lambda: ["origin/releases/v0.3.12"])
     dist = {"origin/releases/v0.3.12": 2}  # default branch unresolvable → None
     monkeypatch.setattr(bsv, "_merge_base_distance", lambda ref: dist.get(ref))
@@ -1836,7 +1835,7 @@ def test_check_mode_passes_for_comment_only_change(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# main() release/hotfix skip
+# main() release skip
 # ---------------------------------------------------------------------------
 
 

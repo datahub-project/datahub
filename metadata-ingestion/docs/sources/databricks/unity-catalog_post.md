@@ -118,6 +118,12 @@ The default preparsed path emits table-level usage only (no column `fieldCounts`
 
 When `emit_siblings` is enabled (the default), the connector emits sibling relationships between Unity Catalog external tables and their corresponding `delta-lake` platform entities for tables stored on S3 or other object storage. This means you may see a second dataset entity for each external Delta table — one under the `databricks` platform and one under `delta-lake` — linked as siblings in DataHub. Set `emit_siblings: false` in your recipe to disable this behavior if you don't need cross-platform linkage.
 
+#### Volumes
+
+When `include_volumes` is enabled, each Unity Catalog volume is ingested as a container with the `Volume` subtype, inside its schema container next to that schema's tables. The container carries the volume's comment, owner, tags (when `include_tags` is enabled), created and updated times, and properties for `volume_type` (`MANAGED` or `EXTERNAL`), `storage_location`, `volume_id`, `metastore_id`, `created_by`, `updated_by`, `browse_only` and, when set, `access_point` and `encryption_algorithm`. Use `volume_pattern` to filter volumes by `catalog.schema.volume` name.
+
+Files and folders inside a volume are not ingested, and reads from volume paths (`/Volumes/...`) are not yet mapped to lineage.
+
 #### Lakehouse Federation (foreign catalogs)
 
 DataHub detects Unity Catalog **foreign catalogs** (Lakehouse Federation) and links their tables to the external source dataset each one mirrors (PostgreSQL, SQL Server, MySQL, Snowflake, Redshift, BigQuery, Oracle, Teradata, another Databricks workspace, or Glue/Hive).

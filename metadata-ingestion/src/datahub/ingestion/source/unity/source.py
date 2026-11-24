@@ -25,6 +25,7 @@ import sqlglot.errors
 import sqlglot.expressions as sqlglot_exp
 import yaml
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.catalog import TableType
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
@@ -48,6 +49,8 @@ from datahub.emitter.mcp_builder import (
     NotebookKey,
     UnitySchemaKey,
     UnitySchemaKeyWithMetastore,
+    UnityVolumeKey,
+    UnityVolumeKeyWithMetastore,
     add_dataset_to_container,
     add_entity_to_container,
     gen_containers,
@@ -125,6 +128,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    Volume,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.tag_entities import (
@@ -896,6 +900,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 try:
                     yield from self.process_tables(schema)
                     yield from self.process_ml_models(schema)
+                    yield from self.process_volumes(schema)
                 except Exception as e:
                     logger.exception(f"Error parsing schema {schema}")
                     self.report.warning(
@@ -1117,6 +1122,77 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     ml_model_urn, ml_model_version, schema
                 )
 
+    def process_volumes(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
+        if not self.config.include_volumes:
+            return
+        # Contained here so a volume failure (e.g. a missing READ VOLUME/BROWSE
+        # grant) doesn't report the schema's already-emitted tables as missed.
+        try:
+            for volume in self.unity_catalog_api_proxy.volumes(schema):
+                if not self.config.volume_pattern.allowed(volume.id):
+                    self.report.volumes.dropped(volume.id)
+                    continue
+                yield from self._gen_volume_workunits(volume)
+                self.report.volumes.processed(volume.id)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to ingest volumes",
+                message="Volumes in this schema were skipped. Check the READ VOLUME or BROWSE privilege.",
+                context=schema.id,
+                exc=e,
+            )
+
+    def _gen_volume_workunits(self, volume: Volume) -> Iterable[MetadataWorkUnit]:
+        catalog_name = volume.schema.catalog.name
+        schema_name = volume.schema.name
+        volume_tags: List[UnityCatalogTag] = []
+        if self.config.include_tags:
+            try:
+                volume_tags = self.unity_catalog_api_proxy.get_volume_tags(
+                    catalog_name
+                ).get(volume.id, [])
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to fetch volume tags",
+                    message="Volume tags were skipped for this volume.",
+                    context=volume.id,
+                    exc=e,
+                )
+            yield from self.gen_platform_resources(volume_tags)
+
+        extra_properties = {
+            key: str(value)
+            for key, value in {
+                "volume_type": volume.volume_type,
+                "storage_location": volume.storage_location,
+                "volume_id": volume.volume_id,
+                "metastore_id": volume.metastore_id,
+                "created_by": volume.created_by,
+                "updated_by": volume.updated_by,
+                "browse_only": volume.browse_only,
+                "access_point": volume.access_point,
+                "encryption_algorithm": volume.encryption_algorithm,
+            }.items()
+            if value is not None
+        }
+        yield from gen_containers(
+            container_key=self.gen_volume_key(volume),
+            name=volume.name,
+            sub_types=[DatasetContainerSubTypes.DATABRICKS_VOLUME],
+            parent_container_key=self.gen_schema_key(volume.schema),
+            extra_properties=extra_properties,
+            domain_urn=self._gen_domain_urn(volume.id),
+            description=volume.comment,
+            owner_urn=self.get_owner_urn(volume.owner),
+            external_url=f"{self.external_url_base}/volumes/{catalog_name}/{schema_name}/{volume.name}",
+            tags=[tag.to_datahub_tag_urn().name for tag in volume_tags] or None,
+            qualified_name=volume.id,
+            created=make_ts_millis(volume.created_at) if volume.created_at else None,
+            last_modified=(
+                make_ts_millis(volume.updated_at) if volume.updated_at else None
+            ),
+        )
+
     def process_ml_model(
         self, ml_model: Model, schema: Schema
     ) -> Iterable[MetadataWorkUnit]:
@@ -1330,6 +1406,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             name=str(table_ref),
             env=self.config.env,
         )
+
+    def gen_volume_key(self, volume: Volume) -> ContainerKey:
+        schema_key = self.gen_schema_key(volume.schema)
+        if isinstance(schema_key, UnitySchemaKeyWithMetastore):
+            return UnityVolumeKeyWithMetastore(
+                **schema_key.model_dump(), volume=volume.name
+            )
+        assert isinstance(schema_key, UnitySchemaKey)
+        return UnityVolumeKey(**schema_key.model_dump(), volume=volume.name)
 
     def gen_ml_model_urn(self, name: str) -> str:
         return make_ml_model_group_urn(
@@ -2107,7 +2192,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self, table: Table, metric_view_spec: Optional[Dict[str, Any]] = None
     ) -> ViewProperties:
         assert table.view_definition
-        materialized = False
+        # Unity gives these a view definition too, but they store data.
+        materialized = table.table_type in (
+            TableType.MATERIALIZED_VIEW,
+            TableType.STREAMING_TABLE,
+        )
         if table.is_metric_view and self.config.include_metric_views:
             view_language = "YAML"
             if metric_view_spec is not None:

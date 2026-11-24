@@ -2,6 +2,25 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
+#### Mapping additional connection system types
+
+SAC reports a system type for each Live Data Model's connection, shown as `system_type=...` in the `Unknown system type for model` warning. To resolve upstream lineage for a system type the source plugin doesn't map yet, add it under `system_type_mapping`, keyed by that exact value:
+
+```yaml
+source:
+  type: sac
+  config:
+    system_type_mapping:
+      "<system type from the warning>":
+        platform: <DataHub platform of the upstream datasets>
+        external_id_format: QUERY # externalId looks like query:[][][<query>]
+        # or VIEW, for externalId like view:[<schema>][<schema>.<namespace>][<view>]
+```
+
+- `QUERY` names are built with `query_name_template`. If the system exposes its own views as generated BW queries with a fixed prefix (as S/4HANA does with `2C`), set `transient_query_prefix`: prefixed queries resolve to the view, and other queries resolve like BW queries.
+- `BW`, `HANA` and `S/4 HANA` are built in. An entry with one of those keys replaces the built-in mapping wholesale, including S/4HANA's `2C` handling. To change only the upstream platform of a connection, use `connection_mapping.<connection_id>.platform` instead.
+- SAP Datasphere (`DWC`) has its own resolution and can't be mapped here.
+
 ### Limitations
 
 - Only models which are used in a Story or an Application will be ingested because there is no dedicated API to retrieve models (only for Stories and Applications).
@@ -9,7 +28,8 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 - Browse Paths for stories and applications start at SAC's built-in public root folder, which the API returns localized to the resource language (e.g. `Public` / `Öffentlich`). The connector canonicalizes that first segment to a single label (`Public` by default, configurable via `public_root_folder_name`, or `null` to keep the raw localized name) so the same physical root does not split into one browse tree per language. Only a first segment matching `public_root_folder_aliases` (defaults to `Public` / `Öffentlich`, case-insensitive) is rewritten; other shared roots SAC can return (e.g. a team/workspace root such as `Default`) are left unchanged. `folder_pattern` is matched against this canonicalized path.
 - Schema metadata is ingested for Import Data Models by default. For acquired (SAC-stored) models it can additionally be ingested via the Data Export Service `$metadata` document by enabling the opt-in `ingest_acquired_data_model_schema_metadata` flag (off by default; requires the "Data Export Service" OAuth grant). Live Data Models (e.g. BW/HANA/DWC) keep their schema in the source system, so it cannot be retrieved from SAC.
 - Lineages for Import Data Models cannot be ingested because the API is not providing any information about it.
-- SAP BW, SAP HANA, and SAP Datasphere (Data Warehouse Cloud / `DWC` connections) are supported for ingesting the upstream lineages of Live Data Models - a warning is logged for all other connection types, please feel free to open an [issue on GitHub](https://github.com/datahub-project/datahub/issues/new/choose) with the warning message to have this fixed.
+- SAP BW, SAP HANA, SAP S/4HANA (`S/4 HANA` connections, see below), and SAP Datasphere (Data Warehouse Cloud / `DWC` connections) are supported for ingesting the upstream lineages of Live Data Models out of the box. Models on any other connection type are ingested without upstream lineage and an `Unknown system type for model` warning is logged; map that system type with `system_type_mapping` (see below), and feel free to open an [issue on GitHub](https://github.com/datahub-project/datahub/issues/new/choose) with the warning message so it can be supported out of the box.
+- For SAP S/4HANA-backed Live Data Models, SAC exposes each CDS analytical query view as a generated BW query named `2C<view name>`. The upstream is that CDS view on the `s4hana` platform, named without the `2C` prefix and lower-cased (set `connection_mapping.<connection_id>.convert_urns_to_lowercase: false` to keep SAC's upper-case name). A query without the `2C` prefix is an ordinary BW query modelled in the BW embedded in S/4HANA, and is resolved exactly like one on a `BW` connection. Without a `connection_mapping` entry the SAC connection id becomes the upstream's platform instance, so set `connection_mapping.<connection_id>.platform_instance` (and `env`) to match any other source that ingests the same S/4HANA system.
 - For SAP Datasphere-backed Live Data Models, SAC exposes the underlying object's name but not its Datasphere **space**. Configure the space per connection via `connection_mapping.<connection_id>.datasphere_space` so the upstream `sap-datasphere` dataset urn (`<space>.<model_name>`) can be built. Set `connection_mapping.<connection_id>.convert_urns_to_lowercase` (default `true`) to match the casing used by your SAP Datasphere connector recipe. Models on connections without a configured `datasphere_space` are skipped with a warning (or set `resolve_datasphere_lineage: false` to disable this entirely).
 - **Column-level lineage** to SAP Datasphere is emitted when `resolve_datasphere_column_lineage` is enabled (default `true`). SAC does not expose columns for Live Data Models, so the field list is resolved from the upstream SAP Datasphere dataset's schema in DataHub — this requires a `datahub_api`/graph connection and that **SAP Datasphere has already been ingested**. Because the live model is a passthrough, that schema is mirrored onto the SAC dataset and each field is mapped to itself. When the graph or upstream schema is unavailable it falls back to table-level lineage only.
 - **Ingest SAP Datasphere before SAC.** SAC disambiguates repeated links to the same Datasphere object with a trailing numeric suffix (e.g. `...STATEMENT2`) that the real object does not carry. The connector corrects this against the graph, but only once the real Datasphere dataset is present. If SAC runs first, the model's upstream edge is written against the as-is (suffixed) name and is corrected on the next SAC run after Datasphere is ingested — `upstreamLineage` is overwritten, so no duplicate edge remains. Column-level lineage has the same ordering requirement.

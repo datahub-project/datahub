@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
+from datahub.ingestion.source.qlik_sense.qvd_lineage import AppQvds
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -22,6 +23,11 @@ class AppCheckpoint(BaseModel):
     # Consecutive runs in which the app was only partly read and these URNs,
     # from its last complete read, were kept instead.
     partial_reads: int = 0
+    # Table QRI -> dataset URN of the app's tables, so datasets an app kept from
+    # its last read stores into still link to them. None in older state.
+    table_urns_by_qri: Optional[Dict[str, str]] = None
+    # The QVDs the app writes and reads, on-prem. None in older state.
+    qvds: Optional[AppQvds] = None
 
 
 class QlikAppCheckpointState(CheckpointStateBase):

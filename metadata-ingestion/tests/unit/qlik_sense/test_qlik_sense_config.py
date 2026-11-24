@@ -78,7 +78,15 @@ def test_onprem_config_accepts_certificate_paths():
         pytest.param(
             {"tenant_hostname": "tenant.example", "api_key": "k"}, 1, id="cloud"
         ),
-        pytest.param({"on_prem": ON_PREM}, 4, id="on_prem"),
+        # Every app opened with its data is held in Engine memory.
+        pytest.param(
+            {"on_prem": {**ON_PREM, "read_data_model": True}}, 1, id="on_prem"
+        ),
+        pytest.param(
+            {"on_prem": {**ON_PREM, "read_data_model": False}},
+            4,
+            id="on_prem_without_data",
+        ),
         pytest.param(
             {"tenant_hostname": "tenant.example", "api_key": "k", "max_workers": 3},
             3,

@@ -38,7 +38,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.BinaryOperator;
@@ -49,13 +48,11 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.filter.Filters;
-import org.opensearch.search.aggregations.bucket.filter.FiltersAggregator;
 import org.opensearch.search.aggregations.bucket.filter.ParsedFilters;
 import org.opensearch.search.aggregations.bucket.missing.ParsedMissing;
 import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
@@ -170,9 +167,6 @@ public class AggregationQueryBuilder {
 
   private boolean isValidAggregate(final String inputFacet) {
     List<String> facets = List.of(inputFacet.split(AGGREGATION_SEPARATOR_CHAR));
-    if (facets.size() == 1 && unlabeledHasValuesSource(facets.get(0)).isPresent()) {
-      return true;
-    }
     boolean isValid =
         !facets.isEmpty()
             && ((facets.size() == 1
@@ -224,18 +218,12 @@ public class AggregationQueryBuilder {
                 "Unknown special type: " + specialTypeFields.get(0));
         }
       } else {
-        Optional<String> unlabeledSource = unlabeledHasValuesSource(facet);
-        if (unlabeledSource.isPresent()) {
-          String path = v3FieldResolver.exactPath(unlabeledSource.get(), Intent.FILTER);
-          aggBuilder = unlabeledHasValuesAggregation(inputFacet, path);
-        } else {
-          aggBuilder =
-              facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
-                  ? entityTypeAggregation(opContext, inputFacet, maxTermBuckets)
-                  : AggregationBuilders.terms(inputFacet)
-                      .field(getAggregationField(opContext, facet, opContext.getAspectRetriever()))
-                      .size(maxTermBuckets);
-        }
+        aggBuilder =
+            facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
+                ? entityTypeAggregation(opContext, inputFacet, maxTermBuckets)
+                : AggregationBuilders.terms(inputFacet)
+                    .field(getAggregationField(opContext, facet, opContext.getAspectRetriever()))
+                    .size(maxTermBuckets);
       }
       if (lastAggBuilder != null) {
         aggBuilder = aggBuilder.subAggregation(lastAggBuilder);
@@ -244,20 +232,6 @@ public class AggregationQueryBuilder {
     }
     // Logic to build nested facets
     return lastAggBuilder;
-  }
-
-  /**
-   * A removed {@code has*} boolean is not a terms field. True counts documents where the source
-   * exists, and false counts documents where it is missing.
-   */
-  @Nonnull
-  public static AggregationBuilder unlabeledHasValuesAggregation(
-      @Nonnull String name, @Nonnull String path) {
-    return AggregationBuilders.filters(
-        name,
-        new FiltersAggregator.KeyedFilter("true", QueryBuilders.existsQuery(path)),
-        new FiltersAggregator.KeyedFilter(
-            "false", QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery(path))));
   }
 
   /** V2 derives the entity type from the index name. Search V3 overrides this. */
@@ -318,23 +292,16 @@ public class AggregationQueryBuilder {
     return facetsFromAnnotation;
   }
 
-  /** Search V3 indexes a has* boolean only when the field has a searchLabel. V2 keeps every one. */
+  /**
+   * Search V3 indexes a shared has* boolean for a labeled field and a direct one for an unlabeled
+   * field, so every declared boolean is a terms facet, as in V2. A field V3 does not search has
+   * none.
+   */
   private boolean publishesHasValuesFacet(@Nonnull SearchableAnnotation annotation) {
     if (annotation.getHasValuesFieldName().isEmpty()) {
       return false;
     }
-    if (v3FieldResolver == null) {
-      return true;
-    }
-    return annotation.resolvedForV3().indexedFieldName().isPresent();
-  }
-
-  @Nonnull
-  private Optional<String> unlabeledHasValuesSource(@Nonnull String facet) {
-    if (v3FieldResolver == null) {
-      return Optional.empty();
-    }
-    return v3FieldResolver.unlabeledHasValuesSource(facet);
+    return v3FieldResolver == null || annotation.isV3Searchable();
   }
 
   private String computeDisplayName(String name) {

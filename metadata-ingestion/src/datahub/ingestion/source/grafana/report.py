@@ -30,6 +30,14 @@ class GrafanaSourceReport(StaleEntityRemovalSourceReport):
     datasource_warnings: int = 0
     panel_parsing_warnings: int = 0
 
+    # Dashboards not placed in a folder. General-folder dashboards are not counted.
+    dashboards_in_filtered_folders: int = 0  # folder excluded by folder_pattern
+    dashboards_without_folder_container: int = 0  # folder not ingested; warned
+    dashboards_without_folder_id: int = 0  # Grafana returned no folderId; warned
+
+    # Folders skipped because Grafana returned them in an unexpected shape
+    folders_unparseable: int = 0
+
     def report_dashboard_scanned(self) -> None:
         self.dashboards_scanned += 1
 
@@ -41,6 +49,19 @@ class GrafanaSourceReport(StaleEntityRemovalSourceReport):
 
     def report_dataset_scanned(self) -> None:
         self.datasets_scanned += 1
+
+    # Folder placement reporting methods
+    def report_dashboard_in_filtered_folder(self) -> None:
+        self.dashboards_in_filtered_folders += 1
+
+    def report_dashboard_without_folder_container(self) -> None:
+        self.dashboards_without_folder_container += 1
+
+    def report_dashboard_without_folder_id(self) -> None:
+        self.dashboards_without_folder_id += 1
+
+    def report_folder_unparseable(self) -> None:
+        self.folders_unparseable += 1
 
     # Lineage reporting methods
     def report_lineage_extracted(self) -> None:

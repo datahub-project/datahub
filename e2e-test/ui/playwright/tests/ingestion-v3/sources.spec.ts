@@ -108,7 +108,9 @@ test.describe('ingestion sources', () => {
   });
 
   test('search for an ingestion source', async () => {
-    await ingestionPage.sourcesTab.search(SEARCH_SOURCE_1);
+    // Quotes select the exact template, so the shared tokens do not keep the other source.
+    const quotedName = `"${SEARCH_SOURCE_1}"`;
+    await ingestionPage.sourcesTab.typeSearchQuery(quotedName);
 
     await ingestionPage.sourcesTab.expectSourceVisible(SEARCH_SOURCE_1);
     await ingestionPage.sourcesTab.expectSourceNotVisible(SEARCH_SOURCE_2);

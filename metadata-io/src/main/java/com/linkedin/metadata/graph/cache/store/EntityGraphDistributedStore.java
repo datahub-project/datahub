@@ -14,6 +14,7 @@ import com.linkedin.metadata.graph.cache.FullWalkPublishResult;
 import com.linkedin.metadata.graph.cache.FullWalkWriteBack;
 import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.EntityGraphDefinition;
+import com.linkedin.metadata.graph.cache.config.EntityGraphModel.GraphBounds;
 import com.linkedin.metadata.graph.cache.config.EntityGraphRegistry;
 import com.linkedin.metadata.graph.cache.service.freshness.SnapshotFreshnessEvaluator;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphEndpoints;
@@ -32,6 +33,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -132,6 +134,21 @@ public class EntityGraphDistributedStore {
     return snapshotsForKey(cacheKey).get(cacheKey);
   }
 
+  /**
+   * {@code -1} when this member has no full-snapshot map. {@link IMap#size()} is a cluster call.
+   */
+  public int fullSnapshotCount() {
+    return fullSnapshots == null ? -1 : fullSnapshots.size();
+  }
+
+  /**
+   * {@code -1} when this graph has no partial snapshot map. {@link IMap#size()} is a cluster call.
+   */
+  public int partialSnapshotCount(@Nonnull String graphId) {
+    IMap<String, EntityGraphSnapshot> partialSnapshots = partialSnapshotsByGraphId.get(graphId);
+    return partialSnapshots == null ? -1 : partialSnapshots.size();
+  }
+
   /** Generation is embedded in the published snapshot (single source of truth). */
   public long getGeneration(@Nonnull String cacheKey) {
     EntityGraphSnapshot snapshot = getSnapshot(cacheKey);
@@ -203,6 +220,43 @@ public class EntityGraphDistributedStore {
           return EntityGraphOperationalStatus.of(CacheStatus.BUILDING, now);
         });
     return claimed[0];
+  }
+
+  /**
+   * True when {@code cacheKey} still holds a snapshot readers can serve. Failure tombstones are not
+   * servable.
+   */
+  public boolean hasServableSnapshot(@Nonnull String cacheKey) {
+    EntityGraphSnapshot snapshot = getSnapshot(cacheKey);
+    if (snapshot == null || TOMBSTONE_FINGERPRINT.equals(snapshot.getTopologyFingerprint())) {
+      return false;
+    }
+    String embedded = snapshot.getCacheStatus();
+    return embedded == null || CacheStatus.ACTIVE.name().equals(embedded);
+  }
+
+  /**
+   * Records a failed refresh without tombstoning {@code cacheKey}. Drops the {@code BUILDING} lease
+   * so reads fall back to the embedded {@code ACTIVE} snapshot, and stores retry suppression on a
+   * side status key.
+   */
+  public void suppressRebuildKeepingSnapshot(
+      @Nonnull String cacheKey, @Nonnull CacheStatus failureStatus) {
+    releaseRebuildClaim(cacheKey);
+    status.put(
+        EntityGraphCacheKeys.rebuildSuppressionKey(cacheKey),
+        failureStatus == CacheStatus.COOLDOWN
+            ? EntityGraphOperationalStatus.of(failureStatus, System.currentTimeMillis())
+            : EntityGraphOperationalStatus.of(failureStatus));
+  }
+
+  public void clearRebuildSuppression(@Nonnull String cacheKey) {
+    status.remove(EntityGraphCacheKeys.rebuildSuppressionKey(cacheKey));
+  }
+
+  @Nullable
+  public EntityGraphOperationalStatus getRebuildSuppression(@Nonnull String cacheKey) {
+    return status.get(EntityGraphCacheKeys.rebuildSuppressionKey(cacheKey));
   }
 
   /** Drops a {@link CacheStatus#BUILDING} lease when a claimed rebuild does not publish. */
@@ -637,7 +691,9 @@ public class EntityGraphDistributedStore {
   /**
    * Removes {@code entityUrn} from every snapshot for {@code graphId}. When the edited snapshot was
    * {@link CacheStatus#OVER_LIMIT} and the remaining vertex count is below {@code maxVertices},
-   * clears the failure status so rebuild can proceed. Returns true when any snapshot changed.
+   * clears the failure status so rebuild can proceed. An {@code OVER_LIMIT} retry suppression on
+   * the side status key is cleared on that same under-bounds edit, and when the snapshot key is
+   * dropped. Returns true when any snapshot changed.
    */
   public boolean removeVertexFromSnapshot(
       @Nonnull String graphId, @Nonnull String entityUrn, int maxVertices) {
@@ -668,11 +724,67 @@ public class EntityGraphDistributedStore {
           && removalResult.snapshotAfter.getVertexCount() < maxVertices) {
         status.remove(cacheKey);
       }
+      clearSuppressionAfterSurgicalEdit(graphId, cacheKey, removalResult, maxVertices);
     }
     if (changed) {
       recordInvalidationGeneration(graphId);
     }
     return changed;
+  }
+
+  /**
+   * A failed refresh records permanent suppression beside the snapshot key. A surgical delete must
+   * clear that side key when the snapshot is gone or the remaining graph is under bounds, without
+   * clearing an {@code INVALID} configuration failure or an unexpired {@code COOLDOWN}.
+   */
+  private void clearSuppressionAfterSurgicalEdit(
+      @Nonnull String graphId,
+      @Nonnull String cacheKey,
+      @Nonnull AtomicVertexRemovalResult removalResult,
+      int maxVertices) {
+    EntityGraphOperationalStatus suppression = getRebuildSuppression(cacheKey);
+    if (suppression == null) {
+      return;
+    }
+    CacheStatus suppressed;
+    try {
+      suppressed = suppression.cacheStatus();
+    } catch (IllegalArgumentException e) {
+      return;
+    }
+    if (suppressed == CacheStatus.INVALID) {
+      return;
+    }
+    if (removalResult.droppedKey) {
+      clearRebuildSuppression(cacheKey);
+      return;
+    }
+    if (suppressed != CacheStatus.OVER_LIMIT || removalResult.snapshotAfter == null) {
+      return;
+    }
+    if (removalResult.snapshotAfter.getVertexCount() >= maxVertices) {
+      return;
+    }
+    if (!edgeCountUnderCap(graphId, removalResult.snapshotAfter.getEdgeCount())) {
+      return;
+    }
+    clearRebuildSuppression(cacheKey);
+  }
+
+  private boolean edgeCountUnderCap(@Nonnull String graphId, int edgeCount) {
+    EntityGraphDefinition definition = registry.getDefinition(graphId);
+    if (definition == null) {
+      return true;
+    }
+    GraphBounds bounds = definition.getBounds();
+    if (bounds == null) {
+      return true;
+    }
+    OptionalInt maxEdges = bounds.getMaxEdges();
+    if (maxEdges == null || maxEdges.isEmpty()) {
+      return true;
+    }
+    return edgeCount < maxEdges.getAsInt();
   }
 
   /**
@@ -746,7 +858,8 @@ public class EntityGraphDistributedStore {
    */
   private void writeFailureTombstoneIfSnapshotKey(
       @Nonnull String cacheKey, @Nonnull CacheStatus failureStatus) {
-    if (EntityGraphCacheKeys.isFailureMarkerKey(cacheKey)) {
+    if (EntityGraphCacheKeys.isFailureMarkerKey(cacheKey)
+        || EntityGraphCacheKeys.isRebuildSuppressionKey(cacheKey)) {
       return;
     }
     try {

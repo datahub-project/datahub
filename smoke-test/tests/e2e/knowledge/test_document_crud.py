@@ -3,7 +3,11 @@ import time
 
 import pytest
 
-from tests.e2e.knowledge.document_helpers import execute_graphql, unique_id
+from tests.e2e.knowledge.document_helpers import (
+    execute_graphql,
+    unique_id,
+    wait_for_search_documents,
+)
 from utilities.consistency_utils import wait_for_writes_to_sync
 from utilities.domains import Domain
 
@@ -356,11 +360,11 @@ class TestDocumentCrudAndMutations:
               }
             }
         """
-        # Wait for search indexing to catch up
-        time.sleep(5)
-
-        # No need to specify states - ownership filtering handles showing UNPUBLISHED docs we own
-        search_vars = {"input": {"start": 0, "count": 100}}
+        # No need to specify states - ownership filtering handles showing UNPUBLISHED docs we own.
+        # The query keeps the new document on the first page however many documents
+        # other tests have created.
+        search_vars = {"input": {"start": 0, "count": 100, "query": document_id}}
+        wait_for_search_documents(auth_session, search_vars["input"], [urn])
         search_res = execute_graphql(auth_session, search_query, search_vars)
 
         # Search can fail if index is not ready - log and skip assertion if it fails

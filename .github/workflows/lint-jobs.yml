@@ -6,7 +6,6 @@ on:
     branches:
       - master
       - releases/**
-      - hotfixes/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -65,6 +64,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           python: false
       # mdPrettierCheck dependsOn yarnInstall (full datahub-web-react deps).
       # Restore ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
@@ -91,6 +91,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           python: false
       # githubActionsPrettierCheck dependsOn yarnInstall (full datahub-web-react deps).
       # Restore ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
@@ -133,6 +134,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           python: false
       # Restore-only: this workflow is pull_request-only, so a save here would be
       # ref-scoped to the PR and never shared. The master-scoped entry is written
@@ -444,6 +446,7 @@ jobs:
             ${{ runner.os }}-yarn-
       - uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           python: false
       - name: Run lint
         env:

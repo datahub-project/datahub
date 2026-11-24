@@ -111,8 +111,8 @@ class SpecColumnRef:
 class UnionOutputColumn:
     """A ``union`` element's output column and the branch columns it merges.
 
-    A union output's ``/columns`` formula names at most one branch; the spec
-    names all of them, including warehouse-table branches.
+    A column reading a union output names the output, not a branch; the spec
+    names every branch, including warehouse-table branches.
     """
 
     union_element_id: str

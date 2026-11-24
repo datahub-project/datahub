@@ -107,6 +107,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.metadata.context.ValidationContext;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
@@ -2531,12 +2532,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         log.warn("MCP observer call site failed; ingest continuing", t);
       }
     }
+    final AspectsBatch batch =
+        DefaultAspectsUtil.withoutGuardedWritesToEntitiesCreatedByTimeseries(
+            opContext, aspectsBatch, this);
     Stream<IngestResult> timeseriesIngestResults =
-        ingestTimeseriesProposal(opContext, aspectsBatch, async);
+        ingestTimeseriesProposal(opContext, batch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =
-        async
-            ? ingestProposalAsync(opContext, aspectsBatch)
-            : ingestProposalSync(opContext, aspectsBatch);
+        async ? ingestProposalAsync(opContext, batch) : ingestProposalSync(opContext, batch);
 
     return Stream.concat(nonTimeseriesIngestResults, timeseriesIngestResults)
         .collect(Collectors.toList());
@@ -3416,7 +3418,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     boolean isNoOp = isNoOp(aspectSpec, metadataChangeLog);
     if (!isNoOp || alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
-      log.info("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
+      log.debug("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
 
       log.debug("Serialized MCL event: {}", metadataChangeLog);
       Pair<Future<?>, Boolean> emissionStatus =
@@ -3694,7 +3696,25 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       boolean hardDelete,
       boolean preProcessHooks) {
     return rollbackWithConditions(
-        opContext, aspectRows, conditions, hardDelete, DeletePurpose.ROLLBACK);
+        withRollbackDeletion(opContext),
+        aspectRows,
+        conditions,
+        hardDelete,
+        DeletePurpose.ROLLBACK);
+  }
+
+  /**
+   * Marks the context so validators can tell a rollback from an ordinary delete. It reaches both
+   * the delete validation and the nested status write of a soft delete.
+   */
+  private static OperationContext withRollbackDeletion(@Nonnull OperationContext opContext) {
+    final ValidationContext validationContext =
+        opContext.getValidationContext() != null
+            ? opContext.getValidationContext().toBuilder().isRollbackDeletion(true).build()
+            : ValidationContext.builder().isRollbackDeletion(true).build();
+    return opContext.toBuilder()
+        .validationContext(validationContext)
+        .build(opContext.getSessionActorContext(), false);
   }
 
   /**

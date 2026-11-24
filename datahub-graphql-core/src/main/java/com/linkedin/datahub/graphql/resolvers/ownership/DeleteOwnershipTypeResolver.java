@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -30,7 +31,8 @@ public class DeleteOwnershipTypeResolver implements DataFetcher<CompletableFutur
             ? true
             : environment.getArgument("deleteReferences");
 
-    if (!AuthorizationUtils.canManageOwnershipTypes(context)) {
+    if (!AuthorizationUtils.isEntityType(urn, Constants.OWNERSHIP_TYPE_ENTITY_NAME)
+        || !AuthorizationUtils.canManageOwnershipTypes(context)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }

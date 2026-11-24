@@ -94,6 +94,7 @@ const PreviewCardFooterRightSection = ({
                             time={lastUpdatedMs.lastUpdatedMs}
                             timeProperty={lastUpdatedMs.property}
                             showDate={false}
+                            neutral={'definitionTime' in lastUpdatedMs && lastUpdatedMs.definitionTime}
                         />
                     </>
                 )}

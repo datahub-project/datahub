@@ -213,10 +213,8 @@ export class DatasetPage extends BasePage {
   }
 
   async clickSchemaField(fieldName: string): Promise<void> {
-    // Use the row's id attribute (set by SchemaTable's onRow handler) so the click
-    // reliably hits the row element and triggers the SchemaFieldDrawer to open.
-    // eslint-disable-next-line playwright/no-raw-locators -- SchemaTable sets id="column-<name>" on rows; no data-testid equivalent
-    await this.page.locator(`#column-${fieldName}`).click();
+    // Click the row itself so the SchemaFieldDrawer opens.
+    await this.page.getByTestId(`schema-field-${fieldName}`).click();
   }
 
   async addBusinessAttributeToField(fieldName: string, attributeName: string): Promise<void> {

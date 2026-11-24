@@ -131,6 +131,7 @@ import {
 import {
     CONFLUENCE_DOCUMENTS_IMPORT_MODE,
     GITHUB_DOCUMENTS_IMPORT_MODE,
+    GITLAB_DOCUMENTS_IMPORT_MODE,
     NOTION_DOCUMENTS_IMPORT_MODE,
 } from '@app/ingestV2/source/builder/RecipeForm/documentImportMode';
 import {
@@ -158,13 +159,16 @@ import {
     DREMIO_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/dremio';
 import {
-    GITHUB_DOCUMENTS_BRANCH,
     GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT,
-    GITHUB_DOCUMENTS_FILE_EXTENSIONS,
-    GITHUB_DOCUMENTS_PATH_PREFIX,
     GITHUB_DOCUMENTS_REPOSITORY,
     GITHUB_DOCUMENTS_TOKEN,
 } from '@app/ingestV2/source/builder/RecipeForm/github-documents';
+import {
+    GITLAB_DOCUMENTS_BASE_URL,
+    GITLAB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT,
+    GITLAB_DOCUMENTS_REPOSITORY,
+    GITLAB_DOCUMENTS_TOKEN,
+} from '@app/ingestV2/source/builder/RecipeForm/gitlab-documents';
 import {
     GLUE,
     GLUE_AWS_ACCESS_KEY_ID,
@@ -403,6 +407,8 @@ import {
     QLIK_API_KEY,
     QLIK_DATA_CONNECTION_MAP,
     QLIK_DEPLOYMENT,
+    QLIK_FILE_CONNECTION_MAP,
+    QLIK_INCLUDE_SHEETS_AND_CHARTS,
     QLIK_INGEST_OWNER,
     QLIK_MAX_WORKERS,
     QLIK_ON_PREM_CLIENT_CERT,
@@ -411,11 +417,13 @@ import {
     QLIK_ON_PREM_ENGINE_PORT,
     QLIK_ON_PREM_INGEST_UNPUBLISHED_APPS,
     QLIK_ON_PREM_QRS_PORT,
+    QLIK_ON_PREM_READ_DATA_MODEL,
     QLIK_ON_PREM_ROOT_CERT,
     QLIK_ON_PREM_SERVER,
     QLIK_ON_PREM_SERVER_CERT_HOSTNAME,
     QLIK_ON_PREM_SKIP_HOSTNAME_CHECK,
     QLIK_ON_PREM_SKIP_UNCHANGED_APPS,
+    QLIK_SCRIPT_VARIABLES,
     QLIK_SPACE_ALLOW,
     QLIK_SPACE_DENY,
     QLIK_TENANT_HOSTNAME,
@@ -436,6 +444,11 @@ import {
     REDSHIFT_PASSWORD,
     REDSHIFT_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/redshift';
+import {
+    REPOSITORY_DOCUMENTS_BRANCH,
+    REPOSITORY_DOCUMENTS_FILE_EXTENSIONS,
+    REPOSITORY_DOCUMENTS_PATH_PREFIX,
+} from '@app/ingestV2/source/builder/RecipeForm/repository-documents';
 import {
     FOLDER_ALLOW,
     FOLDER_DENY,
@@ -533,6 +546,7 @@ import {
     DATABRICKS,
     DBT_CLOUD,
     GITHUB_DOCUMENTS,
+    GITLAB_DOCUMENTS,
     INFORMIX,
     MATILLION_DPC,
     MICROSTRATEGY,
@@ -1100,13 +1114,26 @@ export const RECIPE_FIELDS: RecipeFields = {
         fields: [
             GITHUB_DOCUMENTS_TOKEN,
             GITHUB_DOCUMENTS_REPOSITORY,
-            GITHUB_DOCUMENTS_BRANCH,
-            GITHUB_DOCUMENTS_PATH_PREFIX,
-            GITHUB_DOCUMENTS_FILE_EXTENSIONS,
+            REPOSITORY_DOCUMENTS_BRANCH,
+            REPOSITORY_DOCUMENTS_PATH_PREFIX,
+            REPOSITORY_DOCUMENTS_FILE_EXTENSIONS,
             GITHUB_DOCUMENTS_IMPORT_MODE,
         ],
         filterFields: [],
         advancedFields: [GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT],
+    },
+    [GITLAB_DOCUMENTS]: {
+        fields: [
+            GITLAB_DOCUMENTS_TOKEN,
+            GITLAB_DOCUMENTS_BASE_URL,
+            GITLAB_DOCUMENTS_REPOSITORY,
+            REPOSITORY_DOCUMENTS_BRANCH,
+            REPOSITORY_DOCUMENTS_PATH_PREFIX,
+            REPOSITORY_DOCUMENTS_FILE_EXTENSIONS,
+            GITLAB_DOCUMENTS_IMPORT_MODE,
+        ],
+        filterFields: [],
+        advancedFields: [GITLAB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT],
     },
     [CONFLUENCE]: {
         fields: [
@@ -1153,12 +1180,16 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterFields: [QLIK_SPACE_ALLOW, QLIK_SPACE_DENY],
         advancedFields: [
+            QLIK_INCLUDE_SHEETS_AND_CHARTS,
             QLIK_INGEST_OWNER,
             QLIK_ON_PREM_INGEST_UNPUBLISHED_APPS,
+            QLIK_ON_PREM_READ_DATA_MODEL,
             QLIK_ON_PREM_SKIP_UNCHANGED_APPS,
             QLIK_MAX_WORKERS,
             QLIK_TIMEOUT_SECONDS,
             QLIK_DATA_CONNECTION_MAP,
+            QLIK_FILE_CONNECTION_MAP,
+            QLIK_SCRIPT_VARIABLES,
             STATEFUL_INGESTION_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude Qlik Cloud spaces or Qlik Sense Enterprise streams from ingestion.',

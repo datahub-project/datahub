@@ -7,6 +7,7 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -23,7 +24,10 @@ public class SiblingGraphServiceFactory {
   @Bean(name = "siblingGraphService")
   @Primary
   @Nonnull
-  protected SiblingGraphService getInstance(final GraphService graphService) {
-    return new SiblingGraphService(_entityService, graphService);
+  protected SiblingGraphService getInstance(
+      final GraphService graphService,
+      @Value("${siblings.maxGroupHops:" + SiblingGraphService.DEFAULT_MAX_GROUP_HOPS + "}")
+          final int maxGroupHops) {
+    return new SiblingGraphService(_entityService, graphService, maxGroupHops);
   }
 }

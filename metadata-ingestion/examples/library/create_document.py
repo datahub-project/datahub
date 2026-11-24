@@ -77,10 +77,12 @@ client.entities.upsert(doc)
 print(f"Created Confluence document: {doc.urn}")
 
 # ============================================================================
-# Example 5: Create a document hidden from global context (AI-only)
+# Example 5: Create a document hidden from global context
 # ============================================================================
-# This document won't appear in global search or sidebar navigation.
-# It's only accessible via the related asset - useful for AI agent context.
+# Global search and sidebar navigation leave this document out by default, and
+# the related asset still leads to it - useful for AI agent context. This is not
+# access control: a cross-entity search such as searchAcrossEntities that filters
+# on showInGlobalContext still returns it.
 doc = Document.create_document(
     id="orders-dataset-context",
     title="Orders Dataset Context",

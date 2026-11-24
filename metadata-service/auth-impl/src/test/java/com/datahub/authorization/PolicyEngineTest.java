@@ -2392,13 +2392,46 @@ public class PolicyEngineTest {
 
     ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
 
-    // Empty sub-resources (no tags being modified) should be allowed
+    // Empty sub-resources (no tags being modified) should be allowed.
     PolicyEngine.PolicyEvaluationResult result =
         _policyEngine.evaluatePolicy(
             systemOperationContext,
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertTrue(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyWithNoPrivilegeConstraintsAllowsEmptySubResources()
+      throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY"));
+    dataHubPolicyInfo.setDisplayName("Unrestricted edit policy");
+    dataHubPolicyInfo.setDescription("No sub-resource list");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY",
             Optional.of(resourceSpec),
             Collections.emptyList());
 
