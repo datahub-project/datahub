@@ -22,6 +22,7 @@ from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfi
 from datahub.ingestion.source.qlik_sense.data_classes import (
     DataModelTable,
     Item,
+    LineageUpstreams,
     ListedDataset,
     ReloadStatement,
     Sheet,
@@ -33,7 +34,10 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     DataConnectionInfo,
     infer_data_connection,
 )
-from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
+from datahub.ingestion.source.qlik_sense.websocket_connection import (
+    RefusedConnectionBudget,
+    WebsocketConnection,
+)
 from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
@@ -68,8 +72,9 @@ class ReadErrors:
     sheets_unread: bool = False
     # Qlik Cloud answered 404 for the app's lineage graph.
     lineage_graph_missing: bool = False
-    # A table node of the app's lineage graph matched no data model table.
-    graph_tables_unmatched: bool = False
+    # Labels of the app's lineage graph table nodes that matched no data model
+    # table.
+    unmatched_graph_tables: List[str] = field(default_factory=list)
 
     def record(self, message: str) -> None:
         log_read_error(message)
@@ -97,14 +102,14 @@ class QlikBaseAPI(ABC):
         self.change_check_failures: List[str] = []
         # Datasets whose lineage graph could not be read.
         self.lineage_read_failures: List[str] = []
-        # Apps whose upstream lineage graph could not be read.
-        self.upstream_graph_read_failures: List[str] = []
         self.reload_statement_read_failures: List[str] = []
         self.field_lineage_failures: List[str] = []
         # Apps opened without their data because opening them with it failed.
         self.opened_without_data: List[str] = []
         # Scripts apps include that could not be read, as path and reason.
         self.include_read_failures: List[str] = []
+        # Set where app reads wait for an Engine that refuses connections.
+        self.engine_refusals: Optional[RefusedConnectionBudget] = None
 
     def _record_failed_user_lookup(self, user_id: str, e: Exception) -> None:
         log_read_error(f"Unable to fetch user with id {user_id}. Exception: {e}")
@@ -135,6 +140,14 @@ class QlikBaseAPI(ABC):
         """Statements of the app's last reload."""
         # Enterprise on Windows does not record them.
         return []
+
+    def get_lineage_upstreams(self, qri: str) -> LineageUpstreams:
+        # Enterprise on Windows has no lineage graph.
+        return LineageUpstreams()
+
+    def get_database_labels(self, qri: str) -> Dict[str, str]:
+        # Enterprise on Windows has no lineage graph.
+        return {}
 
     @abstractmethod
     def _list_items(self, space_id: str) -> Iterable[Dict]:

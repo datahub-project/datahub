@@ -17,6 +17,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Mapping,
     Optional,
     Set,
     Tuple,
@@ -100,12 +101,15 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import (
     FILE_QRI_RE,
+    PLATFORM_BY_QRI_SCHEME,
+    FilePlatform,
     FileReference,
     FileSourceResolver,
     FileStorage,
     file_dataset_urn,
     file_storage_of_uri,
     normalized_file_path,
+    qri_part_id,
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
@@ -122,6 +126,7 @@ from datahub.ingestion.source.qlik_sense.qvd_lineage import (
     QvdWrite,
     app_qvd_lineage,
     canonical_path,
+    stored_fields,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     BACKTICK_QUOTED_PLATFORMS,
@@ -135,6 +140,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ResolvedConnection,
     ScriptTable,
     ScriptTableLineage,
+    app_own_variables,
     app_table_identifier,
     apply_crosstable,
     apply_preceding_loads,
@@ -243,7 +249,18 @@ DATA_FILES_CONNECTION = "datafiles"
 
 def _is_data_files(connection: str) -> bool:
     space, qualified, name = connection.strip().partition(":")
-    return (name if qualified else space).lower() == DATA_FILES_CONNECTION
+    return (name if qualified else space).strip("[]").lower() == DATA_FILES_CONNECTION
+
+
+def _get_ignoring_case(
+    mapping: Mapping[str, MappingT], name: str
+) -> Optional[MappingT]:
+    if name in mapping:
+        return mapping[name]
+    # Qlik resolves connection names regardless of case. A case variant is
+    # taken only when a single key matches it.
+    matches = [key for key in mapping if key.lower() == name.lower()]
+    return mapping[matches[0]] if len(matches) == 1 else None
 
 
 def _is_qvd(dataset: Union[QlikDataset, ListedDataset]) -> bool:
@@ -282,8 +299,11 @@ def _qvd_fields(writes: List[QvdWrite], reads: List[str]) -> Optional[List[str]]
 UNRESOLVED_STORE = "a STORE path could not be resolved"
 
 
-# The SQL keyword Qlik keeps at the start of a reload statement that ran SQL.
-RELOAD_SQL_RE = re.compile(r"^\s*SQL\b(?P<sql>.*)$", re.IGNORECASE | re.DOTALL)
+# A reload statement that ran SQL: Qlik keeps the `SQL` prefix when the script
+# used one, and a bare `SELECT` is SQL too.
+RELOAD_SQL_RE = re.compile(
+    r"^\s*(?:SQL\b|(?=SELECT\b))(?P<sql>.*)$", re.IGNORECASE | re.DOTALL
+)
 QUOTE_CHARACTERS = '[]"`'
 # A file an app's last reload stored or loaded, as Qlik records it, such as
 # `STORE - lib://<space>:DataFiles/orders.qvd;` or `{lib://... (txt)};`.
@@ -299,8 +319,8 @@ class _ReloadFile(BaseModel):
 
 class _GraphNamedApps(BaseModel):
     apps: Set[str]
-    # Whether an app keeps the dataset from its last read, as its upstream
-    # graph could not be read.
+    # Whether an app keeps the dataset from its last read, as this run could
+    # not tell its sources, such as when its upstream graph could not be read.
     graph_unread: bool
 
 
@@ -390,15 +410,25 @@ def _label_parts(label: str) -> List[str]:
     return [part.strip().strip(QUOTE_CHARACTERS).lower() for part in label.split(".")]
 
 
+def _names_identifier(sql: str, name: str) -> bool:
+    """Whether lowercased SQL names `name` as a whole identifier, so that
+    `orders_archive` doesn't count as naming `orders`."""
+    return re.search(rf"(?<![\w$#@]){re.escape(name)}(?![\w$#@])", sql) is not None
+
+
+def _database_qri_platform(source_qri: str) -> str:
+    scheme = source_qri[len(DATABASE_QRI_PREFIX) :].partition("://")[0].lower()
+    # A scheme that isn't mapped is compared as is, such as `oracle`, so one
+    # that names no DataHub platform matches nothing.
+    return KNOWN_DATA_PLATFORM_MAPPING.get(scheme, scheme)
+
+
 def _urn_names_table(urn: str, source_qri: str, label: str) -> bool:
     """Whether a dataset URN is the database table a lineage graph node, such
     as `qri:db:sqlserver://<hash>#<hash>` labelled `dbo.orders`, names. The
     label leaves out the database, and the URN's case may differ from it."""
     dataset = DatasetUrn.from_string(urn)
-    scheme = source_qri[len(DATABASE_QRI_PREFIX) :].partition("://")[0].lower()
-    # A scheme that names no DataHub platform can't be checked, so it matches
-    # nothing rather than any platform.
-    platform = KNOWN_DATA_PLATFORM_MAPPING.get(scheme, scheme)
+    platform = _database_qri_platform(source_qri)
     if dataset.platform != builder.make_data_platform_urn(platform):
         return False
     parts = _label_parts(label)
@@ -417,13 +447,46 @@ class _ReloadSql(BaseModel):
 class _ParsedReloadSql(BaseModel):
     statements: List[_ReloadSql] = []
     # Lowercased SQL of statements that may name a label but were not read,
-    # for an unresolved connection, a parse error or an unset variable.
+    # for an unresolved connection or a parse error, and the names of tables
+    # read without their database or schema.
     skipped_sql: List[str] = []
+    # A statement kept a variable Qlik did not expand, so it may name any
+    # table.
+    unexpanded_variable: bool = False
+
+
+def _merged_lineage(
+    script_table: ScriptTableLineage, reload_table: ScriptTableLineage
+) -> ScriptTableLineage:
+    upstream_urns = list(script_table.upstream_urns)
+    upstream_urns.extend(
+        urn for urn in reload_table.upstream_urns if urn not in upstream_urns
+    )
+    column_upstreams = {
+        column: list(upstreams)
+        for column, upstreams in script_table.column_upstreams.items()
+    }
+    for column, upstreams in reload_table.column_upstreams.items():
+        merged = column_upstreams.setdefault(column, [])
+        merged.extend(upstream for upstream in upstreams if upstream not in merged)
+    return script_table.model_copy(
+        update={"upstream_urns": upstream_urns, "column_upstreams": column_upstreams}
+    )
+
+
+def _own_table_urns(app_id: str, urns: Dict[str, str]) -> Dict[str, str]:
+    return {
+        qri: urn for qri, urn in urns.items() if _qlik_app_id(qri) in (None, app_id)
+    }
 
 
 def _qlik_app_id(qri: str) -> Optional[str]:
     match = QLIK_APP_QRI_RE.match(qri)
     return match.group(1) if match else None
+
+
+# A table Qlik renamed because its name was taken, such as `Orders-1`.
+DUPLICATE_TABLE_NAME_RE = re.compile(r"^(?P<name>.+)-\d+$")
 
 
 class _BinaryLink(BaseModel):
@@ -437,7 +500,7 @@ class _BinaryLink(BaseModel):
     table: str
     dataset_urn: str
     fields: List[str]
-    # An included script, which is not read, could change the table.
+    # An included script that is not read could change the table.
     additive: bool = False
     # The table's lineage from the app's own script.
     upstream_urns: List[str] = []
@@ -600,9 +663,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._script_spellings: Dict[str, Counter[str]] = {}
         self._script_spellings_built_from = -1
         self._linked_unmapped_files: Set[str] = set()
-        # Entities of apps whose last read is kept this run, unchanged or partly
-        # read, which still hold the unmapped files they linked.
-        self._kept_app_urns: Set[str] = set()
         # The tables each app stores into such a file, linked at the end of
         # the run only if some app's lineage graph reads the file, as a STORE
         # in the script may never run.
@@ -613,11 +673,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # names them, added to those apps' checkpoints so a later run that
         # keeps an app keeps them too.
         self._app_end_of_run_urns: DefaultDict[str, Set[str]] = defaultdict(set)
-        # Upstream graphs of the apps read this run, and the resources only
-        # they name, by URN, with their labels and the app tables storing into
-        # them.
-        self._lineage_upstreams: Dict[str, LineageUpstreams] = {}
-        self._apps_upstream_graph_unread: Set[str] = set()
+        # Upstream graphs of the apps read this run, fetched when a source only
+        # they can name is met, None when the read failed, and the resources
+        # only they name, by URN, with their labels and the app tables storing
+        # into them.
+        self._app_qris: Dict[str, str] = {}
+        self._lineage_upstreams: Dict[str, Optional[LineageUpstreams]] = {}
+        self._upstream_graph_read_failures: List[str] = []
+        # Apps whose last graph-named datasets are kept, as this run could not
+        # tell whether they are still sources.
+        self._apps_graph_named_kept: Set[str] = set()
         self._graph_named_resources: Dict[str, str] = {}
         self._graph_resource_writers: Dict[str, Set[str]] = {}
         # The files apps stored or loaded in their last reload, by app id.
@@ -651,19 +716,37 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # Apps read or kept this run, by whether all their tables are known.
         self._apps_tables_known: Set[str] = set()
         self._apps_tables_unknown: Set[str] = set()
+        # Apps whose tables are known, but whose lineage graph names tables
+        # with no URN, so only references to those tables are unknown.
+        self._apps_graph_tables_unresolved: Set[str] = set()
+        # Fingerprints of apps with table lineage still pending, written after
+        # it so a failed run can't skip the app as unchanged without it.
+        self._deferred_fingerprints: Dict[str, MetadataWorkUnit] = {}
         # On-prem, the QVDs each app read or kept this run writes and reads, and
         # the apps whose QVDs are unknown.
         self._app_qvds: Dict[str, AppQvds] = {}
         # Apps whose QVD writes are not known this run, with why.
         self._apps_qvds_unknown: Dict[str, str] = {}
+        # On Qlik Cloud, the files on storage each app read this run stores into.
+        self._app_stored_files: Dict[str, List[str]] = {}
         self._unresolved_qvd_loads = 0
         self._unlabelled_qvd_loads = 0
-        # On-prem, the URNs each app read or kept this run produced, the data
-        # model fields of the apps BINARY loads come from, and the tables
-        # linked to them once every app has been read.
+        # On-prem, the URNs each app BINARY loads come from produced, read or
+        # kept this run, the data model fields of those apps, the tables linked
+        # to them once every app has been read, and the apps whose read
+        # ingested tables a BINARY statement brought in.
+        self._binary_source_apps: Set[str] = (
+            set(self.config.on_prem.binary_file_to_app.values())
+            if self.config.on_prem is not None
+            else set()
+        )
         self._app_urns: Dict[str, Set[str]] = {}
+        # Apps whose last read is kept, whose checkpoints may hold unmapped
+        # files they linked then.
+        self._kept_app_ids: Set[str] = set()
         self._app_model_fields: Dict[str, Dict[str, List[str]]] = {}
         self._binary_links: List[_BinaryLink] = []
+        self._apps_with_binary_tables: Set[str] = set()
         self._last_parsed: Optional[_ParsedApp] = None
         # The data model fields of the app being emitted, by table identifier.
         self._data_model_fields: Dict[str, List[QlikDatasetSchemaField]] = {}
@@ -879,8 +962,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._apps_tables_unknown.add(app_id)
             self._apps_qvds_unknown[app_id] = "it has no last read to keep"
             return None
-        self._app_urns.setdefault(app_id, set()).update(previous.urns)
-        self._kept_app_urns.update(previous.urns)
+        self._kept_app_ids.add(app_id)
+        if app_id in self._binary_source_apps:
+            self._app_urns.setdefault(app_id, set()).update(previous.urns)
+        if previous.binary_tables:
+            self._apps_with_binary_tables.add(app_id)
         if previous.data_model_fields is not None:
             self._app_model_fields[app_id] = previous.data_model_fields
         if previous.qvds is None:
@@ -892,12 +978,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if not previous.qvds.writes_complete:
                 self._apps_qvds_unknown[app_id] = UNRESOLVED_STORE
         if previous.table_urns_by_qri is not None:
-            self._app_table_urns_by_qri.update(previous.table_urns_by_qri)
+            self._app_table_urns_by_qri.update(
+                _own_table_urns(app_id, previous.table_urns_by_qri)
+            )
         # None was recorded before table URNs were kept in the state.
         if previous.table_urns_by_qri is None or previous.tables_unknown:
             self._apps_tables_unknown.add(app_id)
         else:
             self._apps_tables_known.add(app_id)
+            if previous.graph_tables_unresolved:
+                self._apps_graph_tables_unresolved.add(app_id)
         assert self.stale_entity_removal_handler is not None
         for urn in previous.urns:
             self.stale_entity_removal_handler.add_entity_to_state(
@@ -917,8 +1007,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     urns=previous.urns,
                     table_urns_by_qri=previous.table_urns_by_qri,
                     tables_unknown=previous.tables_unknown,
+                    graph_tables_unresolved=previous.graph_tables_unresolved,
                     qvds=self._app_qvds.get(app.id),
                     data_model_fields=self._app_model_fields.get(app.id),
+                    binary_tables=previous.binary_tables,
+                    stored_file_urns=previous.stored_file_urns,
                 ),
             )
         self.reporter.apps_skipped_unchanged += 1
@@ -956,8 +1049,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 partial_reads=previous.partial_reads + 1,
                 table_urns_by_qri=previous.table_urns_by_qri,
                 tables_unknown=previous.tables_unknown,
+                graph_tables_unresolved=previous.graph_tables_unresolved,
                 qvds=previous.qvds,
                 data_model_fields=previous.data_model_fields,
+                binary_tables=previous.binary_tables,
+                stored_file_urns=previous.stored_file_urns,
             ),
         )
         return _PartialRead.KEPT
@@ -995,8 +1091,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 # So a later run that keeps the app can't take its tables as
                 # complete, nor a 404 as the app having no tables.
                 tables_unknown=self._tables_unknown(app),
+                graph_tables_unresolved=self._graph_tables_unresolved(app),
                 qvds=self._app_qvds.get(app.id),
                 data_model_fields=self._app_model_fields.get(app.id),
+                binary_tables=app.id in self._apps_with_binary_tables,
+                stored_file_urns=self._app_stored_files.get(app.id, []),
             ),
         )
 
@@ -1613,7 +1712,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         app_id: str,
     ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self._gen_qlik_dataset_urn(table_identifier)
-        self._app_urns.setdefault(app_id, set()).add(dataset_urn)
+        if app_id in self._binary_source_apps:
+            self._app_urns.setdefault(app_id, set()).add(dataset_urn)
 
         yield self._gen_entity_status_aspect(dataset_urn)
 
@@ -1652,8 +1752,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # Qlik Cloud looks a bare name up in the app's own space only. A
             # same-named connection elsewhere may point at another database
             # when the app's own one is not visible to the API key.
-            return connections.get(f"{space_name}{SPACE_SEPARATOR}{connection}")
-        return connections.get(connection)
+            return _get_ignoring_case(
+                connections, f"{space_name}{SPACE_SEPARATOR}{connection}"
+            )
+        return _get_ignoring_case(connections, connection)
 
     def _mapped_connection(
         self, connection: str, space_id: str, mapping: Dict[str, MappingT]
@@ -1670,7 +1772,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             and SPACE_SEPARATOR not in connection
         ):
             names.insert(0, f"{space_name}{SPACE_SEPARATOR}{connection}")
-        return next((mapping[name] for name in names if name in mapping), None)
+        return next(
+            (
+                entry
+                for name in names
+                if (entry := _get_ignoring_case(mapping, name)) is not None
+            ),
+            None,
+        )
 
     def _resolve_script_connection(
         self, connection: Optional[str], space_id: str
@@ -1831,7 +1940,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if self._last_parsed is not None and self._last_parsed.app is app:
             return self._last_parsed.parsed
         parsed = (
-            parse_script(app.script, self._app_variables(app))
+            parse_script(
+                app.script,
+                self._app_variables(app),
+                self._app_own_variables(app).keys(),
+            )
             if app.script
             else ParsedScript()
         )
@@ -2048,6 +2161,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 urns[table.tableQri] = urn
                 if table.graphQri:
                     urns[table.graphQri] = urn
+        # A tableQri is the table's source, which can be another app's table,
+        # such as for a BINARY load, whose own URN must not be replaced.
+        urns = _own_table_urns(app.id, urns)
         urns.update(
             (
                 table.qri,
@@ -2061,14 +2177,21 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _register_app_tables(self, app: App) -> None:
         self._app_table_urns_by_qri.update(self._app_table_urns(app))
-        self._lineage_upstreams[app.id] = app.lineage_upstreams
-        if app.lineage_upstreams_read_failed:
-            self._apps_upstream_graph_unread.add(app.id)
-            self._keep_graph_named_urns(app.id)
+        self._app_qris[app.id] = app.qri
         if self._tables_unknown(app):
             self._apps_tables_unknown.add(app.id)
             return
         self._apps_tables_known.add(app.id)
+        if self._graph_tables_unresolved(app):
+            self._apps_graph_tables_unresolved.add(app.id)
+        if app.unmatched_graph_tables:
+            self.reporter.warning(
+                title="Qlik app tables not matched to their lineage graph",
+                message="These tables of the app's Qlik Cloud lineage graph match "
+                "no data model table by name, so lineage that other apps' tables "
+                "or datasets have from them is only added to.",
+                context=f"{app.id}: {_bounded_list(app.unmatched_graph_tables)}",
+            )
         previous = self._usable_checkpoint(app.id, [])
         if previous is not None and previous.table_urns_by_qri:
             self._previous_app_table_urns.update(previous.table_urns_by_qri.values())
@@ -2077,10 +2200,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _tables_unknown(app: App) -> bool:
         """Whether some of the app's tables may have no URN this run, so a
         table that loads from the app can't be told to load nothing else."""
-        return (
-            app.tables_read_failed
-            or app.graph_tables_unmatched
-            or bool(app.tables and app.lineage_graph_missing)
+        return app.tables_read_failed
+
+    @staticmethod
+    def _graph_tables_unresolved(app: App) -> bool:
+        """Whether a table node of the app's lineage graph may have no URN
+        this run, though the app's tables were read."""
+        return bool(app.unmatched_graph_tables) or bool(
+            app.tables and app.lineage_graph_missing
         )
 
     def _app_tables_known(self, app_id: str) -> bool:
@@ -2108,7 +2235,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return resolved
 
     def _resolve_source(
-        self, table_qri: str, dataset_urn: str, own_app_id: Optional[str]
+        self,
+        table_qri: str,
+        dataset_urn: str,
+        own_app_id: Optional[str],
+        name_from_graph: bool = True,
     ) -> Tuple[Optional[str], Optional[str]]:
         """The URN of a source table node, if this run ingests it, and why the
         source could not be told this run, if so. An unknown source may still
@@ -2124,6 +2255,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 return (
                     urn if urn != dataset_urn else None
                 ), f"the tables of source app {app_id} are not known this run"
+            if urn is None and app_id in self._apps_graph_tables_unresolved:
+                return None, (
+                    f"source app {app_id} has lineage graph tables matched to "
+                    "none of its tables"
+                )
         else:
             # Data files, and files Qlik catalogued on a data connection such
             # as ADLS, are datasets. Other sources, such as database tables,
@@ -2134,6 +2270,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 if datasets
                 else None
             )
+            graph_app_id = own_app_id if name_from_graph else None
             on_known_storage = False
             if urn is None and own_app_id is not None and FILE_QRI_RE.match(table_qri):
                 # Files on a storage connection resolve from the load script,
@@ -2149,47 +2286,60 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     # so the last run's edge to it must stay. Without the
                     # listing, it may be a listed file the graph can't name,
                     # and without the connections, one on known storage.
-                    if (
-                        datasets is None
-                        or on_known_storage
-                        or self._data_connections_unread()
-                    ):
+                    if on_known_storage:
+                        return None, inputs_unknown
+                    if datasets is None or self._data_connections_unread():
+                        self._keep_graph_named_sources(own_app_id, table_qri)
                         return None, inputs_unknown
                     return (
-                        self._graph_named_source(own_app_id, table_qri),
+                        self._graph_named_source(graph_app_id, table_qri),
                         inputs_unknown,
                     )
             if urn is None and datasets is None:
+                self._keep_graph_named_sources(own_app_id, table_qri)
                 return None, "the Qlik datasets could not be listed"
             if (
                 urn is None
                 and table_qri.startswith(QLIK_DATASET_QRI_PREFIX)
                 and self._datasets_without_qri
             ):
-                # It may be an ingested dataset the listing gave no QRI for.
+                # It may be an ingested dataset the listing gave no QRI for, so
+                # it is not named from the graph either.
+                self._keep_graph_named_sources(own_app_id, table_qri)
                 return None, "a listed Qlik dataset has no QRI to match"
             # A file on known storage that could not be told which is left out
             # rather than named apart from its storage dataset.
-            if urn is None and own_app_id is not None and not on_known_storage:
-                urn = self._graph_named_source(own_app_id, table_qri)
-                if urn is None and self._upstream_graph_unread(own_app_id):
+            if urn is None and graph_app_id is not None and not on_known_storage:
+                urn = self._graph_named_source(graph_app_id, table_qri)
+                if (
+                    urn is None
+                    and self._graph_could_name(table_qri)
+                    and self._upstream_graph_unread(graph_app_id)
+                ):
                     # The upstream graph that may name it could not be read.
                     return None, "the app's upstream lineage graph could not be read"
         return (urn if urn != dataset_urn else None), None
 
-    def _graph_named_source(self, app_id: str, table_qri: str) -> Optional[str]:
+    def _graph_could_name(self, table_qri: str) -> bool:
+        # A dataset listed in a space the recipe leaves out stays out.
+        return table_qri.startswith(UPSTREAM_RESOURCE_QRI_PREFIXES) and not any(
+            qri in self._listed_dataset_qris
+            for qri in (table_qri.rpartition("#")[0], table_qri)
+        )
+
+    def _graph_named_source(
+        self, app_id: Optional[str], table_qri: str
+    ) -> Optional[str]:
         """A dataset or file only the app's upstream graph names, such as a QVD
         in a space the API key can't see, under a URN from its QRI. Its writer
         apps' tables become its upstreams at the end of the run."""
-        upstreams = self._lineage_upstreams.get(app_id)
-        if upstreams is None or not table_qri.startswith(
-            UPSTREAM_RESOURCE_QRI_PREFIXES
-        ):
+        if app_id is None or not self._graph_could_name(table_qri):
+            return None
+        upstreams = self._app_lineage_upstreams(app_id)
+        if upstreams is None:
             return None
         # The graph may name the resource itself rather than one of its tables.
         candidates = (table_qri.rpartition("#")[0], table_qri)
-        if any(qri in self._listed_dataset_qris for qri in candidates):
-            return None
         resource_qri = next(
             (qri for qri in candidates if qri in upstreams.resource_labels), None
         )
@@ -2210,11 +2360,37 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 writers.update(writer_qris)
         return urn
 
+    def _app_lineage_upstreams(self, app_id: str) -> Optional[LineageUpstreams]:
+        """The app's upstream graph, read when a source only it can name is
+        first met, or None when it could not be read."""
+        if app_id not in self._lineage_upstreams:
+            try:
+                upstreams: Optional[LineageUpstreams] = (
+                    self.qlik_api.get_lineage_upstreams(self._app_qris[app_id])
+                )
+            except Exception as e:
+                logger.debug(f"Unable to read upstream lineage of app {app_id}: {e}")
+                upstreams = None
+                self._upstream_graph_read_failures.append(f"{app_id}: {e}")
+                self._keep_graph_named_urns(app_id)
+            self._lineage_upstreams[app_id] = upstreams
+        return self._lineage_upstreams[app_id]
+
+    def _keep_graph_named_sources(self, app_id: Optional[str], table_qri: str) -> None:
+        """Keeps the datasets the app's last read named from its upstream graph
+        when this run can't tell whether a source it may name is one of them."""
+        if app_id is not None and table_qri.startswith(UPSTREAM_RESOURCE_QRI_PREFIXES):
+            self._keep_graph_named_urns(app_id)
+
     def _keep_graph_named_urns(self, app_id: str) -> None:
         """Keeps the datasets the app's last read named from its upstream
-        graph, as this run could not read the graph to name them again."""
-        if self.stale_entity_removal_handler is None:
+        graph, as this run could not name them again."""
+        if (
+            self.stale_entity_removal_handler is None
+            or app_id in self._apps_graph_named_kept
+        ):
             return
+        self._apps_graph_named_kept.add(app_id)
         failures: List[str] = []
         previous = self._usable_checkpoint(app_id, failures)
         for failure in failures:
@@ -2241,7 +2417,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
     def _upstream_graph_unread(self, app_id: str) -> bool:
-        return app_id in self._apps_upstream_graph_unread
+        return (
+            app_id in self._lineage_upstreams
+            and self._lineage_upstreams[app_id] is None
+        )
 
     def _file_inputs_unknown(self, app_id: str) -> Optional[str]:
         """Why the files the app's load script reads are not all known, if so."""
@@ -2250,11 +2429,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self._reported_include_apps.add(app_id)
                 self.reporter.warning(
                     title="Qlik app loads files from an included script",
-                    message="Files loaded in scripts brought in with $(Include) "
-                    "or $(Must_Include), or in a SUB the script calls but does "
-                    "not define, are not read, so a file in the app's "
-                    "lineage graph that its own script does not load only adds "
-                    "to the table's lineage.",
+                    message="The app includes a script with $(Include) or "
+                    "$(Must_Include) that was not read, or calls a SUB its script "
+                    "does not define. An include is not read on-prem, nor when its "
+                    "path varies as the script runs or does not expand to a "
+                    "lib:// path, it is nested more than 10 levels deep or in a "
+                    "cycle, or the file could not be read. A file in the app's "
+                    "lineage graph that its own script does not load only adds to "
+                    "the table's lineage.",
                     context=app_id,
                 )
             return "a file in its lineage graph may be loaded by an included script"
@@ -2273,6 +2455,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _app_variables(self, app: App) -> Dict[str, str]:
         return merged_variables(self.config.script_variables, app.variables)
+
+    def _app_own_variables(self, app: App) -> Dict[str, str]:
+        return app_own_variables(self.config.script_variables, app.variables)
 
     def _file_source_resolver(
         self, app: App, parsed: ParsedScript
@@ -2365,14 +2550,22 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             lowercase=detail.convert_urns_to_lowercase if detail else False,
         )
 
-    def _unmapped_file_urn(self, connection: str, path: str) -> Optional[str]:
+    def _unmapped_file_urn(
+        self, connection: str, path: str, space_id: str
+    ) -> Optional[str]:
         """A Qlik dataset for a file on a connection whose storage is unknown,
         named by the connection and path, so the apps that write and read it
-        still join. Only a connection named with its space is the same one in
-        every app, and DataFiles hold Qlik's own datasets."""
-        space, _, name = connection.strip().partition(":")
+        still join. DataFiles hold Qlik's own datasets."""
+        space, qualified_name, name = connection.strip().partition(SPACE_SEPARATOR)
+        if not qualified_name:
+            # Qlik Cloud resolves a bare name in the app's own space only. A
+            # personal space has no name another app could write the path with.
+            name, space = space, ""
+            if self.config.on_prem is None and space_id != Constant.PERSONAL_SPACE_ID:
+                space = self.qlik_api.spaces.get(space_id, "")
+        space, name = space.strip().strip("[]"), name.strip().strip("[]")
         path = normalized_file_path(path)
-        qualified = f"{space}:{name}/{path}"
+        qualified = f"{space}{SPACE_SEPARATOR}{name}/{path}"
         if (
             not (space and name and path)
             or _is_data_files(connection)
@@ -2381,69 +2574,176 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         ):
             return None
         urn = self._gen_qlik_dataset_urn(qualified.lower())
-        self._unmapped_files.setdefault(urn, f"lib://{qualified}")
+        # Apps may spell the file in different case and are read in no fixed
+        # order, so one spelling is picked the same way every run.
+        spelling = f"lib://{qualified}"
+        known = self._unmapped_files.get(urn)
+        self._unmapped_files[urn] = spelling if known is None else min(known, spelling)
         return urn
 
-    def _unmapped_storage_file_urn(self, connection: str, path: str) -> Optional[str]:
+    def _unmapped_storage_file_urn(
+        self, connection: str, path: str, space_id: str, report: bool = True
+    ) -> Optional[str]:
         """Reports a connection whose storage is unknown and names the file on
         it by the connection and path, when it can be."""
         if self._data_connections_unread():
             # Its storage may be known once listed; the unread listing is reported.
             return None
-        if connection not in self.reporter.unresolved_file_connections:
+        if report and connection not in self.reporter.unresolved_file_connections:
             self.reporter.unresolved_file_connections.append(connection)
-        return self._unmapped_file_urn(connection, path)
+        return self._unmapped_file_urn(connection, path, space_id)
 
     def _gen_file_store_lineage(
-        self, app: App, parsed: ParsedScript, table_urns: Set[str]
+        self,
+        app: App,
+        parsed: ParsedScript,
+        table_fields: Dict[str, List[QlikDatasetSchemaField]],
     ) -> Iterable[MetadataWorkUnit]:
-        """Lineage into the QVDs an app's load script stores on external
-        storage, such as Azure Storage, which the lineage graph only names as
-        Qlik datasets. Only added to: other apps, read or not, may store into
-        the same file."""
-        upstreams: Dict[str, List[str]] = {}
-        competing = stores_in_competing_branches(
-            parsed.qvd_stores,
-            lambda store: (
-                self._stored_table_urn(app, store.label, table_urns)
-                or store.label.lower()
-            ),
+        """Lineage into the QVD, text and Parquet files an app's load script
+        stores on external storage, such as Azure Storage. Other apps may store
+        into the same file, so only this app's tables' edges are replaced, and
+        only when every file it stores into is known."""
+        stores = [*parsed.qvd_stores, *parsed.file_stores]
+        # Whether the files the app stores into are all known this run.
+        complete = (
+            app.read_complete
+            and not parsed.has_unresolved_store
+            and not parsed.has_unresolved_file_store
+            and app.id not in self._apps_with_includes
+            and not app.variables_read_failed
+            and not self._data_connections_unread()
+            and self._dataset_urns_by_secure_qri is not None
         )
-        if competing:
-            self._report_competing_stores(app, competing)
-        for store in parsed.qvd_stores:
-            if store.file.connection is None or store in competing:
+        file_urns: Dict[int, str] = {}
+        unmapped_indexes: Set[int] = set()
+        for index, store in enumerate(stores):
+            if store.file.connection is None:
                 continue
             storage, detail = self._file_storage(store.file.connection, app.spaceId)
-            if storage is not None:
-                file_urn = self._file_urn(storage, detail, store.file.path)
-            else:
+            if storage is None:
                 info = self._find_data_connection(store.file.connection, app.spaceId)
                 if (info is not None and info.file_platform is None) or _is_data_files(
                     store.file.connection
                 ):
                     # Not a file connection, so it has no storage to map.
                     continue
+                # Its file may be a storage file the app stored into before.
+                complete = False
                 unmapped_urn = self._unmapped_storage_file_urn(
-                    store.file.connection, store.file.path
+                    store.file.connection, store.file.path, app.spaceId
                 )
-                if unmapped_urn is None:
-                    continue
-                file_urn = unmapped_urn
+                if unmapped_urn is not None:
+                    file_urns[index] = unmapped_urn
+                    unmapped_indexes.add(index)
+                continue
+            catalogued = self._catalogued_as_qlik_dataset(storage, store.file.path)
+            if catalogued is None:
+                complete = False
+            # A file Qlik catalogues is the Qlik dataset that loads of it and
+            # its own lineage graph name.
+            if catalogued is False:
+                file_urns[index] = self._file_urn(storage, detail, store.file.path)
+        table_urns = set(table_fields)
+        urns_by_store = {id(store): file_urns.get(i) for i, store in enumerate(stores)}
+
+        def same_file(store: QvdStore, other: QvdStore) -> bool:
+            # Two names of one connection, such as with and without its space,
+            # store into the same file.
+            urn = urns_by_store[id(store)]
+            return store.file.key == other.file.key or (
+                urn is not None and urn == urns_by_store[id(other)]
+            )
+
+        competing = stores_in_competing_branches(
+            stores,
+            lambda store: (
+                self._stored_table_urn(app, store.label, table_urns)
+                or store.label.lower()
+            ),
+            same_file,
+        )
+        if competing:
+            complete = False
+            self._report_competing_stores(app, competing)
+        writes: Dict[str, List[QvdWrite]] = {}
+        for index, store in enumerate(stores):
+            file_urn = file_urns.get(index)
+            if file_urn is None or store in competing:
+                continue
             table_urn = self._stored_table_urn(app, store.label, table_urns)
             # A table the app doesn't ingest, such as one a script variable
             # names, has no dataset to link.
             if table_urn is None:
                 continue
-            urns = (
-                upstreams.setdefault(file_urn, [])
-                if storage is not None
-                else self._unmapped_file_stores[file_urn].setdefault(app.id, [])
+            if index in unmapped_indexes:
+                # Linked at the end of the run, once an app that reads the
+                # file is known.
+                urns = self._unmapped_file_stores[file_urn].setdefault(app.id, [])
+                if table_urn not in urns:
+                    urns.append(table_urn)
+                continue
+            write = QvdWrite(
+                table_urn=table_urn,
+                fields=stored_fields(
+                    store, [field.name for field in table_fields.get(table_urn, [])]
+                ),
             )
-            if table_urn not in urns:
-                urns.append(table_urn)
-        for file_urn, urns in upstreams.items():
-            yield from self._gen_stored_file_lineage(file_urn, urns)
+            if write not in writes.setdefault(file_urn, []):
+                writes[file_urn].append(write)
+                self.reporter.file_stores_linked += 1
+        previous = self._usable_checkpoint(app.id, [])
+        previous_files = previous.stored_file_urns if previous else []
+        # Files the app may still have edges into, so a later run that knows
+        # all its stores can remove them.
+        self._app_stored_files[app.id] = sorted(
+            {*writes, *([] if complete else previous_files)}
+        )
+        owned = {
+            *table_urns,
+            *self._app_table_urns(app).values(),
+            *((previous.table_urns_by_qri or {}).values() if previous else []),
+        }
+        for file_urn in sorted({*writes, *previous_files}):
+            current = self._current_upstreams(file_urn) if complete else None
+            if file_urn not in writes and current is None:
+                continue
+            yield from self._gen_qvd_upstreams(
+                file_urn, writes.get(file_urn, []), current, owned.__contains__
+            )
+
+    def _catalogued_as_qlik_dataset(
+        self, storage: FileStorage, path: str
+    ) -> Optional[bool]:
+        """Whether Qlik catalogues the file as a dataset this run ingests, or
+        None when the datasets could not be listed. Without the connection's
+        own properties, a dataset of any connection holding the path counts."""
+        datasets = self._dataset_urns_by_secure_qri
+        if datasets is None:
+            return None
+        connections = self._catalogued_files.get(
+            (storage.platform, qri_part_id(normalized_file_path(path))), set()
+        )
+        return (
+            storage.qri_connection_id in connections
+            if storage.qri_connection_id is not None
+            else bool(connections)
+        )
+
+    @functools.cached_property
+    def _catalogued_files(self) -> Dict[Tuple[FilePlatform, str], Set[str]]:
+        """The connection parts of catalogued files' QRIs, by platform and the
+        path part."""
+        files: Dict[Tuple[FilePlatform, str], Set[str]] = {}
+        for qri in self._dataset_urns_by_secure_qri or {}:
+            match = FILE_QRI_RE.match(qri)
+            platform = (
+                PLATFORM_BY_QRI_SCHEME.get(match.group("scheme")) if match else None
+            )
+            if match and platform:
+                files.setdefault((platform, match.group("path")), set()).add(
+                    match.group("connection")
+                )
+        return files
 
     def _gen_stored_file_lineage(
         self, file_urn: str, table_urns: Iterable[str]
@@ -2453,7 +2753,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             patch.add_upstream_lineage(
                 Upstream(dataset=urn, type=DatasetLineageType.COPY)
             )
-        # A file on storage is not this source's to remove when stale.
+        # Only added to: other apps, read or not, may store into the same file.
         yield from _patch_workunits(patch, is_primary_source=False)
 
     def _report_competing_stores(self, app: App, stores: List[QvdStore]) -> None:
@@ -2499,9 +2799,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             and (storage := file_storage_of_uri(detail.storage_uri))
         }
 
-    def _resolve_file_source(self, app_id: str, file_qri: str) -> Optional[str]:
-        return self._file_source_resolution(app_id, file_qri).urn
-
     def _file_source_resolution(
         self, app_id: str, file_qri: str
     ) -> _FileSourceResolution:
@@ -2534,7 +2831,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     # another kind can't hold a file on this storage.
                     continue
                 unmapped_urn = self._unmapped_storage_file_urn(
-                    reference.connection, reference.path
+                    reference.connection,
+                    reference.path,
+                    space_id,
+                    # A file the QRI places on another connector, such as
+                    # SFTP, has no storage `file_connection_to_storage` maps.
+                    report=candidates.platform is not None,
                 )
                 if unmapped_urn is None:
                     unknown = True
@@ -2593,6 +2895,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         dataset_urn: str,
         field_source_qris: Dict[str, List[str]],
         own_app_id: Optional[str],
+        table_source_qris: Collection[str] = (),
     ) -> List[FineGrainedLineage]:
         """Column lineage from the field level of Qlik's lineage graph. A source
         field is named only when its id is the hash of a field name the run
@@ -2601,12 +2904,25 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # An unnamed source field would otherwise keep the table's lineage
             # from being written whole, for column lineage that isn't emitted.
             return []
+        # A resource only named from the graph at field level would have no
+        # edge to the table, so it is only named when a table source.
+        table_sources = {
+            *table_source_qris,
+            *(qri.rpartition("#")[0] for qri in table_source_qris),
+        }
         lineages = []
         for field, source_qris in field_source_qris.items():
             upstreams: List[str] = []
             for field_qri in source_qris:
                 table_qri, _, field_id = field_qri.rpartition("#")
-                urn, _ = self._resolve_source(table_qri, dataset_urn, own_app_id)
+                urn, _ = self._resolve_source(
+                    table_qri,
+                    dataset_urn,
+                    own_app_id,
+                    name_from_graph=bool(
+                        {table_qri, table_qri.rpartition("#")[0]} & table_sources
+                    ),
+                )
                 name = (
                     field
                     if _qlik_field_id(field) == field_id
@@ -2668,22 +2984,23 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         names = {_label_parts(label)[-1] for label in labels}
         parsed = _ParsedReloadSql()
         unqualified: List[str] = []
+        unresolved: Set[str] = set()
         for statement in app.reload_statements or []:
             match = RELOAD_SQL_RE.match(statement.statement)
             if not match:
                 continue
-            sql = match.group("sql").strip()
-            if not any(name in sql.lower() for name in names) or is_connector_sql(sql):
+            sql = drop_condition_variables(match.group("sql").strip())
+            if is_connector_sql(sql):
                 continue
             if "$(" in sql:
-                parsed.skipped_sql.append(sql.lower())
+                parsed.unexpanded_variable = True
+                continue
+            if not any(_names_identifier(sql.lower(), name) for name in names):
                 continue
             connection_name = statement.discriminator.strip().rstrip(";").strip()
             connection = self._resolve_script_connection(connection_name, app.spaceId)
             if connection is None:
-                unresolved = f"{app.id}: {redact_connection(connection_name)}"
-                if unresolved not in self.reporter.unresolved_data_connections:
-                    self.reporter.unresolved_data_connections.append(unresolved)
+                unresolved.add(redact_connection(connection_name))
                 self._note_unseen_space(
                     _named_space(connection_name), "data connections"
                 )
@@ -2727,6 +3044,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 parsed.statements.append(
                     _ReloadSql(upstream_urns=upstream_urns, result=result)
                 )
+        for connection_name in sorted(unresolved):
+            self.reporter.unresolved_data_connections.append(
+                f"{app.id}: {connection_name}"
+            )
         if unqualified:
             self.reporter.warning(
                 title="Qlik reload SQL table is missing its database or schema",
@@ -2740,84 +3061,171 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _reload_sql_tables(
         self, app: App, script_tables: Dict[str, ScriptTableLineage]
     ) -> Dict[str, ScriptTableLineage]:
-        """Lineage of the graph tables whose database sources the load script
+        """Lineage of the graph tables' database sources that the load script
         doesn't trace, from the SQL of the app's last reload, by table QRI.
         The graph names each source table by a label such as `dbo.orders`,
         which is linked only when exactly one table the SQL reads matches it."""
-        tables = [
-            table
-            for table in app.lineage_tables
-            if table.database_source_labels
-            and not (
-                table.qri in script_tables and script_tables[table.qri].upstream_urns
-            )
-        ]
-        if not tables or not app.reload_statements:
+        untraced: Dict[str, Dict[str, str]] = {}
+        for table in app.lineage_tables:
+            script_table = script_tables.get(table.qri)
+            traced = script_table.upstream_urns if script_table else []
+            labels = {
+                qri: label
+                for qri, label in table.database_source_labels.items()
+                if not any(_urn_names_table(urn, qri, label) for urn in traced)
+            }
+            if labels:
+                untraced[table.qri] = labels
+        if not untraced or app.reload_statements is None:
             return {}
         parsed = self._parse_reload_sql(
-            app,
-            [label for t in tables for label in t.database_source_labels.values()],
+            app, [label for labels in untraced.values() for label in labels.values()]
         )
-        statements = parsed.statements
         lineages: Dict[str, ScriptTableLineage] = {}
-        for table in tables:
-            fields = {field.lower(): field for field in table.fields}
+        for table in app.lineage_tables:
+            if table.qri not in untraced:
+                continue
             lineage = ScriptTableLineage(
                 label=table.label,
                 identifier=self._lineage_table_identifier(app.id, table),
             )
-            for source_qri, label in table.database_source_labels.items():
-                matches = {
-                    urn
-                    for statement in statements
-                    for urn in statement.upstream_urns
-                    if _urn_names_table(urn, source_qri, label)
-                }
-                if len(matches) != 1:
-                    if matches:
-                        self.reporter.ambiguous_reload_sql_sources.append(
-                            f"{app.id}: {label} matches {sorted(matches)}"
-                        )
+            for source_qri, label in untraced[table.qri].items():
+                urn = self._reload_sql_source(app, parsed, source_qri, label)
+                if urn is None:
                     continue
-                name = _label_parts(label)[-1]
-                if any(name in sql for sql in parsed.skipped_sql):
-                    # A statement that could not be read may name another
-                    # table with the label, so the match is not certain.
-                    self.reporter.ambiguous_reload_sql_sources.append(
-                        f"{app.id}: {label} is also named by reload SQL that "
-                        "could not be read"
-                    )
-                    continue
-                urn = matches.pop()
                 if urn not in lineage.upstream_urns:
                     lineage.upstream_urns.append(urn)
-                for statement in statements:
-                    if urn not in statement.upstream_urns:
-                        continue
-                    for column in statement.result.column_lineage or []:
-                        # The graph table's fields are Qlik's names, which may
-                        # differ in case from the columns.
-                        field = fields.get(column.downstream.column.lower())
-                        if field is None:
-                            continue
-                        upstreams = lineage.column_upstreams.setdefault(field, [])
-                        upstreams.extend(
-                            upstream
-                            for upstream in column_refs_to_schema_field_urns(
-                                ref for ref in column.upstreams if ref.table == urn
-                            )
-                            if upstream not in upstreams
-                        )
+                self._add_reload_column_lineage(lineage, table, parsed, source_qri, urn)
             if lineage.upstream_urns:
                 self.reporter.reload_sql_tables_with_lineage += 1
                 lineages[table.qri] = lineage
         return lineages
+
+    def _reload_sql_source(
+        self, app: App, parsed: _ParsedReloadSql, source_qri: str, label: str
+    ) -> Optional[str]:
+        """The one table the reload SQL reads that a graph label names."""
+        matches = {
+            urn
+            for statement in parsed.statements
+            for urn in statement.upstream_urns
+            if _urn_names_table(urn, source_qri, label)
+        }
+        name = _label_parts(label)[-1]
+        unread = parsed.unexpanded_variable or any(
+            _names_identifier(sql, name) for sql in parsed.skipped_sql
+        )
+        if len(matches) > 1:
+            self.reporter.ambiguous_reload_sql_sources.append(
+                f"{app.id}: {label} matches {sorted(matches)}"
+            )
+            return None
+        if not matches:
+            if not unread:
+                self.reporter.unmatched_reload_sql_sources.append(
+                    f"{app.id}: {label} ({_database_qri_platform(source_qri)})"
+                )
+            return None
+        if unread:
+            # A statement that could not be read may name another table with
+            # the label, so the match is not certain.
+            self.reporter.ambiguous_reload_sql_sources.append(
+                f"{app.id}: {label} may also be named by reload SQL that could "
+                "not be read"
+            )
+            return None
+        urn = matches.pop()
+        if self.ctx.graph is not None and any(
+            urn in statement.upstream_urns
+            and statement.result.debug_info.table_schemas_resolved
+            < statement.result.debug_info.tables_discovered
+            for statement in parsed.statements
+        ):
+            # Linked as the SQL names it, which may differ in case from the
+            # dataset DataHub holds.
+            self.reporter.reload_sql_tables_not_in_datahub.append(f"{app.id}: {urn}")
+        return urn
+
+    @staticmethod
+    def _add_reload_column_lineage(
+        lineage: ScriptTableLineage,
+        table: LineageTable,
+        parsed: _ParsedReloadSql,
+        source_qri: str,
+        urn: str,
+    ) -> None:
+        """Maps the graph table's fields to the columns of `urn` that the one
+        reload statement reading it selects under the same name."""
+        statements = [s for s in parsed.statements if urn in s.upstream_urns]
+        if len(statements) != 1:
+            # Another statement reading the table may load another table.
+            return
+        # The ids of the source's columns each field loads, when the graph's
+        # field level names them.
+        source_field_ids: Dict[str, Set[str]] = {}
+        for field, field_qris in table.field_source_qris.items():
+            for field_qri in field_qris:
+                table_qri, _, field_id = field_qri.rpartition("#")
+                if table_qri == source_qri:
+                    source_field_ids.setdefault(field, set()).add(field_id)
+        # The graph table's fields are Qlik's names, which may differ in case
+        # from the columns.
+        fields = {field.lower(): field for field in table.fields}
+        for column in statements[0].result.column_lineage or []:
+            field_name = fields.get(column.downstream.column.lower())
+            if field_name is None:
+                continue
+            refs = [ref for ref in column.upstreams if ref.table == urn]
+            if source_field_ids:
+                # A LOAD over the SQL may rename fields, which the reload SQL
+                # doesn't show, so the graph decides which column each loads.
+                ids = source_field_ids.get(field_name, set())
+                refs = [ref for ref in refs if _qlik_field_id(ref.column) in ids]
+            if not refs:
+                continue
+            upstreams = lineage.column_upstreams.setdefault(field_name, [])
+            upstreams.extend(
+                upstream
+                for upstream in column_refs_to_schema_field_urns(refs)
+                if upstream not in upstreams
+            )
+
+    def _read_database_source_labels(self, app: App) -> None:
+        """Labels the graph tables' database sources by, such as `dbo.orders`,
+        which only the upstream graph gives: from the app's upstream graph when
+        a source only it names already had it read, or else from the one-level
+        graph alone."""
+        unlabelled = [
+            (table, qri)
+            for table in app.lineage_tables
+            for qri in table.source_qris
+            if qri.startswith(DATABASE_QRI_PREFIX)
+            and qri not in table.database_source_labels
+        ]
+        # Without the reload's SQL, a label names nothing to link.
+        if not unlabelled or app.reload_statements is None:
+            return
+        upstreams = self._lineage_upstreams.get(app.id)
+        if upstreams is not None and upstreams.database_labels is not None:
+            labels = upstreams.database_labels
+        else:
+            try:
+                labels = self.qlik_api.get_database_labels(app.qri)
+            except Exception as e:
+                logger.debug(f"Unable to read database labels of app {app.id}: {e}")
+                app.reload_statements_read_failed = True
+                self.qlik_api.reload_statement_read_failures.append(f"{app.id}: {e}")
+                return
+        for table, qri in unlabelled:
+            if qri in labels:
+                table.database_source_labels[qri] = labels[qri]
 
     def _gen_lineage_tables_workunit(
         self, app: App, script_tables: Dict[str, ScriptTableLineage]
     ) -> Iterable[MetadataWorkUnit]:
         if app.reload_statements is not None:
             self._record_reload_files(app.id, app.reload_statements)
+        self._read_database_source_labels(app)
         reload_tables = self._reload_sql_tables(app, script_tables)
         for table in app.lineage_tables:
             script_table = script_tables.get(table.qri)
@@ -2826,15 +3234,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 script_table = (
                     reload_table
                     if script_table is None
-                    else script_table.model_copy(
-                        update={
-                            "upstream_urns": reload_table.upstream_urns,
-                            "column_upstreams": {
-                                **reload_table.column_upstreams,
-                                **script_table.column_upstreams,
-                            },
-                        }
-                    )
+                    else _merged_lineage(script_table, reload_table)
                 )
             identifier = self._lineage_table_identifier(app.id, table)
             dataset_urn = self._gen_qlik_dataset_urn(identifier)
@@ -2886,6 +3286,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     and any(
                         qri.startswith(DATABASE_QRI_PREFIX) for qri in table.source_qris
                     )
+                    else "the data connections could not be read"
+                    if self._data_connections_unread()
+                    and any(
+                        qri.startswith(DATABASE_QRI_PREFIX) for qri in table.source_qris
+                    )
                     else "a database table in the lineage graph has no label"
                     if any(
                         qri.startswith(DATABASE_QRI_PREFIX)
@@ -2906,7 +3311,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self._pending_table_lineage.append(pending)
                 continue
             graph_fields = self._graph_column_lineage(
-                dataset_urn, table.field_source_qris, own_app_id=app.id
+                dataset_urn,
+                table.field_source_qris,
+                own_app_id=app.id,
+                table_source_qris=table.source_qris,
             )
             if dataset_urn in self._unnamed_field_lineage:
                 # A source field is named by an item read later in the run, such
@@ -2942,6 +3350,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 pending.dataset_urn,
                 pending.field_source_qris,
                 own_app_id=pending.app_id,
+                table_source_qris=pending.source_qris,
             )
             yield from self._gen_table_lineage(pending, graph_fields)
         self._pending_table_lineage = []
@@ -2955,6 +3364,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 f"tables={_bounded_list(sorted(labels))}",
             )
         self._only_added_tables = {}
+        yield from self._deferred_fingerprints.values()
+        self._deferred_fingerprints = {}
 
     def _gen_table_lineage(
         self, pending: "PendingTableLineage", graph_fields: List[FineGrainedLineage]
@@ -3180,9 +3591,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             script_tables = self._merge_tables(script_tables, qvd_lineage.tables)
             # Read, even with no tables, so a BINARY load from it isn't
             # reported as from an app the run didn't read.
-            self._app_urns.setdefault(app.id, set())
+            if app.id in self._binary_source_apps:
+                self._app_urns.setdefault(app.id, set())
             self._record_model_fields(app)
             binary_load = self._binary_load(app, parsed)
+            if binary_load.tables:
+                self._apps_with_binary_tables.add(app.id)
             script_tables = self._merge_tables(script_tables, binary_load.tables)
         self._use_data_model_field_names(script_tables)
         matched_script_tables = self._match_script_tables(
@@ -3277,11 +3691,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 binary_load.paths, DatasetSubTypes.QLIK_APP_FILE
             )
         if qvd_lineage is None:
-            yield from self._gen_file_store_lineage(app, parsed, set(table_fields))
+            yield from self._gen_file_store_lineage(app, parsed, table_fields)
         if fingerprint:
             # Skipping an unchanged app trusts this fingerprint, so it is written
             # only after everything else the app produced.
-            yield self._gen_fingerprint_workunit(container_workunits, fingerprint)
+            fingerprint_wu = self._gen_fingerprint_workunit(
+                container_workunits, fingerprint
+            )
+            if any(p.app_id == app.id for p in self._pending_table_lineage):
+                self._deferred_fingerprints[app.id] = fingerprint_wu
+            else:
+                yield fingerprint_wu
 
     def _gen_fingerprint_workunit(
         self, container_workunits: List[MetadataWorkUnit], fingerprint: str
@@ -3468,6 +3888,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.unlabelled_qvd_loads.append(f"{app.id}: {path}")
             self._unlabelled_qvd_loads += 1
         self.reporter.qvds_found += len(lineage.paths)
+        self.reporter.storage_qvds_resolved += len(lineage.storage_urns)
         if app.script is None or app.script_read_failed:
             # QVDs the script writes can't be known, so their lineage is kept.
             self._apps_qvds_unknown[app.id] = "its load script could not be read"
@@ -3691,11 +4112,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
     def _gen_unmapped_file_entities(self) -> Iterable[MetadataWorkUnit]:
-        # A reader whose last read is kept linked the file then, and its kept
-        # entities hold the file this run.
-        self._linked_unmapped_files.update(
-            urn for urn in self._unmapped_file_stores if urn in self._kept_app_urns
-        )
+        # A reader whose last read is kept linked the file then. Only a kept
+        # app's entities can hold such a file, as they come from its checkpoint,
+        # which is looked up again rather than every app's URNs held in memory.
+        unread = set(self._unmapped_file_stores) - self._linked_unmapped_files
+        for app_id in sorted(self._kept_app_ids) if unread else []:
+            previous = self.app_state.previous(app_id)
+            if previous is not None:
+                self._linked_unmapped_files.update(unread.intersection(previous.urns))
         for file_urn, stores in sorted(self._unmapped_file_stores.items()):
             if file_urn not in self._linked_unmapped_files:
                 self.reporter.unread_stored_files.append(self._unmapped_files[file_urn])
@@ -3752,11 +4176,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _graph_named_apps(self, urn: str) -> _GraphNamedApps:
         """The apps whose last reload may give the path of a dataset only the
         upstream graph names: those that load it, the writer apps this run
-        ingests, and those that keep it from their last read as their graph
-        could not be read."""
+        ingests, and those that keep it from their last read as this run
+        could not tell their sources."""
         keeping = {
             app_id
-            for app_id in self._apps_upstream_graph_unread
+            for app_id in self._apps_graph_named_kept
             if urn in self._app_end_of_run_urns.get(app_id, ())
         }
         return _GraphNamedApps(
@@ -3893,10 +4317,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def _record_model_fields(self, app: App) -> None:
-        on_prem = self.config.on_prem
-        assert on_prem is not None
         # Only for the apps BINARY loads come from, as the checkpoint keeps them.
-        if app.id not in on_prem.binary_file_to_app.values():
+        if app.id not in self._binary_source_apps:
             return
         if app.data_model_tables:
             self._app_model_fields[app.id] = {
@@ -3934,8 +4356,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _check_binary_read(self, app: App) -> None:
         """Counts an app as partly read when the tables its BINARY statement
-        loads can't be found for a reason the next run may not have, so its
-        last read keeps them instead of stale removal deleting them."""
+        loads can't be found for a reason the next run may not have, and its
+        last read ingested such tables, so stale removal doesn't delete them.
+        After max_partial_reads_kept runs they are let go, as the cause, such
+        as section access denying the app's data, may never go away."""
+        on_prem = self.config.on_prem
+        assert on_prem is not None
+        if not on_prem.read_data_model:
+            return
         binary = self._parsed_script(app).binary
         if binary is None:
             return
@@ -3946,10 +4374,30 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if binary.uses_variables and app.variables_read_failed
             else None
         )
-        if reason:
+        if reason is None:
+            return
+        failures: List[str] = []
+        previous = self._usable_checkpoint(app.id, failures)
+        if failures:
+            # Its last read may hold BINARY tables.
             app.read_errors.append(
                 f"The tables the app's BINARY load brings in are not known: {reason}"
             )
+            return
+        if previous is None or not previous.binary_tables:
+            return
+        if previous.partial_reads >= self.config.max_partial_reads_kept:
+            self.reporter.warning(
+                title="Qlik BINARY tables are no longer kept",
+                message="The tables these apps load with BINARY could not be "
+                "found for more than max_partial_reads_kept runs, so they are "
+                "no longer kept from the app's last read.",
+                context=f"{app.id}: {reason}",
+            )
+            return
+        app.read_errors.append(
+            f"The tables the app's BINARY load brings in are not known: {reason}"
+        )
 
     def _binary_load(self, app: App, parsed: ParsedScript) -> _BinaryLoad:
         """The app's tables a BINARY statement loads: the data model's tables
@@ -3984,20 +4432,25 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "the script drops or replaces tables it doesn't name, so the "
                 "tables the file brings in are not known"
             )
-        created = {label.lower() for label in parsed.table_labels}
+        labels = {label.lower() for label in parsed.table_labels}
+        created = set(labels)
         if source_app_id is not None:
             # A load under a BINARY table's name adds to it, or Qlik renames
-            # the new table, so only a table the script drops and creates again
-            # is not the file's. Tables the source app lacks are left out later.
-            created &= {label.lower() for label in parsed.dropped_tables}
+            # the new table, so only a table the script drops and creates again,
+            # or renames a table to, is not the file's. Tables the source app
+            # lacks are left out later.
+            created &= {
+                label.lower()
+                for label in [*parsed.dropped_tables, *parsed.renamed_tables]
+            }
         upstream_urns: List[str] = []
         if source_app_id is not None and parsed.has_includes:
             self.reporter.warning(
                 title="Qlik BINARY tables may be changed by an included script",
-                message="Scripts brought in with $(Include) or $(Must_Include), "
-                "or a SUB the script calls but does not define, are not read and "
-                "could drop or reload the tables a mapped BINARY load brings in, "
-                "so their lineage is only added to.",
+                message="A script included with $(Include) or $(Must_Include) "
+                "that was not read, or a SUB the script calls but does not "
+                "define, could drop or reload the tables a mapped BINARY load "
+                "brings in, so their lineage is only added to.",
                 context=app.id,
             )
         if source_app_id is None:
@@ -4019,6 +4472,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             upstream_urns = [urn]
         for table in app.data_model_tables:
             if table.name.lower() in created:
+                continue
+            suffixed = DUPLICATE_TABLE_NAME_RE.match(table.name)
+            if suffixed and suffixed.group("name").lower() in labels:
+                # Qlik names a new table `Orders-1` when Orders already
+                # exists, so it is the script's.
                 continue
             identifier = app_table_identifier(app.id, table.name)
             fields = [field.name for field in table.fields]
@@ -4055,11 +4513,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         if source_urn not in source_urns:
             source_model = self._app_model_fields.get(link.source_app_id)
-            # A table the source app's data model lacks is the script's own.
-            if source_model is None or link.table.lower() in source_model:
+            if source_model is None:
                 self.reporter.binary_loads_without_lineage.append(
-                    f"{link.app_id}: app {link.source_app_id} has no table {link.table}"
+                    f"{link.app_id}: app {link.source_app_id} ingests no table "
+                    f"{link.table}"
                 )
+            elif link.table.lower() in source_model:
+                self.reporter.binary_loads_without_lineage.append(
+                    f"{link.app_id}: app {link.source_app_id} doesn't ingest table "
+                    f"{link.table}, as it isn't loaded with SQL, from a QVD or "
+                    "with BINARY there, such as a RESIDENT or INLINE table"
+                )
+            # Otherwise the source app's data model lacks it: the script's own.
             return None
         return source_urn
 
@@ -4099,6 +4564,19 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         for link in self._binary_links:
             source_urn = self._binary_link_source(link, unread)
             source_model = self._app_model_fields.get(link.source_app_id)
+            if (
+                source_urn is None
+                and source_model is not None
+                and link.table.lower() not in source_model
+            ):
+                # Not from the file, so its script lineage is written whole.
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=link.dataset_urn,
+                    aspect=self._binary_upstream_lineage(
+                        link, None, link.script_fields
+                    ),
+                ).as_workunit()
+                continue
             if source_urn is None or source_model is None:
                 # Without the source app's fields, the column edges an earlier
                 # run wrote stay.
@@ -4153,7 +4631,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             for urn, read_fields in qvds.reads.items():
                 known = reads.setdefault(urn, [])
                 known.extend(field for field in read_fields if field not in known)
-        if not (writes or reads):
+        # Storage files are never removed as stale, so the edges of apps that
+        # stopped storing into them are only removed here.
+        stopped = self._storage_qvds_written_before()
+        if not (writes or reads or stopped):
             return
         unknown = dict(self._apps_qvds_unknown)
         if self.qlik_api.unread_items:
@@ -4170,7 +4651,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     [f"{app}: {reason}" for app, reason in sorted(unknown.items())]
                 ),
             )
-        qvd_urns = sorted({*writes, *reads})
+        qvd_urns = sorted({*writes, *reads, *stopped})
         # Read in batches up front rather than one request per QVD. Removal is
         # limited to edges from apps whose writes are known, so it runs even
         # while other apps are unknown.
@@ -4202,8 +4683,33 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 ).as_workunit()
             # A QVD no app writes any more still loses its old writers' edges.
             yield from self._gen_qvd_upstreams(
-                urn, writes.get(urn, []), current_lineage.get(urn)
+                urn,
+                writes.get(urn, []),
+                current_lineage.get(urn),
+                self._owned_qvd_writer,
             )
+
+    def _storage_qvds_written_before(self) -> Set[str]:
+        """Storage QVDs that apps whose writes are known this run stored into
+        on their last read."""
+        failures: List[str] = []
+        urns: Set[str] = set()
+        for app_id in self._app_qvds:
+            if app_id in self._apps_qvds_unknown:
+                continue
+            previous = self._usable_checkpoint(app_id, failures)
+            if previous is not None and previous.qvds is not None:
+                urns.update(
+                    urn for urn in previous.qvds.writes if not self._is_own_dataset(urn)
+                )
+        if failures:
+            self.reporter.warning(
+                title="Unable to load the last checkpoint of a Qlik app",
+                message="Edges from these apps into storage QVDs they no longer "
+                "write are kept.",
+                context=_bounded_list(failures),
+            )
+        return urns
 
     def _report_unresolved_qvds(self) -> None:
         if not (self._unresolved_qvd_loads or self._unlabelled_qvd_loads):
@@ -4259,7 +4765,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         qvd_urn: str,
         writes: List[QvdWrite],
         current: Optional[UpstreamLineage],
+        is_owned: Callable[[str], bool],
     ) -> Iterable[MetadataWorkUnit]:
+        """`is_owned` tells the tables whose edges into the file this run knows
+        all of, so that those no longer written are removed."""
         table_urns = list(dict.fromkeys(write.table_urn for write in writes))
         fine_grained = [
             FineGrainedLineage(
@@ -4272,7 +4781,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             for write in writes
             for field in write.fields or []
-            if field.source
+            if field.source and self._has_field_schema(qvd_urn)
         ]
         # Added as a patch, so lineage from elsewhere stays.
         patch = DatasetPatchBuilder(qvd_urn)
@@ -4295,7 +4804,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     if (parent := _schema_field_parent(u))
                 ),
             }
-            owned = {urn for urn in seen if self._owned_qvd_writer(urn)}
+            owned = {urn for urn in seen if is_owned(urn)}
             for upstream in current.upstreams:
                 if upstream.dataset in owned and upstream.dataset not in table_urns:
                     patch.remove_upstream_lineage(upstream.dataset)
@@ -4315,6 +4824,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         yield from _patch_workunits(
             patch, is_primary_source=self._is_own_dataset(qvd_urn)
         )
+
+    def _has_field_schema(self, urn: str) -> bool:
+        # The storage sources don't read QVDs, so a QVD on storage has no
+        # fields in DataHub; Parquet and text files there do.
+        return self._is_own_dataset(urn) or not DatasetUrn.from_string(
+            urn
+        ).name.lower().endswith(QVD_EXTENSION)
 
     def _is_own_dataset(self, urn: str) -> bool:
         return DatasetUrn.from_string(urn).platform == builder.make_data_platform_urn(
@@ -4346,6 +4862,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 previous is None
                 or previous.table_urns_by_qri is None
                 or previous.tables_unknown
+                or previous.graph_tables_unresolved
             )
             if unknown and self.app_state.is_checkpointing_enabled():
                 # With no last read to compare with, the graph may only be
@@ -4557,8 +5074,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if not resolved.complete:
                 self.reporter.warning(
                     title="Lineage of Qlik dataset only added to",
-                    message="An app that stores into the dataset could not be read "
-                    "this run, so its storing tables are added to the dataset's "
+                    message="An app table that stores into the dataset could not "
+                    "be resolved this run, such as one of an app that could not be "
+                    "read, so its storing tables are added to the dataset's "
                     "lineage and none are removed.",
                     context=dataset_urn,
                 )
@@ -4649,6 +5167,46 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         more = f" (and {len(rest)} more)" if rest else ""
         return f"{app.id}: {first}{more}"
 
+    def _report_reload_sql(self) -> None:
+        if self.qlik_api.reload_statement_read_failures:
+            self.reporter.warning(
+                title="Unable to read the SQL of Qlik apps' last reload",
+                message="Database tables that only the SQL of these apps' last "
+                "reload names are left out, and the lineage of the apps' tables "
+                "that read databases is only added to this run.",
+                context=_bounded_list(self.qlik_api.reload_statement_read_failures),
+            )
+        if self.reporter.ambiguous_reload_sql_sources:
+            self.reporter.warning(
+                title="Qlik lineage graph database table matches several tables",
+                message="The SQL of the app's last reload reads more than one "
+                "table the graph's label could name, or a statement that may "
+                "name it could not be read, so lineage to it is skipped.",
+                context=_bounded_list(
+                    sorted(self.reporter.ambiguous_reload_sql_sources)
+                ),
+            )
+        if self.reporter.unmatched_reload_sql_sources:
+            self.reporter.warning(
+                title="Qlik lineage graph database table matches no reload SQL table",
+                message="No table the SQL of the app's last reload reads matches "
+                "the graph's label and platform, so lineage to it is skipped.",
+                context=_bounded_list(
+                    sorted(self.reporter.unmatched_reload_sql_sources)
+                ),
+            )
+        if self.reporter.reload_sql_tables_not_in_datahub:
+            self.reporter.warning(
+                title="Qlik reload SQL table schema not found in DataHub",
+                message="These tables are linked as the reload SQL names them. If "
+                "the warehouse is ingested with another case, the edge points at "
+                "a dataset that doesn't exist; set the warehouse source's URN "
+                "case to match.",
+                context=_bounded_list(
+                    sorted(self.reporter.reload_sql_tables_not_in_datahub)
+                ),
+            )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Datahub Ingestion framework invoke this method
@@ -4697,6 +5255,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "the next run reads them again.",
                 context=_bounded_list(self.qlik_api.opened_without_data),
             )
+        refusals = self.qlik_api.engine_refusals
+        if refusals is not None and refusals.longest_streak_seconds > 0:
+            self.reporter.info(
+                title="Qlik Engine refused connections",
+                message="App reads waited for the Engine to accept connections, "
+                "as it does while its service restarts, which slows the run.",
+                context=f"Longest run of refusals: "
+                f"{refusals.longest_streak_seconds:.0f}s",
+            )
         if self.qlik_api.field_lineage_failures:
             self.reporter.warning(
                 title="Unable to read Qlik column lineage",
@@ -4732,20 +5299,24 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 message="Apps include these scripts with $(Include) or "
                 "$(Must_Include), but they could not be read, so what they load "
                 "is missing from lineage, and the apps' lineage is only added to. "
-                "Each entry gives the reason. An access error needs Can view for "
-                "the API key's user in the space holding the file.",
+                "Each entry gives the path, the app and space including it, and "
+                "the reason. A path without a space resolves in that app's space. "
+                "An access error needs Can view for the API key's user in the "
+                "space holding the file.",
                 context=_bounded_list(sorted(set(self.qlik_api.include_read_failures))),
             )
         if self.reporter.unresolved_file_connections:
             self.reporter.warning(
                 title="Qlik file connections have no known storage",
-                message="Files on these data connections are named by the "
-                "connection and path when it is named with its space, so they "
-                "only join the Qlik apps that write and read them. Files on the "
-                "others are named from the loading app's lineage graph, when its "
-                "tables come from the graph, and stores into them are not "
-                "linked. Add each connection to `file_connection_to_storage` "
-                "with the URI of its storage.",
+                message="Files on these data connections are named by their "
+                "space, connection and path, so they only join the Qlik apps "
+                "that write and read them. A personal-space app's files on a "
+                "connection named without its space are named from the loading "
+                "app's lineage graph, when its tables come from the graph, and "
+                "stores into them are not linked. Add each Azure Storage, Amazon "
+                "S3 or Google Cloud Storage connection to "
+                "`file_connection_to_storage` with the URI of its storage; other "
+                "connectors, such as SFTP, can't be mapped.",
                 context=_bounded_list(
                     sorted(self.reporter.unresolved_file_connections)
                 ),
@@ -4756,31 +5327,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 message="Lineage from the apps that store these datasets is skipped.",
                 context=_bounded_list(self.qlik_api.lineage_read_failures),
             )
-        if self.qlik_api.reload_statement_read_failures:
-            self.reporter.warning(
-                title="Unable to read the SQL of Qlik apps' last reload",
-                message="Database tables that only the SQL of these apps' last "
-                "reload names are left out, and the lineage of the apps' tables "
-                "that read databases is only added to this run.",
-                context=_bounded_list(self.qlik_api.reload_statement_read_failures),
-            )
-        if self.reporter.ambiguous_reload_sql_sources:
-            self.reporter.warning(
-                title="Qlik lineage graph database table matches several tables",
-                message="The SQL of the app's last reload reads more than one "
-                "table the graph's label could name, so lineage to it is skipped.",
-                context=_bounded_list(
-                    sorted(self.reporter.ambiguous_reload_sql_sources)
-                ),
-            )
-        if self.qlik_api.upstream_graph_read_failures:
+        self._report_reload_sql()
+        if self._upstream_graph_read_failures:
             self.reporter.warning(
                 title="Unable to read Qlik upstream lineage graph",
                 message="Sources of these apps that only Qlik's lineage graph "
                 "names, such as datasets in spaces the API key can't see, are "
                 "left out, and the apps' lineage is only added to this run. "
                 "Datasets the last run named from the graph are kept.",
-                context=_bounded_list(self.qlik_api.upstream_graph_read_failures),
+                context=_bounded_list(self._upstream_graph_read_failures),
             )
         change_check_failures = [
             *self.qlik_api.change_check_failures,
