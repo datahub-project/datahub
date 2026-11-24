@@ -153,6 +153,13 @@ When a validator rejects a Rest.li request that was previously answered with HTT
 deleting an entity, the response is now 422, 403 for authorization failures or 412 for failed
 preconditions, matching OpenAPI. Clients that retried these 500s will now get the error straight away.
 
+### OpenAPI status codes for skipped and rejected writes ([#21420](https://github.com/datahub-project/datahub/pull/21420))
+
+A synchronous single-aspect POST to OpenAPI v3 that is skipped by a conditional header, such as
+`If-None-Match: *` when the aspect already exists, now returns 204 instead of 404. On OpenAPI v1 and
+v2, a proposal that GMS can't accept now returns 400, or 422 if it fails validation (for example, an
+unknown aspect), instead of 500. Clients that retried these 500s will now get the error straight away.
+
 ### Shipped search templates rerank keyword search and add a semantic template
 
 System update now writes version 17 of the shipped search templates. `urn:li:searchTemplate:fulltext`
