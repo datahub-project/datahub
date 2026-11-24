@@ -2499,6 +2499,16 @@ def test_reload_sql_join_maps_only_columns_of_the_graph_source(
             id="also named by SQL with an unset variable",
         ),
         pytest.param(
+            [
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders"),
+                _sql("Finance:Archive", "SELECT * FROM orders"),
+            ],
+            ORDERS_DB_TABLE,
+            [],
+            True,
+            id="also named by SQL without its schema",
+        ),
+        pytest.param(
             [_sql("Finance:Sales", "SELECT * FROM dbo.orders")],
             "qri:db:databricks://Hash#Orders",
             [],
