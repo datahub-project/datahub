@@ -213,9 +213,11 @@ from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnRef,
     SqlParsingResult,
     column_refs_to_schema_field_urns,
     create_lineage_sql_parsed_result,
+    create_schema_resolver,
 )
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import guess_entity_type
@@ -314,6 +316,78 @@ def _names_identifier(sql: str, name: str) -> bool:
     return re.search(rf"(?<![\w$#@]){re.escape(name)}(?![\w$#@])", sql) is not None
 
 
+# String literals, quoted identifiers, words and single characters.
+SQL_TOKEN_RE = re.compile(
+    r"'(?:[^']|'')*'?|\[[^\]]*\]?|\"[^\"]*\"?|`[^`]*`?|[\w$#@]+|\S"
+)
+# Keywords after which SQL names the tables it reads or writes.
+TABLE_CLAUSE_KEYWORDS = {"from", "join", "into", "using", "update"}
+# Keywords that end such a list of tables.
+TABLE_CLAUSE_END_KEYWORDS = {
+    "where",
+    "group",
+    "order",
+    "having",
+    "union",
+    "intersect",
+    "except",
+    "minus",
+    "on",
+    "inner",
+    "left",
+    "right",
+    "full",
+    "cross",
+    "outer",
+    "natural",
+    "limit",
+    "qualify",
+    "window",
+    "select",
+    "values",
+    "set",
+    "fetch",
+    "offset",
+    "when",
+    "then",
+    "pivot",
+    "unpivot",
+}
+
+
+def _table_clause_names(sql: str) -> Set[str]:
+    """The lowercased names in the table lists of SQL, after FROM, JOIN and
+    INTO, so that a keyword such as ORDER in ORDER BY doesn't count as naming
+    a table called `order`. Aliases and the parts of qualified names are
+    included, and so are the names in string literals, which may hold SQL
+    run dynamically."""
+    names: Set[str] = set()
+    in_clause = False
+    stack: List[bool] = []
+    for token in SQL_TOKEN_RE.findall(sql):
+        if token.startswith("'"):
+            names |= _table_clause_names(token.strip("'").replace("''", "'"))
+        elif token == "(":
+            stack.append(in_clause)
+            in_clause = False
+        elif token == ")":
+            in_clause = stack.pop() if stack else False
+        elif token == ";":
+            in_clause = False
+        elif token[0] in QUOTE_CHARACTERS:
+            if in_clause:
+                names.add(token.strip(QUOTE_CHARACTERS).strip().lower())
+        elif re.match(r"[\w$#@]", token):
+            word = token.lower()
+            if word in TABLE_CLAUSE_KEYWORDS:
+                in_clause = True
+            elif word in TABLE_CLAUSE_END_KEYWORDS:
+                in_clause = False
+            elif in_clause:
+                names.add(word)
+    return names
+
+
 def _database_qri_platform(source_qri: str) -> str:
     scheme = source_qri[len(DATABASE_QRI_PREFIX) :].partition("://")[0].lower()
     # A scheme that isn't mapped is compared as is, such as `oracle`, so one
@@ -340,14 +414,16 @@ class _ReloadSql(BaseModel):
 
     upstream_urns: List[str]
     result: SqlParsingResult
+    # The tables DataHub holds no schema for, when DataHub was asked.
+    urns_without_schema: List[str] = []
 
 
 class _ParsedReloadSql(BaseModel):
     statements: List[_ReloadSql] = []
-    # Lowercased SQL of statements that may name a label but were not read,
-    # for an unresolved connection or a parse error, and the names of tables
-    # read without their database or schema.
-    skipped_sql: List[str] = []
+    # The names in the table lists of statements that may name a label but
+    # were not read, for an unresolved connection or a parse error, and the
+    # names of tables read without their database or schema.
+    skipped_table_names: Set[str] = set()
     # A statement kept a variable Qlik did not expand, so it may name any
     # table.
     unexpanded_variable: bool = False
@@ -457,6 +533,21 @@ def _qlik_field_id(name: str) -> str:
     is only used to confirm a name, never to make one up."""
     digest = hashlib.sha256(name.encode("utf-8")).digest()
     return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+
+
+def _refs_of_field_sources(
+    refs: List[ColumnRef], field_name: str, field_ids: Set[str]
+) -> List[ColumnRef]:
+    """The columns whose name Qlik's graph hashes into one of `field_ids`.
+    Qlik hashes the name the database returned, whose case the SQL and DataHub
+    may not share, so a column also matches the Qlik field it loads when that
+    field kept the source's name, unless another column differs from it only
+    in case."""
+    exact = [ref for ref in refs if _qlik_field_id(ref.column) in field_ids]
+    if exact or _qlik_field_id(field_name) not in field_ids:
+        return exact
+    folded = [ref for ref in refs if ref.column.lower() == field_name.lower()]
+    return folded if len({ref.column for ref in folded}) == 1 else []
 
 
 class _ResolvedSources(BaseModel):
@@ -2859,7 +2950,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             connection = self._resolve_script_connection(connection_name, app.spaceId)
             if connection is None:
                 unresolved.add(redact_connection(connection_name))
-                parsed.skipped_sql.append(sql.lower())
+                parsed.skipped_table_names |= _table_clause_names(sql)
                 continue
             result = self._parse_script_sql(sql, connection)
             if (
@@ -2876,7 +2967,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     f"{redact_connection(connection_name)}, "
                     f"error={_error_type(result.debug_info.table_error)}",
                 )
-                parsed.skipped_sql.append(sql.lower())
+                parsed.skipped_table_names |= _table_clause_names(sql)
                 continue
             upstream_urns = [
                 urn
@@ -2891,13 +2982,20 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             unqualified.extend(statement_unqualified)
             # A table without its database or schema may be the label's table
             # in another database, so it counts as SQL that could not be read.
-            parsed.skipped_sql.extend(
-                DatasetUrn.from_string(urn).name.lower()
+            parsed.skipped_table_names.update(
+                part
                 for urn in statement_unqualified
+                for part in DatasetUrn.from_string(urn).name.lower().split(".")
             )
             if upstream_urns:
                 parsed.statements.append(
-                    _ReloadSql(upstream_urns=upstream_urns, result=result)
+                    _ReloadSql(
+                        upstream_urns=upstream_urns,
+                        result=result,
+                        urns_without_schema=self._urns_without_schema(
+                            upstream_urns, result, connection
+                        ),
+                    )
                 )
         for connection_name in sorted(unresolved):
             self.reporter.unresolved_data_connections.append(
@@ -2912,6 +3010,28 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 context=f"app={app.id}, tables={sorted(set(unqualified))}",
             )
         return parsed
+
+    def _urns_without_schema(
+        self,
+        urns: List[str],
+        result: SqlParsingResult,
+        connection: ResolvedConnection,
+    ) -> List[str]:
+        """Which of the tables a statement reads DataHub holds no schema for.
+        The parser only counts them for the whole statement."""
+        debug_info = result.debug_info
+        if (
+            self.ctx.graph is None
+            or debug_info.table_schemas_resolved >= debug_info.tables_discovered
+        ):
+            return []
+        resolver = create_schema_resolver(
+            platform=connection.platform,
+            env=connection.env,
+            graph=self.ctx.graph,
+            platform_instance=connection.platform_instance,
+        )
+        return [urn for urn in urns if resolver.resolve_urn(urn)[1] is None]
 
     def _reload_sql_tables(
         self, app: App, script_tables: Dict[str, ScriptTableLineage]
@@ -2967,9 +3087,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if _urn_names_table(urn, source_qri, label)
         }
         name = _label_parts(label)[-1]
-        unread = parsed.unexpanded_variable or any(
-            _names_identifier(sql, name) for sql in parsed.skipped_sql
-        )
+        unread = parsed.unexpanded_variable or name in parsed.skipped_table_names
         if len(matches) > 1:
             self.reporter.ambiguous_reload_sql_sources.append(
                 f"{app.id}: {label} matches {sorted(matches)}"
@@ -2990,12 +3108,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
         urn = matches.pop()
-        if self.ctx.graph is not None and any(
-            urn in statement.upstream_urns
-            and statement.result.debug_info.table_schemas_resolved
-            < statement.result.debug_info.tables_discovered
-            for statement in parsed.statements
-        ):
+        if any(urn in statement.urns_without_schema for statement in parsed.statements):
             # Linked as the SQL names it, which may differ in case from the
             # dataset DataHub holds.
             self.reporter.reload_sql_tables_not_in_datahub.append(f"{app.id}: {urn}")
@@ -3034,8 +3147,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if source_field_ids:
                 # A LOAD over the SQL may rename fields, which the reload SQL
                 # doesn't show, so the graph decides which column each loads.
-                ids = source_field_ids.get(field_name, set())
-                refs = [ref for ref in refs if _qlik_field_id(ref.column) in ids]
+                refs = _refs_of_field_sources(
+                    refs, field_name, source_field_ids.get(field_name, set())
+                )
             if not refs:
                 continue
             upstreams = lineage.column_upstreams.setdefault(field_name, [])
