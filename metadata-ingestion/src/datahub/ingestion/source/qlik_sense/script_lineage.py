@@ -1532,16 +1532,19 @@ def _varying_variables(script: str) -> Set[str]:
 
 
 def _path_variables(path: str, variables: Dict[str, str]) -> Set[str]:
-    """The variables a path reads, also through the values of others."""
+    """The variables a path reads, also through the values of others and
+    through names built from them, such as `vF` in `$(v$(x))` when x is F, at
+    each step of the expansion `_expand_nested_variables` makes."""
     names: Set[str] = set()
-    pending = [path]
-    while pending:
-        for reference in VARIABLE_REFERENCE_RE.finditer(pending.pop()):
-            name = reference.group("name").strip()
-            if name not in names:
-                names.add(name)
-                if name in variables:
-                    pending.append(variables[name])
+    for _ in range(_MAX_VARIABLE_DEPTH + 1):
+        names.update(
+            reference.group("name").strip()
+            for reference in VARIABLE_REFERENCE_RE.finditer(path)
+        )
+        expanded = _expand_variables(path, variables)
+        if expanded == path:
+            break
+        path = expanded
     return names
 
 
