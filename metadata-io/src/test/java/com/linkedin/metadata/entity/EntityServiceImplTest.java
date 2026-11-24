@@ -630,6 +630,58 @@ public class EntityServiceImplTest {
   }
 
   @Test
+  public void testProduceMCLAsyncRunsSideEffectsWhenThePreviousValueIsFromANewerVersion()
+      throws Exception {
+    // The write is committed and its MCL produced; a previous value only a newer version can
+    // validate (an owner type it added) must not turn the save into an error.
+    List<MCLEmitResult> results =
+        entityService.produceMCLAsync(
+            opContext, List.of(ownershipChangeAwayFromNewerOwnerType("postcommit.newer")));
+
+    assertEquals(results.size(), 1);
+    assertTrue(results.get(0).isEmitted());
+  }
+
+  @Test
+  public void testProduceMCLAsyncStrictHandlingFailsWhenThePreviousValueIsFromANewerVersion() {
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    MetadataChangeLog mcl = ownershipChangeAwayFromNewerOwnerType("postcommit.strict");
+
+    assertThrows(
+        ValidationException.class, () -> entityService.produceMCLAsync(opContext, List.of(mcl)));
+  }
+
+  private MetadataChangeLog ownershipChangeAwayFromNewerOwnerType(String name) {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive," + name + ",PROD)");
+    Owner previousOwner =
+        new Owner().setOwner(UrnUtils.getUrn("urn:li:corpuser:alice")).setType(OwnershipType.NONE);
+    // An owner type this build doesn't define, as a newer version wrote it.
+    previousOwner.data().put("type", "OWNER_TYPE_FROM_NEWER_BUILD");
+    Ownership current =
+        new Ownership()
+            .setOwners(
+                new OwnerArray(
+                    new Owner()
+                        .setOwner(UrnUtils.getUrn("urn:li:corpuser:bob"))
+                        .setType(OwnershipType.TECHNICAL_OWNER)));
+    return PegasusUtils.constructMCL(
+        new MetadataChangeProposal()
+            .setEntityUrn(urn)
+            .setEntityType(urn.getEntityType())
+            .setAspectName(OWNERSHIP_ASPECT_NAME)
+            .setChangeType(ChangeType.UPSERT)
+            .setAspect(GenericRecordUtils.serializeAspect(current)),
+        PegasusUtils.urnToEntityName(urn),
+        urn,
+        OWNERSHIP_ASPECT_NAME,
+        TEST_AUDIT_STAMP,
+        current,
+        SystemMetadataUtils.createDefaultSystemMetadata(),
+        new Ownership().setOwners(new OwnerArray(previousOwner)),
+        SystemMetadataUtils.createDefaultSystemMetadata());
+  }
+
+  @Test
   public void testProduceMCLAsyncSkipsAspectUnknownToRegistry() throws Exception {
     SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
     MetadataChangeLog knownMcl =

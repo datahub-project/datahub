@@ -89,6 +89,22 @@ null, so no data is lost, but a query that selects the old shape, such as
 `applications { total relationships { entity { urn } } }`, now fails validation. Select
 `applications { application { urn properties { name } } }` instead.
 
+### Saves during a zero-downtime rollback with unknown-data tolerance on
+
+This only applies with unknown-data tolerance on (`UNKNOWN_DATA_TOLERANCE_ENABLED`, off by default;
+see [#20280](https://github.com/datahub-project/datahub/pull/20280)). With it off nothing changes.
+
+- In the Kafka batch MCP consumer, a proposal that adds a reference to an entity type this version
+  doesn't know goes to the failure topic on its own, and the other proposals written with it are
+  saved. Before, every proposal in its write batch went to the failure topic.
+- A save of an aspect whose stored value holds an enum value only the newer version defines no
+  longer returns an error after it was committed. A request that replaces the whole aspect,
+  including GraphQL saves that rebuild it from the client's input, is saved, replaces the newer
+  value and now returns success; post-commit side effects run without the previous value. Before,
+  the row was written and its change event produced, but Rest.li answered 422 and OpenAPI 400. A
+  patch, or an edit that writes the stored aspect back with a change, is still rejected and the
+  stored value stays.
+
 ### Semantic search template sends an entity URN to similarity ([#21474](https://github.com/datahub-project/datahub/pull/21474))
 
 System update now writes version 19 of the shipped search templates. `urn:li:searchTemplate:semantic`

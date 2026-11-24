@@ -32,6 +32,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.validation.UnknownReferenceAddedException;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.event.EventProducer;
@@ -860,21 +861,70 @@ public class JavaEntityClient implements EntityClient {
     List<Pair<MetadataChangeProposal, Exception>> rejected = new ArrayList<>();
     for (List<MetadataChangeProposal> group :
         Lists.partition(proposals, Math.max(1, entityClientConfig.getBatchIngestSize()))) {
-      AspectsBatchImpl aspectsBatch =
-          AspectsBatchImpl.builder()
-              .mcpsRecordingRejected(
-                  group,
-                  auditStamp,
-                  opContext.getRetrieverContext(),
-                  opContext.getValidationContext().isAlternateValidation(),
-                  opContext.isSystemAuth())
-              .buildSkippingRejected(opContext);
-      rejected.addAll(aspectsBatch.getRejectedProposals());
-      if (!aspectsBatch.getItems().isEmpty()) {
-        entityService.ingestProposal(opContext, aspectsBatch, false);
+      List<MetadataChangeProposal> remaining = new ArrayList<>(group);
+      while (!remaining.isEmpty()) {
+        AspectsBatchImpl aspectsBatch =
+            AspectsBatchImpl.builder()
+                .mcpsRecordingRejected(
+                    remaining,
+                    auditStamp,
+                    opContext.getRetrieverContext(),
+                    opContext.getValidationContext().isAlternateValidation(),
+                    opContext.isSystemAuth())
+                .buildSkippingRejected(opContext);
+        rejected.addAll(aspectsBatch.getRejectedProposals());
+        if (aspectsBatch.getItems().isEmpty()) {
+          break;
+        }
+        try {
+          entityService.ingestProposal(opContext, aspectsBatch, false);
+          break;
+        } catch (UnknownReferenceAddedException e) {
+          rejectAddingProposal(remaining, aspectsBatch, e, rejected);
+        }
       }
     }
     return rejected;
+  }
+
+  /**
+   * Handles a group write that failed because a proposal adds a reference to an entity type this
+   * version doesn't know. That is only thrown when unknown entity types are tolerated, and found
+   * while the group is written, after proposal validation. The group's versioned aspects are
+   * written in one transaction, so none of them was written: the proposal that adds the reference
+   * is rejected and the rest are left in {@code remaining} to write again, instead of failing every
+   * proposal in the group.
+   *
+   * <p>The exception names the urn and aspect, not the proposal, so the first proposal for them is
+   * rejected; if a later one for the same urn and aspect added it, the next write fails again and
+   * rejects that one too. Timeseries aspects were written before that transaction, so they are
+   * removed from {@code remaining} rather than written again.
+   */
+  private static void rejectAddingProposal(
+      @Nonnull List<MetadataChangeProposal> remaining,
+      @Nonnull AspectsBatchImpl attempted,
+      @Nonnull UnknownReferenceAddedException rejection,
+      @Nonnull List<Pair<MetadataChangeProposal, Exception>> rejected) {
+    List<MetadataChangeProposal> alreadyRejected =
+        attempted.getRejectedProposals().stream().map(Pair::getFirst).toList();
+    remaining.removeIf(alreadyRejected::contains);
+    attempted.getItems().stream()
+        .filter(item -> item.getAspectSpec() != null && item.getAspectSpec().isTimeseries())
+        .forEach(
+            item -> remaining.removeIf(mcp -> writes(mcp, item.getUrn(), item.getAspectName())));
+    MetadataChangeProposal adding =
+        remaining.stream()
+            .filter(mcp -> writes(mcp, rejection.getUrn(), rejection.getAspectName()))
+            .findFirst()
+            // Added by a write hook, not by a proposal of this group.
+            .orElseThrow(() -> rejection);
+    rejected.add(Pair.of(adding, rejection));
+    remaining.remove(adding);
+  }
+
+  private static boolean writes(
+      @Nonnull MetadataChangeProposal mcp, @Nonnull Urn urn, @Nonnull String aspectName) {
+    return urn.equals(mcp.getEntityUrn()) && aspectName.equals(mcp.getAspectName());
   }
 
   @Override

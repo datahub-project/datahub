@@ -76,6 +76,7 @@ import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
 import com.linkedin.metadata.entity.semantic.SemanticNoOpComparator;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
+import com.linkedin.metadata.entity.validation.UnknownReferenceAddedException;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
@@ -601,10 +602,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                             .orElse(null),
                 opContext.getEntityRegistry());
     if (!result.added().isEmpty()) {
-      throw new ValidationException(
+      throw new UnknownReferenceAddedException(
           String.format(
               "Aspect %s of %s references entity types this version doesn't know: %s",
-              changeMCP.getAspectName(), changeMCP.getUrn(), result.added()));
+              changeMCP.getAspectName(), changeMCP.getUrn(), result.added()),
+          changeMCP.getUrn(),
+          changeMCP.getAspectName());
     }
     if (result.preserved() > 0) {
       KEPT_REFERENCES.kept(
@@ -1445,13 +1448,38 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull OperationContext opContext, List<MetadataChangeLog> mcls) {
     log.debug("Considering {} MCLs post commit side effects.", mcls.size());
     List<MCLItem> batch =
-        mcls.stream()
-            .map(mcl -> MCLItemImpl.builder().build(mcl, opContext.getAspectRetriever()))
-            .collect(Collectors.toList());
+        mcls.stream().map(mcl -> sideEffectItem(opContext, mcl)).collect(Collectors.toList());
 
     try (Stream<MCPItem> sideEffectStream =
         AspectsBatch.applyPostMCPSideEffects(opContext, batch, opContext.getRetrieverContext())) {
       applyPostCommitMcpSideEffects(opContext, sideEffectStream.collect(Collectors.toList()));
+    }
+  }
+
+  /**
+   * The item post-commit side effects run on. The write is already committed and its MCL produced,
+   * so a previous value that fails validation here because a newer version wrote it (an enum symbol
+   * only that version defines, for example) must not report an error for the save: the side effects
+   * run without it, as indexing does.
+   */
+  private static MCLItem sideEffectItem(
+      @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog mcl) {
+    try {
+      return MCLItemImpl.builder().build(mcl, opContext.getAspectRetriever());
+    } catch (ValidationException e) {
+      final MCLItemImpl withoutPrevious =
+          MCLItemImpl.withoutPreviousFromNewerVersion(mcl, opContext.getAspectRetriever());
+      if (withoutPrevious == null) {
+        throw e;
+      }
+      UNKNOWN_MCL.invalid(
+          "previous:" + mcl.getEntityType() + "/" + mcl.getAspectName(),
+          mcl.getAspectName()
+              + "'s previous value, from a newer version (running post-commit side effects"
+              + " without it): "
+              + e.getMessage(),
+          mcl.getEntityUrn());
+      return withoutPrevious;
     }
   }
 

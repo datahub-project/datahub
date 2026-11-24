@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class GenericRecordUtils {
   public static final String JSON = "application/json";
@@ -67,6 +68,23 @@ public class GenericRecordUtils {
       @Nonnull String contentType,
       @Nonnull AspectSpec aspectSpec) {
     return deserializeAspect(aspectValue, contentType, aspectSpec.getDataTemplateClass());
+  }
+
+  /**
+   * As {@link #deserializeAspect(ByteString, String, AspectSpec)}, or null when there is no value
+   * or spec, or the value can't be read.
+   */
+  @Nullable
+  public static RecordTemplate deserializeAspectOrNull(
+      @Nullable GenericAspect aspect, @Nullable AspectSpec aspectSpec) {
+    if (aspect == null || aspectSpec == null) {
+      return null;
+    }
+    try {
+      return deserializeAspect(aspect.getValue(), aspect.getContentType(), aspectSpec);
+    } catch (RuntimeException unreadable) {
+      return null;
+    }
   }
 
   @Nonnull

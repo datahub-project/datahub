@@ -53,6 +53,52 @@ public class MCLItemImpl implements MCLItem {
         metadataChangeLog, recordTemplate, previousRecordTemplate, entitySpec, aspectSpec);
   }
 
+  /**
+   * The item for an MCL whose previous value fails validation here because a newer version wrote it
+   * (for example it holds an enum symbol only that version defines): built without the previous
+   * value. Null when unknown data isn't tolerated, the MCL has no previous value, the previous
+   * value can't be attributed to a newer version, or the MCL is invalid without it too.
+   */
+  @Nullable
+  public static MCLItemImpl withoutPreviousFromNewerVersion(
+      @Nonnull final MetadataChangeLog mcl, @Nonnull final AspectRetriever aspectRetriever) {
+    if (!handling().toleratesUnknownData() || !mcl.hasPreviousAspectValue()) {
+      return null;
+    }
+    final EntityRegistry registry = aspectRetriever.getEntityRegistry();
+    final AspectSpec aspectSpec =
+        registry.findAspectSpec(mcl.getEntityType(), mcl.getAspectName()).orElse(null);
+    if (!handling()
+        .isFromNewerVersion(
+            // An unreadable previous value isn't attributed to a newer version.
+            GenericRecordUtils.deserializeAspectOrNull(mcl.getPreviousAspectValue(), aspectSpec),
+            mcl.getPreviousSystemMetadata(),
+            aspectSpec,
+            registry)) {
+      return null;
+    }
+    return buildWithoutPrevious(mcl, aspectRetriever);
+  }
+
+  /** The item built from a copy of the MCL without its previous value; null if that's invalid. */
+  @Nullable
+  public static MCLItemImpl buildWithoutPrevious(
+      @Nonnull final MetadataChangeLog mcl, @Nonnull final AspectRetriever aspectRetriever) {
+    final MetadataChangeLog withoutPrevious;
+    try {
+      withoutPrevious = mcl.copy();
+    } catch (CloneNotSupportedException e) {
+      return null;
+    }
+    withoutPrevious.removePreviousAspectValue();
+    withoutPrevious.removePreviousSystemMetadata();
+    try {
+      return MCLItemImpl.builder().build(withoutPrevious, aspectRetriever);
+    } catch (RuntimeException invalid) {
+      return null;
+    }
+  }
+
   public static class MCLItemImplBuilder {
 
     // Ensure use of other builders
