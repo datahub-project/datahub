@@ -1,5 +1,7 @@
 from typing import Any, Dict
 
+import pytest
+
 from datahub.ingestion.source.grafana.models import (
     Dashboard,
     Folder,
@@ -275,6 +277,21 @@ def test_dashboard_missing_created_by():
     assert dashboard.uid == "dash1"
     assert dashboard.folder_id == "123"
     assert dashboard.created_by is None
+
+
+@pytest.mark.parametrize(
+    "folder_data, expected_title",
+    [
+        pytest.param({"id": 4, "uid": "team-a"}, "team-a", id="uid"),
+        pytest.param({"id": 4, "title": None}, "4", id="id"),
+        pytest.param(
+            {"id": 4, "uid": "team-a", "title": "Team A"}, "Team A", id="title"
+        ),
+    ],
+)
+def test_folder_without_title_is_named_after_uid_or_id(folder_data, expected_title):
+    # Only a folder with no id is skipped; one without a title is still ingested.
+    assert Folder.model_validate(folder_data).title == expected_title
 
 
 def test_dashboard_missing_folder_id():

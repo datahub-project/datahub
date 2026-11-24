@@ -21,8 +21,6 @@ import com.linkedin.query.QuerySubject;
 import com.linkedin.query.QuerySubjects;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -66,12 +64,9 @@ public class UpdateQueryResolver implements DataFetcher<CompletableFuture<QueryE
                   ? input.getSubjects().stream()
                       .map(sub -> UrnUtils.getUrn(sub.getDatasetUrn()))
                       .collect(Collectors.toList())
-                  : Collections.emptyList();
-          final List<Urn> impactedSubjectUrns = new ArrayList<>();
-          impactedSubjectUrns.addAll(subjectUrns);
-          impactedSubjectUrns.addAll(newSubjectUrns);
+                  : null;
 
-          if (!AuthorizationUtils.canUpdateQuery(impactedSubjectUrns, context)) {
+          if (!AuthorizationUtils.canUpdateQuery(queryUrn, subjectUrns, newSubjectUrns, context)) {
             throw new AuthorizationException(
                 "Unauthorized to update Query. Please contact your DataHub administrator if this needs corrective action.");
           }

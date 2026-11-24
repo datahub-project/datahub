@@ -15,6 +15,20 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Stricter permission checks when deleting from the UI or GraphQL
+
+Delete actions in the UI and GraphQL API now check the type of the item being deleted ([PR #21488](https://github.com/datahub-project/datahub/pull/21488)). For example, **Delete Tag** can only delete tags, and **Delete Domain** can only delete domains. Normal use of these actions does not change.
+
+Three cases now require the **Delete Entity** privilege on the item itself:
+
+- Deleting a query that is not attached to any dataset. Before, any signed-in user could delete it.
+- Updating a query that is not attached to any dataset, or updating one so that it is no longer attached to any.
+- Deleting an assertion that has no definition, for example one left behind by a partial ingestion. Before, any signed-in user could delete it.
+
+If someone sees an "Unauthorized" error when cleaning up these items, give them the **Delete Entity** privilege on those items, or have an admin delete them.
+
+Through the GraphQL API, a query can no longer be created unless it is attached to at least one dataset. The UI always attaches a query to a dataset, so it is not affected.
+
 ### Semantic search template sends an entity URN to similarity ([#21474](https://github.com/datahub-project/datahub/pull/21474))
 
 System update now writes version 19 of the shipped search templates. `urn:li:searchTemplate:semantic`
@@ -35,9 +49,9 @@ embedded. Any other query runs on
 own `routes`.
 
 In `searchAcrossEntities`, `aggregateAcrossEntities`, `scrollAcrossEntities`, `browseV2`,
-`semanticSearchAcrossEntities`, and `searchDocuments`, an entity can anchor a similarity search, routed
+`semanticSearchAcrossEntities`, `semanticSearch`, and `searchDocuments`, an entity can anchor a similarity search, routed
 or named, only if that search would show it to the user, except that with view authorization off a
-`searchDocuments` anchor is not held to the document READ check its results get. In the first five, a
+`searchDocuments` anchor is not held to the document READ check its results get. In the first six, a
 document that is not published, or not shown in global context, cannot anchor one, whatever entity
 types the search asks for, unless the request sets `includeHiddenLifecycleStages`. A user who can
 manage documents can still anchor on an unpublished document that has no lifecycle stage. In `searchDocuments`, a document can
@@ -123,6 +137,37 @@ are ignored; the rerank uses the default embedding profile for each entity type.
 with only `field` keeps today's behavior. To keep the earlier document rerank, remove `model` from
 the section.
 
+### Hard delete removes graph references before the entity
+
+`EntityClient.deleteEntityThenReferences` is renamed to `deleteReferencesThenEntity`
+([PR #21481](https://github.com/datahub-project/datahub/pull/21481)). Java code that calls the old
+method no longer compiles, and a class that overrode it has to override the new method. The old
+override is no longer called.
+
+On GMS, this delete now checks that the delete is allowed, removes the relationships other entities
+hold to the deleted one, then deletes it. A delete that is refused leaves those relationships in
+place. Deleting the entity first dropped them from the graph, so they stayed on the other entities.
+
+Deleting a tag, term, domain, user, group or other entity that more than 100 other entities point
+at is now refused, and nothing is deleted. The error says how many entities point at it. Either
+raise the limit with `DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`
+(`hardDelete.graph-reference-cleanup-limit`, default `100`), or remove the references first with
+`datahub delete references --urn <urn>` and delete again. Set the limit to `0` to turn this
+cleanup off: the entity is deleted alone, as before, and the entities that pointed at it keep
+pointers to something that no longer exists. References that are not graph relationships are
+still removed. `ReferencesCleanup.choice()` reports which path ran.
+
+If a delete fails because the entity was written to while it was being deleted (with
+`featureFlags.reliableHardDelete` on), the relationships to it are already removed and the entity
+is only partly deleted. The error says so. Run the delete again to finish it.
+
+The UI and GraphQL use this for hard deletes of applications, assertions, business attributes,
+data products, domains, forms, glossary terms and nodes, groups, incidents, ownership types, page
+modules, page templates, structured properties, tags, users, and views. OpenAPI, Rest.li, and
+`datahub delete` still hard-delete the entity without clearing those relationships first. The Java
+client's default does the same, and a remote client uses that default: it deletes the entity, then
+hands back the reference cleanup for the caller to run.
+
 ### Deleting a Data Product that has children
 
 A Data Product that has child Data Products can no longer be deleted, either hard or soft. Previously
@@ -138,6 +183,13 @@ ingestion run is not affected.
 When a validator rejects a Rest.li request that was previously answered with HTTP 500, such as
 deleting an entity, the response is now 422, 403 for authorization failures or 412 for failed
 preconditions, matching OpenAPI. Clients that retried these 500s will now get the error straight away.
+
+### OpenAPI status codes for skipped and rejected writes ([#21420](https://github.com/datahub-project/datahub/pull/21420))
+
+A synchronous single-aspect POST to OpenAPI v3 that is skipped by a conditional header, such as
+`If-None-Match: *` when the aspect already exists, now returns 204 instead of 404. On OpenAPI v1 and
+v2, a proposal that GMS can't accept now returns 400, or 422 if it fails validation (for example, an
+unknown aspect), instead of 500. Clients that retried these 500s will now get the error straight away.
 
 ### Shipped search templates rerank keyword search and add a semantic template
 
@@ -188,7 +240,7 @@ If you later upgrade to this release again, system update keeps the restored tem
 version this release writes already ran. To write the shipped templates again, run system update once with
 `DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable.
 
-### Semantic search can run the semantic search template
+### Semantic search can run the semantic search template ([#21473](https://github.com/datahub-project/datahub/pull/21473))
 
 Semantic search (`semanticSearchAcrossEntities`) can now run `urn:li:searchTemplate:semantic` through a
 new `semanticSearch` template surface. It is off by default, and nothing changes while it is off. To
@@ -205,14 +257,17 @@ so after upgrading OpenSearch to 3.5 or later, restart GMS for the switch to tak
   returns documents only. Other entity types in `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` return
   nothing, and a request for only those types returns an empty page. Keep the switch off if semantic
   search serves other entity types for you.
-- Documents follow the same defaults as keyword search: only published documents shown in global
-  context come back, unless the request sets `includeHiddenLifecycleStages`. A user who can manage
-  documents also gets unpublished documents that have no lifecycle stage.
+- Documents follow the same defaults as keyword search: only published documents come back, and only
+  those shown in global context unless the filter names `showInGlobalContext`. A request that sets
+  `includeHiddenLifecycleStages` gets both kinds. A user who can manage documents also gets
+  unpublished documents that have no lifecycle stage.
 - As in keyword search, soft-deleted entities and entities in a hidden lifecycle stage are left out
   unless the request sets `includeSoftDeleted` or `includeHiddenLifecycleStages`.
 - `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY`, when set, drops results below that cosine. The
   legacy semantic search applies only the `minScore` search flag.
-- The facets count the results semantic search found, not every document that matches the filter.
+- Facets come back by default, counted over the results semantic search found, which takes one more
+  search engine request per search. Set the `skipAggregates` search flag to skip that request. The
+  legacy semantic search returns no facets unless the request asks for structured property facets.
 - The query embedding and the vector search share a budget of two seconds, where the legacy semantic
   search sets no timeout. A slow embedding fails as `DEADLINE_EXCEEDED`, and a vector search that
   runs past the budget fails the search, which the keyword fallback below does not cover.
@@ -230,6 +285,62 @@ A new `minSimilarity` search flag sets a raw cosine floor on vector results. It 
 template or `ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY` sets, and never lower it. While the switch is
 off or does not take effect, semantic search rejects the flag. **Action:** none. Before you turn the
 switch on, check that clients expect the document defaults and facet counts above.
+
+### Searches through a vector template report why the query could not be embedded ([#21493](https://github.com/datahub-project/datahub/pull/21493))
+
+Any GraphQL operation whose search runs a vector template, such as a search that names
+`urn:li:searchTemplate:semantic` in the `searchTemplate` search flag, now fails with the same errors as
+semantic search when the query cannot be embedded, instead of a generic server error:
+`DEADLINE_EXCEEDED` (`timeout`), `SERVICE_UNAVAILABLE` (`rejected`), or a server error (`failed`), with
+the reason in the message. A Vertex AI or Amazon Bedrock query embedding that is throttled now fails as
+`rejected` instead of `failed` or `timeout`, also on semantic search through the semantic search
+template: a throttle is not retried, since a retry would outlast the search's budget.
+`searchAcrossEntities` and `search` now honor the `keywordFallbackOnEmbeddingFailure` search flag: with
+it set, a query that cannot be embedded gets the keyword search results for the same request, without
+the named template, and the results' `keywordFallback` field names the reason. A search that names
+`urn:li:searchTemplate:similarity` embeds nothing, so it never falls back. **Action:** if a client
+retries these searches on a server error, retry on `SERVICE_UNAVAILABLE` and `DEADLINE_EXCEEDED`
+instead.
+
+### A similarity search that cannot use its anchor is a bad request ([#21495](https://github.com/datahub-project/datahub/pull/21495))
+
+A similarity search whose query names no entity it can use now fails as a bad request (`BAD_REQUEST`)
+on every GraphQL search, as it already did on semantic search, instead of a server error: for example a
+search that names `urn:li:searchTemplate:similarity` in the `searchTemplate` search flag, or one that
+names `urn:li:searchTemplate:semantic` with an entity URN as the query. **Action:** if a client retries
+these searches on a server error, do not retry a bad request.
+
+### Single-entity semantic search can run the semantic search template ([#21495](https://github.com/datahub-project/datahub/pull/21495))
+
+Single-entity semantic search (`semanticSearch`) now follows the same switch as
+`semanticSearchAcrossEntities` (`SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH`, above). It is off by
+default, and nothing changes while it is off: `semanticSearch` keeps its own kNN search and rejects the
+`minSimilarity` search flag. With it on, `semanticSearch` runs `urn:li:searchTemplate:semantic` for its
+entity type, with every change listed above for `semanticSearchAcrossEntities`. Only documents have an
+embedding profile in this release, so `semanticSearch` for any other entity type returns an empty page,
+or fails as a bad request (`BAD_REQUEST`) when its query is an entity URN that cannot anchor the
+search, such as the URN of an entity that is not a document. An entity URN as the query finds the
+entities nearest that entity, which is held to the same rules as on `semanticSearchAcrossEntities`
+(see the similarity route entry above): a document that is not published, or not shown in global
+context, cannot anchor the search unless the request sets `includeHiddenLifecycleStages`. The keyword
+fallback searches the same entity type with the document defaults, so it can return different results
+than the single-entity `search`, which adds no document defaults. **Action:** keep
+the switch off if clients call `semanticSearch` for entity types other than documents. Before you turn
+it on, check that clients of `semanticSearch` expect the document defaults and facets above.
+
+### Search filters on `showInGlobalContext` find documents hidden from global context ([#21490](https://github.com/datahub-project/datahub/pull/21490))
+
+`searchAcrossEntities`, `scrollAcrossEntities`, `aggregateAcrossEntities` and `browseV2` add a
+default that hides documents not shown in global context. They also added it to a filter on
+`showInGlobalContext`, so a filter for `showInGlobalContext` set to `false` found no documents unless
+the request set `includeHiddenLifecycleStages`. Now a filter that names `showInGlobalContext` takes
+the place of that default. When the filter has several `orFilters` entries, only those that name the
+field lose the default, and a view's filter counts as part of the request's filter. The results are
+still published documents only: as before, a filter on `state` or `lifecycleStage` does not change
+that, only `includeHiddenLifecycleStages` does, and a user who can manage documents also gets
+unpublished documents that have no lifecycle stage. `semanticSearchAcrossEntities` does the same when
+it runs the semantic search template. **Action:** none, unless a client filters on
+`showInGlobalContext` and expects documents hidden from global context to stay out.
 
 ### Parent Data Product is now checked on every API
 
@@ -299,6 +410,8 @@ Requirements:
 - Helm Chart: (TBD)
 
 ### Breaking Changes
+
+- [#21531](https://github.com/datahub-project/datahub/pull/21531) **(Ingestion / CSV Enricher)** `filename` can now be an `s3://` path as well as a local path or `http(s)://` URL. Reading from `http(s)://` or `s3://` now needs the plugin's dependencies, which a bare `acryl-datahub` install does not include. A `filename` with any other scheme (for example `gs://`) now fails at config validation. **Action:** if you read the CSV from a URL, install `acryl-datahub[csv-enricher]`.
 
 - [#21472](https://github.com/datahub-project/datahub/pull/21472) **(Ingestion / Informatica)** A run that cannot list all projects, folders, Taskflows or Mapping Tasks now fails instead of finishing with a warning. Stale metadata removal is paused for that run, so objects it did not read are no longer soft-deleted. A folder or Taskflow that fails to process is still a warning, but what it ingested in the previous run is kept instead of soft-deleted. A Taskflow whose definition cannot be exported keeps its `orchestrate` job from the previous run. Datasets that appear only in Informatica lineage are no longer soft-deleted by this source, and a dataset another connector soft-deleted is no longer restored by it.
   **Action:** if runs now fail, fix the permission or API error named in the report. Datasets this source soft-deleted before upgrading stay deleted until the connector that owns them ingests them again.
@@ -424,6 +537,8 @@ Requirements:
 - [#20962](https://github.com/datahub-project/datahub/pull/20962) **(Ingestion / Kafka emitter, Airflow)** Emitting a `MetadataChangeEvent` with `DatahubKafkaEmitter` (`emit` or `emit_mce_async`) is deprecated. **Action:** emit `MetadataChangeProposalWrapper` instead.
 
 ### Other Notable Changes
+
+- [#18483](https://github.com/datahub-project/datahub/pull/18483) **(Ingestion / Grafana)** Grafana dashboards are now placed in a folder only when that folder is ingested in the same run ([#18260](https://github.com/datahub-project/datahub/issues/18260)). Dashboards in the General folder, in a folder excluded by `folder_pattern`, or in a nested folder no longer point at a folder that does not exist. A dashboard whose folder was not ingested is listed in the ingestion report under the `Dashboard folder not ingested` warning. A folder without a title is now named after its uid or id, and a folder Grafana returns without an id is skipped with a `Folder Parse Error` warning instead of stopping ingestion. If stateful ingestion removes stale metadata, a run that skips such a folder is marked as failed and removes no stale metadata at all, so that the folder is not deleted from DataHub. Later runs do the same until the folder is fixed in Grafana. **Action:** optional cleanup. Dashboards ingested earlier into the General, excluded or nested folders still point at a folder that does not exist; in DataHub these dashboard containers show a parent folder that cannot be opened. To remove that link, delete the `container` aspect of each such dashboard container: `curl -X DELETE "<gms_url>/openapi/v3/entity/container/<url-encoded dashboard container urn>/container" -H "Authorization: Bearer <token>"` (`datahub delete --aspect` only handles timeseries aspects).
 
 - [#20466](https://github.com/datahub-project/datahub/pull/20466) **(Sigma ingestion)** A Data Model column with an empty formula now gets column lineage to the warehouse column Sigma's column id names. These columns previously had none. A column whose formula is not empty but reads no other element or table (a constant, only parameters, or only columns of its own element) still gets none, and a column whose id does not name a warehouse column is not matched to other elements by name. Such an empty-formula column whose warehouse table cannot be resolved, for example on a connection DataHub cannot map, now counts once per column under `data_model_element_fgl_warehouse_passthrough_deferred`, so that counter can rise. That counter no longer counts a column whose id does not name a column of one of its element's own source tables, or names a Sigma Dataset this run ingested, since nothing failed there. Among same-named columns of an element, a whitespace-only formula no longer outranks one with no formula, which can change which of them lands in the schema. **Action:** none. Expect more warehouse column lineage on Data Model elements.
 
@@ -715,6 +830,7 @@ Requirements:
 - [#20483](https://github.com/datahub-project/datahub/pull/20483) **(Ingestion / SAP Datasphere)** When the ingestion principal can see a space in the catalog but is not a member of it, the `dwaas-core` object listing returns HTTP 403 and the run now records a failure. This is intentional: a failed run suppresses stale-entity soft-deletion, so a space that cannot be listed never has its previously-ingested objects removed. The trade-off is that a persistent membership gap fails every run, and keeps stale-entity removal off for the whole pipeline, until it is resolved. **Action:** add the ingestion user/client as a member of the space in SAP Datasphere, or exclude the space with `space_pattern` if it is not meant to be ingested.
 
 - **(Frontend / Domain icons)** The domain (and glossary) icon picker now saves Phosphor icons (`IconLibrary.PHOSPHOR`) instead of Material UI. Existing `displayProperties.icon` values with `iconLibrary: MATERIAL` keep working: the UI maps Material icon names to Phosphor equivalents at render time. New picks are stored as Phosphor component names with `style: regular`. **Action:** none; re-save an icon only if you want the stored library/name updated to Phosphor.
+- [#20269](https://github.com/datahub-project/datahub/pull/20269) **(Ingestion / Profiling)** `profiling.limit`/`profiling.offset` and `profiling.use_sampling` are two different ways to keep a profiling run cheap on a big table, and they no longer combine. Sampling now takes precedence: where `use_sampling` is on — which is the default on BigQuery and Snowflake, the two sources that implement sampling — a table large enough to be sampled is sampled, and the `limit` or `offset` in your recipe is not applied to it. A limit reads the first rows the database happens to return, so the resulting statistics describe an arbitrary slice of the table; a sample is drawn at random and describes the whole table. Mixing them costs as much as sampling while giving you the weaker answer. `use_sampling` now defaults to off everywhere else, where it never did anything anyway. Alongside this, a limit is now applied on **Snowflake**, where it was previously accepted and then quietly ignored while the whole table was profiled. Each profile is now labelled from the bound that was actually applied to it, so it no longer claims a limit that was never applied — on the sources that cannot apply one (everything other than BigQuery and Snowflake) the profile says it covered the full table, which is what happened. Wherever a `limit` or `offset` you asked for was not applied, the run now reports a warning naming the assets affected, instead of silently producing a mislabelled profile. The SQL profiler declines an `offset` set without a `limit` and warns: skipping rows without bounding them scans more than leaving it unset, not less. `profiling.limit` must now be a positive whole number and `profiling.offset` a non-negative one, both checked when the recipe is read rather than failing against the database mid-run — `limit: 0` used to be accepted and then quietly profile the whole table. **Action:** if you rely on `profiling.limit` or `profiling.offset` today on BigQuery or Snowflake, add `use_sampling: false` to the same `profiling` block to keep them in effect; otherwise prefer `sample_size`, which gives statistics you can trust. **Dremio** no longer appends `profiling.limit`/`profiling.offset` to its profiling query at all. That query is a single-row aggregate, so a limit bounded that row rather than the scan — it never reduced what Dremio read — and an offset skipped the only row there was, producing an empty profile. Neither option was ever usable there, and neither is listed for Dremio any more; if your recipe still sets one, the run now warns once instead of ignoring it silently.
 
 - [#20213](https://github.com/datahub-project/datahub/pull/20213) **(GMS / Search V3 keyword ranking)** With Search V3 keyword reads on (`ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED=true`, or the V2 indices turned off), keyword search runs a new query, the Stage 1 query that DataHub Cloud runs as Search V2.5, and returns different results than the V2 query. This covers full-text search, structured (`/q`) queries, scroll, lineage search and browse with a query. Outside structured (`/q`) queries, which keep their boolean logic, terms are matched with OR instead of AND, short typos are tolerated (one edit for words of 5-6 characters, two for longer words), a synonym from the default synonym file that writes the same name another way (`stg` / `staging`, not `glue` / `athena`) also matches exact names unless the query is quoted, and a single word of 5 or more characters also matches inside names and titles (`*word*`). Search operators (`-`, `+`, `|`, parentheses, `~`, `*`) are treated as plain text, so `logging -snowflake` also matches `snowflake`; use a structured query (`/q`) for boolean logic. Exact name matches rank above all partial matches, and the best matching field sets an entity's score instead of every matching field adding to it. A URN or a storage path (`s3://`, `gs://`, `hdfs://`) is matched on the identity fields and, as on V2, by an all-terms query over every field searched by default, which also finds entities that reference the URN. A custom search configuration's `boolQuery` wraps the new query: its `should` clauses only add to the score. Prefix matching covers only those identity fields, so `custom` no longer finds a `customer_id` column. With the default search configuration, a quoted query matches the name, title, qualified name, id and URN fields, and the description only for 4 or more words, without typos or matches inside names. To stay within OpenSearch's default limit of 1024 clauses (`indices.query.bool.max_clause_count`), a long query keeps only the words that fit (about 16 on datasets), a single word with more parts than that, such as a deep dotted path, keeps only its leading parts, and its typo tolerance narrows as it grows: short queries keep it in full, and queries of about 10 or more words on datasets are matched without it. The same query serves scroll requests (`scrollAcrossEntities`, the Python SDK's `get_urns_by_filter`, `datahub delete --query`), so a query there can select many more entities than before, even a single word: words are matched with OR, words of 5 or more characters also match words one or two edits away, a single word also matches inside names, and the parts of an identifier such as `temp_table` match separately. `datahub delete --query` prints the number of matches and asks before deleting unless `--force` is set. **Action:** none for V2 keyword reads, which are unchanged. With V3 keyword reads on, check the match count of scripted scroll or delete queries, and leave `search.allow_expensive_queries` at its default of `true`: when it is `false`, the search engine rejects the new query's fuzzy and wildcard clauses. To go back to the V2 query, turn V3 keyword reads off; a deployment that turned the V2 indices off must turn them on again and rebuild them first.
 

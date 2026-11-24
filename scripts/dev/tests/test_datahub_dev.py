@@ -397,6 +397,15 @@ def test_plugin_loading_bad_ext_does_not_crash(tmp_path, monkeypatch):
             {"datahub-frontend-react"},
             {":datahub-frontend"},
         ),
+        # The ai-service image bundles the shared tools package.
+        (
+            {
+                "packages/datahub-core-mcp-tools/src/a.py",
+                "packages/datahub-ai-service/src/b.py",
+            },
+            {"datahub-ai-service"},
+            {":packages:datahub-ai-service"},
+        ),
         # Shared or unmapped sources keep the full build graph.
         ({"metadata-io/src/C.java"}, set(), set()),
         ({"metadata-service/war/src/A.java", "README.md"}, set(), set()),
