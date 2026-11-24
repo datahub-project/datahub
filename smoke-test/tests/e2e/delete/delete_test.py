@@ -145,7 +145,9 @@ def _datasets_with_role(graph_client, role_urn: str) -> List[str]:
     return list(
         graph_client.get_urns_by_filter(
             entity_types=["dataset"],
-            extraFilters=[{"field": "roles", "condition": "EQUAL", "values": [role_urn]}],
+            extraFilters=[
+                {"field": "roles", "condition": "EQUAL", "values": [role_urn]}
+            ],
             skip_cache=True,
         )
     )
