@@ -45,11 +45,12 @@ TABLE_ARGUMENT_FUNCTIONS = (
     "MINX",
     "COUNTX",
     "RANKX",
-    "GENERATE",
     "TREATAS",
 )
-# Set and join functions: every argument is a table.
+# Set, join and GENERATE functions: every argument is a table.
 ALL_TABLE_ARGUMENT_FUNCTIONS = (
+    "GENERATE",
+    "GENERATEALL",
     "UNION",
     "EXCEPT",
     "INTERSECT",
@@ -69,6 +70,7 @@ ROW_CONTEXT_ITERATOR_FUNCTIONS = (
     "RANKX",
     "TOPN",
     "GENERATE",
+    "GENERATEALL",
     "RELATEDTABLE",
     "CALCULATETABLE",
     "FILTER",
