@@ -9,7 +9,8 @@ description: "Configure the Kafka event source to consume DataHub metadata chang
 The Kafka Event Source is the default Event Source used within the DataHub Actions Framework.
 
 Under the hood, the Kafka Event Source uses a Kafka Consumer to subscribe to the topics streaming
-out of DataHub (MetadataChangeLog_v1, PlatformEvent_v1). Each Action is automatically placed into a unique
+out of DataHub (by default MetadataChangeLog_Versioned_v1, MetadataChangeLog_Timeseries_v1 and
+PlatformEvent_v1). Each Action is automatically placed into a unique
 [consumer group](https://docs.confluent.io/platform/current/clients/consumer.html#consumer-groups) based on
 the unique `name` provided inside the Action configuration file.
 
