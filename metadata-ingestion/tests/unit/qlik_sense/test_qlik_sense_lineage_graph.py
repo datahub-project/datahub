@@ -816,6 +816,7 @@ def test_upstream_graph_is_read(requests_mock: requests_mock_module.Mocker) -> N
     assert api.get_lineage_upstreams(REPORT_APP) == LineageUpstreams(
         resource_labels={UNLISTED_QVD: "prices.qvd", REPORT_APP: "Report"},
         stored_from={f"{UNLISTED_QVD}#Prices": [WRITER_TABLE]},
+        database_labels={},
     )
 
 
@@ -2433,6 +2434,7 @@ def test_graph_database_table_resolves_through_reload_sql(
         == columns
     )
     assert source.reporter.reload_sql_tables_with_lineage == 1
+    assert not source.reporter.reload_sql_tables_not_in_datahub
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -2647,10 +2649,296 @@ def test_database_sources_are_read_with_the_reload_sql(
         ReloadStatement(discriminator="Finance:Sales;", statement="SQL SELECT 1")
     ]
 
-    requests_mock.get(f"{BASE_URL}/apps/report-app/data/lineage", status_code=500)
+    requests_mock.get(f"{BASE_URL}/apps/report-app/data/lineage", status_code=404)
     api._read_reload_statements(app)
 
     assert app.reload_statements_read_failed
     assert [f.split(":")[0] for f in api.reload_statement_read_failures] == [
         "report-app"
     ]
+
+
+@pytest.mark.parametrize(
+    "statements",
+    [
+        pytest.param(
+            [
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders"),
+                # Names another table, not the label's.
+                _sql("Finance:Unknown", "SELECT * FROM dbo.orders_archive"),
+            ],
+            id="unread SQL naming a longer table",
+        ),
+        pytest.param(
+            [
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders"),
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders_archive"),
+            ],
+            id="SQL naming a longer table",
+        ),
+        pytest.param(
+            [
+                ReloadStatement(
+                    discriminator="Finance:Sales;",
+                    statement="SELECT * FROM dbo.orders",
+                )
+            ],
+            id="SELECT without the SQL prefix",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_reload_sql_label_matches_whole_table_names(
+    mock_api_cls: MagicMock, statements: List[ReloadStatement]
+) -> None:
+    source = _reload_source(mock_api_cls, _reload_app(statements))
+
+    written, _ = _lineage(source.get_workunits_internal())
+
+    assert written[_urn("etl-app.orders")] == [SHOP_ORDERS]
+    assert not source.reporter.ambiguous_reload_sql_sources
+
+
+@pytest.mark.parametrize(
+    "statements, source_qri, unmatched",
+    [
+        pytest.param(
+            [], ORDERS_DB_TABLE, ["etl-app: dbo.[ORDERS] (mssql)"], id="no SQL"
+        ),
+        pytest.param(
+            [_sql("Finance:Sales", "SELECT * FROM dbo.orders")],
+            "qri:db:odbc://Hash#Orders",
+            ["etl-app: dbo.[ORDERS] (odbc)"],
+            id="scheme of no known platform",
+        ),
+        pytest.param(
+            # Already reported as an unresolved connection.
+            [_sql("Finance:Unknown", "SELECT * FROM dbo.orders")],
+            ORDERS_DB_TABLE,
+            [],
+            id="unresolved connection",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_graph_database_table_matching_no_reload_table_is_reported(
+    mock_api_cls: MagicMock,
+    statements: List[ReloadStatement],
+    source_qri: str,
+    unmatched: List[str],
+) -> None:
+    source = _reload_source(mock_api_cls, _reload_app(statements, source_qri))
+
+    written, _ = _lineage(source.get_workunits_internal())
+
+    assert written == {_urn("etl-app.orders"): []}
+    assert list(source.reporter.unmatched_reload_sql_sources) == unmatched
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unmapped_database_scheme_matching_its_platform_is_linked(
+    mock_api_cls: MagicMock,
+) -> None:
+    app = _reload_app(
+        [_sql("Finance:Warehouse", "SELECT * FROM sales.orders")],
+        source_qri="qri:db:oracle://Hash#Orders",
+    )
+    app.lineage_tables[0].database_source_labels = {
+        "qri:db:oracle://Hash#Orders": "SALES.ORDERS"
+    }
+    source = _source(
+        mock_api_cls,
+        DATASETS,
+        items=[app],
+        config={
+            "data_connection_to_platform_instance": {
+                "Warehouse": {"platform": "oracle", "database": "orcl"}
+            }
+        },
+    )
+    mock_api_cls.return_value.get_data_connections.return_value = {}
+
+    written, _ = _lineage(source.get_workunits_internal())
+
+    assert written[_urn("etl-app.orders")] == [
+        make_dataset_urn("oracle", "orcl.sales.orders")
+    ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unread_data_connections_only_add_to_reload_sql_lineage(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _reload_source(
+        mock_api_cls,
+        _reload_app([_sql("Finance:Orders", "SELECT * FROM dbo.orders")]),
+    )
+    # The statement's connection may be one the failed listing would resolve.
+    mock_api_cls.return_value.unread_items = [
+        UnreadItem(name=UNREAD_DATA_CONNECTIONS, cause="timed out")
+    ]
+
+    written, _ = _lineage(source.get_workunits_internal())
+
+    assert _urn("etl-app.orders") not in written
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_reload_sql_table_missing_from_datahub_is_reported(
+    mock_api_cls: MagicMock,
+) -> None:
+    # The warehouse source kept the table's case, which the SQL doesn't use.
+    graph = _schema_graph(make_dataset_urn("mssql", "Shop.dbo.Orders"), ["Order_ID"])
+    source = _source(
+        mock_api_cls,
+        DATASETS,
+        items=[_reload_app([_sql("Finance:Sales", "SELECT * FROM dbo.orders")])],
+        config=RELOAD_CONFIG,
+        graph=graph,
+    )
+    mock_api_cls.return_value.get_data_connections.return_value = {}
+
+    written, _ = _lineage(source.get_workunits_internal())
+
+    assert written[_urn("etl-app.orders")] == [SHOP_ORDERS]
+    assert list(source.reporter.reload_sql_tables_not_in_datahub) == [
+        f"etl-app: {SHOP_ORDERS}"
+    ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_reload_sql_links_database_sources_the_script_does_not_trace(
+    mock_api_cls: MagicMock,
+) -> None:
+    sources = {
+        "qri:db:sqlserver://Hash#Orders2023": "dbo.orders_2023",
+        "qri:db:sqlserver://Hash#Orders2024": "dbo.orders_2024",
+    }
+    app = _reload_app(
+        [
+            _sql("Finance:Sales", "SELECT * FROM dbo.orders_2023"),
+            _sql("Finance:Sales", "SELECT * FROM dbo.orders_2024"),
+        ]
+    )
+    table = app.lineage_tables[0]
+    table.source_qris = list(sources)
+    table.database_source_labels = sources
+    source = _reload_source(mock_api_cls, app)
+    traced = make_dataset_urn("mssql", "shop.dbo.orders_2023")
+    # The script traces the first source; the second is a CONCATENATE from SQL
+    # it builds at run time.
+    script_tables = {
+        table.qri: ScriptTableLineage(
+            label="Orders", identifier="etl-app.orders", upstream_urns=[traced]
+        )
+    }
+
+    written, _ = _lineage(source._gen_lineage_tables_workunit(app, script_tables))
+
+    assert written[_urn("etl-app.orders")] == [
+        traced,
+        make_dataset_urn("mssql", "shop.dbo.orders_2024"),
+    ]
+
+
+def _reload_columns(lineage: Optional[UpstreamLineageClass]) -> List[str]:
+    assert lineage is not None
+    return sorted(
+        f"{SchemaFieldUrn.from_string(f.downstreams[0]).field_path}"
+        f"<-{SchemaFieldUrn.from_string(f.upstreams[0]).field_path}"
+        for f in lineage.fineGrainedLineages or []
+        if f.downstreams and f.upstreams
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_reload_sql_columns_need_one_statement_reading_the_table(
+    mock_api_cls: MagicMock,
+) -> None:
+    app = _reload_app(
+        [
+            _sql("Finance:Sales", "SELECT order_id, amount FROM dbo.orders"),
+            # May load another Qlik table, whose fields aren't this table's.
+            _sql("Finance:Sales", "SELECT amount AS order_id FROM dbo.orders"),
+        ]
+    )
+    source = _reload_source(mock_api_cls, app)
+
+    lineage = _upstream_lineage(source.get_workunits_internal(), _urn("etl-app.orders"))
+
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == [SHOP_ORDERS]
+    assert _reload_columns(lineage) == []
+
+
+@pytest.mark.parametrize(
+    "field_sources, columns",
+    [
+        pytest.param(
+            {"ORDER_ID": "order_id", "Amount": "amount"},
+            ["Amount<-amount", "ORDER_ID<-order_id"],
+            id="graph agrees",
+        ),
+        pytest.param(
+            # A LOAD over the SQL swapped the two fields' names.
+            {"ORDER_ID": "amount", "Amount": "order_id"},
+            [],
+            id="fields renamed",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_reload_sql_columns_follow_the_graph_field_sources(
+    mock_api_cls: MagicMock, field_sources: Dict[str, str], columns: List[str]
+) -> None:
+    app = _reload_app(
+        [_sql("Finance:Sales", "SELECT order_id, amount FROM dbo.orders")]
+    )
+    app.lineage_tables[0].field_source_qris = {
+        field: [_field_qri(ORDERS_DB_TABLE, column)]
+        for field, column in field_sources.items()
+    }
+    source = _reload_source(mock_api_cls, app)
+
+    lineage = _upstream_lineage(source.get_workunits_internal(), _urn("etl-app.orders"))
+
+    assert _reload_columns(lineage) == columns
+
+
+def test_reload_sql_labels_come_from_the_upstream_graph_already_read(
+    requests_mock: requests_mock_module.Mocker,
+) -> None:
+    requests_mock.get(f"{BASE_URL}/api-keys", json={})
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    node = f"{BASE_URL}/lineage-graphs/nodes/{quote(REPORT_APP, safe='')}"
+    table = f"{REPORT_APP}#Tbl"
+    requests_mock.get(
+        f"{node}?level=RESOURCE&up=1",
+        json={"graph": {"nodes": {UNLISTED_QVD: {"label": "prices.qvd"}}}},
+    )
+    requests_mock.get(
+        f"{node}?level=TABLE&up=2",
+        json={"graph": {"nodes": {ORDERS_DB_TABLE: {"label": "dbo.ORDERS"}}}},
+    )
+    one_level = requests_mock.get(f"{node}?level=TABLE&up=1", json={"graph": {}})
+    requests_mock.get(f"{BASE_URL}/apps/report-app/data/lineage", json=[])
+    app = _app(
+        "report-app",
+        [
+            LineageTable(
+                qri=table,
+                label="Orders",
+                source_qris=[f"{UNLISTED_QVD}#Prices", ORDERS_DB_TABLE],
+            )
+        ],
+    )
+    app.qri = REPORT_APP
+
+    api._read_lineage_upstreams(app)
+    api._read_reload_statements(app)
+
+    assert app.lineage_tables[0].database_source_labels == {
+        ORDERS_DB_TABLE: "dbo.ORDERS"
+    }
+    assert app.reload_statements == []
+    assert not one_level.called

@@ -147,6 +147,8 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     # last reload reads.
     reload_sql_tables_with_lineage: int = 0
     ambiguous_reload_sql_sources: LossyList[str] = field(default_factory=LossyList)
+    unmatched_reload_sql_sources: LossyList[str] = field(default_factory=LossyList)
+    reload_sql_tables_not_in_datahub: LossyList[str] = field(default_factory=LossyList)
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
     qvds_found: int = 0
     # QVD paths a load script names that resolve to no single file, such as a

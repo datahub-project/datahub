@@ -249,6 +249,9 @@ class LineageUpstreams(BaseModel):
     resource_labels: Dict[str, str] = {}
     # Table QRI to the QRIs of the app tables Qlik saw store into it.
     stored_from: Dict[str, List[str]] = {}
+    # Database table QRI to its label, such as `dbo.orders`; None when the
+    # graph was not read.
+    database_labels: Optional[Dict[str, str]] = None
 
 
 class ReloadStatement(BaseModel):

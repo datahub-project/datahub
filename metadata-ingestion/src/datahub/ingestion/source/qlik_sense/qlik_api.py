@@ -49,6 +49,14 @@ from datahub.ingestion.source.qlik_sense.websocket_connection import (
 logger = logging.getLogger(__name__)
 
 
+def _database_labels(graph: LineageGraph) -> Dict[str, str]:
+    return {
+        qri: node.label
+        for qri, node in graph.nodes.items()
+        if qri.startswith(DATABASE_QRI_PREFIX) and node.label
+    }
+
+
 class QlikAPI(QlikBaseAPI):
     def __init__(self, config: QlikSourceConfig) -> None:
         super().__init__(config)
@@ -217,6 +225,7 @@ class QlikAPI(QlikBaseAPI):
             }
         )
         tables = self._upstream_graph(qri, LineageGraphLevel.TABLE, 2)
+        upstreams.database_labels = _database_labels(tables)
         for edge in tables.edges:
             if (
                 edge.source
@@ -516,12 +525,19 @@ class QlikAPI(QlikBaseAPI):
         ):
             return
         try:
-            graph = self._upstream_graph(app.qri, LineageGraphLevel.TABLE, 1)
+            # The two-level graph read for the app's upstreams holds the
+            # one-level graph's nodes.
+            labels = (
+                app.lineage_upstreams.database_labels
+                if app.lineage_upstreams.database_labels is not None
+                else _database_labels(
+                    self._upstream_graph(app.qri, LineageGraphLevel.TABLE, 1)
+                )
+            )
             for table in app.lineage_tables:
                 for qri in table.source_qris:
-                    node = graph.nodes.get(qri)
-                    if qri.startswith(DATABASE_QRI_PREFIX) and node and node.label:
-                        table.database_source_labels[qri] = node.label
+                    if qri in labels:
+                        table.database_source_labels[qri] = labels[qri]
             app.reload_statements = self.get_reload_statements(app.id)
         except Exception as e:
             log_read_error(
