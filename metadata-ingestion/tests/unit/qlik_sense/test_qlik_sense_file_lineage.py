@@ -2132,6 +2132,78 @@ def test_moved_store_removes_only_the_apps_own_edge_from_the_old_file(
     )
 
 
+CUSTOMERS_QRI = "qri:db:sqlserver://sales#dbo.Customers"
+CUSTOMERS = make_dataset_urn("qlik-sense", CUSTOMERS_QRI.lower())
+DEV_CUSTOMERS = "urn:li:dataset:(urn:li:dataPlatform:abs,lake/dev/customers.qvd,PROD)"
+
+
+@pytest.mark.parametrize("other_app_seen", ["this run", "last run"])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_moved_store_keeps_the_edge_of_a_table_another_app_shares(
+    mock_api_cls: MagicMock, other_app_seen: str
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        script="STORE Customers INTO [lib://Sales Space:Lake/prod/customers.qvd];",
+        tables=[_model_table("Customers", "Customers", CUSTOMERS_QRI)],
+    )
+    graph = MagicMock()
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=CUSTOMERS, type=DatasetLineageTypeClass.COPY)]
+    )
+    source.ctx.graph = graph
+    other_app = AppCheckpoint(
+        urns=[CUSTOMERS], table_urns_by_qri={CUSTOMERS_QRI: CUSTOMERS}
+    )
+    if other_app_seen == "this run":
+        source._table_urns_by_app["app-2"] = {CUSTOMERS}
+    previous = AppCheckpoint(urns=[CUSTOMERS], stored_file_urns=[DEV_CUSTOMERS])
+
+    with (
+        patch.object(QlikSenseSource, "_usable_checkpoint", return_value=previous),
+        patch.object(
+            source.app_state,
+            "previous_apps",
+            return_value={"app-2": other_app} if other_app_seen == "last run" else {},
+        ),
+    ):
+        ops = _upstream_ops(source._gen_app_workunit(app))
+
+    # Another app loading the same table may be what stores it into the old
+    # file, so its edge stays.
+    assert not [op for op in ops.get(DEV_CUSTOMERS, []) if op.startswith("remove")]
+
+
+@pytest.mark.parametrize("read", ["no graph", "read error"])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_old_file_whose_lineage_cant_be_read_stays_in_the_checkpoint(
+    mock_api_cls: MagicMock, read: str
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        script="Orders:\nLOAD * FROM [lib://Sales Space:Lake/landing/orders.csv] "
+        "(txt);\nSTORE Orders INTO [lib://Sales Space:Lake/prod/orders.qvd];\n",
+    )
+    if read == "read error":
+        graph = MagicMock()
+        graph.get_aspect.side_effect = RuntimeError("unavailable")
+        source.ctx.graph = graph
+    else:
+        source.ctx.graph = None
+    previous = AppCheckpoint(urns=[ORDERS], stored_file_urns=[DEV_ORDERS])
+
+    with patch.object(QlikSenseSource, "_usable_checkpoint", return_value=previous):
+        ops = _upstream_ops(source._gen_app_workunit(app))
+
+    assert DEV_ORDERS not in ops
+    # A later run that can read its lineage still removes the app's edge.
+    assert source._app_stored_files[app.id] == [DEV_ORDERS, PROD_ORDERS]
+
+
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_stores_through_two_names_of_one_connection_do_not_compete(
     mock_api_cls: MagicMock,
