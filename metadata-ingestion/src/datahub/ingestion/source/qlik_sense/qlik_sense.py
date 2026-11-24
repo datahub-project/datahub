@@ -301,7 +301,10 @@ def _schema_field_parent(urn: str) -> Optional[str]:
 
 
 def _app_field_names(app: App) -> List[str]:
-    names = [field.name for table in app.data_model_tables for field in table.fields]
+    names = [field.name for table in app.tables for field in table.datasetSchema]
+    names.extend(
+        field.name for table in app.data_model_tables for field in table.fields
+    )
     names.extend(field for table in app.lineage_tables for field in table.fields)
     return list(dict.fromkeys(names))
 
