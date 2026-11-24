@@ -2,6 +2,7 @@ from typing import Dict, Iterator, List, Optional, Set, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
@@ -9,14 +10,18 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.grafana.constants import (
     DASHBOARD_FOLDER_NOT_INGESTED_TITLE,
+    DASHBOARD_SEARCH_ERROR_TITLE,
     DASHBOARD_WITHOUT_FOLDER_ID_TITLE,
+    DASHBOARDS_SKIPPED_TITLE,
     FOLDERS_UNPARSEABLE_TITLE,
+    PANEL_SKIPPED_TITLE,
 )
 from datahub.ingestion.source.grafana.grafana_config import GrafanaSourceConfig
 from datahub.ingestion.source.grafana.grafana_source import GrafanaSource
 from datahub.ingestion.source.grafana.models import (
     Dashboard,
     DashboardContainerKey,
+    DashboardListing,
     Folder,
     FolderKey,
     FolderListing,
@@ -47,6 +52,8 @@ FOLDER_COUNTERS = (
     "dashboards_without_folder_container",
     "dashboards_without_folder_id",
 )
+
+GRAFANA_REQUESTS_GET = "datahub.ingestion.source.grafana.grafana_source.requests.get"
 
 
 @pytest.fixture
@@ -102,7 +109,7 @@ def _run(
     dashboards: List[Dashboard],
 ) -> Tuple[GrafanaSource, List[MetadataWorkUnit]]:
     mock_api.get_folders.return_value = FolderListing(folders=folders)
-    mock_api.get_dashboards.return_value = dashboards
+    mock_api.get_dashboards.return_value = DashboardListing(dashboards=dashboards)
     source = GrafanaSource(config, ctx)
     return source, list(source.get_workunits_internal())
 
@@ -319,7 +326,7 @@ def test_unparseable_folders_fail_run_only_when_removing_stale_metadata(
     source = GrafanaSource(mock_config, mock_context)
     source.config.stateful_ingestion = stateful_ingestion
     mock_api.get_folders.return_value = FolderListing(folders=[], unparseable=2)
-    mock_api.get_dashboards.return_value = []
+    mock_api.get_dashboards.return_value = DashboardListing()
 
     list(source.get_workunits_internal())
 
@@ -338,3 +345,111 @@ def test_chart_urns_omit_platform_instance_when_unset(mock_context):
     workunits = list(source._process_dashboard(_make_dashboard(folder_id=None)))
 
     assert _chart_urns(workunits) == {"urn:li:chart:(grafana,dash1.1)"}
+
+
+def _basic_mode_source(mock_context: PipelineContext) -> GrafanaSource:
+    config = GrafanaSourceConfig(
+        url="http://grafana.test",
+        service_account_token="test-token",
+        basic_mode=True,
+    )
+    return GrafanaSource(config, mock_context)
+
+
+def _search_response(body: object) -> MagicMock:
+    response = MagicMock()
+    response.json.return_value = body
+    return response
+
+
+def test_basic_mode_skips_malformed_search_results(mock_context):
+    source = _basic_mode_source(mock_context)
+    items = [
+        {"uid": "ok", "title": "OK", "url": "/d/ok"},
+        {"uid": "no-url", "title": "No URL"},
+        "not an object",
+    ]
+    with patch(GRAFANA_REQUESTS_GET, return_value=_search_response(items)):
+        workunits = list(source.get_workunits_internal())
+
+    assert {wu.get_urn() for wu in workunits} == {"urn:li:dashboard:(grafana,ok)"}
+    assert source.report.dashboard_search_hits_skipped == 2
+    assert not source.report.failures
+
+
+@pytest.mark.parametrize(
+    "json_result",
+    [
+        pytest.param({"message": "proxy error"}, id="not-a-list"),
+        pytest.param(
+            requests.exceptions.JSONDecodeError("Expecting value", "<html>", 0),
+            id="not-json",
+        ),
+    ],
+)
+def test_basic_mode_reports_non_list_response(mock_context, json_result):
+    source = _basic_mode_source(mock_context)
+    response = MagicMock(**{"json.side_effect": [json_result]})
+    with patch(GRAFANA_REQUESTS_GET, return_value=response):
+        workunits = list(source.get_workunits_internal())
+
+    assert not workunits
+    assert log_titles(source.report.failures) == {DASHBOARD_SEARCH_ERROR_TITLE}
+
+
+@pytest.mark.parametrize(
+    "remove_stale_metadata, expect_failure",
+    [
+        pytest.param(False, False, id="stale-removal-off"),
+        pytest.param(True, True, id="stale-removal-on"),
+    ],
+)
+def test_skipped_dashboards_fail_run_only_when_removing_stale_metadata(
+    mock_api, mock_config, mock_context, remove_stale_metadata, expect_failure
+):
+    # Otherwise stale-entity removal would soft-delete a dashboard that was
+    # skipped only because Grafana returned it in a shape that could not be read.
+    source = GrafanaSource(mock_config, mock_context)
+    source.config.stateful_ingestion = StatefulStaleMetadataRemovalConfig(
+        enabled=True, remove_stale_metadata=remove_stale_metadata
+    )
+    mock_api.get_folders.return_value = FolderListing()
+    mock_api.get_dashboards.return_value = DashboardListing(skipped=1)
+
+    list(source.get_workunits_internal())
+
+    failure_titles = log_titles(source.report.failures)
+    assert (DASHBOARDS_SKIPPED_TITLE in failure_titles) == expect_failure
+
+
+def test_basic_mode_skipped_result_fails_run_when_removing_stale_metadata(
+    mock_context,
+):
+    source = _basic_mode_source(mock_context)
+    source.config.stateful_ingestion = StatefulStaleMetadataRemovalConfig(enabled=True)
+    items = [{"uid": "ok", "title": "OK", "url": "/d/ok"}, {"uid": "no-url"}]
+    with patch(GRAFANA_REQUESTS_GET, return_value=_search_response(items)):
+        list(source.get_workunits_internal())
+
+    assert log_titles(source.report.failures) == {DASHBOARDS_SKIPPED_TITLE}
+
+
+@pytest.mark.usefixtures("mock_api")
+def test_process_dashboard_reports_skipped_panels(mock_config, mock_context):
+    source = GrafanaSource(mock_config, mock_context)
+    dashboard = Dashboard.model_validate(
+        {
+            "dashboard": {
+                "uid": "dash1",
+                "title": "Test Dashboard",
+                "panels": [{"id": "2", "type": "graph", "title": ["bad"]}],
+            }
+        }
+    )
+
+    list(source._process_dashboard(dashboard))
+
+    assert source.report.panel_parsing_warnings == 1
+    [warning] = [w for w in source.report.warnings if w.title == PANEL_SKIPPED_TITLE]
+    [context] = warning.context
+    assert "dash1" in context and "id=2" in context
