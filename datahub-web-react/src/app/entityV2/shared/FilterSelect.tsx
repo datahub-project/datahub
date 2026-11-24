@@ -64,6 +64,7 @@ export const FilterSelect = ({
 
             const childOptions: NestedSelectOption[] = filters.map((filter) => ({
                 value: getFilterOptionValue(category, filter.name),
+                testId: filter.name,
                 label: filter.displayName,
                 parentValue: category,
                 isParent: false,

@@ -40,6 +40,8 @@ describe('FilterSelect', () => {
 
         await userEvent.click(screen.getByTestId('filter-base'));
         await userEvent.click(screen.getByText('Status'));
+        // E2E tests select options by the plain filter name, not the internal group-qualified value.
+        expect(screen.getAllByTestId('child-option-SUCCESS').length).toBeGreaterThan(0);
         await userEvent.click(screen.getByText('Passing'));
         expect(onFilterChange).toHaveBeenLastCalledWith([CATEGORY, STATUS]);
 
