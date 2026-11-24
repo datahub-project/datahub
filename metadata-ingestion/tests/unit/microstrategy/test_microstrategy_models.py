@@ -111,6 +111,76 @@ def test_dashboard_definition_preserves_visualization_chapter_key() -> None:
     assert visualization.page_key == "page-1"
 
 
+def test_panel_stack_visualizations_carry_their_chapter_and_page() -> None:
+    definition = DashboardDefinition.from_api_response(
+        object_id="dash-1",
+        object_name="Executive Sales",
+        response={
+            "chapters": [
+                {
+                    "key": "chapter-1",
+                    "name": "Summary",
+                    "pages": [
+                        {
+                            "key": "page-1",
+                            "name": "Overview",
+                            "visualizations": [{"key": "viz-1", "name": "Top"}],
+                        },
+                        {
+                            "key": "page-2",
+                            "name": "Detail",
+                            "panelStacks": [
+                                {
+                                    "key": "stack-1",
+                                    "panels": [
+                                        {
+                                            "key": "panel-1",
+                                            "visualizations": [
+                                                {"key": "viz-2", "name": "Sales"}
+                                            ],
+                                            "panelStacks": [
+                                                {
+                                                    "key": "stack-2",
+                                                    "panels": [
+                                                        {
+                                                            "key": "panel-2",
+                                                            "visualizations": [
+                                                                {
+                                                                    "key": "viz-3",
+                                                                    "name": "Units",
+                                                                }
+                                                            ],
+                                                        }
+                                                    ],
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                }
+                            ],
+                        },
+                    ],
+                }
+            ]
+        },
+    )
+
+    placement = {
+        visualization.key: (
+            visualization.chapter_name,
+            visualization.page_name,
+            visualization.page_index,
+        )
+        for visualization in definition.visualizations
+    }
+
+    assert placement == {
+        "viz-1": ("Summary", "Overview", 1),
+        "viz-2": ("Summary", "Detail", 2),
+        "viz-3": ("Summary", "Detail", 2),
+    }
+
+
 def test_datasource_extracts_source_type_and_connection() -> None:
     datasource = Datasource.model_validate(
         {
