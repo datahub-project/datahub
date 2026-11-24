@@ -260,6 +260,12 @@ def _qvd_fields(writes: List[QvdWrite], reads: List[str]) -> Optional[List[str]]
 UNRESOLVED_STORE = "a STORE path could not be resolved"
 
 
+def _own_table_urns(app_id: str, urns: Dict[str, str]) -> Dict[str, str]:
+    return {
+        qri: urn for qri, urn in urns.items() if _qlik_app_id(qri) in (None, app_id)
+    }
+
+
 def _qlik_app_id(qri: str) -> Optional[str]:
     match = QLIK_APP_QRI_RE.match(qri)
     return match.group(1) if match else None
@@ -387,6 +393,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # Apps read or kept this run, by whether all their tables are known.
         self._apps_tables_known: Set[str] = set()
         self._apps_tables_unknown: Set[str] = set()
+        # Apps whose tables are known, but whose lineage graph names tables
+        # with no URN, so only references to those tables are unknown.
+        self._apps_graph_tables_unresolved: Set[str] = set()
+        # Fingerprints of apps with table lineage still pending, written after
+        # it so a failed run can't skip the app as unchanged without it.
+        self._deferred_fingerprints: Dict[str, MetadataWorkUnit] = {}
         # On-prem, the QVDs each app read or kept this run writes and reads, and
         # the apps whose QVDs are unknown.
         self._app_qvds: Dict[str, AppQvds] = {}
@@ -617,12 +629,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if not previous.qvds.writes_complete:
                 self._apps_qvds_unknown[app_id] = UNRESOLVED_STORE
         if previous.table_urns_by_qri is not None:
-            self._app_table_urns_by_qri.update(previous.table_urns_by_qri)
+            self._app_table_urns_by_qri.update(
+                _own_table_urns(app_id, previous.table_urns_by_qri)
+            )
         # None was recorded before table URNs were kept in the state.
         if previous.table_urns_by_qri is None or previous.tables_unknown:
             self._apps_tables_unknown.add(app_id)
         else:
             self._apps_tables_known.add(app_id)
+            if previous.graph_tables_unresolved:
+                self._apps_graph_tables_unresolved.add(app_id)
         assert self.stale_entity_removal_handler is not None
         for urn in previous.urns:
             self.stale_entity_removal_handler.add_entity_to_state(
@@ -642,6 +658,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     urns=previous.urns,
                     table_urns_by_qri=previous.table_urns_by_qri,
                     tables_unknown=previous.tables_unknown,
+                    graph_tables_unresolved=previous.graph_tables_unresolved,
                     qvds=self._app_qvds.get(app.id),
                 ),
             )
@@ -680,6 +697,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 partial_reads=previous.partial_reads + 1,
                 table_urns_by_qri=previous.table_urns_by_qri,
                 tables_unknown=previous.tables_unknown,
+                graph_tables_unresolved=previous.graph_tables_unresolved,
                 qvds=previous.qvds,
             ),
         )
@@ -718,6 +736,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 # So a later run that keeps the app can't take its tables as
                 # complete, nor a 404 as the app having no tables.
                 tables_unknown=self._tables_unknown(app),
+                graph_tables_unresolved=self._graph_tables_unresolved(app),
                 qvds=self._app_qvds.get(app.id),
             ),
         )
@@ -1746,6 +1765,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 urns[table.tableQri] = urn
                 if table.graphQri:
                     urns[table.graphQri] = urn
+        # A tableQri is the table's source, which can be another app's table,
+        # such as for a BINARY load, whose own URN must not be replaced.
+        urns = _own_table_urns(app.id, urns)
         urns.update(
             (
                 table.qri,
@@ -1763,6 +1785,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._apps_tables_unknown.add(app.id)
             return
         self._apps_tables_known.add(app.id)
+        if self._graph_tables_unresolved(app):
+            self._apps_graph_tables_unresolved.add(app.id)
+        if app.unmatched_graph_tables:
+            self.reporter.warning(
+                title="Qlik app tables not matched to their lineage graph",
+                message="These tables of the app's Qlik Cloud lineage graph match "
+                "no data model table by name, so lineage that other apps' tables "
+                "or datasets have from them is only added to.",
+                context=f"{app.id}: {_bounded_list(app.unmatched_graph_tables)}",
+            )
         previous = self._usable_checkpoint(app.id, [])
         if previous is not None and previous.table_urns_by_qri:
             self._previous_app_table_urns.update(previous.table_urns_by_qri.values())
@@ -1771,10 +1803,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _tables_unknown(app: App) -> bool:
         """Whether some of the app's tables may have no URN this run, so a
         table that loads from the app can't be told to load nothing else."""
-        return (
-            app.tables_read_failed
-            or app.graph_tables_unmatched
-            or bool(app.tables and app.lineage_graph_missing)
+        return app.tables_read_failed
+
+    @staticmethod
+    def _graph_tables_unresolved(app: App) -> bool:
+        """Whether a table node of the app's lineage graph may have no URN
+        this run, though the app's tables were read."""
+        return bool(app.unmatched_graph_tables) or bool(
+            app.tables and app.lineage_graph_missing
         )
 
     def _app_tables_known(self, app_id: str) -> bool:
@@ -1816,6 +1852,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 # A table the graph names this run is still added, but the
                 # app's other tables are unknown.
                 return (urn if urn != dataset_urn else None), False
+            if urn is None and app_id in self._apps_graph_tables_unresolved:
+                return None, False
         else:
             # Data files, and files Qlik catalogued on a data connection such
             # as ADLS, are datasets. Other sources, such as database tables,
@@ -2216,6 +2254,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             yield from self._gen_table_lineage(pending, graph_fields)
         self._pending_table_lineage = []
+        yield from self._deferred_fingerprints.values()
+        self._deferred_fingerprints = {}
 
     def _gen_table_lineage(
         self, pending: "PendingTableLineage", graph_fields: List[FineGrainedLineage]
@@ -2535,7 +2575,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if fingerprint:
             # Skipping an unchanged app trusts this fingerprint, so it is written
             # only after everything else the app produced.
-            yield self._gen_fingerprint_workunit(container_workunits, fingerprint)
+            fingerprint_wu = self._gen_fingerprint_workunit(
+                container_workunits, fingerprint
+            )
+            if any(p.app_id == app.id for p in self._pending_table_lineage):
+                self._deferred_fingerprints[app.id] = fingerprint_wu
+            else:
+                yield fingerprint_wu
 
     def _gen_fingerprint_workunit(
         self, container_workunits: List[MetadataWorkUnit], fingerprint: str
@@ -3052,6 +3098,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 previous is None
                 or previous.table_urns_by_qri is None
                 or previous.tables_unknown
+                or previous.graph_tables_unresolved
             )
             if unknown and self.app_state.is_checkpointing_enabled():
                 # With no last read to compare with, the graph may only be
@@ -3261,8 +3308,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if not resolved.complete:
                 self.reporter.warning(
                     title="Lineage of Qlik dataset only added to",
-                    message="An app that stores into the dataset could not be read "
-                    "this run, so its storing tables are added to the dataset's "
+                    message="An app table that stores into the dataset could not "
+                    "be resolved this run, such as one of an app that could not be "
+                    "read, so its storing tables are added to the dataset's "
                     "lineage and none are removed.",
                     context=dataset_urn,
                 )

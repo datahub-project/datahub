@@ -453,19 +453,22 @@ DATA_MODEL_APP = "qri:app:sense://dm-app"
 
 
 @pytest.mark.parametrize(
-    "extra_nodes, unmatched",
+    "orders_label, extra_nodes, unmatched",
     [
         # A neighbouring resource's table of the same label is not the app's.
-        ({f"{SOURCE_QVD}#Other": {"label": "Orders"}}, False),
-        ({f"{DATA_MODEL_APP}#Cust": {"label": "Customers"}}, True),
+        ("Orders", {f"{SOURCE_QVD}#Other": {"label": "Orders"}}, []),
+        # Labels are read as the field lineage's table labels are.
+        ('"Orders"', {}, []),
+        ("Orders", {f"{DATA_MODEL_APP}#Cust": {"label": "Customers"}}, ["Customers"]),
         # Two nodes of one label can't be told apart.
-        ({f"{DATA_MODEL_APP}#Dup": {"label": "Orders"}}, True),
+        ("Orders", {f"{DATA_MODEL_APP}#Dup": {"label": "Orders"}}, ["Orders"]),
     ],
 )
 def test_data_model_tables_get_their_lineage_graph_node(
     requests_mock: requests_mock_module.Mocker,
+    orders_label: str,
     extra_nodes: Dict[str, Dict[str, str]],
-    unmatched: bool,
+    unmatched: List[str],
 ) -> None:
     requests_mock.get(f"{BASE_URL}/api-keys", json={})
     api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
@@ -474,7 +477,7 @@ def test_data_model_tables_get_their_lineage_graph_node(
         json={
             "graph": {
                 "nodes": {
-                    f"{DATA_MODEL_APP}#Ord": {"label": "Orders"},
+                    f"{DATA_MODEL_APP}#Ord": {"label": orders_label},
                     **extra_nodes,
                 }
             }
@@ -504,7 +507,7 @@ def test_data_model_tables_get_their_lineage_graph_node(
     assert errors.messages == []
     assert table.tableQri == f"{SOURCE_QVD}#Orders"
     assert (table.graphQri is None) == (f"{DATA_MODEL_APP}#Dup" in extra_nodes)
-    assert errors.graph_tables_unmatched == unmatched
+    assert errors.unmatched_graph_tables == unmatched
 
 
 def _data_model_table() -> QlikTable:
@@ -524,74 +527,254 @@ def _data_model_table() -> QlikTable:
     )
 
 
-@pytest.mark.parametrize("loader_first", [True, False])
-@pytest.mark.parametrize(
-    "unknown_by", [None, "graph_tables_unmatched", "lineage_graph_missing"]
-)
-@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
-def test_app_table_links_data_model_tables_of_another_app_it_loads(
-    mock_api_cls: MagicMock, loader_first: bool, unknown_by: Optional[str]
-) -> None:
+def _data_model_app(
+    unmatched_graph_tables: Optional[List[str]] = None,
+    lineage_graph_missing: bool = False,
+    table_qri: str = f"{SOURCE_QVD}#Orders",
+) -> App:
     data_model = _app("dm-app", [])
     table = _data_model_table()
-    table.tableQri = f"{SOURCE_QVD}#Orders"
-    table.graphQri = f"{DATA_MODEL_APP}#Ord"
+    table.tableQri = table_qri
+    if not lineage_graph_missing:
+        table.graphQri = f"{DATA_MODEL_APP}#Ord"
     data_model.tables = [table]
-    if unknown_by:
-        setattr(data_model, unknown_by, True)
-    report = _app(
+    data_model.unmatched_graph_tables = unmatched_graph_tables or []
+    data_model.lineage_graph_missing = lineage_graph_missing
+    return data_model
+
+
+def _loader(source_qri: str) -> App:
+    return _app(
         "report-app",
         [
             LineageTable(
-                qri=f"{REPORT_APP}#Tbl",
-                label="Prices",
-                source_qris=[f"{DATA_MODEL_APP}#Ord"],
+                qri=f"{REPORT_APP}#Tbl", label="Prices", source_qris=[source_qri]
             )
         ],
     )
 
-    _, written, added = _run(
+
+def _table_urn(workunits: List[MetadataWorkUnit], name: str) -> str:
+    [urn] = {
+        wu.get_urn()
+        for wu in workunits
+        if (properties := wu.get_aspect_of_type(DatasetPropertiesClass))
+        and properties.name == name
+    }
+    return urn
+
+
+def _warning_contexts(source: QlikSenseSource, title: str) -> List[str]:
+    return [str(w.context) for w in source.reporter.warnings if w.title == title]
+
+
+@pytest.mark.parametrize("loader_first", [True, False])
+@pytest.mark.parametrize(
+    "unmatched, graph_missing, loads, written_whole",
+    [
+        ([], False, "Ord", True),
+        # Another table of the app is unmatched; the one it loads resolves.
+        (["Customers"], False, "Ord", True),
+        (["Customers"], False, "Cust", False),
+        ([], True, "Ord", False),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_table_links_data_model_tables_of_another_app_it_loads(
+    mock_api_cls: MagicMock,
+    loader_first: bool,
+    unmatched: List[str],
+    graph_missing: bool,
+    loads: str,
+    written_whole: bool,
+) -> None:
+    data_model = _data_model_app(unmatched, graph_missing)
+    report = _loader(f"{DATA_MODEL_APP}#{loads}")
+    source = _source(
         mock_api_cls,
         DATASETS,
         items=[report, data_model] if loader_first else [data_model, report],
     )
 
-    prices, orders = _urn("report-app.prices"), _urn(f"{SOURCE_QVD}#Orders")
-    if unknown_by:
-        # The app's graph tables may have no URN, so the last run's edges to
-        # them must stay.
-        assert prices not in written
-        assert added[prices] == [orders]
+    workunits = list(source.get_workunits_internal())
+    written, added = _lineage(workunits)
+
+    prices = _urn("report-app.prices")
+    if written_whole:
+        assert written[prices] == [_table_urn(workunits, "Orders")]
     else:
-        assert written[prices] == [orders]
+        # The table it loads has no URN, so the last run's edges must stay.
+        assert prices not in written
+        assert prices not in added
+        assert _warning_contexts(source, "Lineage of Qlik app table only added to")
+    unmatched_warnings = _warning_contexts(
+        source, "Qlik app tables not matched to their lineage graph"
+    )
+    if unmatched:
+        [context] = unmatched_warnings
+        assert "dm-app" in context and "Customers" in context
+    else:
+        assert not unmatched_warnings
+
+
+@pytest.mark.parametrize("loader_first", [True, False])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_table_loaded_by_another_app_keeps_its_own_urn(
+    mock_api_cls: MagicMock, loader_first: bool
+) -> None:
+    # The data model app BINARY-loads etl-app, so its table's tableQri is the
+    # etl-app table's graph node, which a second loader also reads from.
+    data_model = _data_model_app(table_qri=f"{ETL_APP}#Curve")
+    etl = _app("etl-app", [LineageTable(qri=f"{ETL_APP}#Curve", label="Curve")])
+
+    _, written, _ = _run(
+        mock_api_cls,
+        DATASETS,
+        items=[
+            _loader(f"{ETL_APP}#Curve"),
+            *([etl, data_model] if loader_first else [data_model, etl]),
+        ],
+    )
+
+    assert written[_urn("report-app.prices")] == [_urn("etl-app.curve")]
 
 
 @pytest.mark.parametrize(
-    "unknown_by", [None, "graph_tables_unmatched", "lineage_graph_missing"]
+    "stores_from, stale_removed",
+    [("Ord", True), ("Cust", False)],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
-def test_app_whose_tables_are_unknown_is_recorded_so(
-    mock_api_cls: MagicMock, unknown_by: Optional[str]
+def test_dataset_store_lineage_of_an_app_with_unmatched_graph_tables(
+    mock_api_cls: MagicMock, stores_from: str, stale_removed: bool
 ) -> None:
-    data_model = _app("dm-app", [])
-    table = _data_model_table()
-    table.tableQri = f"{SOURCE_QVD}#Orders"
-    table.graphQri = f"{DATA_MODEL_APP}#Ord"
-    data_model.tables = [table]
-    if unknown_by:
-        setattr(data_model, unknown_by, True)
+    graph = MagicMock()
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[
+            # A table of an app read this run that no longer stores here.
+            UpstreamClass(dataset=_urn("report-app.prices"), type="COPY"),
+        ]
+    )
+    stored = _urn("space-1.stored.qvd")
+    source = _source(
+        mock_api_cls,
+        DATASETS,
+        graph=graph,
+        items=[
+            _data_model_app(["Customers"]),
+            _loader(f"{STORED_QVD}#Curve"),
+            _dataset("stored.qvd", STORED_QVD, [f"{DATA_MODEL_APP}#{stores_from}"]),
+        ],
+    )
+
+    workunits = list(source.get_workunits_internal())
+    ops = _patch_ops(wu for wu in workunits if wu.get_urn() == stored)
+
+    assert _lineage(workunits)[1].get(stored, []) == (
+        [_table_urn(workunits, "Orders")] if stores_from == "Ord" else []
+    )
+    only_added = _warning_contexts(source, "Lineage of Qlik dataset only added to")
+    if stale_removed:
+        assert _removed_upstreams(ops[stored]) == [_urn("report-app.prices")]
+        assert not only_added
+    else:
+        assert not _removed_upstreams(ops.get(stored, []))
+        [context] = only_added
+        assert stored in context
+
+
+@pytest.mark.parametrize(
+    "unmatched, graph_missing", [([], False), (["Customers"], False), ([], True)]
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_with_unresolved_graph_tables_is_recorded_so(
+    mock_api_cls: MagicMock, unmatched: List[str], graph_missing: bool
+) -> None:
+    data_model = _data_model_app(unmatched, graph_missing)
     source = _source(mock_api_cls, DATASETS)
 
     with patch.object(source.app_state, "record") as record:
         list(source._gen_recorded_app_workunit(data_model))
 
-    # A later run that keeps the app from its checkpoint must not take its
-    # tables as complete.
+    # Its tables were read, so a later run that keeps the app still owns their
+    # edges, but only resolves the graph tables it recorded.
     checkpoint = record.call_args.args[1]
-    assert checkpoint.tables_unknown is bool(unknown_by)
-    # The tables it did match are still recorded, so a later missing lineage
-    # graph isn't taken as the app having no tables.
+    assert not checkpoint.tables_unknown
+    assert checkpoint.graph_tables_unresolved is bool(unmatched or graph_missing)
     assert checkpoint.table_urns_by_qri
+
+
+@pytest.mark.parametrize("loader_first", [True, False])
+@pytest.mark.parametrize("kept_by", ["unchanged", "partly_read"])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_table_links_tables_of_a_kept_app_it_loads(
+    mock_api_cls: MagicMock, loader_first: bool, kept_by: str
+) -> None:
+    curve = _urn("etl-app.curve")
+    source = _source(mock_api_cls, DATASETS)
+    app_state = MagicMock()
+    source.app_state = app_state
+    app_state.previous.side_effect = lambda app_id: (
+        AppCheckpoint(urns=[curve], table_urns_by_qri={f"{ETL_APP}#Curve": curve})
+        if app_id == "etl-app"
+        else None
+    )
+    source.stale_entity_removal_handler = MagicMock()
+    source._fingerprint_salt = "salt"
+
+    def keep() -> None:
+        if kept_by == "unchanged":
+            source._keep_unchanged_app(UnchangedApp(id="etl-app", fingerprint="f"))
+        else:
+            etl = _app("etl-app", [])
+            etl.read_errors = ["unable to read a sheet"]
+            source._keep_partly_read_app(etl)
+        assert app_state.record.call_args.args[0] == "etl-app"
+
+    workunits: List[MetadataWorkUnit] = []
+    if not loader_first:
+        keep()
+    workunits.extend(source._gen_app_workunit(_loader(f"{ETL_APP}#Curve")))
+    if loader_first:
+        keep()
+    workunits.extend(source._gen_pending_table_lineage())
+
+    assert _lineage(workunits)[0][_urn("report-app.prices")] == [curve]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_fingerprint_is_written_after_deferred_table_lineage(
+    mock_api_cls: MagicMock,
+) -> None:
+    report = _loader(f"{ETL_APP}#Curve")
+    report.fingerprint = "f"
+    source = _source(mock_api_cls, DATASETS)
+    source.app_state = MagicMock()
+    source.app_state.previous.return_value = None
+    source._fingerprint_salt = "salt"
+
+    # etl-app is read after the loader, so the loader's lineage waits for it.
+    workunits = [
+        *source._gen_recorded_app_workunit(report),
+        *source._gen_recorded_app_workunit(
+            _app("etl-app", [LineageTable(qri=f"{ETL_APP}#Curve", label="Curve")])
+        ),
+        *source._gen_pending_table_lineage(),
+    ]
+
+    ids = [wu.id for wu in workunits]
+    [lineage_index] = [
+        i
+        for i, wu in enumerate(workunits)
+        if wu.get_urn() == _urn("report-app.prices")
+        and wu.get_aspect_of_type(UpstreamLineageClass)
+    ]
+    [fingerprint_index] = [
+        i
+        for i, wu_id in enumerate(ids)
+        if wu_id.endswith("-fingerprint")
+        and workunits[i].get_urn() == source._gen_app_key("report-app").as_urn()
+    ]
+    assert lineage_index < fingerprint_index
 
 
 @pytest.mark.parametrize(
@@ -966,6 +1149,34 @@ def test_kept_app_carries_whether_its_tables_are_unknown(
 
     assert source._app_tables_known("etl-app") is not tables_unknown
     assert source.app_state.record.call_args.args[1].tables_unknown is tables_unknown
+
+
+@pytest.mark.parametrize("graph_tables_unresolved", [False, True])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_app_carries_whether_its_graph_tables_are_unresolved(
+    mock_api_cls: MagicMock, graph_tables_unresolved: bool
+) -> None:
+    source = _source(mock_api_cls, DATASETS)
+    source.app_state = MagicMock()
+    source.stale_entity_removal_handler = MagicMock()
+    source._fingerprint_salt = "salt"
+    orders = _urn("dm-app.orders")
+    source.app_state.previous.return_value = AppCheckpoint(
+        urns=[orders],
+        table_urns_by_qri={f"{DATA_MODEL_APP}#Ord": orders},
+        graph_tables_unresolved=graph_tables_unresolved,
+    )
+
+    source._keep_unchanged_app(UnchangedApp(id="dm-app", fingerprint="f"))
+
+    assert source._resolve_source(f"{DATA_MODEL_APP}#Ord", "x", None) == (orders, True)
+    # A graph table its last read had no URN for may still be one of its tables.
+    assert source._resolve_source(f"{DATA_MODEL_APP}#Cust", "x", None) == (
+        None,
+        not graph_tables_unresolved,
+    )
+    recorded = source.app_state.record.call_args.args[1]
+    assert recorded.graph_tables_unresolved is graph_tables_unresolved
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
