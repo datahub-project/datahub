@@ -2202,7 +2202,6 @@ featureFlags:
   businessAttributeEntityEnabled: ${BUSINESS_ATTRIBUTE_ENTITY_ENABLED:false} # Enables business attribute entity which can be associated with field of dataset
   dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:false} # Enables the Data Contracts feature (Tab) in the UI
   showApplicationsFeatureToggle: ${SHOW_APPLICATIONS_FEATURE_TOGGLE:false} # Shows the "Show Applications" toggle on the Appearance settings page. Applications are deprioritized, so the toggle is hidden by default
-  dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:true} # Enables the Data Contracts feature (Tab) in the UI
   alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false} # Enables alternate MCP validation flow
   themeV2Enabled: ${THEME_V2_ENABLED:true} # Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be false for this to have any effect.
   themeV2Default: ${THEME_V2_DEFAULT:true} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
