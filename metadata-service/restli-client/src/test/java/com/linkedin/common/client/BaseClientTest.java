@@ -33,6 +33,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
@@ -63,6 +64,7 @@ import com.linkedin.restli.client.Response;
 import com.linkedin.restli.client.ResponseFuture;
 import com.linkedin.restli.client.RestLiResponseException;
 import com.linkedin.restli.client.response.BatchKVResponse;
+import com.linkedin.restli.common.ErrorResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -217,25 +219,67 @@ public class BaseClientTest {
     }
   }
 
+  private RestliEntityClient batchIngestClient(int batchIngestSize) {
+    return new RestliEntityClient(
+        mockRestliClient,
+        EntityClientConfig.builder()
+            .backoffPolicy(new ExponentialBackoff(1))
+            .retryCount(2)
+            .batchIngestSize(batchIngestSize)
+            .batchIngestConcurrency(1)
+            .build(),
+        mockMetricUtils);
+  }
+
+  private static RestLiResponseException everyProposalRejected() {
+    return new RestLiResponseException(
+        new ErrorResponse()
+            .setStatus(400)
+            .setMessage(
+                Constants.ALL_PROPOSALS_REJECTED_MESSAGE
+                    + ": urn:li:dataset:(...) status: invalid"));
+  }
+
   @Test
-  public void testBatchIngestProposalsTreatsPartialSuccessAsWritten()
+  public void testBatchIngestProposalsDoesNotReportSkippedProposalsAsWritten()
       throws RemoteInvocationException {
-    // GMS writes the valid proposals of a mixed batch and names the skipped ones after "success".
-    List<MetadataChangeProposal> mcps = createTestMCPs(2);
+    // GMS writes the valid proposals of a mixed batch and names the skipped ones after "success";
+    // the client can't tell which urns were written, so it reports none of that group.
     when(mockRestliClient.sendRequest(any(ActionRequest.class))).thenReturn(mockFuture);
     when(mockFuture.getResponse()).thenReturn(mockResponse);
     when(mockResponse.getEntity()).thenReturn("success; skipped 1 invalid proposal(s): ...");
-    testClient =
-        new RestliEntityClient(
-            mockRestliClient,
-            EntityClientConfig.builder()
-                .backoffPolicy(new ExponentialBackoff(1))
-                .retryCount(0)
-                .batchIngestSize(10)
-                .build(),
-            mockMetricUtils);
 
-    assertEquals(testClient.batchIngestProposals(opContext, mcps, false).size(), 2);
+    assertEquals(
+        batchIngestClient(10).batchIngestProposals(opContext, createTestMCPs(2), false), List.of());
+  }
+
+  @Test
+  public void testBatchIngestProposalsKeepsWrittenGroupsWhenAnotherGroupIsRejected()
+      throws RemoteInvocationException {
+    RestLiResponseException rejected = everyProposalRejected();
+    when(mockRestliClient.sendRequest(any(ActionRequest.class))).thenReturn(mockFuture);
+    when(mockFuture.getResponse()).thenThrow(rejected).thenReturn(mockResponse);
+    when(mockResponse.getEntity()).thenReturn("success");
+
+    List<String> written =
+        batchIngestClient(1).batchIngestProposals(opContext, createTestMCPs(2), false);
+
+    assertEquals(written.size(), 1);
+    // The rejected group is not retried.
+    verify(mockRestliClient, times(2)).sendRequest(any(ActionRequest.class));
+  }
+
+  @Test
+  public void testBatchIngestProposalsFailsWhenEveryGroupIsRejected()
+      throws RemoteInvocationException {
+    RestLiResponseException rejected = everyProposalRejected();
+    when(mockRestliClient.sendRequest(any(ActionRequest.class))).thenReturn(mockFuture);
+    when(mockFuture.getResponse()).thenThrow(rejected);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> batchIngestClient(1).batchIngestProposals(opContext, createTestMCPs(2), false));
+    verify(mockRestliClient, times(2)).sendRequest(any(ActionRequest.class));
   }
 
   @Test

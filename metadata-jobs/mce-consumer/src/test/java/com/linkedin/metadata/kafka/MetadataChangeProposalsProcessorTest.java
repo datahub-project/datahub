@@ -243,6 +243,7 @@ public class MetadataChangeProposalsProcessorTest {
     // Verify error handling
     Throwable validationException = exceptionCaptor.getValue();
     assertTrue(validationException instanceof IllegalArgumentException);
+    assertTrue(validationException.getMessage().contains(entityUrn.toString()));
     verify(mockSpan).recordException(validationException);
     verify(mockSpan).setStatus(StatusCode.ERROR, validationException.getMessage());
   }

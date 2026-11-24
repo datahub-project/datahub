@@ -501,7 +501,7 @@ public class AspectResourceTest {
   }
 
   private static final String INVALID_ORIGIN_URN =
-      "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,CLIENTZ)";
+      "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,NOT_A_FABRIC_TYPE)";
 
   @Test
   public void testInvalidProposalIsBadRequestNotSilentSuccess() throws URISyntaxException {
@@ -517,7 +517,7 @@ public class AspectResourceTest {
     MetadataChangeProposal keyPartsMismatch = new MetadataChangeProposal();
     keyPartsMismatch.setEntityType("assertion");
     keyPartsMismatch.setEntityUrn(
-        com.linkedin.common.urn.UrnUtils.getUrn("urn:li:assertion:(my_assertion,CLIENTZ)"));
+        com.linkedin.common.urn.UrnUtils.getUrn("urn:li:assertion:(my_assertion,NOT_A_FABRIC_TYPE)"));
     keyPartsMismatch.setAspectName(STATUS_ASPECT_NAME);
     keyPartsMismatch.setChangeType(ChangeType.UPSERT);
     keyPartsMismatch.setAspect(GenericRecordUtils.serializeAspect(new com.linkedin.common.Status()));
@@ -536,7 +536,7 @@ public class AspectResourceTest {
 
         for (RestLiServiceException error : List.of(single, batch)) {
           assertEquals(error.getStatus(), HttpStatus.S_400_BAD_REQUEST, error.getMessage());
-          org.testng.Assert.assertTrue(error.getMessage().contains("CLIENTZ"), error.getMessage());
+          org.testng.Assert.assertTrue(error.getMessage().contains("NOT_A_FABRIC_TYPE"), error.getMessage());
         }
       }
     }

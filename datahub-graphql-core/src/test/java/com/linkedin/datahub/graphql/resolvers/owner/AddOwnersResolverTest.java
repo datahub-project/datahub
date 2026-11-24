@@ -91,7 +91,8 @@ public class AddOwnersResolverTest {
   public void testGetFailsWhenTheProposalIsRejected() throws Exception {
     // A urn whose origin is not a FabricType symbol can't be written; the mutation must fail
     // instead of answering true.
-    String invalidEntityUrn = "urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,CLIENTZ)";
+    String invalidEntityUrn =
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,NOT_A_FABRIC_TYPE)";
     EntityService<?> mockService = getMockEntityService();
     stubExistingUrns(
         mockService,

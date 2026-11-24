@@ -10,6 +10,8 @@ import com.linkedin.restli.client.AbstractRequestBuilder;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.Request;
 import com.linkedin.restli.client.Response;
+import com.linkedin.restli.client.RestLiResponseException;
+import com.linkedin.restli.common.HttpStatus;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.Objects;
@@ -100,10 +102,13 @@ public abstract class BaseClient implements AutoCloseable {
                         "exception" + MetricUtils.DELIMITER + ex.getClass().getName().toLowerCase(),
                         1));
 
+        // A 400 is the caller's to fix; sending the same request again can't change the answer.
         final boolean skipRetry =
             NON_RETRYABLE.contains(ex.getClass().getCanonicalName())
                 || (ex.getCause() != null
-                    && NON_RETRYABLE.contains(ex.getCause().getClass().getCanonicalName()));
+                    && NON_RETRYABLE.contains(ex.getCause().getClass().getCanonicalName()))
+                || (ex instanceof RestLiResponseException responseException
+                    && responseException.getStatus() == HttpStatus.S_400_BAD_REQUEST.getCode());
 
         if (attemptCount == entityClientConfig.getRetryCount() || skipRetry) {
           throw ex;

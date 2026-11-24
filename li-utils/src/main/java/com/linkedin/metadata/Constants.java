@@ -685,7 +685,17 @@ public class Constants {
   public static final String READ_ONLY_LOG =
       "DataHub is currently in read only mode and this write will be dropped.";
 
+  /**
+   * Rest.li ingest response. A batch that was written without some of its proposals answers {@code
+   * "success; skipped N invalid proposal(s): ..."}, so clients match on the prefix.
+   */
   public static final String RESTLI_SUCCESS = "success";
+
+  /**
+   * Start of the error (a 400 over Rest.li and OpenAPI) when no proposal of a write could be
+   * accepted. Rest.li clients match on it to tell a rejected batch from other bad requests.
+   */
+  public static final String ALL_PROPOSALS_REJECTED_MESSAGE = "Every proposal was rejected";
 
   // The emit-mode marker is the same system-metadata key/value convention already
   // published by the Python REST emitter (EMIT_MODE_MARKER_KEY /

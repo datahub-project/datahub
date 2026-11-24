@@ -782,7 +782,8 @@ public class AspectsBatchImplTest {
     MetadataChangeProposal valid = datasetStatus("valid");
     MetadataChangeProposal malformedUrn =
         datasetStatus("malformed")
-            .setEntityUrn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,CLIENTZ)"));
+            .setEntityUrn(
+                UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,NOT_A_FABRIC_TYPE)"));
 
     AspectsBatchImpl batch =
         AspectsBatchImpl.builder()
@@ -803,7 +804,8 @@ public class AspectsBatchImplTest {
     // legacy rows) being skipped; only API-facing callers opt into throwIfAllRejected.
     MetadataChangeProposal malformedUrn =
         datasetStatus("malformed")
-            .setEntityUrn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,CLIENTZ)"));
+            .setEntityUrn(
+                UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,NOT_A_FABRIC_TYPE)"));
 
     AspectsBatchImpl batch =
         AspectsBatchImpl.builder()

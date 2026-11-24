@@ -5,6 +5,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -89,7 +90,7 @@ public class AspectsBatchImpl implements AspectsBatch {
   public AspectsBatchImpl throwIfAllRejected() {
     if (nonRepeatedItems.isEmpty() && !getRejectedProposals().isEmpty()) {
       throw new IllegalArgumentException(
-          "Every proposal was rejected: " + describeRejectedProposals());
+          Constants.ALL_PROPOSALS_REJECTED_MESSAGE + ": " + describeRejectedProposals());
     }
     return this;
   }

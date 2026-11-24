@@ -197,8 +197,12 @@ reported success. These now fail with an error that names the write and the reas
 - A Rest.li write for an entity type the server does not know, and a synchronous Rest.li write with
   an unsupported change type, now fail with HTTP 400 instead of HTTP 500.
 
-Ingestion recipes and scripts that were losing these writes without notice will now report them as
-failures. Upgrade and bootstrap jobs are not affected.
+Ingestion recipes and scripts now report a rejected write as a failure when it is sent on its own
+or when every write in its batch is rejected. With the default settings, ingestion sends writes in
+batches, and the Python SDK does not yet read the list of rejected writes in the response. So a
+rejected write that shares a batch with accepted ones is still dropped without a failure in the
+ingestion report; it shows only in the DataHub server log. A follow-up SDK change will report these.
+Upgrade and bootstrap jobs are not affected.
 
 ### Rest.li status codes for rejected writes
 

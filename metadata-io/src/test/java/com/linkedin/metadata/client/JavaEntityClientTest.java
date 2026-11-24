@@ -606,7 +606,8 @@ public class JavaEntityClientTest {
 
   private static MetadataChangeProposal invalidOriginDatasetStatus() {
     return new MetadataChangeProposal()
-        .setEntityUrn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,CLIENTZ)"))
+        .setEntityUrn(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,NOT_A_FABRIC_TYPE)"))
         .setAspectName("status")
         .setEntityType("dataset")
         .setChangeType(ChangeType.UPSERT)

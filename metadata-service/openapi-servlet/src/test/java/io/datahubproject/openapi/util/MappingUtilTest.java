@@ -130,7 +130,9 @@ public class MappingUtilTest {
         () ->
             MappingUtil.ingestBatchProposal(
                 TestOperationContexts.systemContextNoSearchAuthorization(),
-                List.of(datasetStatus("urn:li:dataset:(urn:li:dataPlatform:hive,table,CLIENTZ)")),
+                List.of(
+                    datasetStatus(
+                        "urn:li:dataset:(urn:li:dataPlatform:hive,table,NOT_A_FABRIC_TYPE)")),
                 ACTOR,
                 entityService,
                 false));
@@ -147,7 +149,7 @@ public class MappingUtilTest {
     MappingUtil.ingestBatchProposal(
         TestOperationContexts.systemContextNoSearchAuthorization(),
         List.of(
-            datasetStatus("urn:li:dataset:(urn:li:dataPlatform:hive,table,CLIENTZ)"),
+            datasetStatus("urn:li:dataset:(urn:li:dataPlatform:hive,table,NOT_A_FABRIC_TYPE)"),
             datasetStatus("urn:li:dataset:(urn:li:dataPlatform:hive,table,PROD)")),
         ACTOR,
         entityService,

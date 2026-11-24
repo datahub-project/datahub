@@ -354,7 +354,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         List<IngestResult> results =
                 _entityService.ingestProposal(opContext, batch, asyncBool);
 
-        // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
+        // Clients read this value: RestliEntityClient matches the "success" prefix of a batch
+        // written without some of its proposals. Keep the format.
         if (!batch.getRejectedProposals().isEmpty()) {
           return String.format("%s; skipped %d invalid proposal(s): %s", RESTLI_SUCCESS,
               batch.getRejectedProposals().size(), batch.describeRejectedProposals());
