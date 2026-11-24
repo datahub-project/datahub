@@ -89,7 +89,7 @@ null, so no data is lost, but a query that selects the old shape, such as
 `applications { total relationships { entity { urn } } }`, now fails validation. Select
 `applications { application { urn properties { name } } }` instead.
 
-### Saves during a zero-downtime rollback with unknown-data tolerance on
+### Saves during a zero-downtime rollback with unknown-data tolerance on ([#21569](https://github.com/datahub-project/datahub/pull/21569))
 
 This only applies with unknown-data tolerance on (`UNKNOWN_DATA_TOLERANCE_ENABLED`, off by default;
 see [#20280](https://github.com/datahub-project/datahub/pull/20280)). With it off nothing changes.
