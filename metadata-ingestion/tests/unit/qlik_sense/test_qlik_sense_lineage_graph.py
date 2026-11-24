@@ -2922,6 +2922,38 @@ def test_reload_sql_join_with_a_table_missing_from_datahub_is_not_reported(
             False,
             id="cross apply",
         ),
+        pytest.param(
+            "SELECT * FROM dbo.customers c, /* hint */ order o",
+            False,
+            id="keyword after a block comment",
+        ),
+        pytest.param(
+            "SELECT * FROM dbo.customers c, -- note\n order o",
+            False,
+            id="keyword after a line comment",
+        ),
+        pytest.param(
+            "SELECT * FROM dbo.customers c CROSS /* c */ APPLY dbo.[order] o",
+            False,
+            id="comment inside cross apply",
+        ),
+        pytest.param("INSERT dbo.[order] SELECT 1", False, id="insert without into"),
+        pytest.param(
+            "MERGE dbo.[order] USING dbo.customers c ON 1 = 1",
+            False,
+            id="merge without into",
+        ),
+        pytest.param("DELETE dbo.[order]", False, id="delete without from"),
+        pytest.param(
+            "DELETE FROM dbo.customers WHERE id = 1; INSERT order SELECT 1",
+            False,
+            id="second statement inserts without into",
+        ),
+        pytest.param(
+            "INSERT INTO dbo.customers SELECT id FROM x ORDER BY id",
+            True,
+            id="insert into with order by",
+        ),
     ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")

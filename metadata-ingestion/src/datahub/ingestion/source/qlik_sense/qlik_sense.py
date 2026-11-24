@@ -146,7 +146,6 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     apply_crosstable,
     apply_preceding_loads,
     brackets_to_backticks,
-    connection_lookup_names,
     drop_condition_variables,
     expand_variables,
     expression_names,
@@ -276,6 +275,13 @@ def _lib_connection(connection: str) -> _LibConnection:
     return _LibConnection(
         space=space.strip().strip("[]"), name=name.strip().strip("[]")
     )
+
+
+def _connection_key(lib_connection: _LibConnection) -> str:
+    # How Qlik Cloud's data connection listing keys a connection.
+    if not lib_connection.space:
+        return lib_connection.name
+    return f"{lib_connection.space}{SPACE_SEPARATOR}{lib_connection.name}"
 
 
 def _lib_name(name: str) -> str:
@@ -479,12 +485,15 @@ def _names_identifier(sql: str, name: str) -> bool:
     return re.search(rf"(?<![\w$#@]){re.escape(name)}(?![\w$#@])", sql) is not None
 
 
-# String literals, quoted identifiers, words and single characters.
+# Comments, string literals, quoted identifiers, words and single characters.
 SQL_TOKEN_RE = re.compile(
-    r"'(?:[^']|'')*'?|\[[^\]]*\]?|\"[^\"]*\"?|`[^`]*`?|[\w$#@]+|\S"
+    r"/\*[\s\S]*?(?:\*/|\Z)|--[^\n]*"
+    r"|'(?:[^']|'')*'?|\[[^\]]*\]?|\"[^\"]*\"?|`[^`]*`?|[\w$#@]+|\S"
 )
 # Keywords after which SQL names the tables it reads or writes.
 TABLE_CLAUSE_KEYWORDS = {"from", "join", "into", "using", "update"}
+# SQL Server allows `INSERT t`, `MERGE t` and `DELETE t` without INTO or FROM.
+DML_STATEMENT_KEYWORDS = {"insert", "merge", "delete"}
 # CROSS APPLY and OUTER APPLY start a table list again.
 APPLY_PREFIX_KEYWORDS = {"cross", "outer"}
 # Keywords that end such a list of tables.
@@ -531,8 +540,11 @@ def _table_clause_names(sql: str) -> Set[str]:
     # Right after FROM, a comma or a dot, a keyword such as ORDER is a name.
     expects_name = False
     previous = ""
+    statement_start = True
     stack: List[bool] = []
     for token in SQL_TOKEN_RE.findall(sql):
+        if token.startswith(("/*", "--")):
+            continue
         is_word = re.match(r"[\w$#@]", token) is not None
         opens_clause = False
         if token.startswith("'"):
@@ -549,7 +561,11 @@ def _table_clause_names(sql: str) -> Set[str]:
                 names.add(token.strip(QUOTE_CHARACTERS).strip().lower())
         elif is_word:
             word = token.lower()
-            if in_clause and expects_name:
+            if (statement_start and word in DML_STATEMENT_KEYWORDS) or (
+                previous in DML_STATEMENT_KEYWORDS and word in {"into", "from"}
+            ):
+                in_clause = opens_clause = True
+            elif in_clause and expects_name:
                 names.add(word)
             elif word in TABLE_CLAUSE_KEYWORDS or (
                 word == "apply" and previous in APPLY_PREFIX_KEYWORDS
@@ -561,6 +577,7 @@ def _table_clause_names(sql: str) -> Set[str]:
                 names.add(word)
         expects_name = opens_clause or (in_clause and token in {",", "."})
         previous = token.lower() if is_word else ""
+        statement_start = token == ";"
     return names
 
 
@@ -1980,19 +1997,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self, connection: str, space_id: str
     ) -> Optional[DataConnectionInfo]:
         connections = self._get_data_connections()
+        lib_connection = _lib_connection(connection)
         space_name = self.qlik_api.spaces.get(space_id)
-        if (
-            self.config.on_prem is None
-            and space_name
-            and SPACE_SEPARATOR not in connection
-        ):
+        if self.config.on_prem is None and space_name and not lib_connection.space:
             # Qlik Cloud looks a bare name up in the app's own space only. A
             # same-named connection elsewhere may point at another database
             # when the app's own one is not visible to the API key.
             return _get_ignoring_case(
-                connections, f"{space_name}{SPACE_SEPARATOR}{connection}"
+                connections, f"{space_name}{SPACE_SEPARATOR}{lib_connection.name}"
             )
-        return _get_ignoring_case(connections, connection)
+        return _get_ignoring_case(connections, _connection_key(lib_connection))
 
     def _mapped_connection(
         self, connection: str, space_id: str, mapping: Dict[str, MappingT]
@@ -2001,14 +2015,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         Qlik Cloud a bare name is the app's own space's connection, so an
         entry keyed `<space>:<connection>` matches it first; a bare key
         matches the connection in any space."""
-        names = connection_lookup_names(connection)
+        lib_connection = _lib_connection(connection)
+        # As the script spells it, then as Qlik lists it, without brackets.
+        names = list(
+            dict.fromkeys(
+                [connection, _connection_key(lib_connection), lib_connection.name]
+            )
+        )
         space_name = self.qlik_api.spaces.get(space_id)
-        if (
-            self.config.on_prem is None
-            and space_name
-            and SPACE_SEPARATOR not in connection
-        ):
-            names.insert(0, f"{space_name}{SPACE_SEPARATOR}{connection}")
+        if self.config.on_prem is None and space_name and not lib_connection.space:
+            names.insert(0, f"{space_name}{SPACE_SEPARATOR}{lib_connection.name}")
         return next(
             (
                 entry
@@ -2886,16 +2902,21 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             storage, detail = self._file_storage(store.file.connection, app.spaceId)
             if storage is None:
-                info = self._find_data_connection(store.file.connection, app.spaceId)
-                if (info is not None and info.file_platform is None) or _is_data_files(
-                    store.file.connection
-                ):
-                    # Not a file connection, so it has no storage to map.
+                if _is_data_files(store.file.connection):
                     continue
-                # Its file may be a storage file the app stored into before.
-                complete = False
+                info = self._find_data_connection(store.file.connection, app.spaceId)
+                # A visible connection of another connector, such as SFTP, has
+                # no storage to map; its file is named by connection and path,
+                # as its readers' lineage graphs name it.
+                listed_without_storage = info is not None and info.file_platform is None
+                if not listed_without_storage:
+                    # Its file may be a storage file the app stored into before.
+                    complete = False
                 unmapped_urn = self._unmapped_storage_file_urn(
-                    store.file.connection, store.file.path, app.spaceId
+                    store.file.connection,
+                    store.file.path,
+                    app.spaceId,
+                    report=not listed_without_storage,
                 )
                 if unmapped_urn is not None:
                     file_urns[index] = unmapped_urn

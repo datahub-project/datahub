@@ -582,7 +582,8 @@ def _strip_comments(script: str, expression: bool = False) -> str:
             # in its path, as in O'Brien.qvs, opens no quote.
             kept.extend(include.group(0))
             i = include.end()
-            statement_start = False
+            # An include is a whole statement and often has no semicolon.
+            statement_start = True
             continue
         # A REM comment runs to the next semicolon, and an apostrophe in it
         # does not open a quote.
@@ -2193,12 +2194,6 @@ def app_table_identifier(app_id: str, table_name: str) -> str:
     """The dataset name of an app's table, however the table was found: its
     URN must not change between a script, data model and lineage graph read."""
     return f"{app_id}.{table_name}".lower()
-
-
-def connection_lookup_names(name: str) -> List[str]:
-    # Qlik Cloud scripts reference connections as `<space>:<connection>`.
-    short_name = name.rsplit(SPACE_SEPARATOR, 1)[-1]
-    return [name] if short_name == name else [name, short_name]
 
 
 def brackets_to_backticks(sql: str) -> str:
