@@ -141,7 +141,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                         display: 'flex',
                         alignItems: 'center',
                     }}
-                    data-testid={`${option.isParent ? 'parent' : 'child'}-option-${option.value}`}
+                    data-testid={`${option.isParent ? 'parent' : 'child'}-option-${option.testId ?? option.value}`}
                 >
                     {option.isParent ? (
                         <CaretSlot
