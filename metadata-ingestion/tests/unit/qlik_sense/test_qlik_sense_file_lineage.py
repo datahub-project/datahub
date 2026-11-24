@@ -1634,3 +1634,21 @@ def test_commented_include_is_not_read_into_the_script(commented: str) -> None:
     files = {"lib://Common:DataFiles/loads.qvs": "Rates: LOAD * FROM [lib://L/r.csv];"}
     parsed = parse_script(inline_includes(commented, {}, files.get))
     assert not parsed.file_loads
+
+
+def test_include_path_from_a_constructed_varying_variable_is_not_read() -> None:
+    # `$(v$(vSuffix))` reads `vF` once `vSuffix` expands, and the script sets
+    # `vF` in a branch, so the reload's value need not be the one left.
+    script = (
+        "IF vRegion = 'EU' THEN\nSET vF = 'lib://S:DataFiles/a.qvs';\nEND IF\n"
+        "$(Include=$(v$(vSuffix)));"
+    )
+    inlined = inline_includes(
+        script,
+        {"vSuffix": "F", "vF": "'lib://S:DataFiles/b.qvs'"},
+        _INCLUDED_LOADS.get,
+    )
+    parsed = parse_script(inlined)
+
+    assert parsed.file_loads == []
+    assert parsed.has_includes
