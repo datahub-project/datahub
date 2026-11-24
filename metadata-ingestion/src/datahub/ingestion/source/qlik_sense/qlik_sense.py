@@ -436,6 +436,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # and those that lineage links to, which get a dataset.
         self._unmapped_files: Dict[str, str] = {}
         self._linked_unmapped_files: Set[str] = set()
+        # Entities of apps whose last read is kept this run, unchanged or partly
+        # read, which still hold the unmapped files they linked.
+        self._kept_app_urns: Set[str] = set()
         # The tables each app stores into such a file, linked at the end of
         # the run only if some app's lineage graph reads the file, as a STORE
         # in the script may never run.
@@ -692,6 +695,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._apps_qvds_unknown[app_id] = "it has no last read to keep"
             return None
         self._app_urns.setdefault(app_id, set()).update(previous.urns)
+        self._kept_app_urns.update(previous.urns)
         if previous.data_model_fields is not None:
             self._app_model_fields[app_id] = previous.data_model_fields
         if previous.qvds is None:
@@ -3093,12 +3097,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._gen_lib_path_location(urn, path)
 
     def _ingested_space_id(self, name: str) -> Optional[str]:
+        # Qlik resolves `lib://` space names regardless of case, so a space is
+        # matched that way, and only when no other space shares the name.
         ids = [
             space_id
             for space_id, space_name in self.qlik_api.spaces.items()
-            if space_id in self._allowed_space_ids and space_name == name
+            if space_name.lower() == name.lower()
         ]
-        return ids[0] if len(ids) == 1 else None
+        if len(ids) != 1 or ids[0] not in self._allowed_space_ids:
+            return None
+        return ids[0]
 
     def _gen_lib_path_location(self, urn: str, path: str) -> Iterable[MetadataWorkUnit]:
         """Places a file named by its `lib://<space>:<connection>/<path>` in its
@@ -3135,6 +3143,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
     def _gen_unmapped_file_entities(self) -> Iterable[MetadataWorkUnit]:
+        # A reader whose last read is kept linked the file then, and its kept
+        # entities hold the file this run.
+        self._linked_unmapped_files.update(
+            urn for urn in self._unmapped_file_stores if urn in self._kept_app_urns
+        )
         for file_urn, stores in sorted(self._unmapped_file_stores.items()):
             if file_urn not in self._linked_unmapped_files:
                 self.reporter.unread_stored_files.append(self._unmapped_files[file_urn])
