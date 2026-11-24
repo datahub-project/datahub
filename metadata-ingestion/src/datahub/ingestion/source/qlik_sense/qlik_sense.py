@@ -2161,8 +2161,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             table_urn = self._stored_table_urn(app, store.label, table_urns)
             # A table the app doesn't ingest, such as one a script variable
-            # names, has no dataset to link.
+            # names, has no dataset to link, and may be one the file's
+            # existing edges come from.
             if table_urn is None:
+                complete = False
                 continue
             write = QvdWrite(
                 table_urn=table_urn,
@@ -2250,6 +2252,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 context=app_id,
                 exc=e,
             )
+            return None
+        if last_apps is None:
             return None
         for other, checkpoint in last_apps.items():
             if other != app_id:
