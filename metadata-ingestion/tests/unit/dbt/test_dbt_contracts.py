@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -1171,6 +1172,54 @@ def test_run_results_without_command_warns_when_contracts_enabled() -> None:
     assert any(
         w.title == "run_results without a dbt command" for w in source.report.warnings
     )
+
+
+_RUN_RESULTS_PASSWORD = "my_password"
+_RUN_RESULTS_SIGNATURE = "my_signature"
+_CREDENTIALED_RUN_RESULTS_URL = (
+    f"https://my_user:{_RUN_RESULTS_PASSWORD}@host.example/dbt/run_results.json"
+    f"?X-Amz-Signature={_RUN_RESULTS_SIGNATURE}"
+)
+
+
+@pytest.mark.parametrize(
+    "multi_project, load_fails",
+    [
+        pytest.param(False, False, id="run_results_without_a_dbt_command"),
+        pytest.param(True, True, id="failed_to_load_run_results_file"),
+    ],
+)
+def test_run_results_report_entries_omit_url_credentials(
+    multi_project: bool, load_fails: bool, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Basic-auth credentials and a presigned query in a run_results URL are kept
+    out of the report and the log, which still name the host and path."""
+    fixture = json.loads(
+        (
+            Path(__file__).parent / "artifacts" / "run_results_contract_preflight.json"
+        ).read_text()
+    )
+    del fixture["args"]
+    source = _make_source()
+    load_json = mock.patch.object(
+        source._artifacts,
+        "load_json",
+        side_effect=ValueError("unreadable") if load_fails else None,
+        return_value=fixture,
+    )
+    with load_json, caplog.at_level(logging.WARNING):
+        source._load_run_results_files(
+            [_CREDENTIALED_RUN_RESULTS_URL],
+            None,
+            [_make_model()],
+            multi_project=multi_project,
+        )
+
+    (warning,) = source.report.warnings
+    for text in [" ".join(warning.context), caplog.text]:
+        assert "https://host.example/dbt/run_results.json" in text
+        assert _RUN_RESULTS_PASSWORD not in text
+        assert _RUN_RESULTS_SIGNATURE not in text
 
 
 def test_inferred_timing_is_not_emitted_as_process_run() -> None:

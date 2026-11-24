@@ -1668,7 +1668,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                         message="The run_results file does not record which dbt "
                         "command produced it (args.which), so its model results "
                         "produce no contract run events.",
-                        context=run_results_path,
+                        context=redact_url_query(run_results_path),
                     )
             except MemoryError:
                 raise
@@ -1680,7 +1680,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     title="Failed to load run_results file",
                     message="This project is ingested without the test results "
                     "and model performance from this file.",
-                    context=run_results_path,
+                    context=redact_url_query(run_results_path),
                     exc=e,
                 )
 
