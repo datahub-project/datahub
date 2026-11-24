@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.utils;
 
+import com.linkedin.common.FabricTypeNames;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.Constants;
@@ -43,7 +44,11 @@ public class BrowsePathUtils {
                     dsKey.getPlatform(),
                     getKeyAspectSpec(dsKey.getPlatform().getEntityType(), entityRegistry));
         String datasetNamePath = getDatasetPath(dsKey.getName(), dataPlatformDelimiter);
-        return ("/" + dsKey.getOrigin() + "/" + dpKey.getPlatformName() + datasetNamePath)
+        return ("/"
+                + FabricTypeNames.get(dsKey, "origin")
+                + "/"
+                + dpKey.getPlatformName()
+                + datasetNamePath)
             .toLowerCase();
       case Constants.CHART_ENTITY_NAME:
         ChartKey chartKey =
@@ -157,7 +162,12 @@ public class BrowsePathUtils {
                 EntityKeyUtils.convertUrnToEntityKey(
                     dsKey.getPlatform(),
                     getKeyAspectSpec(dsKey.getPlatform().getEntityType(), entityRegistry));
-        return ("/" + dsKey.getOrigin() + "/" + dpKey.getPlatformName() + "/" + dsKey.getName())
+        return ("/"
+                + FabricTypeNames.get(dsKey, "origin")
+                + "/"
+                + dpKey.getPlatformName()
+                + "/"
+                + dsKey.getName())
             .replace('.', '/')
             .toLowerCase();
       case "chart":
