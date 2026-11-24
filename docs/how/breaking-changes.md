@@ -157,8 +157,8 @@ preconditions, matching OpenAPI. Clients that retried these 500s will now get th
 
 A synchronous single-aspect POST to OpenAPI v3 that is skipped by a conditional header, such as
 `If-None-Match: *` when the aspect already exists, now returns 204 instead of 404. On OpenAPI v1 and
-v2, a proposal that GMS can't accept, such as one with an unsupported change type, now returns 400
-instead of 500. Clients that retried these 500s will now get the error straight away.
+v2, a proposal that GMS can't accept now returns 400, or 422 if it fails validation (for example, an
+unknown aspect), instead of 500. Clients that retried these 500s will now get the error straight away.
 
 ### Shipped search templates rerank keyword search and add a semantic template
 
