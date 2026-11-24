@@ -2464,7 +2464,7 @@ def test_reload_sql_join_maps_only_columns_of_the_graph_source(
 
 
 @pytest.mark.parametrize(
-    "statements, source_qri, unresolved",
+    "statements, source_qri, unresolved, ambiguous",
     [
         pytest.param(
             [
@@ -2473,13 +2473,44 @@ def test_reload_sql_join_maps_only_columns_of_the_graph_source(
             ],
             ORDERS_DB_TABLE,
             [],
+            True,
             id="two databases",
+        ),
+        pytest.param(
+            # The unread statement may read the label's table in another
+            # database.
+            [
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders"),
+                _sql("Finance:Unknown", "SELECT * FROM dbo.orders"),
+            ],
+            ORDERS_DB_TABLE,
+            ["etl-app: Finance:Unknown"],
+            True,
+            id="also named by unresolved SQL",
+        ),
+        pytest.param(
+            [
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders"),
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders_$(vYear)"),
+            ],
+            ORDERS_DB_TABLE,
+            [],
+            True,
+            id="also named by SQL with an unset variable",
         ),
         pytest.param(
             [_sql("Finance:Sales", "SELECT * FROM dbo.orders")],
             "qri:db:databricks://Hash#Orders",
             [],
+            False,
             id="other platform",
+        ),
+        pytest.param(
+            [_sql("Finance:Sales", "SELECT * FROM dbo.orders")],
+            "qri:db:odbc://Hash#Orders",
+            [],
+            False,
+            id="scheme of no known platform",
         ),
         pytest.param(
             [
@@ -2488,12 +2519,14 @@ def test_reload_sql_join_maps_only_columns_of_the_graph_source(
             ],
             ORDERS_DB_TABLE,
             ["etl-app: Finance:Unknown"],
+            False,
             id="unresolved connection",
         ),
         pytest.param(
             [_sql("Finance:Sales", "SELECT * FROM sales.orders")],
             ORDERS_DB_TABLE,
             [],
+            False,
             id="other schema",
         ),
     ],
@@ -2504,6 +2537,7 @@ def test_graph_database_table_links_only_one_matching_reload_table(
     statements: List[ReloadStatement],
     source_qri: str,
     unresolved: List[str],
+    ambiguous: bool,
 ) -> None:
     source = _reload_source(mock_api_cls, _reload_app(statements, source_qri))
 
@@ -2512,9 +2546,7 @@ def test_graph_database_table_links_only_one_matching_reload_table(
     assert written == {_urn("etl-app.orders"): []}
     assert not added
     assert list(source.reporter.unresolved_data_connections) == unresolved
-    assert bool(source.reporter.ambiguous_reload_sql_sources) is (
-        len(statements) == 2 and not unresolved
-    )
+    assert bool(source.reporter.ambiguous_reload_sql_sources) is ambiguous
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -2526,6 +2558,39 @@ def test_unread_reload_sql_only_adds_to_table_lineage(
     written, _ = _lineage(source.get_workunits_internal())
 
     # The edges an earlier run read from the reload SQL must stay.
+    assert _urn("etl-app.orders") not in written
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_reload_sql_keeps_the_graph_fields_it_does_not_select(
+    mock_api_cls: MagicMock,
+) -> None:
+    app = _reload_app([_sql("Finance:Sales", "SELECT order_id FROM dbo.orders")])
+    source = _reload_source(mock_api_cls, app)
+
+    [schema] = [
+        aspect
+        for wu in source.get_workunits_internal()
+        if wu.get_urn() == _urn("etl-app.orders")
+        for aspect in [wu.get_aspect_of_type(SchemaMetadataClass)]
+        if aspect
+    ]
+
+    # The app has no data model, so the graph's fields are the table's.
+    assert sorted(field.fieldPath for field in schema.fields) == ["Amount", "ORDER_ID"]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unlabelled_database_source_only_adds_to_table_lineage(
+    mock_api_cls: MagicMock,
+) -> None:
+    app = _reload_app([_sql("Finance:Sales", "SELECT * FROM dbo.orders")])
+    # The upstream graph gave no label for the database table this run.
+    app.lineage_tables[0].database_source_labels = {}
+    source = _reload_source(mock_api_cls, app)
+
+    written, _ = _lineage(source.get_workunits_internal())
+
     assert _urn("etl-app.orders") not in written
 
 
