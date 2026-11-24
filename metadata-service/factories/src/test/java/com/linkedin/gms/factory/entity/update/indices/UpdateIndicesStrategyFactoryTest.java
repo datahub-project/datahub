@@ -15,6 +15,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSea
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
+import com.linkedin.metadata.search.semantic.profile.SemanticVectorGate;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -72,7 +73,8 @@ public class UpdateIndicesStrategyFactoryTest {
                 searchClusterRegistry,
                 null,
                 mock(StructuredPropertyMappingCache.class),
-                List.of());
+                List.of(),
+                SemanticVectorGate.from(null));
 
     OperationContext opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(new PartialNgramEntityRegistry());

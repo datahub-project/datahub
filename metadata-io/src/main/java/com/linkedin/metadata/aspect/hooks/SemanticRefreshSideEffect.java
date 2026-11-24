@@ -23,6 +23,7 @@ import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.search.semantic.profile.ContentBinding;
 import com.linkedin.metadata.search.semantic.profile.SemanticProfileRefresh;
 import com.linkedin.metadata.search.semantic.profile.SemanticProfileRegistry;
+import com.linkedin.metadata.search.semantic.profile.SemanticVectorGate;
 import com.linkedin.mxe.SystemMetadata;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -47,6 +48,10 @@ import lombok.experimental.Accessors;
  * never creates the aspect or the entity. It goes through the normal proposal produce path: the
  * source write's response waits until the proposal is queued, and a failed send fails that
  * response. {@link SemanticRefreshMarkerHook} then decides {@code current} on the marker write.
+ *
+ * <p>With a {@link SemanticVectorGate} set, an entity type the gate does not accept gets no marker.
+ * The write validator would reject the patch, and the index holds no profile for the marker to
+ * follow.
  */
 @Setter
 @Getter
@@ -55,6 +60,7 @@ public class SemanticRefreshSideEffect extends MCPSideEffect {
 
   @Nonnull private AspectPluginConfig config;
   @Nonnull private SemanticProfileRegistry registry;
+  @Nullable private SemanticVectorGate gate;
 
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
@@ -94,6 +100,14 @@ public class SemanticRefreshSideEffect extends MCPSideEffect {
       @Nonnull Urn urn,
       @Nonnull List<MCLItem> sources,
       @Nonnull RetrieverContext retrieverContext) {
+    if (gate != null
+        && !gate.isEntityEligible(
+            retrieverContext
+                .getAspectRetriever()
+                .getEntityRegistry()
+                .getEntitySpec(urn.getEntityType()))) {
+      return null;
+    }
     Aspect stored =
         retrieverContext
             .getAspectRetriever()

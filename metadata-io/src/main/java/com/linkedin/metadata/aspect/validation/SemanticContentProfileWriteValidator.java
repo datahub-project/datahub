@@ -18,12 +18,16 @@ import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.semantic.profile.SemanticProfileRegistry;
+import com.linkedin.metadata.search.semantic.profile.SemanticVectorGate;
+import com.linkedin.metadata.search.semantic.profile.SemanticVectorGate.Rejection;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -45,10 +49,11 @@ public class SemanticContentProfileWriteValidator extends AspectPayloadValidator
 
   @Nonnull private AspectPluginConfig config;
   @Nonnull private SemanticProfileRegistry registry;
+  @Nonnull private SemanticVectorGate gate;
 
   /**
-   * The Search V3 projector drops a profile whose model is not configured, so storing one leaves
-   * vectors the index never receives. V2-only deployments keep accepting any key.
+   * The Search V3 projector applies the same gate, so storing a vector it would drop leaves a
+   * vector the index never receives. V2-only deployments keep accepting any key.
    */
   private boolean requireConfiguredProfiles;
 
@@ -76,7 +81,9 @@ public class SemanticContentProfileWriteValidator extends AspectPayloadValidator
       boolean delete,
       boolean apply,
       boolean requireConfigured,
-      @Nonnull SemanticProfileRegistry registry) {
+      @Nonnull SemanticProfileRegistry registry,
+      @Nonnull SemanticVectorGate gate,
+      @Nonnull EntitySpec entitySpec) {
     Set<String> messages = new HashSet<>();
     if (proposed != null && proposed.hasEmbeddings()) {
       proposed
@@ -84,7 +91,7 @@ public class SemanticContentProfileWriteValidator extends AspectPayloadValidator
           .forEach((key, profile) -> messages.addAll(stateMessages(key, profile)));
     }
     if (requireConfigured && !delete) {
-      messages.addAll(unconfiguredMessages(entityType, previous, proposed, registry));
+      messages.addAll(gateMessages(entitySpec, previous, proposed, gate));
     }
     if (!registry.generationEnabled() || apply) {
       return messages;
@@ -112,28 +119,77 @@ public class SemanticContentProfileWriteValidator extends AspectPayloadValidator
   }
 
   /**
-   * A retired model's profile stays stored, and a source edit or refresh marker still touches it,
-   * so only adding the key or changing its vectors is rejected. Removing it is allowed.
+   * Adding a profile, or changing its vectors, is rejected when the gate would not send it to the
+   * index. A profile that is already stored stays: a retired model's profile still takes source
+   * edits and refresh markers, so only its vectors are frozen. On an entity type that is not
+   * enabled the markers are frozen too, because the index holds no profile for it to follow.
+   * Removing a profile is always allowed.
    */
   @Nonnull
-  private static Set<String> unconfiguredMessages(
-      @Nonnull String entityType,
+  private static Set<String> gateMessages(
+      @Nonnull EntitySpec entitySpec,
       @Nullable SemanticContent previous,
       @Nullable SemanticContent proposed,
-      @Nonnull SemanticProfileRegistry registry) {
+      @Nonnull SemanticVectorGate gate) {
     Set<String> messages = new HashSet<>();
+    boolean eligible = gate.isEntityEligible(entitySpec);
     for (String key : keys(proposed)) {
-      if (registry.isConfigured(entityType, key)) {
+      EmbeddingModelData profile = proposed.getEmbeddings().get(key);
+      EmbeddingModelData before =
+          keys(previous).contains(key) ? previous.getEmbeddings().get(key) : null;
+      boolean changed =
+          before == null
+              || vectorsChanged(before, profile)
+              || (!eligible && markersChanged(before, profile));
+      if (!changed) {
         continue;
       }
-      if (!keys(previous).contains(key)) {
-        messages.add("profile " + key + " is not configured in semanticSearch.models");
-      } else if (vectorsChanged(
-          previous.getEmbeddings().get(key), proposed.getEmbeddings().get(key))) {
-        messages.add("profile " + key + " is not configured; its vectors cannot change");
+      Rejection rejection = gate.reject(entitySpec, key, vectorSizes(profile)).orElse(null);
+      if (rejection != null) {
+        messages.add(describe(key, rejection));
       }
     }
     return messages;
+  }
+
+  @Nonnull
+  private static String describe(@Nonnull String key, @Nonnull Rejection rejection) {
+    switch (rejection) {
+      case ENTITY_NOT_ENABLED:
+        return "profile "
+            + key
+            + " cannot be written: semantic search is not enabled for the entity";
+      case MODEL_NOT_CONFIGURED:
+        return "profile "
+            + key
+            + " cannot be written: it is not configured in semanticSearch.models";
+      default:
+        return "profile "
+            + key
+            + " cannot be written: a vector does not match the configured dimension";
+    }
+  }
+
+  @Nonnull
+  private static IntStream vectorSizes(@Nonnull EmbeddingModelData profile) {
+    List<EmbeddingChunk> chunks = profile.getChunks(GetMode.NULL);
+    if (chunks == null) {
+      return IntStream.empty();
+    }
+    return chunks.stream()
+        .mapToInt(
+            chunk ->
+                chunk == null || chunk.getVector(GetMode.NULL) == null
+                    ? 0
+                    : chunk.getVector().size());
+  }
+
+  private static boolean markersChanged(
+      @Nonnull EmbeddingModelData before, @Nonnull EmbeddingModelData after) {
+    return !Objects.equals(before.isCurrent(GetMode.NULL), after.isCurrent(GetMode.NULL))
+        || !Objects.equals(before.isDirty(GetMode.NULL), after.isDirty(GetMode.NULL))
+        || !Objects.equals(
+            before.getRefreshMarker(GetMode.NULL), after.getRefreshMarker(GetMode.NULL));
   }
 
   @Nonnull
@@ -266,7 +322,9 @@ public class SemanticContentProfileWriteValidator extends AspectPayloadValidator
             item.getChangeType() == ChangeType.DELETE,
             isApply(item),
             requireConfiguredProfiles,
-            registry)
+            registry,
+            gate,
+            item.getEntitySpec())
         .stream()
         .map(message -> AspectValidationException.forItem(item, message));
   }

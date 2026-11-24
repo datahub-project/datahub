@@ -89,6 +89,7 @@ import com.linkedin.metadata.search.semantic.profile.AlwaysEligible;
 import com.linkedin.metadata.search.semantic.profile.ConfiguredSemanticProfileRegistry;
 import com.linkedin.metadata.search.semantic.profile.SemanticProfileEligibility;
 import com.linkedin.metadata.search.semantic.profile.SemanticProfileRegistry;
+import com.linkedin.metadata.search.semantic.profile.SemanticVectorGate;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect;
 import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesAssignmentMutator;
@@ -1429,6 +1430,16 @@ public class SpringStandardPluginConfiguration {
     return new ConfiguredSemanticProfileRegistry(semanticSearch(configProvider));
   }
 
+  /**
+   * The one vector rule. The write validator, the side effect and the Search V3 index writer all
+   * take this bean, so SQL and the index accept the same vectors.
+   */
+  @Bean
+  @ConditionalOnMissingBean(SemanticVectorGate.class)
+  public SemanticVectorGate semanticVectorGate(ConfigurationProvider configProvider) {
+    return SemanticVectorGate.from(semanticSearch(configProvider));
+  }
+
   @Bean
   @ConditionalOnMissingBean(SemanticProfileEligibility.class)
   public SemanticProfileEligibility semanticProfileEligibility() {
@@ -1455,7 +1466,9 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   public MCPSideEffect semanticRefreshSideEffect(
-      SemanticProfileRegistry registry, ConfigurationProvider configProvider) {
+      SemanticProfileRegistry registry,
+      SemanticVectorGate gate,
+      ConfigurationProvider configProvider) {
     List<AspectPluginConfig.EntityAspectName> supported = new ArrayList<>();
     for (String aspect : semanticSourceAspects(semanticSearch(configProvider))) {
       supported.add(
@@ -1463,6 +1476,7 @@ public class SpringStandardPluginConfiguration {
     }
     return new SemanticRefreshSideEffect()
         .setRegistry(registry)
+        .setGate(searchV3Enabled(configProvider) ? gate : null)
         .setConfig(
             AspectPluginConfig.builder()
                 .className(SemanticRefreshSideEffect.class.getName())
@@ -1500,9 +1514,12 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   public AspectPayloadValidator semanticContentProfileWriteValidator(
-      SemanticProfileRegistry registry, ConfigurationProvider configProvider) {
+      SemanticProfileRegistry registry,
+      SemanticVectorGate gate,
+      ConfigurationProvider configProvider) {
     return new SemanticContentProfileWriteValidator()
         .setRegistry(registry)
+        .setGate(gate)
         .setRequireConfiguredProfiles(searchV3Enabled(configProvider))
         .setConfig(
             AspectPluginConfig.builder()

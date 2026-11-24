@@ -76,6 +76,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.search.semantic.profile.SemanticVectorGate;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
@@ -3404,7 +3405,7 @@ public class UpdateIndicesV3StrategyTest {
             .searchDocumentTransformer(searchDocumentTransformer)
             .timeseriesAspectService(timeseriesAspectService)
             .vectorProjectionEnabled(true)
-            .expectedVectorDimensions(Map.of("cohere_embed_v3", 3))
+            .semanticVectorGate(new SemanticVectorGate(Set.of(), Map.of("cohere_embed_v3", 3)))
             .build();
     when(mockEntitySpec.getSearchGroup()).thenReturn("primary");
     when(mockEntitySpec.getAspectSpecs()).thenReturn(List.of(mockAspectSpec, storedAspectSpec));
@@ -5254,7 +5255,6 @@ public class UpdateIndicesV3StrategyTest {
             .searchDocumentTransformer(searchDocumentTransformer)
             .timeseriesAspectService(timeseriesAspectService)
             .v2Enabled(false)
-            .expectedVectorDimensions(Map.of())
             .entityDocumentIdHasher(new Sha256UrnEntityDocumentIdHasher())
             .documentContributors(List.of())
             .semanticSearchConfiguration(semanticConfig)
@@ -5338,7 +5338,6 @@ public class UpdateIndicesV3StrategyTest {
             .searchDocumentTransformer(searchDocumentTransformer)
             .timeseriesAspectService(timeseriesAspectService)
             .v2Enabled(false)
-            .expectedVectorDimensions(Map.of())
             .entityDocumentIdHasher(new Sha256UrnEntityDocumentIdHasher())
             .documentContributors(List.of())
             .semanticSearchConfiguration(semanticConfig)
@@ -5386,7 +5385,6 @@ public class UpdateIndicesV3StrategyTest {
             .searchDocumentTransformer(searchDocumentTransformer)
             .timeseriesAspectService(timeseriesAspectService)
             .v2Enabled(false)
-            .expectedVectorDimensions(Map.of())
             .entityDocumentIdHasher(new Sha256UrnEntityDocumentIdHasher())
             .documentContributors(List.of())
             .semanticSearchConfiguration(semanticConfig)
@@ -6016,7 +6014,6 @@ public class UpdateIndicesV3StrategyTest {
             .searchDocumentTransformer(searchDocumentTransformer)
             .timeseriesAspectService(timeseriesAspectService)
             .v2Enabled(false)
-            .expectedVectorDimensions(Map.of())
             .entityDocumentIdHasher(new Sha256UrnEntityDocumentIdHasher())
             .documentContributors(List.of())
             .semanticSearchConfiguration(semanticConfig)

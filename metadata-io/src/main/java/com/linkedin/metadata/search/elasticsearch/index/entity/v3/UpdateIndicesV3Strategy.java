@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappin
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.search.semantic.profile.SemanticVectorGate;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
@@ -171,7 +172,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
       @Nullable SearchClientShim<?> searchClientShim,
       final boolean vectorProjectionEnabled,
-      @Nonnull Map<String, Integer> expectedVectorDimensions,
+      @Nullable SemanticVectorGate semanticVectorGate,
       @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
       @Nullable List<V3SearchDocumentContributor> documentContributors,
       @Nullable SemanticSearchConfiguration semanticSearchConfiguration,
@@ -184,10 +185,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         new V3SearchDocumentProjector(
             searchDocumentTransformer,
             vectorProjectionEnabled,
-            expectedVectorDimensions == null || expectedVectorDimensions.isEmpty()
-                ? configuredVectorDimensions(semanticSearchConfiguration)
-                : expectedVectorDimensions,
-            semanticEntityNames(semanticSearchConfiguration));
+            semanticVectorGate != null
+                ? semanticVectorGate
+                : SemanticVectorGate.from(semanticSearchConfiguration));
     this.indexOnlyFieldMerger = new V3IndexOnlyFieldMerger();
     this.timeseriesAspectService = timeseriesAspectService;
     this.timeseriesThrottleCache = timeseriesThrottleCache;
@@ -215,34 +215,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     } catch (IOException e) {
       throw new RuntimeException("Failed to initialize V3 mappings builder", e);
     }
-  }
-
-  /**
-   * Dimensions for the configured models. A model missing from this map is treated as retired and
-   * its vectors are dropped, so fall back to the semantic configuration rather than drop every
-   * vector when a caller supplies that configuration alone.
-   */
-  @Nonnull
-  private static Map<String, Integer> configuredVectorDimensions(
-      @Nullable SemanticSearchConfiguration semanticSearchConfiguration) {
-    if (semanticSearchConfiguration == null || semanticSearchConfiguration.getModels() == null) {
-      return Map.of();
-    }
-    return semanticSearchConfiguration.getModels().entrySet().stream()
-        .filter(entry -> entry.getValue() != null)
-        .collect(
-            Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getVectorDimension()));
-  }
-
-  @Nonnull
-  private static Set<String> semanticEntityNames(
-      @Nullable SemanticSearchConfiguration semanticSearchConfiguration) {
-    if (semanticSearchConfiguration == null
-        || !semanticSearchConfiguration.isEnabled()
-        || semanticSearchConfiguration.getEnabledEntities() == null) {
-      return Set.of();
-    }
-    return Set.copyOf(semanticSearchConfiguration.getEnabledEntities());
   }
 
   @Override

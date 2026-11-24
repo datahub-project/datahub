@@ -1,5 +1,7 @@
 package com.linkedin.metadata.aspect.validation;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -13,9 +15,12 @@ import com.linkedin.common.SemanticWorkState;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.FloatArray;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.semantic.profile.ContentBinding;
 import com.linkedin.metadata.search.semantic.profile.SemanticProfileRegistry;
+import com.linkedin.metadata.search.semantic.profile.SemanticVectorGate;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.testng.annotations.Test;
 
@@ -141,6 +146,67 @@ public class SemanticContentProfileWriteValidatorTest {
   }
 
   @Test
+  public void testAVectorWithTheWrongDimensionIsRejected() {
+    EmbeddingModelData wide = profileWithVector(0.1f, 0.2f);
+
+    assertFalse(
+        gatedMessages(null, content("svc", wide), false, false, true, false, entity(true))
+            .isEmpty());
+  }
+
+  @Test
+  public void testAProfileOnAnEntityThatIsNotEnabledCannotBeAddedOrChanged() {
+    EntitySpec disabled = entity(false);
+
+    assertFalse(
+        gatedMessages(null, content("svc", profile(true)), false, false, true, false, disabled)
+            .isEmpty());
+    assertFalse(
+        gatedMessages(
+                content("svc", profile(false)),
+                content("svc", profile(true)),
+                false,
+                false,
+                true,
+                false,
+                disabled)
+            .isEmpty());
+  }
+
+  @Test
+  public void testAStoredProfileOnADisabledEntityCannotTakeMarkerChanges() {
+    assertFalse(
+        gatedMessages(
+                content("svc", profile(true)),
+                content("svc", profile(true).setCurrent(false)),
+                false,
+                false,
+                true,
+                false,
+                entity(false))
+            .isEmpty());
+  }
+
+  @Test
+  public void testAProfileOnADisabledEntityCanBeRemovedOrDeleted() {
+    EntitySpec disabled = entity(false);
+
+    assertTrue(
+        gatedMessages(
+                content("svc", profile(true)),
+                new SemanticContent(),
+                false,
+                false,
+                true,
+                false,
+                disabled)
+            .isEmpty());
+    assertTrue(
+        gatedMessages(content("svc", profile(true)), null, true, false, true, false, disabled)
+            .isEmpty());
+  }
+
+  @Test
   public void testAConfiguredProfileIsUnaffected() {
     assertTrue(
         configuredMessages(null, content("svc", profile(true)), false, true, true).isEmpty());
@@ -157,8 +223,35 @@ public class SemanticContentProfileWriteValidatorTest {
       boolean generation,
       boolean requireConfigured,
       boolean apply) {
+    return gatedMessages(
+        previous, proposed, false, generation, requireConfigured, apply, entity(true));
+  }
+
+  private static Set<String> gatedMessages(
+      SemanticContent previous,
+      SemanticContent proposed,
+      boolean delete,
+      boolean generation,
+      boolean requireConfigured,
+      boolean apply,
+      EntitySpec entitySpec) {
     return SemanticContentProfileWriteValidator.violationMessages(
-        "document", previous, proposed, false, apply, requireConfigured, registry(generation));
+        "document",
+        previous,
+        proposed,
+        delete,
+        apply,
+        requireConfigured,
+        registry(generation),
+        new SemanticVectorGate(Set.of(), Map.of("svc", 1)),
+        entitySpec);
+  }
+
+  private static EntitySpec entity(boolean eligible) {
+    EntitySpec entitySpec = mock(EntitySpec.class);
+    when(entitySpec.getName()).thenReturn("document");
+    when(entitySpec.getSearchGroup()).thenReturn(eligible ? "primary" : "default");
+    return entitySpec;
   }
 
   private static SemanticContent content(String key, EmbeddingModelData profile) {

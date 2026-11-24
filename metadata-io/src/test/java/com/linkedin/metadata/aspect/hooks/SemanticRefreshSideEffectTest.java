@@ -43,6 +43,7 @@ import com.linkedin.metadata.entity.ebean.EbeanSystemAspect;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.search.semantic.profile.ContentBinding;
 import com.linkedin.metadata.search.semantic.profile.SemanticProfileRegistry;
+import com.linkedin.metadata.search.semantic.profile.SemanticVectorGate;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -299,6 +300,27 @@ public class SemanticRefreshSideEffectTest {
     assertFalse(
         patch.getSystemMetadata().hasProperties()
             && patch.getSystemMetadata().getProperties().containsKey(SEMANTIC_APPLY_PROPERTY));
+  }
+
+  @Test
+  public void testAnEntityTheGateDoesNotAcceptGetsNoMarker() {
+    List<MCLItem> writes =
+        List.of(source(DOCUMENT_INFO_ASPECT_NAME, document("old"), document("new"), 80L));
+    Map<String, ContentBinding> bindings = Map.of("documentText", DOCUMENT_TEXT);
+
+    assertTrue(
+        sideEffect(bindings)
+            .setGate(new SemanticVectorGate(Set.of(), Map.of()))
+            .postMCPSideEffect(OperationFingerprint.EMPTY, writes, stored(content(10L)))
+            .toList()
+            .isEmpty());
+    assertEquals(
+        sideEffect(bindings)
+            .setGate(new SemanticVectorGate(Set.of("document"), Map.of()))
+            .postMCPSideEffect(OperationFingerprint.EMPTY, writes, stored(content(10L)))
+            .toList()
+            .size(),
+        1);
   }
 
   private static SemanticContent applied(SemanticContent stored, MCPItem patch) throws Exception {

@@ -43,6 +43,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.semantic.profile.SemanticVectorGate;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.service.RetryableIndexingException;
@@ -560,7 +561,8 @@ public class V3SearchDocumentProjectorTest {
   public void testSemanticContentProjectsRootEmbeddingsForNonPrimarySemanticEntity()
       throws Exception {
     projector =
-        new V3SearchDocumentProjector(searchDocumentTransformer, true, Map.of(), Set.of("dataset"));
+        new V3SearchDocumentProjector(
+            searchDocumentTransformer, true, new SemanticVectorGate(Set.of("dataset"), Map.of()));
     when(entitySpec.getSearchGroup()).thenReturn("dataset");
     when(aspectSpec.getName()).thenReturn("semanticContent");
     when(event.getPreviousRecordTemplate()).thenReturn(null);
@@ -579,7 +581,9 @@ public class V3SearchDocumentProjectorTest {
   public void testSemanticContentDropsVectorWithWrongConfiguredDimension() throws Exception {
     projector =
         new V3SearchDocumentProjector(
-            searchDocumentTransformer, true, Map.of("test_model", 2), Set.of());
+            searchDocumentTransformer,
+            true,
+            new SemanticVectorGate(Set.of(), Map.of("test_model", 2)));
     when(aspectSpec.getName()).thenReturn("semanticContent");
     when(event.getPreviousRecordTemplate()).thenReturn(null);
     ObjectNode semanticDocument = semanticContentSearchDocument();
@@ -600,7 +604,9 @@ public class V3SearchDocumentProjectorTest {
   public void testSemanticContentDropsOnlyMismatchedModelAndKeepsValidOne() throws Exception {
     projector =
         new V3SearchDocumentProjector(
-            searchDocumentTransformer, true, Map.of("test_model", 2, "second_model", 3), Set.of());
+            searchDocumentTransformer,
+            true,
+            new SemanticVectorGate(Set.of(), Map.of("test_model", 2, "second_model", 3)));
     when(aspectSpec.getName()).thenReturn("semanticContent");
     when(event.getPreviousRecordTemplate()).thenReturn(null);
     ObjectNode semanticDocument = semanticContentSearchDocument();
@@ -622,7 +628,9 @@ public class V3SearchDocumentProjectorTest {
     // still have it dropped — the dedup must gate only the log line, never the removal.
     projector =
         new V3SearchDocumentProjector(
-            searchDocumentTransformer, true, Map.of("test_model", 2), Set.of());
+            searchDocumentTransformer,
+            true,
+            new SemanticVectorGate(Set.of(), Map.of("test_model", 2)));
     when(aspectSpec.getName()).thenReturn("semanticContent");
     when(event.getPreviousRecordTemplate()).thenReturn(null);
     ObjectNode semanticDocument = semanticContentSearchDocument();
@@ -645,7 +653,9 @@ public class V3SearchDocumentProjectorTest {
       throws Exception {
     projector =
         new V3SearchDocumentProjector(
-            searchDocumentTransformer, true, Map.of("test_model", 1), Set.of());
+            searchDocumentTransformer,
+            true,
+            new SemanticVectorGate(Set.of(), Map.of("test_model", 1)));
     when(aspectSpec.getName()).thenReturn("semanticContent");
     when(event.getPreviousRecordTemplate()).thenReturn(null);
     ObjectNode semanticDocument = semanticContentSearchDocument();
@@ -666,7 +676,9 @@ public class V3SearchDocumentProjectorTest {
   public void testSemanticContentAcceptsAllConfiguredModelDimensions() throws Exception {
     projector =
         new V3SearchDocumentProjector(
-            searchDocumentTransformer, true, Map.of("test_model", 2, "second_model", 3), Set.of());
+            searchDocumentTransformer,
+            true,
+            new SemanticVectorGate(Set.of(), Map.of("test_model", 2, "second_model", 3)));
     when(aspectSpec.getName()).thenReturn("semanticContent");
     when(event.getPreviousRecordTemplate()).thenReturn(null);
     ObjectNode semanticDocument = semanticContentSearchDocument();
@@ -740,7 +752,9 @@ public class V3SearchDocumentProjectorTest {
   public void testSemanticContentUpdateSendsOnlyChangedProfileFields() throws Exception {
     projector =
         new V3SearchDocumentProjector(
-            searchDocumentTransformer, true, Map.of("model_a", 1, "model_b", 1), Set.of());
+            searchDocumentTransformer,
+            true,
+            new SemanticVectorGate(Set.of(), Map.of("model_a", 1, "model_b", 1)));
     when(aspectSpec.getName()).thenReturn("semanticContent");
     when(event.getPreviousRecordTemplate()).thenReturn(previousAspect);
     ObjectNode previous = embeddingDocument();
@@ -767,7 +781,9 @@ public class V3SearchDocumentProjectorTest {
   public void testSemanticContentUpdateNullsARemovedProfileAndOmitsTheRest() throws Exception {
     projector =
         new V3SearchDocumentProjector(
-            searchDocumentTransformer, true, Map.of("model_a", 1, "model_b", 1), Set.of());
+            searchDocumentTransformer,
+            true,
+            new SemanticVectorGate(Set.of(), Map.of("model_a", 1, "model_b", 1)));
     when(aspectSpec.getName()).thenReturn("semanticContent");
     when(event.getPreviousRecordTemplate()).thenReturn(previousAspect);
     ObjectNode previous = embeddingDocument();
@@ -791,8 +807,7 @@ public class V3SearchDocumentProjectorTest {
         new V3SearchDocumentProjector(
             searchDocumentTransformer,
             true,
-            Map.of("model_a", 1, "model_b", 2, "model_c", 1),
-            Set.of());
+            new SemanticVectorGate(Set.of(), Map.of("model_a", 1, "model_b", 2, "model_c", 1)));
     when(aspectSpec.getName()).thenReturn("semanticContent");
     when(event.getChangeType()).thenReturn(ChangeType.RESTATE);
     when(event.getPreviousRecordTemplate()).thenReturn(null);
@@ -811,6 +826,84 @@ public class V3SearchDocumentProjectorTest {
     assertTrue(embeddings.get("model_a").isObject());
     assertTrue(embeddings.get("model_b").isNull());
     assertTrue(embeddings.get("model_c").isNull());
+  }
+
+  @Test
+  public void testSemanticContentOnADisabledEntityKeepsOnlyRemovals() throws Exception {
+    projector =
+        new V3SearchDocumentProjector(
+            searchDocumentTransformer,
+            true,
+            new SemanticVectorGate(Set.of(), Map.of("model_a", 1, "model_b", 1)));
+    when(entitySpec.getSearchGroup()).thenReturn("default");
+    when(aspectSpec.getName()).thenReturn("semanticContent");
+    when(event.getPreviousRecordTemplate()).thenReturn(previousAspect);
+    ObjectNode previous = embeddingDocument();
+    putProfile(previous, "model_a", "hash-1", true, 0.1);
+    putProfile(previous, "model_b", "hash-2", true, 0.2);
+    ObjectNode current = embeddingDocument();
+    putProfile(current, "model_a", "hash-9", true, 0.1);
+    stubSemanticDocuments(current, previous);
+
+    ObjectNode embeddings =
+        (ObjectNode)
+            projector
+                .projectAspect(opContext, event, previousAspect, true)
+                .orElseThrow()
+                .rootFields()
+                .path("embeddings");
+
+    assertTrue(embeddings.get("model_b").isNull());
+    assertFalse(embeddings.has("model_a"));
+  }
+
+  @Test
+  public void testSemanticContentRestateOnADisabledEntityDoesNotNullConfiguredModels()
+      throws Exception {
+    projector =
+        new V3SearchDocumentProjector(
+            searchDocumentTransformer,
+            true,
+            new SemanticVectorGate(Set.of(), Map.of("model_a", 1)));
+    when(entitySpec.getSearchGroup()).thenReturn("default");
+    when(aspectSpec.getName()).thenReturn("semanticContent");
+    when(event.getChangeType()).thenReturn(ChangeType.RESTATE);
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenReturn(Optional.of(embeddingDocument()));
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        projector.projectAspect(opContext, event, null, true).orElseThrow();
+
+    assertFalse(projected.rootFields().has("embeddings"));
+  }
+
+  @Test
+  public void testSemanticContentKeepsTheRemovalOfARetiredModel() throws Exception {
+    projector =
+        new V3SearchDocumentProjector(
+            searchDocumentTransformer,
+            true,
+            new SemanticVectorGate(Set.of(), Map.of("model_a", 1)));
+    when(aspectSpec.getName()).thenReturn("semanticContent");
+    when(event.getPreviousRecordTemplate()).thenReturn(previousAspect);
+    ObjectNode previous = embeddingDocument();
+    putProfile(previous, "model_a", "hash-1", true, 0.1);
+    putProfile(previous, "retired_model", "hash-2", true, 0.2);
+    ObjectNode current = embeddingDocument();
+    putProfile(current, "model_a", "hash-1", true, 0.1);
+    stubSemanticDocuments(current, previous);
+
+    ObjectNode embeddings =
+        (ObjectNode)
+            projector
+                .projectAspect(opContext, event, previousAspect, true)
+                .orElseThrow()
+                .rootFields()
+                .path("embeddings");
+
+    assertTrue(embeddings.get("retired_model").isNull());
   }
 
   private void stubSemanticDocuments(ObjectNode current, ObjectNode previous) throws Exception {

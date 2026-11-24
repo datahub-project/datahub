@@ -19,7 +19,6 @@ import com.linkedin.metadata.aspect.consistency.FatalConsistencyException;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixType;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
-import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.index.SemanticContentIndexFields;
@@ -29,9 +28,9 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbedding
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
 import com.linkedin.metadata.search.semantic.profile.SemanticProfileRefresh;
+import com.linkedin.metadata.search.semantic.profile.SemanticVectorGate;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -61,7 +60,6 @@ public class SemanticContentIndexMismatchCheck implements ConsistencyCheck {
 
   public static final String CHECK_ID = "semantic-content-index-mismatch";
   public static final String ASPECTS_METADATA_KEY = "aspects";
-  private static final String PRIMARY_SEARCH_GROUP = "primary";
 
   public static class IndexReadFailedException extends FatalConsistencyException {
     public IndexReadFailedException(String message) {
@@ -161,6 +159,7 @@ public class SemanticContentIndexMismatchCheck implements ConsistencyCheck {
       return List.of();
     }
 
+    SemanticVectorGate gate = SemanticVectorGate.from(semanticSearch);
     OperationContext opContext = ctx.getOperationContext();
     String entityType = entityResponses.keySet().iterator().next().getEntityType();
     EntitySpec entitySpec;
@@ -169,8 +168,7 @@ public class SemanticContentIndexMismatchCheck implements ConsistencyCheck {
     } catch (RuntimeException e) {
       return List.of();
     }
-    if (!entitySpec.hasAspect(SEMANTIC_CONTENT_ASPECT_NAME)
-        || !isEntityEligible(entitySpec, semanticSearch)) {
+    if (!entitySpec.hasAspect(SEMANTIC_CONTENT_ASPECT_NAME) || !gate.isEntityEligible(entitySpec)) {
       return List.of();
     }
 
@@ -193,7 +191,7 @@ public class SemanticContentIndexMismatchCheck implements ConsistencyCheck {
       return List.of();
     }
 
-    Map<String, Integer> expectedDimensions = expectedVectorDimensions(semanticSearch);
+    Map<String, Integer> expectedDimensions = gate.modelDimensions();
     String indexName =
         EntitySearchIndexResolver.indexName(opContext, entitySpec.getName(), entityIndex);
     Map<String, DocumentValues> docsById;
@@ -360,29 +358,6 @@ public class SemanticContentIndexMismatchCheck implements ConsistencyCheck {
       }
     }
     return true;
-  }
-
-  @Nonnull
-  private static Map<String, Integer> expectedVectorDimensions(
-      @Nonnull SemanticSearchConfiguration semanticSearch) {
-    Map<String, ModelEmbeddingConfig> models = semanticSearch.getModels();
-    if (models == null || models.isEmpty()) {
-      return Map.of();
-    }
-    Map<String, Integer> dimensions = new LinkedHashMap<>();
-    models.forEach(
-        (modelKey, modelConfig) -> {
-          if (modelConfig != null) {
-            dimensions.put(modelKey, modelConfig.getVectorDimension());
-          }
-        });
-    return dimensions;
-  }
-
-  private static boolean isEntityEligible(
-      @Nonnull EntitySpec entitySpec, @Nonnull SemanticSearchConfiguration semanticSearch) {
-    return PRIMARY_SEARCH_GROUP.equals(V3IndexKeys.resolve(entitySpec))
-        || SemanticEmbeddingMappings.isEnabledForEntity(semanticSearch, entitySpec.getName());
   }
 
   private boolean shouldSkip(@Nonnull Urn urn) {
