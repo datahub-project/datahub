@@ -946,9 +946,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # and those that lineage links to, which get a dataset.
         self._unmapped_files: Dict[str, str] = {}
         # How load scripts spell each `lib://` path prefix, by its lowercase
-        # key, and the number of paths it was built from.
+        # key, and the paths it was built from.
         self._script_spellings: Dict[str, Counter[str]] = {}
-        self._script_spellings_built_from = -1
+        self._script_spellings_built_from: Optional[List[str]] = None
         self._linked_unmapped_files: Set[str] = set()
         # Tables kept apps store into files on storage that was unknown when
         # their last read recorded them.
@@ -4610,16 +4610,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 if file.stored
             ),
         ]
-        # Reload records are read through the end of the run, so the spellings
-        # are built again when there are more paths.
-        if len(paths) != self._script_spellings_built_from:
+        # Reload records are read through the end of the run, and a recorded
+        # spelling can be replaced, so the spellings are built again when the
+        # paths change.
+        if paths != self._script_spellings_built_from:
             spellings: Dict[str, Counter[str]] = defaultdict(Counter)
             for path in paths:
                 segments = _lib_path_segments(path) or []
                 for i, segment in enumerate(segments):
                     spellings[_path_key("/".join(segments[: i + 1]))][segment] += 1
             self._script_spellings = spellings
-            self._script_spellings_built_from = len(paths)
+            self._script_spellings_built_from = paths
         return self._script_spellings
 
     def _gen_lib_path_location(self, urn: str, path: str) -> Iterable[MetadataWorkUnit]:
@@ -4750,11 +4751,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 statements = []
             self._record_reload_files(app_id, statements)
 
-    def _graph_named_apps(self, urn: str) -> _GraphNamedApps:
+    def _graph_named_apps(self, urn: str, kept_readers: Set[str]) -> _GraphNamedApps:
         """The apps whose last reload may give the path of a dataset only the
         upstream graph names: those that load it, the writer apps this run
-        ingests, and those that keep it from their last read as this run
-        could not tell their sources."""
+        ingests, apps kept from a last read that held it, and those that keep
+        it from their last read as this run could not tell their sources."""
         keeping = {
             app_id
             for app_id in self._apps_graph_named_kept
@@ -4763,6 +4764,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return _GraphNamedApps(
             apps=set(self._graph_resource_readers.get(urn, set()))
             | keeping
+            | kept_readers
             | {
                 app_id
                 for qri in self._graph_resource_writers.get(urn, set())
@@ -4813,8 +4815,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _read_graph_named_reloads(self) -> Dict[str, _GraphNamedApps]:
         """The apps that may give the path of each dataset only the upstream
         graphs name, with their last reload read."""
+        # A kept app still loads what its last read did, so its reload counts
+        # toward whether a path is certain. Its checkpoint is looked up here
+        # rather than every app's entities held for the run.
+        graph_named = set(self._graph_named_resources)
+        kept_readers: Dict[str, Set[str]] = defaultdict(set)
+        for app_id in self._kept_app_ids:
+            previous = self.app_state.previous(app_id)
+            for urn in graph_named.intersection(previous.urns if previous else ()):
+                kept_readers[urn].add(app_id)
         apps_by_urn = {
-            urn: self._graph_named_apps(urn) for urn in self._graph_named_resources
+            urn: self._graph_named_apps(urn, kept_readers.get(urn, set()))
+            for urn in self._graph_named_resources
         }
         self._read_reload_files(
             {app_id for apps in apps_by_urn.values() for app_id in apps.apps}
