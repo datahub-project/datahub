@@ -125,7 +125,8 @@ public class DefaultEntityFiltersUtil {
    *
    * @param baseFilter The existing filter to combine with default filters (can be null)
    * @param entityTypes List of entity type names being searched
-   * @param applyShowInGlobalContext Whether to filter out showInGlobalContext=false documents
+   * @param applyShowInGlobalContext Whether to filter out showInGlobalContext=false documents. A
+   *     branch of the base filter that filters on showInGlobalContext itself is not filtered.
    * @param canManageDocuments When true, unpublished documents are not filtered out (for users with
    *     MANAGE_DOCUMENTS privilege). DRAFT documents remain excluded regardless.
    * @return The combined filter with default entity filters applied
@@ -150,7 +151,30 @@ public class DefaultEntityFiltersUtil {
       return documentDefaults;
     }
 
-    return FilterUtils.combineFilters(baseFilter, documentDefaults);
+    // Placement is not an access rule, so a caller branch that filters on showInGlobalContext gets
+    // the defaults without the placement clause. A filter on state or lifecycleStage lifts nothing,
+    // since the published-document default controls who sees unpublished documents.
+    Filter withoutPlacement = buildDocumentDefaultFilter(false, canManageDocuments);
+    List<ConjunctiveCriterion> combined = new ArrayList<>();
+    for (ConjunctiveCriterion branch : baseFilter.getOr()) {
+      combined.addAll(
+          FilterUtils.combineFilters(
+                  new Filter().setOr(new ConjunctiveCriterionArray(branch)),
+                  filtersOnPlacement(branch) ? withoutPlacement : documentDefaults)
+              .getOr());
+    }
+    return new Filter().setOr(new ConjunctiveCriterionArray(combined));
+  }
+
+  /** Whether a caller branch filters on showInGlobalContext, by the field or its keyword. */
+  private static boolean filtersOnPlacement(@Nonnull ConjunctiveCriterion branch) {
+    for (Criterion criterion : branch.getAnd()) {
+      String field = criterion.getField();
+      if ("showInGlobalContext".equals(field) || "showInGlobalContext.keyword".equals(field)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

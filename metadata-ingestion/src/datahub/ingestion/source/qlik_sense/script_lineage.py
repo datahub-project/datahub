@@ -308,6 +308,11 @@ PLATFORM_KEYWORD_RES: Dict[str, "re.Pattern[str]"] = {
 }
 
 
+class IncludeRead(BaseModel):
+    content: Optional[str] = None
+    error: Optional[str] = None
+
+
 class LoadField(BaseModel):
     name: str
     # Names the field's expression reads from the statement below it.
@@ -1676,7 +1681,7 @@ def _path_variables(path: str, variables: Dict[str, str]) -> Set[str]:
 def inline_includes(
     script: str,
     app_variables: Dict[str, str],
-    read: Callable[[str], Optional[str]],
+    read: Callable[[str], IncludeRead],
     report_unread: Optional[Callable[[str, str], None]] = None,
 ) -> str:
     """The script with each $(Include) and $(Must_Include) replaced by the
@@ -1686,7 +1691,9 @@ def inline_includes(
     whose path doesn't expand, reads a variable the script varies, or that
     `read` can't read, stays, so the script still counts as including scripts
     that are not read. `report_unread` gets the path and reason of an include
-    left unread as a cycle, too deep, or over the size limit."""
+    left unread as a cycle, too deep, over the size limit, or by a read error.
+    Only the final pass reports, as a pass whose includes vary a path variable
+    is discarded."""
     variables = unquoted_values(app_variables)
     varying = _varying_variables(script)
     used: Set[str] = set()
@@ -1711,8 +1718,11 @@ def inline_includes(
             if len(chain) >= _MAX_INCLUDE_DEPTH:
                 unread[path] = f"nested more than {_MAX_INCLUDE_DEPTH} levels deep"
                 return match.group(0)
-            content = read(path)
+            result = read(path)
+            content = result.content
             if content is None:
+                if result.error is not None:
+                    unread[path] = result.error
                 return match.group(0)
             if len(content) > remaining:
                 unread[path] = (

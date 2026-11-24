@@ -3,7 +3,6 @@ from typing import Dict, Iterable, List, Optional
 from urllib.parse import quote
 
 import requests
-from pydantic import BaseModel
 from requests.adapters import DEFAULT_POOLSIZE, HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -38,6 +37,7 @@ from datahub.ingestion.source.qlik_sense.qlik_base_api import (
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     SPACE_SEPARATOR,
     DataConnectionInfo,
+    IncludeRead,
     inline_includes,
     merged_variables,
 )
@@ -56,11 +56,6 @@ def _database_labels(graph: LineageGraph) -> Dict[str, str]:
         for qri, node in graph.nodes.items()
         if qri.startswith(DATABASE_QRI_PREFIX) and node.label
     }
-
-
-class IncludeRead(BaseModel):
-    content: Optional[str] = None
-    error: Optional[str] = None
 
 
 class QlikAPI(QlikBaseAPI):
@@ -530,17 +525,13 @@ class QlikAPI(QlikBaseAPI):
         def report(path: str, reason: str) -> None:
             unread.append(f"{path} (app {app_id} in space {space}): {reason}")
 
-        def read(path: str) -> Optional[str]:
-            result = self._read_include(websocket_connection, reader, path, transient)
-            if result.error is not None:
-                report(path, result.error)
-            return result.content
-
         try:
             inlined = inline_includes(
                 script,
                 merged_variables(self.config.script_variables, app.variables),
-                read,
+                lambda path: self._read_include(
+                    websocket_connection, reader, path, transient
+                ),
                 report,
             )
         except Exception as e:

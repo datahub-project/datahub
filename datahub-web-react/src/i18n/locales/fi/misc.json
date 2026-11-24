@@ -197,6 +197,7 @@
     "marketplace.home": "Datatuotteiden etusivu",
     "marketplace.applicationFilter.placeholder": "Suodata sovelluksia",
     "marketplace.createTooltip": "Luo datatuote",
+    "marketplace.createUnauthorized": "Sinulla ei ole käyttöoikeutta luoda datatuotteita tähän. Yritä luoda datatuote hallinnoimasi toimialueen Datatuotteet-välilehdeltä.",
     "marketplace.cardAssets_other": "{{count}} kohdetta",
     "marketplace.cardDeprecated": "Vanhentunut",
     "marketplace.cardMetaWithSubProducts": "{{assets}} · {{subProducts}}",

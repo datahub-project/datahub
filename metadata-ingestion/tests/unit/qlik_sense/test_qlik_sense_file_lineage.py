@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,12 +9,17 @@ from pydantic import ValidationError
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
+from datahub.ingestion.source.qlik_sense.app_state import (
+    AppCheckpoint,
+    UnmappedFileStore,
+)
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     LineageTable,
     ListedDataset,
+    SchemaField,
+    UnchangedApp,
     UnreadItem,
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import (
@@ -24,12 +29,14 @@ from datahub.ingestion.source.qlik_sense.file_lineage import (
     file_storage_of_uri,
     qri_part_id,
 )
-from datahub.ingestion.source.qlik_sense.qlik_api import IncludeRead, QlikAPI
+from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import UNREAD_DATA_CONNECTIONS
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     DataConnectionInfo,
     FileLoad,
+    IncludeRead,
+    ParsedScript,
     inline_includes,
     parse_script,
 )
@@ -880,11 +887,18 @@ def _graph_app_source(
     return source, app
 
 
+def _app_and_end_of_run(
+    source: QlikSenseSource, app: App
+) -> Iterable[MetadataWorkUnit]:
+    yield from source._gen_app_workunit(app)
+    yield from source._gen_pending_table_lineage()
+
+
 def _graph_app_writes(source: QlikSenseSource, app: App) -> Dict[str, str]:
     """Each table's upstreams as a whole UpstreamLineage write lists them, or
     "patch:" and those a patch adds."""
     writes: Dict[str, str] = {}
-    for wu in source._gen_app_workunit(app):
+    for wu in _app_and_end_of_run(source, app):
         lineage = wu.get_aspect_of_type(UpstreamLineageClass)
         if lineage:
             writes[wu.get_urn()] = ",".join(u.dataset for u in lineage.upstreams)
@@ -1054,6 +1068,16 @@ def _store_app(tables: List[Dict]) -> App:
     )
 
 
+def _store_lineage(
+    source: QlikSenseSource,
+    app: App,
+    parsed: ParsedScript,
+    table_fields: Dict[str, List[SchemaField]],
+) -> List[MetadataWorkUnit]:
+    source._queue_file_store_lineage(app, parsed, table_fields)
+    return list(source._gen_pending_table_lineage())
+
+
 @pytest.mark.parametrize("reader", ["read", "kept", None])
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
@@ -1067,10 +1091,8 @@ def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
     storing_app = _store_app([]).model_copy(update={"id": "app-2"})
     stored = make_dataset_urn("qlik-sense", "app-2.orders")
 
-    assert not list(
-        source._gen_file_store_lineage(
-            storing_app, parse_script(STORE_SCRIPT), {stored: []}
-        )
+    assert not _store_lineage(
+        source, storing_app, parse_script(STORE_SCRIPT), {stored: []}
     )
     # A later app's lineage graph reads the file, so it exists.
     if reader == "read":
@@ -1111,6 +1133,81 @@ def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_read_app_records_its_stores_into_files_on_unknown_storage(
+    mock_api_cls: MagicMock,
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {},
+        [],
+        script="STORE Customers INTO [lib://Sales Space:Lake/qvd/customers.qvd] (qvd);",
+        tables=[
+            _model_table(
+                "Customers", "Customers", "qri:db:sqlserver://sales#dbo.Customers"
+            )
+        ],
+        data_connections={
+            CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)
+        },
+    )
+    source._fingerprint_salt = "salt"
+
+    with patch.object(source.app_state, "record") as record:
+        list(source._gen_recorded_app_workunit(app))
+
+    file_urn = make_dataset_urn("qlik-sense", "sales space:lake/qvd/customers.qvd")
+    stores = record.call_args.args[1].unmapped_file_stores
+    assert list(stores) == [file_urn]
+    assert stores[file_urn].path == "lib://Sales Space:Lake/qvd/customers.qvd"
+    assert len(stores[file_urn].table_urns) == 1
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_writer_of_a_file_on_unknown_storage_links_it_when_an_app_reads_it(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {},
+        {CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)},
+        script="Orders: LOAD * FROM [lib://Sales Space:Lake/qvd/orders.qvd] (qvd);",
+    )
+    source._fingerprint_salt = "salt"
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+    # Its STORE was recorded on a run where no app read the file.
+    previous = AppCheckpoint(
+        urns=[stored],
+        unmapped_file_stores={
+            UNMAPPED_ORDERS_QVD: UnmappedFileStore(
+                path="lib://Sales Space:Lake/qvd/orders.qvd", table_urns=[stored]
+            )
+        },
+    )
+    with (
+        patch.object(source.app_state, "previous", return_value=previous),
+        patch.object(source.app_state, "record") as record,
+    ):
+        source._keep_unchanged_app(UnchangedApp(id="app-2", fingerprint="f"))
+    assert source._file_source_resolution(
+        "app-1", _file_qri("adls", "lake", "qvd/orders.qvd")
+    ).urn
+
+    workunits = list(source._gen_unmapped_file_entities())
+
+    lineage = [
+        wu.metadata
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+    ]
+    assert [mcp.entityUrn for mcp in lineage] == [UNMAPPED_ORDERS_QVD]
+    assert stored in str(lineage[0].aspect)
+    assert UNMAPPED_ORDERS_QVD in source._app_end_of_run_urns["app-2"]
+    # Carried forward, so a later run that keeps it again still links it.
+    recorded = record.call_args.args[1]
+    assert recorded.unmapped_file_stores == previous.unmapped_file_stores
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_stored_qvd_on_unknown_storage_is_named_without_its_extension(
     mock_api_cls: MagicMock,
 ) -> None:
@@ -1119,14 +1216,13 @@ def test_stored_qvd_on_unknown_storage_is_named_without_its_extension(
         {CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)},
         script="Orders: LOAD * FROM [lib://Sales Space:Lake/qvd/Orders.QVD] (qvd);",
     )
-    list(
-        source._gen_file_store_lineage(
-            _store_app([]).model_copy(update={"id": "app-2"}),
-            parse_script(
-                "STORE Orders INTO [lib://Sales Space:Lake/qvd/Orders.QVD] (qvd);"
-            ),
-            {make_dataset_urn("qlik-sense", "app-2.orders"): []},
-        )
+    _store_lineage(
+        source,
+        _store_app([]).model_copy(update={"id": "app-2"}),
+        parse_script(
+            "STORE Orders INTO [lib://Sales Space:Lake/qvd/Orders.QVD] (qvd);"
+        ),
+        {make_dataset_urn("qlik-sense", "app-2.orders"): []},
     )
     assert source._file_source_resolution(
         "app-1", _file_qri("adls", "lake", "qvd/Orders.QVD")
@@ -1158,12 +1254,11 @@ def test_stored_qvd_on_a_connection_without_file_storage_is_skipped(
 ) -> None:
     source = _source({}, connections)
 
-    assert not list(
-        source._gen_file_store_lineage(
-            _store_app([]),
-            parse_script(f"STORE Orders INTO [lib://{folder}/x.qvd] (qvd);"),
-            {ORDERS: []},
-        )
+    assert not _store_lineage(
+        source,
+        _store_app([]),
+        parse_script(f"STORE Orders INTO [lib://{folder}/x.qvd] (qvd);"),
+        {ORDERS: []},
     )
     assert not list(source._gen_unmapped_file_entities())
     # Not a file connection, so there is no storage to map.
@@ -1516,7 +1611,7 @@ def test_included_scripts_are_read_into_the_script() -> None:
         "$(Must_Include=lib://Common:DataFiles/env.qvs);\n"
         "$(Include=lib://Common:DataFiles/missing.qvs);\n"
     )
-    inlined = inline_includes(script, {"vCommon": "'Common:'"}, files.get)
+    inlined = inline_includes(script, {"vCommon": "'Common:'"}, _reader(files))
     parsed = parse_script(inlined)
 
     assert [load.expanded for load in parsed.file_loads] == [
@@ -1525,7 +1620,7 @@ def test_included_scripts_are_read_into_the_script() -> None:
     # The include that could not be read still leaves the script incomplete.
     assert parsed.has_includes
     assert not parse_script(
-        inline_includes(script.split("\n")[0], {"vCommon": "'Common:'"}, files.get)
+        inline_includes(script.split("\n")[0], {"vCommon": "'Common:'"}, _reader(files))
     ).has_includes
 
 
@@ -1550,7 +1645,7 @@ def test_include_path_with_parentheses_is_read() -> None:
         inline_includes(
             "$(Include=lib://$(vCommon)DataFiles/loads (v2).qvs);",
             {"vCommon": "'Common:'"},
-            files.get,
+            _reader(files),
         )
     )
 
@@ -1565,7 +1660,7 @@ def test_unread_include_path_with_parentheses_forgets_the_connection() -> None:
         "Orders: SQL SELECT * FROM sales.orders;"
     )
     files: Dict[str, str] = {}
-    parsed = parse_script(inline_includes(script, {}, files.get))
+    parsed = parse_script(inline_includes(script, {}, _reader(files)))
 
     assert [(table.label, table.connection) for table in parsed.tables] == [
         ("Orders", None)
@@ -1575,7 +1670,7 @@ def test_unread_include_path_with_parentheses_forgets_the_connection() -> None:
 
 def test_include_outside_a_lib_path_is_not_read() -> None:
     files = {"common.qvs": "X: LOAD * FROM [lib://S:Lake/x.csv];"}
-    parsed = parse_script(inline_includes("$(Include=common.qvs);", {}, files.get))
+    parsed = parse_script(inline_includes("$(Include=common.qvs);", {}, _reader(files)))
 
     assert not parsed.file_loads
     assert parsed.has_includes
@@ -1642,6 +1737,14 @@ def test_include_read_failing_outside_the_engine_is_read_again_for_the_next_app(
     assert engine.websocket_send_request.call_count == 2
 
 
+def _reader(files: Dict[str, str]) -> Callable[[str], IncludeRead]:
+    return lambda path: (
+        IncludeRead(content=files[path])
+        if path in files
+        else IncludeRead(error="not found")
+    )
+
+
 _INCLUDED_LOADS = {
     "lib://S:DataFiles/a.qvs": "A: LOAD * FROM [lib://S:Lake/a.csv];",
     "lib://S:DataFiles/b.qvs": "B: LOAD * FROM [lib://S:Lake/b.csv];",
@@ -1688,12 +1791,63 @@ def test_include_path_from_a_varying_variable_is_not_read(
     script: str, loads: List[str]
 ) -> None:
     inlined = inline_includes(
-        script, {"vF": "'lib://S:DataFiles/b.qvs'"}, _INCLUDED_LOADS.get
+        script, {"vF": "'lib://S:DataFiles/b.qvs'"}, _reader(_INCLUDED_LOADS)
     )
     parsed = parse_script(inlined)
 
     assert [load.expanded for load in parsed.file_loads] == loads
     assert parsed.has_includes == (not loads)
+
+
+@pytest.mark.parametrize("varied_by_include", [False, True])
+def test_only_read_errors_of_includes_the_final_script_reads_are_reported(
+    varied_by_include: bool,
+) -> None:
+    files = {
+        "lib://S:DataFiles/b.qvs": "SET vF = 'lib://S:DataFiles/a.qvs';\n"
+        + ("SET vF = 'lib://S:DataFiles/b.qvs';\n" if varied_by_include else "")
+        + "$(Include=lib://S:DataFiles/missing.qvs);"
+    }
+    unread: List[Tuple[str, str]] = []
+    inline_includes(
+        "$(Include=$(vF));",
+        {"vF": "'lib://S:DataFiles/b.qvs'"},
+        _reader(files),
+        lambda path, reason: unread.append((path, reason)),
+    )
+
+    # Once b.qvs varies vF, the script is inlined again without reading b.qvs,
+    # so the include b.qvs holds is never needed.
+    assert [path for path, _ in unread] == (
+        [] if varied_by_include else ["lib://S:DataFiles/missing.qvs"]
+    )
+
+
+def test_app_reports_no_read_error_of_an_include_its_script_does_not_read() -> None:
+    api = _include_api()
+    api.spaces = {"space-1": "Sales Space"}
+    engine = _engine(
+        {
+            "qContent": "SET vF = 'lib://S:DataFiles/a.qvs';\n"
+            "SET vF = 'lib://S:DataFiles/b.qvs';\n"
+            "$(Include=lib://S:DataFiles/missing.qvs);"
+        },
+        EngineError({"code": 5, "message": "Access denied"}),
+    )
+    app = App.model_validate(
+        {
+            "id": "app-1",
+            "qTitle": "Sales",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "space-1",
+            "variables": {"vF": "'lib://S:DataFiles/b.qvs'"},
+        }
+    )
+
+    api._inline_includes(engine, "app-1", app, "$(Include=$(vF));")
+
+    assert not api.include_read_failures
 
 
 @pytest.mark.parametrize("fan_out", [1, 2, 4])
@@ -1705,7 +1859,7 @@ def test_self_including_script_is_read_once(fan_out: int) -> None:
     inlined = inline_includes(
         f"$(Include={path});",
         {},
-        files.get,
+        _reader(files),
         lambda path, reason: unread.append((path, reason)),
     )
     parsed = parse_script(inlined)
@@ -1726,7 +1880,7 @@ def test_mutually_including_scripts_are_each_read_once() -> None:
     inlined = inline_includes(
         f"$(Include={a});",
         {},
-        files.get,
+        _reader(files),
         lambda path, reason: unread.append((path, reason)),
     )
     parsed = parse_script(inlined)
@@ -1752,7 +1906,7 @@ def test_includes_past_the_size_limit_are_not_read() -> None:
     inlined = inline_includes(
         "$(Include=lib://S:DataFiles/0.qvs);",
         {},
-        files.get,
+        _reader(files),
         lambda path, reason: unread.append((path, reason)),
     )
 
@@ -1770,7 +1924,7 @@ def test_apostrophe_in_an_include_path_keeps_later_comments_out() -> None:
         "$(Include=lib://S:DataFiles/O'B.qvs);\n"
         "// $(Include=lib://S:DataFiles/old.qvs);\n"
     )
-    parsed = parse_script(inline_includes(script, {}, files.get))
+    parsed = parse_script(inline_includes(script, {}, _reader(files)))
 
     assert [load.expanded for load in parsed.file_loads] == ["lib://S:Lake/a.csv"]
 
@@ -1796,7 +1950,7 @@ def test_unread_include_with_an_apostrophe_keeps_the_next_statement() -> None:
 )
 def test_commented_include_is_not_read_into_the_script(commented: str) -> None:
     files = {"lib://Common:DataFiles/loads.qvs": "Rates: LOAD * FROM [lib://L/r.csv];"}
-    parsed = parse_script(inline_includes(commented, {}, files.get))
+    parsed = parse_script(inline_includes(commented, {}, _reader(files)))
     assert not parsed.file_loads
 
 
@@ -1810,7 +1964,7 @@ def test_include_path_from_a_constructed_varying_variable_is_not_read() -> None:
     inlined = inline_includes(
         script,
         {"vSuffix": "F", "vF": "'lib://S:DataFiles/b.qvs'"},
-        _INCLUDED_LOADS.get,
+        _reader(_INCLUDED_LOADS),
     )
     parsed = parse_script(inlined)
 
@@ -1865,12 +2019,11 @@ def test_writer_and_reader_spelling_a_file_in_different_case_join(
         script="Orders: LOAD * FROM [lib://sales space:lake/QVD/Orders.qvd] (qvd);",
     )
     stored = make_dataset_urn("qlik-sense", "app-2.orders")
-    list(
-        source._gen_file_store_lineage(
-            _store_app([]).model_copy(update={"id": "app-2"}),
-            parse_script("STORE Orders INTO [lib://Lake/qvd/orders.qvd] (qvd);"),
-            {stored: []},
-        )
+    _store_lineage(
+        source,
+        _store_app([]).model_copy(update={"id": "app-2"}),
+        parse_script("STORE Orders INTO [lib://Lake/qvd/orders.qvd] (qvd);"),
+        {stored: []},
     )
 
     assert (
@@ -2130,7 +2283,7 @@ def test_moved_store_removes_only_the_apps_own_edge_from_the_old_file(
     previous = AppCheckpoint(urns=[ORDERS], stored_file_urns=[DEV_ORDERS])
 
     with patch.object(QlikSenseSource, "_usable_checkpoint", return_value=previous):
-        ops = _upstream_ops(source._gen_app_workunit(app))
+        ops = _upstream_ops(_app_and_end_of_run(source, app))
 
     # The app's edge into the file it no longer stores into goes; another
     # app's edge stays. With an included script, the app may still store
@@ -2148,7 +2301,10 @@ CUSTOMERS = make_dataset_urn("qlik-sense", CUSTOMERS_QRI.lower())
 DEV_CUSTOMERS = "urn:li:dataset:(urn:li:dataPlatform:abs,lake/dev/customers.qvd,PROD)"
 
 
-@pytest.mark.parametrize("other_app_seen", ["this run", "last run"])
+@pytest.mark.parametrize(
+    "other_app_seen",
+    ["this run", "later this run", "last run", "tables unknown this run"],
+)
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_moved_store_keeps_the_edge_of_a_table_another_app_shares(
     mock_api_cls: MagicMock, other_app_seen: str
@@ -2180,11 +2336,47 @@ def test_moved_store_keeps_the_edge_of_a_table_another_app_shares(
             return_value={"app-2": other_app} if other_app_seen == "last run" else {},
         ),
     ):
-        ops = _upstream_ops(source._gen_app_workunit(app))
+        workunits = list(source._gen_app_workunit(app))
+        # An app read after this one, or one whose tables can't all be named.
+        if other_app_seen == "later this run":
+            source._table_urns_by_app["app-2"] = {CUSTOMERS}
+        elif other_app_seen == "tables unknown this run":
+            source._apps_tables_unknown.add("app-2")
+        workunits.extend(source._gen_pending_table_lineage())
+    ops = _upstream_ops(workunits)
 
     # Another app loading the same table may be what stores it into the old
     # file, so its edge stays.
     assert not [op for op in ops.get(DEV_CUSTOMERS, []) if op.startswith("remove")]
+
+
+@pytest.mark.parametrize("script", ["denied", "not read"])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unread_script_keeps_the_edges_into_files_it_stored_into(
+    mock_api_cls: MagicMock, script: str
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        script="",
+    )
+    app.script = None
+    app.script_read_failed = script == "denied"
+    graph = MagicMock()
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=ORDERS, type=DatasetLineageTypeClass.COPY)]
+    )
+    source.ctx.graph = graph
+    previous = AppCheckpoint(urns=[ORDERS], stored_file_urns=[DEV_ORDERS])
+
+    with patch.object(QlikSenseSource, "_usable_checkpoint", return_value=previous):
+        ops = _upstream_ops(_app_and_end_of_run(source, app))
+
+    # Without the script its STOREs are unknown, so the app may still store
+    # into the file.
+    assert DEV_ORDERS not in ops
+    assert source._app_stored_files[app.id] == [DEV_ORDERS]
 
 
 @pytest.mark.parametrize("read", ["no graph", "read error"])
@@ -2208,7 +2400,7 @@ def test_old_file_whose_lineage_cant_be_read_stays_in_the_checkpoint(
     previous = AppCheckpoint(urns=[ORDERS], stored_file_urns=[DEV_ORDERS])
 
     with patch.object(QlikSenseSource, "_usable_checkpoint", return_value=previous):
-        ops = _upstream_ops(source._gen_app_workunit(app))
+        ops = _upstream_ops(_app_and_end_of_run(source, app))
 
     assert DEV_ORDERS not in ops
     # A later run that can read its lineage still removes the app's edge.
@@ -2242,26 +2434,37 @@ END IF
     assert not source.reporter.qvd_stores_in_competing_branches
 
 
+@pytest.mark.parametrize(
+    "path, store_format, column_edges_expected",
+    [
+        ("clean/orders.parquet", " (parquet)", 2),
+        # The format, not the file name, tells what the file holds: a STORE
+        # without one writes a QVD, which the storage sources don't read.
+        ("clean/orders.qvd", " (parquet)", 2),
+        ("clean/orders.parquet", "", 0),
+    ],
+)
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
-def test_stored_fields_get_column_lineage(mock_api_cls: MagicMock) -> None:
+def test_stored_fields_get_column_lineage(
+    mock_api_cls: MagicMock, path: str, store_format: str, column_edges_expected: int
+) -> None:
     source, app = _graph_app_source(
         mock_api_cls,
         {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
         [],
         script="Orders:\nLOAD * FROM [lib://Sales Space:Lake/landing/orders.csv] "
         "(txt);\nSTORE OrderId, Amount AS Total FROM Orders INTO "
-        "[lib://Sales Space:Lake/clean/orders.parquet] (parquet);\n",
+        f"[lib://Sales Space:Lake/{path}]{store_format};\n",
     )
 
-    # A QVD on storage gets table lineage only; see the storage QVD tests.
-    ops = _upstream_ops(source._gen_app_workunit(app))[
-        "urn:li:dataset:(urn:li:dataPlatform:abs,lake/clean/orders.parquet,PROD)"
+    ops = _upstream_ops(_app_and_end_of_run(source, app))[
+        f"urn:li:dataset:(urn:li:dataPlatform:abs,lake/{path},PROD)"
     ]
 
     column_edges = [op for op in ops if op.startswith("add /fineGrainedLineages/")]
-    assert len(column_edges) == 2
+    assert len(column_edges) == column_edges_expected
     assert any(
         make_schema_field_urn(ORDERS, "Amount") in op and ",Total)" in op
         for op in column_edges
-    )
+    ) == bool(column_edges_expected)
     assert source.reporter.file_stores_linked == 1

@@ -7,13 +7,7 @@ from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import DataProductPropertiesClass, StatusClass
-from tests.e2e.utils import (
-    delete_urn,
-    execute_graphql,
-    unique_suffix,
-    wait_for_writes_to_sync,
-    with_test_retry,
-)
+from tests.e2e.utils import delete_urn, execute_graphql, unique_suffix, with_test_retry
 from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
@@ -61,19 +55,12 @@ def _is_removed(graph_client: DataHubGraph, urn: str) -> bool:
 
 
 @with_test_retry()
-def _assert_no_parent_edge(graph_client: DataHubGraph, child: str, parent: str) -> None:
-    parents = [
-        e.urn
-        for e in graph_client.get_related_entities(
-            child,
-            relationship_types=["IsPartOf"],
-            direction=DataHubGraph.RelationshipDirection.OUTGOING,
-        )
-    ]
-    assert parent not in parents
+def _assert_gone(graph_client: DataHubGraph, urn: str) -> None:
+    # Reference cleanup runs after the GraphQL call returns, so the parent can outlive the response.
+    assert not graph_client.exists(urn)
 
 
-def test_parent_with_children_cannot_be_deleted(auth_session, graph_client):
+def test_parent_delete_is_refused_until_child_is_released(auth_session, graph_client):
     suffix = unique_suffix()
     parent = f"urn:li:dataProduct:delete_guard_parent_{suffix}"
     child = f"urn:li:dataProduct:delete_guard_child_{suffix}"
@@ -83,36 +70,38 @@ def test_parent_with_children_cannot_be_deleted(auth_session, graph_client):
         _emit_data_product(graph_client, child, f"Child {suffix}", parent=parent)
         _wait_for_child_count(auth_session, parent, 1)
 
+        # Soft delete leaves the child's pointer in place, so the guard still rejects it.
+        with pytest.raises(OperationalError):
+            graph_client.soft_delete_entity(parent)
+        assert not _is_removed(graph_client, parent)
+
+        # The REST hard delete is guarded while the child still points at the parent.
+        with pytest.raises(OperationalError):
+            graph_client.hard_delete_entity(parent)
+        assert graph_client.exists(parent)
+        child_properties = graph_client.get_aspect(child, DataProductPropertiesClass)
+        assert child_properties is not None
+        assert child_properties.parentDataProduct == parent
+
+        # The GraphQL delete runs the same guard, so it is refused while the child points here.
         res = execute_graphql(
             auth_session,
             DELETE_DATA_PRODUCT_QUERY,
             {"urn": parent},
             expect_errors=True,
         )
-        assert res.get("errors"), "Deleting a parent with children should fail"
-        # The error names the parent so the user knows which product is blocked.
-        assert f"Parent {suffix}" in res["errors"][0]["message"]
-
-        with pytest.raises(OperationalError):
-            graph_client.soft_delete_entity(parent)
-        with pytest.raises(OperationalError):
-            graph_client.hard_delete_entity(parent)
-
+        assert res.get("errors"), (
+            "GraphQL delete should be refused while a child points here"
+        )
+        assert "has child Data Products" in res["errors"][0]["message"]
         assert graph_client.exists(parent)
-        assert not _is_removed(graph_client, parent)
-        child_properties = graph_client.get_aspect(child, DataProductPropertiesClass)
-        assert child_properties is not None
-        assert child_properties.parentDataProduct == parent
 
-        # Moving the child to the root releases the parent.
-        _emit_data_product(graph_client, child, f"Child {suffix}")
-        _wait_for_child_count(auth_session, parent, 0)
+        # Once the child no longer points at the parent, the delete goes through.
+        _emit_data_product(graph_client, child, f"Child {suffix}", parent=None)
+        res = execute_graphql(auth_session, DELETE_DATA_PRODUCT_QUERY, {"urn": parent})
+        assert res["data"]["deleteDataProduct"] is True
 
-        graph_client.hard_delete_entity(parent)
-        wait_for_writes_to_sync()
-
-        assert not graph_client.exists(parent)
-        _assert_no_parent_edge(graph_client, child, parent)
+        _assert_gone(graph_client, parent)
     finally:
         for urn in (child, parent):
             try:

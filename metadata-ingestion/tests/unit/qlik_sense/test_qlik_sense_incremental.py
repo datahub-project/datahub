@@ -1013,6 +1013,34 @@ def test_app_checkpoint_from_before_qvd_lineage_is_read_again(
     assert _qvd_upstreams(second_wus)
 
 
+def test_app_checkpoint_from_before_binary_lineage_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _qvd_qlik()
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    opens = qlik.engine_opens
+
+    def without_binary(
+        handler: QlikAppStateHandler, app_id: str
+    ) -> Optional[AppCheckpoint]:
+        checkpoint = _previous_checkpoint(handler, app_id)
+        return (
+            AppCheckpoint.model_validate(
+                checkpoint.model_dump(exclude={"binary_tables", "data_model_fields"})
+            )
+            if checkpoint
+            else None
+        )
+
+    with patch.object(QlikAppStateHandler, "previous", without_binary):
+        second, _ = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert qlik.engine_opens == opens + 2
+    assert second.reporter.apps_skipped_unchanged == 0
+
+
 def test_partly_read_app_kept_from_its_checkpoint_only_adds_qvd_lineage(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
