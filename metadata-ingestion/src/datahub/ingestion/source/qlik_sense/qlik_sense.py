@@ -1535,7 +1535,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _parsed_script(self, app: App) -> ParsedScript:
         return (
-            parse_script(app.script, self._app_variables(app))
+            parse_script(
+                app.script,
+                self._app_variables(app),
+                self._app_own_variables(app).keys(),
+            )
             if app.script
             else ParsedScript()
         )
@@ -1851,18 +1855,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _app_variables(self, app: App) -> Dict[str, str]:
         # The app's own values, as its last reload left them, beat the recipe's.
+        return {**self.config.script_variables, **self._app_own_variables(app)}
+
+    def _app_own_variables(self, app: App) -> Dict[str, str]:
         # An expression definition (`=...`) the connector can't evaluate, or
         # an empty one such as a variable cleared at the end of the script,
         # leaves the recipe's value in place.
         recipe = self.config.script_variables
         return {
-            **recipe,
-            **{
-                name: value
-                for name, value in app.variables.items()
-                if not value.lstrip().startswith("=")
-                and (value.strip() or name not in recipe)
-            },
+            name: value
+            for name, value in app.variables.items()
+            if not value.lstrip().startswith("=")
+            and (value.strip() or name not in recipe)
         }
 
     def _file_source_resolver(
