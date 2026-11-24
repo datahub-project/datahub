@@ -737,6 +737,24 @@ def test_app_with_unresolved_graph_tables_is_recorded_so(
     assert checkpoint.table_urns_by_qri
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_read_app_records_its_field_names(mock_api_cls: MagicMock) -> None:
+    etl = _app(
+        "etl-app",
+        [
+            LineageTable(
+                qri=f"{ETL_APP}#Curve", label="Curve", fields=["Price", "Close"]
+            )
+        ],
+    )
+    source = _source(mock_api_cls, DATASETS)
+
+    with patch.object(source.app_state, "record") as record:
+        list(source._gen_recorded_app_workunit(etl))
+
+    assert record.call_args.args[1].field_names == ["Price", "Close"]
+
+
 @pytest.mark.parametrize("loader_first", [True, False])
 @pytest.mark.parametrize("kept_by", ["unchanged", "partly_read"])
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -773,6 +791,77 @@ def test_app_table_links_tables_of_a_kept_app_it_loads(
     workunits.extend(source._gen_pending_table_lineage())
 
     assert _lineage(workunits)[0][_urn("report-app.prices")] == [curve]
+
+
+@pytest.mark.parametrize("loader_first", [True, False])
+@pytest.mark.parametrize("kept_by", ["unchanged", "partly_read"])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_table_gets_renamed_column_lineage_from_a_kept_app_it_loads(
+    mock_api_cls: MagicMock, loader_first: bool, kept_by: str
+) -> None:
+    curve_qri = f"{ETL_APP}#Curve"
+    curve = _urn("etl-app.curve")
+    source = _source(mock_api_cls, DATASETS)
+    app_state = MagicMock()
+    source.app_state = app_state
+    app_state.previous.side_effect = lambda app_id: (
+        AppCheckpoint(
+            urns=[curve],
+            table_urns_by_qri={curve_qri: curve},
+            field_names=["Price", "Close"],
+        )
+        if app_id == "etl-app"
+        else None
+    )
+    source.stale_entity_removal_handler = MagicMock()
+    source._fingerprint_salt = "salt"
+    report = _app(
+        "report-app",
+        [
+            LineageTable(
+                qri=f"{REPORT_APP}#Tbl",
+                label="Prices",
+                source_qris=[curve_qri],
+                fields=["Px"],
+                field_source_qris={"Px": [_field_qri(curve_qri, "Close")]},
+            )
+        ],
+    )
+
+    def keep() -> None:
+        if kept_by == "unchanged":
+            source._keep_unchanged_app(UnchangedApp(id="etl-app", fingerprint="f"))
+        else:
+            etl = _app("etl-app", [])
+            etl.read_errors = ["unable to read a sheet"]
+            source._keep_partly_read_app(etl)
+        recorded = app_state.record.call_args.args[1]
+        assert recorded.field_names == ["Price", "Close"]
+
+    workunits: List[MetadataWorkUnit] = []
+    if not loader_first:
+        keep()
+    workunits.extend(source._gen_app_workunit(report))
+    if loader_first:
+        keep()
+    workunits.extend(source._gen_pending_table_lineage())
+
+    prices = _urn("report-app.prices")
+    assert _lineage(workunits)[0][prices] == [curve]
+    [lineage] = [
+        aspect
+        for wu in workunits
+        if wu.get_urn() == prices
+        and (aspect := wu.get_aspect_of_type(UpstreamLineageClass))
+    ]
+    assert [
+        (cll.downstreams, cll.upstreams) for cll in lineage.fineGrainedLineages or []
+    ] == [
+        (
+            [make_schema_field_urn(prices, "Px")],
+            [make_schema_field_urn(curve, "Close")],
+        )
+    ]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
