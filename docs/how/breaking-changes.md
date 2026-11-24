@@ -29,6 +29,15 @@ If someone sees an "Unauthorized" error when cleaning up these items, give them 
 
 Through the GraphQL API, a query can no longer be created unless it is attached to at least one dataset. The UI always attaches a query to a dataset, so it is not affected.
 
+### `applications` on Metric and SemanticModel in GraphQL ([#21576](https://github.com/datahub-project/datahub/pull/21576))
+
+The `applications` field on the `Metric` and `SemanticModel` GraphQL types now returns the
+applications the metric or semantic model belongs to, as it does on other entities. Its type changed
+from `EntityRelationshipsResult` to a list of `ApplicationAssociation`. The old field always returned
+null, so no data is lost, but a query that selects the old shape, such as
+`applications { total relationships { entity { urn } } }`, now fails validation. Select
+`applications { application { urn properties { name } } }` instead.
+
 ### Semantic search template sends an entity URN to similarity ([#21474](https://github.com/datahub-project/datahub/pull/21474))
 
 System update now writes version 19 of the shipped search templates. `urn:li:searchTemplate:semantic`
