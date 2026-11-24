@@ -3,6 +3,8 @@
     "confirmationModal.areYouSure": "Oletko varma?",
     "copyUrn.tooltip": "Kopioi URN. URN yksilöi kohteen yksiselitteisesti DataHubissa.",
     "customIcon.alt": "Kuvake",
+    "githubStar.ariaLabel": "Anna DataHubille tähti GitHubissa",
+    "githubStar.label": "Anna tähti",
     "entityCountCard.viewCountTooltip": "Näytä {{formattedCount}} {{tooltipDescriptor}}",
     "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",
     "multiStepForm.disabledNextTooltip": "Täytä kaikki pakolliset kentät ennen kuin siirryt seuraavaan vaiheeseen",

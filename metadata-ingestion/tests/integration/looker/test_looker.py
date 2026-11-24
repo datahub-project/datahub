@@ -47,7 +47,7 @@ from datahub.ingestion.source.looker.looker_query_model import (
     UserViewField,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-from datahub.metadata.schema_classes import GlobalTagsClass
+from datahub.metadata.schema_classes import DatasetPropertiesClass, GlobalTagsClass
 from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
@@ -1534,6 +1534,34 @@ def test_explore_tags(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                 ]
 
         assert expected_tag_urns == actual_tag_urns
+
+
+@pytest.mark.parametrize(
+    "hidden, expected", [(True, "true"), (False, "false"), (None, None)]
+)
+def test_explore_hidden(hidden: Optional[bool], expected: Optional[str]) -> None:
+    mocked_client = mock.MagicMock()
+    setup_mock_explore(mocked_client, hidden=hidden)
+
+    looker_explore = looker_common.LookerExplore.from_api(
+        model="fake",
+        explore_name="my_explore_name",
+        client=mocked_client,
+        reporter=mock.MagicMock(),
+        source_config=mock.MagicMock(),
+    )
+    assert looker_explore is not None
+
+    mcps = looker_explore._to_metadata_events(
+        config=LookerCommonConfig(),
+        reporter=SourceReport(),
+        base_url="fake",
+        extract_embed_urls=False,
+    ).as_mcps()
+    properties = next(
+        mcp.aspect for mcp in mcps if isinstance(mcp.aspect, DatasetPropertiesClass)
+    )
+    assert properties.customProperties.get("looker.explore.hidden") == expected
 
 
 def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Dashboard:

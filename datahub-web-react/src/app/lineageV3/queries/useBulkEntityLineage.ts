@@ -32,7 +32,10 @@ import { EntityType, LineageDirection } from '@types';
 
 const BATCH_SIZE = 10;
 
-export default function useBulkEntityLineage(shownUrns: string[]): (urn: string) => void {
+export default function useBulkEntityLineage(shownUrns: string[]): {
+    refetchUrn: (urn: string) => void;
+    loading: boolean;
+} {
     const flags = useAppConfig().config.featureFlags;
     const entityRegistry = useEntityRegistry();
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
@@ -175,7 +178,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
         endTimeMillis,
     ]);
 
-    return useCallback(
+    const refetchUrn = useCallback(
         (urn: string) =>
             refetch({
                 urns: [urn],
@@ -186,6 +189,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
             }),
         [refetch, startTimeMillis, endTimeMillis],
     );
+    return { refetchUrn, loading };
 }
 
 function processEdge(

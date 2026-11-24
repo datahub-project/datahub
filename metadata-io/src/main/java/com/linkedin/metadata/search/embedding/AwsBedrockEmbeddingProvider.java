@@ -13,7 +13,13 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.SdkPlugin;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.exception.SdkServiceException;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.retries.StandardRetryStrategy;
+import software.amazon.awssdk.retries.api.BackoffStrategy;
+import software.amazon.awssdk.retries.api.RetryStrategy;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
@@ -39,6 +45,21 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
 
   private static final String DEFAULT_MODEL = "cohere.embed-english-v3";
   private static final int DEFAULT_MAX_CHARACTER_LENGTH = 2048; // Cohere's hard limit
+
+  // A call with a deadline does not retry a throttle: a retry's backoff would outlive the deadline
+  // and end the throttle as a timeout. It retries a transient server or connection error once,
+  // quickly, so one blip does not fail the search.
+  private static final RetryStrategy DEADLINE_RETRIES =
+      StandardRetryStrategy.builder()
+          .maxAttempts(2)
+          .backoffStrategy(BackoffStrategy.fixedDelay(Duration.ofMillis(50)))
+          .retryOnException(AwsBedrockEmbeddingProvider::transientNotThrottled)
+          .circuitBreakerEnabled(false)
+          .build();
+
+  // Applied per request, so a call without a deadline keeps the client's retries
+  private static final SdkPlugin WITHIN_DEADLINE =
+      config -> config.overrideConfiguration(o -> o.retryStrategy(DEADLINE_RETRIES));
 
   private final BedrockRuntimeClient bedrockClient;
   private final ObjectMapper objectMapper;
@@ -127,7 +148,8 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
   }
 
   /**
-   * @param timeout bounds the whole call, SDK retries included; null keeps the client's settings
+   * @param timeout bounds the call, which then retries only a transient error, once; null keeps the
+   *     client's settings, retries included
    */
   @Nonnull
   private float[] embedWithTimeout(
@@ -171,7 +193,8 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
               .contentType("application/json")
               .accept("application/json");
       if (timeout != null) {
-        invokeRequest.overrideConfiguration(override -> override.apiCallTimeout(timeout));
+        invokeRequest.overrideConfiguration(
+            override -> override.apiCallTimeout(timeout).addPlugin(WITHIN_DEADLINE));
       }
 
       InvokeModelResponse response = bedrockClient.invokeModel(invokeRequest.build());
@@ -221,9 +244,24 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
     } catch (Exception e) {
       String errorMsg =
           String.format("Bedrock InvokeModel failed for model %s: %s", modelToUse, e.getMessage());
+      // Any 429, which includes ModelNotReadyException as well as ThrottlingException: both clear
+      // on their own, so reporting them as a throttle, a 503 to GraphQL callers, is intended. With
+      // no deadline the client's retries ran first.
+      if (e instanceof SdkServiceException service && service.isThrottlingException()) {
+        log.warn(errorMsg);
+        throw new EmbeddingThrottledException(errorMsg, e);
+      }
       log.error(errorMsg, e);
       throw new RuntimeException(errorMsg, e);
     }
+  }
+
+  /** A transient server error or a dropped connection, never a throttle. */
+  private static boolean transientNotThrottled(@Nonnull Throwable failure) {
+    if (failure instanceof SdkServiceException service) {
+      return !service.isThrottlingException() && service.statusCode() >= 500;
+    }
+    return failure instanceof SdkClientException && failure.getCause() instanceof IOException;
   }
 
   /** Closes the Bedrock client. Should be called when the provider is no longer needed. */

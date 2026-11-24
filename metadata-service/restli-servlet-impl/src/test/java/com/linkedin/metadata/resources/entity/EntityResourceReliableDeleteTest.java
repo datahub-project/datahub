@@ -360,7 +360,8 @@ public class EntityResourceReliableDeleteTest {
             deleteEntityService,
             timeseriesAspectService,
             new ReliableHardDelete(entityService, reliableHardDelete),
-            hardDispatcher));
+            hardDispatcher,
+            5000));
   }
 
   private List<String> timeseriesAspects() {

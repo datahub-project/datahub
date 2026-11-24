@@ -6,6 +6,7 @@ import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchF
 
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.SearchInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -17,13 +18,17 @@ import com.linkedin.metadata.query.GroupingCriterion;
 import com.linkedin.metadata.query.GroupingCriterionArray;
 import com.linkedin.metadata.query.GroupingSpec;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.function.FailableFunction;
 
 /** Resolver responsible for resolving the 'search' field of the Query type */
 @Slf4j
@@ -81,20 +86,32 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
 
             com.linkedin.metadata.query.filter.Filter filter =
                 ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+            // A template the caller names may embed the query; the keyword fallback is the same
+            // search without it, so with no template named there is none
+            final FailableFunction<OperationContext, SearchResult, RemoteInvocationException>
+                search =
+                    opContext ->
+                        _entityClient.search(
+                            opContext,
+                            entityName,
+                            sanitizedQuery,
+                            filter,
+                            Collections.emptyList(),
+                            start,
+                            count);
             return UrnSearchResultsMapper.map(
                 context,
-                _entityClient.search(
+                QueryEmbeddingFailures.searchWithKeywordFallback(
                     context
                         .getOperationContext()
                         .withSearchFlags(flags -> searchFlags)
                         .withCallerOptionalFilterFields(
                             DefaultEntityFiltersUtil.callerOptionalFilterFields(filter)),
-                    entityName,
-                    sanitizedQuery,
-                    filter,
-                    Collections.emptyList(),
-                    start,
-                    count));
+                    search,
+                    searchFlags.hasSearchTemplate() ? search : null));
+          } catch (DataHubGraphQLException e) {
+            // Already typed, as a query embedding failure is
+            throw e;
           } catch (Exception e) {
             log.error(
                 "Failed to execute search: entity type {}, query {}, filters: {}, orFilters: {}, start: {}, count: {}, searchFlags: {}",

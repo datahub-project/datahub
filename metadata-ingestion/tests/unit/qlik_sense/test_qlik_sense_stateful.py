@@ -220,6 +220,7 @@ def _cloud_run(
         api.lineage_read_failures = []
         api.field_lineage_failures = []
         api.opened_without_data = []
+        api.engine_refusals = None
         api.get_user_name.return_value = None
         ctx = PipelineContext(run_id=run_id, pipeline_name="qlik-cloud", graph=graph)
         source = QlikSenseSource(

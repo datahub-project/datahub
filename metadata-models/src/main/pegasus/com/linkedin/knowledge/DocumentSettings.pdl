@@ -11,8 +11,9 @@ import com.linkedin.common.AuditStamp
 record DocumentSettings {
   /**
    * Whether or not this document should be visible in the global context (e.g., global navigation, knowledge base search).
-   * When false, the document is "private" and accessible primarily through the assets it is related to.
-   * When true, the document appears in the global documents space accessible to all users.
+   * When false, global search and the sidebar leave the document out by default, and its related assets still lead to it.
+   * This is not access control: searches can still return it, for example a cross-entity search (searchAcrossEntities, scrollAcrossEntities, aggregateAcrossEntities, browseV2 or semanticSearchAcrossEntities) that filters on showInGlobalContext or sets includeHiddenLifecycleStages, or search with type DOCUMENT.
+   * When true, the document appears in the global documents space.
    */
   @Searchable = {
     "fieldType": "BOOLEAN",
