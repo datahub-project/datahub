@@ -1709,6 +1709,7 @@ module.exports = {
       },
       items: [
         "docs/deploy/aws",
+        "docs/deploy/aws-ecs",
         "docs/deploy/gcp",
         "docs/deploy/azure",
         "docker/README",
