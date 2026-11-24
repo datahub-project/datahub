@@ -1321,6 +1321,25 @@ def test_kept_writer_links_a_file_whose_storage_is_mapped_since_on_storage(
     assert recorded.stored_file_urns == [ABS_ORDERS_QVD]
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_writer_keeps_its_unmapped_store_when_datasets_cannot_be_listed(
+    mock_api_cls: MagicMock,
+) -> None:
+    mock_api_cls.return_value.list_datasets.return_value = None
+    source = _source(
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        {},
+    )
+    source._fingerprint_salt = "salt"
+
+    recorded, workunits, pinned = _keep_writer_of_unmapped_store(source)
+
+    assert UNMAPPED_ORDERS_QVD in pinned
+    assert ABS_ORDERS_QVD not in {wu.get_urn() for wu in workunits}
+    assert list(recorded.unmapped_file_stores) == [UNMAPPED_ORDERS_QVD]
+    assert UNMAPPED_ORDERS_QVD in recorded.urns
+
+
 @pytest.mark.parametrize("listing_failed", [False, True])
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_kept_writer_of_a_file_still_on_unknown_storage_keeps_it_unmapped(
