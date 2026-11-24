@@ -368,9 +368,9 @@ Qlik Cloud has no lineage graph for these apps, and their last read, if any, had
 
 With `skip_unchanged_apps`, these apps could not be checked for changes, for example because the Repository Service or DataHub did not answer, so they were read in full. Nothing is lost; if the check keeps failing, the entry says why.
 
-#### "Lineage of Qlik app table only added to"
+#### "Lineage of Qlik app tables only added to"
 
-Something the table loads could not be read this run, so the lineage read this run is added to the table's existing lineage instead of replacing it. The warning gives the reason; fix that and the next run replaces the lineage.
+Something these tables load could not be read this run, so the lineage read this run is added to their existing lineage instead of replacing it. Each entry names the app, the reason and the tables it applies to, for example an included script that was not read, or a source app whose tables could not be read. Fix the reason and the next run replaces the lineage.
 
 #### "Qlik app checkpoint is too large to save"
 

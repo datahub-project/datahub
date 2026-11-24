@@ -378,7 +378,12 @@ def test_app_table_lineage_is_only_added_to_when_the_app_it_loads_may_be_unread(
                 qri=f"{REPORT_APP}#Tbl",
                 label="Prices",
                 source_qris=["qri:app:sense://other-app#Tbl"],
-            )
+            ),
+            LineageTable(
+                qri=f"{REPORT_APP}#Tbl2",
+                label="Curves",
+                source_qris=["qri:app:sense://other-app#Tbl"],
+            ),
         ],
     )
 
@@ -387,11 +392,16 @@ def test_app_table_lineage_is_only_added_to_when_the_app_it_loads_may_be_unread(
     )
 
     assert _urn("report-app.prices") not in written
-    assert any(
-        "app=report-app" in str(w.context)
+    # One entry for the app, naming the source and every table it holds back.
+    [context] = [
+        list(w.context)
         for w in source.reporter.warnings
-        if w.title == "Lineage of Qlik app table only added to"
-    )
+        if w.title == "Lineage of Qlik app tables only added to"
+    ]
+    assert context == [
+        "app=report-app, reason=the tables of source app other-app are not known "
+        "this run, tables=Curves, Prices"
+    ]
 
 
 @pytest.mark.parametrize("loader_first", [True, False])
@@ -472,7 +482,7 @@ def test_app_table_lineage_is_only_added_to_when_the_app_it_loads_is_partly_read
     assert any(
         "app=report-app" in str(w.context)
         for w in source.reporter.warnings
-        if w.title == "Lineage of Qlik app table only added to"
+        if w.title == "Lineage of Qlik app tables only added to"
     )
 
 
@@ -1160,7 +1170,7 @@ def test_failed_dataset_listing_keeps_table_lineage(mock_api_cls: MagicMock) -> 
     assert _urn("etl-app.curve") not in written
     assert _urn("report-app.prices") not in written
     assert added[_urn("etl-app.curve")] == [POSTGRES_ORDERS]
-    assert "Lineage of Qlik app table only added to" in [
+    assert "Lineage of Qlik app tables only added to" in [
         w.title for w in source.reporter.warnings
     ]
 
@@ -1177,7 +1187,7 @@ def test_denied_load_script_only_adds_to_table_lineage(
     assert any(
         "load script could not be read" in str(w.context)
         for w in source.reporter.warnings
-        if w.title == "Lineage of Qlik app table only added to"
+        if w.title == "Lineage of Qlik app tables only added to"
     )
 
 

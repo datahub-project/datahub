@@ -437,8 +437,12 @@ def _qlik_field_id(name: str) -> str:
 
 class _ResolvedSources(BaseModel):
     urns: List[str] = []
-    # False when a source could not be resolved this run.
-    complete: bool = True
+    # Why sources could not be resolved this run.
+    unknown_reasons: List[str] = []
+
+    @property
+    def complete(self) -> bool:
+        return not self.unknown_reasons
 
 
 class _FileSourceResolution(BaseModel):
@@ -516,6 +520,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._file_sources_by_app: Dict[str, FileSourceResolver] = {}
         self._app_space_ids: Dict[str, str] = {}
         self._apps_variables_unread: Set[str] = set()
+        # The tables whose lineage is only added to, by app and reason, reported
+        # once per app at the end of the run.
+        self._only_added_tables: Dict[Tuple[str, str], List[str]] = {}
         # Apps that load files by a wildcard or a path the connector can't
         # expand, so the files in their lineage graph can't all be named.
         self._apps_file_paths_unknown: Set[str] = set()
@@ -2020,19 +2027,19 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         result incomplete. `own_app_id` is the app whose table it is."""
         resolved = _ResolvedSources()
         for source_qri in source_qris:
-            urn, known = self._resolve_source(source_qri, dataset_urn, own_app_id)
-            if not known:
-                resolved.complete = False
+            urn, unknown = self._resolve_source(source_qri, dataset_urn, own_app_id)
+            if unknown and unknown not in resolved.unknown_reasons:
+                resolved.unknown_reasons.append(unknown)
             if urn and urn not in resolved.urns:
                 resolved.urns.append(urn)
         return resolved
 
     def _resolve_source(
         self, table_qri: str, dataset_urn: str, own_app_id: Optional[str]
-    ) -> Tuple[Optional[str], bool]:
-        """The URN of a source table node, if this run ingests it, and whether
-        every source could be told this run. An unknown source may still have
-        a URN, which is only added."""
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """The URN of a source table node, if this run ingests it, and why the
+        source could not be told this run, if so. An unknown source may still
+        have a URN, which is only added."""
         app_id = _qlik_app_id(table_qri)
         if app_id is not None:
             # Such as a BINARY load of another app; a table of an app the run
@@ -2041,7 +2048,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if not self._app_tables_known(app_id):
                 # A table the graph names this run is still added, but the
                 # app's other tables are unknown.
-                return (urn if urn != dataset_urn else None), False
+                return (
+                    urn if urn != dataset_urn else None
+                ), f"the tables of source app {app_id} are not known this run"
         else:
             # Data files, and files Qlik catalogued on a data connection such
             # as ADLS, are datasets. Other sources, such as database tables,
@@ -2058,7 +2067,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 # without the list of datasets.
                 file_source = self._file_source_resolution(own_app_id, table_qri)
                 urn, on_known_storage = file_source.urn, file_source.on_known_storage
-                if urn is None and self._file_inputs_incomplete(own_app_id):
+                inputs_unknown = (
+                    self._file_inputs_unknown(own_app_id) if urn is None else None
+                )
+                if inputs_unknown:
                     # The file may be one the script reads through a path,
                     # connection or included script this run could not read,
                     # so the last run's edge to it must stay. Without the
@@ -2069,25 +2081,28 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                         or on_known_storage
                         or self._data_connections_unread()
                     ):
-                        return None, False
-                    return self._graph_named_source(own_app_id, table_qri), False
+                        return None, inputs_unknown
+                    return (
+                        self._graph_named_source(own_app_id, table_qri),
+                        inputs_unknown,
+                    )
             if urn is None and datasets is None:
-                return None, False
+                return None, "the Qlik datasets could not be listed"
             if (
                 urn is None
                 and table_qri.startswith(QLIK_DATASET_QRI_PREFIX)
                 and self._datasets_without_qri
             ):
                 # It may be an ingested dataset the listing gave no QRI for.
-                return None, False
+                return None, "a listed Qlik dataset has no QRI to match"
             # A file on known storage that could not be told which is left out
             # rather than named apart from its storage dataset.
             if urn is None and own_app_id is not None and not on_known_storage:
                 urn = self._graph_named_source(own_app_id, table_qri)
                 if urn is None and self._upstream_graph_unread(own_app_id):
                     # The upstream graph that may name it could not be read.
-                    return None, False
-        return (urn if urn != dataset_urn else None), True
+                    return None, "the app's upstream lineage graph could not be read"
+        return (urn if urn != dataset_urn else None), None
 
     def _graph_named_source(self, app_id: str, table_qri: str) -> Optional[str]:
         """A dataset or file only the app's upstream graph names, such as a QVD
@@ -2155,7 +2170,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _upstream_graph_unread(self, app_id: str) -> bool:
         return app_id in self._apps_upstream_graph_unread
 
-    def _file_inputs_incomplete(self, app_id: str) -> bool:
+    def _file_inputs_unknown(self, app_id: str) -> Optional[str]:
+        """Why the files the app's load script reads are not all known, if so."""
         if app_id in self._apps_with_includes:
             if app_id not in self._reported_include_apps:
                 self._reported_include_apps.add(app_id)
@@ -2168,12 +2184,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     "to the table's lineage.",
                     context=app_id,
                 )
-            return True
-        return (
-            app_id in self._apps_variables_unread
-            or app_id in self._apps_file_paths_unknown
-            or self._data_connections_unread()
-        )
+            return "a file in its lineage graph may be loaded by an included script"
+        if app_id in self._apps_variables_unread:
+            return "the app's variables could not be read"
+        if app_id in self._apps_file_paths_unknown:
+            return "the app loads files through paths the connector can't name"
+        if self._data_connections_unread():
+            return "the data connections could not be listed"
+        return None
 
     def _data_connections_unread(self) -> bool:
         return any(
@@ -2820,6 +2838,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             yield from self._gen_table_lineage(pending, graph_fields)
         self._pending_table_lineage = []
+        for (app_id, reason), labels in self._only_added_tables.items():
+            self.reporter.warning(
+                title="Lineage of Qlik app tables only added to",
+                message="A source of these tables could not be read this run, so "
+                "the lineage read this run is added to their existing lineage "
+                "instead of replacing it.",
+                context=f"app={app_id}, reason={reason}, "
+                f"tables={_bounded_list(sorted(labels))}",
+            )
+        self._only_added_tables = {}
 
     def _gen_table_lineage(
         self, pending: "PendingTableLineage", graph_fields: List[FineGrainedLineage]
@@ -2834,11 +2862,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         reason = (
             pending.incomplete_reason
-            or (
-                "an upstream source could not be resolved, see the app's other warnings"
-                if not resolved.complete
-                else None
-            )
+            or "; ".join(resolved.unknown_reasons)
             or (
                 "a source field's name was not read"
                 if pending.dataset_urn in self._unnamed_field_lineage
@@ -2863,13 +2887,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # a source field could not be read this run: replacing the lineage
         # would drop the edges an earlier run wrote, so what was read is added
         # to them instead.
-        self.reporter.warning(
-            title="Lineage of Qlik app table only added to",
-            message="A source of the table could not be read this run, so the "
-            "lineage read this run is added to the table's existing lineage "
-            "instead of replacing it.",
-            context=f"app={pending.app_id}, table={pending.table_label}, "
-            f"reason={reason}",
+        self._only_added_tables.setdefault((pending.app_id, reason), []).append(
+            pending.table_label
         )
         yield from self._patch_upstreams(
             pending.dataset_urn,
