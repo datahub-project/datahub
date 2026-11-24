@@ -234,7 +234,9 @@ class BatchPartitionExecutor(Closeable):
         # Due to limitations of Python's typing, we can't express the type of the list
         # effectively. Ideally we'd use ParamSpec here, but that's not allowed in a
         # class context like this.
-        process_batch: Callable[[List], None],
+        # Its return value is the result of the batch's future, which each item's
+        # done_callback can read.
+        process_batch: Callable[[List], object],
         max_per_batch: int = 100,
         min_process_interval: timedelta = _DEFAULT_BATCHER_MIN_PROCESS_INTERVAL,
         # Why 3 seconds? It's somewhat arbitrary.

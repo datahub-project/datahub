@@ -59,6 +59,7 @@ from datahub.configuration.env_vars import (
     get_rest_emitter_default_pool_connections,
     get_rest_emitter_default_pool_maxsize,
     get_rest_emitter_default_retry_max_times,
+    get_rest_emitter_fail_on_rejected_proposals,
     get_rest_sink_default_tcp_keepalive,
 )
 
@@ -74,9 +75,11 @@ from datahub.emitter.request_helper import (
     make_curl_command,
 )
 from datahub.emitter.response_helper import (
+    RejectedProposal,
     TraceData,
     extract_trace_data,
     extract_trace_data_from_mcps,
+    parse_rejected_proposals,
 )
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.emitter.token_provider import TokenProviderAuth
@@ -452,6 +455,34 @@ class RequestsSessionConfig(ConfigModel):
         return f"DataHub-Client/1.0 ({client_mode.name.lower()}; {component}/{caller}; {version}){requests_user_agent}"
 
 
+class RejectedProposalsError(OperationalError):
+    """GMS wrote a Rest.li batch without some of its proposals.
+
+    Raised only when failing on rejected proposals is switched on, after every
+    chunk of the call has been sent.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        rejected: List[RejectedProposal],
+        trace_data: List[TraceData],
+    ):
+        super().__init__(
+            message, {"message": message, "rejected": [str(r) for r in rejected]}
+        )
+        self.rejected = rejected
+        self.trace_data = trace_data
+
+
+def _restli_response_value(response: requests.Response) -> object:
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    return body.get("value") if isinstance(body, dict) else None
+
+
 @dataclass
 class _ChunkItem:
     """A single serialized item in a batch chunk."""
@@ -517,6 +548,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         server_config_refresh_interval: Optional[int] = None,
         tcp_keepalive: Optional[bool] = None,
         default_emit_mode: Optional[EmitMode] = None,
+        fail_on_rejected_proposals: Optional[bool] = None,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
@@ -562,6 +594,14 @@ class DataHubRestEmitter(Closeable, Emitter):
         # the MCPs that must remain synchronous (e.g. via a custom aspect
         # mutator/validator, or an upstream processing step).
         self.respect_mcp_sync_marker = respect_mcp_sync_marker is True
+        # GMS can write a Rest.li batch without the proposals it rejects (for example
+        # an invalid urn) and name them in the response. Warn by default for now;
+        # DATAHUB_REST_EMITTER_FAIL_ON_REJECTED_PROPOSALS=true raises instead.
+        self._fail_on_rejected_proposals = (
+            fail_on_rejected_proposals
+            if fail_on_rejected_proposals is not None
+            else get_rest_emitter_fail_on_rejected_proposals()
+        )
         self._server_config_refresh_interval = server_config_refresh_interval
         self._server_config: Optional[RestServiceConfig] = None
         self._config_fetch_time: Optional[float] = None
@@ -1156,6 +1196,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             )
 
         trace_data: List[TraceData] = []
+        rejected: List[RejectedProposal] = []
         for chunk_index, (mcp_obj_chunk, mcp_chunk) in enumerate(chunks, start=1):
             # TODO: We're calling json.dumps on each MCP object twice, once to estimate
             # the size when chunking, and again for the actual request.
@@ -1186,7 +1227,22 @@ class DataHubRestEmitter(Closeable, Emitter):
             )
             if data is not None:
                 trace_data.append(data)
+            rejected.extend(
+                parse_rejected_proposals(_restli_response_value(response), mcp_chunk)
+            )
 
+        if rejected:
+            message = (
+                f"GMS rejected {len(rejected)} proposal(s) and wrote the rest of the "
+                f"batch: {'; '.join(str(r) for r in rejected)}"
+            )
+            if self._fail_on_rejected_proposals:
+                raise RejectedProposalsError(message, rejected, trace_data)
+            logger.warning(
+                "%s. Set DATAHUB_REST_EMITTER_FAIL_ON_REJECTED_PROPOSALS=true to "
+                "raise an error instead.",
+                message,
+            )
         return trace_data
 
     @deprecated("Use emit with a datasetUsageStatistics aspect instead")

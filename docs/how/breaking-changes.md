@@ -199,11 +199,27 @@ reported success. These now fail with an error that names the write and the reas
   an unsupported change type, now fail with HTTP 400 instead of HTTP 500.
 
 Ingestion recipes and scripts now report a rejected write as a failure when it is sent on its own
-or when every write in its batch is rejected. With the default settings, ingestion sends writes in
-batches, and the Python SDK does not yet read the list of rejected writes in the response. So a
-rejected write that shares a batch with accepted ones is still dropped without a failure in the
-ingestion report; it shows only in the DataHub server log. A follow-up SDK change will report these.
-Upgrade and bootstrap jobs are not affected.
+or when every write in its batch is rejected. A rejected write that shares a batch with accepted
+ones is reported by the Python SDK from the next release, as described below. Upgrade and bootstrap
+jobs are not affected.
+
+### Ingestion reports writes the server rejected in a batch
+
+With the default settings, ingestion sends writes to DataHub in batches. When DataHub saves a batch
+without some of its writes, it lists the rejected ones in its response. The Python SDK and the
+`datahub-rest` sink used to ignore that list, so these writes were missing from DataHub with no sign
+in the ingestion report.
+
+They are now reported:
+
+- The `datahub-rest` sink adds each rejected write to the ingestion report, against its workunit,
+  and no longer counts it as written.
+- `DataHubRestEmitter.emit_mcps` logs a warning that names each rejected write.
+
+For this release they are reported as warnings, so a run that succeeded before still succeeds. To
+report them as failures, and have `emit_mcps` raise `RejectedProposalsError`, set the environment
+variable `DATAHUB_REST_EMITTER_FAIL_ON_REJECTED_PROPOSALS=true`. A later release will make failure
+the default. Older DataHub servers do not list rejected writes, so nothing changes with them.
 
 ### Rest.li status codes for rejected writes
 

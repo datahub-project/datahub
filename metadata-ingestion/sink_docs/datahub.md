@@ -94,6 +94,16 @@ When enabled, a batch is upgraded to synchronous (`async=false`) if any of its M
 
 This feature is supported only in specific configurations of DataHub Cloud and only when adopted under specific direction of DataHub. This feature requires a dedicated pool of logical model propagation workers and that MCP throttling be enabled.
 
+#### Writes rejected by the server
+
+DataHub can save a batch of writes without the ones it cannot accept, for example a dataset whose environment is not a known value. It then lists the rejected writes in its response. The sink reports each rejected write against its workunit in the ingestion report, and does not count it as written.
+
+For now, a rejected write is reported as a warning, so it does not fail the run. Set the environment variable `DATAHUB_REST_EMITTER_FAIL_ON_REJECTED_PROPOSALS=true` to report it as a failure instead. A later release will make failure the default.
+
+The same setting applies to the Python SDK: `DataHubRestEmitter.emit_mcps` logs a warning that names the rejected writes, or, with the setting on, raises `RejectedProposalsError` after sending the whole batch. The emitter also takes `fail_on_rejected_proposals` as a constructor argument. A write sent on its own, or a batch in which every write is rejected, already fails with an error.
+
+This applies to the default Rest.li endpoint, on DataHub servers that list rejected writes. Older servers do not list them, so nothing changes there. With `endpoint: OPENAPI`, a batch that contains a rejected write fails as a whole, and none of its writes are saved.
+
 ## DataHub Kafka
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
