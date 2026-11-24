@@ -148,14 +148,17 @@ On GMS, this delete now checks that the delete is allowed, removes the relations
 hold to the deleted one, then deletes it. A delete that is refused leaves those relationships in
 place. Deleting the entity first dropped them from the graph, so they stayed on the other entities.
 
-Deleting a tag, term, domain, user, group or other entity that more than 100 other entities point
-at is now refused, and nothing is deleted. The error says how many entities point at it. Either
-raise the limit with `DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`
-(`hardDelete.graph-reference-cleanup-limit`, default `100`), or remove the references first with
-`datahub delete references --urn <urn>` and delete again. Set the limit to `0` to turn this
-cleanup off: the entity is deleted alone, as before, and the entities that pointed at it keep
-pointers to something that no longer exists. References that are not graph relationships are
-still removed. `ReferencesCleanup.choice()` reports which path ran.
+Removing the relationships of an entity that more than 100 other entities point at (a tag, term,
+domain, user, group or other entity) in one request can time out, so the limit is
+`hardDelete.graph-reference-cleanup-limit` (`DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`,
+default `100`). `hardDelete.graph-reference-over-limit`
+(`DATAHUB_HARD_DELETE_GRAPH_REFERENCE_OVER_LIMIT`) sets what a delete over the limit does. The
+default, `SKIP`, deletes the entity without removing those relationships, as before this change: the
+entities that pointed at it keep pointers to something that no longer exists. GMS logs a warning
+and counts `datahub.hard_delete.graph_references_skipped`. `REFUSE` deletes nothing and returns an
+error that says how many entities point at the entity. A limit of `0` puts every entity that has a
+referrer over the limit. References that are not graph relationships are still removed either way.
+`ReferencesCleanup.choice()` reports which path ran.
 
 If a delete fails because the entity was written to while it was being deleted (with
 `featureFlags.reliableHardDelete` on), the relationships to it are already removed and the entity

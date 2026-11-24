@@ -37,6 +37,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.DeleteCeiling;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.GraphReferenceOverLimit;
 import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
@@ -361,7 +362,8 @@ public class EntityResourceReliableDeleteTest {
             timeseriesAspectService,
             new ReliableHardDelete(entityService, reliableHardDelete),
             hardDispatcher,
-            5000));
+            5000,
+            GraphReferenceOverLimit.SKIP));
   }
 
   private List<String> timeseriesAspects() {
