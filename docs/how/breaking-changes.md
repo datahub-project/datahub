@@ -190,7 +190,8 @@ reported success. These now fail with an error that names the write and the reas
 - A batch in which only some writes are rejected still saves the others. The Rest.li response lists
   the rejected ones after `success`.
 - UI and GraphQL edits, such as adding an owner or a tag, now show an error instead of appearing to
-  succeed.
+  succeed. Some edits are not covered yet and can still appear to succeed: descriptions, names, links,
+  related terms, embeds and user settings. These follow in a separate change.
 - When metadata change proposals are read from Kafka one at a time (batch consumption turned off),
   a rejected write now goes to the failed metadata change proposal topic instead of being logged as
   processed.
