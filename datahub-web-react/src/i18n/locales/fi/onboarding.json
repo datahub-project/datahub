@@ -158,6 +158,9 @@
     "users.ssoTitle": "Kertakirjautumisen (SSO) määrittäminen",
     "welcome.docsLink": "DataHub-dokumentaatio",
     "welcome.getStarted": "Aloita",
+    "welcome.githubRepoDescription": "Metatietoalusta data- ja AI-pinollesi",
+    "welcome.githubStargazers": "Liity niiden {{stars}} kehittäjän joukkoon, jotka ovat antaneet DataHubille tähden",
+    "welcome.githubStargazersNoCount": "Liity niiden kehittäjien joukkoon, jotka ovat antaneet DataHubille tähden",
     "welcome.loadingVideo": "Ladataan videota...",
     "welcome.modalTitle": "Tervetuloa DataHubiin",
     "welcome.slideDocsDescription": "Säästä tunteja manuaalista työtä ja paranna löydettävyyttä",
@@ -168,6 +171,8 @@
     "welcome.slideImpactTitle": "Hallitse rikkovia muutoksia luottavaisin mielin",
     "welcome.slideLineageDescription": "Näe koko tarina siitä, miten datasi luotiin ja muunnettiin",
     "welcome.slideLineageTitle": "Ymmärrä datasi alkuperä",
+    "welcome.slideGithubDescription": "Jos DataHub on tiimillesi hyödyllinen, tähti GitHubissa auttaa myös muita datatiimejä löytämään sen.",
+    "welcome.slideGithubTitle": "Pidätkö näkemästäsi?",
     "welcome.slideReadyDescription": "Tutustu kattavaan dokumentaatioomme tai hyppää suoraan mukaan ja ala tutkia dataasi",
     "welcome.slideReadyTitle": "Valmiina aloittamaan?"
 }
