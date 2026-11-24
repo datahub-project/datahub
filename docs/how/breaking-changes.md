@@ -189,9 +189,9 @@ reported success. These now fail with an error that names the write and the reas
   the OpenAPI v1 `/entities` endpoint in which every write is rejected.
 - A batch in which only some writes are rejected still saves the others. The Rest.li response lists
   the rejected ones after `success`.
-- UI and GraphQL edits, such as adding an owner or a tag, now show an error instead of appearing to
-  succeed. Some edits are not covered yet and can still appear to succeed: descriptions, names, links,
-  related terms, embeds and user settings. These follow in a separate change.
+- UI and GraphQL edits, such as adding an owner, a tag or a description, moving a glossary term, or
+  changing embeds or user settings, now show an error instead of appearing to succeed. The
+  `patchEntity` mutation already reported such a write as failed; its error now gives the reason.
 - When metadata change proposals are read from Kafka one at a time (batch consumption turned off),
   a rejected write now goes to the failed metadata change proposal topic instead of being logged as
   processed.
@@ -204,15 +204,6 @@ batches, and the Python SDK does not yet read the list of rejected writes in the
 rejected write that shares a batch with accepted ones is still dropped without a failure in the
 ingestion report; it shows only in the DataHub server log. A follow-up SDK change will report these.
 Upgrade and bootstrap jobs are not affected.
-
-### More UI edits show an error when a write is rejected
-
-The UI and GraphQL edits that the previous entry lists as not covered yet now also show an error when
-DataHub cannot accept the write, for example for an entity whose urn is not valid. Previously the
-edit appeared to succeed but nothing was saved. This covers descriptions, names, links, related
-terms, moving a glossary term, glossary node, domain or data product, display properties, embeds and
-user settings. The `patchEntity` mutation already reported such a write as failed; its error now
-gives the reason.
 
 ### Rest.li status codes for rejected writes
 
