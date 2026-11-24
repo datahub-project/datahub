@@ -1,10 +1,11 @@
 import { act, render, screen } from '@testing-library/react';
 import React, { Suspense, lazy } from 'react';
-import { Link, MemoryRouter, Route, Switch } from 'react-router-dom';
+import { Link, MemoryRouter, Redirect, Route, Switch } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import { describe, expect, it } from 'vitest';
 
-import { NavigationTransitions, RouteSuspense } from '@app/sharedV2/NavigationTransitions';
+import { NavigationTransitions } from '@app/sharedV2/NavigationTransitions';
+import { RouteSuspense } from '@app/sharedV2/RouteSuspense';
 import themeV2 from '@conf/theme/themeV2';
 
 // Never resolves, so the lazy page stays loading for the whole test.
@@ -24,6 +25,10 @@ function renderApp({ withTransitions, routeBoundary }: { withTransitions: boolea
             <Switch>
                 <Route exact path="/">
                     <Link to="/lazy">Go</Link>
+                    <Link to="/redirect">Go via redirect</Link>
+                </Route>
+                <Route path="/redirect">
+                    <Redirect to="/lazy" />
                 </Route>
                 <Route path="/lazy">{page}</Route>
             </Switch>
@@ -54,6 +59,14 @@ describe('NavigationTransitions', () => {
         await act(async () => screen.getByText('Go').click());
 
         expect(screen.getByText('Go')).toBeVisible();
+        expect(screen.queryByLabelText('Loading...')).not.toBeInTheDocument();
+    });
+
+    it('keeps waiting when the new page redirects to a lazy route', async () => {
+        renderApp({ withTransitions: true, routeBoundary: true });
+
+        await act(async () => screen.getByText('Go via redirect').click());
+
         expect(screen.queryByLabelText('Loading...')).not.toBeInTheDocument();
     });
 

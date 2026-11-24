@@ -6,7 +6,7 @@ import { GlossaryEntityContext } from '@app/entityV2/shared/GlossaryEntityContex
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import GlossarySidebar from '@app/glossaryV2/GlossarySidebar';
 import { shouldShowGlossary } from '@app/identity/user/UserUtils';
-import { RouteSuspense } from '@app/sharedV2/NavigationTransitions';
+import { RouteSuspense } from '@app/sharedV2/RouteSuspense';
 import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import {
     HierarchicalBrowseContentWrapper,

@@ -2,7 +2,7 @@ import React from 'react';
 import { Route, Switch } from 'react-router-dom';
 
 import { IngestionContextProvider } from '@app/ingestV2/IngestionContext';
-import { RouteSuspense } from '@app/sharedV2/NavigationTransitions';
+import { RouteSuspense } from '@app/sharedV2/RouteSuspense';
 import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import { PageRoutes } from '@conf/Global';
 

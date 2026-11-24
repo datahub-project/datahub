@@ -5,7 +5,7 @@ import { DomainsContext, UpdatedDomain } from '@app/domainV2/DomainsContext';
 import ManageDomainsSidebar from '@app/domainV2/nestedDomains/ManageDomainsSidebar';
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
-import { RouteSuspense } from '@app/sharedV2/NavigationTransitions';
+import { RouteSuspense } from '@app/sharedV2/RouteSuspense';
 import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import {
     HierarchicalBrowseContentWrapper,

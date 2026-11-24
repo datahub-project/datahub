@@ -4,8 +4,8 @@ import { Redirect, Route, Switch, useLocation } from 'react-router-dom';
 import { useUserContext } from '@app/context/useUserContext';
 import { SearchablePage as SearchablePageV2 } from '@app/searchV2/SearchablePage';
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
-import { RouteSuspense } from '@app/sharedV2/NavigationTransitions';
 import { NoPageFound } from '@app/sharedV2/NoPageFound';
+import { RouteSuspense } from '@app/sharedV2/RouteSuspense';
 import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import {
     useAppConfig,

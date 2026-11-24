@@ -3,7 +3,7 @@ import { Route, Switch } from 'react-router-dom';
 
 import MetricsSidebar from '@app/metrics/MetricsSidebar';
 import { MetricsEntityContextProvider } from '@app/metrics/context/MetricsEntityContext';
-import { RouteSuspense } from '@app/sharedV2/NavigationTransitions';
+import { RouteSuspense } from '@app/sharedV2/RouteSuspense';
 import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import {
     HierarchicalBrowseContentWrapper,

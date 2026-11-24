@@ -3,7 +3,7 @@ import { Route, Switch } from 'react-router-dom';
 
 import MarketplaceSidebar from '@app/marketplace/MarketplaceSidebar';
 import { MarketplaceEntityContextProvider } from '@app/marketplace/context/MarketplaceEntityContext';
-import { RouteSuspense } from '@app/sharedV2/NavigationTransitions';
+import { RouteSuspense } from '@app/sharedV2/RouteSuspense';
 import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import {
     HierarchicalBrowseContentWrapper,

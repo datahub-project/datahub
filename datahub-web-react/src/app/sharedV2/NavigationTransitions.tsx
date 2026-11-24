@@ -1,7 +1,5 @@
-import React, { ReactNode, Suspense, startTransition, use, useLayoutEffect } from 'react';
+import React, { ReactNode, startTransition, useLayoutEffect } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-
-import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
 
 type RouterHistory = ReturnType<typeof useHistory>;
 type Destination = Parameters<RouterHistory['push']>[0];
@@ -10,6 +8,11 @@ type PendingNavigation = { promise: Promise<void>; settle: () => void };
 const wrappedHistories = new WeakSet<RouterHistory>();
 // Settles when the new location commits.
 const pendingNavigations = new WeakMap<RouterHistory, PendingNavigation>();
+
+/** Resolves when the in-flight navigation commits; undefined when none is pending. */
+export function getPendingNavigation(history: RouterHistory): Promise<void> | undefined {
+    return pendingNavigations.get(history)?.promise;
+}
 
 function navigateInTransition(history: RouterHistory, navigate: () => void) {
     if (!pendingNavigations.has(history)) {
@@ -48,21 +51,11 @@ export function NavigationTransitions({ children }: { children: ReactNode }) {
     }
 
     useLayoutEffect(() => {
+        // A child (e.g. a Redirect) may already have started the next navigation in this commit.
+        if (history.location.key !== location.key) return;
         pendingNavigations.get(history)?.settle();
         pendingNavigations.delete(history);
     }, [history, location]);
 
     return <>{children}</>;
-}
-
-function RouteFallback() {
-    const pending = pendingNavigations.get(useHistory());
-    // A new boundary shows its fallback even in a transition; suspending defers to the visible one above.
-    if (pending) use(pending.promise);
-    return <SuspenseBlock />;
-}
-
-/** Suspense for route-level lazy pages: a spinner, except while a navigation is pending. */
-export function RouteSuspense({ children }: { children: ReactNode }) {
-    return <Suspense fallback={<RouteFallback />}>{children}</Suspense>;
 }

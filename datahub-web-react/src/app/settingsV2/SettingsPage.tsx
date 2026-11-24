@@ -20,7 +20,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
 import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
-import { RouteSuspense } from '@app/sharedV2/NavigationTransitions';
+import { RouteSuspense } from '@app/sharedV2/RouteSuspense';
 import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';

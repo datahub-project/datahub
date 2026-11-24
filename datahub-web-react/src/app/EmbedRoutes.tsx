@@ -1,7 +1,7 @@
 import React from 'react';
 import { Route } from 'react-router-dom';
 
-import { RouteSuspense } from '@app/sharedV2/NavigationTransitions';
+import { RouteSuspense } from '@app/sharedV2/RouteSuspense';
 import { lazyDefault } from '@app/sharedV2/lazyPage';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
