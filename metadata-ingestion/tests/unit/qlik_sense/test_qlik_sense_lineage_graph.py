@@ -1012,11 +1012,24 @@ def test_dataset_of_an_excluded_space_without_a_qri_blocks_graph_naming(
 ) -> None:
     upstreams = LineageUpstreams(resource_labels={UNLISTED_QVD: "prices.qvd"})
     datasets = [*DATASETS, ListedDataset(space_id="space-2", name=excluded_name)]
-    _, written, _ = _run(
-        mock_api_cls, datasets, items=_reader_and_writer(), upstreams=upstreams
-    )
+    with patch.object(
+        QlikSenseSource,
+        "_keep_graph_named_urns",
+        autospec=True,
+        side_effect=QlikSenseSource._keep_graph_named_urns,
+    ) as keep:
+        _, written, _ = _run(
+            mock_api_cls, datasets, items=_reader_and_writer(), upstreams=upstreams
+        )
 
-    assert (_urn(UNLISTED_QVD) in written[_urn("report-app.prices")]) is named
+    if named:
+        assert _urn(UNLISTED_QVD) in written[_urn("report-app.prices")]
+        keep.assert_not_called()
+    else:
+        # Not knowing the source, the last run's edges and graph-named
+        # datasets stay rather than being replaced away.
+        assert _urn("report-app.prices") not in written
+        assert [c.args[1] for c in keep.call_args_list] == ["report-app"]
 
 
 @pytest.mark.parametrize(

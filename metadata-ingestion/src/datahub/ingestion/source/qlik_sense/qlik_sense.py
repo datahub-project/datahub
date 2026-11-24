@@ -2184,9 +2184,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if (
                 urn is None
                 and table_qri.startswith(QLIK_DATASET_QRI_PREFIX)
-                and self._datasets_without_qri
+                and (
+                    self._datasets_without_qri
+                    or (
+                        self._excluded_datasets_without_qri
+                        and not self._is_listed_dataset(table_qri)
+                    )
+                )
             ):
-                # It may be an ingested dataset the listing gave no QRI for, so
+                # It may be a listed dataset the listing gave no QRI for, so
                 # it is not named from the graph either.
                 self._keep_graph_named_sources(own_app_id, table_qri)
                 return None, False
@@ -2211,7 +2217,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             and self._excluded_datasets_without_qri
         ):
             return False
-        return table_qri.startswith(UPSTREAM_RESOURCE_QRI_PREFIXES) and not any(
+        return table_qri.startswith(
+            UPSTREAM_RESOURCE_QRI_PREFIXES
+        ) and not self._is_listed_dataset(table_qri)
+
+    def _is_listed_dataset(self, table_qri: str) -> bool:
+        return any(
             qri in self._listed_dataset_qris
             for qri in (table_qri.rpartition("#")[0], table_qri)
         )
