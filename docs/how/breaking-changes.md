@@ -54,7 +54,7 @@ null, so no data is lost, but a query that selects the old shape, such as
 `applications { total relationships { entity { urn } } }`, now fails validation. Select
 `applications { application { urn properties { name } } }` instead.
 
-### Graph edges during a zero-downtime rollback
+### Graph edges during a zero-downtime rollback ([#21577](https://github.com/datahub-project/datahub/pull/21577))
 
 This only applies with entity and aspect tolerance on (`UNKNOWN_DATA_TOLERANCE_ENABLED` or
 `UNKNOWN_ENTITY_ASPECT_TOLERANCE_ENABLED`, off by default; see
