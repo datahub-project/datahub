@@ -150,6 +150,14 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     unmatched_reload_sql_sources: LossyList[str] = field(default_factory=LossyList)
     database_label_read_failures: LossyList[str] = field(default_factory=LossyList)
     reload_sql_tables_not_in_datahub: LossyList[str] = field(default_factory=LossyList)
+    # Apps whose last reload's file paths could not be read, so the datasets
+    # only their upstream graph names may have no path.
+    apps_without_reload_paths: LossyList[str] = field(default_factory=LossyList)
+    # Datasets Qlik's lineage graph names but no reload gives one path for,
+    # which are not ingested.
+    graph_named_datasets_without_path: LossyList[str] = field(default_factory=LossyList)
+    # Reload statements naming a `lib://` path in a form the connector doesn't read.
+    unrecognised_reload_files: LossyList[str] = field(default_factory=LossyList)
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
     qvds_found: int = 0
     # QVDs on connections in file_connection_to_storage, linked as storage files.

@@ -493,6 +493,27 @@ def test_bracketed_name_holding_the_separator_is_one_space_or_connection(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_whose_space_cant_be_told_from_its_connection_is_not_placed(
+    mock_api_cls: MagicMock,
+) -> None:
+    # Qlik records loads without the brackets around a name holding a colon.
+    source = _source({}, {})
+    path = "lib://team: sales:lake/ref/regions.xlsx"
+    urn = make_dataset_urn("qlik-sense", "team: sales:lake/ref/regions.xlsx")
+
+    assert not list(source._gen_lib_path_location(urn, path))
+
+    # A script spelling the space with brackets tells them apart.
+    source._unmapped_file_urn("[Team: Sales]:Lake", "ref/regions.xlsx", "space-1")
+    browse_path = next(
+        b
+        for wu in source._gen_lib_path_location(urn, path)
+        if (b := wu.get_aspect_of_type(BrowsePathsV2Class))
+    )
+    assert [e.id for e in browse_path.path] == ["Team: Sales", "Lake", "ref"]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_file_display_name_does_not_depend_on_app_order(
     mock_api_cls: MagicMock,
 ) -> None:

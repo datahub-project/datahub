@@ -32,6 +32,7 @@ from datahub.ingestion.source.qlik_sense.file_lineage import qri_part_id
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     UNREAD_DATA_CONNECTIONS,
+    UNREAD_SPACES,
     ReadErrors,
 )
 from datahub.ingestion.source.qlik_sense.qlik_sense import (
@@ -40,6 +41,7 @@ from datahub.ingestion.source.qlik_sense.qlik_sense import (
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
 from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     MetadataChangeProposalClass,
@@ -275,6 +277,12 @@ def _source(
     for item in api.get_items.return_value:
         if isinstance(item, App):
             item.script_read_failed = script_read_failed
+    # Each app's last reload loads, by path, every dataset its graph names.
+    loads = [
+        ReloadStatement(discriminator=f"lib://hidden:datafiles/{label};")
+        for label in (upstreams or LineageUpstreams()).resource_labels.values()
+    ]
+    api.get_reload_statements.side_effect = lambda app_id: list(loads)
     return QlikSenseSource(
         QlikSourceConfig.model_validate({**CLOUD_CONFIG, **(config or {})}),
         PipelineContext(run_id="test-lineage-graph", graph=graph),
@@ -385,7 +393,12 @@ def test_app_table_lineage_is_only_added_to_when_the_app_it_loads_may_be_unread(
                 qri=f"{REPORT_APP}#Tbl",
                 label="Prices",
                 source_qris=["qri:app:sense://other-app#Tbl"],
-            )
+            ),
+            LineageTable(
+                qri=f"{REPORT_APP}#Tbl2",
+                label="Curves",
+                source_qris=["qri:app:sense://other-app#Tbl"],
+            ),
         ],
     )
 
@@ -394,11 +407,16 @@ def test_app_table_lineage_is_only_added_to_when_the_app_it_loads_may_be_unread(
     )
 
     assert _urn("report-app.prices") not in written
-    assert any(
-        "app=report-app" in str(w.context)
+    # One entry for the app, naming the source and every table it holds back.
+    [context] = [
+        list(w.context)
         for w in source.reporter.warnings
-        if w.title == "Lineage of Qlik app table only added to"
-    )
+        if w.title == "Lineage of Qlik app tables only added to"
+    ]
+    assert context == [
+        "app=report-app, reason=the tables of source app other-app are not known "
+        "this run, tables=Curves, Prices"
+    ]
 
 
 @pytest.mark.parametrize("loader_first", [True, False])
@@ -479,7 +497,7 @@ def test_app_table_lineage_is_only_added_to_when_the_app_it_loads_is_partly_read
     assert any(
         "app=report-app" in str(w.context)
         for w in source.reporter.warnings
-        if w.title == "Lineage of Qlik app table only added to"
+        if w.title == "Lineage of Qlik app tables only added to"
     )
 
 
@@ -640,7 +658,7 @@ def test_app_table_links_data_model_tables_of_another_app_it_loads(
         # The table it loads has no URN, so the last run's edges must stay.
         assert prices not in written
         assert prices not in added
-        assert _warning_contexts(source, "Lineage of Qlik app table only added to")
+        assert _warning_contexts(source, "Lineage of Qlik app tables only added to")
     unmatched_warnings = _warning_contexts(
         source, "Qlik app tables not matched to their lineage graph"
     )
@@ -998,9 +1016,8 @@ def test_unlisted_dataset_is_named_from_the_upstream_graph(
         and (p := wu.get_aspect_of_type(DatasetPropertiesClass))
     )
     assert properties.name == "prices"
-    # Qlik's label is not a path.
-    assert properties.qualifiedName is None
-    assert "path" not in properties.customProperties
+    # The path comes from the app's reload, not from Qlik's label.
+    assert properties.qualifiedName == "lib://hidden:datafiles/prices.qvd"
     subtypes = next(
         t
         for wu in workunits
@@ -1495,7 +1512,7 @@ def test_failed_dataset_listing_keeps_table_lineage(mock_api_cls: MagicMock) -> 
     assert _urn("etl-app.curve") not in written
     assert _urn("report-app.prices") not in written
     assert added[_urn("etl-app.curve")] == [POSTGRES_ORDERS]
-    assert "Lineage of Qlik app table only added to" in [
+    assert "Lineage of Qlik app tables only added to" in [
         w.title for w in source.reporter.warnings
     ]
 
@@ -1512,7 +1529,7 @@ def test_denied_load_script_only_adds_to_table_lineage(
     assert any(
         "load script could not be read" in str(w.context)
         for w in source.reporter.warnings
-        if w.title == "Lineage of Qlik app table only added to"
+        if w.title == "Lineage of Qlik app tables only added to"
     )
 
 
@@ -1762,12 +1779,11 @@ def test_kept_app_carries_whether_its_graph_tables_are_unresolved(
 
     source._keep_unchanged_app(UnchangedApp(id="dm-app", fingerprint="f"))
 
-    assert source._resolve_source(f"{DATA_MODEL_APP}#Ord", "x", None) == (orders, True)
+    assert source._resolve_source(f"{DATA_MODEL_APP}#Ord", "x", None) == (orders, None)
     # A graph table its last read had no URN for may still be one of its tables.
-    assert source._resolve_source(f"{DATA_MODEL_APP}#Cust", "x", None) == (
-        None,
-        not graph_tables_unresolved,
-    )
+    urn, unknown = source._resolve_source(f"{DATA_MODEL_APP}#Cust", "x", None)
+    assert urn is None
+    assert (unknown is not None) is graph_tables_unresolved
     recorded = source.app_state.record.call_args.args[1]
     assert recorded.graph_tables_unresolved is graph_tables_unresolved
 
@@ -2938,6 +2954,17 @@ def test_reload_sql_join_with_a_table_missing_from_datahub_is_not_reported(
             True,
             id="insert into with order by",
         ),
+        pytest.param(
+            "SELECT * FROM dbo.customers c JOIN dbo.x y ON c.id = y.id, dbo.[order] o",
+            False,
+            id="comma after a join condition",
+        ),
+        pytest.param(
+            "SELECT * FROM dbo.customers c JOIN dbo.x y ON COALESCE(c.id, y.id) = 1 "
+            "WHERE c.kind = 'order'",
+            True,
+            id="comma in a join condition",
+        ),
     ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -3427,6 +3454,17 @@ def test_reload_sql_links_database_sources_the_script_does_not_trace(
             id="script traces one, reload SQL reads the other",
         ),
         pytest.param(
+            # The script spells the table it traces in another case.
+            [make_dataset_urn("mssql", "shop.dbo.ORDERS")],
+            [
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders"),
+                _sql("Finance:Archive", "SELECT * FROM dbo.orders"),
+            ],
+            [make_dataset_urn("mssql", "archive.dbo.orders")],
+            False,
+            id="script traces one in another case",
+        ),
+        pytest.param(
             [],
             [_sql("Finance:Sales", "SELECT * FROM dbo.orders")],
             [],
@@ -3707,6 +3745,396 @@ def test_reload_sql_labels_come_from_the_upstream_graph_already_read(
     }
     # The one-level graph is only read when the upstream graph wasn't.
     assert api.get_database_labels.called is not graph_read
+
+
+def _load(path: str) -> ReloadStatement:
+    return ReloadStatement(discriminator=f"{{{path}}};")
+
+
+def _store(path: str) -> ReloadStatement:
+    return ReloadStatement(discriminator=f"STORE - {path};")
+
+
+def _unseen_spaces(source: QlikSenseSource) -> List[str]:
+    return [
+        entry
+        for warning in source.reporter.warnings
+        if warning.title == "Qlik spaces the API key can't see"
+        for entry in warning.context or []
+    ]
+
+
+@pytest.mark.parametrize(
+    "script_path, path, browse",
+    [
+        pytest.param(
+            "lib://Hidden:DataFiles/Sub/Other.qvd",
+            "lib://Hidden:DataFiles/Sub/prices.qvd",
+            ["Hidden", "DataFiles", "Sub"],
+            id="same folder",
+        ),
+        pytest.param(
+            # Only the space is spelled by a script.
+            "lib://Hidden:Archive/Other.qvd",
+            "lib://Hidden:datafiles/sub/prices.qvd",
+            ["Hidden", "datafiles", "sub"],
+            id="same space",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_graph_named_dataset_path_takes_the_spelling_of_the_scripts(
+    mock_api_cls: MagicMock, script_path: str, path: str, browse: List[str]
+) -> None:
+    # Qlik records the load in lowercase; a load script spells the same space,
+    # connection and folder, so the dataset is placed beside the files named
+    # from scripts rather than under a lowercase copy of their folders.
+    upstreams = LineageUpstreams(resource_labels={UNLISTED_QVD: "Sub/prices.qvd"})
+    reader, writer = _reader_and_writer()
+    assert isinstance(reader, App)
+    reader.script = f"LOAD * FROM [{script_path}] (qvd);"
+    source = _source(
+        mock_api_cls, DATASETS, items=[reader, writer], upstreams=upstreams
+    )
+    mock_api_cls.return_value.get_reload_statements.side_effect = lambda app_id: (
+        [_load("lib://hidden:datafiles/sub/prices.qvd")]
+        if app_id == "report-app"
+        else []
+    )
+
+    workunits = list(source.get_workunits_internal())
+
+    prices = _urn(UNLISTED_QVD)
+    [properties] = [
+        p
+        for wu in workunits
+        if wu.get_urn() == prices
+        and (p := wu.get_aspect_of_type(DatasetPropertiesClass))
+    ]
+    [browse_path] = [
+        b
+        for wu in workunits
+        if wu.get_urn() == prices and (b := wu.get_aspect_of_type(BrowsePathsV2Class))
+    ]
+    assert properties.qualifiedName == path
+    assert [e.id for e in browse_path.path] == browse
+
+
+@pytest.mark.parametrize(
+    "statements, path, browse",
+    [
+        pytest.param(
+            {
+                "writer-app": [
+                    ReloadStatement(discriminator="RESIDENT Out;"),
+                    _store("lib://[Hidden (prod)]:DataFiles/Prices.QVD"),
+                    _store("lib://[Hidden (prod)]:DataFiles/Other.qvd"),
+                ],
+                # Qlik records loads in lowercase.
+                "report-app": [_load("lib://hidden (prod):datafiles/prices.qvd")],
+            },
+            "lib://[Hidden (prod)]:DataFiles/Prices.QVD",
+            ["Hidden (prod)", "DataFiles"],
+            id="stored and loaded",
+        ),
+        pytest.param(
+            {"report-app": [_load("lib://hidden:datafiles/sub/prices.qvd (qvd)")]},
+            "lib://hidden:datafiles/sub/prices.qvd",
+            ["hidden", "datafiles", "sub"],
+            id="loaded only",
+        ),
+        pytest.param(
+            {
+                "report-app": [_load("lib://hidden:datafiles/prices.qvd")],
+                # The graph doesn't name this app as the writer.
+                "etl-app": [_store("lib://Hidden:DataFiles/Prices.qvd")],
+            },
+            "lib://Hidden:DataFiles/Prices.qvd",
+            ["Hidden", "DataFiles"],
+            id="stored by an app the graph doesn't link",
+        ),
+        pytest.param(
+            {
+                "writer-app": [_store("lib://Hidden:DataFiles/prices.qvd")],
+                "report-app": [_load("lib://archive:datafiles/prices.qvd")],
+            },
+            None,
+            None,
+            id="two files of that name",
+        ),
+        pytest.param(
+            {
+                "report-app": [
+                    _load("lib://hidden:datafiles/archive/prices.qvd"),
+                    _load(
+                        "lib://hidden:datafiles/sub/prices.qvd "
+                        "(ooxml, embedded labels, filters(Remove(Row, Pos(Top, 1))))"
+                    ),
+                ]
+            },
+            "lib://hidden:datafiles/sub/prices.qvd",
+            ["hidden", "datafiles", "sub"],
+            id="the label's folders decide between files of that name",
+        ),
+        pytest.param(
+            {
+                "report-app": [
+                    _load("lib://hidden:datafiles/prices.qvd"),
+                    _load("lib://hidden:datafiles/archive/prices.qvd"),
+                ]
+            },
+            "lib://hidden:datafiles/prices.qvd",
+            ["hidden", "datafiles"],
+            id="a namesake in a nested folder doesn't match a root label",
+        ),
+        pytest.param(
+            {
+                "report-app": [
+                    _load("lib://hidden:datafiles/sub/prices.qvd"),
+                    _load("lib://hidden:datafiles/archive/sub/prices.qvd"),
+                ]
+            },
+            "lib://hidden:datafiles/sub/prices.qvd",
+            ["hidden", "datafiles", "sub"],
+            id="the label's folders start at the connection",
+        ),
+        pytest.param(
+            # Qlik drops the brackets around a space name holding a colon.
+            {"report-app": [_load("lib://team: sales:datafiles/prices.qvd")]},
+            None,
+            None,
+            id="space and connection can't be told apart",
+        ),
+        pytest.param(
+            {
+                "writer-app": [_store("lib://[Team: Sales]:DataFiles/Prices.QVD")],
+                "report-app": [_load("lib://team: sales:datafiles/prices.qvd")],
+            },
+            "lib://[Team: Sales]:DataFiles/Prices.QVD",
+            ["Team: Sales", "DataFiles"],
+            id="a store tells space and connection apart",
+        ),
+        pytest.param({}, None, None, id="no file"),
+        pytest.param(RuntimeError("Forbidden"), None, None, id="unread"),
+        pytest.param(
+            {
+                "report-app": [_load("lib://hidden:datafiles/prices.qvd")],
+                # May hold another file of that name.
+                "writer-app": RuntimeError("Forbidden"),
+            },
+            None,
+            None,
+            id="one file, but a reload unread",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_graph_named_dataset_takes_its_path_from_reload_files(
+    mock_api_cls: MagicMock,
+    statements: Union[Dict[str, Union[List[ReloadStatement], Exception]], Exception],
+    path: Optional[str],
+    browse: Optional[List[str]],
+) -> None:
+    # The graph labels a file with the folders under its connection.
+    label = "Sub/Prices.qvd" if path and "/sub/" in path else "prices.qvd"
+    upstreams = LineageUpstreams(
+        resource_labels={UNLISTED_QVD: label},
+        stored_from={
+            f"{UNLISTED_QVD}#Prices": [WRITER_TABLE, "qri:app:sense://unread-app#Out"]
+        },
+    )
+    etl_app = _app("etl-app", [])
+    if isinstance(statements, dict):
+        etl_statements = statements.get("etl-app")
+        if isinstance(etl_statements, list):
+            etl_app.reload_statements = etl_statements
+    source = _source(
+        mock_api_cls,
+        DATASETS,
+        items=[*_reader_and_writer(), etl_app],
+        upstreams=upstreams,
+    )
+    api = mock_api_cls.return_value
+    api.spaces = {"space-1": "Finance"}
+    unread = isinstance(statements, Exception) or any(
+        isinstance(app_statements, Exception) for app_statements in statements.values()
+    )
+
+    def get_reload_statements(app_id: str) -> List[ReloadStatement]:
+        app_statements = (
+            statements
+            if isinstance(statements, Exception)
+            else statements.get(app_id, [])
+        )
+        if isinstance(app_statements, Exception):
+            raise app_statements
+        return app_statements
+
+    api.get_reload_statements.side_effect = get_reload_statements
+
+    workunits = list(source.get_workunits_internal())
+    written, added = _lineage(workunits)
+
+    prices = _urn(UNLISTED_QVD)
+    properties = next(
+        (
+            p
+            for wu in workunits
+            if wu.get_urn() == prices
+            and (p := wu.get_aspect_of_type(DatasetPropertiesClass))
+        ),
+        None,
+    )
+    browse_path = next(
+        (
+            b
+            for wu in workunits
+            if wu.get_urn() == prices
+            and (b := wu.get_aspect_of_type(BrowsePathsV2Class))
+        ),
+        None,
+    )
+    # The reading table links to the URN, which every reading app shares,
+    # whether or not the dataset itself is certain enough to ingest.
+    assert written[_urn("report-app.prices")] == [prices]
+    if path is None:
+        # Without a certain path, nothing makes the dataset exist.
+        assert properties is None and browse_path is None
+        assert prices not in added
+        assert bool(source.reporter.graph_named_datasets_without_path) is not unread
+    else:
+        assert properties is not None and browse_path is not None
+        assert browse is not None
+        # The dataset's space is one the key can't see.
+        assert _unseen_spaces(source) == [f"{browse[0]}: datasets"]
+        assert properties.name == label.split("/")[-1][: -len(".qvd")]
+        assert properties.qualifiedName == path
+        assert properties.customProperties.get("path") == path
+        assert [e.id for e in browse_path.path] == browse
+        assert added[prices] == [_urn("writer-app.out")]
+    # Only the reading app and the writer apps this run ingests are asked.
+    assert sorted(c.args[0] for c in api.get_reload_statements.call_args_list) == [
+        "report-app",
+        "writer-app",
+    ]
+    assert bool(source.reporter.apps_without_reload_paths) is unread
+    assert (
+        any(
+            w.title == "Unable to read the file paths of Qlik apps' last reload"
+            for w in source.reporter.warnings
+        )
+        is unread
+    )
+
+
+@pytest.mark.parametrize(
+    "discriminator",
+    [
+        # A file of that name in another folder than the label's.
+        "{lib://hidden:datafiles/archive/prices.qvd};",
+        "{lib://hidden:datafiles/archive/sub/prices.qvd};",
+        "{lib://hidden:datafiles/sub/prices.qvd} unknown form;",
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_graph_named_dataset_without_a_file_at_the_label_has_no_path(
+    mock_api_cls: MagicMock, discriminator: str
+) -> None:
+    upstreams = LineageUpstreams(resource_labels={UNLISTED_QVD: "Sub/Prices.qvd"})
+    source = _source(
+        mock_api_cls, DATASETS, items=_reader_and_writer(), upstreams=upstreams
+    )
+    mock_api_cls.return_value.get_reload_statements.side_effect = lambda app_id: (
+        [ReloadStatement(discriminator=discriminator)] if app_id == "report-app" else []
+    )
+
+    workunits = list(source.get_workunits_internal())
+
+    assert not [
+        wu
+        for wu in workunits
+        if wu.get_urn() == _urn(UNLISTED_QVD)
+        and wu.get_aspect_of_type(DatasetPropertiesClass)
+    ]
+    assert source.reporter.graph_named_datasets_without_path
+    # A path in a form the connector doesn't read is reported, not dropped
+    # without notice.
+    assert bool(source.reporter.unrecognised_reload_files) is (
+        "unknown form" in discriminator
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_no_unseen_spaces_when_the_spaces_could_not_be_listed(
+    mock_api_cls: MagicMock,
+) -> None:
+    app = _reload_app([_sql("Hidden Space:Db", "SELECT * FROM dbo.orders")])
+    source = _reload_source(mock_api_cls, app)
+    api = mock_api_cls.return_value
+    api.spaces = {}
+    api.unread_items = [UnreadItem(name=UNREAD_SPACES, cause="timed out")]
+    api.include_read_failures = ["lib://[Shared Scripts]:DataFiles/setup.qvs: denied"]
+
+    list(source.get_workunits_internal())
+
+    # Every space would look unseen without the listing.
+    assert _unseen_spaces(source) == []
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_reloads_are_read_before_files_are_placed(mock_api_cls: MagicMock) -> None:
+    # A writer app's STOREs vote on how the space, connection and folders of
+    # every file are spelled, so they must be read before any file is placed.
+    upstreams = LineageUpstreams(
+        resource_labels={UNLISTED_QVD: "prices.qvd"},
+        stored_from={f"{UNLISTED_QVD}#Prices": [WRITER_TABLE]},
+    )
+    source = _source(
+        mock_api_cls, DATASETS, items=_reader_and_writer(), upstreams=upstreams
+    )
+    read_before_placing: List[str] = []
+
+    def unmapped_files(self: QlikSenseSource) -> Iterable[MetadataWorkUnit]:
+        read_before_placing.extend(sorted(self._reload_files))
+        return []
+
+    with patch.object(QlikSenseSource, "_gen_unmapped_file_entities", unmapped_files):
+        list(source.get_workunits_internal())
+
+    assert read_before_placing == ["report-app", "writer-app"]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_spaces_the_key_cant_see_are_named(mock_api_cls: MagicMock) -> None:
+    app = _reload_app(
+        [
+            _sql("Hidden Space:Db", "SELECT * FROM dbo.orders"),
+            # A connection in a space the key sees is not about access.
+            _sql("Finance:Unknown", "SELECT * FROM dbo.orders"),
+            _sql("Finance:[My:Db]", "SELECT * FROM dbo.orders"),
+            # Either `Team` or `Team: Sales` may be the space.
+            _sql("Team: Sales:Db", "SELECT * FROM dbo.orders"),
+        ]
+    )
+    source = _reload_source(mock_api_cls, app)
+    api = mock_api_cls.return_value
+    api.spaces = {"space-1": "Finance"}
+    api.include_read_failures = [
+        "lib://[Shared Scripts]:DataFiles/setup.qvs (app etl-app in space "
+        "Finance): Access denied",
+        "lib://finance:DataFiles/vars.qvs (app etl-app in space Finance): "
+        "no script text returned",
+        # The space's name holds the `: ` that also ends the entry's path.
+        "lib://[Team: Ops]:DataFiles/env.qvs (app etl-app in space Finance): "
+        "Access denied",
+    ]
+
+    list(source.get_workunits_internal())
+
+    assert _unseen_spaces(source) == [
+        "Hidden Space: data connections, Shared Scripts: included scripts, "
+        "Team: Ops: included scripts"
+    ]
 
 
 def test_field_source_never_picks_between_columns_differing_in_case() -> None:

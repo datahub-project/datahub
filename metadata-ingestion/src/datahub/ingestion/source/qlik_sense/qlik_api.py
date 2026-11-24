@@ -28,6 +28,7 @@ from datahub.ingestion.source.qlik_sense.file_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     UNREAD_DATA_CONNECTIONS,
+    UNREAD_SPACES,
     IsUnchanged,
     QlikBaseAPI,
     ReadErrors,
@@ -124,7 +125,9 @@ class QlikAPI(QlikBaseAPI):
             spaces.append(Space.model_validate(PERSONAL_SPACE_DICT))
             self.spaces[Constant.PERSONAL_SPACE_ID] = Constant.PERSONAL_SPACE_NAME
         except Exception as e:
-            self._record_unread("spaces", f"Unable to fetch spaces. Exception: {e}", e)
+            self._record_unread(
+                UNREAD_SPACES, f"Unable to fetch spaces. Exception: {e}", e
+            )
         return spaces
 
     def _get_dataset(self, dataset_id: str, item_id: str) -> QlikDataset:

@@ -24,6 +24,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     Item,
     LineageUpstreams,
     ListedDataset,
+    ReloadStatement,
     Sheet,
     Space,
     UnchangedApp,
@@ -47,6 +48,7 @@ IsUnchanged = Callable[[str, str], bool]
 
 # The unread item a failed data connection listing records.
 UNREAD_DATA_CONNECTIONS = "data connections"
+UNREAD_SPACES = "spaces"
 
 
 def log_read_error(message: str) -> None:
@@ -132,6 +134,11 @@ class QlikBaseAPI(ABC):
     def list_datasets(self) -> Optional[List[ListedDataset]]:
         """Datasets of every space, or None when they could not be listed."""
         # Enterprise on Windows has no Qlik datasets.
+        return []
+
+    def get_reload_statements(self, app_id: str) -> List[ReloadStatement]:
+        """Statements of the app's last reload."""
+        # Enterprise on Windows does not record them.
         return []
 
     def get_lineage_upstreams(self, qri: str) -> LineageUpstreams:
