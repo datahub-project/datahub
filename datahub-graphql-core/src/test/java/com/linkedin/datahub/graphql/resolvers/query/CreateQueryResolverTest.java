@@ -106,6 +106,22 @@ public class CreateQueryResolverTest {
   }
 
   @Test
+  public void testCreateWithoutSubjectsIsUnauthorized() {
+    QueryService mockService = Mockito.mock(QueryService.class);
+    CreateQueryResolver resolver = new CreateQueryResolver(mockService);
+    CreateQueryInput noSubjects =
+        new CreateQueryInput(TEST_INPUT.getProperties(), ImmutableList.of());
+
+    QueryContext mockContext = getMockQueryContext(true);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(noSubjects);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verifyNoInteractions(mockService);
+  }
+
+  @Test
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);

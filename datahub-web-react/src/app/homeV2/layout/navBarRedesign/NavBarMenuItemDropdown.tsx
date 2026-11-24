@@ -30,10 +30,10 @@ const StyledDropDownOption = styled.div<{ $disabled?: boolean }>`
     `}
 `;
 
-const DescriptionText = styled.span`
+const DescriptionText = styled.span<{ $highlighted?: boolean }>`
     display: block;
     font-size: 12px;
-    color: ${(props) => props.theme.colors.textSecondary};
+    color: ${(props) => (props.$highlighted ? props.theme.colors.textBrand : props.theme.colors.textSecondary)};
 `;
 
 type Props = {
@@ -99,7 +99,9 @@ export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, 
                                         // Default rendering for other items
                                         <Text>{dropdownItem.title}</Text>
                                     )}
-                                    <DescriptionText>{dropdownItem.description}</DescriptionText>
+                                    <DescriptionText $highlighted={dropdownItem.isDescriptionHighlighted}>
+                                        {dropdownItem.description}
+                                    </DescriptionText>
                                 </StyledDropDownOption>
                             );
                         })}

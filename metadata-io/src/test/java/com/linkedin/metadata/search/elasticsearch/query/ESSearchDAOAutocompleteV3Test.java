@@ -35,7 +35,8 @@ public class ESSearchDAOAutocompleteV3Test {
             false,
             TEST_SEARCH_SERVICE_CONFIG,
             new Sha256UrnEntityDocumentIdHasher(),
-            mock(HybridSearchResultReranker.class));
+            mock(HybridSearchResultReranker.class),
+            null);
   }
 
   @Test

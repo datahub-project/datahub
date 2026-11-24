@@ -70,24 +70,25 @@ public class SearchTemplateGatesTest {
           Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset")));
 
   @Test
-  public void testThisBuildAdvertisesOnlyDocumentRerank() {
+  public void testThisBuildAdvertisesDocumentRerankVectorRetrievalPartitionAndSimilarity() {
     SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC, true);
-    assertEquals(gates.rejectionCode(merged(retrieval("vector")).build(), true), VECTOR_RETRIEVAL);
+    assertNull(gates.rejectionCode(merged(retrieval("vector")).build(), true));
     // Anchor similarity needs vector retrieval and similarity.
     MergedSearchTemplate anchored =
         merged(retrieval("vector").setQuerySource("anchorEntity")).build();
-    assertEquals(gates.rejectionCode(anchored, true), VECTOR_RETRIEVAL);
+    assertNull(gates.rejectionCode(anchored, true));
     assertEquals(VECTOR_BUILD.rejectionCode(anchored, true), SIMILARITY);
     assertEquals(
         gates.rejectionCode(merged(retrieval("vectorThenKeyword")).build(), true),
         SearchTemplateGates.VECTOR_THEN_KEYWORD);
-    assertEquals(
+    // This build partitions, so a scope binds.
+    assertTrue(gates.advertises(ENTITY_PARTITION));
+    assertNull(
         gates.rejectionCode(
             merged(retrieval("keywordRerank"))
                 .scope(new SearchTemplateScope().setEntityTypes(ids("document")))
                 .build(),
-            true),
-        ENTITY_PARTITION);
+            true));
     assertEquals(
         gates.rejectionCode(merged(null).query("{ {{&embeddingClausesJson}} }").build(), true),
         SearchTemplateGates.NATIVE_MIXED_QUERY);
@@ -215,10 +216,50 @@ public class SearchTemplateGatesTest {
     assertEquals(
         VECTOR_BUILD.bindingRejection(floor, List.of("dataset"), OPENSEARCH, true),
         SearchTemplateGates.MIN_SIMILARITY);
-    // The same template on a build without vector retrieval fails earlier, by capability.
+    // This build runs the vector leg for Document only, so Dataset does not join it.
     assertNull(
         SearchTemplateGates.of(REGISTRY, SEMANTIC, true)
             .bindingRejection(floor, List.of("dataset"), OPENSEARCH, true));
+  }
+
+  @Test
+  public void testTheDeploymentFloorAppliesToAVectorRungThatSetsNone() {
+    SemanticSearchConfiguration floored = semantic("document", "dataset");
+    floored.setMinSimilarity(0.5f);
+    SearchTemplateGates gates =
+        new SearchTemplateGates(
+            REGISTRY,
+            floored,
+            true,
+            Set.of(VECTOR_RETRIEVAL, DOCUMENT_RERANK),
+            Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset")));
+    MergedSearchTemplate vector = merged(retrieval("vector")).build();
+    assertEquals(gates.minSimilarity(vector), 0.5f);
+    // An inherited floor does not fail bind on an L2 profile; the rung skips it there
+    assertNull(gates.bindingRejection(vector, List.of("dataset"), OPENSEARCH, true));
+    assertNull(gates.bindingRejection(vector, List.of("document"), OPENSEARCH, true));
+    // A template floor replaces it, and keywordRerank drops nothing
+    assertEquals(
+        gates.minSimilarity(merged(retrieval("vector").setMinSimilarity(0.9f)).build()), 0.9f);
+    assertNull(gates.minSimilarity(merged(retrieval("keywordRerank")).build()));
+    assertNull(
+        gates.bindingRejection(
+            merged(retrieval("keywordRerank")).build(), List.of("dataset"), OPENSEARCH, true));
+  }
+
+  @Test
+  public void testAKeywordRerankThatRemovesTheDefaultLeavesTheEntityOut() {
+    MergedSearchTemplate rerank =
+        merged(retrieval("keywordRerank"))
+            .profiles(
+                new SearchTemplateProfiles()
+                    .setRemove(ids(DOCUMENT_DEFAULT.id()))
+                    .setAdd(ids(DATASET_L2.id())))
+            .build();
+    // The removed default does not come back as the dataset profile's fallback
+    assertEquals(
+        VECTOR_BUILD.entityGates(rerank, List.of("document"), OPENSEARCH).get("document"),
+        EmbeddingProfileRegistry.EMPTY_SELECTION);
   }
 
   @Test

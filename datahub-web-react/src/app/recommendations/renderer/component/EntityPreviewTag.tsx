@@ -40,10 +40,13 @@ const IconContainer = styled.span`
 `;
 
 const PlatformLogo = styled(Image)`
-    max-height: 16px;
-    width: auto;
-    object-fit: contain;
-    background-color: transparent;
+    /* antd 5 sizes .ant-image .ant-image-img with two classes; && keeps these sizes winning */
+    && {
+        max-height: 16px;
+        width: auto;
+        object-fit: contain;
+        background-color: transparent;
+    }
 `;
 
 const DisplayNameContainer = styled.span`

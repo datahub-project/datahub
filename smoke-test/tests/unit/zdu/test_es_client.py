@@ -76,44 +76,52 @@ class TestGetDocCount:
 
 
 class TestGetDoc:
-    def test_returns_source(self, client: ElasticsearchClient) -> None:
-        payload = {"_source": {"urn": "x"}, "_id": "abc"}
-        with patch.object(
-            client._es_session, "get", return_value=_resp(payload)
-        ) as mock_get:
-            assert client.get_doc("datasetindex_v2", "abc") == {"urn": "x"}
-            # Verify the URL was constructed correctly (no double-encoding for plain ids)
-            called_url = mock_get.call_args[0][0]
-            assert called_url == "http://es:9200/datasetindex_v2/_doc/abc"
+    _URN = "urn:li:dashboard:(test,zdu-tc-304)"
 
-    def test_404_returns_none(self, client: ElasticsearchClient) -> None:
+    def test_searches_by_urn_field_and_returns_source(
+        self, client: ElasticsearchClient
+    ) -> None:
+        # V3 docs carry a hashed _id, so the lookup must go through the urn field.
+        payload = {"hits": {"hits": [{"_id": "370f2d24", "_source": {"urn": "x"}}]}}
+        with patch.object(
+            client._es_session, "post", return_value=_resp(payload)
+        ) as mock_post:
+            assert client.get_doc("dashboardindex_v3", self._URN) == {"urn": "x"}
+            assert mock_post.call_args[0][0] == (
+                "http://es:9200/dashboardindex_v3/_search"
+            )
+            assert mock_post.call_args.kwargs["json"]["query"] == {
+                "term": {"urn": self._URN}
+            }
+
+    def test_no_hits_returns_none(self, client: ElasticsearchClient) -> None:
+        with patch.object(
+            client._es_session, "post", return_value=_resp({"hits": {"hits": []}})
+        ):
+            assert client.get_doc("dashboardindex_v3", self._URN) is None
+
+    def test_missing_index_returns_none(self, client: ElasticsearchClient) -> None:
+        with patch.object(
+            client._es_session, "post", return_value=_resp({}, status=404)
+        ):
+            assert client.get_doc("dashboardindex_v3", self._URN) is None
+
+
+class TestGetRefreshInterval:
+    def test_reads_value_from_resolved_index(self, client: ElasticsearchClient) -> None:
+        payload = {
+            "datasetindex_v3_v1_9_0rc1-2_1795280496462": {
+                "settings": {"index": {"refresh_interval": "7s"}}
+            }
+        }
+        with patch.object(client._es_session, "get", return_value=_resp(payload)):
+            assert client.get_refresh_interval("datasetindex_v3") == "7s"
+
+    def test_missing_index_returns_none(self, client: ElasticsearchClient) -> None:
         with patch.object(
             client._es_session, "get", return_value=_resp({}, status=404)
         ):
-            assert client.get_doc("datasetindex_v2", "abc") is None
-
-    def test_doc_id_with_special_chars_is_double_encoded(
-        self, client: ElasticsearchClient
-    ) -> None:
-        """DataHub stores the URL-encoded URN literally as the ES ``_id``.
-        ES path-decodes URL-encoded path components once during routing, so
-        ``get_doc`` must double-encode the raw URN — once to produce the
-        stored ``_id`` form, once more so ES's decode leaves us with the
-        encoded ``_id`` for lookup."""
-        payload = {"_source": {"urn": "urn:li:corpuser:datahub"}}
-        with patch.object(
-            client._es_session, "get", return_value=_resp(payload)
-        ) as mock_get:
-            # Caller passes the RAW URN, not pre-encoded.
-            doc_id = "urn:li:corpuser:datahub"
-            client.get_doc("corpuserindex_v2", doc_id)
-            called_url = mock_get.call_args[0][0]
-            # ``:`` (%3A) is encoded once → ``%3A``, then again → ``%253A``;
-            # ES decodes once on routing and looks up ``urn%3Ali%3Acorpuser%3Adatahub``.
-            assert called_url == (
-                "http://es:9200/corpuserindex_v2/_doc/"
-                "urn%253Ali%253Acorpuser%253Adatahub"
-            )
+            assert client.get_refresh_interval("datasetindex_v3") is None
 
 
 class TestSearchForEntity:

@@ -11,6 +11,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.RebuildExecution;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ScopeMode;
 import com.linkedin.metadata.graph.cache.CacheStatus;
 import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
@@ -135,6 +136,37 @@ public class PartialGraphReadBackendTest {
 
     assertTrue(backend.allRootsActive(DEFINITION, SOURCE, Set.of(ROOT)));
     assertFalse(backend.allRootsActive(DEFINITION, SOURCE, Set.of(ROOT, CHILD)));
+  }
+
+  @Test
+  public void allRootsActiveServesBuildingSnapshotForStaleWhileRevalidate() {
+    EntityGraphDefinition definition =
+        EntityGraphDefinition.builder()
+            .graphId(GRAPH_ID)
+            .scope(EntityGraphScope.builder().mode(ScopeMode.PARTIAL).maxDepth(15).build())
+            .rebuildExecution(RebuildExecution.STALE_WHILE_REVALIDATE)
+            .build();
+    when(shared.findCacheKeyForSeeds(GRAPH_ID, SOURCE, Set.of(ROOT)))
+        .thenReturn(Optional.of("key-root"));
+    when(distributedStore.getStatus("key-root")).thenReturn(CacheStatus.BUILDING);
+    when(distributedStore.hasServableSnapshot("key-root")).thenReturn(true);
+    when(distributedStore.getSnapshot("key-root"))
+        .thenReturn(
+            EntityGraphSnapshot.builder()
+                .graphId(GRAPH_ID)
+                .cacheKey("key-root")
+                .builtAtMillis(1L)
+                .vertexCount(1)
+                .edgeCount(0)
+                .topologyFingerprint("fp")
+                .build());
+
+    assertTrue(backend.allRootsActive(definition, SOURCE, Set.of(ROOT)));
+
+    when(distributedStore.hasServableSnapshot("key-root")).thenReturn(false);
+    when(distributedStore.getSnapshot("key-root")).thenReturn(null);
+    assertFalse(backend.allRootsActive(definition, SOURCE, Set.of(ROOT)));
+    assertFalse(backend.allRootsActive(DEFINITION, SOURCE, Set.of(ROOT)));
   }
 
   @Test

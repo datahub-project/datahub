@@ -442,6 +442,14 @@ public final class SearchTemplatePolicyChecks {
     String combine = SearchTemplateCapabilities.combine(retrieval);
     boolean keywordRung = combine == null;
     boolean vector = SearchTemplateCapabilities.COMBINE_VECTOR.equals(combine);
+    if (retrieval.getCandidateCap() != null && retrieval.getCandidateCap() < 1) {
+      throw new SearchTemplateException(
+          "Search template retrieval candidateCap must be at least 1");
+    }
+    String onFailure = text(retrieval.getOnFailure());
+    if (onFailure != null) {
+      requireClosed("retrieval onFailure", onFailure, SearchTemplateCapabilities.ON_FAILURES);
+    }
     String querySource = text(retrieval.getQuerySource());
     if (querySource != null) {
       requireClosed("retrieval querySource", querySource, SearchTemplateCapabilities.QUERY_SOURCES);
@@ -553,7 +561,7 @@ public final class SearchTemplatePolicyChecks {
     }
     if (ladder.hasSelect() && ladder.getSelect() != null) {
       for (String name : ladder.getSelect()) {
-        if (SearchTemplateLadderPredicates.base(name) == null) {
+        if (SearchTemplateLadderPredicates.selectBase(name) == null) {
           throw new SearchTemplateException(
               "Search template select predicate is not valid: " + name);
         }

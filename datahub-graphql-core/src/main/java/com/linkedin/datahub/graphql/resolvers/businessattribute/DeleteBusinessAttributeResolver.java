@@ -3,9 +3,11 @@ package com.linkedin.datahub.graphql.resolvers.businessattribute;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -22,7 +24,9 @@ public class DeleteBusinessAttributeResolver implements DataFetcher<CompletableF
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
     final Urn businessAttributeUrn = UrnUtils.getUrn(environment.getArgument("urn"));
-    if (!BusinessAttributeAuthorizationUtils.canManageBusinessAttribute(context)) {
+    if (!AuthorizationUtils.isEntityType(
+            businessAttributeUrn, Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)
+        || !BusinessAttributeAuthorizationUtils.canManageBusinessAttribute(context)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
