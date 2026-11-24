@@ -500,8 +500,8 @@ class ParsedScript(BaseModel):
     # creates a table Qlik names, so the script's tables are not all known.
     table_labels: List[str] = []
     has_unnamed_tables: bool = False
-    # Labels of the tables the script drops, and whether it drops or replaces
-    # a table it doesn't name.
+    # Labels of the tables the script drops, and whether it drops, replaces or
+    # renames to a table it doesn't name.
     dropped_tables: List[str] = []
     drops_unnamed_tables: bool = False
     # Names the script renames tables to, which are never a BINARY load's.
@@ -1388,7 +1388,9 @@ class _ScriptParser(BaseModel):
             for pair in RENAME_PAIR_RE.finditer(rename.group("pairs")):
                 renamed = _named_by(_unquote(pair.group("new").strip()))
                 if renamed is None:
+                    # The new name could be one a BINARY table was dropped from.
                     self.has_unnamed_tables = True
+                    self.drops_unnamed_tables = True
                 else:
                     self._record_created(renamed)
                     self.renamed_tables.append(renamed)

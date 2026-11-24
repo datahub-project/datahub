@@ -336,7 +336,7 @@ Each entry gives the app, and the file or source app, with the reason its BINARY
 - "the app's data model was not read": set `read_data_model: true`. If it is set, the app's data couldn't be opened; see "Qlik apps read without their data".
 - "binary_file_to_app maps it to the app itself": map the file to the id of the app it was exported from.
 - "the script creates tables it doesn't name": map the file in `binary_file_to_app`.
-- "the script drops or replaces tables it doesn't name": label the `Replace` load, or set the variable that names the dropped table in `script_variables`.
+- "the script drops, replaces or renames to tables it doesn't name": label the `Replace` load, or set the variable that names the dropped or renamed table in `script_variables`.
 - "its data connection is not a known folder connection": map the connection in `file_connection_to_storage`, or the file in `binary_file_to_app`.
 - "app ... was not read or kept this run": include the source app in the run, and fix the errors that stopped it from being read.
 - "app ... ingests no table ...": the source app doesn't ingest that table, and its data model fields aren't known. Check that `binary_file_to_app` names the app the file was exported from.
