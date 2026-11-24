@@ -3850,8 +3850,21 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                         link, None, link.script_fields
                     )
                     continue
-                if not link.upstream_urns and not link.script_fields:
+                # It is the script's own table, so its script lineage is
+                # written whole, which also drops a COPY edge an earlier run
+                # wrote from the source app.
+                if link.additive:
+                    yield from self._patch_binary_upstreams(
+                        link, None, link.script_fields
+                    )
                     continue
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=link.dataset_urn,
+                    aspect=self._binary_upstream_lineage(
+                        link, None, link.script_fields
+                    ),
+                ).as_workunit()
+                continue
             source_urn = self._binary_link_source(link, unread)
             if source_urn is None and source_model is not None and not in_source_model:
                 if link.additive:

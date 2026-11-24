@@ -1588,11 +1588,10 @@ def test_binary_load_links_a_suffixed_table_only_when_the_source_app_has_it(
 
     calendar = _urn("front-app.calendar-2024")
     source_table = _urn("model-app.calendar-2024")
-    assert (
-        _written_upstreams(aspects, calendar) == [source_table]
-        if linked
-        else "UpstreamLineageClass" not in aspects.get(calendar, {})
-    )
+    # Otherwise it is the script's own table, whose lineage is written whole,
+    # so a COPY edge from the source app an earlier run wrote is dropped.
+    assert "UpstreamLineageClass" in aspects[calendar]
+    assert _written_upstreams(aspects, calendar) == ([source_table] if linked else [])
     reported = [
         entry
         for entry in source.reporter.binary_loads_without_lineage
