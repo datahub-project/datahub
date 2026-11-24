@@ -329,10 +329,11 @@ class QlikOnPremConfig(ConfigModel):
         "holds. A mapped BINARY load links the app's tables to that app's "
         "tables of the same name, with column lineage between their fields; "
         "when the script includes other scripts, that lineage is only added "
-        "to. An unmapped one links them to the file instead, unless the script "
-        "also creates tables it doesn't name or includes other scripts, when "
-        "they get no lineage. Paths match as the "
-        "script names them, or as the file path they resolve to. Needs "
+        "to. An unmapped one links them to the file instead. When the tables "
+        "a BINARY load brings in can't be told apart, for example because the "
+        "script also creates tables it doesn't name, they are not ingested. "
+        "Paths match as the script names them, or as the file path they "
+        "resolve to. App ids match whatever their case. Needs "
         "`read_data_model`, as the load script doesn't name the tables a "
         "BINARY load brings in.",
     )
@@ -341,8 +342,10 @@ class QlikOnPremConfig(ConfigModel):
     @classmethod
     def canonical_binary_files(cls, value: Dict[str, str]) -> Dict[str, str]:
         apps: Dict[str, str] = {}
-        for path, app_id in value.items():
+        for path, written_id in value.items():
             canonical = canonical_path(path)
+            # App ids are lower-case GUIDs in QRS.
+            app_id = written_id.strip().lower()
             if apps.get(canonical, app_id) != app_id:
                 raise ValueError(
                     f"binary_file_to_app maps {path!r} to more than one app: "

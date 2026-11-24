@@ -270,6 +270,10 @@ def _qlik_app_id(qri: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
+# A table Qlik renamed because its name was taken, such as `Orders-1`.
+DUPLICATE_TABLE_NAME_RE = re.compile(r"^(?P<name>.+)-\d+$")
+
+
 class _BinaryLink(BaseModel):
     """A table an app BINARY loads from another app, whose lineage is written
     once every app has been read."""
@@ -445,12 +449,19 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._apps_qvds_unknown: Dict[str, str] = {}
         self._unresolved_qvd_loads = 0
         self._unlabelled_qvd_loads = 0
-        # On-prem, the URNs each app read or kept this run produced, the data
-        # model fields of the apps BINARY loads come from, and the tables
-        # linked to them once every app has been read.
+        # On-prem, the URNs each app BINARY loads come from produced, read or
+        # kept this run, the data model fields of those apps, the tables linked
+        # to them once every app has been read, and the apps whose read
+        # ingested tables a BINARY statement brought in.
+        self._binary_source_apps: Set[str] = (
+            set(self.config.on_prem.binary_file_to_app.values())
+            if self.config.on_prem is not None
+            else set()
+        )
         self._app_urns: Dict[str, Set[str]] = {}
         self._app_model_fields: Dict[str, Dict[str, List[str]]] = {}
         self._binary_links: List[_BinaryLink] = []
+        self._apps_with_binary_tables: Set[str] = set()
         self._last_parsed: Optional[_ParsedApp] = None
         # The data model fields of the app being emitted, by table identifier.
         self._data_model_fields: Dict[str, List[QlikDatasetSchemaField]] = {}
@@ -666,7 +677,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._apps_tables_unknown.add(app_id)
             self._apps_qvds_unknown[app_id] = "it has no last read to keep"
             return None
-        self._app_urns.setdefault(app_id, set()).update(previous.urns)
+        if app_id in self._binary_source_apps:
+            self._app_urns.setdefault(app_id, set()).update(previous.urns)
+        if previous.binary_tables:
+            self._apps_with_binary_tables.add(app_id)
         if previous.data_model_fields is not None:
             self._app_model_fields[app_id] = previous.data_model_fields
         if previous.qvds is None:
@@ -705,6 +719,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     tables_unknown=previous.tables_unknown,
                     qvds=self._app_qvds.get(app.id),
                     data_model_fields=self._app_model_fields.get(app.id),
+                    binary_tables=previous.binary_tables,
                 ),
             )
         self.reporter.apps_skipped_unchanged += 1
@@ -744,6 +759,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 tables_unknown=previous.tables_unknown,
                 qvds=previous.qvds,
                 data_model_fields=previous.data_model_fields,
+                binary_tables=previous.binary_tables,
             ),
         )
         return _PartialRead.KEPT
@@ -783,6 +799,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 tables_unknown=self._tables_unknown(app),
                 qvds=self._app_qvds.get(app.id),
                 data_model_fields=self._app_model_fields.get(app.id),
+                binary_tables=app.id in self._apps_with_binary_tables,
             ),
         )
 
@@ -1399,7 +1416,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         app_id: str,
     ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self._gen_qlik_dataset_urn(table_identifier)
-        self._app_urns.setdefault(app_id, set()).add(dataset_urn)
+        if app_id in self._binary_source_apps:
+            self._app_urns.setdefault(app_id, set()).add(dataset_urn)
 
         yield self._gen_entity_status_aspect(dataset_urn)
 
@@ -2620,9 +2638,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             script_tables = self._merge_tables(script_tables, qvd_lineage.tables)
             # Read, even with no tables, so a BINARY load from it isn't
             # reported as from an app the run didn't read.
-            self._app_urns.setdefault(app.id, set())
+            if app.id in self._binary_source_apps:
+                self._app_urns.setdefault(app.id, set())
             self._record_model_fields(app)
             binary_load = self._binary_load(app, parsed)
+            if binary_load.tables:
+                self._apps_with_binary_tables.add(app.id)
             script_tables = self._merge_tables(script_tables, binary_load.tables)
         self._use_data_model_field_names(script_tables)
         matched_script_tables = self._match_script_tables(
@@ -3011,10 +3032,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 yield from containers.create_container_hierarchy(path.lstrip("/"), urn)
 
     def _record_model_fields(self, app: App) -> None:
-        on_prem = self.config.on_prem
-        assert on_prem is not None
         # Only for the apps BINARY loads come from, as the checkpoint keeps them.
-        if app.id not in on_prem.binary_file_to_app.values():
+        if app.id not in self._binary_source_apps:
             return
         if app.data_model_tables:
             self._app_model_fields[app.id] = {
@@ -3052,8 +3071,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _check_binary_read(self, app: App) -> None:
         """Counts an app as partly read when the tables its BINARY statement
-        loads can't be found for a reason the next run may not have, so its
-        last read keeps them instead of stale removal deleting them."""
+        loads can't be found for a reason the next run may not have, and its
+        last read ingested such tables, so stale removal doesn't delete them.
+        After max_partial_reads_kept runs they are let go, as the cause, such
+        as section access denying the app's data, may never go away."""
+        on_prem = self.config.on_prem
+        assert on_prem is not None
+        if not on_prem.read_data_model:
+            return
         binary = self._parsed_script(app).binary
         if binary is None:
             return
@@ -3064,10 +3089,30 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if binary.uses_variables and app.variables_read_failed
             else None
         )
-        if reason:
+        if reason is None:
+            return
+        failures: List[str] = []
+        previous = self._usable_checkpoint(app.id, failures)
+        if failures:
+            # Its last read may hold BINARY tables.
             app.read_errors.append(
                 f"The tables the app's BINARY load brings in are not known: {reason}"
             )
+            return
+        if previous is None or not previous.binary_tables:
+            return
+        if previous.partial_reads >= self.config.max_partial_reads_kept:
+            self.reporter.warning(
+                title="Qlik BINARY tables are no longer kept",
+                message="The tables these apps load with BINARY could not be "
+                "found for more than max_partial_reads_kept runs, so they are "
+                "no longer kept from the app's last read.",
+                context=f"{app.id}: {reason}",
+            )
+            return
+        app.read_errors.append(
+            f"The tables the app's BINARY load brings in are not known: {reason}"
+        )
 
     def _binary_load(self, app: App, parsed: ParsedScript) -> _BinaryLoad:
         """The app's tables a BINARY statement loads: the data model's tables
@@ -3102,12 +3147,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "the script drops or replaces tables it doesn't name, so the "
                 "tables the file brings in are not known"
             )
-        created = {label.lower() for label in parsed.table_labels}
+        labels = {label.lower() for label in parsed.table_labels}
+        created = set(labels)
         if source_app_id is not None:
             # A load under a BINARY table's name adds to it, or Qlik renames
-            # the new table, so only a table the script drops and creates again
-            # is not the file's. Tables the source app lacks are left out later.
-            created &= {label.lower() for label in parsed.dropped_tables}
+            # the new table, so only a table the script drops and creates again,
+            # or renames a table to, is not the file's. Tables the source app
+            # lacks are left out later.
+            created &= {
+                label.lower()
+                for label in [*parsed.dropped_tables, *parsed.renamed_tables]
+            }
         upstream_urns: List[str] = []
         if source_app_id is not None and parsed.has_includes:
             self.reporter.warning(
@@ -3137,6 +3187,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             upstream_urns = [urn]
         for table in app.data_model_tables:
             if table.name.lower() in created:
+                continue
+            suffixed = DUPLICATE_TABLE_NAME_RE.match(table.name)
+            if suffixed and suffixed.group("name").lower() in labels:
+                # Qlik names a new table `Orders-1` when Orders already
+                # exists, so it is the script's.
                 continue
             identifier = app_table_identifier(app.id, table.name)
             fields = [field.name for field in table.fields]
@@ -3173,11 +3228,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         if source_urn not in source_urns:
             source_model = self._app_model_fields.get(link.source_app_id)
-            # A table the source app's data model lacks is the script's own.
-            if source_model is None or link.table.lower() in source_model:
+            if source_model is None:
                 self.reporter.binary_loads_without_lineage.append(
-                    f"{link.app_id}: app {link.source_app_id} has no table {link.table}"
+                    f"{link.app_id}: app {link.source_app_id} ingests no table "
+                    f"{link.table}"
                 )
+            elif link.table.lower() in source_model:
+                self.reporter.binary_loads_without_lineage.append(
+                    f"{link.app_id}: app {link.source_app_id} doesn't ingest table "
+                    f"{link.table}, as it isn't loaded with SQL, from a QVD or "
+                    "with BINARY there, such as a RESIDENT or INLINE table"
+                )
+            # Otherwise the source app's data model lacks it: the script's own.
             return None
         return source_urn
 
@@ -3217,6 +3279,19 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         for link in self._binary_links:
             source_urn = self._binary_link_source(link, unread)
             source_model = self._app_model_fields.get(link.source_app_id)
+            if (
+                source_urn is None
+                and source_model is not None
+                and link.table.lower() not in source_model
+            ):
+                # Not from the file, so its script lineage is written whole.
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=link.dataset_urn,
+                    aspect=self._binary_upstream_lineage(
+                        link, None, link.script_fields
+                    ),
+                ).as_workunit()
+                continue
             if source_urn is None or source_model is None:
                 # Without the source app's fields, the column edges an earlier
                 # run wrote stay.

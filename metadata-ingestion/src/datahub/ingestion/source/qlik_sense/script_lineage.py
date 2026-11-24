@@ -122,6 +122,13 @@ DROP_TABLES_RE = re.compile(
     r"^DROP\s+TABLES?\s+(?P<names>.+?)\s*$", re.IGNORECASE | re.DOTALL
 )
 TABLE_NAME_RE = re.compile(r"\[[^\]]*\]|'[^']*'|\"[^\"]*\"|[^,\s][^,]*")
+_RENAMED_NAME = r"(?:\[[^\]]*\]|'[^']*'|\"[^\"]*\"|[^\s,]+)"
+RENAME_TABLES_RE = re.compile(
+    r"^RENAME\s+TABLES?\s+(?P<pairs>.+)$", re.IGNORECASE | re.DOTALL
+)
+RENAME_PAIR_RE = re.compile(
+    rf"{_RENAMED_NAME}\s+TO\s+(?P<new>{_RENAMED_NAME})", re.IGNORECASE
+)
 # What may follow a LOAD's file source and its format spec.
 LOAD_SOURCE_END_RE = re.compile(
     r"\s*(?:;|$|(?:WHERE|WHILE|GROUP\s+BY|ORDER\s+BY)\b)", re.IGNORECASE
@@ -475,6 +482,8 @@ class ParsedScript(BaseModel):
     # a table it doesn't name.
     dropped_tables: List[str] = []
     drops_unnamed_tables: bool = False
+    # Names the script renames tables to, which are never a BINARY load's.
+    renamed_tables: List[str] = []
 
 
 class ScriptTableLineage(BaseModel):
@@ -1026,6 +1035,7 @@ class _ScriptParser(BaseModel):
     has_unnamed_tables: bool = False
     dropped_tables: List[str] = []
     drops_unnamed_tables: bool = False
+    renamed_tables: List[str] = []
     # The current statement before the script's variables are expanded.
     raw_statement: str = ""
     flow: _ControlFlowTracker = Field(default_factory=_ControlFlowTracker)
@@ -1145,7 +1155,7 @@ class _ScriptParser(BaseModel):
             self.flow.state.connection = None
             self._clear_pending()
             return
-        if self._file_statement(statement):
+        if self._statement_without_lineage(statement):
             self._clear_pending()
             return
 
@@ -1261,8 +1271,11 @@ class _ScriptParser(BaseModel):
                 self.last_label = _named_by(label or self.pending_label)
             self._clear_pending()
 
-    def _file_statement(self, statement: str) -> bool:
-        """Reads a STORE, BINARY or DROP TABLE statement, which loads no table."""
+    def _statement_without_lineage(self, statement: str) -> bool:
+        """Reads a STORE, BINARY, DROP TABLE or RENAME TABLE statement, or a
+        load labelled with a variable the parser can't expand."""
+        if self._variable_labelled(statement):
+            return True
         store = STORE_RE.match(statement)
         if store:
             self._store(store)
@@ -1279,6 +1292,16 @@ class _ScriptParser(BaseModel):
                     self.drops_unnamed_tables = True
                 else:
                     self.dropped_tables.append(dropped)
+            return True
+        rename = RENAME_TABLES_RE.match(statement)
+        if rename:
+            for pair in RENAME_PAIR_RE.finditer(rename.group("pairs")):
+                renamed = _named_by(_unquote(pair.group("new").strip()))
+                if renamed is None:
+                    self.has_unnamed_tables = True
+                else:
+                    self._record_created(renamed)
+                    self.renamed_tables.append(renamed)
             return True
         return False
 
@@ -1393,10 +1416,37 @@ class _ScriptParser(BaseModel):
             if replaced:
                 self.drops_unnamed_tables = True
             return
-        if name.lower() not in (known.lower() for known in self.table_labels):
-            self.table_labels.append(name)
+        self._record_created(name)
         if replaced:
             self.dropped_tables.append(name)
+
+    def _variable_labelled(self, statement: str) -> bool:
+        label = LABEL_RE.match(statement)
+        if label is None or label.group("variable") is None:
+            return False
+        # Only noted as a table it can't name: as before such labels were read,
+        # the statement gets no lineage, so later tables keep their table_<n>.
+        statement = statement[label.end() :].lstrip()
+        prefix = PREFIX_RE.match(statement)
+        if prefix:
+            keywords = re.sub(_PREFIX_ARGS, "", prefix.group(0))
+            statement = statement[prefix.end() :]
+        else:
+            keywords = ""
+        if SQL_RE.match(statement) or LOAD_RE.match(statement):
+            self._clear_pending()
+            self._record_table(
+                None,
+                merged=bool(prefix and MERGE_PREFIX_RE.search(prefix.group(0))),
+                mapping=bool(MAPPING_PREFIX_RE.search(keywords)),
+                generic=bool(GENERIC_PREFIX_RE.search(keywords)),
+                replace=bool(REPLACE_PREFIX_RE.search(keywords)),
+            )
+        return True
+
+    def _record_created(self, name: str) -> None:
+        if name.lower() not in (known.lower() for known in self.table_labels):
+            self.table_labels.append(name)
 
     def _record_file_load(self, statement: str) -> None:
         expanded = _load_path(statement)
@@ -1484,6 +1534,7 @@ def parse_script(
         has_unnamed_tables=parser.has_unnamed_tables,
         dropped_tables=parser.dropped_tables,
         drops_unnamed_tables=parser.drops_unnamed_tables,
+        renamed_tables=parser.renamed_tables,
     )
 
 

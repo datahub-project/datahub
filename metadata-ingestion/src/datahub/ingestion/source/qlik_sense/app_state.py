@@ -34,6 +34,9 @@ class AppCheckpoint(BaseModel):
     # apps that `binary_file_to_app` names, so apps loading them with BINARY
     # link their columns while the app is kept.
     data_model_fields: Optional[Dict[str, List[str]]] = None
+    # The read ingested tables the app's BINARY statement brought in, so a
+    # later read that can't find them keeps them.
+    binary_tables: bool = False
 
 
 class QlikAppCheckpointState(CheckpointStateBase):

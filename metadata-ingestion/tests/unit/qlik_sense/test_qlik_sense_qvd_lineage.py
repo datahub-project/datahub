@@ -1227,6 +1227,73 @@ def test_binary_load_mapped_to_an_app_links_its_tables_and_columns(
     assert APP_FILE not in aspects
 
 
+def test_binary_load_reports_a_source_model_table_its_app_does_not_ingest() -> None:
+    model_script = MODEL_SCRIPT + "Totals: LOAD id RESIDENT Orders;"
+    model = _app("model-app", model_script, {**ORDERS_MODEL, "Totals": ["id"]})
+    front = _app("front-app", FRONT_SCRIPT, {**FRONT_MODEL, "Totals": ["id"]})
+    source, aspects = _run([model, front], on_prem=MAPPED)
+
+    assert "UpstreamLineageClass" not in aspects[_urn("front-app.totals")]
+    entries = [
+        entry
+        for entry in source.reporter.binary_loads_without_lineage
+        if "Totals" in entry
+    ]
+    # Not a mapping problem: the model app builds Totals with RESIDENT.
+    assert len(entries) == 1
+    assert "RESIDENT" in entries[0]
+
+
+def test_binary_load_mapped_to_an_app_writes_a_script_only_table_whole() -> None:
+    model = _app("model-app", MODEL_SCRIPT, ORDERS_MODEL)
+    front = _app(
+        "front-app",
+        FRONT_SCRIPT + "Extra: LOAD id FROM [lib://QVD Data/raw/extra.qvd] (qvd);",
+        {**FRONT_MODEL, "Extra": ["id"]},
+    )
+    source, aspects = _run([model, front], on_prem=MAPPED)
+
+    # The model app has no Extra, so it is the script's own table, and an
+    # upstream that changes in the script replaces the old one.
+    extra = _urn("front-app.extra")
+    assert "lineage_ops" not in aspects[extra]
+    assert _written_upstreams(aspects, extra) == [_urn("//nas/qvd/raw/extra.qvd")]
+    assert not [
+        entry
+        for entry in source.reporter.binary_loads_without_lineage
+        if "Extra" in entry
+    ]
+
+
+@pytest.mark.parametrize(
+    "extra_script, script_table",
+    [
+        pytest.param(
+            "Notes: LOAD * INLINE [note\nx];\nRENAME TABLE Notes TO Remarks;",
+            "Remarks",
+            id="a renamed script table",
+        ),
+        pytest.param(
+            "Calendar: LOAD * INLINE [week\n1];",
+            "Calendar-1",
+            id="a script table Qlik renamed as its name was taken",
+        ),
+    ],
+)
+def test_binary_load_does_not_link_a_script_table_qlik_holds_under_another_name(
+    extra_script: str, script_table: str
+) -> None:
+    front = _app(
+        "front-app",
+        FRONT_SCRIPT + extra_script,
+        {**FRONT_MODEL, script_table: ["note"]},
+    )
+    _, aspects = _run([front])
+
+    assert _written_upstreams(aspects, _urn("front-app.orders")) == [APP_FILE]
+    assert _urn(f"front-app.{script_table.lower()}") not in aspects
+
+
 @pytest.mark.parametrize(
     "extra_script, linked",
     [
@@ -1546,11 +1613,35 @@ def test_replace_load_drops_and_creates_its_table(script: str) -> None:
     assert parsed.dropped_tables == ["Orders"]
 
 
-@pytest.mark.parametrize("label", ["$(vT)", "[$(vT)]"])
-def test_table_named_by_an_unknown_variable_has_no_name(label: str) -> None:
-    parsed = parse_script(f"LIB CONNECT TO 'db';\n{label}: SQL SELECT a FROM s.t;")
+def test_table_named_by_an_unknown_bracketed_variable_has_no_name() -> None:
+    parsed = parse_script("LIB CONNECT TO 'db';\n[$(vT)]: SQL SELECT a FROM s.t;")
     # Not a table literally named $(vT), which would be a dataset of its own.
     assert [table.label_unknown for table in parsed.tables] == [True]
+    assert parsed.has_unnamed_tables
+
+
+@pytest.mark.parametrize(
+    "script, labels",
+    [
+        pytest.param(
+            "$(vT): SQL SELECT a FROM s.t;", ["s.u", "table_2"], id="on a SELECT"
+        ),
+        pytest.param(
+            "$(vT): LOAD a;\nSQL SELECT a FROM s.t;",
+            ["s.t", "s.u", "table_3"],
+            id="on a preceding LOAD",
+        ),
+    ],
+)
+def test_bare_variable_label_keeps_the_table_names(
+    script: str, labels: List[str]
+) -> None:
+    parsed = parse_script(
+        f"LIB CONNECT TO 'db';\n{script}\nSQL SELECT b FROM s.u;\nSQL SELECT 1 AS c;"
+    )
+    # As before such labels were read, so later unlabelled tables keep their
+    # table_<n> names, and so their URNs.
+    assert [table.label for table in parsed.tables] == labels
     assert parsed.has_unnamed_tables
 
 

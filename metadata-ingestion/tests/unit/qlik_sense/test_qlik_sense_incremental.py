@@ -1107,6 +1107,88 @@ def test_binary_tables_are_kept_when_a_read_cant_find_them(
     ]
 
 
+def _partly_read(source: QlikSenseSource) -> bool:
+    return any(
+        entry.title == "Unable to fully read Qlik app"
+        for entry in [*source.reporter.warnings, *source.reporter.failures]
+    )
+
+
+def test_binary_app_whose_data_is_never_readable_is_not_partly_read(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _binary_qlik("Binary [lib://QVD Data/sales model.qvf];")
+    # As section access denying the data to the service user from the start.
+    qlik.data_model_fails_for = {"app-2"}
+    datahub = _DataHub(mock_datahub_graph)
+    on_prem: Dict[str, object] = {"read_data_model": True}
+    for run_id in ["run-1", "run-2"]:
+        source, workunits = _run(
+            mock_datahub_graph, qlik, run_id, on_prem=on_prem, skip_unchanged_apps=False
+        )
+        datahub.write(workunits)
+
+        # Its last read holds no BINARY tables to keep, so stale removal runs.
+        assert not source.reporter.failures
+        assert not _partly_read(source)
+        assert FRONT_ORDERS not in _stale_urns(source)
+
+
+def test_binary_path_variables_unread_without_read_data_model_is_not_partly_read(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _binary_qlik("Binary [lib://$(vApps)/sales model.qvf];")
+    qlik.variables = {"app-2": {"vApps": "QVD Data"}}
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1", skip_unchanged_apps=False)
+    datahub.write(first_wus)
+
+    qlik.variables_fail_for = {"app-2"}
+    second, _ = _run(mock_datahub_graph, qlik, "run-2", skip_unchanged_apps=False)
+
+    assert not second.reporter.failures
+    assert not _partly_read(second)
+
+
+def test_binary_tables_are_let_go_after_max_partial_reads_kept(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _binary_qlik("Binary [lib://QVD Data/sales model.qvf];")
+    datahub = _DataHub(mock_datahub_graph)
+    on_prem: Dict[str, object] = {"read_data_model": True}
+
+    def run(run_id: str) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
+        source, workunits = _run(
+            mock_datahub_graph,
+            qlik,
+            run_id,
+            on_prem=on_prem,
+            skip_unchanged_apps=False,
+            max_partial_reads_kept=1,
+        )
+        datahub.write(workunits)
+        return source, workunits
+
+    run("run-1")
+    # Section access now denies the app's data for good.
+    qlik.data_model_fails_for = {"app-2"}
+    kept, _ = run("run-2")
+    let_go, let_go_wus = run("run-3")
+    after, _ = run("run-4")
+
+    assert _partly_read(kept)
+    assert FRONT_ORDERS in _stale_urns(kept)
+    # A failure would skip stale removal for every app, run after run.
+    assert not let_go.reporter.failures
+    assert not _partly_read(let_go)
+    assert "Qlik BINARY tables are no longer kept" in [
+        warning.title for warning in let_go.reporter.warnings
+    ]
+    assert FRONT_ORDERS in _soft_deleted_urns(let_go_wus)
+    assert not after.reporter.failures
+    assert not _partly_read(after)
+
+
 @pytest.mark.parametrize(
     "failure",
     [
