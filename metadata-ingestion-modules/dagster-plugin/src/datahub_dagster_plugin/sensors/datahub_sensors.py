@@ -721,14 +721,19 @@ class DatahubSensors:
         dagster_generator: DagsterGenerator,
         job_snapshot: JobSnapshot,
         step_deps: Dict[str, Set[str]],
-        dataset_inputs: Dict[str, Set[DatasetUrn]],
-        dataset_outputs: Dict[str, Set[DatasetUrn]],
+        step_dataset_inputs: Dict[str, Set[DatasetUrn]],
+        step_dataset_outputs: Dict[str, Set[DatasetUrn]],
     ) -> None:
         """Emit a DataJob per op node and a DataProcessInstance per executed step.
 
-        Inputs are keyed by node handle (`my_op`, `my_graph.my_op`), not by step key,
-        so all instances of a dynamically mapped op share one DataJob.
+        `step_deps` is keyed by node handle (`my_op`, `my_graph.my_op`), so all
+        instances of a dynamically mapped op share one DataJob. The dataset dicts
+        are keyed by step key (`my_op[mapping_key]` for mapped instances) or by
+        node handle.
         """
+        dataset_inputs = normalize_step_keyed_datasets(step_dataset_inputs)
+        dataset_outputs = normalize_step_keyed_datasets(step_dataset_outputs)
+
         # A mapped op has one stats entry per mapped instance.
         run_step_stats: Dict[str, List[RunStepKeyStatsSnapshot]] = defaultdict(list)
         for run_step_stat in context.instance.get_run_step_stats(
@@ -784,11 +789,22 @@ class DatahubSensors:
                 )
                 datajob.name = datajob.name.split("__")[-1]
 
+            # The execution plan of a re-execution (e.g. retry from failure) still
+            # lists every step, but only the re-executed ones have stats and
+            # lineage in this run. Like on a failed run, emitting the others'
+            # empty lineage would overwrite what an earlier run recorded.
+            step_ran = node_handle in run_step_stats
+            if not step_ran:
+                context.log.debug(
+                    f"Step {node_handle} did not run in this run; emitting its DataJob without a run"
+                )
             op_has_lineage = bool(datajob.inlets) or bool(datajob.outlets)
-            skip_lineage = run_is_not_successful and not op_has_lineage
+            skip_lineage = not op_has_lineage and (
+                run_is_not_successful or not step_ran
+            )
             if skip_lineage:
                 # Emit the DataJob entity without lineage to preserve
-                # existing lineage from the last successful run
+                # existing lineage from an earlier run
                 for mcp in datajob.generate_mcp(generate_lineage=False):
                     self.graph.emit_mcp(mcp)
             else:
@@ -807,14 +823,28 @@ class DatahubSensors:
                 )
             )
 
-            # Steps that never ran (e.g. skipped after an upstream failure)
-            # have no stats.
-            for step_stats in run_step_stats.get(node_handle, []):
+            for i, step_stats in enumerate(run_step_stats.get(node_handle, [])):
+                inlets: Optional[Set[DatasetUrn]] = None
+                outlets: Optional[Set[DatasetUrn]] = None
+                if step_stats.step_key != node_handle:
+                    # A mapped instance gets the datasets recorded for its own
+                    # step key plus any keyed by the bare node handle, rather
+                    # than the DataJob's union over all instances.
+                    inlets = step_dataset_inputs.get(
+                        step_stats.step_key, set()
+                    ) | step_dataset_inputs.get(node_handle, set())
+                    outlets = step_dataset_outputs.get(
+                        step_stats.step_key, set()
+                    ) | step_dataset_outputs.get(node_handle, set())
                 dagster_generator.emit_op_run(
                     graph=self.graph,
                     datajob=datajob,
                     run_step_stats=step_stats,
-                    emit_template=not skip_lineage,
+                    # The DataJob was emitted above; re-emitting it as the
+                    # template once per mapped instance would multiply writes.
+                    emit_template=i == 0 and not skip_lineage,
+                    inlets=inlets,
+                    outlets=outlets,
                 )
 
     def _emit_metadata(self, context: RunStatusSensorContext) -> SensorReturnTypesUnion:
@@ -932,8 +962,8 @@ class DatahubSensors:
                 dagster_generator=dagster_generator,
                 job_snapshot=job_snapshot,
                 step_deps=normalize_step_deps(execution_plan_snapshot.step_deps),
-                dataset_inputs=normalize_step_keyed_datasets(dataset_inputs),
-                dataset_outputs=normalize_step_keyed_datasets(dataset_outputs),
+                step_dataset_inputs=dataset_inputs,
+                step_dataset_outputs=dataset_outputs,
             )
             context.log.info("Metadata emitted to DataHub successfully")
             return SkipReason("Pipeline metadata is emitted to DataHub")

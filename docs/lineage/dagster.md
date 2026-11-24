@@ -80,6 +80,17 @@ Woohoo! Now, the DataHub Sensor is ready to emit metadata after every pipeline r
 
    This means that DataHub's sensor is correctly configured to emit metadata to DataHub.
 
+### How Ops Map to DataHub
+
+The sensor emits one DataJob per op node in a job, and one DataProcessInstance per step that ran.
+
+- An aliased op (`my_op.alias("other_name")`) gets its own DataJob named after the alias.
+- An op inside a graph gets its own DataJob named `<graph>.<op>`, for example `my_graph.my_op`.
+- All instances of a dynamically mapped op (`.map()`) share one DataJob. Each instance gets its own DataProcessInstance, with the mapping key in its ID.
+- On a re-execution, such as a retry from failure, the ops that were not re-executed keep the lineage recorded by the earlier run.
+
+Older plugin versions merged aliased and graph-nested ops into a single DataJob named after the op definition. Those DataJobs stay in DataHub after an upgrade, and the new per-node DataJobs appear next to them. You can delete the old ones once they are no longer needed.
+
 ## Capturing Table Lineage
 
 There are a few ways to extract lineage, or relationships between tables, from Dagster. We recommend one or more of the following approaches to extract lineage automatically.
@@ -197,7 +208,7 @@ To create dataset upstream and downstream dependency for the Assets and Ops, you
 
 You can define your own logic to capture asset lineage information.
 
-The output Tuple contains two dictionaries, one for input assets and the other for output assets. The key of the dictionary is the op key and the value is the set of asset URNs that are upstream or downstream of the op.
+The output Tuple contains two dictionaries, one for input assets and the other for output assets. The key of the dictionary is the op's step key (`my_op`, `my_graph.my_op`, or `my_op[mapping_key]` for one instance of a mapped op) or its node handle (the step key without the `[mapping_key]` suffix, which applies to every instance), and the value is the set of asset URNs that are upstream or downstream of the op.
 
 ```python
 from datahub_dagster_plugin.client.dagster_generator import DagsterGenerator, DatasetLineage

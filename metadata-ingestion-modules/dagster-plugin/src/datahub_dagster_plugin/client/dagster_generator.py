@@ -287,6 +287,11 @@ def step_key_mapping_key(step_key: str) -> Optional[str]:
     return match.group(1)
 
 
+def node_handle_to_url_path(node_handle: str) -> str:
+    """The Dagster UI addresses an op nested in graphs as `/<graph>/<op>`, not `/<graph>.<op>`."""
+    return node_handle.replace(".", "/")
+
+
 def normalize_step_deps(step_deps: Mapping[str, Iterable[str]]) -> Dict[str, Set[str]]:
     """Re-key execution plan step deps by node handle, merging mapped steps."""
     deps: Dict[str, Set[str]] = {}
@@ -530,7 +535,8 @@ class DagsterGenerator:
         platform_instance: Optional[str] = None,
         remove_double_underscores: bool = True,
         add_asset_group_tag: bool = True,
-        node_handle: Optional[str] = None,
+        *,
+        node_handle: str,
     ) -> DataJob:
         """
         Generates a Datajob object from an Dagster op snapshot
@@ -538,7 +544,7 @@ class DagsterGenerator:
         :param step_deps: upstream node handles keyed by node handle (see normalize_step_deps)
         :param op_def_snap: OpDefSnap - Op def snapshot object
         :param node_handle: the op's node handle in the job; differs from the op definition
-            name for aliased ops and ops nested in graphs. Defaults to the op definition name.
+            name for aliased ops and ops nested in graphs.
         :param env: str
         :param platform_instance: Optional[str]
         :param output_datasets: dict[str, Set[DatasetUrn]] - output datasets for each op
@@ -546,7 +552,7 @@ class DagsterGenerator:
         :return: DataJob - Data generated datajob
         """
         self.logger.info(f"Generating datajob for Op Def Snap: {op_def_snap}")
-        node_name = node_handle or op_def_snap.name
+        node_name = node_handle
         if self.dagster_environment.is_cloud:
             flow_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{job_snapshot.name}"
             job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{node_name}"
@@ -577,7 +583,7 @@ class DagsterGenerator:
         )
 
         if self.config.dagster_url:
-            datajob.url = f"{job_url_generator(dagster_url=self.config.dagster_url, dagster_environment=self.dagster_environment)}/jobs/{job_snapshot.name}/{node_name}"
+            datajob.url = f"{job_url_generator(dagster_url=self.config.dagster_url, dagster_environment=self.dagster_environment)}/jobs/{job_snapshot.name}/{node_handle_to_url_path(node_name)}"
 
         datajob.description = op_def_snap.description
         datajob.tags = set(op_def_snap.tags.keys())
@@ -730,6 +736,8 @@ class DagsterGenerator:
         datajob: DataJob,
         run_step_stats: RunStepKeyStatsSnapshot,
         emit_template: bool = True,
+        inlets: Optional[Iterable[DatasetUrn]] = None,
+        outlets: Optional[Iterable[DatasetUrn]] = None,
     ) -> None:
         """
         Emit an op run
@@ -737,6 +745,8 @@ class DagsterGenerator:
         :param datajob: DataJob - DataJob object
         :param run_step_stats: RunStepKeyStatsSnapshot - step(op) run stats
         :param emit_template: Whether to emit the parent DataJob template from the process instance
+        :param inlets: datasets read by this step; defaults to the DataJob's inlets
+        :param outlets: datasets written by this step; defaults to the DataJob's outlets
         """
         dpi_id = f"{run_step_stats.run_id}.{datajob.id}"
         # Each instance of a dynamically mapped op runs as its own step, so the
@@ -750,6 +760,10 @@ class DagsterGenerator:
             clone_inlets=True,
             clone_outlets=True,
         )
+        if inlets is not None:
+            dpi.inlets = list(inlets)
+        if outlets is not None:
+            dpi.outlets = list(outlets)
         if self.config.dagster_url:
             dpi.url = f"{self.config.dagster_url}/runs/{run_step_stats.run_id}"
             if self.dagster_environment.is_cloud:
