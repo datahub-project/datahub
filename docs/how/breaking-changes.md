@@ -99,20 +99,13 @@ hands back the reference cleanup for the caller to run.
 
 ### Deleting a Data Product that has children
 
-Soft-deleting a Data Product that has child Data Products now fails, and so does a hard delete
-through OpenAPI, Rest.li, or the `datahub delete` CLI, while a child still points at the parent.
-Previously the delete succeeded and the children were left pointing at a parent that no longer
-existed. The delete fails with an error saying the product has children. Delete the children, or
-move them to another parent, first. A bulk delete that removes parents and children together may
+A Data Product that has child Data Products can no longer be deleted, either hard or soft. Previously
+the delete succeeded and the children were left pointing at a parent that no longer existed. The
+delete now fails with an error saying the product has children. Delete the children, or move them to
+another parent, before deleting the parent. This applies to the UI, GraphQL, OpenAPI,
+Rest.li and the `datahub delete` CLI. A bulk delete that removes parents and children together may
 reject some parents on the first pass; run it again, or delete the children first. Rolling back an
 ingestion run is not affected.
-
-Deleting the product in the UI, or with the GraphQL `deleteDataProduct` mutation, is refused in the
-same way while a child still points at it. Once no child does, the delete goes ahead and removes the
-other relationships to the product first ([PR #21481](https://github.com/datahub-project/datahub/pull/21481)).
-That cleanup runs when the product has at most 100 incoming relationships
-(`DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`, default 100). Above that limit the delete is
-refused and the product stays, until the limit is raised or the references are removed first.
 
 ### Rest.li status codes for rejected writes
 
