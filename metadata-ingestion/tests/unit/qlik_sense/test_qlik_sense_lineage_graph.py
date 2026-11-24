@@ -35,7 +35,10 @@ from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     UNREAD_SPACES,
     ReadErrors,
 )
-from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
+from datahub.ingestion.source.qlik_sense.qlik_sense import (
+    QlikSenseSource,
+    _refs_of_field_sources,
+)
 from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
@@ -53,6 +56,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import ColumnRef
 
 BASE_URL = "https://tenant.example.com/api/v1"
 CLOUD_CONFIG = {"tenant_hostname": "tenant.example.com", "api_key": "key"}
@@ -751,6 +755,24 @@ def test_app_with_unresolved_graph_tables_is_recorded_so(
     assert checkpoint.table_urns_by_qri
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_read_app_records_its_field_names(mock_api_cls: MagicMock) -> None:
+    etl = _app(
+        "etl-app",
+        [
+            LineageTable(
+                qri=f"{ETL_APP}#Curve", label="Curve", fields=["Price", "Close"]
+            )
+        ],
+    )
+    source = _source(mock_api_cls, DATASETS)
+
+    with patch.object(source.app_state, "record") as record:
+        list(source._gen_recorded_app_workunit(etl))
+
+    assert record.call_args.args[1].field_names == ["Price", "Close"]
+
+
 @pytest.mark.parametrize("loader_first", [True, False])
 @pytest.mark.parametrize("kept_by", ["unchanged", "partly_read"])
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -787,6 +809,77 @@ def test_app_table_links_tables_of_a_kept_app_it_loads(
     workunits.extend(source._gen_pending_table_lineage())
 
     assert _lineage(workunits)[0][_urn("report-app.prices")] == [curve]
+
+
+@pytest.mark.parametrize("loader_first", [True, False])
+@pytest.mark.parametrize("kept_by", ["unchanged", "partly_read"])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_table_gets_renamed_column_lineage_from_a_kept_app_it_loads(
+    mock_api_cls: MagicMock, loader_first: bool, kept_by: str
+) -> None:
+    curve_qri = f"{ETL_APP}#Curve"
+    curve = _urn("etl-app.curve")
+    source = _source(mock_api_cls, DATASETS)
+    app_state = MagicMock()
+    source.app_state = app_state
+    app_state.previous.side_effect = lambda app_id: (
+        AppCheckpoint(
+            urns=[curve],
+            table_urns_by_qri={curve_qri: curve},
+            field_names=["Price", "Close"],
+        )
+        if app_id == "etl-app"
+        else None
+    )
+    source.stale_entity_removal_handler = MagicMock()
+    source._fingerprint_salt = "salt"
+    report = _app(
+        "report-app",
+        [
+            LineageTable(
+                qri=f"{REPORT_APP}#Tbl",
+                label="Prices",
+                source_qris=[curve_qri],
+                fields=["Px"],
+                field_source_qris={"Px": [_field_qri(curve_qri, "Close")]},
+            )
+        ],
+    )
+
+    def keep() -> None:
+        if kept_by == "unchanged":
+            source._keep_unchanged_app(UnchangedApp(id="etl-app", fingerprint="f"))
+        else:
+            etl = _app("etl-app", [])
+            etl.read_errors = ["unable to read a sheet"]
+            source._keep_partly_read_app(etl)
+        recorded = app_state.record.call_args.args[1]
+        assert recorded.field_names == ["Price", "Close"]
+
+    workunits: List[MetadataWorkUnit] = []
+    if not loader_first:
+        keep()
+    workunits.extend(source._gen_app_workunit(report))
+    if loader_first:
+        keep()
+    workunits.extend(source._gen_pending_table_lineage())
+
+    prices = _urn("report-app.prices")
+    assert _lineage(workunits)[0][prices] == [curve]
+    [lineage] = [
+        aspect
+        for wu in workunits
+        if wu.get_urn() == prices
+        and (aspect := wu.get_aspect_of_type(UpstreamLineageClass))
+    ]
+    assert [
+        (cll.downstreams, cll.upstreams) for cll in lineage.fineGrainedLineages or []
+    ] == [
+        (
+            [make_schema_field_urn(prices, "Px")],
+            [make_schema_field_urn(curve, "Close")],
+        )
+    ]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -2622,7 +2715,9 @@ def _schema_graph(urn: str, fields: List[str]) -> MagicMock:
     graph.get_entities.side_effect = lambda entity_name, urns, **kwargs: {
         u: {SchemaMetadataClass.ASPECT_NAME: (schema, None)} for u in urns if u == urn
     }
-    graph.get_aspect.return_value = None
+    graph.get_aspect.side_effect = lambda u, aspect_type, **kwargs: (
+        schema if u == urn and aspect_type is SchemaMetadataClass else None
+    )
     graph._make_schema_resolver.side_effect = lambda platform, platform_instance, env: (
         SchemaResolver(
             platform=platform, platform_instance=platform_instance, env=env, graph=graph
@@ -2711,6 +2806,71 @@ def test_reload_sql_join_maps_only_columns_of_the_graph_source(
         for f in lineage.fineGrainedLineages or []
         if f.downstreams
     ] == ["ORDER_ID"]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_reload_sql_join_with_a_table_missing_from_datahub_is_not_reported(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        mock_api_cls,
+        DATASETS,
+        items=[
+            _reload_app(
+                [
+                    _sql(
+                        "Finance:Sales",
+                        "SELECT o.order_id FROM dbo.orders o "
+                        "JOIN dbo.customers c ON o.customer_id = c.id",
+                    )
+                ]
+            )
+        ],
+        config=RELOAD_CONFIG,
+        graph=_schema_graph(SHOP_ORDERS, ["order_id", "customer_id"]),
+    )
+    mock_api_cls.return_value.get_data_connections.return_value = {}
+
+    written, _ = _lineage(source.get_workunits_internal())
+
+    assert written[_urn("etl-app.orders")] == [SHOP_ORDERS]
+    # Only the customers table, which the graph doesn't name, lacks a schema.
+    assert not source.reporter.reload_sql_tables_not_in_datahub
+
+
+@pytest.mark.parametrize(
+    "unread_sql, linked",
+    [
+        pytest.param(
+            "SELECT id FROM dbo.customers GROUP BY id ORDER BY id", True, id="keyword"
+        ),
+        pytest.param("SELECT * FROM dbo.customers c, [order] o", False, id="from list"),
+        pytest.param(
+            "SELECT * FROM (SELECT * FROM x) a JOIN dbo.[order] b ON a.id = b.id",
+            False,
+            id="join after subquery",
+        ),
+        pytest.param("EXEC('SELECT * FROM dbo.[order]')", False, id="dynamic SQL"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unread_reload_sql_only_counts_names_in_table_lists(
+    mock_api_cls: MagicMock, unread_sql: str, linked: bool
+) -> None:
+    app = _reload_app(
+        [
+            _sql("Finance:Sales", "SELECT * FROM dbo.[order]"),
+            _sql("Finance:Unknown", unread_sql),
+        ]
+    )
+    app.lineage_tables[0].database_source_labels = {ORDERS_DB_TABLE: "dbo.[ORDER]"}
+    source = _reload_source(mock_api_cls, app)
+
+    written, _ = _lineage(source.get_workunits_internal())
+
+    shop_order = make_dataset_urn("mssql", "shop.dbo.order")
+    assert written[_urn("etl-app.orders")] == ([shop_order] if linked else [])
+    assert bool(source.reporter.ambiguous_reload_sql_sources) is not linked
 
 
 @pytest.mark.parametrize(
@@ -3126,6 +3286,12 @@ def test_reload_sql_columns_need_one_statement_reading_the_table(
             {"ORDER_ID": "order_id", "Amount": "amount"},
             ["Amount<-amount", "ORDER_ID<-order_id"],
             id="graph agrees",
+        ),
+        pytest.param(
+            # Qlik hashes the names the database returned, in their case.
+            {"ORDER_ID": "ORDER_ID", "Amount": "Amount"},
+            ["Amount<-amount", "ORDER_ID<-order_id"],
+            id="graph names the columns in another case",
         ),
         pytest.param(
             # A LOAD over the SQL swapped the two fields' names.
@@ -3549,3 +3715,14 @@ def test_spaces_the_key_cant_see_are_named(mock_api_cls: MagicMock) -> None:
     assert _unseen_spaces(source) == [
         "Hidden Space: data connections, Shared Scripts: included scripts"
     ]
+
+
+def test_field_source_never_picks_between_columns_differing_in_case() -> None:
+    refs = [
+        ColumnRef(table=SHOP_ORDERS, column="order_id"),
+        ColumnRef(table=SHOP_ORDERS, column="Order_Id"),
+    ]
+    field_id = _field_qri("t", "ORDER_ID").rpartition("#")[2]
+
+    assert _refs_of_field_sources(refs, "ORDER_ID", {field_id}) == []
+    assert _refs_of_field_sources(refs[:1], "ORDER_ID", {field_id}) == refs[:1]

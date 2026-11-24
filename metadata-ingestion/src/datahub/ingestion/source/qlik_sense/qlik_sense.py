@@ -216,9 +216,11 @@ from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnRef,
     SqlParsingResult,
     column_refs_to_schema_field_urns,
     create_lineage_sql_parsed_result,
+    create_schema_resolver,
 )
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import guess_entity_type
@@ -416,6 +418,78 @@ def _names_identifier(sql: str, name: str) -> bool:
     return re.search(rf"(?<![\w$#@]){re.escape(name)}(?![\w$#@])", sql) is not None
 
 
+# String literals, quoted identifiers, words and single characters.
+SQL_TOKEN_RE = re.compile(
+    r"'(?:[^']|'')*'?|\[[^\]]*\]?|\"[^\"]*\"?|`[^`]*`?|[\w$#@]+|\S"
+)
+# Keywords after which SQL names the tables it reads or writes.
+TABLE_CLAUSE_KEYWORDS = {"from", "join", "into", "using", "update"}
+# Keywords that end such a list of tables.
+TABLE_CLAUSE_END_KEYWORDS = {
+    "where",
+    "group",
+    "order",
+    "having",
+    "union",
+    "intersect",
+    "except",
+    "minus",
+    "on",
+    "inner",
+    "left",
+    "right",
+    "full",
+    "cross",
+    "outer",
+    "natural",
+    "limit",
+    "qualify",
+    "window",
+    "select",
+    "values",
+    "set",
+    "fetch",
+    "offset",
+    "when",
+    "then",
+    "pivot",
+    "unpivot",
+}
+
+
+def _table_clause_names(sql: str) -> Set[str]:
+    """The lowercased names in the table lists of SQL, after FROM, JOIN and
+    INTO, so that a keyword such as ORDER in ORDER BY doesn't count as naming
+    a table called `order`. Aliases and the parts of qualified names are
+    included, and so are the names in string literals, which may hold SQL
+    run dynamically."""
+    names: Set[str] = set()
+    in_clause = False
+    stack: List[bool] = []
+    for token in SQL_TOKEN_RE.findall(sql):
+        if token.startswith("'"):
+            names |= _table_clause_names(token.strip("'").replace("''", "'"))
+        elif token == "(":
+            stack.append(in_clause)
+            in_clause = False
+        elif token == ")":
+            in_clause = stack.pop() if stack else False
+        elif token == ";":
+            in_clause = False
+        elif token[0] in QUOTE_CHARACTERS:
+            if in_clause:
+                names.add(token.strip(QUOTE_CHARACTERS).strip().lower())
+        elif re.match(r"[\w$#@]", token):
+            word = token.lower()
+            if word in TABLE_CLAUSE_KEYWORDS:
+                in_clause = True
+            elif word in TABLE_CLAUSE_END_KEYWORDS:
+                in_clause = False
+            elif in_clause:
+                names.add(word)
+    return names
+
+
 def _database_qri_platform(source_qri: str) -> str:
     scheme = source_qri[len(DATABASE_QRI_PREFIX) :].partition("://")[0].lower()
     # A scheme that isn't mapped is compared as is, such as `oracle`, so one
@@ -442,14 +516,16 @@ class _ReloadSql(BaseModel):
 
     upstream_urns: List[str]
     result: SqlParsingResult
+    # The tables DataHub holds no schema for, when DataHub was asked.
+    urns_without_schema: List[str] = []
 
 
 class _ParsedReloadSql(BaseModel):
     statements: List[_ReloadSql] = []
-    # Lowercased SQL of statements that may name a label but were not read,
-    # for an unresolved connection or a parse error, and the names of tables
-    # read without their database or schema.
-    skipped_sql: List[str] = []
+    # The names in the table lists of statements that may name a label but
+    # were not read, for an unresolved connection or a parse error, and the
+    # names of tables read without their database or schema.
+    skipped_table_names: Set[str] = set()
     # A statement kept a variable Qlik did not expand, so it may name any
     # table.
     unexpanded_variable: bool = False
@@ -502,6 +578,9 @@ class _BinaryLink(BaseModel):
     fields: List[str]
     # An included script that is not read could change the table.
     additive: bool = False
+    # Named like a script table Qlik renamed, such as `Sales-1` beside a
+    # `Sales` load, so it is the file's only if the source app has it.
+    maybe_renamed_script_table: bool = False
     # The table's lineage from the app's own script.
     upstream_urns: List[str] = []
     script_fields: List[FineGrainedLineage] = []
@@ -553,12 +632,33 @@ def _schema_field_parent(urn: str) -> Optional[str]:
         return None
 
 
+def _app_field_names(app: App) -> List[str]:
+    names = [field.name for table in app.data_model_tables for field in table.fields]
+    names.extend(field for table in app.lineage_tables for field in table.fields)
+    return list(dict.fromkeys(names))
+
+
 def _qlik_field_id(name: str) -> str:
     """The last part of a field node's QRI in Qlik's lineage graph, which is the
     unpadded base64url SHA-256 of the field name. Not documented by Qlik, so it
     is only used to confirm a name, never to make one up."""
     digest = hashlib.sha256(name.encode("utf-8")).digest()
     return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+
+
+def _refs_of_field_sources(
+    refs: List[ColumnRef], field_name: str, field_ids: Set[str]
+) -> List[ColumnRef]:
+    """The columns whose name Qlik's graph hashes into one of `field_ids`.
+    Qlik hashes the name the database returned, whose case the SQL and DataHub
+    may not share, so a column also matches the Qlik field it loads when that
+    field kept the source's name, unless another column differs from it only
+    in case."""
+    exact = [ref for ref in refs if _qlik_field_id(ref.column) in field_ids]
+    if exact or _qlik_field_id(field_name) not in field_ids:
+        return exact
+    folded = [ref for ref in refs if ref.column.lower() == field_name.lower()]
+    return folded if len({ref.column for ref in folded}) == 1 else []
 
 
 class _ResolvedSources(BaseModel):
@@ -710,6 +810,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # Table QRI -> dataset URN for the tables of apps read or kept this run.
         # Lineage only links to tables in here, as other URNs may never exist.
         self._app_table_urns_by_qri: Dict[str, str] = {}
+        # The table URNs of each app read or kept this run.
+        self._table_urns_by_app: Dict[str, Set[str]] = {}
         # Tables the last run recorded for apps whose tables are known this
         # run, so edges from a table since renamed or dropped are still owned.
         self._previous_app_table_urns: Set[str] = set()
@@ -977,10 +1079,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._app_qvds[app_id] = previous.qvds
             if not previous.qvds.writes_complete:
                 self._apps_qvds_unknown[app_id] = UNRESOLVED_STORE
+        if previous.field_names:
+            self._learn_field_names(previous.field_names)
         if previous.table_urns_by_qri is not None:
-            self._app_table_urns_by_qri.update(
-                _own_table_urns(app_id, previous.table_urns_by_qri)
-            )
+            kept = _own_table_urns(app_id, previous.table_urns_by_qri)
+            self._app_table_urns_by_qri.update(kept)
+            self._table_urns_by_app[app_id] = set(kept.values())
         # None was recorded before table URNs were kept in the state.
         if previous.table_urns_by_qri is None or previous.tables_unknown:
             self._apps_tables_unknown.add(app_id)
@@ -1012,6 +1116,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     data_model_fields=self._app_model_fields.get(app.id),
                     binary_tables=previous.binary_tables,
                     stored_file_urns=previous.stored_file_urns,
+                    field_names=previous.field_names,
                 ),
             )
         self.reporter.apps_skipped_unchanged += 1
@@ -1054,6 +1159,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 data_model_fields=previous.data_model_fields,
                 binary_tables=previous.binary_tables,
                 stored_file_urns=previous.stored_file_urns,
+                field_names=previous.field_names,
             ),
         )
         return _PartialRead.KEPT
@@ -1096,6 +1202,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 data_model_fields=self._app_model_fields.get(app.id),
                 binary_tables=app.id in self._apps_with_binary_tables,
                 stored_file_urns=self._app_stored_files.get(app.id, []),
+                field_names=_app_field_names(app),
             ),
         )
 
@@ -2176,7 +2283,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return urns
 
     def _register_app_tables(self, app: App) -> None:
-        self._app_table_urns_by_qri.update(self._app_table_urns(app))
+        table_urns = self._app_table_urns(app)
+        self._app_table_urns_by_qri.update(table_urns)
+        self._table_urns_by_app[app.id] = set(table_urns.values())
         self._app_qris[app.id] = app.qri
         if self._tables_unknown(app):
             self._apps_tables_unknown.add(app.id)
@@ -2693,23 +2802,62 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.file_stores_linked += 1
         previous = self._usable_checkpoint(app.id, [])
         previous_files = previous.stored_file_urns if previous else []
-        # Files the app may still have edges into, so a later run that knows
-        # all its stores can remove them.
-        self._app_stored_files[app.id] = sorted(
-            {*writes, *([] if complete else previous_files)}
-        )
-        owned = {
-            *table_urns,
-            *self._app_table_urns(app).values(),
-            *((previous.table_urns_by_qri or {}).values() if previous else []),
+        currents = {
+            file_urn: self._current_upstreams(file_urn) if complete else None
+            for file_urn in sorted({*writes, *previous_files})
         }
-        for file_urn in sorted({*writes, *previous_files}):
-            current = self._current_upstreams(file_urn) if complete else None
+        # Files the app may still have edges into, so a later run that knows
+        # all its stores and can read their lineage removes them.
+        self._app_stored_files[app.id] = sorted(
+            file_urn
+            for file_urn, current in currents.items()
+            if file_urn in writes or current is None
+        )
+        shared = self._table_urns_of_other_apps(app.id)
+        # A table another app also has, such as a QVD both load, may be what
+        # that app stores into the file, so its edge is never this app's to
+        # remove.
+        owned = (
+            set()
+            if shared is None
+            else {
+                *table_urns,
+                *self._app_table_urns(app).values(),
+                *((previous.table_urns_by_qri or {}).values() if previous else []),
+            }
+            - shared
+        )
+        for file_urn, current in currents.items():
             if file_urn not in writes and current is None:
                 continue
             yield from self._gen_qvd_upstreams(
                 file_urn, writes.get(file_urn, []), current, owned.__contains__
             )
+
+    def _table_urns_of_other_apps(self, app_id: str) -> Optional[Set[str]]:
+        """The tables of the other apps read or kept this run, or recorded by
+        the last run; None when the last run's could not be loaded."""
+        urns = {
+            urn
+            for other, table_urns in self._table_urns_by_app.items()
+            if other != app_id
+            for urn in table_urns
+        }
+        try:
+            last_apps = self.app_state.previous_apps()
+        except Exception as e:
+            self.reporter.warning(
+                title="Unable to load the last checkpoints of Qlik apps",
+                message="Which tables other apps share with the app is unknown, "
+                "so its edges into the files it stores into are only added to.",
+                context=app_id,
+                exc=e,
+            )
+            return None
+        for other, checkpoint in last_apps.items():
+            if other != app_id:
+                urns.update((checkpoint.table_urns_by_qri or {}).values())
+        return urns
 
     def _catalogued_as_qlik_dataset(
         self, storage: FileStorage, path: str
@@ -3004,7 +3152,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self._note_unseen_space(
                     _named_space(connection_name), "data connections"
                 )
-                parsed.skipped_sql.append(sql.lower())
+                parsed.skipped_table_names |= _table_clause_names(sql)
                 continue
             result = self._parse_script_sql(sql, connection)
             if (
@@ -3021,7 +3169,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     f"{redact_connection(connection_name)}, "
                     f"error={_error_type(result.debug_info.table_error)}",
                 )
-                parsed.skipped_sql.append(sql.lower())
+                parsed.skipped_table_names |= _table_clause_names(sql)
                 continue
             upstream_urns = [
                 urn
@@ -3036,13 +3184,20 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             unqualified.extend(statement_unqualified)
             # A table without its database or schema may be the label's table
             # in another database, so it counts as SQL that could not be read.
-            parsed.skipped_sql.extend(
-                DatasetUrn.from_string(urn).name.lower()
+            parsed.skipped_table_names.update(
+                part
                 for urn in statement_unqualified
+                for part in DatasetUrn.from_string(urn).name.lower().split(".")
             )
             if upstream_urns:
                 parsed.statements.append(
-                    _ReloadSql(upstream_urns=upstream_urns, result=result)
+                    _ReloadSql(
+                        upstream_urns=upstream_urns,
+                        result=result,
+                        urns_without_schema=self._urns_without_schema(
+                            upstream_urns, result, connection
+                        ),
+                    )
                 )
         for connection_name in sorted(unresolved):
             self.reporter.unresolved_data_connections.append(
@@ -3057,6 +3212,28 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 context=f"app={app.id}, tables={sorted(set(unqualified))}",
             )
         return parsed
+
+    def _urns_without_schema(
+        self,
+        urns: List[str],
+        result: SqlParsingResult,
+        connection: ResolvedConnection,
+    ) -> List[str]:
+        """Which of the tables a statement reads DataHub holds no schema for.
+        The parser only counts them for the whole statement."""
+        debug_info = result.debug_info
+        if (
+            self.ctx.graph is None
+            or debug_info.table_schemas_resolved >= debug_info.tables_discovered
+        ):
+            return []
+        resolver = create_schema_resolver(
+            platform=connection.platform,
+            env=connection.env,
+            graph=self.ctx.graph,
+            platform_instance=connection.platform_instance,
+        )
+        return [urn for urn in urns if resolver.resolve_urn(urn)[1] is None]
 
     def _reload_sql_tables(
         self, app: App, script_tables: Dict[str, ScriptTableLineage]
@@ -3112,9 +3289,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if _urn_names_table(urn, source_qri, label)
         }
         name = _label_parts(label)[-1]
-        unread = parsed.unexpanded_variable or any(
-            _names_identifier(sql, name) for sql in parsed.skipped_sql
-        )
+        unread = parsed.unexpanded_variable or name in parsed.skipped_table_names
         if len(matches) > 1:
             self.reporter.ambiguous_reload_sql_sources.append(
                 f"{app.id}: {label} matches {sorted(matches)}"
@@ -3135,12 +3310,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
         urn = matches.pop()
-        if self.ctx.graph is not None and any(
-            urn in statement.upstream_urns
-            and statement.result.debug_info.table_schemas_resolved
-            < statement.result.debug_info.tables_discovered
-            for statement in parsed.statements
-        ):
+        if any(urn in statement.urns_without_schema for statement in parsed.statements):
             # Linked as the SQL names it, which may differ in case from the
             # dataset DataHub holds.
             self.reporter.reload_sql_tables_not_in_datahub.append(f"{app.id}: {urn}")
@@ -3179,8 +3349,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if source_field_ids:
                 # A LOAD over the SQL may rename fields, which the reload SQL
                 # doesn't show, so the graph decides which column each loads.
-                ids = source_field_ids.get(field_name, set())
-                refs = [ref for ref in refs if _qlik_field_id(ref.column) in ids]
+                refs = _refs_of_field_sources(
+                    refs, field_name, source_field_ids.get(field_name, set())
+                )
             if not refs:
                 continue
             upstreams = lineage.column_upstreams.setdefault(field_name, [])
@@ -3556,12 +3727,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             app_table_identifier(app.id, table.name): table.fields
             for table in app.data_model_tables
         }
-        self._learn_field_names(
-            field.name for table in app.data_model_tables for field in table.fields
-        )
-        self._learn_field_names(
-            field for table in app.lineage_tables for field in table.fields
-        )
+        self._learn_field_names(_app_field_names(app))
         if self.config.on_prem is None and not app.tables:
             self.reporter.apps_without_load_model.append(app.id)
         parsed = self._parsed_script(app)
@@ -4474,9 +4640,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if table.name.lower() in created:
                 continue
             suffixed = DUPLICATE_TABLE_NAME_RE.match(table.name)
-            if suffixed and suffixed.group("name").lower() in labels:
-                # Qlik names a new table `Orders-1` when Orders already
-                # exists, so it is the script's.
+            # Qlik names a new table `Orders-1` when Orders already exists, but
+            # a real name such as `Orders-2024` looks the same.
+            maybe_renamed = bool(suffixed and suffixed.group("name").lower() in labels)
+            if maybe_renamed and source_app_id is None:
+                without_lineage(
+                    f"table {table.name} may be a script table Qlik renamed; "
+                    "map the file in binary_file_to_app"
+                )
                 continue
             identifier = app_table_identifier(app.id, table.name)
             fields = [field.name for field in table.fields]
@@ -4495,6 +4666,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     dataset_urn=dataset_urn,
                     fields=fields,
                     additive=parsed.has_includes,
+                    maybe_renamed_script_table=maybe_renamed,
                 )
         return binary
 
@@ -4562,13 +4734,31 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         earlier run wrote stay."""
         unread: Set[Tuple[str, str]] = set()
         for link in self._binary_links:
-            source_urn = self._binary_link_source(link, unread)
             source_model = self._app_model_fields.get(link.source_app_id)
-            if (
-                source_urn is None
-                and source_model is not None
-                and link.table.lower() not in source_model
-            ):
+            in_source_model = (
+                source_model is not None and link.table.lower() in source_model
+            )
+            if link.maybe_renamed_script_table and not in_source_model:
+                if link.source_app_id not in self._app_urns:
+                    unread.add((link.app_id, link.source_app_id))
+                    continue
+                self.reporter.binary_loads_without_lineage.append(
+                    f"{link.app_id}: table {link.table} is not in app "
+                    f"{link.source_app_id}'s data model, so it is taken as a "
+                    "script table Qlik renamed"
+                    if source_model is not None
+                    else f"{link.app_id}: table {link.table} may be a script "
+                    f"table Qlik renamed, and app {link.source_app_id}'s data "
+                    "model is not known"
+                )
+                continue
+            source_urn = self._binary_link_source(link, unread)
+            if source_urn is None and source_model is not None and not in_source_model:
+                if link.additive:
+                    yield from self._patch_binary_upstreams(
+                        link, None, link.script_fields
+                    )
+                    continue
                 # Not from the file, so its script lineage is written whole.
                 yield MetadataChangeProposalWrapper(
                     entityUrn=link.dataset_urn,
