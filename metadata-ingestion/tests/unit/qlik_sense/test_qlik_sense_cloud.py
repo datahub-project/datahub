@@ -1,7 +1,7 @@
 import io
 import ssl
 from functools import partial
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -186,6 +186,7 @@ def test_unread_items_are_reported_as_failures(mock_api_cls: MagicMock) -> None:
         UnreadItem(name="spaces", cause="503 Server Error"),
         UnreadItem(name="data connections", cause="timed out"),
     ]
+    mock_api_cls.return_value.engine_refusals = None
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(CLOUD_CONFIG),
         PipelineContext(run_id="test-cloud"),
@@ -318,6 +319,7 @@ def test_denied_load_script_is_a_warning(mock_api_cls: MagicMock) -> None:
     mock_api_cls.return_value.field_lineage_failures = []
     mock_api_cls.return_value.opened_without_data = []
     mock_api_cls.return_value.include_read_failures = []
+    mock_api_cls.return_value.engine_refusals = None
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(CLOUD_CONFIG),
         PipelineContext(run_id="test-cloud"),
@@ -340,6 +342,7 @@ def test_unread_included_script_is_a_warning(mock_api_cls: MagicMock) -> None:
     mock_api_cls.return_value.lineage_read_failures = []
     mock_api_cls.return_value.field_lineage_failures = []
     mock_api_cls.return_value.opened_without_data = []
+    mock_api_cls.return_value.engine_refusals = None
     mock_api_cls.return_value.include_read_failures = [
         "lib://Common:DataFiles/x.qvs: Access denied"
     ]
@@ -443,6 +446,86 @@ def test_personal_apps_read_their_own_includes(
         api._get_app("app-2")
 
     assert len(include_reads) == reads
+
+
+def _read_app_with_include_replies(
+    api: QlikAPI,
+    mock_websocket_cls: MagicMock,
+    script: str,
+    include_reply: Callable[[object], Dict],
+) -> None:
+    def engine_reply(method: str, params: object = None) -> Dict:
+        if method == "GetIncludeFileContent":
+            return include_reply(params)
+        return {"qLayout": {}}
+
+    engine = mock_websocket_cls.for_cloud.return_value
+    engine.websocket_send_request.side_effect = engine_reply
+    engine.get_script.return_value = script
+    with (
+        patch.object(api, "_get_app_sheets", return_value=[]),
+        patch.object(api, "_get_app_used_tables", return_value=[]),
+        patch.object(api, "get_table_lineage", return_value=[]),
+        patch.object(api, "_read_data_model", return_value=[]),
+        patch.object(api, "_read_variables", return_value={}),
+    ):
+        api._get_app("app-1")
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_include_failing_outside_the_engine_is_read_once_an_app(
+    mock_session_cls: MagicMock,
+    mock_websocket_cls: MagicMock,
+    mock_app_cls: MagicMock,
+) -> None:
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    api.spaces["space-1"] = "Finance"
+    mock_app_cls.model_validate.return_value = _cloud_app()
+    include_reads: List[object] = []
+
+    def include_reply(params: object) -> Dict:
+        include_reads.append(params)
+        raise TimeoutError("no reply")
+
+    _read_app_with_include_replies(
+        api,
+        mock_websocket_cls,
+        "$(Include=lib://DataFiles/x.qvs);\n$(Include=lib://DataFiles/x.qvs);",
+        include_reply,
+    )
+
+    assert len(include_reads) == 1
+    assert api.include_read_failures
+    assert all(
+        "app-1" in entry and "Finance" in entry for entry in api.include_read_failures
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.inline_includes")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_app_keeps_its_script_when_inlining_fails(
+    mock_session_cls: MagicMock,
+    mock_websocket_cls: MagicMock,
+    mock_app_cls: MagicMock,
+    mock_inline: MagicMock,
+) -> None:
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    app = _cloud_app()
+    mock_app_cls.model_validate.return_value = app
+    mock_inline.side_effect = MemoryError()
+    script = "$(Include=lib://DataFiles/x.qvs);\nX: LOAD * FROM [lib://S:L/x.csv];"
+
+    _read_app_with_include_replies(
+        api, mock_websocket_cls, script, lambda params: {"qContent": ""}
+    )
+
+    assert app.script == script
+    assert not app.tables_read_failed
+    assert len(api.include_read_failures) == 1
 
 
 def _data_connection(name: str, space: str, datasource: str) -> Dict[str, str]:

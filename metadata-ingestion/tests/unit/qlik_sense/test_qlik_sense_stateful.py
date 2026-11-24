@@ -25,6 +25,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
+from datahub.metadata.schema_classes import UpstreamLineageClass
 from tests.test_helpers.state_helpers import mock_datahub_graph  # noqa: F401
 from tests.unit.qlik_sense.qlik_fakes import (
     LOAD_SCRIPT,
@@ -227,6 +228,7 @@ def _cloud_run(
     read_errors: List[str],
     script: str = "",
     lineage_tables: Optional[List[LineageTable]] = None,
+    file_connection_to_storage: Optional[Dict[str, Dict[str, str]]] = None,
     loads_unlisted_qvd: bool = False,
     upstream_graph_unread: bool = False,
     datasets: Optional[List[ListedDataset]] = None,
@@ -267,6 +269,7 @@ def _cloud_run(
         api.field_lineage_failures = []
         api.opened_without_data = []
         api.include_read_failures = []
+        api.engine_refusals = None
         api.get_user_name.return_value = None
         ctx = PipelineContext(run_id=run_id, pipeline_name="qlik-cloud", graph=graph)
         source = QlikSenseSource(
@@ -274,6 +277,7 @@ def _cloud_run(
                 {
                     "tenant_hostname": "tenant.example",
                     "api_key": "secret",
+                    "file_connection_to_storage": file_connection_to_storage or {},
                     "stateful_ingestion": {
                         "enabled": True,
                         "remove_stale_metadata": True,
@@ -407,3 +411,45 @@ def test_graph_named_dataset_is_kept_when_sources_cannot_be_told(
     assert prices not in {wu.get_urn() for wu in second_wus}
     assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
     assert not [wu for wu in third_wus if wu.id.startswith("soft-delete-")]
+
+
+def test_cloud_file_moves_to_its_storage_once_mapped(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    script = "Orders:\nLOAD * FROM [lib://Finance:Lake/landing/orders.csv] (txt);\n"
+    file_qri = (
+        f"qri:file:adls://{qri_part_id('lake')}"
+        f"#{qri_part_id('landing/orders.csv')}#{qri_part_id('item')}"
+    )
+    orders = [
+        LineageTable(
+            qri="qri:app:sense://app-1#Orders", label="Orders", source_qris=[file_qri]
+        )
+    ]
+    _, first_wus = _cloud_run(mock_datahub_graph, "run-1", [], script, orders)
+    _, second_wus = _cloud_run(
+        mock_datahub_graph,
+        "run-2",
+        [],
+        script,
+        orders,
+        # Mapped in a different case from the script's spelling.
+        {"finance:LAKE": {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+    )
+
+    qlik_csv = make_dataset_urn("qlik-sense", "finance:lake/landing/orders.csv")
+    storage_csv = make_dataset_urn("abs", "lake/landing/orders.csv")
+
+    def upstreams(workunits: List[MetadataWorkUnit]) -> List[str]:
+        return [
+            upstream.dataset
+            for wu in workunits
+            if (lineage := wu.get_aspect_of_type(UpstreamLineageClass))
+            for upstream in lineage.upstreams
+        ]
+
+    assert upstreams(first_wus) == [qlik_csv]
+    assert upstreams(second_wus) == [storage_csv]
+    assert qlik_csv in {
+        wu.get_urn() for wu in second_wus if wu.id.startswith("soft-delete-")
+    }
