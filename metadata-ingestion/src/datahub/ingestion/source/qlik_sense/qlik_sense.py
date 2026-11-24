@@ -90,6 +90,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     ListedDataset,
     QlikDataset,
     QlikTable,
+    ReloadStatement,
     SchemaField as QlikDatasetSchemaField,
     Sheet,
     Space,
@@ -280,6 +281,41 @@ UNRESOLVED_STORE = "a STORE path could not be resolved"
 # The SQL keyword Qlik keeps at the start of a reload statement that ran SQL.
 RELOAD_SQL_RE = re.compile(r"^\s*SQL\b(?P<sql>.*)$", re.IGNORECASE | re.DOTALL)
 QUOTE_CHARACTERS = '[]"`'
+# A file an app's last reload stored or loaded, as Qlik records it, such as
+# `STORE - lib://<space>:DataFiles/orders.qvd;` or `{lib://... (txt)};`.
+RELOAD_FILE_RE = re.compile(
+    r"^\{?(?P<store>STORE - )?(?P<path>lib://.+?)(?:\s+\([^()]*\))?\}?;?$",
+    re.IGNORECASE,
+)
+
+
+class _ReloadFile(BaseModel):
+    path: str
+    stored: bool
+
+
+def _reload_files(statements: List[ReloadStatement]) -> List[_ReloadFile]:
+    files: List[_ReloadFile] = []
+    for statement in statements:
+        match = RELOAD_FILE_RE.match(statement.discriminator.strip())
+        if match:
+            file = _ReloadFile(
+                path=match.group("path"), stored=bool(match.group("store"))
+            )
+            if file not in files:
+                files.append(file)
+    return files
+
+
+def _path_key(path: str) -> str:
+    # Qlik records loads in lowercase, and brackets around a space name with
+    # spaces are optional.
+    return path.lower().replace("[", "").replace("]", "")
+
+
+def _file_stem(name: str) -> str:
+    base = re.split(r"[/\\]", name)[-1].lower()
+    return base[: -len(QVD_EXTENSION)] if base.endswith(QVD_EXTENSION) else base
 
 
 def _label_parts(label: str) -> List[str]:
@@ -493,6 +529,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._apps_upstream_graph_unread: Set[str] = set()
         self._graph_named_resources: Dict[str, str] = {}
         self._graph_resource_writers: Dict[str, Set[str]] = {}
+        # The files apps stored or loaded in their last reload, by app id.
+        self._reload_files: Dict[str, List[_ReloadFile]] = {}
+        # The apps whose upstream graph names each graph-named dataset.
+        self._graph_resource_readers: Dict[str, Set[str]] = {}
         self._allowed_space_ids: Set[str] = set()
         self._reported_no_graph = False
         # Datasets with a column edge whose source field could not be named.
@@ -2050,6 +2090,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # are separate datasets until its storage is mapped.
         urn = self._gen_qlik_dataset_urn(resource_qri.lower())
         self._graph_named_resources[urn] = label
+        self._graph_resource_readers.setdefault(urn, set()).add(app_id)
         self._app_end_of_run_urns[app_id].add(urn)
         # The dataset is the whole resource, so a store into any of its tables
         # is an upstream, as for listed datasets.
@@ -2639,6 +2680,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_lineage_tables_workunit(
         self, app: App, script_tables: Dict[str, ScriptTableLineage]
     ) -> Iterable[MetadataWorkUnit]:
+        if app.reload_statements is not None:
+            self._reload_files[app.id] = _reload_files(app.reload_statements)
         reload_tables = self._reload_sql_tables(app, script_tables)
         for table in app.lineage_tables:
             script_table = script_tables.get(table.qri)
@@ -3408,17 +3451,52 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             DatasetSubTypes.QLIK_DATASET,
         )
 
+    def _files_of(self, app_id: str) -> List[_ReloadFile]:
+        if app_id not in self._reload_files:
+            try:
+                statements = self.qlik_api.get_reload_statements(app_id)
+            except Exception as e:
+                logger.debug(f"Unable to read reload statements of app {app_id}: {e}")
+                self.reporter.apps_without_reload_paths.append(f"{app_id}: {e}")
+                statements = []
+            self._reload_files[app_id] = _reload_files(statements)
+        return self._reload_files[app_id]
+
+    def _graph_named_path(self, urn: str, label: str) -> Optional[str]:
+        """The `lib://` path of a dataset only the upstream graph names, such as
+        `lib://<space>:DataFiles/orders.qvd` for a QVD in a space the API key
+        can't see, from the last reload of the apps that load it and of the
+        writer apps this run ingests. Qlik's label is only a name, so a path is
+        given only when exactly one file those apps read or stored has that
+        name. A writer's STORE keeps the path's case, which loads lose."""
+        apps = set(self._graph_resource_readers.get(urn, set())) | {
+            app_id
+            for qri in self._graph_resource_writers.get(urn, set())
+            if qri in self._app_table_urns_by_qri
+            and (app_id := _qlik_app_id(qri)) is not None
+        }
+        stem = _file_stem(label)
+        paths: Dict[str, _ReloadFile] = {}
+        for app_id in sorted(apps):
+            for file in self._files_of(app_id):
+                if _file_stem(file.path) != stem:
+                    continue
+                key = _path_key(file.path)
+                if key not in paths or (file.stored and not paths[key].stored):
+                    paths[key] = file
+        return next(iter(paths.values())).path if len(paths) == 1 else None
+
     def _gen_graph_named_resources(self) -> Iterable[MetadataWorkUnit]:
         """The datasets and files only apps' upstream graphs name, and the
         tables of the writer apps this run ingests as their upstreams."""
         for urn, label in self._graph_named_resources.items():
-            # Qlik's label is a name, not a path, so the dataset has no path.
             yield from self._gen_file_entity(
                 urn,
                 label,
                 DatasetSubTypes.QLIK_QVD
                 if label.lower().endswith(QVD_EXTENSION)
                 else DatasetSubTypes.QLIK_DATASET,
+                self._graph_named_path(urn, label),
             )
         for urn, writer_qris in self._graph_resource_writers.items():
             # Only writer apps this run ingests: another app's table has no URN.

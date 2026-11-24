@@ -2579,3 +2579,88 @@ def test_database_sources_are_read_with_the_reload_sql(
     assert [f.split(":")[0] for f in api.reload_statement_read_failures] == [
         "report-app"
     ]
+
+
+def _store(path: str) -> ReloadStatement:
+    return ReloadStatement(discriminator=f"STORE - {path};")
+
+
+def _load(path: str) -> ReloadStatement:
+    return ReloadStatement(discriminator=f"{{{path}}};")
+
+
+@pytest.mark.parametrize(
+    "statements, path",
+    [
+        pytest.param(
+            {
+                "writer-app": [
+                    ReloadStatement(discriminator="RESIDENT Out;"),
+                    _store("lib://[Hidden (prod)]:DataFiles/Prices.QVD"),
+                    _store("lib://[Hidden (prod)]:DataFiles/Other.qvd"),
+                ],
+                # Qlik records loads in lowercase.
+                "report-app": [_load("lib://hidden (prod):datafiles/prices.qvd")],
+            },
+            "lib://[Hidden (prod)]:DataFiles/Prices.QVD",
+            id="stored and loaded",
+        ),
+        pytest.param(
+            {"report-app": [_load("lib://hidden:datafiles/sub/prices.qvd (qvd)")]},
+            "lib://hidden:datafiles/sub/prices.qvd",
+            id="loaded only",
+        ),
+        pytest.param(
+            {
+                "writer-app": [_store("lib://Hidden:DataFiles/prices.qvd")],
+                "report-app": [_load("lib://archive:datafiles/prices.qvd")],
+            },
+            None,
+            id="two files of that name",
+        ),
+        pytest.param({}, None, id="no file"),
+        pytest.param(RuntimeError("Forbidden"), None, id="unread"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_graph_named_dataset_takes_its_path_from_reload_files(
+    mock_api_cls: MagicMock,
+    statements: Union[Dict[str, List[ReloadStatement]], Exception],
+    path: Optional[str],
+) -> None:
+    upstreams = LineageUpstreams(
+        resource_labels={UNLISTED_QVD: "prices.qvd"},
+        stored_from={
+            f"{UNLISTED_QVD}#Prices": [WRITER_TABLE, "qri:app:sense://unread-app#Out"]
+        },
+    )
+    source = _source(mock_api_cls, DATASETS, items=_reader_and_writer(upstreams))
+    api = mock_api_cls.return_value
+    if isinstance(statements, Exception):
+        api.get_reload_statements.side_effect = statements
+    else:
+        api.get_reload_statements.side_effect = lambda app_id: statements.get(
+            app_id, []
+        )
+
+    workunits = list(source.get_workunits_internal())
+
+    prices = _urn(UNLISTED_QVD)
+    properties = next(
+        p
+        for wu in workunits
+        if wu.get_urn() == prices
+        and (p := wu.get_aspect_of_type(DatasetPropertiesClass))
+    )
+    # The URN stays the QRI's, which every app reading the file shares.
+    assert properties.name == "prices"
+    assert properties.qualifiedName == path
+    assert properties.customProperties.get("path") == path
+    # Only the reading app and the writer apps this run ingests are asked.
+    assert sorted(c.args[0] for c in api.get_reload_statements.call_args_list) == [
+        "report-app",
+        "writer-app",
+    ]
+    assert bool(source.reporter.apps_without_reload_paths) is isinstance(
+        statements, Exception
+    )

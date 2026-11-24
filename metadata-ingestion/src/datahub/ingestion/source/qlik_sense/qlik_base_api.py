@@ -23,6 +23,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     DataModelTable,
     Item,
     ListedDataset,
+    ReloadStatement,
     Sheet,
     Space,
     UnchangedApp,
@@ -127,6 +128,11 @@ class QlikBaseAPI(ABC):
     def list_datasets(self) -> Optional[List[ListedDataset]]:
         """Datasets of every space, or None when they could not be listed."""
         # Enterprise on Windows has no Qlik datasets.
+        return []
+
+    def get_reload_statements(self, app_id: str) -> List[ReloadStatement]:
+        """Statements of the app's last reload."""
+        # Enterprise on Windows does not record them.
         return []
 
     @abstractmethod
