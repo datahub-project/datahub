@@ -1,5 +1,5 @@
 import json
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
-from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
+from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     LineageTable,
@@ -334,12 +334,10 @@ def test_file_resolves_through_the_visible_connection(
 def test_file_without_known_storage_is_reported(mock_api_cls: MagicMock) -> None:
     source = _source({}, {})
 
-    assert (
-        source._resolve_file_source(
-            "app-1", _file_qri("adls", "lake", UNQUALIFIED_FILE)
-        )
-        is None
-    )
+    # A bare name is the app's own space's connection, as Qlik Cloud resolves it.
+    assert source._resolve_file_source(
+        "app-1", _file_qri("adls", "lake", "ref/targets.csv")
+    ) == make_dataset_urn("qlik-sense", "sales space:lake/ref/targets.csv")
     # A file the script does not read is not the connection's to report.
     assert (
         source._resolve_file_source("app-1", _file_qri("adls", "lake", "other.csv"))
@@ -410,22 +408,59 @@ def test_lib_path_space_is_matched_regardless_of_case(
 
 
 @pytest.mark.parametrize(
-    "connection, path",
+    "connection, path, space_id",
     [
-        # Not the same connection in every app.
-        ("Lake", "ref/regions.xlsx"),
+        # A personal space has no name another app could write the path with.
+        ("Lake", "ref/regions.xlsx", Constant.PERSONAL_SPACE_ID),
         # Holds Qlik's own datasets.
-        ("Sales Space:DataFiles", "rates.qvd"),
+        ("Sales Space:DataFiles", "rates.qvd", "space-1"),
+        ("DataFiles", "rates.qvd", "space-1"),
         # Characters a dataset URN can't hold.
-        ("Sales Space:Lake", "ref/a,b.csv"),
-        ("Sales Space:Lake", "ref/rates (old).csv"),
+        ("Sales Space:Lake", "ref/a,b.csv", "space-1"),
+        ("Sales Space:Lake", "ref/rates (old).csv", "space-1"),
     ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_file_that_cant_be_named_by_its_connection(
-    mock_api_cls: MagicMock, connection: str, path: str
+    mock_api_cls: MagicMock, connection: str, path: str, space_id: str
 ) -> None:
-    assert _source({}, {})._unmapped_file_urn(connection, path) is None
+    source = _source({}, {})
+    source.qlik_api.spaces[Constant.PERSONAL_SPACE_ID] = Constant.PERSONAL_SPACE_NAME
+
+    assert source._unmapped_file_urn(connection, path, space_id) is None
+
+
+@pytest.mark.parametrize(
+    "connection",
+    ["Sales Space:Lake", "Lake", "SALES SPACE:lake", "[Sales Space]:[Lake]"],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_on_one_connection_gets_one_urn_however_it_is_spelled(
+    mock_api_cls: MagicMock, connection: str
+) -> None:
+    # A bare name is the app's own space's connection, and Qlik matches
+    # space and connection names regardless of case.
+    assert _source({}, {})._unmapped_file_urn(
+        connection, "/Ref//Regions.xlsx", "space-1"
+    ) == make_dataset_urn("qlik-sense", "sales space:lake/ref/regions.xlsx")
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_display_name_does_not_depend_on_app_order(
+    mock_api_cls: MagicMock,
+) -> None:
+    references = [("sales space:lake", "ref/x.qvd"), ("Lake", "Ref/X.qvd")]
+    names: Set[str] = set()
+    for ordered in (references, references[::-1]):
+        source = _source({}, {})
+        urns = {
+            source._unmapped_file_urn(connection, path, "space-1")
+            for connection, path in ordered
+        }
+        assert len(urns) == 1
+        names.update(source._unmapped_files.values())
+
+    assert names == {"lib://Sales Space:Lake/Ref/X.qvd"}
 
 
 @pytest.mark.parametrize("data_files", ["Other Space:DataFiles", "DataFiles"])
@@ -855,8 +890,8 @@ def _graph_app_writes(source: QlikSenseSource, app: App) -> Dict[str, str]:
 
 
 ORDERS = make_dataset_urn("qlik-sense", "app-1.orders")
-# Loaded through a connection not named with its space.
-UNQUALIFIED_FILE = "ref/targets.csv"
+# A file the script doesn't load by name.
+UNRESOLVED_FILE = "ref/unread.csv"
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -1232,12 +1267,12 @@ def test_stores_in_competing_branches_are_not_linked(
 @pytest.mark.parametrize(
     "listing_failed, variables_failed, file_path, expected",
     [
-        (True, False, UNQUALIFIED_FILE, f"patch:{RATES}"),
-        (False, True, UNQUALIFIED_FILE, f"patch:{RATES}"),
+        (True, False, UNRESOLVED_FILE, f"patch:{RATES}"),
+        (False, True, UNRESOLVED_FILE, f"patch:{RATES}"),
         # The script's own variables still name this file, so every source is
         # known.
         (False, True, "landing/orders.csv", f"{UNMAPPED_ORDERS_CSV},{RATES}"),
-        (False, False, UNQUALIFIED_FILE, RATES),
+        (False, False, UNRESOLVED_FILE, RATES),
     ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -1295,7 +1330,7 @@ def test_unresolved_file_of_an_app_with_includes_only_adds(
         {},
         [],
         script="$(Must_Include=lib://Lake/common.qvs);\n" + SCRIPT,
-        file_path=UNQUALIFIED_FILE,
+        file_path=UNRESOLVED_FILE,
     )
 
     assert writes[ORDERS] == f"patch:{RATES}"
@@ -1380,7 +1415,7 @@ def test_unresolved_file_of_an_app_loading_by_wildcard_only_adds(
         {},
         [],
         script=SCRIPT + "Daily:\nLOAD * FROM [lib://Lake/daily/*.csv] (txt);\n",
-        file_path=UNQUALIFIED_FILE,
+        file_path=UNRESOLVED_FILE,
     )
 
     assert writes[ORDERS] == f"patch:{RATES}"
@@ -1396,7 +1431,7 @@ def test_unresolved_file_of_an_app_calling_an_undefined_sub_only_adds(
         {},
         [],
         script=SCRIPT + "CALL LoadRates;\n",
-        file_path=UNQUALIFIED_FILE,
+        file_path=UNRESOLVED_FILE,
     )
 
     assert writes[ORDERS] == f"patch:{RATES}"
@@ -1451,3 +1486,88 @@ def test_visible_connection_of_another_kind_does_not_block_the_file(
         )
         == "urn:li:dataset:(urn:li:dataPlatform:abs,lake/ref/regions.xlsx,PROD)"
     )
+
+
+@pytest.mark.parametrize(
+    "keys, expected",
+    [
+        pytest.param(["Sales Space:Lake"], "abs", id="one key in another case"),
+        # Two keys told apart only by case, neither spelled as the script does.
+        pytest.param(["Sales Space:Lake", "sales space:lake"], None, id="ambiguous"),
+    ],
+)
+@pytest.mark.parametrize("source_of_storage", ["visible", "mapped"])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_connection_is_found_regardless_of_case(
+    mock_api_cls: MagicMock,
+    keys: List[str],
+    expected: Optional[str],
+    source_of_storage: str,
+) -> None:
+    storage_uri = "abfss://lake@account.dfs.core.windows.net"
+    if source_of_storage == "mapped":
+        source = _source({key: {"storage_uri": storage_uri} for key in keys}, {})
+    else:
+        source = _source(
+            {},
+            {
+                key: DataConnectionInfo(
+                    name="Lake",
+                    file_platform=FilePlatform.ABS,
+                    file_storage=FileStorage(platform="abs", location="lake"),
+                )
+                for key in keys
+            },
+        )
+
+    storage, _ = source._file_storage("SALES SPACE:LAKE", "space-1")
+
+    assert (storage.platform if storage else None) == expected
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_writer_and_reader_spelling_a_file_in_different_case_join(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {},
+        {},
+        script="Orders: LOAD * FROM [lib://sales space:lake/QVD/Orders.qvd] (qvd);",
+    )
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+    list(
+        source._gen_file_store_lineage(
+            _store_app([]).model_copy(update={"id": "app-2"}),
+            parse_script("STORE Orders INTO [lib://Lake/qvd/orders.qvd] (qvd);"),
+            {stored},
+        )
+    )
+
+    assert (
+        source._resolve_file_source(
+            "app-1", _file_qri("adls", "lake", "QVD/Orders.qvd")
+        )
+        == UNMAPPED_ORDERS_QVD
+    )
+    lineage = [
+        wu.get_urn()
+        for wu in source._gen_unmapped_file_entities()
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+    ]
+    assert lineage == [UNMAPPED_ORDERS_QVD]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_on_a_connector_without_storage_mapping_is_not_reported(
+    mock_api_cls: MagicMock,
+) -> None:
+    # Such as SFTP, which `file_connection_to_storage` can't map.
+    source = _source(
+        {}, {}, script="X: LOAD * FROM [lib://Sales Space:Ftp/x.csv] (txt);"
+    )
+
+    assert source._resolve_file_source(
+        "app-1", _file_qri("sftp", "ftp", "x.csv")
+    ) == make_dataset_urn("qlik-sense", "sales space:ftp/x.csv")
+    assert not source.reporter.unresolved_file_connections

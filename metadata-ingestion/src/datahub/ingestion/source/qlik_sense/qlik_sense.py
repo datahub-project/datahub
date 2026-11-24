@@ -16,6 +16,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Mapping,
     Optional,
     Set,
     Tuple,
@@ -237,7 +238,18 @@ DATA_FILES_CONNECTION = "datafiles"
 
 def _is_data_files(connection: str) -> bool:
     space, qualified, name = connection.strip().partition(":")
-    return (name if qualified else space).lower() == DATA_FILES_CONNECTION
+    return (name if qualified else space).strip("[]").lower() == DATA_FILES_CONNECTION
+
+
+def _get_ignoring_case(
+    mapping: Mapping[str, MappingT], name: str
+) -> Optional[MappingT]:
+    if name in mapping:
+        return mapping[name]
+    # Qlik resolves connection names regardless of case. A case variant is
+    # taken only when a single key matches it.
+    matches = [key for key in mapping if key.lower() == name.lower()]
+    return mapping[matches[0]] if len(matches) == 1 else None
 
 
 def _is_qvd(dataset: Union[QlikDataset, ListedDataset]) -> bool:
@@ -436,9 +448,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # and those that lineage links to, which get a dataset.
         self._unmapped_files: Dict[str, str] = {}
         self._linked_unmapped_files: Set[str] = set()
-        # Entities of apps whose last read is kept this run, unchanged or partly
-        # read, which still hold the unmapped files they linked.
-        self._kept_app_urns: Set[str] = set()
         # The tables each app stores into such a file, linked at the end of
         # the run only if some app's lineage graph reads the file, as a STORE
         # in the script may never run.
@@ -695,7 +704,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._apps_qvds_unknown[app_id] = "it has no last read to keep"
             return None
         self._app_urns.setdefault(app_id, set()).update(previous.urns)
-        self._kept_app_urns.update(previous.urns)
         if previous.data_model_fields is not None:
             self._app_model_fields[app_id] = previous.data_model_fields
         if previous.qvds is None:
@@ -1467,8 +1475,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # Qlik Cloud looks a bare name up in the app's own space only. A
             # same-named connection elsewhere may point at another database
             # when the app's own one is not visible to the API key.
-            return connections.get(f"{space_name}{SPACE_SEPARATOR}{connection}")
-        return connections.get(connection)
+            return _get_ignoring_case(
+                connections, f"{space_name}{SPACE_SEPARATOR}{connection}"
+            )
+        return _get_ignoring_case(connections, connection)
 
     def _mapped_connection(
         self, connection: str, space_id: str, mapping: Dict[str, MappingT]
@@ -1485,7 +1495,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             and SPACE_SEPARATOR not in connection
         ):
             names.insert(0, f"{space_name}{SPACE_SEPARATOR}{connection}")
-        return next((mapping[name] for name in names if name in mapping), None)
+        return next(
+            (
+                entry
+                for name in names
+                if (entry := _get_ignoring_case(mapping, name)) is not None
+            ),
+            None,
+        )
 
     def _resolve_script_connection(
         self, connection: Optional[str], space_id: str
@@ -2091,14 +2108,22 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             lowercase=detail.convert_urns_to_lowercase if detail else False,
         )
 
-    def _unmapped_file_urn(self, connection: str, path: str) -> Optional[str]:
+    def _unmapped_file_urn(
+        self, connection: str, path: str, space_id: str
+    ) -> Optional[str]:
         """A Qlik dataset for a file on a connection whose storage is unknown,
         named by the connection and path, so the apps that write and read it
-        still join. Only a connection named with its space is the same one in
-        every app, and DataFiles hold Qlik's own datasets."""
-        space, _, name = connection.strip().partition(":")
+        still join. DataFiles hold Qlik's own datasets."""
+        space, qualified_name, name = connection.strip().partition(SPACE_SEPARATOR)
+        if not qualified_name:
+            # Qlik Cloud resolves a bare name in the app's own space only. A
+            # personal space has no name another app could write the path with.
+            name, space = space, ""
+            if self.config.on_prem is None and space_id != Constant.PERSONAL_SPACE_ID:
+                space = self.qlik_api.spaces.get(space_id, "")
+        space, name = space.strip().strip("[]"), name.strip().strip("[]")
         path = normalized_file_path(path)
-        qualified = f"{space}:{name}/{path}"
+        qualified = f"{space}{SPACE_SEPARATOR}{name}/{path}"
         if (
             not (space and name and path)
             or _is_data_files(connection)
@@ -2107,18 +2132,24 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         ):
             return None
         urn = self._gen_qlik_dataset_urn(qualified.lower())
-        self._unmapped_files.setdefault(urn, f"lib://{qualified}")
+        # Apps may spell the file in different case and are read in no fixed
+        # order, so one spelling is picked the same way every run.
+        spelling = f"lib://{qualified}"
+        known = self._unmapped_files.get(urn)
+        self._unmapped_files[urn] = spelling if known is None else min(known, spelling)
         return urn
 
-    def _unmapped_storage_file_urn(self, connection: str, path: str) -> Optional[str]:
+    def _unmapped_storage_file_urn(
+        self, connection: str, path: str, space_id: str, report: bool = True
+    ) -> Optional[str]:
         """Reports a connection whose storage is unknown and names the file on
         it by the connection and path, when it can be."""
         if self._data_connections_unread():
             # Its storage may be known once listed; the unread listing is reported.
             return None
-        if connection not in self.reporter.unresolved_file_connections:
+        if report and connection not in self.reporter.unresolved_file_connections:
             self.reporter.unresolved_file_connections.append(connection)
-        return self._unmapped_file_urn(connection, path)
+        return self._unmapped_file_urn(connection, path, space_id)
 
     def _gen_file_store_lineage(
         self, app: App, parsed: ParsedScript, table_urns: Set[str]
@@ -2151,7 +2182,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     # Not a file connection, so it has no storage to map.
                     continue
                 unmapped_urn = self._unmapped_storage_file_urn(
-                    store.file.connection, store.file.path
+                    store.file.connection, store.file.path, app.spaceId
                 )
                 if unmapped_urn is None:
                     continue
@@ -2255,7 +2286,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     # another kind can't hold a file on this storage.
                     continue
                 unmapped_urn = self._unmapped_storage_file_urn(
-                    reference.connection, reference.path
+                    reference.connection,
+                    reference.path,
+                    space_id,
+                    # A file the QRI places on another connector, such as
+                    # SFTP, has no storage `file_connection_to_storage` maps.
+                    report=candidates.platform is not None,
                 )
                 if unmapped_urn is None:
                     unknown = True
@@ -3143,11 +3179,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
     def _gen_unmapped_file_entities(self) -> Iterable[MetadataWorkUnit]:
-        # A reader whose last read is kept linked the file then, and its kept
-        # entities hold the file this run.
-        self._linked_unmapped_files.update(
-            urn for urn in self._unmapped_file_stores if urn in self._kept_app_urns
-        )
+        # A reader whose last read is kept linked the file then. Only a kept
+        # app's entities can hold such a file, as they come from its checkpoint.
+        unread = set(self._unmapped_file_stores) - self._linked_unmapped_files
+        for app_urns in self._app_urns.values():
+            self._linked_unmapped_files.update(unread & app_urns)
         for file_urn, stores in sorted(self._unmapped_file_stores.items()):
             if file_urn not in self._linked_unmapped_files:
                 self.reporter.unread_stored_files.append(self._unmapped_files[file_urn])
@@ -3981,11 +4017,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if self.reporter.unresolved_file_connections:
             self.reporter.warning(
                 title="Qlik file connections have no known storage",
-                message="Files on these data connections are named by the "
-                "connection and path when it is named with its space, so they "
-                "only join the Qlik apps that write and read them; files on the "
-                "others are left out of lineage. Add each connection to "
-                "`file_connection_to_storage` with the URI of its storage.",
+                message="Files on these data connections are named by their "
+                "space, connection and path, so they only join the Qlik apps "
+                "that write and read them; a personal-space app's files on a "
+                "connection named without its space are left out. Add each Azure Storage, Amazon S3 or "
+                "Google Cloud Storage connection to `file_connection_to_storage` "
+                "with the URI of its storage; other connectors, such as SFTP, "
+                "can't be mapped.",
                 context=_bounded_list(
                     sorted(self.reporter.unresolved_file_connections)
                 ),
