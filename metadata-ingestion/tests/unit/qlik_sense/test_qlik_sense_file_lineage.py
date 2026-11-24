@@ -1798,6 +1798,39 @@ def test_unread_include_path_with_parentheses_forgets_the_connection() -> None:
     assert parsed.has_includes
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "[lib://$(vCommon)DataFiles/loads.qvs]",
+        "'lib://$(vCommon)DataFiles/loads.qvs'",
+        '"lib://Common:DataFiles/loads.qvs"',
+        "$(vQuotedPath)",
+    ],
+)
+def test_bracketed_or_quoted_include_path_is_read(path: str) -> None:
+    read_paths: List[str] = []
+    files = {"lib://Common:DataFiles/loads.qvs": "X: LOAD * FROM [lib://S:Lake/x.csv];"}
+
+    def read(include_path: str) -> IncludeRead:
+        read_paths.append(include_path)
+        return _reader(files)(include_path)
+
+    parsed = parse_script(
+        inline_includes(
+            f"$(Must_Include={path});",
+            {
+                "vCommon": "'Common:'",
+                "vQuotedPath": "[lib://Common:DataFiles/loads.qvs]",
+            },
+            read,
+        )
+    )
+
+    assert [load.expanded for load in parsed.file_loads] == ["lib://S:Lake/x.csv"]
+    assert not parsed.has_includes
+    assert read_paths == ["lib://Common:DataFiles/loads.qvs"]
+
+
 def test_include_outside_a_lib_path_is_not_read() -> None:
     files = {"common.qvs": "X: LOAD * FROM [lib://S:Lake/x.csv];"}
     parsed = parse_script(inline_includes("$(Include=common.qvs);", {}, _reader(files)))
