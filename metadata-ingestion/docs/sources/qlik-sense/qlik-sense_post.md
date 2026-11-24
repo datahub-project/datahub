@@ -9,6 +9,7 @@ Each app is ingested both as a container, which holds its tables, sheets and cha
 - In a published app, users' private sheets are skipped; base and community sheets are ingested.
 - Charts inside a container object's tabs are ingested as charts of the sheet. An untitled chart takes its tab label as its title.
 - Objects with no data, such as buttons, filter panes and variable inputs, are skipped.
+- On-prem, with `ingest_unpublished_apps: true` in the `on_prem` block, apps not published to a stream are ingested under a stream named `Unpublished`. `space_pattern` filters it like any other stream, so an allow list has to include `Unpublished` to ingest them.
 - On-prem, owners are ingested by their Qlik user id, which for Windows directories is the account name, so they join with users ingested from Active Directory or LDAP by username.
 
 To keep only apps and their tables, set `include_sheets_and_charts: false`. Apps are then read without their sheets, which is faster, and each app dashboard links to all of its tables. With stale metadata removal enabled, the sheets and charts an earlier run ingested are soft-deleted on the next run. They are usually most of the entities a run ingests, so dropping them can exceed `stateful_ingestion.fail_safe_threshold` (75% by default), and the run then skips stale removal and reports a failure. Raise the threshold to 100 for the first run with the option off, and set it back afterwards.
@@ -244,12 +245,12 @@ Column-level lineage is resolved against the upstream schemas in DataHub at read
 - On-prem ingestion does not ingest Qlik Cloud datasets. From cloud storage connections it only links QVDs, and only for connections mapped in `file_connection_to_storage`.
 - Scripts pulled in with `$(Include=...)` or `$(Must_Include=...)` are not read, and neither is a `SUB` the script calls but does not define. Tables, QVDs and files they load have no lineage from the script. On Qlik Cloud, a file in such an app's lineage graph that its own script does not load is only added to the table's lineage, never removed.
 - A table loaded with `RESIDENT` from another script table gets no lineage.
-- A file loaded through a variable that varies as the script runs, as in a `FOR EACH` loop over `FileList(...)`, is not named from the app's last value, so the table's file lineage is only added to.
+- On Qlik Cloud, a file loaded through a variable that varies as the script runs, as in a `FOR EACH` loop over `FileList(...)`, is not named from the app's last value, so the table's file lineage is only added to.
 - Database tables in Qlik Cloud's lineage graph are not linked, as Qlik identifies them by an opaque hash; their lineage comes from the load script instead.
 - Qlik answers "Forbidden" for datasets and spaces the API key's user cannot access, so those sources are left out of lineage.
 - `file_connection_to_storage` does not accept `wasb://` and `wasbs://` URIs.
-- An unlabelled `LOAD` from a QVD is skipped, as Qlik names its table.
-- On-prem, apps whose section access denies the service user their data cannot be read with `read_data_model: true`.
+- On-prem, an unlabelled `LOAD` from a QVD is skipped, as Qlik names its table.
+- On-prem with `read_data_model: true`, apps whose section access denies the service user their data are read without their data: their tables get fields only from the load script, and the apps are listed in the "Qlik apps read without their data" warning.
 
 ### Troubleshooting
 
@@ -257,7 +258,7 @@ Most lineage gaps show up as a warning or as an entry in the ingestion report. T
 
 #### "Unable to fully read Qlik app"
 
-The app could not be read completely, for example because the Engine timed out or refused the connection. See [Partly read apps](#partly-read-apps) for what is kept. On-prem, check that the Engine (port 4747) is running and reachable, and raise `timeout_seconds` if reads time out. On Qlik Cloud, lower `max_workers` if reads are rate-limited.
+The app could not be read completely, for example because the Engine timed out or refused the connection. See [Partly read apps](#partly-read-apps) for what is kept. On-prem, check that the Engine (`engine_port`, 4747 by default) is running and reachable, and raise `timeout_seconds` if reads time out. On Qlik Cloud, lower `max_workers` if reads are rate-limited.
 
 #### "Unable to read Qlik app load script"
 

@@ -298,7 +298,7 @@ class QlikOnPremConfig(ConfigModel):
         "data, which is much faster, and table fields come only from the load "
         "script. Opening an app with its data loads it into Engine memory until "
         "the app cache time set in the QMC has passed since its last session, "
-        "reads one app at a time unless `max_workers` is set. An app whose data "
+        "and reads one app at a time unless `max_workers` is set. An app whose data "
         "can't be loaded, such as when section access denies it to the service "
         "user, is read without its data and reported.",
     )
