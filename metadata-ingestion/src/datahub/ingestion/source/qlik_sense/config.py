@@ -160,6 +160,8 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     # Cloud STOREs of a table into different files from competing IF or SWITCH
     # branches, which are not linked.
     qvd_stores_in_competing_branches: LossyList[str] = field(default_factory=LossyList)
+    # Cloud STOREs linked as an edge from an app table into a file on storage.
+    file_stores_linked: int = 0
     apps_read: int = 0
     apps_skipped_unchanged: int = 0
     # Apps read again because checking whether they changed failed.

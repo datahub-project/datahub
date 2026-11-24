@@ -30,6 +30,8 @@ class AppCheckpoint(BaseModel):
     tables_unknown: bool = False
     # The QVDs the app writes and reads, on-prem. None in older state.
     qvds: Optional[AppQvds] = None
+    # The files on storage the app stores into, on Qlik Cloud.
+    stored_file_urns: List[str] = []
 
 
 class QlikAppCheckpointState(CheckpointStateBase):

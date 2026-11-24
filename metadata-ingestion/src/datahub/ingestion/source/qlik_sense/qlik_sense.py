@@ -92,12 +92,15 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import (
     FILE_QRI_RE,
+    PLATFORM_BY_QRI_SCHEME,
+    FilePlatform,
     FileReference,
     FileSourceResolver,
     FileStorage,
     file_dataset_urn,
     file_storage_of_uri,
     normalized_file_path,
+    qri_part_id,
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
@@ -112,6 +115,7 @@ from datahub.ingestion.source.qlik_sense.qvd_lineage import (
     QvdPathResolver,
     QvdWrite,
     app_qvd_lineage,
+    stored_fields,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     BACKTICK_QUOTED_PLATFORMS,
@@ -406,6 +410,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._app_qvds: Dict[str, AppQvds] = {}
         # Apps whose QVD writes are not known this run, with why.
         self._apps_qvds_unknown: Dict[str, str] = {}
+        # On Qlik Cloud, the files on storage each app read this run stores into.
+        self._app_stored_files: Dict[str, List[str]] = {}
         self._unresolved_qvd_loads = 0
         self._unlabelled_qvd_loads = 0
         # The data model fields of the app being emitted, by table identifier.
@@ -657,6 +663,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     table_urns_by_qri=previous.table_urns_by_qri,
                     tables_unknown=previous.tables_unknown,
                     qvds=self._app_qvds.get(app.id),
+                    stored_file_urns=previous.stored_file_urns,
                 ),
             )
         self.reporter.apps_skipped_unchanged += 1
@@ -695,6 +702,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 table_urns_by_qri=previous.table_urns_by_qri,
                 tables_unknown=previous.tables_unknown,
                 qvds=previous.qvds,
+                stored_file_urns=previous.stored_file_urns,
             ),
         )
         return _PartialRead.KEPT
@@ -733,6 +741,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 # complete, nor a 404 as the app having no tables.
                 tables_unknown=self._tables_unknown(app),
                 qvds=self._app_qvds.get(app.id),
+                stored_file_urns=self._app_stored_files.get(app.id, []),
             ),
         )
 
@@ -1989,31 +1998,39 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _gen_file_store_lineage(
-        self, app: App, parsed: ParsedScript, table_urns: Set[str]
+        self,
+        app: App,
+        parsed: ParsedScript,
+        table_fields: Dict[str, List[QlikDatasetSchemaField]],
     ) -> Iterable[MetadataWorkUnit]:
-        """Lineage into the QVDs an app's load script stores on external
-        storage, such as Azure Storage, which the lineage graph only names as
-        Qlik datasets. Only added to: other apps, read or not, may store into
-        the same file."""
-        upstreams: Dict[str, List[str]] = {}
-        competing = stores_in_competing_branches(
-            parsed.qvd_stores,
-            lambda store: (
-                self._stored_table_urn(app, store.label, table_urns)
-                or store.label.lower()
-            ),
+        """Lineage into the QVD, text and Parquet files an app's load script
+        stores on external storage, such as Azure Storage. Other apps may store
+        into the same file, so only this app's tables' edges are replaced, and
+        only when every file it stores into is known."""
+        stores = [*parsed.qvd_stores, *parsed.file_stores]
+        # Whether the files the app stores into are all known this run.
+        complete = (
+            app.read_complete
+            and not parsed.has_unresolved_store
+            and not parsed.has_unresolved_file_store
+            and app.id not in self._apps_with_includes
+            and not app.variables_read_failed
+            and not self._data_connections_unread()
+            and self._dataset_urns_by_secure_qri is not None
         )
-        if competing:
-            self._report_competing_stores(app, competing)
-        for store in parsed.qvd_stores:
-            if store.file.connection is None or store in competing:
+        file_urns: Dict[int, str] = {}
+        for index, store in enumerate(stores):
+            if store.file.connection is None:
                 continue
             storage, detail = self._file_storage(store.file.connection, app.spaceId)
             if storage is None:
                 info = self._find_data_connection(store.file.connection, app.spaceId)
+                if info is not None and info.file_platform is None:
+                    # Such as DataFiles, which is not external storage.
+                    continue
+                complete = False
                 if (
                     info is not None
-                    and info.file_platform is not None
                     and store.file.connection
                     not in self.reporter.unresolved_file_connections
                 ):
@@ -2021,24 +2038,107 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                         store.file.connection
                     )
                 continue
+            catalogued = self._catalogued_as_qlik_dataset(storage, store.file.path)
+            if catalogued is None:
+                complete = False
+            # A file Qlik catalogues is the Qlik dataset that loads of it and
+            # its own lineage graph name.
+            if catalogued is False:
+                file_urns[index] = self._file_urn(storage, detail, store.file.path)
+        table_urns = set(table_fields)
+        urns_by_store = {id(store): file_urns.get(i) for i, store in enumerate(stores)}
+
+        def same_file(store: QvdStore, other: QvdStore) -> bool:
+            # Two names of one connection, such as with and without its space,
+            # store into the same file.
+            urn = urns_by_store[id(store)]
+            return store.file.key == other.file.key or (
+                urn is not None and urn == urns_by_store[id(other)]
+            )
+
+        competing = stores_in_competing_branches(
+            stores,
+            lambda store: (
+                self._stored_table_urn(app, store.label, table_urns)
+                or store.label.lower()
+            ),
+            same_file,
+        )
+        if competing:
+            complete = False
+            self._report_competing_stores(app, competing)
+        writes: Dict[str, List[QvdWrite]] = {}
+        for index, store in enumerate(stores):
+            file_urn = file_urns.get(index)
+            if file_urn is None or store in competing:
+                continue
             table_urn = self._stored_table_urn(app, store.label, table_urns)
             # A table the app doesn't ingest, such as one a script variable
             # names, has no dataset to link.
             if table_urn is None:
                 continue
-            urns = upstreams.setdefault(
-                self._file_urn(storage, detail, store.file.path), []
+            write = QvdWrite(
+                table_urn=table_urn,
+                fields=stored_fields(
+                    store, [field.name for field in table_fields.get(table_urn, [])]
+                ),
             )
-            if table_urn not in urns:
-                urns.append(table_urn)
-        for file_urn, urns in upstreams.items():
-            patch = DatasetPatchBuilder(file_urn)
-            for urn in urns:
-                patch.add_upstream_lineage(
-                    Upstream(dataset=urn, type=DatasetLineageType.COPY)
+            if write not in writes.setdefault(file_urn, []):
+                writes[file_urn].append(write)
+                self.reporter.file_stores_linked += 1
+        previous = self._usable_checkpoint(app.id, [])
+        previous_files = previous.stored_file_urns if previous else []
+        # Files the app may still have edges into, so a later run that knows
+        # all its stores can remove them.
+        self._app_stored_files[app.id] = sorted(
+            {*writes, *([] if complete else previous_files)}
+        )
+        owned = {
+            *table_urns,
+            *self._app_table_urns(app).values(),
+            *((previous.table_urns_by_qri or {}).values() if previous else []),
+        }
+        for file_urn in sorted({*writes, *previous_files}):
+            current = self._current_upstreams(file_urn) if complete else None
+            if file_urn not in writes and current is None:
+                continue
+            yield from self._gen_qvd_upstreams(
+                file_urn, writes.get(file_urn, []), current, owned.__contains__
+            )
+
+    def _catalogued_as_qlik_dataset(
+        self, storage: FileStorage, path: str
+    ) -> Optional[bool]:
+        """Whether Qlik catalogues the file as a dataset this run ingests, or
+        None when the datasets could not be listed. Without the connection's
+        own properties, a dataset of any connection holding the path counts."""
+        datasets = self._dataset_urns_by_secure_qri
+        if datasets is None:
+            return None
+        connections = self._catalogued_files.get(
+            (storage.platform, qri_part_id(normalized_file_path(path))), set()
+        )
+        return (
+            storage.qri_connection_id in connections
+            if storage.qri_connection_id is not None
+            else bool(connections)
+        )
+
+    @functools.cached_property
+    def _catalogued_files(self) -> Dict[Tuple[FilePlatform, str], Set[str]]:
+        """The connection parts of catalogued files' QRIs, by platform and the
+        path part."""
+        files: Dict[Tuple[FilePlatform, str], Set[str]] = {}
+        for qri in self._dataset_urns_by_secure_qri or {}:
+            match = FILE_QRI_RE.match(qri)
+            platform = (
+                PLATFORM_BY_QRI_SCHEME.get(match.group("scheme")) if match else None
+            )
+            if match and platform:
+                files.setdefault((platform, match.group("path")), set()).add(
+                    match.group("connection")
                 )
-            # A file on storage is not this source's to remove when stale.
-            yield from _patch_workunits(patch, is_primary_source=False)
+        return files
 
     def _report_competing_stores(self, app: App, stores: List[QvdStore]) -> None:
         stored = [
@@ -2629,7 +2729,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if qvd_lineage is not None:
             yield from self._gen_qvd_entities(qvd_lineage)
         else:
-            yield from self._gen_file_store_lineage(app, parsed, set(table_fields))
+            yield from self._gen_file_store_lineage(app, parsed, table_fields)
         if fingerprint:
             # Skipping an unchanged app trusts this fingerprint, so it is written
             # only after everything else the app produced.
@@ -2976,7 +3076,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 ).as_workunit()
             # A QVD no app writes any more still loses its old writers' edges.
             yield from self._gen_qvd_upstreams(
-                urn, writes.get(urn, []), current_lineage.get(urn)
+                urn,
+                writes.get(urn, []),
+                current_lineage.get(urn),
+                self._owned_qvd_writer,
             )
 
     def _report_unresolved_qvds(self) -> None:
@@ -3033,7 +3136,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         qvd_urn: str,
         writes: List[QvdWrite],
         current: Optional[UpstreamLineage],
+        is_owned: Callable[[str], bool],
     ) -> Iterable[MetadataWorkUnit]:
+        """`is_owned` tells the tables whose edges into the file this run knows
+        all of, so that those no longer written are removed."""
         table_urns = list(dict.fromkeys(write.table_urn for write in writes))
         fine_grained = [
             FineGrainedLineage(
@@ -3069,7 +3175,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     if (parent := _schema_field_parent(u))
                 ),
             }
-            owned = {urn for urn in seen if self._owned_qvd_writer(urn)}
+            owned = {urn for urn in seen if is_owned(urn)}
             for upstream in current.upstreams:
                 if upstream.dataset in owned and upstream.dataset not in table_urns:
                     patch.remove_upstream_lineage(upstream.dataset)
