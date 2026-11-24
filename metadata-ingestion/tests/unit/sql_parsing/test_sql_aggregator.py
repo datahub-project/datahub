@@ -2617,12 +2617,24 @@ def test_known_query_lineage_keeps_observed_custom_properties() -> None:
     assert query_properties[0].customProperties == _DAG_A_LABELS
 
 
+@pytest.mark.parametrize(
+    "max_upstream_tables, max_fine_grained_lineages",
+    [(2, 100), (100, 3)],
+    ids=["table_trim", "fine_grained_trim"],
+)
 def test_lineage_trim_is_reported_with_original_counts(
     monkeypatch: pytest.MonkeyPatch,
+    max_upstream_tables: int,
+    max_fine_grained_lineages: int,
 ) -> None:
     from datahub.sql_parsing import sql_parsing_aggregator as aggregator_module
 
-    monkeypatch.setattr(aggregator_module, "MAX_UPSTREAM_TABLES_COUNT", 2)
+    monkeypatch.setattr(
+        aggregator_module, "MAX_UPSTREAM_TABLES_COUNT", max_upstream_tables
+    )
+    monkeypatch.setattr(
+        aggregator_module, "MAX_FINEGRAINEDLINEAGE_COUNT", max_fine_grained_lineages
+    )
 
     aggregator = SqlParsingAggregator(
         platform="snowflake",
@@ -2636,9 +2648,17 @@ def test_lineage_trim_is_reported_with_original_counts(
         aggregator.add_preparsed_query(
             PreparsedQuery(
                 query_id=None,
-                query_text=f"INSERT INTO target SELECT * FROM src_{i}",
+                query_text=f"INSERT INTO target SELECT col_{i} FROM src_{i}",
                 upstreams=[source],
                 downstream=downstream,
+                column_lineage=[
+                    ColumnLineageInfo(
+                        downstream=DownstreamColumnRef(
+                            table=downstream, column=f"col_{i}"
+                        ),
+                        upstreams=[ColumnRef(table=source, column=f"col_{i}")],
+                    )
+                ],
                 timestamp=_ts(i),
             )
         )
@@ -2648,9 +2668,17 @@ def test_lineage_trim_is_reported_with_original_counts(
         for mcp in aggregator.gen_metadata()
         if mcp.entityUrn == downstream and isinstance(mcp.aspect, UpstreamLineageClass)
     ]
-    assert len(lineage[0].upstreams) == 2
-    assert aggregator.report.num_table_lineage_trimmed_due_to_large_size == 1
-    assert aggregator.report.max_upstream_tables_before_trim == 5
-    assert aggregator.report.lineage_trimmed_downstreams[downstream] == (
-        "5 upstream tables, 0 column edges"
+    report = aggregator.report
+    assert len(lineage[0].upstreams) == min(5, max_upstream_tables)
+    assert len(lineage[0].fineGrainedLineages or []) == min(
+        5, max_fine_grained_lineages
     )
+    assert report.num_table_lineage_trimmed_due_to_large_size == int(
+        max_upstream_tables < 5
+    )
+    assert report.num_column_lineage_trimmed_due_to_large_size == int(
+        max_fine_grained_lineages < 5
+    )
+    assert report.max_upstream_tables_before_trim == 5
+    assert report.max_fine_grained_lineages_before_trim == 5
+    assert downstream in report.lineage_trimmed_downstreams

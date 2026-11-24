@@ -1770,7 +1770,7 @@ class SqlParsingAggregator(Closeable):
         ):
             self.report.lineage_trimmed_downstreams[downstream_urn] = (
                 f"{num_upstream_tables} upstream tables, "
-                f"{num_fine_grained_lineages} column edges"
+                f"{num_fine_grained_lineages} fine-grained lineages"
             )
 
         if len(upstream_aspect.upstreams) > MAX_UPSTREAM_TABLES_COUNT:

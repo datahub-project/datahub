@@ -86,8 +86,7 @@ class EnsureAspectSizeProcessorReport(WorkunitProcessorReport):
     # wholesale (a coarser, more drastic truncation than dropping fields).
     num_platform_schema_drops: int = 0
     # How large upstreamLineage aspects get before any size trimming, measured as
-    # the serialized size of their upstreams and fine-grained lineages. Collected so
-    # the lineage count caps and the change-log size threshold can be set from data.
+    # the serialized size of their upstreams and fine-grained lineages.
     max_upstream_lineage_bytes: int = 0
     max_upstream_lineage_urn: Optional[str] = None
     num_upstream_lineage_over_1mb: int = 0
@@ -119,6 +118,9 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
             report.num_upstream_lineage_over_4mb += 1
 
         largest = report.largest_upstream_lineage_aspects
+        if entity_urn in largest:
+            largest[entity_urn] = max(largest[entity_urn], size_bytes)
+            return
         if len(largest) < LARGEST_LINEAGE_SAMPLE_SIZE:
             largest[entity_urn] = size_bytes
             return
@@ -515,9 +517,10 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
     def ensure_upstream_lineage_patch_size(
         self, entity_urn: str, patch_aspect: GenericAspectClass
     ) -> None:
-        self._record_upstream_lineage_size(entity_urn, len(patch_aspect.value))
         # The patch is sent as an escaped JSON string inside the MCP; measure it that way.
-        if len(json.dumps(patch_aspect.value.decode())) < self.schema_size_constraint:
+        patch_size = len(json.dumps(patch_aspect.value.decode()))
+        self._record_upstream_lineage_size(entity_urn, patch_size)
+        if patch_size < self.schema_size_constraint:
             return
         operations = json.loads(patch_aspect.value)
         # Skip removes, whole-list replaces and wrapped patches: dropping an operation
