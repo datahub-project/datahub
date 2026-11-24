@@ -107,6 +107,27 @@ public class ContainerTest {
     assertTrue(container.getContainerUrn().contains("urn:li:container:"));
   }
 
+  @Test
+  public void testContainerBuilderPlatformInstanceCachesDataPlatformInstance() {
+    Container container =
+        Container.builder()
+            .platform("snowflake")
+            .platformInstance("my-instance")
+            .displayName("My Database")
+            .build();
+
+    com.linkedin.common.DataPlatformInstance dpi =
+        container.toMCPs().stream()
+            .filter(mcp -> "dataPlatformInstance".equals(mcp.getAspectName()))
+            .map(mcp -> (com.linkedin.common.DataPlatformInstance) mcp.getAspect())
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("dataPlatformInstance not cached"));
+    assertEquals("urn:li:dataPlatform:snowflake", dpi.getPlatform().toString());
+    assertEquals(
+        "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,my-instance)",
+        dpi.getInstance().toString());
+  }
+
   // ==================== Ownership Tests ====================
 
   @Test
