@@ -152,6 +152,21 @@ def test_topn_table_is_its_second_argument() -> None:
     ]
 
 
+def test_escaped_bracket_in_field_name() -> None:
+    expression = "SUM('Claims'[Paid]]Amount]) + [Foo]]Bar]"
+    assert _fields(expression) == [("Claims", "Paid]Amount"), (None, "Foo]Bar")]
+    assert _tables(expression) == ["Claims"]
+
+
+def test_set_functions_take_every_bare_table_argument() -> None:
+    assert _tables("UNION(Policies, Archive)") == ["Policies", "Archive"]
+    assert set(
+        _tables("CROSSJOIN(Policies, FILTER(Claims, Claims[Paid] > 0), 'Region List')")
+    ) == {"Policies", "Claims", "Region List"}
+    # A VAR argument is not a model table.
+    assert _tables("VAR Recent = Claims\nRETURN EXCEPT(Recent, Archive)") == ["Archive"]
+
+
 def test_variables_are_not_tables() -> None:
     expression = (
         "VAR Open = FILTER('Claims', 'Claims'[Status] = 1)\n"
