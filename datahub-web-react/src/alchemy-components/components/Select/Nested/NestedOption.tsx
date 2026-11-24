@@ -172,6 +172,9 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                     {isMultiSelect && !(hideParentCheckbox && option.isParent) && (
                         <CheckboxWrapper>
                             <Checkbox
+                                // Checkbox keeps its own checked state and only resyncs when isChecked changes, which
+                                // it doesn't when deselecting an option that is still implicitly selected.
+                                key={isImplicitlySelected ? 'implicit' : 'explicit'}
                                 isChecked={isImplicitlySelected || isSelected}
                                 isIntermediate={isPartialSelected}
                                 isDisabled={isImplicitlySelected}
