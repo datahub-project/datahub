@@ -250,6 +250,7 @@ def _run(
         api.lineage_read_failures = []
         api.field_lineage_failures = []
         api.opened_without_data = []
+        api.engine_refusals = None
         api.get_user_name.return_value = None
         api.get_data_connections.return_value = (
             {} if connections_unread else CONNECTIONS

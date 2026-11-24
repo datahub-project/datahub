@@ -3291,6 +3291,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "the next run reads them again.",
                 context=_bounded_list(self.qlik_api.opened_without_data),
             )
+        refusals = self.qlik_api.engine_refusals
+        if refusals is not None and refusals.longest_streak_seconds > 0:
+            self.reporter.info(
+                title="Qlik Engine refused connections",
+                message="App reads waited for the Engine to accept connections, "
+                "as it does while its service restarts, which slows the run.",
+                context=f"Longest run of refusals: "
+                f"{refusals.longest_streak_seconds:.0f}s",
+            )
         if self.qlik_api.field_lineage_failures:
             self.reporter.warning(
                 title="Unable to read Qlik column lineage",
