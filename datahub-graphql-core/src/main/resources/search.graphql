@@ -256,13 +256,14 @@ input SearchFlags {
   minSimilarity: Float
 
   """
-  Semantic search through the semantic search template answers a query it could not embed with an
+  Semantic search through the semantic search template, and searchAcrossEntities and search through
+  a template named in searchTemplate, such as semantic, answer a query they could not embed with an
   error naming why: timeout, rejected, reserveExhausted, budgetExhausted, or failed. With this flag
-  set it serves keyword search results for the same request instead, and SearchResults.keywordFallback
-  marks them with that reason. Those results cover every requested entity type, not only the ones
-  semantic search covers. Only a failed query embedding falls back: a failed kNN or facet
-  request, and similarity, still fail. Semantic search on its legacy path fails as it does without
-  the flag.
+  set they serve keyword search results for the same request instead, without the named template,
+  and SearchResults.keywordFallback marks them with that reason. Those results cover every requested
+  entity type, not only the ones semantic search covers. Only a failed query embedding falls back:
+  a failed kNN or facet request, and similarity, still fail. Semantic search on its legacy path
+  fails as it does without the flag.
   """
   keywordFallbackOnEmbeddingFailure: Boolean
 
@@ -837,9 +838,9 @@ type SearchResults {
   vectorRetrieval: VectorRetrievalExplanation
 
   """
-  Set when semantic search served keyword search results because it could not embed the query and
-  the caller set SearchFlags.keywordFallbackOnEmbeddingFailure: why the embedding failed (timeout,
-  rejected, reserveExhausted, budgetExhausted, or failed)
+  Set when a search served keyword search results because the template serving it could not embed
+  the query and the caller set SearchFlags.keywordFallbackOnEmbeddingFailure: why the embedding
+  failed (timeout, rejected, reserveExhausted, budgetExhausted, or failed)
   """
   keywordFallback: String
 }

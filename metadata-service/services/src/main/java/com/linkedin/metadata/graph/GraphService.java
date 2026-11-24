@@ -313,6 +313,14 @@ public interface GraphService {
         endTimeMillis);
   }
 
+  /**
+   * Releases a scroll the caller will not continue. Elasticsearch closes the point-in-time the
+   * scroll id carries. Other stores do nothing. A null scroll id, or one with no point-in-time, is
+   * nothing to close.
+   */
+  default void closeRelatedEntitiesScroll(
+      @Nonnull OperationContext opContext, @Nullable String scrollId) {}
+
   @Nonnull
   RelatedEntitiesScrollResult scrollRelatedEntities(
       @Nonnull OperationContext opContext,

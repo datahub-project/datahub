@@ -44,8 +44,8 @@ class AppCheckpoint(BaseModel):
     # link their columns while the app is kept.
     data_model_fields: Optional[Dict[str, List[str]]] = None
     # The read ingested tables the app's BINARY statement brought in, so a
-    # later read that can't find them keeps them.
-    binary_tables: bool = False
+    # later read that can't find them keeps them. None in older state.
+    binary_tables: Optional[bool] = None
     # The files on storage the app stores into, on Qlik Cloud.
     stored_file_urns: List[str] = []
     # File URN -> the app's tables stored into a file on a connection of

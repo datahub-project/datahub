@@ -2,13 +2,19 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
@@ -16,6 +22,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import java.util.List;
 import org.testng.annotations.Test;
 
@@ -164,6 +171,91 @@ public class DefaultEntityFiltersUtilTest {
     assertNull(findNegatedCriterion(legacyClause, "state"));
   }
 
+  @Test
+  public void testAddDefaultEntityFilters_PlacementFilterLiftsPlacementOnlyInItsBranch() {
+    // domains = sales OR showInGlobalContext = false
+    Filter caller =
+        anyOf(
+            buildCriterion("domains", Condition.EQUAL, "urn:li:domain:sales"),
+            buildCriterion("showInGlobalContext", Condition.EQUAL, "false"));
+
+    Filter result =
+        DefaultEntityFiltersUtil.addDefaultEntityFilters(
+            caller, ImmutableList.of(DOCUMENT_ENTITY_NAME), true, false);
+
+    // Each caller branch joined with the published clause and the legacy clause
+    assertEquals(result.getOr().size(), 4);
+    // The branch that does not filter on placement keeps the placement clause
+    for (ConjunctiveCriterion clause : result.getOr().subList(0, 2)) {
+      assertTrue(hasField(clause, "domains"));
+      assertNotNull(findNegatedCriterion(clause, "showInGlobalContext"));
+    }
+    // The branch that does keeps only its own placement criterion, and the published default
+    ConjunctiveCriterion published = result.getOr().get(2);
+    ConjunctiveCriterion legacy = result.getOr().get(3);
+    for (ConjunctiveCriterion clause : List.of(published, legacy)) {
+      assertNull(findNegatedCriterion(clause, "showInGlobalContext"));
+      assertTrue(hasFieldWithCondition(clause, "showInGlobalContext", Condition.EQUAL));
+    }
+    assertTrue(hasFieldWithCondition(published, "lifecycleStage", Condition.EQUAL));
+    assertTrue(hasFieldWithCondition(legacy, "lifecycleStage", Condition.IS_NULL));
+    assertNotNull(findNegatedCriterion(legacy, "state"));
+  }
+
+  @Test
+  public void testAddDefaultEntityFilters_PlacementFilterKeepsTheManageDocumentsLift() {
+    for (String field : List.of("showInGlobalContext", "showInGlobalContext.keyword")) {
+      Filter result =
+          DefaultEntityFiltersUtil.addDefaultEntityFilters(
+              anyOf(buildCriterion(field, Condition.EQUAL, "false")),
+              ImmutableList.of(DOCUMENT_ENTITY_NAME),
+              true,
+              true);
+
+      // Neither clause has placement, and the legacy clause has no unpublished clause either
+      ConjunctiveCriterion legacy = result.getOr().get(1);
+      assertNull(findNegatedCriterion(result.getOr().get(0), "showInGlobalContext"), field);
+      assertTrue(hasFieldWithCondition(legacy, "lifecycleStage", Condition.IS_NULL), field);
+      assertEquals(legacy.getAnd().size(), 2, field);
+    }
+  }
+
+  @Test
+  public void testAddDefaultEntityFilters_StateOrLifecycleStageFilterLiftsNoDefault() {
+    List<String> entityTypes = ImmutableList.of(DOCUMENT_ENTITY_NAME);
+    for (boolean canManageDocuments : List.of(false, true)) {
+      Filter defaults =
+          DefaultEntityFiltersUtil.addDefaultEntityFilters(
+              null, entityTypes, true, canManageDocuments);
+      for (Filter caller :
+          List.of(
+              anyOf(buildCriterion("state", Condition.EQUAL, "UNPUBLISHED")),
+              anyOf(
+                  buildCriterion(
+                      "lifecycleStage", Condition.EQUAL, "urn:li:lifecycleStageType:DRAFT")))) {
+        // Joined with every default clause, placement included
+        assertEquals(
+            DefaultEntityFiltersUtil.addDefaultEntityFilters(
+                caller, entityTypes, true, canManageDocuments),
+            FilterUtils.combineFilters(caller, defaults));
+      }
+    }
+  }
+
+  @Test
+  public void testApplyDefaultEntityFilters_IncludeHiddenLifecycleStagesKeepsOnlyTheCallerFilter() {
+    Filter caller = anyOf(buildCriterion("showInGlobalContext", Condition.EQUAL, "false"));
+
+    Filter result =
+        DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+            caller,
+            ImmutableList.of(DOCUMENT_ENTITY_NAME),
+            new SearchFlags().setIncludeHiddenLifecycleStages(true),
+            mock(QueryContext.class));
+
+    assertSame(result, caller);
+  }
+
   private static boolean hasField(ConjunctiveCriterion clause, String field) {
     return findCriterion(clause, field) != null;
   }
@@ -206,6 +298,15 @@ public class DefaultEntityFiltersUtilTest {
       }
     }
     return null;
+  }
+
+  /** A filter with one OR branch per criterion. */
+  private static Filter anyOf(Criterion... criteria) {
+    ConjunctiveCriterionArray branches = new ConjunctiveCriterionArray();
+    for (Criterion criterion : criteria) {
+      branches.add(new ConjunctiveCriterion().setAnd(new CriterionArray(criterion)));
+    }
+    return new Filter().setOr(branches);
   }
 
   // ============================================================================

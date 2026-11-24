@@ -228,9 +228,7 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
               Map.entry("patchEntity", Outcome.RETURNED),
               // FOLLOW-UP: baselined, see follow-up.
               Map.entry("batchUpdateStepStates", Outcome.WROTE),
-              Map.entry("createDataHubFile", Outcome.FAILED),
-              Map.entry("deleteAssertion", Outcome.WROTE),
-              Map.entry("deleteQuery", Outcome.WROTE)));
+              Map.entry("createDataHubFile", Outcome.FAILED)));
 
   /**
    * Query fields that are not refused for an actor without privileges, with the outcome observed

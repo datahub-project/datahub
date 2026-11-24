@@ -188,14 +188,14 @@ public class OwnershipTypeServiceTest {
   public void testDeleteOwnershipTypeSuccess() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final EntityClient.ReferencesCleanup references = mock(EntityClient.ReferencesCleanup.class);
-    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
+    Mockito.when(mockClient.deleteReferencesThenEntity(any(), any())).thenReturn(references);
 
     final OwnershipTypeService service = new OwnershipTypeService(mockClient);
 
     service.deleteOwnershipType(opContext, TEST_OWNERSHIP_TYPE_URN, true);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntityThenReferences(
+        .deleteReferencesThenEntity(
             any(OperationContext.class), Mockito.eq(TEST_OWNERSHIP_TYPE_URN));
     Mockito.verify(references, Mockito.times(1)).run();
   }
@@ -211,7 +211,7 @@ public class OwnershipTypeServiceTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_OWNERSHIP_TYPE_URN));
-    Mockito.verify(mockClient, Mockito.never()).deleteEntityThenReferences(any(), any());
+    Mockito.verify(mockClient, Mockito.never()).deleteReferencesThenEntity(any(), any());
     Mockito.verify(mockClient, Mockito.never()).deleteEntityReferences(any(), any());
   }
 
@@ -219,7 +219,7 @@ public class OwnershipTypeServiceTest {
   @Test
   public void testDeleteOwnershipTypeWithReferencesFailsWhenEntityDeleteFails() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
-    Mockito.when(mockClient.deleteEntityThenReferences(any(), any()))
+    Mockito.when(mockClient.deleteReferencesThenEntity(any(), any()))
         .thenThrow(new RuntimeException("delete failed"));
 
     final OwnershipTypeService service = new OwnershipTypeService(mockClient);

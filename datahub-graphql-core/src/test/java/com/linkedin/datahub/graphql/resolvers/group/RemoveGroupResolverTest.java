@@ -30,7 +30,7 @@ public class RemoveGroupResolverTest {
   public void setupTest() throws Exception {
     _entityClient = mock(EntityClient.class);
     _references = mock(EntityClient.ReferencesCleanup.class);
-    when(_entityClient.deleteEntityThenReferences(any(), eq(GROUP_URN))).thenReturn(_references);
+    when(_entityClient.deleteReferencesThenEntity(any(), eq(GROUP_URN))).thenReturn(_references);
     _groupService = mock(GroupService.class);
     _dataFetchingEnvironment = mock(DataFetchingEnvironment.class);
     _resolver = new RemoveGroupResolver(_entityClient, _groupService);
@@ -58,7 +58,7 @@ public class RemoveGroupResolverTest {
     // key-aspect DELETE MCL leads to removeNode(), which reaps them.
     InOrder inOrder = inOrder(_groupService, _entityClient);
     inOrder.verify(_groupService).getNativeGroupMembers(any(), eq(GROUP_URN));
-    inOrder.verify(_entityClient).deleteEntityThenReferences(any(), eq(GROUP_URN));
+    inOrder.verify(_entityClient).deleteReferencesThenEntity(any(), eq(GROUP_URN));
   }
 
   @Test
@@ -87,6 +87,21 @@ public class RemoveGroupResolverTest {
     // The cleanup decision is now made after the references, so observing that call no
     // longer proves the decision has been reached. Wait the sweep out instead of racing it.
     verify(_references, timeout(10000)).run();
+    verify(_groupService, after(1000).never())
+        .removeStaleNativeGroupMembership(any(), any(), any());
+  }
+
+  @Test
+  public void testSkipsMembershipCleanupWhenTheDeleteWasHandedOff() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(_references.handedOff()).thenReturn(true);
+
+    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
+
+    // The group may still survive the delete elsewhere (partial or failed), so its members stay;
+    // the process running the delete cleans their links as references once the group is gone.
+    verify(_references, timeout(10000)).handedOff();
     verify(_groupService, after(1000).never())
         .removeStaleNativeGroupMembership(any(), any(), any());
   }
@@ -132,7 +147,7 @@ public class RemoveGroupResolverTest {
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
 
-    verify(_entityClient, timeout(10000)).deleteEntityThenReferences(any(), eq(GROUP_URN));
+    verify(_entityClient, timeout(10000)).deleteReferencesThenEntity(any(), eq(GROUP_URN));
   }
 
   @Test

@@ -29,6 +29,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.openapi.test.AuthorizerChainTestSupport;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -46,6 +47,7 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -83,6 +85,15 @@ public class ElasticsearchRawControllerTest extends AbstractTestNGSpringContextT
 
     // Default: 1-arg stub only (OperationContextAuthorizer null fallback).
     AuthorizerChainTestSupport.stubAllowViaOneArgOnly(authorizerChain);
+  }
+
+  // The imported AuthUtil bean turns on the static REST API authorization flag for the whole test
+  // JVM, which breaks later test classes that rely on its default of false.
+  @AfterClass(alwaysRun = true)
+  public void resetRestApiAuthorization() throws Exception {
+    Field field = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
+    field.setAccessible(true);
+    field.setBoolean(null, false);
   }
 
   @Test
