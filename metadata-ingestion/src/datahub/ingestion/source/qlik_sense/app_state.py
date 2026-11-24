@@ -26,8 +26,16 @@ class AppCheckpoint(BaseModel):
     # Table QRI -> dataset URN of the app's tables, so datasets an app kept from
     # its last read stores into still link to them. None in older state.
     table_urns_by_qri: Optional[Dict[str, str]] = None
+    # Some of the app's tables may be missing from table_urns_by_qri.
+    tables_unknown: bool = False
+    # The app's tables were read, but some of its lineage graph table nodes
+    # have no URN in table_urns_by_qri.
+    graph_tables_unresolved: bool = False
     # The QVDs the app writes and reads, on-prem. None in older state.
     qvds: Optional[AppQvds] = None
+    # Field names of the app's tables, so a renamed load from a kept app still
+    # names its source field. None in older state.
+    field_names: Optional[List[str]] = None
 
 
 class QlikAppCheckpointState(CheckpointStateBase):
