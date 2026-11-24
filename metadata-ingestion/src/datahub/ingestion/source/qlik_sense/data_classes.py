@@ -459,12 +459,11 @@ class App(Item):
     tables: List[QlikTable] = []
     # Tables of an app without a data model, from Qlik Cloud's lineage graph.
     lineage_tables: List[LineageTable] = []
-    lineage_upstreams: LineageUpstreams = LineageUpstreams()
     # Qlik Cloud answered 404 for the app's lineage graph.
     lineage_graph_missing: bool = False
-    # A table node of the app's lineage graph matched no data model table with
-    # a URN, so other apps' loads of it can't be resolved.
-    graph_tables_unmatched: bool = False
+    # Labels of the app's lineage graph table nodes that matched no data model
+    # table with a URN, so other apps' loads of them can't be resolved.
+    unmatched_graph_tables: List[str] = []
     # The tables of the app's data model as the last reload left them, read on
     # Qlik Cloud for apps whose tables come from the lineage graph or script.
     data_model_tables: List[DataModelTable] = []
@@ -477,8 +476,6 @@ class App(Item):
     # The data model or the load script could not be read, so the app's tables,
     # and with them the chart inputs, are unknown.
     tables_read_failed: bool = False
-    # The upstream graph could not be read, so sources only it names are unknown.
-    lineage_upstreams_read_failed: bool = False
     # Statements of the app's last reload, read when its lineage graph names
     # database tables; None when not read.
     reload_statements: Optional[List[ReloadStatement]] = None

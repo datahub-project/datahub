@@ -13,6 +13,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     LineageTable,
     LineageUpstreams,
+    ListedDataset,
     Sheet,
     Space,
 )
@@ -24,6 +25,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
+from datahub.metadata.schema_classes import UpstreamLineageClass
 from tests.test_helpers.state_helpers import mock_datahub_graph  # noqa: F401
 from tests.unit.qlik_sense.qlik_fakes import (
     LOAD_SCRIPT,
@@ -182,7 +184,6 @@ def _cloud_app(
     script: str = "",
     lineage_tables: Optional[List[LineageTable]] = None,
     loads_unlisted_qvd: bool = False,
-    upstream_graph_unread: bool = False,
 ) -> App:
     app = App.model_validate(
         {
@@ -218,12 +219,6 @@ def _cloud_app(
                 source_qris=[f"{UNLISTED_QVD}#Prices"],
             )
         ]
-        app.lineage_upstreams = LineageUpstreams(
-            resource_labels={}
-            if upstream_graph_unread
-            else {UNLISTED_QVD: "prices.qvd"}
-        )
-        app.lineage_upstreams_read_failed = upstream_graph_unread
     return app
 
 
@@ -233,8 +228,11 @@ def _cloud_run(
     read_errors: List[str],
     script: str = "",
     lineage_tables: Optional[List[LineageTable]] = None,
+    file_connection_to_storage: Optional[Dict[str, Dict[str, str]]] = None,
     loads_unlisted_qvd: bool = False,
     upstream_graph_unread: bool = False,
+    datasets: Optional[List[ListedDataset]] = None,
+    datasets_unread: bool = False,
 ) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
     with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI") as api_cls:
         api = api_cls.return_value
@@ -254,10 +252,15 @@ def _cloud_run(
                 script,
                 lineage_tables,
                 loads_unlisted_qvd,
-                upstream_graph_unread,
             )
         ]
-        api.list_datasets.return_value = []
+        api.list_datasets.return_value = None if datasets_unread else datasets or []
+        api.dataset_listing_error = "timed out" if datasets_unread else None
+        api.get_lineage_upstreams.return_value = LineageUpstreams(
+            resource_labels={UNLISTED_QVD: "prices.qvd"}
+        )
+        if upstream_graph_unread:
+            api.get_lineage_upstreams.side_effect = ValueError("no graph")
         api.get_data_connections.return_value = {}
         api.unread_items = []
         api.failed_user_lookups = {}
@@ -266,8 +269,8 @@ def _cloud_run(
         api.field_lineage_failures = []
         api.opened_without_data = []
         api.include_read_failures = []
-        api.upstream_graph_read_failures = []
         api.reload_statement_read_failures = []
+        api.engine_refusals = None
         api.get_user_name.return_value = None
         ctx = PipelineContext(run_id=run_id, pipeline_name="qlik-cloud", graph=graph)
         source = QlikSenseSource(
@@ -275,6 +278,7 @@ def _cloud_run(
                 {
                     "tenant_hostname": "tenant.example",
                     "api_key": "secret",
+                    "file_connection_to_storage": file_connection_to_storage or {},
                     "stateful_ingestion": {
                         "enabled": True,
                         "remove_stale_metadata": True,
@@ -372,3 +376,81 @@ def test_cloud_partly_read_app_keeps_the_connection_named_file_it_loads(
     assert csv in {wu.get_urn() for wu in first_wus}
     assert csv not in {wu.get_urn() for wu in second_wus}
     assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
+
+
+@pytest.mark.parametrize(
+    "datasets, datasets_unread",
+    [
+        pytest.param(None, True, id="listing failed"),
+        # It may be the dataset the graph names, so none is named.
+        pytest.param(
+            [ListedDataset(space_id="space-1", name="other.qvd")],
+            False,
+            id="QVD without a QRI",
+        ),
+    ],
+)
+def test_graph_named_dataset_is_kept_when_sources_cannot_be_told(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+    datasets: Optional[List[ListedDataset]],
+    datasets_unread: bool,
+) -> None:
+    _cloud_run(mock_datahub_graph, "run-1", read_errors=[], loads_unlisted_qvd=True)
+    _, second_wus = _cloud_run(
+        mock_datahub_graph,
+        "run-2",
+        read_errors=[],
+        loads_unlisted_qvd=True,
+        datasets=datasets,
+        datasets_unread=datasets_unread,
+    )
+    _, third_wus = _cloud_run(
+        mock_datahub_graph, "run-3", read_errors=[], loads_unlisted_qvd=True
+    )
+
+    prices = make_dataset_urn("qlik-sense", UNLISTED_QVD.lower())
+    assert prices not in {wu.get_urn() for wu in second_wus}
+    assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
+    assert not [wu for wu in third_wus if wu.id.startswith("soft-delete-")]
+
+
+def test_cloud_file_moves_to_its_storage_once_mapped(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    script = "Orders:\nLOAD * FROM [lib://Finance:Lake/landing/orders.csv] (txt);\n"
+    file_qri = (
+        f"qri:file:adls://{qri_part_id('lake')}"
+        f"#{qri_part_id('landing/orders.csv')}#{qri_part_id('item')}"
+    )
+    orders = [
+        LineageTable(
+            qri="qri:app:sense://app-1#Orders", label="Orders", source_qris=[file_qri]
+        )
+    ]
+    _, first_wus = _cloud_run(mock_datahub_graph, "run-1", [], script, orders)
+    _, second_wus = _cloud_run(
+        mock_datahub_graph,
+        "run-2",
+        [],
+        script,
+        orders,
+        # Mapped in a different case from the script's spelling.
+        {"finance:LAKE": {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+    )
+
+    qlik_csv = make_dataset_urn("qlik-sense", "finance:lake/landing/orders.csv")
+    storage_csv = make_dataset_urn("abs", "lake/landing/orders.csv")
+
+    def upstreams(workunits: List[MetadataWorkUnit]) -> List[str]:
+        return [
+            upstream.dataset
+            for wu in workunits
+            if (lineage := wu.get_aspect_of_type(UpstreamLineageClass))
+            for upstream in lineage.upstreams
+        ]
+
+    assert upstreams(first_wus) == [qlik_csv]
+    assert upstreams(second_wus) == [storage_csv]
+    assert qlik_csv in {
+        wu.get_urn() for wu in second_wus if wu.id.startswith("soft-delete-")
+    }
