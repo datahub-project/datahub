@@ -2258,8 +2258,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             table_urn = self._stored_table_urn(app, store.label, table_urns)
             # A table the app doesn't ingest, such as one a script variable
-            # names, has no dataset to link.
+            # names, has no dataset to link, and may be one the file's
+            # existing edges come from.
             if table_urn is None:
+                complete = False
                 continue
             write = QvdWrite(
                 table_urn=table_urn,
@@ -2347,6 +2349,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 context=app_id,
                 exc=e,
             )
+            return None
+        if last_apps is None:
             return None
         for other, checkpoint in last_apps.items():
             if other != app_id:
@@ -3857,7 +3861,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "could not be loaded"
             )
             app.tables_read_failed = True
-        elif previous is not None and previous.table_urns_by_qri:
+        elif previous is not None and (
+            previous.table_urns_by_qri or previous.graph_tables_unresolved
+        ):
+            # Unresolved graph tables are tables the last read saw too.
             app.read_errors.append(
                 "Qlik Cloud has no lineage graph for the app, whose last read "
                 "had tables"
@@ -3870,7 +3877,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 previous is None
                 or previous.table_urns_by_qri is None
                 or previous.tables_unknown
-                or previous.graph_tables_unresolved
             )
             if unknown and self.app_state.is_checkpointing_enabled():
                 # With no last read to compare with, the graph may only be

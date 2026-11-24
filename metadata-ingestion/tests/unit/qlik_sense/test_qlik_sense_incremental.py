@@ -7,16 +7,19 @@ import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.qlik_sense.app_state import (
     AppCheckpoint,
+    QlikAppCheckpointState,
     QlikAppStateHandler,
 )
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import App
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
+from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
@@ -1324,3 +1327,48 @@ def test_binary_load_only_adds_lineage_when_the_model_apps_fields_are_unknown(
         and MODEL_ORDERS in json.dumps(json.loads(wu.metadata.aspect.value))
         for wu in workunits
     )
+
+
+@pytest.mark.parametrize(
+    "app_run, stale_run, known",
+    [
+        pytest.param(None, None, True, id="first run"),
+        pytest.param("run-1", "run-1", True, id="trusted"),
+        pytest.param("run-1", "run-2", False, id="app checkpoint from an older run"),
+        pytest.param(None, "run-1", False, id="app checkpoint not saved"),
+        pytest.param("run-1", None, False, id="no stale entity removal state"),
+    ],
+)
+def test_previous_apps_are_unknown_when_checkpoints_are_untrusted(
+    app_run: Optional[str], stale_run: Optional[str], known: bool
+) -> None:
+    stale_job_id = JobId("stale")
+    apps = {"app-2": AppCheckpoint(urns=["urn:li:container:app-2"])}
+    provider = MagicMock()
+    provider.is_stateful_ingestion_configured.return_value = True
+    handler = QlikAppStateHandler(
+        provider, MagicMock(), "pipeline", "run-3", stale_job_id
+    )
+    last = {
+        handler.job_id: Checkpoint(
+            job_name=handler.job_id,
+            pipeline_name="pipeline",
+            run_id=app_run,
+            state=QlikAppCheckpointState(apps=apps),
+        )
+        if app_run
+        else None,
+        stale_job_id: Checkpoint(
+            job_name=stale_job_id,
+            pipeline_name="pipeline",
+            run_id=stale_run,
+            state=GenericCheckpointState(),
+        )
+        if stale_run
+        else None,
+    }
+    provider.get_last_checkpoint.side_effect = lambda job_id, _: last[job_id]
+
+    # Unknown apps, rather than none, keep another app's shared-table edges.
+    expected = (apps if app_run else {}) if known else None
+    assert handler.previous_apps() == expected
