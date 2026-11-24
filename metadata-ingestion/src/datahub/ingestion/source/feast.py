@@ -22,6 +22,7 @@ from pydantic import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -32,6 +33,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -41,12 +43,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    MLFeatureSnapshot,
-    MLFeatureTableSnapshot,
-    MLPrimaryKeySnapshot,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     GlobalTagsClass,
@@ -57,6 +53,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     StatusClass,
     TagAssociationClass,
+    _Aspect,
 )
 
 # FIXME: ValueType module cannot be used as a type
@@ -238,53 +235,45 @@ class FeastRepositorySource(StatefulIngestionSourceBase):
 
         return sources
 
-    def _get_entity_workunit(
+    def _gen_entity_workunits(
         self, feature_view: FeatureView, entity: Entity
-    ) -> MetadataWorkUnit:
+    ) -> Iterable[MetadataWorkUnit]:
         """
-        Generate an MLPrimaryKey work unit for a Feast entity.
+        Generate MLPrimaryKey work units for a Feast entity.
         """
 
         feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
-        aspects = (
-            [StatusClass(removed=False)]
-            + self._get_tags(entity)
-            + self._get_owners(entity)
-        )
-
-        entity_snapshot = MLPrimaryKeySnapshot(
-            urn=builder.make_ml_primary_key_urn(feature_view_name, entity.name),
-            aspects=aspects,
-        )
-
-        entity_snapshot.aspects.append(
+        aspects: List[_Aspect] = [
+            StatusClass(removed=False),
+            *self._get_tags(entity),
+            *self._get_owners(entity),
             MLPrimaryKeyPropertiesClass(
                 description=entity.description,
                 dataType=self._get_field_type(entity.value_type, entity.name),
                 sources=self._get_data_sources(feature_view),
+            ),
+        ]
+
+        yield from auto_workunit(
+            MetadataChangeProposalWrapper.construct_many(
+                entityUrn=builder.make_ml_primary_key_urn(
+                    feature_view_name, entity.name
+                ),
+                aspects=aspects,
             )
         )
 
-        mce = MetadataChangeEvent(proposedSnapshot=entity_snapshot)
-
-        return MetadataWorkUnit(id=entity.name, mce=mce)
-
-    def _get_feature_workunit(
+    def _gen_feature_workunits(
         self,
         # FIXME: FeatureView and OnDemandFeatureView cannot be used as a type
         feature_view: Union[FeatureView, OnDemandFeatureView],
         field: FeastField,
-    ) -> MetadataWorkUnit:
+    ) -> Iterable[MetadataWorkUnit]:
         """
-        Generate an MLFeature work unit for a Feast feature.
+        Generate MLFeature work units for a Feast feature.
         """
         feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
-        aspects = [StatusClass(removed=False)] + self._get_tags(field)
-
-        feature_snapshot = MLFeatureSnapshot(
-            urn=builder.make_ml_feature_urn(feature_view_name, field.name),
-            aspects=aspects,
-        )
+        aspects: List[_Aspect] = [StatusClass(removed=False), *self._get_tags(field)]
 
         feature_sources = []
         if isinstance(feature_view, FeatureView):
@@ -314,7 +303,7 @@ class FeastRepositorySource(StatefulIngestionSourceBase):
 
                     feature_sources.extend(self._get_data_sources(feature_view_source))
 
-        feature_snapshot.aspects.append(
+        aspects.append(
             MLFeaturePropertiesClass(
                 description=field.tags.get("description"),
                 dataType=self._get_field_type(field.dtype, field.name),
@@ -322,31 +311,26 @@ class FeastRepositorySource(StatefulIngestionSourceBase):
             )
         )
 
-        mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
+        yield from auto_workunit(
+            MetadataChangeProposalWrapper.construct_many(
+                entityUrn=builder.make_ml_feature_urn(feature_view_name, field.name),
+                aspects=aspects,
+            )
+        )
 
-        return MetadataWorkUnit(id=field.name, mce=mce)
-
-    def _get_feature_view_workunit(self, feature_view: FeatureView) -> MetadataWorkUnit:
+    def _gen_feature_view_workunits(
+        self, feature_view: FeatureView
+    ) -> Iterable[MetadataWorkUnit]:
         """
-        Generate an MLFeatureTable work unit for a Feast feature view.
+        Generate MLFeatureTable work units for a Feast feature view.
         """
 
         feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
-        aspects = (
-            [
-                BrowsePathsClass(paths=[f"/feast/{self.feature_store.project}"]),
-                StatusClass(removed=False),
-            ]
-            + self._get_tags(feature_view)
-            + self._get_owners(feature_view)
-        )
-
-        feature_view_snapshot = MLFeatureTableSnapshot(
-            urn=builder.make_ml_feature_table_urn("feast", feature_view_name),
-            aspects=aspects,
-        )
-
-        feature_view_snapshot.aspects.append(
+        aspects: List[_Aspect] = [
+            BrowsePathsClass(paths=[f"/feast/{self.feature_store.project}"]),
+            StatusClass(removed=False),
+            *self._get_tags(feature_view),
+            *self._get_owners(feature_view),
             MLFeatureTablePropertiesClass(
                 mlFeatures=[
                     builder.make_ml_feature_urn(
@@ -359,33 +343,29 @@ class FeastRepositorySource(StatefulIngestionSourceBase):
                     builder.make_ml_primary_key_urn(feature_view_name, entity_name)
                     for entity_name in feature_view.entities
                 ],
+            ),
+        ]
+
+        yield from auto_workunit(
+            MetadataChangeProposalWrapper.construct_many(
+                entityUrn=builder.make_ml_feature_table_urn("feast", feature_view_name),
+                aspects=aspects,
             )
         )
 
-        mce = MetadataChangeEvent(proposedSnapshot=feature_view_snapshot)
-
-        return MetadataWorkUnit(id=feature_view_name, mce=mce)
-
-    def _get_on_demand_feature_view_workunit(
+    def _gen_on_demand_feature_view_workunits(
         self, on_demand_feature_view: OnDemandFeatureView
-    ) -> MetadataWorkUnit:
+    ) -> Iterable[MetadataWorkUnit]:
         """
-        Generate an MLFeatureTable work unit for a Feast on-demand feature view.
+        Generate MLFeatureTable work units for a Feast on-demand feature view.
         """
 
         on_demand_feature_view_name = (
             f"{self.feature_store.project}.{on_demand_feature_view.name}"
         )
-
-        on_demand_feature_view_snapshot = MLFeatureTableSnapshot(
-            urn=builder.make_ml_feature_table_urn("feast", on_demand_feature_view_name),
-            aspects=[
-                BrowsePathsClass(paths=[f"/feast/{self.feature_store.project}"]),
-                StatusClass(removed=False),
-            ],
-        )
-
-        on_demand_feature_view_snapshot.aspects.append(
+        aspects: List[_Aspect] = [
+            BrowsePathsClass(paths=[f"/feast/{self.feature_store.project}"]),
+            StatusClass(removed=False),
             MLFeatureTablePropertiesClass(
                 mlFeatures=[
                     builder.make_ml_feature_urn(
@@ -395,12 +375,17 @@ class FeastRepositorySource(StatefulIngestionSourceBase):
                     for feature in on_demand_feature_view.features
                 ],
                 mlPrimaryKeys=[],
+            ),
+        ]
+
+        yield from auto_workunit(
+            MetadataChangeProposalWrapper.construct_many(
+                entityUrn=builder.make_ml_feature_table_urn(
+                    "feast", on_demand_feature_view_name
+                ),
+                aspects=aspects,
             )
         )
-
-        mce = MetadataChangeEvent(proposedSnapshot=on_demand_feature_view_snapshot)
-
-        return MetadataWorkUnit(id=on_demand_feature_view_name, mce=mce)
 
     # If a tag is specified in a Feast object, then the tag will be ingested into Datahub if enable_tag_extraction is
     # True, otherwise NO tags will be ingested
@@ -469,18 +454,20 @@ class FeastRepositorySource(StatefulIngestionSourceBase):
         for feature_view in self.feature_store.list_feature_views():
             for entity_name in feature_view.entities:
                 entity = self.feature_store.get_entity(entity_name)
-                yield self._get_entity_workunit(feature_view, entity)
+                yield from self._gen_entity_workunits(feature_view, entity)
 
             for field in feature_view.features:
-                yield self._get_feature_workunit(feature_view, field)
+                yield from self._gen_feature_workunits(feature_view, field)
 
-            yield self._get_feature_view_workunit(feature_view)
+            yield from self._gen_feature_view_workunits(feature_view)
 
         for on_demand_feature_view in self.feature_store.list_on_demand_feature_views():
             for feature in on_demand_feature_view.features:
-                yield self._get_feature_workunit(on_demand_feature_view, feature)
+                yield from self._gen_feature_workunits(on_demand_feature_view, feature)
 
-            yield self._get_on_demand_feature_view_workunit(on_demand_feature_view)
+            yield from self._gen_on_demand_feature_view_workunits(
+                on_demand_feature_view
+            )
 
     def get_report(self) -> SourceReport:
         return self.report

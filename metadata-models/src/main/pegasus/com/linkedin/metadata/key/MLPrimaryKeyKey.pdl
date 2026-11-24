@@ -14,7 +14,10 @@ record MLPrimaryKeyKey {
    */
   @Searchable = {
     "v3": {
-      "queryByDefault": true
+      "queryByDefault": false,
+      "searchLabel": "location",
+      "copyToOther": true,
+      "boostScore": 1.0
     },
     "fieldType": "TEXT_PARTIAL"
   }
@@ -31,6 +34,7 @@ record MLPrimaryKeyKey {
     "v3": {
       "queryByDefault": true,
       "searchLabel": "name",
+      "lowercase": true,
       "mappings": [
         { "type": "KEYWORD" },
         { "subfield": "text", "type": "TEXT" },

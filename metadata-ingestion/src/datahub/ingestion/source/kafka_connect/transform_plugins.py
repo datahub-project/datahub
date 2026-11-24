@@ -12,7 +12,6 @@ Key principles:
 """
 
 import logging
-import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import lru_cache
@@ -22,28 +21,30 @@ from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
     parse_comma_separated_list,
 )
+from datahub.utilities.java_runtime import prepare_jvm_settings
 
 logger = logging.getLogger(__name__)
 
-# If no system Java is installed, use jdk4py (pip-installable JVM) as a fallback.
-# This makes the kafka-connect plugin self-contained without requiring a system JDK.
-try:
-    from jdk4py import JAVA_HOME as _JDK4PY_JAVA_HOME
-
-    os.environ.setdefault("JAVA_HOME", str(_JDK4PY_JAVA_HOME))
-except ImportError:
-    pass
-
-# Initialize JVM for Java regex support at module level
+# Initialize JVM for Java regex support at module level. prepare_jvm_settings
+# prefers a system JVM and only falls back to jdk4py (pip-installable JVM) when
+# none is discoverable, so the plugin stays self-contained without a system JDK.
 try:
     import jpype
 
     if not jpype.isJVMStarted():
-        jpype.startJVM(jpype.getDefaultJVMPath())
+        jpype.startJVM(*prepare_jvm_settings())
     from java.util.regex import Pattern as JavaPattern
 
     JAVA_REGEX_AVAILABLE = True
-except (ImportError, RuntimeError) as e:
+except (
+    ImportError,
+    RuntimeError,
+    # startJVM raises jpype's JVMNotFoundException/JVMNotSupportedException when no
+    # usable JVM exists; both subclass ValueError. They cannot be named here: when
+    # the `import jpype` above is what failed, evaluating this tuple would raise
+    # NameError on `jpype` instead of degrading gracefully.
+    ValueError,
+) as e:
     logger.warning(
         f"Java regex not available: {e}. RegexRouter transforms will be skipped."
     )
@@ -183,6 +184,53 @@ class RegexRouterPlugin(TransformPlugin):
         return True  # RegexRouter transforms are predictable and safe to apply
 
 
+class ByLogicalTableRouterPlugin(TransformPlugin):
+    """
+    Plugin for Debezium's ByLogicalTableRouter, which routes topics using
+    topic.regex/topic.replacement. Its key.field.* options only rewrite the
+    record key, so they don't affect topic lineage.
+    """
+
+    SUPPORTED_TYPES = {"io.debezium.transforms.ByLogicalTableRouter"}
+
+    @classmethod
+    def supports_transform_type(cls, transform_type: str) -> bool:
+        return transform_type in cls.SUPPORTED_TYPES
+
+    def apply_forward(self, topics: List[str], config: TransformConfig) -> List[str]:
+        if not JAVA_REGEX_AVAILABLE:
+            raise ValueError(
+                "ByLogicalTableRouter transform requires JPype and JVM. "
+                "Install with: pip install 'acryl-datahub[kafka-connect]'"
+            )
+
+        regex_pattern = config.config.get("topic.regex", "")
+        replacement = config.config.get("topic.replacement")
+
+        if not regex_pattern or replacement is None:
+            logger.warning(
+                f"ByLogicalTableRouter {config.name} missing topic.regex or topic.replacement"
+            )
+            return topics
+
+        pattern = JavaPattern.compile(regex_pattern)
+        transformed_topics = []
+        for topic in topics:
+            # Mirrors Debezium: the regex must match the whole topic, and an empty
+            # result keeps the original topic.
+            matcher = pattern.matcher(topic)
+            new_topic = (
+                str(matcher.replaceFirst(replacement)) if matcher.matches() else ""
+            )
+            transformed_topics.append(new_topic or topic)
+
+        return transformed_topics
+
+    @classmethod
+    def should_apply_automatically(cls) -> bool:
+        return True
+
+
 class ComplexTransformPlugin(TransformPlugin):
     """Plugin for complex transforms that require explicit configuration."""
 
@@ -250,6 +298,7 @@ class TransformPluginRegistry:
     def _register_default_plugins(self):
         """Register default transform plugins."""
         self.register(RegexRouterPlugin())
+        self.register(ByLogicalTableRouterPlugin())
         self.register(ComplexTransformPlugin())
         self.register(ReplaceFieldPlugin())
 

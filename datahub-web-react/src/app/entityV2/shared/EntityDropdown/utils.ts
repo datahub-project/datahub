@@ -1,4 +1,4 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { EntityPrivileges, EntityType, LifecycleStageType, PlatformPrivileges } from '@types';
 
@@ -58,7 +58,9 @@ export function isDeleteDisabled(
         return !canDeleteGlossaryEntity;
     }
     if (entityType === EntityType.DataProduct) {
-        return false; // TODO: update with permissions
+        const entityHasChildren = !!entityData?.children?.total;
+        const canDeleteDataProduct = !entityHasChildren && !!entityData?.privileges?.canDeleteEntity;
+        return !canDeleteDataProduct;
     }
     if (entityType === EntityType.Domain) {
         const entityHasChildren = !!entityData?.children?.total;
@@ -82,6 +84,9 @@ export function isMoveDisabled(
         const canManageDomains = !!platformPrivileges?.manageDomains;
         return !canManageDomains;
     }
+    if (entityType === EntityType.DataProduct) {
+        return !entityData?.privileges?.canManageEntity;
+    }
     return false;
 }
 
@@ -102,7 +107,18 @@ export function shouldDisplayChildDeletionWarning(
         const hasTooltip = entityHasChildren && canManageDomains;
         return hasTooltip;
     }
+    if (entityType === EntityType.DataProduct) {
+        const entityHasChildren = !!entityData?.children?.total;
+        return entityHasChildren && !!entityData?.privileges?.canDeleteEntity;
+    }
     return false;
+}
+
+/** Translation key (entity.shared.entityDropdown) for the tooltip on a delete blocked by children. */
+export function getChildDeletionWarningKey(entityType: EntityType) {
+    if (entityType === EntityType.Domain) return 'delete.cantDeleteSubDomain';
+    if (entityType === EntityType.DataProduct) return 'delete.cantDeleteWithChildDataProducts';
+    return 'delete.cantDeleteChild';
 }
 
 const TRAILING_NUMBER = /^(.*?)(\d+)$/;

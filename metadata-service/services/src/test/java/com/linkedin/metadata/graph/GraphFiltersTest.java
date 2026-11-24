@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.testng.annotations.Test;
 
@@ -266,8 +267,11 @@ public class GraphFiltersTest {
                         && p.getValue().getDirection().equals(RelationshipDirection.OUTGOING));
     assertTrue(hasDownstreamOf, "Expected dataset DownstreamOf edge in lineage triplets");
 
-    // Verify every triplet comes from the lineage registry
-    for (Pair<String, LineageRegistry.EdgeInfo> triplet : triplets) {
+    // Verify every triplet comes from the lineage registry (column lineage: see below)
+    for (Pair<String, LineageRegistry.EdgeInfo> triplet :
+        triplets.stream()
+            .filter(p -> !p.getKey().equals("schemafield"))
+            .collect(Collectors.toSet())) {
       String entityType = triplet.getKey();
       LineageRegistry.LineageSpec spec = lineageRegistry.getLineageSpecs().get(entityType);
       assertNotNull(spec, "Entity type " + entityType + " should exist in lineage specs");
@@ -301,6 +305,45 @@ public class GraphFiltersTest {
       }
     }
 
+    // Column lineage is not isLineage-annotated, so it is not in the registry specs
+    expectedTriplets.add(
+        Pair.of(
+            "schemafield",
+            new LineageRegistry.EdgeInfo(
+                "DownstreamOf", RelationshipDirection.OUTGOING, "schemaField")));
+    expectedTriplets.add(
+        Pair.of(
+            "schemafield",
+            new LineageRegistry.EdgeInfo(
+                "DownstreamOf", RelationshipDirection.INCOMING, "schemaField")));
+
     assertEquals(triplets, expectedTriplets);
+  }
+
+  @Test
+  public void testForLineageIncludesColumnLineage() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    LineageRegistry lineageRegistry = opContext.getLineageRegistry();
+
+    Set<Pair<String, LineageRegistry.EdgeInfo>> triplets =
+        GraphFilters.forLineage(lineageRegistry).getAllowedEdgeTriplets();
+
+    for (RelationshipDirection direction :
+        List.of(RelationshipDirection.OUTGOING, RelationshipDirection.INCOMING)) {
+      assertTrue(
+          triplets.contains(
+              Pair.of(
+                  "schemafield",
+                  new LineageRegistry.EdgeInfo("DownstreamOf", direction, "schemaField"))),
+          "Expected schemaField DownstreamOf schemaField (" + direction + ") in lineage triplets");
+    }
+
+    assertTrue(
+        triplets.stream()
+            .filter(p -> p.getKey().equals("schemafield"))
+            .allMatch(
+                p ->
+                    p.getValue().getType().equals("DownstreamOf")
+                        && p.getValue().getOpposingEntityType().equals("schemaField")));
   }
 }

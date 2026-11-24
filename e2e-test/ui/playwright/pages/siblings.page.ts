@@ -39,6 +39,10 @@ export class SiblingsPage extends BasePage {
     return this.page.getByTestId(`tag-term-option-${termName}`);
   }
 
+  private getSelectedTermPill(termName: string): Locator {
+    return this.page.getByTestId(`selected-${termName}`);
+  }
+
   private getRemoveTermButton(termName: string): Locator {
     return this.page.getByTestId(`term-${termName}-pill`).getByTestId('remove-icon');
   }
@@ -141,22 +145,25 @@ export class SiblingsPage extends BasePage {
     await this.addTermsButton.click();
     await this.tagTermModalTrigger.click();
     await this.tagTermInput.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     await this.tagTermInput.click();
     await this.tagTermInput.fill(termName);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     const termOption = this.getTermOption(termName);
     await termOption.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
     await termOption.scrollIntoViewIfNeeded();
-    await termOption.click({ force: true });
+    // A forced click skips the wait for the dropdown to settle and can be dropped while the
+    // search results re-render. Retry until the selected-term pill shows; clicking an option
+    // that is already selected would deselect it, so only click while the pill is absent.
+    const selectedPill = this.getSelectedTermPill(termName);
+    await expect(async () => {
+      if (!(await selectedPill.isVisible())) {
+        await termOption.click({ force: true });
+      }
+      await expect(selectedPill).toBeVisible({ timeout: TIMEOUTS.SHORT });
+    }).toPass({ timeout: TIMEOUTS.EXTRA_LONG });
 
     await this.tagTermModalTrigger.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
     await this.addTagTermConfirmButton.click();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }

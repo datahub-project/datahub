@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import MoveEntityModal from '@app/entityV2/shared/EntityDropdown/MoveEntityModal';
 import {
     ActionMenuItem,

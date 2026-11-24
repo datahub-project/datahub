@@ -1,1 +1,0 @@
-export { IncidentStagePill } from './IncidentStagePill';

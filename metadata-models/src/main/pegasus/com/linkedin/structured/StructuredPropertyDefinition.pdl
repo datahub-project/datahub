@@ -19,6 +19,7 @@ record StructuredPropertyDefinition {
       "v3": {
         "queryByDefault": true,
         "searchLabel": "qualifiedName",
+        "lowercase": true,
         "mappings": [
           { "type": "KEYWORD" },
           { "subfield": "text", "type": "TEXT" },
@@ -38,6 +39,7 @@ record StructuredPropertyDefinition {
       "v3": {
         "queryByDefault": true,
         "searchLabel": "name",
+        "lowercase": true,
         "mappings": [
           { "type": "KEYWORD" },
           { "subfield": "text", "type": "TEXT" },

@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { useDefaultLanguage } from '@app/i18n/hooks/useDefaultLanguage';
 import { useIsI18nEnabled } from '@app/i18n/hooks/useIsI18nEnabled';
 import { SupportedLanguage } from '@app/i18n/types';
-import { detectBrowserLanguage, pickEffectiveLanguage } from '@app/i18n/utils';
+import { resolveEffectiveLanguage } from '@app/i18n/utils';
 import { useUserLanguage } from '@app/sharedV2/hooks/useUserLanguage';
 
 export function useEffectiveLanguage(): SupportedLanguage {
@@ -12,13 +12,7 @@ export function useEffectiveLanguage(): SupportedLanguage {
     const defaultLanguage = useDefaultLanguage();
 
     return useMemo(
-        () =>
-            pickEffectiveLanguage({
-                i18nEnabled,
-                userLanguage,
-                browserLanguage: detectBrowserLanguage(),
-                defaultLanguage,
-            }),
+        () => resolveEffectiveLanguage(i18nEnabled, userLanguage, defaultLanguage),
         [i18nEnabled, userLanguage, defaultLanguage],
     );
 }

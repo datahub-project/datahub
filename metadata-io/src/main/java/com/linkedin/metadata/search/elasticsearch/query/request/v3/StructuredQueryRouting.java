@@ -3,16 +3,28 @@ package com.linkedin.metadata.search.elasticsearch.query.request.v3;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX;
 
+import com.linkedin.metadata.models.annotation.v3.FieldMapping;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
+import com.linkedin.metadata.search.utils.ESUtils;
+import java.time.DateTimeException;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.Year;
+import java.time.YearMonth;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.Operator;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -30,6 +42,28 @@ import org.opensearch.index.query.QueryStringQueryBuilder;
 public final class StructuredQueryRouting {
 
   private static final int MAX_DEPTH = 32;
+
+  /**
+   * A date or date math the date mapping parses. The date is {@code strict_date_optional_time}: a
+   * year, an optional month and day, and a time that may stop at the hour, minute, or second.
+   * {@code now} or that date may then take {@code ||} and {@code [+-]<n><unit>} or {@code /<unit>}.
+   * A date without {@code ||} takes no math, so a stray suffix is not sent to the engine. The
+   * pattern checks shape only. {@link #realCalendarDate} rejects a month, day, or clock the date
+   * mapping cannot parse, such as {@code 2024-13} or {@code 2024-02-30}.
+   */
+  private static final String OPTIONAL_ISO_DATE =
+      "\\d{4}(?:-\\d{2}(?:-\\d{2}(?:T\\d{2}(?::\\d{2}(?::\\d{2}(?:\\.\\d{1,9})?)?)?(?:Z|[+-]\\d{2}:?\\d{2})?)?)?)?";
+
+  private static final Pattern DATE_OR_DATE_MATH =
+      Pattern.compile(
+          "^(?:now(?:(?:\\|\\|)?(?:(?:[+-]\\d+|/)[yMwdHhms])+)?|"
+              + OPTIONAL_ISO_DATE
+              + "(?:\\|\\|(?:(?:[+-]\\d+|/)[yMwdHhms])+)?)$");
+
+  /** The {@code now} or ISO date that may be followed by {@code ||} date math. */
+  private static final Pattern DATE_ANCHOR = Pattern.compile("^(?:now|" + OPTIONAL_ISO_DATE + ")$");
+
+  private static final String DATE_UNITS = "yMwdHhms";
 
   private StructuredQueryRouting() {}
 
@@ -322,13 +356,14 @@ public final class StructuredQueryRouting {
       // A group such as name:(foo OR structuredProperties.bar:baz) is one query_string. Lenient
       // when it names a property, so that field is not evaluated strictly.
       boolean lenient = isPropertyField(field) || mentionsPropertyField(text);
+      String clauseText = lenient ? text : quotedExactField(text, field, fieldResolver);
       if (!lenient && !isQuotedFieldValue(text)) {
         QueryBuilder contained = containQuery(text, field, shared, fieldResolver);
         if (contained != null) {
           return withBoost(contained, weight);
         }
       }
-      return withBoost(clause(text, lenient ? properties : shared, lenient, true), weight);
+      return withBoost(clause(clauseText, lenient ? properties : shared, lenient, true), weight);
     }
   }
 
@@ -336,7 +371,11 @@ public final class StructuredQueryRouting {
    * An unquoted {@code /q} value uses the same {@code CONTAIN} resolution as a contains filter. A
    * text-only label searches its analyzed subfields. A source name whose label differs, such as
    * {@code fieldPaths}, searches the keyword path. A label written as itself, such as {@code name}
-   * or {@code tags}, stays as written. A quoted value is exact and is not rewritten.
+   * or {@code tags}, stays as written. {@code v3.lowercase} reads {@code <field>.lowercase}.
+   * Without that subfield a simple value is a case-insensitive term, and a single wildcard is
+   * queried as written and in lowercase. A numeric or date root is never case-folded: an ordered
+   * value is a range and anything else is an exact term. A quoted value stays an exact query. Its
+   * field name is still resolved when that name is not the stored path.
    */
   @Nullable
   private static QueryBuilder containQuery(
@@ -344,9 +383,21 @@ public final class StructuredQueryRouting {
       @Nonnull String field,
       @Nonnull List<SearchFieldConfig> shared,
       @Nullable SearchFieldResolver fieldResolver) {
-    if (fieldResolver == null
-        || !fieldResolver.contains(field)
-        || !fieldResolver.supports(field, Intent.CONTAIN)) {
+    if (fieldResolver == null || !fieldResolver.contains(field)) {
+      return null;
+    }
+    // A boolean root does not advertise CONTAIN: a wildcard there is rejected by the engine and
+    // fails the whole search. Exact and range values still have to be real typed terms, so they
+    // resolve through EXACT, which a boolean does support.
+    if (isNumericOrDateField(fieldResolver, field)) {
+      SearchFieldResolver.Field typed = fieldResolver.resolve(field, Intent.EXACT);
+      String path =
+          field.equals(typed.getPath())
+              ? typed.getPath()
+              : fieldResolver.exactPath(field, Intent.EXACT);
+      return numericOrDateQuery(path, typed.getRootType(), text);
+    }
+    if (!fieldResolver.supports(field, Intent.CONTAIN)) {
       return null;
     }
     SearchFieldResolver.Field resolved = fieldResolver.resolve(field, Intent.CONTAIN);
@@ -358,11 +409,257 @@ public final class StructuredQueryRouting {
       return analyzed.isEmpty() ? null : textOnlyQuery(text, analyzed);
     }
     if (field.equals(resolved.getPath())) {
+      // Parsed URN keywords stay on query_string so the normalizer folds the query.
+      if (resolved.isIndexed() && !resolved.isParsedKeywordLabel()) {
+        String path =
+            resolved.isLowercase()
+                ? resolved.getPath() + "." + V3SearchFields.LOWERCASE
+                : resolved.getPath();
+        String value = simpleValue(text);
+        if (value != null) {
+          if (resolved.isLowercase()) {
+            return QueryBuilders.termQuery(path, ESUtils.keywordNormalize(value));
+          }
+          return QueryBuilders.termQuery(path, value).caseInsensitive(true);
+        }
+        String pattern = wildcardValue(text);
+        if (pattern != null) {
+          if (resolved.isLowercase()) {
+            return QueryBuilders.wildcardQuery(path, ESUtils.keywordNormalize(pattern));
+          }
+          return caseFoldedWildcard(path, pattern);
+        }
+      }
       return null;
     }
     int colon = text.indexOf(':');
     String keywordPath = fieldResolver.exactPath(field, Intent.CONTAIN);
     return clause(keywordPath + text.substring(colon), shared, false, true);
+  }
+
+  static boolean isNumericOrDate(@Nonnull FieldMapping.Type type) {
+    return type == FieldMapping.Type.BOOLEAN
+        || type == FieldMapping.Type.COUNT
+        || type == FieldMapping.Type.DATETIME
+        || type == FieldMapping.Type.DOUBLE;
+  }
+
+  /** Whether an exact match on this field is a numeric or date value rather than text. */
+  static boolean isNumericOrDateField(
+      @Nullable SearchFieldResolver resolver, @Nonnull String fieldName) {
+    return resolver != null
+        && resolver.contains(fieldName)
+        && resolver.supports(fieldName, Intent.EXACT)
+        && isNumericOrDate(resolver.resolve(fieldName, Intent.EXACT).getRootType());
+  }
+
+  /**
+   * An ordered value ({@code >1700}, {@code <=1700}) is a range. Any other single value is an exact
+   * term. The bound and the term are the mapped type: a boolean, a long for a count or a date, or a
+   * double. A date that is not a long is passed through when it is a date or date math. A bare
+   * {@code *} is an exists query, as it is in {@code query_string}. Any other value that is not
+   * that type matches nothing. A value with query-string syntax stays one.
+   */
+  @Nullable
+  private static QueryBuilder numericOrDateQuery(
+      @Nonnull String path, @Nonnull FieldMapping.Type type, @Nonnull String text) {
+    String value = singleFieldValue(text);
+    if (value == null) {
+      return null;
+    }
+    if ("*".equals(value)) {
+      return QueryBuilders.existsQuery(path);
+    }
+    for (String op : List.of(">=", "<=", ">", "<")) {
+      if (value.startsWith(op)) {
+        Object bound = typedValue(type, value.substring(op.length()).trim());
+        if (bound == null) {
+          return new MatchNoneQueryBuilder();
+        }
+        return switch (op) {
+          case ">=" -> QueryBuilders.rangeQuery(path).gte(bound);
+          case "<=" -> QueryBuilders.rangeQuery(path).lte(bound);
+          case ">" -> QueryBuilders.rangeQuery(path).gt(bound);
+          default -> QueryBuilders.rangeQuery(path).lt(bound);
+        };
+      }
+    }
+    Object typed = typedValue(type, value);
+    if (typed == null) {
+      return new MatchNoneQueryBuilder();
+    }
+    return QueryBuilders.termQuery(path, typed);
+  }
+
+  /**
+   * The query value in the type the mapping stores. A boolean is only {@code true} or {@code
+   * false}; {@link Boolean#parseBoolean} would turn every other word into false. A date that is not
+   * a long is the original string when it is a date or date math, and nothing otherwise.
+   */
+  @Nullable
+  private static Object typedValue(@Nonnull FieldMapping.Type type, @Nonnull String value) {
+    if (value.isEmpty()) {
+      return null;
+    }
+    try {
+      return switch (type) {
+        case BOOLEAN ->
+            value.equalsIgnoreCase("true")
+                ? Boolean.TRUE
+                : value.equalsIgnoreCase("false") ? Boolean.FALSE : null;
+        case COUNT -> Long.parseLong(value);
+        case DATETIME -> longOrDate(value);
+        case DOUBLE -> Double.parseDouble(value);
+        default -> null;
+      };
+    } catch (NumberFormatException e) {
+      return null;
+    }
+  }
+
+  /** A count-shaped date, or a date or date math string the date mapping parses. */
+  @Nullable
+  private static Object longOrDate(@Nonnull String value) {
+    try {
+      return Long.parseLong(value);
+    } catch (NumberFormatException e) {
+      return DATE_OR_DATE_MATH.matcher(value).matches() && realCalendarDate(value) ? value : null;
+    }
+  }
+
+  /**
+   * The date or {@code now} anchor is a real calendar value. A year, year-month, or partial clock
+   * is accepted when {@code strict_date_optional_time} would parse it. Date math after {@code ||}
+   * is left to the engine; the anchor in front of it still has to be a date the mapping accepts.
+   */
+  private static boolean realCalendarDate(@Nonnull String value) {
+    int math = value.indexOf("||");
+    String anchor = math < 0 ? value : value.substring(0, math);
+    if (anchor.startsWith("now")) {
+      return true;
+    }
+    int timeAt = anchor.indexOf('T');
+    try {
+      if (!realDate(timeAt < 0 ? anchor : anchor.substring(0, timeAt))) {
+        return false;
+      }
+      if (timeAt < 0) {
+        return true;
+      }
+      String clock = anchor.substring(timeAt + 1);
+      int zoneAt = offsetStart(clock);
+      if (!realTime(zoneAt < 0 ? clock : clock.substring(0, zoneAt))) {
+        return false;
+      }
+      if (zoneAt >= 0) {
+        ZoneOffset.of(clock.substring(zoneAt));
+      }
+      return true;
+    } catch (DateTimeException | NumberFormatException e) {
+      return false;
+    }
+  }
+
+  /** A year, a year-month, or a full date. */
+  private static boolean realDate(@Nonnull String date) {
+    int dashes = 0;
+    for (int i = 0; i < date.length(); i++) {
+      if (date.charAt(i) == '-') {
+        dashes++;
+      }
+    }
+    if (dashes == 0) {
+      Year.parse(date);
+    } else if (dashes == 1) {
+      YearMonth.parse(date);
+    } else {
+      LocalDate.parse(date);
+    }
+    return true;
+  }
+
+  /** An hour, a minute, or a second, with an optional fraction. */
+  private static boolean realTime(@Nonnull String time) {
+    if (time.indexOf(':') < 0) {
+      int hour = Integer.parseInt(time);
+      if (hour < 0 || hour > 23) {
+        throw new DateTimeException("hour");
+      }
+      return true;
+    }
+    LocalTime.parse(time);
+    return true;
+  }
+
+  private static int offsetStart(@Nonnull String clock) {
+    for (int i = 0; i < clock.length(); i++) {
+      char c = clock.charAt(i);
+      if (c == 'Z' || c == '+' || c == '-') {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /** A single field value with no query-string syntax and no wildcard. */
+  @Nullable
+  private static String simpleValue(@Nonnull String text) {
+    String value = singleFieldValue(text);
+    if (value == null || value.indexOf('*') >= 0 || value.indexOf('?') >= 0) {
+      return null;
+    }
+    return value;
+  }
+
+  /**
+   * A single wildcard ({@code Orders*}). A space, quotes, a group, a {@code ^} boost, or a {@code
+   * ~} fuzzy suffix stays a query_string, which is what applies that syntax.
+   */
+  @Nullable
+  private static String wildcardValue(@Nonnull String text) {
+    String value = singleFieldValue(text);
+    if (value == null || (value.indexOf('*') < 0 && value.indexOf('?') < 0)) {
+      return null;
+    }
+    return value;
+  }
+
+  @Nullable
+  private static String singleFieldValue(@Nonnull String text) {
+    int colon = text.indexOf(':');
+    if (colon < 0 || colon == text.length() - 1) {
+      return null;
+    }
+    String value = text.substring(colon + 1).trim();
+    if (value.isEmpty()
+        || value.indexOf(' ') >= 0
+        || value.indexOf('"') >= 0
+        || value.indexOf('(') >= 0
+        || value.indexOf(')') >= 0
+        || value.indexOf('^') >= 0
+        || value.indexOf('~') >= 0) {
+      return null;
+    }
+    return value;
+  }
+
+  /**
+   * Wildcard on a raw keyword root. The pattern is also queried in lowercase so {@code Orders*}
+   * matches a stored {@code orders_fact}. {@code case_insensitive} stays off: on OpenSearch 3 it
+   * builds a case-folding automaton that can be null and fails the shard. A field with {@code
+   * v3.lowercase} queries {@code <field>.lowercase} once instead.
+   */
+  @Nonnull
+  private static QueryBuilder caseFoldedWildcard(@Nonnull String field, @Nonnull String pattern) {
+    QueryBuilder written = QueryBuilders.wildcardQuery(field, pattern);
+    String folded = pattern.toLowerCase(Locale.ROOT);
+    if (folded.equals(pattern)) {
+      return written;
+    }
+    return QueryBuilders.boolQuery()
+        .should(written)
+        .should(QueryBuilders.wildcardQuery(field, folded))
+        .minimumShouldMatch(1);
   }
 
   @Nonnull
@@ -377,6 +674,29 @@ public final class StructuredQueryRouting {
         .fieldName(path)
         .boost(SearchFieldConfig.DEFAULT_BOOST)
         .build();
+  }
+
+  /**
+   * A quoted value stays an exact query. A name the index does not store as written, such as the V2
+   * subfield {@code platform.keyword}, is replaced with the path an exact query reads. The logical
+   * field itself, such as {@code platform} or {@code name}, is left as written.
+   */
+  @Nonnull
+  private static String quotedExactField(
+      @Nonnull String text, @Nonnull String field, @Nullable SearchFieldResolver fieldResolver) {
+    if (!isQuotedFieldValue(text)
+        || fieldResolver == null
+        || !fieldResolver.contains(field)
+        || !fieldResolver.supports(field, Intent.EXACT)) {
+      return text;
+    }
+    SearchFieldResolver.Field resolved = fieldResolver.resolve(field, Intent.EXACT);
+    String exact = fieldResolver.exactPath(field, Intent.EXACT);
+    if (field.equals(exact) || field.equals(resolved.getPath())) {
+      return text;
+    }
+    int colon = text.indexOf(':');
+    return exact + text.substring(colon);
   }
 
   /** A quoted value ({@code description:"data warehouse"}) stays on exact intent. */
@@ -603,13 +923,70 @@ public final class StructuredQueryRouting {
           break;
         }
         if (c == '|' && i + 1 < query.length() && query.charAt(i + 1) == '|') {
-          break;
+          // {@code ||} is OR, except inside a date value, where it introduces date math
+          // ({@code 2024-10-01||+1M}). The math stays in the value so it is not a second clause.
+          int mathEnd = dateMathEnd(start, i);
+          if (mathEnd < 0) {
+            break;
+          }
+          i = mathEnd;
+          continue;
         }
         i++;
       }
       if (i == start) {
         throw new IllegalArgumentException("Empty term");
       }
+    }
+
+    /**
+     * End of a date-math suffix that begins at the {@code ||} at {@code orAt}, or {@code -1} when
+     * that {@code ||} is the OR operator. The anchor is the term so far, without a leading range
+     * operator.
+     */
+    private int dateMathEnd(int termStart, int orAt) {
+      String anchor = query.substring(termStart, orAt);
+      for (String op : List.of(">=", "<=", ">", "<")) {
+        if (anchor.startsWith(op)) {
+          anchor = anchor.substring(op.length());
+          break;
+        }
+      }
+      if (!DATE_ANCHOR.matcher(anchor).matches()) {
+        return -1;
+      }
+      int j = orAt + 2;
+      int pieces = 0;
+      while (j < query.length()) {
+        int next = dateMathPieceEnd(j);
+        if (next == j) {
+          break;
+        }
+        j = next;
+        pieces++;
+      }
+      return pieces > 0 ? j : -1;
+    }
+
+    /**
+     * End of one {@code [+-]<n><unit>} or {@code /<unit>} piece, or {@code j} when there is none.
+     */
+    private int dateMathPieceEnd(int j) {
+      char c = query.charAt(j);
+      if (c == '/') {
+        return j + 1 < query.length() && DATE_UNITS.indexOf(query.charAt(j + 1)) >= 0 ? j + 2 : j;
+      }
+      if (c != '+' && c != '-') {
+        return j;
+      }
+      int k = j + 1;
+      if (k >= query.length() || !Character.isDigit(query.charAt(k))) {
+        return j;
+      }
+      while (k < query.length() && Character.isDigit(query.charAt(k))) {
+        k++;
+      }
+      return k < query.length() && DATE_UNITS.indexOf(query.charAt(k)) >= 0 ? k + 1 : j;
     }
 
     private void readQuoted() {

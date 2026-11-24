@@ -294,6 +294,34 @@ DataHub extracts lineage when a query reads from a Snowflake Stream. Coverage de
 
 The Stream entity itself is also extracted as a top-level dataset; the lineage above is in addition to that.
 
+#### Tags Written by DataHub
+
+When DataHub Cloud's Snowflake Metadata Sync automation writes tags, glossary terms or structured properties back to Snowflake as Snowflake tags, it records each Snowflake tag it created as a platform resource that names the DataHub entity it stands for. Ingestion reads these records and treats DataHub as the source of truth for those tags:
+
+- Ingestion never takes them from Snowflake. Snowflake's tag views can lag by hours, so a tag just removed or added in DataHub would otherwise be undone.
+- Where ingestion replaces an asset's tags or structured properties as a whole (tags on databases, schemas and tables; structured properties in `upsert` write mode), it keeps the ones DataHub currently holds for these tags. If DataHub can't be read for an asset, its tags or properties are left unchanged for that run and a warning is reported.
+- No DataHub tags, column tags or structured property definitions are created from them.
+- An asset whose Snowflake tags are all DataHub's still has its tags or structured properties written whole, so a tag removed in Snowflake is dropped as before.
+- Stale-entity removal never soft-deletes these records, or the DataHub tags kept on assets this way.
+
+The Snowflake tag propagation action in `datahub-actions` sets tags the same way but records no platform resources, so its tags are still ingested as nested tags such as `test_db.public.pii:urn:li:tag:pii`.
+
+If the records can't be loaded, the run reports a failure and skips Snowflake tags: tags and structured properties on databases, schemas and tables are left unchanged, and column tags are carried over from DataHub.
+
+Every other Snowflake tag is ingested as before. Records are loaded once at the start of each run, and a Snowflake tag with no record then is looked up again directly, once per run, so a tag DataHub writes to Snowflake during a run is recognised in the same run. Before writing its own records at the end of a run, ingestion reads them again and leaves alone any that DataHub created or took over in the meantime. The records are looked up and written through the DataHub graph, so this needs a DataHub connection (`datahub_api`, or the `datahub-rest` sink). Without one, every Snowflake tag is ingested as a native tag.
+
+Duplicate tags that earlier ingestion runs created from these Snowflake tags (for example `test_db.public.pii:high` next to `pii`) stay on assets until you remove them; ingestion does not clean them up.
+
+Snowflake tag names and values are matched without regard to case, so DataHub tags that differ only in case (for example `PII` and `pii`) written to the same Snowflake tag and value are treated as one. The platform instance is matched exactly as configured, with its case.
+
+#### Materialized Views
+
+Materialized views come from `SHOW VIEWS` and are marked as materialized in their view properties. Their last-modified time comes from `SHOW MATERIALIZED VIEWS`: the newest base-table change the view holds (`refreshed_on` or `compacted_on`), or the creation time when the data has not changed since. It needs the same access as `SHOW VIEWS`, and no warehouse.
+
+With `include_operational_stats` and `include_technical_schema` enabled (the defaults), each run also emits one `UPDATE` operation at that time for a materialized view whose data changed after it was created, so operation-based freshness checks see the refresh.
+
+With `fetch_views_from_information_schema: true`, materialized views are not ingested, because `information_schema.views` does not list them.
+
 #### Metadata Pattern Pushdown
 
 When ingesting metadata from large Snowflake environments, you can improve performance by pushing down pattern filters directly to Snowflake SQL queries using the `push_down_metadata_patterns` configuration option.
@@ -439,7 +467,7 @@ DataHub supports ingestion of Snowflake Stages, Tasks, and Snowpipe objects. All
 
 ##### Stages (`include_stages: true`)
 
-Stages are ingested as containers nested under their parent schema. Internal stages additionally emit a placeholder dataset representing the staged data, which is used for pipe lineage resolution. External stages (S3, GCS, Azure) resolve their URLs to the corresponding cloud platform dataset URN.
+Stages are ingested as containers nested under their parent schema. Internal stages additionally emit a placeholder dataset representing the staged data, which is used for pipe lineage resolution. External stages on S3, GCS, or Azure Blob Storage resolve their URLs to the corresponding cloud platform dataset URN when the location uses a supported scheme and host (Snowflake `azure://` URLs on ADLS Gen2 `dfs.core.windows.net` hosts are skipped).
 
 ```yaml
 include_stages: true
@@ -447,6 +475,23 @@ stage_pattern:
   allow:
     - "MY_DB.MY_SCHEMA.*"
 ```
+
+**Data lake lineage path specs for external stages**
+
+An external stage may point at a location that is more granular than the logical dataset — for example `s3://my-bucket/events/year=2024/month=01/`. By default the stage URL resolves to a dataset URN for that exact prefix, which will not match the table-level URN that the [S3 source](https://docs.datahub.com/docs/generated/ingestion/sources/s3) emits (`s3://my-bucket/events`), so lineage does not stitch together.
+
+Configure `datalake_lineage_config.path_specs` (the same `PathSpec` model used by the S3 source) to fold the stage location up to the `{table}` boundary. A stage pointing at the table root, a partition subfolder, or any prefix beneath `{table}` all resolve to the same dataset URN when the folded bucket/key path matches what the lake source emits. Path specs may use `s3://` or `gcs://`, or `azure://` for Azure Blob Storage stages whose host is `*.blob.core.windows.net`; Snowflake `azure://` URLs on ADLS Gen2 `*.dfs.core.windows.net` hosts are not resolved and emit no external dataset URN. Resolved URNs do not carry a `platform_instance`, so lineage does not stitch to S3, GCS, or ABS datasets ingested with `platform_instance` set even when the path matches. Set `ignore_non_path_spec_path: true` to skip emitting a dataset URN for any stage whose location does not match a configured path spec.
+
+```yaml
+datalake_lineage_config:
+  path_specs:
+    - include: "s3://my-bucket/{table}/*/*/*.csv"
+  ignore_non_path_spec_path: true
+```
+
+Give each storage location a single path spec. A stage URL is a directory prefix with no filename, so specs cannot be told apart by `file_types` the way they are when matching files — if two specs cover the same location but place `{table}` at different depths, the first one listed wins and the resulting URN may not be the one the lake source emits for that table.
+
+`exclude` and `tables_filter_pattern` are honoured: a stage location that a matching spec excludes or filters out emits no lineage at all, rather than falling back to the raw prefix.
 
 ##### Tasks (`include_tasks: true`)
 
@@ -511,6 +556,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 - Some features require specific Snowflake editions or additional privileges. This includes dynamic tables, semantic views, advanced lineage features, and tags.
 - Dynamic tables require the `monitor` privilege for full metadata extraction. Without this privilege, dynamic table entities will still appear in DataHub but their DDL is not accessible, so lineage will not be extracted.
 - Semantic views require `REFERENCES` or `SELECT` privileges for metadata extraction. Without these privileges, semantic views will not be visible to DataHub.
+- Stored procedures require `USAGE` on each procedure; without it they are silently skipped. Snowflake hides the definition of owner's-rights (the default) and secure procedures from roles that don't own them, so such procedures may be ingested without code or lineage, or be missing.
 - The underlying Snowflake views that we use to get metadata have a [latency of 45 minutes to 3 hours](https://docs.snowflake.com/en/sql-reference/account-usage.html#differences-between-account-usage-and-information-schema). So we would not be able to get very recent metadata in some cases like queries you ran within that time period etc. This is applicable particularly for lineage, usage and tags (without lineage) extraction.
 - If there is any [ongoing Snowflake incident](https://status.snowflake.com/), we will not be able to get the metadata until that incident is resolved.
 - Lineage extraction, when got directly from Snowflake access history, has some limitations, as documented [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes), [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes-column-lineage), and [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes-object-modified-by-ddl-column).

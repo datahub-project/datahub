@@ -1,16 +1,9 @@
 package io.datahubproject.openapi.v1.registry;
 
-import com.datahub.authentication.Authentication;
-import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
-import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.v1.models.registry.AspectSpecDto;
 import io.datahubproject.openapi.v1.models.registry.EntitySpecDto;
 import io.datahubproject.openapi.v1.models.registry.EntitySpecResponse;
@@ -22,12 +15,11 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -40,25 +32,26 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/openapi/v1/registry/models")
-@Slf4j
 @Tag(name = "Entity Registry API", description = "An API to expose the Entity Registry")
 @AllArgsConstructor
 @NoArgsConstructor
 public class EntityRegistryController {
-  @Autowired private AuthorizerChain authorizerChain;
+  @Autowired private RegistryApiAuthorization registryApiAuthorization;
   @Autowired private OperationContext systemOperationContext;
 
   @GetMapping(path = "/entity/specifications", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
-      description = "Retrieves all entity specs. Requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.",
+      description =
+          "Retrieves all entity specs." + RegistryApiAuthorization.READ_ACCESS_DESCRIPTION,
       responses = {
         @ApiResponse(
             responseCode = "200",
             description = "Successfully returned entity specs",
             content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
         @ApiResponse(
             responseCode = "403",
-            description = "Caller not authorized to access the entity registry")
+            description = RegistryApiAuthorization.FORBIDDEN_DESCRIPTION)
       })
   public ResponseEntity<PaginatedResponse<EntitySpecDto>> getEntitySpecs(
       HttpServletRequest request,
@@ -69,20 +62,10 @@ public class EntityRegistryController {
           @RequestParam(name = "count", required = false, defaultValue = "5")
           Integer count) {
 
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    String actorUrnStr = authentication.getActor().toUrnStr();
-    OperationContext opContext =
-        systemOperationContext.asSession(
-            RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getEntitySpecs", Collections.emptyList())
-                .withUsageOperation(UsageOperation.OTHER_READ),
-            authorizerChain,
-            authentication);
-
-    if (!AuthUtil.isAPIOperationsAuthorized(
-        opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
-      log.error("{} is not authorized to get entity", actorUrnStr);
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+    Optional<HttpStatus> denialStatus =
+        registryApiAuthorization.getReadDenialStatus(request, "getEntitySpecs");
+    if (denialStatus.isPresent()) {
+      return ResponseEntity.status(denialStatus.get()).build();
     }
 
     Map<String, EntitySpec> entitySpecs =
@@ -110,33 +93,24 @@ public class EntityRegistryController {
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
       description =
-          "Retrieves entity spec for entity. Requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.",
+          "Retrieves entity spec for entity." + RegistryApiAuthorization.READ_ACCESS_DESCRIPTION,
       responses = {
         @ApiResponse(
             responseCode = "200",
             description = "Successfully returned entity spec",
             content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
         @ApiResponse(
             responseCode = "403",
-            description = "Caller not authorized to access the entity registry")
+            description = RegistryApiAuthorization.FORBIDDEN_DESCRIPTION)
       })
   public ResponseEntity<EntitySpecResponse> getEntitySpec(
       HttpServletRequest request, @PathVariable("entityName") String entityName) {
 
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    String actorUrnStr = authentication.getActor().toUrnStr();
-    OperationContext opContext =
-        systemOperationContext.asSession(
-            RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getEntitySpec", Collections.emptyList())
-                .withUsageOperation(UsageOperation.OTHER_READ),
-            authorizerChain,
-            authentication);
-
-    if (!AuthUtil.isAPIOperationsAuthorized(
-        opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
-      log.error("{} is not authorized to get entity", actorUrnStr);
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+    Optional<HttpStatus> denialStatus =
+        registryApiAuthorization.getReadDenialStatus(request, "getEntitySpec");
+    if (denialStatus.isPresent()) {
+      return ResponseEntity.status(denialStatus.get()).build();
     }
 
     try {
@@ -158,33 +132,25 @@ public class EntityRegistryController {
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
       description =
-          "Retrieves aspect specs for the entity. Requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.",
+          "Retrieves aspect specs for the entity."
+              + RegistryApiAuthorization.READ_ACCESS_DESCRIPTION,
       responses = {
         @ApiResponse(
             responseCode = "200",
             description = "Successfully returned aspect specs",
             content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
         @ApiResponse(
             responseCode = "403",
-            description = "Caller not authorized to access the entity registry")
+            description = RegistryApiAuthorization.FORBIDDEN_DESCRIPTION)
       })
   public ResponseEntity<Map<String, AspectSpecDto>> getEntityAspecSpecs(
       HttpServletRequest request, @PathVariable("entityName") String entityName) {
 
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    String actorUrnStr = authentication.getActor().toUrnStr();
-    OperationContext opContext =
-        systemOperationContext.asSession(
-            RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getEntityAspecSpecs", Collections.emptyList())
-                .withUsageOperation(UsageOperation.OTHER_READ),
-            authorizerChain,
-            authentication);
-
-    if (!AuthUtil.isAPIOperationsAuthorized(
-        opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
-      log.error("{} is not authorized to get entity model", actorUrnStr);
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+    Optional<HttpStatus> denialStatus =
+        registryApiAuthorization.getReadDenialStatus(request, "getEntityAspecSpecs");
+    if (denialStatus.isPresent()) {
+      return ResponseEntity.status(denialStatus.get()).build();
     }
 
     try {
@@ -208,15 +174,17 @@ public class EntityRegistryController {
 
   @GetMapping(path = "/aspect/specifications", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
-      description = "Retrieves all entity specs. Requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.",
+      description =
+          "Retrieves all entity specs." + RegistryApiAuthorization.READ_ACCESS_DESCRIPTION,
       responses = {
         @ApiResponse(
             responseCode = "200",
             description = "Successfully returned entity specs",
             content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
         @ApiResponse(
             responseCode = "403",
-            description = "Caller not authorized to access the entity registry")
+            description = RegistryApiAuthorization.FORBIDDEN_DESCRIPTION)
       })
   public ResponseEntity<PaginatedResponse<AspectSpecDto>> getAspectSpecs(
       HttpServletRequest request,
@@ -227,20 +195,10 @@ public class EntityRegistryController {
           @RequestParam(name = "count", required = false, defaultValue = "20")
           Integer count) {
 
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    String actorUrnStr = authentication.getActor().toUrnStr();
-    OperationContext opContext =
-        systemOperationContext.asSession(
-            RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getAspectSpecs", Collections.emptyList())
-                .withUsageOperation(UsageOperation.OTHER_READ),
-            authorizerChain,
-            authentication);
-
-    if (!AuthUtil.isAPIOperationsAuthorized(
-        opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
-      log.error("{} is not authorized to get aspect models", actorUrnStr);
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+    Optional<HttpStatus> denialStatus =
+        registryApiAuthorization.getReadDenialStatus(request, "getAspectSpecs");
+    if (denialStatus.isPresent()) {
+      return ResponseEntity.status(denialStatus.get()).build();
     }
 
     Map<String, AspectSpec> aspectSpecs =
@@ -258,33 +216,25 @@ public class EntityRegistryController {
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
       description =
-          "Retrieves aspect spec for the specified aspect. Requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.",
+          "Retrieves aspect spec for the specified aspect."
+              + RegistryApiAuthorization.READ_ACCESS_DESCRIPTION,
       responses = {
         @ApiResponse(
             responseCode = "200",
             description = "Successfully returned aspect spec",
             content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
         @ApiResponse(
             responseCode = "403",
-            description = "Caller not authorized to access the entity registry")
+            description = RegistryApiAuthorization.FORBIDDEN_DESCRIPTION)
       })
   public ResponseEntity<AspectSpecDto> getAspectSpec(
       HttpServletRequest request, @PathVariable("aspectName") String aspectName) {
 
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    String actorUrnStr = authentication.getActor().toUrnStr();
-    OperationContext opContext =
-        systemOperationContext.asSession(
-            RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getAspectSpec", Collections.emptyList())
-                .withUsageOperation(UsageOperation.OTHER_READ),
-            authorizerChain,
-            authentication);
-
-    if (!AuthUtil.isAPIOperationsAuthorized(
-        opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
-      log.error("{} is not authorized to get aspect models", actorUrnStr);
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+    Optional<HttpStatus> denialStatus =
+        registryApiAuthorization.getReadDenialStatus(request, "getAspectSpec");
+    if (denialStatus.isPresent()) {
+      return ResponseEntity.status(denialStatus.get()).build();
     }
 
     if (systemOperationContext.getEntityRegistry().getAspectSpecs().get(aspectName) != null) {
@@ -300,15 +250,16 @@ public class EntityRegistryController {
 
   @GetMapping(path = "/event/specifications", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
-      description = "Retrieves all event specs. Requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.",
+      description = "Retrieves all event specs." + RegistryApiAuthorization.READ_ACCESS_DESCRIPTION,
       responses = {
         @ApiResponse(
             responseCode = "200",
             description = "Successfully returned event specs",
             content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
         @ApiResponse(
             responseCode = "403",
-            description = "Caller not authorized to access the entity registry")
+            description = RegistryApiAuthorization.FORBIDDEN_DESCRIPTION)
       })
   public ResponseEntity<PaginatedResponse<EventSpecDto>> getEventSpecs(
       HttpServletRequest request,
@@ -319,20 +270,10 @@ public class EntityRegistryController {
           @RequestParam(name = "count", required = false, defaultValue = "20")
           Integer count) {
 
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    String actorUrnStr = authentication.getActor().toUrnStr();
-    OperationContext opContext =
-        systemOperationContext.asSession(
-            RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getEventSpecs", Collections.emptyList())
-                .withUsageOperation(UsageOperation.OTHER_READ),
-            authorizerChain,
-            authentication);
-
-    if (!AuthUtil.isAPIOperationsAuthorized(
-        opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
-      log.error("{} is not authorized to get event models", actorUrnStr);
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+    Optional<HttpStatus> denialStatus =
+        registryApiAuthorization.getReadDenialStatus(request, "getEventSpecs");
+    if (denialStatus.isPresent()) {
+      return ResponseEntity.status(denialStatus.get()).build();
     }
 
     Map<String, EventSpec> eventSpecs = systemOperationContext.getEntityRegistry().getEventSpecs();

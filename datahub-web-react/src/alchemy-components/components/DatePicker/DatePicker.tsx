@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 
 import { buildDateTimeFormat } from '@components/components/DatePicker/DatePicker.utils';
 import { DatePickerGlobalStyles } from '@components/components/DatePicker/DatePickerGlobalStyles';
@@ -6,6 +6,9 @@ import { DatePickerWrapper, Label, StyledAntdDatePicker } from '@components/comp
 import { DatePickerVariant } from '@components/components/DatePicker/constants';
 import useVariantProps from '@components/components/DatePicker/hooks/useVariantProps';
 import { DatePickerProps, DatePickerValue } from '@components/components/DatePicker/types';
+
+const FOCUSABLE_SELECTOR = '[tabindex]:not([tabindex="-1"])';
+const CONTENTS_STYLE: React.CSSProperties = { display: 'contents' };
 
 export const datePickerDefault: DatePickerProps = {
     variant: DatePickerVariant.Default,
@@ -54,6 +57,31 @@ export function DatePicker({
             });
     }, [disabled, placeholder, isOpen, inputRender]);
 
+    // rc-picker 4 renders the custom input as a component type, so its identity must stay stable or the
+    // input remounts (and loses focus) on every render. It reads the latest render function from a ref.
+    const wrappedInputRenderRef = useRef(wrappedInputRender);
+    wrappedInputRenderRef.current = wrappedInputRender;
+    const StableInput = useMemo(
+        () =>
+            forwardRef<HTMLElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => {
+                const holderRef = useRef<HTMLSpanElement>(null);
+                // rc-picker focuses this ref on click, so it must be the variant's focusable element: its input,
+                // else a tabindex element (the date switcher has no input)
+                useImperativeHandle(ref, () => {
+                    const holder = holderRef.current;
+                    return (holder?.querySelector<HTMLElement>('input') ??
+                        holder?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ??
+                        holder) as HTMLElement;
+                });
+                return (
+                    <span ref={holderRef} style={CONTENTS_STYLE}>
+                        {wrappedInputRenderRef.current?.(props)}
+                    </span>
+                );
+            }),
+        [],
+    );
+
     return (
         <>
             <DatePickerGlobalStyles />
@@ -63,8 +91,8 @@ export function DatePicker({
                     {...datePickerProps}
                     {...(resolvedFormat ? { format: resolvedFormat } : {})}
                     value={value}
-                    inputRender={wrappedInputRender && ((props) => wrappedInputRender?.(props))}
-                    onChange={(newValue) => setInternalValue(newValue)}
+                    components={wrappedInputRender ? { input: StableInput } : undefined}
+                    onChange={(newValue) => setInternalValue(newValue as DatePickerValue)}
                     onOpenChange={(open) => setIsOpen(open)}
                     disabled={disabled}
                     disabledDate={disabledDate}

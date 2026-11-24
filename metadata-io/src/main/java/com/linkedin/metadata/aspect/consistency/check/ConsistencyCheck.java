@@ -3,11 +3,13 @@ package com.linkedin.metadata.aspect.consistency.check;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.consistency.ConsistencyIssue;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Interface for consistency checks that validate invariants for entities.
@@ -148,5 +150,47 @@ public interface ConsistencyCheck {
    */
   default boolean isOnDemandOnly() {
     return false;
+  }
+
+  /**
+   * Whether this check owns a continuation scroll id.
+   *
+   * <p>The service asks every registered check. The prefix stays on the check that produces it.
+   *
+   * @param scrollId scroll id from the previous batch, or null
+   * @return true when {@link #resume} should run instead of the system-metadata scroll
+   */
+  default boolean ownsScrollId(@Nullable String scrollId) {
+    return false;
+  }
+
+  /**
+   * Continue a scroll this check owns.
+   *
+   * <p>Called only when {@link #ownsScrollId} is true and this check is selected for the batch.
+   * {@code request.getEntityType()} is the type resolved for the batch.
+   *
+   * @param opContext operation context
+   * @param request batch request, including the continuation scroll id
+   * @return the next page of this check's own phase
+   */
+  @Nonnull
+  default CheckResult resume(
+      @Nonnull OperationContext opContext, @Nonnull CheckBatchRequest request) {
+    return CheckResult.empty();
+  }
+
+  /**
+   * Work that cannot be done inside {@link #check} because the entities are not in the SQL batch.
+   *
+   * <p>The service calls this after {@link #check} for every selected check. The default adds
+   * nothing and does not continue a scroll.
+   *
+   * @param request the system-metadata page and the URNs that were absent from SQL
+   * @return extra issues and, when the SQL scroll is exhausted, an optional continuation scroll
+   */
+  @Nonnull
+  default CheckFollowUp followUp(@Nonnull CheckFollowUpRequest request) {
+    return CheckFollowUp.none();
   }
 }

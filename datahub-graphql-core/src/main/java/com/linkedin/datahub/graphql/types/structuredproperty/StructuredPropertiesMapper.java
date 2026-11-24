@@ -51,7 +51,7 @@ public class StructuredPropertiesMapper {
     return result;
   }
 
-  private StructuredPropertiesEntry mapStructuredProperty(
+  public StructuredPropertiesEntry mapStructuredProperty(
       @Nullable QueryContext context,
       StructuredPropertyValueAssignment valueAssignment,
       @Nonnull final Urn entityUrn) {

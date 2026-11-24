@@ -9,17 +9,33 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "usageFeatures",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record UsageFeatures {
   /**
    * Total SQL query count over the last 30 days.
    */
+  @Searchable = {
+    "fieldType": "COUNT",
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "usageCount30d",
+      "queryByDefault": false
+    }
+  }
   queryCountLast30Days: optional long
 
   /**
    * Unique user count over the last 30 days.
    */
+  @Searchable = {
+    "fieldType": "COUNT",
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "uniqueUserCount30d",
+      "queryByDefault": false
+    }
+  }
   uniqueUserCountLast30Days: optional long
 
   /**
@@ -42,6 +58,14 @@ record UsageFeatures {
   /**
    * Percentile rank of unique user count relative to all datasets, over the last 30 days.
    */
+  @Searchable = {
+    "fieldType": "COUNT",
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "uniqueUserPercentile30d",
+      "queryByDefault": false
+    }
+  }
   uniqueUserPercentileLast30Days: optional int
 
   /**

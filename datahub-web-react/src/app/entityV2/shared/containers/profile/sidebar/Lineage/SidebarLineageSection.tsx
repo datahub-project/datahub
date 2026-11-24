@@ -7,8 +7,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { EntityTabPath } from '@app/entityV2/shared/constants';
 import SidebarLineageLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageLoadingSection';
 import { useSearchSummaryLineage } from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection.hooks';
@@ -19,6 +18,7 @@ import {
     getRelatedEntitySummary,
 } from '@app/entityV2/shared/containers/profile/sidebar/Lineage/utils';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { useEntityFormContext } from '@app/entityV2/shared/entityForm/EntityFormContext';
 import { TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineageV3/utils/useGetLineageTimeParams';

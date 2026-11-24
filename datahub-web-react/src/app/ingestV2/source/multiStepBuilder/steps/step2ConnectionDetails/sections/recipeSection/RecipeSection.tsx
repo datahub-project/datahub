@@ -1,16 +1,25 @@
-import { LegacyForm as Form, toast } from '@components';
+import { LegacyForm as Form, spacing, toast } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
-import { Tab, Tabs } from '@components/components/Tabs/Tabs';
+import { Tab } from '@components/components/Tabs/Tabs';
 
 import { CONNECTORS_WITH_FORM_INCLUDING_DYNAMIC_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { YamlEditor } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/YamlEditor';
 import RecipeForm from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/RecipeForm';
+import { TestConnectionSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/TestConnection/TestConnectionSection';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
+import { Tabs } from '@app/sharedV2/tabs/Tabs';
+
+const YamlOnlyContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: ${spacing.sm};
+`;
 
 interface Props {
     state: MultiStepSourceBuilderState;
@@ -103,5 +112,16 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
         return <Tabs tabs={tabs} selectedTab={selectedTabKey} onTabClick={onTabClick} destroyInactiveTabPane />;
     }
 
-    return <YamlEditor value={displayRecipe} onChange={setStagedRecipe} />;
+    // Sources without a structured form get Test Connection next to the YAML editor.
+    return (
+        <YamlOnlyContainer>
+            <YamlEditor value={displayRecipe} onChange={setStagedRecipe} />
+            <TestConnectionSection
+                type={type}
+                recipe={displayRecipe}
+                sourceConfigs={sourceConfigs}
+                version={state.config?.version}
+            />
+        </YamlOnlyContainer>
+    );
 }

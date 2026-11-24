@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.elasticsearch.util.UsageEventIndexSetup;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.UsageEventIndexUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
@@ -154,30 +155,18 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
       int numReplicas,
       int usageRefreshSeconds)
       throws Exception {
-    String prefixedPolicy = prefix + "datahub_usage_event_policy";
-    String prefixedTemplate = prefix + "datahub_usage_event_index_template";
-    String prefixedDataStream = prefix + "datahub_usage_event";
-    String refreshInterval = usageRefreshSeconds + "s";
-
-    UsageEventIndexUtils.createIlmPolicy(operationContext, cluster, prefixedPolicy);
-    UsageEventIndexUtils.createIndexTemplate(
-        operationContext,
-        cluster,
-        prefixedTemplate,
-        prefixedPolicy,
-        numShards,
-        numReplicas,
-        prefix,
-        refreshInterval);
+    UsageEventIndexSetup.Names names = UsageEventIndexSetup.Names.of(prefix);
+    UsageEventIndexSetup.createPolicyAndTemplate(
+        operationContext, cluster, false, names, numShards, numReplicas, usageRefreshSeconds);
     withLegacyMigration(
         cluster,
         operationContext,
         prefix,
         false,
         true,
-        () -> UsageEventIndexUtils.createDataStream(operationContext, cluster, prefixedDataStream));
+        () -> UsageEventIndexSetup.createWriteTarget(operationContext, cluster, false, names));
     UsageEventIndexUtils.applyRefreshInterval(
-        operationContext, cluster, prefixedDataStream, usageRefreshSeconds);
+        operationContext, cluster, names.writeTarget(), usageRefreshSeconds);
   }
 
   private void setupOpenSearchUsageEvents(
@@ -188,47 +177,26 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
       int usageRefreshSeconds,
       OperationContext operationContext)
       throws Exception {
-    String prefixedPolicy = prefix + "datahub_usage_event_policy";
-    String prefixedTemplate = prefix + "datahub_usage_event_index_template";
-    String prefixedAlias = prefix + "datahub_usage_event";
-    String prefixedIndex = prefix + "datahub_usage_event-000001";
-
+    UsageEventIndexSetup.Names names = UsageEventIndexSetup.Names.of(prefix);
     boolean policyCreated =
-        UsageEventIndexUtils.createIsmPolicy(cluster, prefixedPolicy, prefix, operationContext);
-    log.info("ISM policy creation result: {}", policyCreated);
-
+        UsageEventIndexSetup.createPolicyAndTemplate(
+            operationContext, cluster, true, names, numShards, numReplicas, usageRefreshSeconds);
     if (policyCreated) {
-      log.info("ISM policy created successfully, proceeding with template and index creation");
-      log.info("Creating index template: {}", prefixedTemplate);
-      UsageEventIndexUtils.createOpenSearchIndexTemplate(
-          operationContext,
-          cluster,
-          prefixedTemplate,
-          numShards,
-          numReplicas,
-          prefix,
-          usageRefreshSeconds + "s");
       withLegacyMigration(
           cluster,
           operationContext,
           prefix,
           true,
           true,
-          () -> {
-            log.info("Creating initial index: {} with alias: {}", prefixedIndex, prefixedAlias);
-            UsageEventIndexUtils.createOpenSearchUsageEventIndex(
-                operationContext, cluster, prefixedIndex, prefixedAlias);
-          });
+          () -> UsageEventIndexSetup.createWriteTarget(operationContext, cluster, true, names));
     } else {
-      log.warn(
-          "ISM policy creation failed or is not supported. Skipping template and index creation to avoid configuration issues.");
       log.info("Usage event tracking will not be available without proper policy configuration.");
       // A layout an earlier run created may still have backups to copy back.
       withLegacyMigration(cluster, operationContext, prefix, true, false, null);
     }
     // An existing alias still needs the configured interval when this run cannot create the policy.
     UsageEventIndexUtils.applyRefreshInterval(
-        operationContext, cluster, prefixedAlias, usageRefreshSeconds);
+        operationContext, cluster, names.writeTarget(), usageRefreshSeconds);
   }
 
   @FunctionalInterface

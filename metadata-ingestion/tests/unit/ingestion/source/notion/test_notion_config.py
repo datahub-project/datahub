@@ -213,3 +213,36 @@ def test_external_mode_sets_mapping():
     )
     assert config.document_import_mode == DocumentImportMode.EXTERNAL
     assert config.document_mapping.source.type == "EXTERNAL"
+
+
+def test_page_and_database_ids_accept_notion_urls():
+    """A pasted Notion URL (with slug, query and fragment) is reduced to its
+    hyphenated 32-hex id, for both page and database ids."""
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        page_ids=[
+            "https://www.notion.so/acme/Page-Title-2bffc6a642778024971c9d0f26faa480?v=abc#top",
+        ],
+        database_ids=["https://notion.so/abcdef01234567890123456789012345/"],
+    )
+    assert config.page_ids == ["2bffc6a6-4277-8024-971c-9d0f26faa480"]
+    assert config.database_ids == ["abcdef01-2345-6789-0123-456789012345"]
+
+
+def test_notion_url_without_id_is_rejected():
+    with pytest.raises(ValidationError):
+        NotionSourceConfig(
+            api_key=SecretStr("secret_test_key"),
+            page_ids=["https://www.notion.so/acme/Page-Title"],
+        )
+
+
+def test_parent_document_urn_anchors_hierarchy_root():
+    """parent_document_urn is forwarded into the folder mapping as the root parent."""
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        parent_document_urn="urn:li:document:knowledge-base",
+    )
+    assert config.hierarchy.folder_mapping.root_parent == (
+        "urn:li:document:knowledge-base"
+    )

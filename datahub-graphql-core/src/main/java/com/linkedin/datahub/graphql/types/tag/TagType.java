@@ -56,7 +56,8 @@ public class TagType
           TAG_KEY_ASPECT_NAME,
           TAG_PROPERTIES_ASPECT_NAME,
           OWNERSHIP_ASPECT_NAME,
-          DEPRECATION_ASPECT_NAME);
+          DEPRECATION_ASPECT_NAME,
+          STATUS_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = Collections.emptySet();
 

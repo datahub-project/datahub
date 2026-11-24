@@ -10,10 +10,12 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Set,
     Tuple,
 )
 
 from sqlalchemy.engine.url import make_url
+from typing_extensions import LiteralString
 
 from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
@@ -24,6 +26,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     KNOWN_TOPIC_ROUTING_TRANSFORMS,
     MYSQL_CDC_SOURCE_V2_CLOUD,
     POSTGRES_CDC_SOURCE_V2_CLOUD,
+    POSTGRES_SOURCE_CLOUD,
     REGEXROUTER_TRANSFORM,
     SNOWFLAKE_SOURCE_CLOUD,
     BaseConnector,
@@ -36,6 +39,14 @@ from datahub.ingestion.source.kafka_connect.common import (
     remove_prefix,
     unquote,
     validate_jdbc_url,
+)
+from datahub.ingestion.source.kafka_connect.config_constants import (
+    ConnectorConfigKeys,
+    S3SourceMode,
+    allowed_flow_properties,
+    literal_directory_prefix,
+    parse_topic_regex_list,
+    topics_from_regex_list,
 )
 from datahub.ingestion.source.kafka_connect.pattern_matchers import (
     JavaRegexMatcher,
@@ -154,9 +165,13 @@ class JdbcParserFactory:
         else:
             source_platform = "unknown"
 
-        hostname = connector_manifest.config.get("database.hostname")
-        port = connector_manifest.config.get("database.port")
-        database_name = connector_manifest.config.get("database.dbname")
+        # CDC connectors use database.*; the managed JDBC PostgresSource uses
+        # connection.host / connection.port / db.name:
+        # https://docs.confluent.io/cloud/current/connectors/cc-postgresql-source.html
+        config = connector_manifest.config
+        hostname = config.get("database.hostname") or config.get("connection.host")
+        port = config.get("database.port") or config.get("connection.port")
+        database_name = config.get("database.dbname") or config.get("db.name")
 
         if not hostname or not port or not database_name:
             raise ValueError(
@@ -178,8 +193,12 @@ class JdbcParserFactory:
         # References:
         #   - https://docs.confluent.io/cloud/current/connectors/cc-postgresql-cdc-source-v2-debezium/cc-postgresql-cdc-source-v2-debezium.html
         #   - https://docs.confluent.io/cloud/current/connectors/cc-mysql-source-cdc-v2-debezium/cc-mysql-source-cdc-v2-debezium.html
-        if connector_class in (POSTGRES_CDC_SOURCE_V2_CLOUD, MYSQL_CDC_SOURCE_V2_CLOUD):
-            # V2 uses topic.prefix (new Cloud-native implementation)
+        if connector_class in (
+            POSTGRES_CDC_SOURCE_V2_CLOUD,
+            MYSQL_CDC_SOURCE_V2_CLOUD,
+            POSTGRES_SOURCE_CLOUD,
+        ):
+            # V2 CDC and the managed JDBC PostgresSource use topic.prefix
             topic_prefix = connector_manifest.config.get("topic.prefix", "")
         else:
             # V1 and other CDC connectors use database.server.name (Debezium standard)
@@ -245,10 +264,47 @@ class JdbcParserFactory:
         )
 
 
+# A `table.include.list` entry naming one table: `schema.table` or `table`, each part
+# optionally double-quoted, with no regex syntax.
+_LITERAL_TABLE_ENTRY_RE: Final["re.Pattern[str]"] = re.compile(
+    r'^(?:"?(?P<schema>[A-Za-z0-9_$]+)"?\.)?"?(?P<table>[A-Za-z0-9_$]+)"?$'
+)
+
+# Properties shown on a managed PostgresSource's DataFlow; everything else may hold
+# credentials (connection.password, ssl key files, ...).
+# https://docs.confluent.io/cloud/current/connectors/cc-postgresql-source.html
+POSTGRES_SOURCE_FLOW_PROPERTIES: Final[FrozenSet[str]] = frozenset(
+    {
+        ConnectorConfigKeys.CONNECTOR_CLASS,
+        "name",
+        "tasks.max",
+        "connection.host",
+        "connection.port",
+        "db.name",
+        "table.include.list",
+        "table.exclude.list",
+        "table.whitelist",
+        "table.types",
+        "schema.pattern",
+        "topic.prefix",
+        "mode",
+        "timestamp.column.name",
+        "incrementing.column.name",
+        "timestamp.columns.mapping",
+        "incrementing.column.mapping",
+        "poll.interval.ms",
+        "batch.max.rows",
+        "db.timezone",
+        "output.data.format",
+        ConnectorConfigKeys.TRANSFORMS,
+    }
+)
+
+
 @dataclass
 class ConfluentJDBCSourceConnector(BaseConnector):
-    # Traditional io.confluent.connect.jdbc.JdbcSourceConnector only - Cloud
-    # Postgres/MySQL CDC classes dispatch to DebeziumSourceConnector instead.
+    # Self-hosted JdbcSourceConnector and Confluent Cloud PostgresSource (non-CDC).
+    # Cloud Postgres/MySQL CDC classes still dispatch to DebeziumSourceConnector.
     needs_cluster_topics: ClassVar[bool] = True
 
     # Use imported constants from connector_constants module
@@ -494,6 +550,10 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             return []
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
+        if self._is_managed_postgres_source():
+            return allowed_flow_properties(
+                self.connector_manifest.config, POSTGRES_SOURCE_FLOW_PROPERTIES
+            )
         flow_property_bag = {
             k: v
             for k, v in self.connector_manifest.config.items()
@@ -516,6 +576,8 @@ class ConfluentJDBCSourceConnector(BaseConnector):
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
         """Extract lineage mappings from connector configuration to Kafka topics."""
+        if self._is_managed_postgres_source():
+            return self._extract_managed_postgres_lineages()
         parser = self.get_parser(self.connector_manifest)
 
         logging.debug(
@@ -547,6 +609,195 @@ class ConfluentJDBCSourceConnector(BaseConnector):
 
         # Fallback: Unified lineage extraction approach
         return self._extract_lineages_unified(parser)
+
+    def _is_managed_postgres_source(self) -> bool:
+        return (
+            self.connector_manifest.config.get(CONNECTOR_CLASS) == POSTGRES_SOURCE_CLOUD
+        )
+
+    def _extract_managed_postgres_lineages(self) -> List[KafkaConnectLineage]:
+        """Lineage for Confluent Cloud's managed (non-CDC) PostgresSource.
+
+        Topics are `{topic.prefix}{table}`, then any topic-routing transforms. The
+        cluster's topic list covers every connector, so each configured table is
+        paired with the topic predicted from its own name, and only predicted topics
+        that exist on the cluster get an edge. Nothing falls back to unrelated topics.
+        """
+        try:
+            parser = self.get_parser(self.connector_manifest)
+        except ValueError as e:
+            self._warn_postgres(
+                "Confluent Cloud PostgreSQL source connector is missing "
+                "connection.host, connection.port or db.name; no lineage emitted",
+                exc=e,
+            )
+            return []
+        if parser.query:
+            self._warn_postgres(
+                "Confluent Cloud PostgreSQL source connector reads a custom query; its "
+                "source tables cannot be determined, so no lineage is emitted"
+            )
+            return []
+
+        tables = self._qualified_include_list_tables()
+        if not tables:
+            return []
+        predicted = self._predict_managed_postgres_topics(tables, parser)
+        if predicted is None:
+            return []
+
+        topic_tables: Dict[str, TableId] = {}
+        ambiguous: Set[str] = set()
+        for table, topic in zip(tables, predicted, strict=True):
+            if topic in topic_tables and topic_tables[topic] != table:
+                ambiguous.add(topic)
+            topic_tables.setdefault(topic, table)
+        if ambiguous:
+            self._warn_postgres(
+                "Skipping topics that more than one configured table would write "
+                "(same table name in different schemas)",
+                f"topics={sorted(ambiguous)}",
+            )
+
+        cluster_topics = set(self.available_topics())
+        scoped = [
+            topic
+            for topic in topic_tables
+            if topic in cluster_topics and topic not in ambiguous
+        ]
+        if not scoped:
+            self._warn_postgres(
+                "No lineage for a Confluent Cloud PostgreSQL source connector: none of "
+                "the topics predicted from its config are on the cluster",
+                f"predicted_topics={sorted(topic_tables)}",
+            )
+            return []
+        return [
+            self._create_lineage_mapping(
+                f"{topic_tables[topic].schema}.{topic_tables[topic].table}",
+                parser.database_name,
+                parser.source_platform,
+                topic,
+                True,
+            )
+            for topic in scoped
+        ]
+
+    def _qualified_include_list_tables(self) -> List[TableId]:
+        entries = self._get_source_tables_from_config()
+        if not entries:
+            self._warn_postgres(
+                "Confluent Cloud PostgreSQL source connector has no table.include.list; "
+                "no lineage emitted"
+            )
+            return []
+        tables: List[TableId] = []
+        patterns: List[str] = []
+        unqualified: List[str] = []
+        for entry in entries:
+            match = _LITERAL_TABLE_ENTRY_RE.match(entry)
+            if match is None:
+                patterns.append(entry)
+            elif match.group("schema") is None:
+                unqualified.append(entry)
+            else:
+                tables.append(
+                    TableId(schema=match.group("schema"), table=match.group("table"))
+                )
+        if patterns:
+            self._warn_postgres(
+                "Skipping table.include.list entries that are regular expressions; "
+                "only literal schema.table entries can be mapped to topics",
+                f"entries={patterns}",
+            )
+        if unqualified:
+            # Postgres datasets are database.schema.table; a bare name cannot be placed.
+            self._warn_postgres(
+                "Skipping table.include.list entries without a schema; use "
+                "schema.table so the source table can be identified",
+                f"entries={unqualified}",
+            )
+        return self._without_excluded_tables(tables)
+
+    def _without_excluded_tables(self, tables: List[TableId]) -> List[TableId]:
+        # table.exclude.list holds Java regexes over `schema.table`; the connector does
+        # not read a table that fully matches one, even if table.include.list names it.
+        config = self.connector_manifest.config
+        patterns = parse_comma_separated_list(
+            config.get("table.exclude.list") or config.get("table.blacklist", "")
+        )
+        if not patterns:
+            return tables
+        # JavaRegexMatcher answers "no match" when Java is missing or a pattern is
+        # invalid, which here would keep an excluded table, so check both first.
+        try:
+            from java.util.regex import Pattern as JavaPattern
+
+            for pattern in patterns:
+                JavaPattern.compile(pattern)
+        except Exception as e:
+            self._warn_postgres(
+                "Could not evaluate table.exclude.list with Java regex, so excluded "
+                "tables cannot be told apart; no lineage emitted",
+                f"patterns={patterns}",
+                exc=e,
+            )
+            return []
+        names = {f"{table.schema}.{table.table}": table for table in tables}
+        excluded = set(JavaRegexMatcher().filter_matches(patterns, list(names)))
+        return [table for name, table in names.items() if name not in excluded]
+
+    def _predict_managed_postgres_topics(
+        self, tables: List[TableId], parser: JdbcParser
+    ) -> Optional[List[str]]:
+        """One predicted topic per table, or None when transforms make it unknowable."""
+        topics = [f"{parser.topic_prefix}{table.table}" for table in tables]
+        pipeline = get_transform_pipeline()
+        routing = [
+            transform
+            for transform in pipeline.parse_transforms(self.connector_manifest.config)
+            if transform.type in KNOWN_TOPIC_ROUTING_TRANSFORMS
+        ]
+        for transform in routing:
+            plugin = pipeline.registry.get_plugin(transform.type)
+            if plugin is None or not plugin.should_apply_automatically():
+                self._warn_postgres(
+                    "Confluent Cloud PostgreSQL source connector uses a topic-routing "
+                    "transform that cannot be predicted; no lineage emitted",
+                    f"transform={transform.name}",
+                )
+                return None
+            try:
+                topics = plugin.apply_forward(topics, transform)
+            except Exception as e:
+                self._warn_postgres(
+                    "Could not apply a topic-routing transform of a Confluent Cloud "
+                    "PostgreSQL source connector; no lineage emitted",
+                    f"transform={transform.name}",
+                    exc=e,
+                )
+                return None
+            if len(topics) != len(tables):
+                self._warn_postgres(
+                    "A topic-routing transform did not give one topic per table; no "
+                    "lineage emitted",
+                    f"transform={transform.name}",
+                )
+                return None
+        return topics
+
+    def _warn_postgres(
+        self,
+        message: LiteralString,
+        detail: Optional[str] = None,
+        exc: Optional[BaseException] = None,
+    ) -> None:
+        context = f"connector={self.connector_manifest.name}"
+        self.report.warning(
+            message=message,
+            context=f"{context}, {detail}" if detail else context,
+            exc=exc,
+        )
 
     def _extract_lineages_with_environment_awareness(
         self, parser: JdbcParser
@@ -899,6 +1150,8 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         )
 
         for topic in available_topics:
+            if parser.topic_prefix and not topic.startswith(parser.topic_prefix):
+                continue
             # Remove prefix to get source table name
             source_table = self._extract_source_table_from_topic(
                 topic, parser.topic_prefix
@@ -3066,6 +3319,7 @@ class DebeziumSourceConnector(BaseConnector):
 
         # Find RegexRouter configuration
         regex_replacement = None
+        exact_match = False
         for name in transform_names:
             transform_type = self.connector_manifest.config.get(
                 f"transforms.{name}.type", ""
@@ -3085,7 +3339,10 @@ class DebeziumSourceConnector(BaseConnector):
                     if "$" in replacement:
                         regex_replacement = replacement.split("$")[0]
                     else:
+                        # A literal replacement routes every record to exactly
+                        # this one topic, so a prefix match would over-attribute.
                         regex_replacement = replacement
+                        exact_match = True
                     break
 
         # Filter topics using the replacement prefix
@@ -3093,7 +3350,11 @@ class DebeziumSourceConnector(BaseConnector):
             filtered_topics = [
                 topic
                 for topic in available_topics
-                if topic.startswith(regex_replacement)
+                if (
+                    topic == regex_replacement
+                    if exact_match
+                    else topic.startswith(regex_replacement)
+                )
             ]
             logger.debug(
                 f"Filtered EventRouter topics to {len(filtered_topics)} topics matching prefix '{regex_replacement}'"
@@ -3498,10 +3759,175 @@ class ConfigDrivenSourceConnector(BaseConnector):
         return lineages
 
 
+# Properties shown on the S3 source's DataFlow; everything else may hold credentials.
+S3_SOURCE_FLOW_PROPERTIES: Final[FrozenSet[str]] = frozenset(
+    {
+        ConnectorConfigKeys.CONNECTOR_CLASS,
+        "name",
+        "tasks.max",
+        ConnectorConfigKeys.S3_BUCKET_NAME,
+        "s3.region",
+        ConnectorConfigKeys.TOPICS_DIR,
+        ConnectorConfigKeys.TOPIC_REGEX_LIST,
+        ConnectorConfigKeys.S3_SOURCE_MODE,
+        "directory.delim",
+        "format.class",
+        "input.data.format",
+        "output.data.format",
+        "partitioner.class",
+        "path.format",
+        "behavior.on.error",
+        ConnectorConfigKeys.TRANSFORMS,
+    }
+)
+
+
+@dataclass
+class ConfluentS3SourceConnector(BaseConnector):
+    """S3 source connector (Confluent Cloud `S3Source` and self-hosted).
+
+    Lineage is only emitted where the S3 folder behind a topic is known:
+    - RESTORE_BACKUP mode reads back what the S3 sink wrote, `{topics.dir}/{topic}/...`,
+      for the topics the connector reports.
+    - GENERIC mode routes objects whose full key matches a `topic.regex.list` regex;
+      only a regex pinned to a folder (`raw/orders/.*`) gives a source dataset.
+    https://docs.confluent.io/kafka-connectors/s3-source/current/configuration_options.html
+    https://docs.confluent.io/cloud/current/connectors/cc-s3-source.html
+    """
+
+    def _mode(self) -> Optional[S3SourceMode]:
+        config = self.connector_manifest.config
+        mode = config.get(ConnectorConfigKeys.S3_SOURCE_MODE)
+        if not mode:
+            # Self-hosted defaults to RESTORE_BACKUP; the managed S3Source is
+            # documented only with topic.regex.list routing.
+            if config.get(CONNECTOR_CLASS) == S3_SOURCE_CONNECTOR_CLASS:
+                return S3SourceMode.RESTORE_BACKUP
+            return S3SourceMode.GENERIC
+        try:
+            return S3SourceMode(mode.upper())
+        except ValueError:
+            self._warn(
+                "S3 source connector has an unknown mode; no lineage emitted", mode
+            )
+            return None
+
+    def get_topics_from_config(self) -> List[str]:
+        return topics_from_regex_list(
+            self.connector_manifest.config.get(ConnectorConfigKeys.TOPIC_REGEX_LIST, "")
+        )
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        return allowed_flow_properties(
+            self.connector_manifest.config, S3_SOURCE_FLOW_PROPERTIES
+        )
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        bucket = self.connector_manifest.config.get(ConnectorConfigKeys.S3_BUCKET_NAME)
+        if not bucket:
+            self._warn("S3 source connector has no s3.bucket.name; no lineage emitted")
+            return []
+        routing = [
+            transform.name
+            for transform in get_transform_pipeline().parse_transforms(
+                self.connector_manifest.config
+            )
+            if transform.type in KNOWN_TOPIC_ROUTING_TRANSFORMS
+        ]
+        if routing:
+            # The topic named by the config (topic.regex.list, or the folder the sink
+            # wrote) is renamed after the source produces it, so the edge would point
+            # at a topic that does not exist.
+            self._warn(
+                "S3 source connector routes topics with a transform; no lineage "
+                "emitted",
+                f"transforms={routing}",
+            )
+            return []
+        mode = self._mode()
+        if mode == S3SourceMode.RESTORE_BACKUP:
+            return self._restore_backup_lineages(bucket)
+        if mode == S3SourceMode.GENERIC:
+            return self._generic_lineages(bucket)
+        return []
+
+    def _restore_backup_lineages(self, bucket: str) -> List[KafkaConnectLineage]:
+        config = self.connector_manifest.config
+        topics_dir = config.get(ConnectorConfigKeys.TOPICS_DIR, "topics").strip("/ ")
+        if not topics_dir:
+            self._warn(
+                "S3 source connector in RESTORE_BACKUP mode has a blank topics.dir; "
+                "no lineage emitted"
+            )
+            return []
+        topics = list(self.connector_manifest.topic_names)
+        if not topics:
+            self._warn(
+                "S3 source connector in RESTORE_BACKUP mode reported no topics; no "
+                "lineage emitted"
+            )
+            return []
+        return [
+            self._lineage(f"{bucket}/{topics_dir}/{topic}", topic) for topic in topics
+        ]
+
+    def _generic_lineages(self, bucket: str) -> List[KafkaConnectLineage]:
+        raw = self.connector_manifest.config.get(ConnectorConfigKeys.TOPIC_REGEX_LIST)
+        if not raw:
+            self._warn(
+                "S3 source connector in GENERIC mode has no topic.regex.list; no "
+                "lineage emitted"
+            )
+            return []
+        parsed = parse_topic_regex_list(raw)
+        if parsed.malformed:
+            self._warn(
+                "Skipping topic.regex.list entries that are not '<topic>:<regex>'",
+                f"entries={parsed.malformed}",
+            )
+        lineages: List[KafkaConnectLineage] = []
+        unpinned: List[str] = []
+        for mapping in parsed.mappings:
+            folder = literal_directory_prefix(mapping.regex)
+            if folder is None:
+                unpinned.append(f"{mapping.topic}:{mapping.regex}")
+                continue
+            lineages.append(self._lineage(f"{bucket}/{folder}", mapping.topic))
+        if unpinned:
+            self._warn(
+                "Skipping S3 source lineage for topic.regex.list entries that do not "
+                "pin a folder (e.g. 'orders:raw/orders/.*'); the objects they match "
+                "cannot be placed in an S3 dataset",
+                f"entries={unpinned}",
+            )
+        return lineages
+
+    def _warn(self, message: LiteralString, detail: Optional[str] = None) -> None:
+        context = f"connector={self.connector_manifest.name}"
+        self.report.warning(
+            message=message,
+            context=f"{context}, {detail}" if detail else context,
+        )
+
+    def _lineage(self, source_dataset: str, topic: str) -> KafkaConnectLineage:
+        return KafkaConnectLineage(
+            source_dataset=source_dataset,
+            source_platform="s3",
+            target_dataset=topic,
+            target_platform=KAFKA,
+        )
+
+    def get_platform(self) -> str:
+        return "s3"
+
+
 JDBC_SOURCE_CONNECTOR_CLASS: Final[str] = (
     "io.confluent.connect.jdbc.JdbcSourceConnector"
 )
 DEBEZIUM_SOURCE_CONNECTOR_PREFIX: Final[str] = "io.debezium.connector"
 MONGO_SOURCE_CONNECTOR_CLASS: Final[str] = (
     "com.mongodb.kafka.connect.MongoSourceConnector"
+)
+S3_SOURCE_CONNECTOR_CLASS: Final[str] = (
+    "io.confluent.connect.s3.source.S3SourceConnector"
 )

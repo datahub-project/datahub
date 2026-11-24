@@ -6,7 +6,7 @@ import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { getLastIngestedColor } from '@app/entity/shared/containers/profile/sidebar/LastIngested';
+import { getLastIngestedColor } from '@app/entityV2/shared/containers/profile/sidebar/LastIngested';
 import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 
 const LastUpdatedContainer = styled.div`
@@ -38,12 +38,15 @@ const PopoverContentSection = styled.div`
 `;
 
 const PreviewImage = styled(Image)`
-    max-height: 9px;
-    width: auto;
-    object-fit: contain;
-    background-color: transparent;
-    padding-left: 1px;
-    margin-right: 4px;
+    /* antd 5 sizes .ant-image .ant-image-img with two classes; && keeps these sizes winning */
+    && {
+        max-height: 9px;
+        width: auto;
+        object-fit: contain;
+        background-color: transparent;
+        padding-left: 1px;
+        margin-right: 4px;
+    }
 `;
 
 function PlatformLabel({ logoUrl, name, children }: { logoUrl?: string; name?: string; children?: React.ReactNode }) {

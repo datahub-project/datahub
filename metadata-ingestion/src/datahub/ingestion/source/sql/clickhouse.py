@@ -1,4 +1,3 @@
-import itertools
 import json
 import re
 import textwrap
@@ -31,6 +30,7 @@ from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import RowMapping, reflection
+from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER, TypeEngine
@@ -59,6 +59,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
@@ -66,12 +67,12 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.sql.clickhouse_connection import with_client_identity
 from datahub.ingestion.source.sql.sql_common import (
     SQLSourceReport,
-    SqlWorkUnit,
     get_column_type,
     get_schema_metadata,
     logger,
     register_custom_type,
 )
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_utils import get_domain_wu
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
@@ -79,8 +80,6 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     MapTypeClass,
@@ -90,7 +89,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
-    DatasetSnapshotClass,
     SchemaFieldClass,
     UpstreamClass,
 )
@@ -1285,41 +1283,64 @@ ORDER BY event_time ASC
             )
             return None
 
-    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Config-file dictionaries are not in system.tables, so the base scan never
         # emits them. They go first so their schemas are registered before
         # gen_metadata() parses view and materialized view SQL at the end of the
         # base scan.
-        xml_dictionary_workunits = (
-            self._emit_xml_dictionaries()
-            if self.config.include_tables
-            and self.config.include_config_file_dictionaries
-            else []
-        )
-        # Emit schema and definition-based lineage workunits
-        for wu in itertools.chain(
-            xml_dictionary_workunits, super().get_workunits_internal()
+        if self.config.include_tables and self.config.include_config_file_dictionaries:
+            yield from self._emit_xml_dictionaries()
+        if (
+            self.config.include_table_lineage
+            and (self.config.include_tables or self.config.include_views)
+            and self._lineage_map is None
         ):
-            if (
-                self.config.include_table_lineage
-                and isinstance(wu, SqlWorkUnit)
-                and isinstance(wu.metadata, MetadataChangeEvent)
-                and isinstance(wu.metadata.proposedSnapshot, DatasetSnapshot)
-            ):
-                dataset_snapshot: DatasetSnapshotClass = wu.metadata.proposedSnapshot
-                assert dataset_snapshot
-
-                lineage_mcp = self.get_lineage_mcp(wu.metadata.proposedSnapshot.urn)
-
-                if lineage_mcp is not None:
-                    yield lineage_mcp.as_workunit()
-
-            # Emit the work unit from super.
-            yield wu
+            # Outside loop_tables/loop_views, so a _get_all_tables error fails the run
+            # instead of becoming a dataset warning.
+            self._populate_lineage()
+        yield from super().get_workunits_internal()
 
         # Emit query log based lineage and usage workunits
         if self._should_extract_query_log():
             yield from self._extract_query_log()
+
+    def _process_table(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader],
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from super()._process_table(
+            dataset_name, inspector, schema, table, sql_config, data_reader
+        )
+        yield from self._gen_definition_lineage_workunits(dataset_name)
+
+    def _process_view(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        sql_config: SQLCommonConfig,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from super()._process_view(
+            dataset_name, inspector, schema, view, sql_config
+        )
+        yield from self._gen_definition_lineage_workunits(dataset_name)
+
+    def _gen_definition_lineage_workunits(
+        self, dataset_name: str
+    ) -> Iterable[MetadataWorkUnit]:
+        # Emitted during the scan, so a view's SQL-parsed lineage (with column lineage),
+        # written at the end of the scan, stays the last write.
+        if not self.config.include_table_lineage:
+            return
+        lineage_mcp = self.get_lineage_mcp(self._dataset_urn(dataset_name))
+        if lineage_mcp is not None:
+            yield lineage_mcp.as_workunit()
 
     def _fetch_xml_dictionaries(self) -> List[_XmlDictionary]:
         # Skips DDL dictionaries, whose origin is their UUID or "db.name" rather than
@@ -1559,7 +1580,7 @@ ORDER BY event_time ASC
         """
         assert self._lineage_map is not None
 
-        if not self._all_tables_set:
+        if self._all_tables_set is None:
             self._all_tables_set = self._get_all_tables()
 
         url = self.config.get_sql_alchemy_url()
@@ -1741,7 +1762,7 @@ ORDER BY event_time ASC
         if dataset_key is None:
             return None
 
-        if not self._lineage_map:
+        if self._lineage_map is None:
             self._populate_lineage()
         assert self._lineage_map is not None
 

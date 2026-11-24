@@ -19,6 +19,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -91,14 +92,18 @@ public class AggregateAcrossEntitiesResolver
           try {
             Filter effectiveFilter =
                 maybeResolvedView != null
-                    ? SearchUtils.combineFilters(
+                    ? FilterUtils.combineFilters(
                         inputFilter, maybeResolvedView.getDefinition().getFilter())
                     : inputFilter;
 
+            // Whether the caller's own filter, with its view, has a criterion before the defaults
+            final boolean callerFiltered = FilterUtils.hasCriterion(effectiveFilter);
+
             // Add default entity filters (e.g. showInGlobalContext for documents)
-            effectiveFilter =
-                DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+            final DefaultEntityFiltersUtil.SearchFilters defaults =
+                DefaultEntityFiltersUtil.searchFilters(
                     effectiveFilter, finalEntities, searchFlags, context);
+            effectiveFilter = defaults.filter();
 
             return mapAggregateResults(
                 context,
@@ -106,7 +111,9 @@ public class AggregateAcrossEntitiesResolver
                     context
                         .getOperationContext()
                         .withSearchSurface(SearchTemplateSurfaces.AGGREGATE_ENTITIES)
-                        .withSearchFlags(flags -> searchFlags),
+                        .withSearchFlags(flags -> searchFlags)
+                        .withCallerFiltered(callerFiltered)
+                        .withAnchorFilter(defaults.anchorFilter()),
                     finalEntities,
                     sanitizedQuery,
                     effectiveFilter,

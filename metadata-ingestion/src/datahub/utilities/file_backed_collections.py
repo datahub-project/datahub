@@ -273,7 +273,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         # The key column will automatically be indexed, but we need indexes for the extra columns.
         for column_name in self.extra_columns:
             self._conn.execute(
-                f"CREATE INDEX {self.tablename}_{column_name} ON {self.tablename} ({column_name})"
+                f"CREATE INDEX IF NOT EXISTS {self.tablename}_{column_name} ON {self.tablename} ({column_name})"
             )
         self.indexes_created = True
 

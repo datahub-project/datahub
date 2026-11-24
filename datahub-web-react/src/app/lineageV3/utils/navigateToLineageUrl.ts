@@ -1,7 +1,7 @@
 import * as QueryString from 'query-string';
 import { RouteComponentProps } from 'react-router-dom';
 
-import { SEPARATE_SIBLINGS_URL_PARAM } from '@app/entity/shared/siblingUtils';
+import { SEPARATE_SIBLINGS_URL_PARAM } from '@app/entityV2/shared/siblingUtils';
 import { SHOW_COLUMNS_URL_PARAMS } from '@app/lineageV3/utils/useIsShowColumnsMode';
 
 export const navigateToLineageUrl = ({

@@ -164,6 +164,8 @@ DISCLOSED_TRANSFORM_PROPERTIES: FrozenSet[str] = frozenset(
         "route.by.field",
         "route.topic.regex",
         "route.topic.replacement",
+        "topic.regex",
+        "topic.replacement",
     }
 )
 

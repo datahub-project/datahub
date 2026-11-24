@@ -3,10 +3,13 @@ package com.linkedin.metadata.search.elasticsearch.query;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.atMost;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -17,32 +20,62 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
+import com.datahub.util.RecordUtils;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.KeywordRerankExplanation;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateBootstrap;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateKeywordRerank;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
+import com.linkedin.metadata.search.embedding.EmbeddingProfile;
+import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
+import com.linkedin.metadata.search.hybrid.HybridRerankPlan;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateRetrieval;
+import com.linkedin.search.template.SearchTemplateScope;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +87,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -68,6 +102,7 @@ import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -80,6 +115,7 @@ public class ESSearchDAOHybridTest {
   private HybridSearchResultReranker reranker;
   private OperationContext opContext;
   private MetricUtils metrics;
+  private ThreadPoolExecutor hybridExecutor;
   private ESSearchDAO dao;
 
   @BeforeMethod
@@ -94,7 +130,8 @@ public class ESSearchDAOHybridTest {
     doReturn(Optional.of(metrics)).when(opContext).getMetricUtils();
     reranker = mock(HybridSearchResultReranker.class);
     // Reverses the rows it is given, so the test can tell reranked rows from keyword ones
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
         .thenAnswer(
             invocation -> {
               List<SearchEntity> rows = new ArrayList<>(invocation.getArgument(3));
@@ -105,6 +142,7 @@ public class ESSearchDAOHybridTest {
         .thenReturn(Set.of("document"));
     // Each rerank called the provider, unless a test says otherwise
     when(reranker.providerSucceededSince(anyLong())).thenReturn(true);
+    when(reranker.modelEmbeddingKey()).thenReturn(MODEL_KEY);
     dao =
         new ESSearchDAO(
             false,
@@ -114,7 +152,18 @@ public class ESSearchDAOHybridTest {
             false,
             TEST_SEARCH_SERVICE_CONFIG,
             new Sha256UrnEntityDocumentIdHasher(),
-            reranker);
+            reranker,
+            null);
+    // Each test gets its own pool. The shared one keeps the workers earlier tests started, idle,
+    // and a burst of searches can fill its queue before they take tasks, so a test that fills the
+    // pool would see more rejections than the pool's capacity allows
+    hybridExecutor = ESSearchDAO.newHybridExecutor();
+    dao.setHybridExecutor(hybridExecutor);
+  }
+
+  @AfterMethod(alwaysRun = true)
+  public void tearDown() {
+    hybridExecutor.shutdownNow();
   }
 
   @Test
@@ -142,7 +191,8 @@ public class ESSearchDAOHybridTest {
             eq("revenue"),
             rows.capture(),
             eq(List.of("urn")),
-            anyLong());
+            anyLong(),
+            any());
     assertEquals(rows.getValue().size(), 100);
     verify(metrics).increment(ESSearchDAO.class, "hybridReadApplied", 1);
   }
@@ -155,13 +205,585 @@ public class ESSearchDAOHybridTest {
     OperationContext templated = opContext.withResolvedSearchTemplate(resolved);
 
     SearchResult result =
-        dao.finishTemplateHybrid(templated, ENTITY_NAMES, "revenue", result(100), 10, 10, 100);
+        dao.finishTemplateHybrid(
+            templated, ENTITY_NAMES, "revenue", null, result(100), 10, 10, 100);
 
     assertEquals(rowIds(result), range(10, 20));
     assertEquals(result.getFrom().intValue(), 10);
     assertEquals(result.getPageSize().intValue(), 10);
     verify(reranker, never())
-        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
+  }
+
+  @Test
+  public void testKeywordRerankRungRerankedOnceThroughItsPlan() throws IOException {
+    OperationContext served =
+        keywordRerankContext("{ \"vectorWeight\": 0.3, \"blendFloor\": 0.6 }", true, null);
+
+    SearchResult result =
+        dao.finishTemplateHybrid(served, ENTITY_NAMES, "revenue", null, result(100), 10, 10, 100);
+
+    // The mocked rerank reverses the window, and the page is sliced from it
+    assertEquals(rowIds(result), range(89, 79));
+    assertEquals(result.getNumEntities().intValue(), TOTAL_HITS);
+    HybridRerankPlan plan = rerankPlans(1).get(0);
+    // This build reranks Document rows only; Dataset rows would keep their places
+    assertEquals(plan.eligibleEntityNames(), Set.of("document"));
+    assertNotNull(plan.merger());
+    assertEquals(plan.blendFloor(), 0.6d);
+  }
+
+  @Test
+  public void testMinScoreIsASecondBlendGateOnTheSameScore() throws IOException {
+    dao.finishTemplateHybrid(
+        keywordRerankContext("{ \"blendFloor\": 0.6 }", true, 0.7f),
+        ENTITY_NAMES,
+        "revenue",
+        null,
+        result(100),
+        0,
+        10,
+        100);
+    dao.finishTemplateHybrid(
+        keywordRerankContext("{ \"blendFloor\": 0.6 }", true, 0.5f),
+        ENTITY_NAMES,
+        "revenue",
+        null,
+        result(100),
+        0,
+        10,
+        100);
+    dao.finishTemplateHybrid(
+        keywordRerankContext(KEEP_PLACES, true, 0.5f),
+        ENTITY_NAMES,
+        "revenue",
+        null,
+        result(100),
+        0,
+        10,
+        100);
+
+    // A row is blended only when it passes both gates, so the higher one decides
+    List<HybridRerankPlan> plans = rerankPlans(3);
+    assertEquals(plans.get(0).blendFloor(), (double) 0.7f);
+    assertEquals(plans.get(1).blendFloor(), 0.6d);
+    assertEquals(plans.get(2).blendFloor(), (double) 0.5f);
+  }
+
+  @Test
+  public void testKeywordRerankFailureAndTimeoutKeepKeywordOrder() throws IOException {
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
+        .thenThrow(new IOException("provider unavailable"));
+    SearchResult failed =
+        dao.finishTemplateHybrid(
+            keywordRerankContext(KEEP_PLACES, true, null),
+            ENTITY_NAMES,
+            "revenue",
+            null,
+            result(100),
+            10,
+            10,
+            100);
+    assertEquals(rowIds(failed), range(10, 20));
+    assertKept(SearchTemplateKeywordRerank.FAILED);
+
+    dao.setHybridTimeoutMillis(50);
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
+        .thenAnswer(
+            invocation -> {
+              Thread.sleep(5_000);
+              return Optional.empty();
+            });
+    SearchResult timedOut =
+        dao.finishTemplateHybrid(
+            keywordRerankContext(KEEP_PLACES, true, null),
+            ENTITY_NAMES,
+            "revenue",
+            null,
+            result(100),
+            10,
+            10,
+            100);
+    assertEquals(rowIds(timedOut), range(10, 20));
+    assertKept(SearchTemplateKeywordRerank.TIMEOUT);
+  }
+
+  @Test
+  public void testKeywordRerankReportsWhyItKeptKeywordOrder() throws IOException {
+    // Hybrid read off
+    assertEquals(
+        rowIds(
+            dao(null)
+                .finishTemplateHybrid(
+                    keywordRerankContext(KEEP_PLACES, true, null),
+                    ENTITY_NAMES,
+                    "revenue",
+                    null,
+                    result(10),
+                    0,
+                    10,
+                    0)),
+        range(0, 10));
+    assertKept(SearchTemplateKeywordRerank.HYBRID_READ_OFF);
+    // Semantic read off, and then a request without Document
+    OperationContext noDocumentRerank = keywordRerankContext(KEEP_PLACES, false, null);
+    assertEquals(
+        rowIds(
+            dao.finishTemplateHybrid(
+                noDocumentRerank, ENTITY_NAMES, "revenue", null, result(100), 10, 10, 100)),
+        range(10, 20));
+    assertKept(SearchTemplateKeywordRerank.SEMANTIC_READ_OFF);
+    dao.finishTemplateHybrid(
+        noDocumentRerank, List.of("dataset"), "revenue", null, result(100), 10, 10, 100);
+    assertKept(SearchTemplateKeywordRerank.NO_DOCUMENT);
+    // The window was not fetched because hybrid read was paused
+    dao.finishTemplateHybrid(
+        keywordRerankContext(KEEP_PLACES, true, null),
+        ENTITY_NAMES,
+        "revenue",
+        null,
+        result(10),
+        0,
+        10,
+        0);
+    assertKept(SearchTemplateKeywordRerank.PAUSED);
+    // A profile the query embedding service does not embed
+    when(reranker.modelEmbeddingKey()).thenReturn("another_model");
+    dao.finishTemplateHybrid(
+        keywordRerankContext(KEEP_PLACES, true, null),
+        ENTITY_NAMES,
+        "revenue",
+        null,
+        result(100),
+        0,
+        10,
+        100);
+    assertKept(SearchTemplateKeywordRerank.PROFILE_NOT_EMBEDDABLE);
+    when(reranker.modelEmbeddingKey()).thenReturn(MODEL_KEY);
+    // A stored blend this build cannot read
+    dao.finishTemplateHybrid(
+        keywordRerankContext("{ \"vectorWeight\": 2 }", true, null),
+        ENTITY_NAMES,
+        "revenue",
+        null,
+        result(100),
+        0,
+        10,
+        100);
+    assertKept(SearchTemplateKeywordRerank.FAILED);
+    // No requested type has vectors
+    when(reranker.vectorEntityNames(any(OperationContext.class), any())).thenReturn(Set.of());
+    dao.finishTemplateHybrid(
+        keywordRerankContext(KEEP_PLACES, true, null),
+        ENTITY_NAMES,
+        "revenue",
+        null,
+        result(10),
+        0,
+        10,
+        0);
+    assertKept(SearchTemplateKeywordRerank.NO_ELIGIBLE_ROWS);
+    // A match-all query ranks no relevance window, which is not a fallback
+    dao.finishTemplateHybrid(
+        keywordRerankContext(KEEP_PLACES, true, null),
+        ENTITY_NAMES,
+        "*",
+        null,
+        result(10),
+        0,
+        10,
+        0);
+    verify(metrics, never())
+        .incrementMicrometer(
+            SearchTemplateMetrics.KEYWORD_RERANK_KEPT,
+            1,
+            "reason",
+            SearchTemplateKeywordRerank.NOT_APPLICABLE);
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
+  }
+
+  @Test
+  public void testExactlyOneRerankerRunsForEachFlagState() throws IOException {
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    // Template read off: today's reranker with its own blend
+    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+    // Template read on and a keywordRerank rung: only the template's plan
+    dao.finishTemplateHybrid(
+        keywordRerankContext(KEEP_PLACES, true, null),
+        ENTITY_NAMES,
+        "revenue",
+        null,
+        result(100),
+        0,
+        10,
+        100);
+    List<HybridRerankPlan> plans = rerankPlans(2);
+    assertNull(plans.get(0).merger());
+    assertNotNull(plans.get(1).merger());
+
+    // Hybrid read off: neither reranks
+    ESSearchDAO hybridOff = dao(null);
+    assertEquals(
+        rowIds(hybridOff.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of())),
+        range(0, 100));
+    assertEquals(
+        rowIds(
+            hybridOff.finishTemplateHybrid(
+                keywordRerankContext(KEEP_PLACES, true, null),
+                ENTITY_NAMES,
+                "revenue",
+                null,
+                result(10),
+                0,
+                10,
+                0)),
+        range(0, 10));
+    rerankPlans(2);
+  }
+
+  @Test
+  public void testExplainNamesTheRerankOutcomeAndTheMinScoreDeprecation() throws IOException {
+    SearchResult mixed = result(100);
+    mixed
+        .getEntities()
+        .get(0)
+        .setEntity(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,events,PROD)"));
+    OperationContext explained =
+        keywordRerankContext(KEEP_PLACES, true, 0.5f)
+            .withSearchFlags(flags -> flags.setIncludeExplain(true));
+
+    SearchResult applied =
+        dao.finishTemplateHybrid(explained, ENTITY_NAMES, "revenue", null, mixed, 0, 10, 100);
+
+    KeywordRerankExplanation explanation = applied.getMetadata().getKeywordRerank();
+    assertEquals(explanation.getOutcome(), SearchTemplateKeywordRerank.APPLIED);
+    assertFalse(explanation.hasReason());
+    // The Dataset row keeps its keyword place
+    assertEquals(explanation.getEligibleRows().intValue(), 99);
+    assertEquals(explanation.getIneligibleRows().intValue(), 1);
+    assertEquals(
+        explanation.getDeprecations(), List.of(SearchTemplateKeywordRerank.MIN_SCORE_DEPRECATION));
+    // It survives serialization with the rest of the metadata
+    assertEquals(
+        RecordUtils.toRecordTemplate(
+                SearchResultMetadata.class, RecordUtils.toJsonString(applied.getMetadata()))
+            .getKeywordRerank(),
+        explanation);
+
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
+        .thenThrow(new IOException("provider unavailable"));
+    KeywordRerankExplanation kept =
+        dao.finishTemplateHybrid(
+                keywordRerankContext(KEEP_PLACES, true, null)
+                    .withSearchFlags(flags -> flags.setIncludeExplain(true)),
+                ENTITY_NAMES,
+                "revenue",
+                null,
+                result(100),
+                0,
+                10,
+                100)
+            .getMetadata()
+            .getKeywordRerank();
+    assertEquals(kept.getOutcome(), SearchTemplateKeywordRerank.KEPT_KEYWORD_ORDER);
+    assertEquals(kept.getReason(), SearchTemplateKeywordRerank.FAILED);
+    assertTrue(kept.getDeprecations().isEmpty());
+    // Without the explain flag the search carries no explanation
+    assertFalse(
+        dao.finishTemplateHybrid(
+                keywordRerankContext(KEEP_PLACES, true, null),
+                ENTITY_NAMES,
+                "revenue",
+                null,
+                result(100),
+                0,
+                10,
+                100)
+            .hasMetadata());
+  }
+
+  @Test
+  public void testSortedSearchExplainsThatTheRerankDoesNotApply() throws IOException {
+    List<SortCriterion> byName =
+        List.of(new SortCriterion().setField("name").setOrder(SortOrder.ASCENDING));
+    SearchResult sorted =
+        dao.finishTemplateHybrid(
+            keywordRerankContext(KEEP_PLACES, true, 0.5f)
+                .withSearchFlags(flags -> flags.setIncludeExplain(true)),
+            ENTITY_NAMES,
+            "revenue",
+            byName,
+            result(10),
+            0,
+            10,
+            0);
+
+    assertEquals(rowIds(sorted), range(0, 10));
+    KeywordRerankExplanation explanation = sorted.getMetadata().getKeywordRerank();
+    assertEquals(explanation.getReason(), SearchTemplateKeywordRerank.NOT_APPLICABLE);
+    assertEquals(
+        explanation.getDeprecations(), List.of(SearchTemplateKeywordRerank.MIN_SCORE_DEPRECATION));
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
+  }
+
+  @Test
+  public void testSortedTemplateSearchExplainsThatTheRerankDoesNotApply() throws IOException {
+    SearchTemplateFixtures.Harness harness = new SearchTemplateFixtures.Harness();
+    harness.setup();
+    harness.store(RERANK_URN, fulltext(KEEP_PLACES));
+    OperationContext searching =
+        TestOperationContexts.withFixedSearchClient(harness.opContext, client)
+            .withSearchTemplateRuntime(documentRerankCoordinator(harness, true))
+            .withSearchFlags(
+                flags -> flags.setFulltext(true).setIncludeExplain(true).setMinScore(0.5f));
+    SearchResponse keywordResponse = response(10);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    List<SortCriterion> byName =
+        List.of(new SortCriterion().setField("name").setOrder(SortOrder.ASCENDING));
+
+    ESSearchDAO dao =
+        new ESSearchDAO(
+            false,
+            harness.elastic(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            false,
+            TEST_SEARCH_SERVICE_CONFIG,
+            new Sha256UrnEntityDocumentIdHasher(),
+            reranker,
+            null);
+
+    // Through the template executor, which records the served rung for every sort
+    SearchResult sorted = search(dao, searching, RERANK_URN, "revenue", byName);
+
+    KeywordRerankExplanation explanation = sorted.getMetadata().getKeywordRerank();
+    assertEquals(explanation.getReason(), SearchTemplateKeywordRerank.NOT_APPLICABLE);
+    assertEquals(
+        explanation.getDeprecations(), List.of(SearchTemplateKeywordRerank.MIN_SCORE_DEPRECATION));
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
+  }
+
+  @Test
+  public void testPinnedKeywordRerankRungReranksThroughSearch() throws IOException {
+    SearchResult result =
+        searchRung(
+            fulltext("{ \"vectorWeight\": 0.3, \"blendFloor\": 0.6 }"),
+            ENTITY_NAMES,
+            "revenue",
+            null);
+
+    // The search fetched the 100-row window; the mocked rerank reverses it, and the page is sliced
+    assertEquals(rowIds(result), range(99, 89));
+    assertEquals(
+        result.getMetadata().getKeywordRerank().getOutcome(), SearchTemplateKeywordRerank.APPLIED);
+    HybridRerankPlan plan = rerankPlans(1).get(0);
+    assertEquals(plan.eligibleEntityNames(), Set.of("document"));
+    assertNotNull(plan.merger());
+    assertEquals(plan.blendFloor(), 0.6d);
+  }
+
+  @Test
+  public void testKeywordRerankRungScopedAwayFromDocumentFetchesOnlyThePage() throws IOException {
+    SearchTemplateProperties scoped = fulltext("{ \"vectorWeight\": 0.3 }");
+    scoped.setScope(new SearchTemplateScope().setEntityTypes(new StringArray("dataset")));
+
+    // The request includes Document, but the rung searches only Dataset, so it has no window to
+    // rerank: the engine is asked for the caller's page, and the rung reports why
+    SearchResult result = searchRung(scoped, ENTITY_NAMES, "revenue", null);
+
+    SearchSourceBuilder page = searchedSource();
+    assertEquals(page.from(), 0);
+    assertEquals(page.size(), 10);
+    assertEquals(
+        result.getMetadata().getKeywordRerank().getReason(),
+        SearchTemplateKeywordRerank.NO_DOCUMENT);
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
+
+    // The same rung without a scope is assigned the whole request and reranks the hybrid window
+    clearInvocations(client);
+    SearchResult unscoped =
+        searchRung(fulltext("{ \"vectorWeight\": 0.3 }"), ENTITY_NAMES, "revenue", null);
+
+    SearchSourceBuilder window = searchedSource();
+    assertEquals(window.from(), 0);
+    assertEquals(window.size(), 100);
+    assertEquals(
+        unscoped.getMetadata().getKeywordRerank().getOutcome(),
+        SearchTemplateKeywordRerank.APPLIED);
+  }
+
+  @Test
+  public void testAScopedKeywordRerankRungSearchesItsAssignmentAndKeepsGateFailingRows()
+      throws IOException {
+    SearchTemplateProperties scoped = fulltext("{ \"vectorWeight\": 0.3 }");
+    scoped.setScope(
+        new SearchTemplateScope().setEntityTypes(new StringArray("dataset", "document")));
+
+    SearchResult result =
+        searchRung(scoped, List.of("chart", "dataset", "document"), "revenue", null);
+
+    // The keyword query searches the requested types in the scope: Chart is left out, and Dataset
+    // is searched though it fails the entity gates
+    ArgumentCaptor<SearchRequest> request = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(client)
+        .search(any(OperationContext.class), request.capture(), eq(RequestOptions.DEFAULT));
+    List<String> indices = Arrays.asList(request.getValue().indices());
+    assertTrue(indices.stream().noneMatch(index -> index.contains("chart")), indices.toString());
+    assertTrue(indices.stream().anyMatch(index -> index.contains("dataset")), indices.toString());
+    assertTrue(indices.stream().anyMatch(index -> index.contains("document")), indices.toString());
+    // Only Document rows are scored; Dataset rows keep their keyword places
+    assertEquals(rerankPlans(1).get(0).eligibleEntityNames(), Set.of("document"));
+    assertEquals(
+        result.getMetadata().getKeywordRerank().getOutcome(), SearchTemplateKeywordRerank.APPLIED);
+  }
+
+  @Test
+  public void testRungWithItsOwnSortReranksOnlyASearchSortedByScore() throws IOException {
+    SearchTemplateProperties sorted = fulltext(null);
+    sorted.setApiVersion(2);
+    sorted.setRetrieval(new SearchTemplateRetrieval().setCombine("keywordRerank"));
+    sorted.setSort("[ { \"name\": \"asc\" } ]");
+
+    // With no sort in the request, the engine orders the window by the rung's sort
+    SearchResult unsorted = searchRung(sorted, ENTITY_NAMES, "revenue", null);
+    assertEquals(rowIds(unsorted), range(0, 10));
+    assertEquals(
+        unsorted.getMetadata().getKeywordRerank().getReason(),
+        SearchTemplateKeywordRerank.NOT_APPLICABLE);
+    // A request sorted by score replaces the rung's sort, so its window is reranked
+    List<SortCriterion> byScore =
+        List.of(new SortCriterion().setField("_score").setOrder(SortOrder.DESCENDING));
+    assertEquals(rowIds(searchRung(sorted, ENTITY_NAMES, "revenue", byScore)), range(99, 89));
+    rerankPlans(1);
+  }
+
+  @Test
+  public void testRungSortThatRendersEmptyForTheQueryStillReranks() throws IOException {
+    SearchTemplateProperties conditional = fulltext(null);
+    conditional.setApiVersion(2);
+    conditional.setRetrieval(new SearchTemplateRetrieval().setCombine("keywordRerank"));
+    // Sorts by name only for a query of four or more words
+    conditional.setSort("[{{#longQuery}}{\"name\":\"asc\"}{{/longQuery}}]");
+
+    // A short query renders an empty sort, so the engine keeps score order and the window is
+    // reranked
+    SearchResult scored = searchRung(conditional, ENTITY_NAMES, "revenue", null);
+    assertEquals(rowIds(scored), range(99, 89));
+    assertEquals(
+        scored.getMetadata().getKeywordRerank().getOutcome(), SearchTemplateKeywordRerank.APPLIED);
+    // A long query renders the name sort, which orders the window, so the rerank does not apply
+    SearchResult sorted = searchRung(conditional, ENTITY_NAMES, "monthly revenue by region", null);
+    assertEquals(rowIds(sorted), range(0, 10));
+    assertEquals(
+        sorted.getMetadata().getKeywordRerank().getReason(),
+        SearchTemplateKeywordRerank.NOT_APPLICABLE);
+    rerankPlans(1);
+  }
+
+  private static final String RERANK_URN = "urn:li:searchTemplate:keywordRerank";
+  private static final String MODEL_KEY = "text_embedding_3_small";
+  private static final String KEEP_PLACES = "{ \"others\": \"keepKeywordPlaces\" }";
+
+  /**
+   * A context whose served rung is a keywordRerank template with {@code knn}, on a build that
+   * reranks Document rows with {@link #MODEL_KEY}.
+   */
+  private OperationContext keywordRerankContext(
+      String knn, boolean documentRerank, Float minScore) {
+    SearchTemplateFixtures.Harness harness = new SearchTemplateFixtures.Harness();
+    harness.setup();
+    harness.store(RERANK_URN, fulltext(knn));
+    SearchTemplateCoordinator coordinator = documentRerankCoordinator(harness, true);
+    ResolvedSearchTemplate resolved = new ResolvedSearchTemplate(RERANK_URN, 1L, "fulltext", null);
+    resolved.setExecutionCapabilities(
+        false, documentRerank, ENTITY_NAMES, EmbeddingProfileRegistry.OPENSEARCH);
+    resolved.setTemplateRerank(RERANK_URN);
+    OperationContext served =
+        spy(
+            TestOperationContexts.withFixedSearchClient(harness.opContext, client)
+                .withSearchTemplateRuntime(coordinator)
+                .withResolvedSearchTemplate(resolved)
+                .withSearchFlags(
+                    flags ->
+                        flags.setFulltext(true).setMinScore(minScore, SetMode.REMOVE_IF_NULL)));
+    doReturn(Optional.of(metrics)).when(served).getMetricUtils();
+    return served;
+  }
+
+  /**
+   * A coordinator on a build that reranks Document rows with {@link #MODEL_KEY}, with semantic read
+   * on and this edition's hybrid read flag as given.
+   */
+  private static SearchTemplateCoordinator documentRerankCoordinator(
+      SearchTemplateFixtures.Harness harness, boolean hybridRead) {
+    ElasticSearchConfiguration elastic = harness.elastic();
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(true);
+    semanticSearch.setEnabledEntities(Set.of("document"));
+    semanticSearch.setModels(Map.of(MODEL_KEY, new ModelEmbeddingConfig()));
+    elastic.getEntityIndex().setSemanticSearch(semanticSearch);
+    EmbeddingProfile document =
+        new EmbeddingProfile(
+            MODEL_KEY,
+            EmbeddingProfile.TEXT_CHUNKS,
+            "text-embedding-3-small",
+            "cosine",
+            Set.of("document"),
+            Set.of(EmbeddingProfileRegistry.OPENSEARCH));
+    return new SearchTemplateCoordinator(
+        elastic,
+        null,
+        harness.loader,
+        ForkJoinPool.commonPool(),
+        SearchTemplateComponentRegistry.empty(),
+        SearchTemplateGates.of(
+            new EmbeddingProfileRegistry(List.of(document), Map.of("document", MODEL_KEY)),
+            semanticSearch,
+            hybridRead));
+  }
+
+  private List<HybridRerankPlan> rerankPlans(int calls) throws IOException {
+    ArgumentCaptor<HybridRerankPlan> plans = ArgumentCaptor.forClass(HybridRerankPlan.class);
+    verify(reranker, times(calls))
+        .rerank(
+            any(OperationContext.class),
+            any(),
+            any(),
+            anyList(),
+            any(),
+            anyLong(),
+            plans.capture());
+    return plans.getAllValues();
+  }
+
+  private void assertKept(String reason) {
+    verify(metrics)
+        .incrementMicrometer(SearchTemplateMetrics.KEYWORD_RERANK_KEPT, 1, "reason", reason);
+    verify(metrics, never())
+        .incrementMicrometer(eq(SearchTemplateMetrics.FALLBACK), anyDouble(), any(String[].class));
+  }
+
+  private ESSearchDAO dao(HybridSearchResultReranker hybrid) {
+    return new ESSearchDAO(
+        false,
+        TEST_OS_SEARCH_CONFIG,
+        null,
+        QueryFilterRewriteChain.EMPTY,
+        false,
+        TEST_SEARCH_SERVICE_CONFIG,
+        new Sha256UrnEntityDocumentIdHasher(),
+        hybrid,
+        null);
   }
 
   @Test
@@ -176,7 +798,9 @@ public class ESSearchDAOHybridTest {
     template.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
     harness.store(Constants.SEARCH_TEMPLATE_FULLTEXT_URN, template);
     ElasticSearchConfiguration elastic = harness.elastic();
-    elastic.getEntityIndex().getV3().setSemanticReadEnabled(true);
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(true);
+    elastic.getEntityIndex().setSemanticSearch(semanticSearch);
     harness.opContext =
         harness.opContext.withSearchTemplateRuntime(
             new SearchTemplateCoordinator(
@@ -184,7 +808,8 @@ public class ESSearchDAOHybridTest {
                 null,
                 harness.loader,
                 ForkJoinPool.commonPool(),
-                SearchTemplateComponentRegistry.empty()));
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none()));
     try {
       OperationContext searching =
           TestOperationContexts.withFixedSearchClient(harness.opContext, client)
@@ -201,7 +826,8 @@ public class ESSearchDAOHybridTest {
               false,
               TEST_SEARCH_SERVICE_CONFIG,
               new Sha256UrnEntityDocumentIdHasher(),
-              reranker);
+              reranker,
+              null);
       SearchResult result =
           templated.search(searching, ENTITY_NAMES, "revenue", null, null, 10, 10, List.of());
       assertEquals(rowIds(result), range(10, 20));
@@ -211,10 +837,367 @@ public class ESSearchDAOHybridTest {
           templated.search(searching, ENTITY_NAMES, "revenue", null, byScore, 10, 10, List.of());
       assertEquals(rowIds(scored), range(10, 20));
       verify(reranker, never())
-          .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+          .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
     } finally {
       harness.opContext = harness.opContext.withSearchTemplateRuntime(null);
     }
+  }
+
+  @Test
+  public void testKeywordRerankTemplateServesTheKeywordOnlyResult() throws IOException {
+    SearchTemplateFixtures.Harness harness = new SearchTemplateFixtures.Harness();
+    harness.setup();
+    String keywordOnly = "urn:li:searchTemplate:keywordOnly";
+    String keywordRerank = "urn:li:searchTemplate:keywordRerank";
+    harness.store(keywordOnly, fulltext(null));
+    harness.store(keywordRerank, fulltext("{ \"others\": \"keepKeywordPlaces\" }"));
+    ElasticSearchConfiguration elastic = harness.elastic();
+    harness.opContext =
+        harness.opContext.withSearchTemplateRuntime(
+            new SearchTemplateCoordinator(
+                elastic,
+                null,
+                harness.loader,
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none()));
+    try {
+      OperationContext searching =
+          TestOperationContexts.withFixedSearchClient(harness.opContext, client)
+              .withSearchFlags(flags -> flags.setFulltext(true));
+      SearchResponse keywordResponse = response(100);
+      when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+          .thenReturn(keywordResponse);
+      List<SortCriterion> byScore =
+          List.of(new SortCriterion().setField("_score").setOrder(SortOrder.DESCENDING));
+      SearchResult expected = null;
+      // Hybrid read off, then on: the keywordRerank rung serves the keyword-only result both times.
+      // Semantic read is off, so the request cannot rerank, and the rung fetches only the page.
+      for (HybridSearchResultReranker hybrid : Arrays.asList(null, reranker)) {
+        ESSearchDAO dao =
+            new ESSearchDAO(
+                false,
+                elastic,
+                null,
+                QueryFilterRewriteChain.EMPTY,
+                false,
+                TEST_SEARCH_SERVICE_CONFIG,
+                new Sha256UrnEntityDocumentIdHasher(),
+                hybrid,
+                null);
+        if (expected == null) {
+          expected = search(dao, searching, keywordOnly, "revenue", byScore);
+        }
+        clearInvocations(client);
+        SearchResult served = search(dao, searching, keywordRerank, "revenue", byScore);
+        // The engine is asked for the caller's page, not the hybrid window; it ignores size here
+        SearchSourceBuilder fetched = searchedSource();
+        assertEquals(fetched.from(), 0);
+        assertEquals(fetched.size(), 10);
+        assertEquals(rowIds(served), rowIds(expected));
+        assertEquals(scores(served), scores(expected));
+        assertEquals(served.getNumEntities(), expected.getNumEntities());
+        assertEquals(served.getMetadata(), expected.getMetadata());
+      }
+      verify(reranker, never())
+          .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
+
+      // With semantic read on and hybrid read on, a request without Document still cannot rerank:
+      // it fetches the page and reports why. One with Document fetches the window and reranks it.
+      when(client.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_3);
+      ESSearchDAO hybridRead =
+          new ESSearchDAO(
+              false,
+              elastic,
+              null,
+              QueryFilterRewriteChain.EMPTY,
+              false,
+              TEST_SEARCH_SERVICE_CONFIG,
+              new Sha256UrnEntityDocumentIdHasher(),
+              reranker,
+              null);
+      hybridRead.setHybridExecutor(hybridExecutor);
+      OperationContext explained =
+          TestOperationContexts.withFixedSearchClient(harness.opContext, client)
+              .withSearchTemplateRuntime(documentRerankCoordinator(harness, true))
+              .withSearchFlags(
+                  flags ->
+                      flags
+                          .setFulltext(true)
+                          .setIncludeExplain(true)
+                          .setSearchTemplate(UrnUtils.getUrn(keywordRerank)));
+      clearInvocations(client);
+      SearchResult noDocument =
+          hybridRead.search(
+              explained, List.of("dataset"), "revenue", null, byScore, 0, 10, List.of());
+      SearchSourceBuilder page = searchedSource();
+      assertEquals(page.from(), 0);
+      assertEquals(page.size(), 10);
+      assertEquals(
+          noDocument.getMetadata().getKeywordRerank().getReason(),
+          SearchTemplateKeywordRerank.NO_DOCUMENT);
+      clearInvocations(client);
+      SearchResult withDocument =
+          hybridRead.search(explained, ENTITY_NAMES, "revenue", null, byScore, 0, 10, List.of());
+      SearchSourceBuilder window = searchedSource();
+      assertEquals(window.from(), 0);
+      assertEquals(window.size(), 100);
+      assertEquals(
+          withDocument.getMetadata().getKeywordRerank().getOutcome(),
+          SearchTemplateKeywordRerank.APPLIED);
+      assertEquals(rowIds(withDocument), range(99, 89));
+    } finally {
+      harness.opContext = harness.opContext.withSearchTemplateRuntime(null);
+    }
+  }
+
+  /**
+   * Keyword-surface parity. When the rerank cannot apply, the shipped templates send the engine
+   * exactly the requests they send with the fulltext keywordRerank sections removed, and serve the
+   * same rows, scores, total, and facets: hybrid read off, and hybrid read on with no Document row
+   * in the window. Both through fulltext pinned by URN and through the search surface, where light
+   * serves and inherits the rerank. This engine answers every request alike, so the identical
+   * requests are what make a real index answer both alike.
+   */
+  @Test
+  public void testShippedTemplatesServeTheKeywordOnlyResultWhenTheRerankCannotApply()
+      throws IOException {
+    SearchResponse datasets = datasetResponse(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(datasets);
+    when(client.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    Filter hive =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                CriterionUtils.buildCriterion(
+                                    "platform", Condition.EQUAL, "urn:li:dataPlatform:hive")))));
+    for (boolean hybridRead : List.of(false, true)) {
+      for (String pinned : Arrays.asList(Constants.SEARCH_TEMPLATE_FULLTEXT_URN, null)) {
+        String label = "hybridRead=" + hybridRead + ", pinned=" + pinned;
+        MetricUtils shippedMetrics = mock(MetricUtils.class);
+        MetricUtils keywordOnlyMetrics = mock(MetricUtils.class);
+        Served shipped = serveShipped(true, hybridRead, pinned, hive, shippedMetrics);
+        Served keywordOnly = serveShipped(false, hybridRead, pinned, hive, keywordOnlyMetrics);
+
+        assertEquals(shipped.requests(), keywordOnly.requests(), label);
+        assertEquals(rowUrns(shipped.result()), rowUrns(keywordOnly.result()), label);
+        assertEquals(scores(shipped.result()), scores(keywordOnly.result()), label);
+        assertEquals(
+            shipped.result().getNumEntities(), keywordOnly.result().getNumEntities(), label);
+        assertEquals(shipped.result().getMetadata(), keywordOnly.result().getMetadata(), label);
+        // Only the shipped rung is a keywordRerank rung, and it kept keyword order
+        verify(shippedMetrics)
+            .incrementMicrometer(
+                SearchTemplateMetrics.KEYWORD_RERANK_KEPT,
+                1,
+                "reason",
+                hybridRead
+                    ? SearchTemplateKeywordRerank.NO_ELIGIBLE_ROWS
+                    : SearchTemplateKeywordRerank.HYBRID_READ_OFF);
+        verify(keywordOnlyMetrics, never())
+            .incrementMicrometer(
+                eq(SearchTemplateMetrics.KEYWORD_RERANK_KEPT), anyDouble(), any(String[].class));
+      }
+    }
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
+  }
+
+  /**
+   * A custom child of the shipped fulltext that adds its own sort inherits the rerank, and a search
+   * that its sort orders keeps keyword order.
+   */
+  @Test
+  public void testSortedChildOfTheShippedFulltextKeepsKeywordOrder() throws IOException {
+    SearchTemplateProperties sorted = new SearchTemplateProperties();
+    sorted.setName("Sorted");
+    sorted.setDialect(SearchTemplateDialect.ELASTICSEARCH);
+    sorted.setEditable(true);
+    sorted.setParent(UrnUtils.getUrn(Constants.SEARCH_TEMPLATE_FULLTEXT_URN));
+    sorted.setSort("[{ \"urn\": { \"order\": \"asc\" } }]");
+
+    SearchResult result = searchRung(sorted, ENTITY_NAMES, "revenue", null);
+
+    assertEquals(
+        result.getMetadata().getKeywordRerank().getReason(),
+        SearchTemplateKeywordRerank.NOT_APPLICABLE);
+    assertEquals(rowIds(result), range(0, 10));
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
+  }
+
+  /** The engine requests one search sent, and what it served. */
+  private record Served(List<String> requests, SearchResult result) {}
+
+  /**
+   * A search for "revenue" over datasets and documents, filtered to one platform, on the shipped
+   * templates with fulltext as shipped or without its keywordRerank sections. {@code pinned} names
+   * the template; null searches through the entity search surface. Semantic read is on.
+   */
+  private Served serveShipped(
+      boolean rerankSections,
+      boolean hybridRead,
+      String pinned,
+      Filter filter,
+      MetricUtils measured)
+      throws IOException {
+    SearchTemplateFixtures.Harness harness = new SearchTemplateFixtures.Harness();
+    harness.setup();
+    for (String urn : SearchTemplateBootstrap.urns()) {
+      harness.store(urn, SearchTemplateBootstrap.get(urn));
+    }
+    if (!rerankSections) {
+      SearchTemplateProperties keywordOnly =
+          SearchTemplateBootstrap.get(Constants.SEARCH_TEMPLATE_FULLTEXT_URN);
+      keywordOnly.removeRetrieval();
+      keywordOnly.removeKnn();
+      keywordOnly.setApiVersion(SearchTemplateCapabilities.API_VERSION);
+      harness.store(Constants.SEARCH_TEMPLATE_FULLTEXT_URN, keywordOnly);
+    }
+    harness
+        .templates
+        .getSurfaces()
+        .put(
+            SearchTemplateSurfaces.SEARCH_ENTITIES,
+            Map.of("fulltext", Map.of("default", "urn:li:searchTemplate:searchLight")));
+    OperationContext base = harness.opContext;
+    OperationContext searching =
+        TestOperationContexts.withFixedSearchClient(
+                base.toBuilder()
+                    .systemTelemetryContext(
+                        SystemTelemetryContext.TEST.toBuilder().metricUtils(measured).build())
+                    .build(base.getSessionActorContext(), false),
+                client)
+            .withSearchTemplateRuntime(documentRerankCoordinator(harness, hybridRead))
+            .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
+            .withSearchFlags(
+                flags ->
+                    pinned == null
+                        ? flags.setFulltext(true)
+                        : flags.setFulltext(true).setSearchTemplate(UrnUtils.getUrn(pinned)));
+    ESSearchDAO dao =
+        new ESSearchDAO(
+            false,
+            harness.elastic(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            false,
+            TEST_SEARCH_SERVICE_CONFIG,
+            new Sha256UrnEntityDocumentIdHasher(),
+            hybridRead ? reranker : null,
+            null);
+    dao.setHybridExecutor(hybridExecutor);
+    clearInvocations(client);
+    SearchResult result =
+        dao.search(searching, ENTITY_NAMES, "revenue", filter, null, 0, 10, List.of());
+    ArgumentCaptor<SearchRequest> requests = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(client, atLeastOnce())
+        .search(any(OperationContext.class), requests.capture(), eq(RequestOptions.DEFAULT));
+    return new Served(
+        requests.getAllValues().stream().map(SearchRequest::toString).toList(), result);
+  }
+
+  /** Keyword hits for datasets 0 to {@code count - 1}, best first. */
+  private static SearchResponse datasetResponse(int count) {
+    SearchHit[] hits =
+        IntStream.range(0, count)
+            .mapToObj(
+                i -> {
+                  SearchHit hit = new SearchHit(i, "dataset" + i, Map.of(), Map.of());
+                  hit.sourceRef(
+                      new BytesArray(
+                          "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,table"
+                              + i
+                              + ",PROD)\"}"));
+                  hit.score(count - i);
+                  return hit;
+                })
+            .toArray(SearchHit[]::new);
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getHits())
+        .thenReturn(
+            new SearchHits(hits, new TotalHits(TOTAL_HITS, TotalHits.Relation.EQUAL_TO), count));
+    return response;
+  }
+
+  private static List<Urn> rowUrns(SearchResult result) {
+    return result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
+  }
+
+  private static SearchResult search(
+      ESSearchDAO dao,
+      OperationContext searching,
+      String template,
+      String query,
+      List<SortCriterion> sort) {
+    OperationContext pinned =
+        searching.withSearchFlags(flags -> flags.setSearchTemplate(UrnUtils.getUrn(template)));
+    return dao.search(pinned, ENTITY_NAMES, query, null, sort, 0, 10, List.of());
+  }
+
+  /**
+   * The first page of a search of {@code entityNames} for {@code query} through the template
+   * executor with {@code template} pinned, on an OpenSearch build that reranks Document rows, with
+   * explain on.
+   */
+  private SearchResult searchRung(
+      SearchTemplateProperties template,
+      List<String> entityNames,
+      String query,
+      List<SortCriterion> sort)
+      throws IOException {
+    SearchTemplateFixtures.Harness harness = new SearchTemplateFixtures.Harness();
+    harness.setup();
+    harness.store(RERANK_URN, template);
+    // Bind resolves the profiles' search system from the engine
+    when(client.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    ESSearchDAO templated =
+        new ESSearchDAO(
+            false,
+            harness.elastic(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            false,
+            TEST_SEARCH_SERVICE_CONFIG,
+            new Sha256UrnEntityDocumentIdHasher(),
+            reranker,
+            null);
+    templated.setHybridExecutor(hybridExecutor);
+    OperationContext searching =
+        TestOperationContexts.withFixedSearchClient(harness.opContext, client)
+            .withSearchTemplateRuntime(documentRerankCoordinator(harness, true))
+            .withSearchFlags(
+                flags ->
+                    flags
+                        .setFulltext(true)
+                        .setIncludeExplain(true)
+                        .setSearchTemplate(UrnUtils.getUrn(RERANK_URN)));
+    return templated.search(searching, entityNames, query, null, sort, 0, 10, List.of());
+  }
+
+  private static SearchTemplateProperties fulltext(String knn) {
+    SearchTemplateProperties template = new SearchTemplateProperties();
+    template.setName("Fulltext");
+    template.setDialect(SearchTemplateDialect.ELASTICSEARCH);
+    template.setEditable(true);
+    template.setQuery("{ \"match_all\": {} }");
+    if (knn != null) {
+      template.setApiVersion(2);
+      template.setRetrieval(new SearchTemplateRetrieval().setCombine("keywordRerank"));
+      template.setKnn(knn);
+    }
+    return template;
+  }
+
+  private static List<Double> scores(SearchResult result) {
+    return result.getEntities().stream().map(SearchEntity::getScore).collect(Collectors.toList());
   }
 
   @Test
@@ -305,7 +1288,7 @@ public class ESSearchDAOHybridTest {
         .search(any(OperationContext.class), requests.capture(), eq(RequestOptions.DEFAULT));
     requests.getAllValues().forEach(request -> assertEquals(request.source().size(), 10));
     verify(reranker, never())
-        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
   }
 
   @Test
@@ -335,7 +1318,7 @@ public class ESSearchDAOHybridTest {
 
     assertEquals(rowIds(result), range(0, 10));
     verify(reranker, org.mockito.Mockito.never())
-        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
   }
 
   @Test
@@ -343,7 +1326,8 @@ public class ESSearchDAOHybridTest {
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
         .thenAnswer(
             invocation -> {
               // Changes made by a rerank that runs past the timeout stay off the served rows
@@ -368,7 +1352,8 @@ public class ESSearchDAOHybridTest {
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
     AtomicBoolean hang = new AtomicBoolean(true);
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
         .thenAnswer(
             invocation -> {
               List<SearchEntity> rows = new ArrayList<>(invocation.getArgument(3));
@@ -420,7 +1405,8 @@ public class ESSearchDAOHybridTest {
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
         .thenThrow(new IOException("provider rate limited"));
 
     for (int i = 0; i < 4; i++) {
@@ -434,7 +1420,7 @@ public class ESSearchDAOHybridTest {
     // Three failures in a row pause hybrid read: the fourth search calls neither the reranker nor
     // fetches the rerank window
     verify(reranker, times(3))
-        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
     verify(metrics).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
     ArgumentCaptor<SearchRequest> requests = ArgumentCaptor.forClass(SearchRequest.class);
     verify(client, times(4))
@@ -448,7 +1434,8 @@ public class ESSearchDAOHybridTest {
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
         .thenThrow(new IOException("provider rate limited"));
     dao.setHybridPauseMillis(100);
 
@@ -460,7 +1447,7 @@ public class ESSearchDAOHybridTest {
 
     // After the pause, hybrid read tries again
     verify(reranker, times(4))
-        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
   }
 
   @Test
@@ -473,7 +1460,8 @@ public class ESSearchDAOHybridTest {
     // Three searches for one query, like a results page and its facets, share one failed
     // embedding call: none of them fails before all three have started
     CountDownLatch together = new CountDownLatch(3);
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
         .thenAnswer(
             invocation -> {
               together.countDown();
@@ -503,7 +1491,7 @@ public class ESSearchDAOHybridTest {
     // The three counted as one failure: neither later search was skipped, and the second one
     // made three in a row
     verify(reranker, times(5))
-        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
     dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
     verify(metrics).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
   }
@@ -518,7 +1506,8 @@ public class ESSearchDAOHybridTest {
     Semaphore started = new Semaphore(0);
     CountDownLatch release = new CountDownLatch(1);
     AtomicBoolean first = new AtomicBoolean(true);
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
         .thenAnswer(
             invocation -> {
               if (first.getAndSet(false)) {
@@ -553,7 +1542,7 @@ public class ESSearchDAOHybridTest {
     // The late failure did not count toward the next pause: two failures left hybrid read on for
     // the third search
     verify(reranker, times(7))
-        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
     verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
   }
 
@@ -564,7 +1553,8 @@ public class ESSearchDAOHybridTest {
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
     // A slow provider: every rerank runs past the timeout, whose interrupt ends it
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
         .thenAnswer(
             invocation -> {
               Thread.sleep(10_000);
@@ -583,7 +1573,7 @@ public class ESSearchDAOHybridTest {
     verify(metrics, times(3)).increment(ESSearchDAO.class, "hybridReadTimeout", 1);
     verify(metrics).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
     verify(reranker, atMost(3))
-        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
   }
 
   @Test
@@ -594,7 +1584,8 @@ public class ESSearchDAOHybridTest {
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
     CountDownLatch release = new CountDownLatch(1);
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
         .thenAnswer(
             invocation -> {
               release.await();
@@ -614,6 +1605,10 @@ public class ESSearchDAOHybridTest {
       }
       verify(metrics, timeout(30_000).atLeast(3))
           .increment(ESSearchDAO.class, "hybridReadRejected", 1);
+      assertEquals(
+          hybridExecutor.getQueue().remainingCapacity(),
+          0,
+          "the burst should leave the pool's queue full");
       // The executor stays full, so each of these is rejected in turn; if rejections counted,
       // three in a row would pause hybrid read and the last one would be skipped
       for (int i = 0; i < 4; i++) {
@@ -639,7 +1634,8 @@ public class ESSearchDAOHybridTest {
         .thenReturn(keywordResponse);
     Semaphore started = new Semaphore(0);
     AtomicBoolean hold = new AtomicBoolean(true);
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
         .thenAnswer(
             invocation -> {
               if (hold.get()) {
@@ -666,7 +1662,7 @@ public class ESSearchDAOHybridTest {
     verify(metrics, times(3)).increment(ESSearchDAO.class, "hybridReadFailed", 1);
     verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
     verify(reranker, times(4))
-        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
   }
 
   @Test
@@ -677,7 +1673,8 @@ public class ESSearchDAOHybridTest {
         .thenReturn(keywordResponse);
     // Two failures, a rerank that completes but finds no vectors, then two more failures
     IOException rateLimited = new IOException("provider rate limited");
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
         .thenThrow(rateLimited, rateLimited)
         .thenReturn(Optional.empty())
         .thenThrow(rateLimited, rateLimited);
@@ -690,7 +1687,7 @@ public class ESSearchDAOHybridTest {
 
     // No three failures in a row, so no search was skipped, and no search used vector scores
     verify(reranker, times(5))
-        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
     verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
     verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadApplied", 1);
   }
@@ -712,7 +1709,8 @@ public class ESSearchDAOHybridTest {
               }
               return keywordResponse;
             });
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
         .thenThrow(new IOException("provider unavailable"));
 
     // One search fetches its window while three others fail and pause hybrid read
@@ -732,7 +1730,7 @@ public class ESSearchDAOHybridTest {
       searches.shutdown();
     }
     verify(reranker, times(3))
-        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
     verify(metrics).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
   }
 
@@ -748,7 +1746,8 @@ public class ESSearchDAOHybridTest {
     Semaphore started = new Semaphore(0);
     CountDownLatch release = new CountDownLatch(1);
     AtomicBoolean first = new AtomicBoolean(true);
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
         .thenAnswer(
             invocation -> {
               if (first.getAndSet(false)) {
@@ -794,7 +1793,7 @@ public class ESSearchDAOHybridTest {
     dao.setHybridTimeoutMillis(60_000);
     when(reranker.providerSucceededSince(anyLong())).thenReturn(false);
     when(reranker.rerank(
-            any(OperationContext.class), any(), eq("revenue"), anyList(), any(), anyLong()))
+            any(OperationContext.class), any(), eq("revenue"), anyList(), any(), anyLong(), any()))
         .thenThrow(new IOException("provider unavailable"));
 
     for (String query : List.of("revenue", "paged", "revenue", "paged", "revenue", "revenue")) {
@@ -819,7 +1818,7 @@ public class ESSearchDAOHybridTest {
     // A single document has no other position to move into
     assertEquals(rowIds(result), List.of(0));
     verify(reranker, never())
-        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
   }
 
   @Test
@@ -828,7 +1827,8 @@ public class ESSearchDAOHybridTest {
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
     // A provider that gives up at the deadline, as the bounded embedding call does
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
         .thenAnswer(
             invocation -> {
               long deadlineNanos = invocation.getArgument(5);
@@ -850,7 +1850,8 @@ public class ESSearchDAOHybridTest {
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
         .thenThrow(new IOException("kNN unavailable"));
 
     SearchResult result =

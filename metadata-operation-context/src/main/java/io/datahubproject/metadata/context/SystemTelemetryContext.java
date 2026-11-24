@@ -22,6 +22,7 @@ import io.opentelemetry.api.trace.TraceState;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.ContextKey;
+import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.opentelemetry.sdk.common.CompletableResultCode;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.data.SpanData;
@@ -108,6 +109,7 @@ public class SystemTelemetryContext implements ContextInterface {
 
   @Nullable private final MetricUtils metricUtils;
   @Getter @Nonnull private final Tracer tracer;
+  @Getter @Nullable private final TextMapPropagator textMapPropagator;
   @Getter @Nullable private final SpanProcessor usageSpanExporter;
 
   @Override

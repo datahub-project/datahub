@@ -7,6 +7,7 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Mappi
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.WORD_GRAMS_LENGTH_4;
 
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
@@ -69,13 +70,27 @@ public final class SearchHighlightSelection {
   }
 
   /**
-   * Source paths for highlight names the query actually searches. Aspect paths and fields the query
-   * does not read are left out. A structured property is its own path: {@code copy_to} does not put
-   * its value on the shared field in {@code _source}, so a selected property is read where it is
-   * stored.
+   * Fields to fetch for highlight names the query actually searches. A label whose value is stored
+   * on that label is fetched under the label. Every other stored path of a queried label is fetched
+   * too, including {@code other} and paths under {@code _aspects}, so a hit that does not store the
+   * label can be read from the source that filled it. The {@code other} sink itself is not fetched.
+   * A structured property is its own path.
    */
   @Nonnull
   public static List<String> sourcePaths(
+      @Nonnull Collection<String> highlightNames,
+      @Nonnull Map<String, List<String>> searched,
+      @Nonnull Collection<String> queriedRoots,
+      @Nonnull Collection<String> structuredProperties) {
+    return fields(highlightNames, searched, queriedRoots, structuredProperties).fetchPaths();
+  }
+
+  /**
+   * Highlight labels the rendered query reads, split into the label key and the stored paths that
+   * fill it.
+   */
+  @Nonnull
+  public static FieldSources fields(
       @Nonnull Collection<String> highlightNames,
       @Nonnull Map<String, List<String>> searched,
       @Nonnull Collection<String> queriedRoots,
@@ -87,25 +102,70 @@ public final class SearchHighlightSelection {
         queried.add(indexed);
       }
     }
-    Map<String, List<String>> selected = new LinkedHashMap<>();
-    List<String> properties = new ArrayList<>();
+    String degreeOneName = SearchableAnnotation.indexedFieldName(V3SearchFields.ENTITY_NAME, 1);
+    List<String> labelKeys = new ArrayList<>();
+    List<String> fallbackPaths = new ArrayList<>();
+    Map<String, String> fallbackLabels = new LinkedHashMap<>();
+    List<String> direct = new ArrayList<>();
     for (String name : normalize(highlightNames)) {
       if (name.startsWith(V3SearchFields.STRUCTURED_PROPERTIES + ".")) {
         if (queried.contains(name) || structuredProperties.contains(name)) {
-          properties.add(name);
+          direct.add(name);
         }
-      } else if (queried.contains(name) && searched.containsKey(name)) {
-        selected.put(name, searched.get(name));
+        continue;
+      }
+      if (degreeOneName.equals(name) || !queried.contains(name) || !searched.containsKey(name)) {
+        continue;
+      }
+      List<String> sources = searched.get(name);
+      boolean storedOnLabel = !V3SearchFields.OTHER.equals(name) && sources.contains(name);
+      if (storedOnLabel) {
+        labelKeys.add(name);
+      }
+      for (String path : sources) {
+        if (V3SearchFields.OTHER.equals(path)
+            || isColumnArray(path)
+            || (storedOnLabel && name.equals(path))
+            || fallbackLabels.containsKey(path)) {
+          continue;
+        }
+        fallbackPaths.add(path);
+        fallbackLabels.put(path, name);
       }
     }
-    List<String> paths = new ArrayList<>();
-    for (String path : V3SearchFields.matchedFieldSources(selected)) {
-      if (!path.startsWith("_aspects")) {
-        paths.add(path);
-      }
+    return new FieldSources(labelKeys, fallbackPaths, fallbackLabels, direct);
+  }
+
+  /** Label keys, the stored paths behind them, and structured-property paths. */
+  public record FieldSources(
+      @Nonnull List<String> labelKeys,
+      @Nonnull List<String> fallbackPaths,
+      @Nonnull Map<String, String> fallbackLabels,
+      @Nonnull List<String> direct) {
+    public static final FieldSources NONE =
+        new FieldSources(List.of(), List.of(), Map.of(), List.of());
+
+    public FieldSources {
+      labelKeys = List.copyOf(labelKeys);
+      fallbackPaths = List.copyOf(fallbackPaths);
+      fallbackLabels = Map.copyOf(fallbackLabels);
+      direct = List.copyOf(direct);
     }
-    paths.addAll(properties);
-    return paths;
+
+    @Nonnull
+    public List<String> fetchPaths() {
+      LinkedHashSet<String> paths = new LinkedHashSet<>();
+      paths.addAll(labelKeys);
+      paths.addAll(fallbackPaths);
+      paths.addAll(direct);
+      return List.copyOf(paths);
+    }
+  }
+
+  private static boolean isColumnArray(@Nonnull String path) {
+    int separator = path.lastIndexOf('.');
+    String fieldName = separator < 0 ? path : path.substring(separator + 1);
+    return V3SearchFields.COLUMN_ARRAY_FIELDS.contains(fieldName);
   }
 
   @Nullable

@@ -8,7 +8,7 @@ import styled from 'styled-components/macro';
 
 import analytics, { Event, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
 import ViewSelectButtonWithPopover from '@app/entityV2/view/select/ViewSelectButtonWithPopover';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import ViewAllSearchItem from '@app/searchV2/ViewAllSearchItem';

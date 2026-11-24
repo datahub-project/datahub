@@ -1,0 +1,152 @@
+import React, { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { useEntityContext, useEntityData, useMutationUrn } from '@app/entityV2/shared/EntityContext';
+import StructuredPropertyInput from '@app/entityV2/shared/components/styled/StructuredProperty/StructuredPropertyInput';
+import { useEditStructuredProperty } from '@app/entityV2/shared/components/styled/StructuredProperty/useEditStructuredProperty';
+import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Modal, toast } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
+
+import { useUpsertStructuredPropertiesMutation } from '@graphql/structuredProperties.generated';
+import { EntityType, PropertyValueInput, StdDataType, StructuredPropertyEntity } from '@types';
+
+const Description = styled.div`
+    font-size: 14px;
+    margin-bottom: 16px;
+    margin-top: -8px;
+`;
+
+interface Props {
+    isOpen: boolean;
+    structuredProperty: StructuredPropertyEntity;
+    associatedUrn?: string;
+    values?: (string | number | null)[];
+    closeModal: () => void;
+    refetch?: () => void;
+    isAddMode?: boolean;
+}
+
+const SEARCH_SELECT_MODAL_WIDTH = 1400;
+const DEFAULT_MODAL_WIDTH = 650;
+
+export default function EditStructuredPropertyModal({
+    isOpen,
+    structuredProperty,
+    associatedUrn,
+    values,
+    closeModal,
+    refetch,
+    isAddMode,
+}: Props) {
+    const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entity.profile.tabs');
+    const { t: tc } = useTranslation(['common.actions', 'common.feedback']);
+    const { refetch: entityRefetch } = useEntityContext();
+    const mutationUrn = useMutationUrn();
+    const { entityType } = useEntityData();
+    const urn = associatedUrn || mutationUrn;
+    const initialValues = useMemo(() => values || [], [values]);
+    const { selectedValues, selectSingleValue, toggleSelectedValue, updateSelectedValues, setSelectedValues } =
+        useEditStructuredProperty(initialValues);
+    const [upsertStructuredProperties] = useUpsertStructuredPropertiesMutation();
+    const { allowedValues } = structuredProperty.definition;
+
+    useEffect(() => {
+        setSelectedValues(initialValues);
+    }, [isOpen, initialValues, setSelectedValues]);
+
+    function upsertProperties() {
+        toast.loading(isAddMode ? t('properties.adding.loading') : tc('common.feedback:updating'), { duration: 1 });
+        const propValues = selectedValues.map((value) => {
+            if (typeof value === 'string') {
+                return { stringValue: value as string };
+            }
+            return { numberValue: value as number };
+        }) as PropertyValueInput[];
+        upsertStructuredProperties({
+            variables: {
+                input: {
+                    assetUrn: urn,
+                    structuredPropertyInputParams: [
+                        {
+                            structuredPropertyUrn: structuredProperty.urn,
+                            values: propValues,
+                        },
+                    ],
+                },
+            },
+        })
+            .then(() => {
+                analytics.event({
+                    type: isAddMode
+                        ? EventType.ApplyStructuredPropertyEvent
+                        : EventType.UpdateStructuredPropertyOnAssetEvent,
+                    propertyUrn: structuredProperty.urn,
+                    propertyType: structuredProperty.definition.valueType.urn,
+                    assetUrn: urn,
+                    assetType: associatedUrn?.includes('urn:li:schemaField') ? EntityType.SchemaField : entityType,
+                    values: propValues,
+                });
+                if (refetch) {
+                    refetch();
+                } else {
+                    entityRefetch();
+                }
+                toast.success(isAddMode ? t('properties.added.success') : t('properties.updated.success'), {
+                    duration: 3,
+                });
+                closeModal();
+            })
+            .catch((error) => {
+                handleGraphQLError({
+                    error,
+                    defaultMessage: t('properties.save.error'),
+                });
+                closeModal();
+            });
+    }
+
+    const isUrnInput = structuredProperty.definition.valueType.info.type === StdDataType.Urn && !allowedValues;
+
+    return (
+        <Modal
+            title={`${isAddMode ? t('properties.addProperty.title') : t('properties.editProperty.title')} ${entityRegistry.getDisplayName(
+                structuredProperty.type,
+                structuredProperty,
+            )}`}
+            onCancel={closeModal}
+            open={isOpen}
+            buttons={[
+                {
+                    text: tc('common.actions:cancel'),
+                    onClick: closeModal,
+                    variant: 'text',
+                },
+                {
+                    text: isAddMode ? tc('common.actions:add') : tc('common.actions:update'),
+                    onClick: upsertProperties,
+                    disabled: !selectedValues.length,
+                    buttonDataTestId: 'add-update-structured-prop-on-entity-button',
+                },
+            ]}
+            // Urn input is a special case that requires a wider modal since it employs a search select component
+            width={isUrnInput ? SEARCH_SELECT_MODAL_WIDTH : DEFAULT_MODAL_WIDTH}
+            destroyOnClose
+        >
+            {structuredProperty?.definition?.description && (
+                <Description>{structuredProperty.definition.description}</Description>
+            )}
+            <StructuredPropertyInput
+                canUseSearchSelectUrnInput
+                structuredProperty={structuredProperty}
+                selectedValues={selectedValues}
+                selectSingleValue={selectSingleValue}
+                toggleSelectedValue={toggleSelectedValue}
+                updateSelectedValues={updateSelectedValues}
+            />
+        </Modal>
+    );
+}

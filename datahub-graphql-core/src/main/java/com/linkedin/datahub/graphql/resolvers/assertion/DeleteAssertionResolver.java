@@ -5,6 +5,7 @@ import static com.linkedin.metadata.aspect.utils.AssertionUtils.getEntityFromAss
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
@@ -36,42 +37,43 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
     final Urn assertionUrn = Urn.createFromString(environment.getArgument("urn"));
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
+          // Authorize before the existence check so the response does not reveal whether the urn
+          // exists.
+          if (!isAuthorizedToDeleteAssertion(context, assertionUrn)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
 
-          // 1. check the entity exists. If not, return false.
           if (!_entityService.exists(context.getOperationContext(), assertionUrn, true)) {
             return true;
           }
 
-          if (isAuthorizedToDeleteAssertion(context, assertionUrn)) {
-            try {
-              final var references =
-                  _entityClient.deleteEntityThenReferences(
-                      context.getOperationContext(), assertionUrn);
+          try {
+            final var references =
+                _entityClient.deleteReferencesThenEntity(
+                    context.getOperationContext(), assertionUrn);
 
-              // Asynchronously Delete all references to the entity (to return quickly)
-              CompletableFuture.runAsync(
-                  () -> {
-                    try {
-                      references.run();
-                    } catch (Exception e) {
-                      log.error(
-                          String.format(
-                              "Caught exception while attempting to clear all entity references for assertion with urn %s",
-                              assertionUrn),
-                          e);
-                    }
-                  });
+            // The entity is already gone. This removes the remaining references.
+            CompletableFuture.runAsync(
+                () -> {
+                  try {
+                    references.run();
+                  } catch (Exception e) {
+                    log.error(
+                        String.format(
+                            "Caught exception while attempting to clear all entity references for assertion with urn %s",
+                            assertionUrn),
+                        e);
+                  }
+                });
 
-              return true;
-            } catch (Exception e) {
-              throw new RuntimeException(
-                  String.format(
-                      "Failed to perform delete against assertion with urn %s", assertionUrn),
-                  e);
-            }
+            return true;
+          } catch (Exception e) {
+            throw new RuntimeException(
+                String.format(
+                    "Failed to perform delete against assertion with urn %s", assertionUrn),
+                e);
           }
-          throw new AuthorizationException(
-              "Unauthorized to perform this action. Please contact your DataHub administrator.");
         },
         this.getClass().getSimpleName(),
         "get");
@@ -80,8 +82,10 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
   /** Determine whether the current user is allowed to remove an assertion. */
   private boolean isAuthorizedToDeleteAssertion(
       final QueryContext context, final Urn assertionUrn) {
+    if (!AuthorizationUtils.isEntityType(assertionUrn, Constants.ASSERTION_ENTITY_NAME)) {
+      return false;
+    }
 
-    // 2. fetch the assertion info
     AssertionInfo info =
         (AssertionInfo)
             EntityUtils.getAspectFromEntity(
@@ -92,11 +96,13 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
                 null);
 
     if (info != null) {
-      // 3. check whether the actor has permission to edit the assertions on the assertee
       final Urn asserteeUrn = getEntityFromAssertionInfo(info);
-      return AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn);
+      if (asserteeUrn != null) {
+        return AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn);
+      }
     }
 
-    return true;
+    // Without an assertee there is nothing else to authorize against.
+    return AuthorizationUtils.canDeleteEntity(assertionUrn, context);
   }
 }

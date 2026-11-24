@@ -15,6 +15,7 @@ query getApplication($urn: String!) {
             }
         }
         ...notes
+        ...entityDataProduct
     }
 }
 
@@ -86,7 +87,9 @@ fragment applicationSearchFields on Application {
             }
         }
     }
-    children: relationships(input: { types: ["AssociatedWith"], direction: INCOMING, start: 0, count: 0 }) {
+    children: relationships(
+        input: { types: ["AssociatedWith", "ApplicationPartOf"], direction: INCOMING, start: 0, count: 0 }
+    ) {
         total
     }
 }

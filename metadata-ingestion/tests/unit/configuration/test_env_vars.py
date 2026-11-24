@@ -1,8 +1,11 @@
 import os
 from unittest.mock import patch
 
+import pytest
+
 from datahub.configuration.env_vars import (
     get_rest_sink_default_tcp_keepalive,
+    get_sql_agg_max_queries_per_downstream,
     is_ci,
 )
 
@@ -97,3 +100,13 @@ def test_get_rest_sink_default_tcp_keepalive() -> None:
         assert get_rest_sink_default_tcp_keepalive() is False
     with patch.dict(os.environ, {}, clear=True):
         assert get_rest_sink_default_tcp_keepalive() is False
+
+
+def test_get_sql_agg_max_queries_per_downstream() -> None:
+    var = "DATAHUB_SQL_AGG_MAX_QUERIES_PER_DOWNSTREAM"
+    with patch.dict(os.environ, {}, clear=True):
+        assert get_sql_agg_max_queries_per_downstream() == 0
+    with patch.dict(os.environ, {var: "5000"}, clear=True):
+        assert get_sql_agg_max_queries_per_downstream() == 5000
+    with patch.dict(os.environ, {var: "-1"}, clear=True), pytest.raises(ValueError):
+        get_sql_agg_max_queries_per_downstream()

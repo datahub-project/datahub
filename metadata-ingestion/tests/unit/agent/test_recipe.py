@@ -460,9 +460,11 @@ def test_an_unreadable_datahubenv_does_not_crash_validate(tmp_path, monkeypatch)
     # would assert against the wrong path.
     monkeypatch.delenv("NO_SUCH_REF", raising=False)
 
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("DATAHUB_PROFILE", raising=False)
+    cu.reset_profile_cache()
     bad = tmp_path / ".datahubenv"
     bad.write_text("gms:\n  server: [unclosed\n")
-    monkeypatch.setattr(cu, "DATAHUB_CONFIG_PATH", str(bad))
 
     result = validate_recipe(
         {

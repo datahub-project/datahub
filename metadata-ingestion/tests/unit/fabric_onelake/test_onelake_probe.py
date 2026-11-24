@@ -43,7 +43,7 @@ from datahub.ingestion.source.fabric.onelake.source import (
     LakehouseKey,
 )
 from datahub.sdk.dataset import Dataset
-from tests.unit.fabric_onelake.onelake_fakes import (
+from tests.unit.fabric_onelake.conftest import (
     ENDPOINT_HOST,
     LH_ID,
     PROVISIONED,

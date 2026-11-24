@@ -10,7 +10,8 @@ record CustomProperties {
   @Searchable = {
     "/*": {
       "v3": {
-        "queryByDefault": true
+        "queryByDefault": false,
+        "copyToOther": true
       },
       "fieldType": "TEXT",
       "queryByDefault": true

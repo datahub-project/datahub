@@ -15,6 +15,7 @@ from datahub.configuration.common import (
     ConfigModel,
     Filters,
     HiddenFromDocs,
+    SupportedSources,
 )
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.source_common import (
@@ -33,6 +34,13 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.data_lake_common.config import (
+    DataLakeLineageProviderConfigBase,
+)
+from datahub.ingestion.source.profiling.config import (
+    ProfilingConfig,
+    coerce_profiling_config_instance,
+)
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
@@ -282,14 +290,9 @@ class SnowflakeFilterConfig(SQLFilterConfig):
 
     @model_validator(mode="after")
     def validate_legacy_schema_pattern(self) -> "SnowflakeFilterConfig":
-        schema_pattern: Optional[AllowDenyPattern] = self.schema_pattern
-        match_fully_qualified_names = self.match_fully_qualified_names
-
         if (
-            schema_pattern is not None
-            and schema_pattern != AllowDenyPattern.allow_all()
-            and match_fully_qualified_names is not None
-            and not match_fully_qualified_names
+            self.schema_pattern != AllowDenyPattern.allow_all()
+            and not self.match_fully_qualified_names
         ):
             logger.warning(
                 "Please update `schema_pattern` to match against fully qualified schema name `<catalog_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
@@ -298,10 +301,7 @@ class SnowflakeFilterConfig(SQLFilterConfig):
             )
 
         # Always exclude reporting metadata for INFORMATION_SCHEMA schema
-        if schema_pattern:
-            logger.debug("Adding deny for INFORMATION_SCHEMA to schema_pattern.")
-            assert isinstance(schema_pattern, AllowDenyPattern)
-            schema_pattern.deny.append(r".*INFORMATION_SCHEMA$")
+        self.schema_pattern = self.schema_pattern.with_deny(r".*INFORMATION_SCHEMA$")
 
         return self
 
@@ -484,6 +484,18 @@ class SnowflakeConfig(
     upstream_lineage_in_report: bool = False
 
 
+class SnowflakeProfilingConfig(ProfilingConfig):
+    # Redeclared with Annotated[...] so schema_extra.supported_sources survives
+    # on the subclass -- a plain redeclaration drops it.
+    use_sampling: Annotated[bool, SupportedSources(["snowflake"])] = Field(
+        # On by default here, unlike the shared config: Snowflake implements
+        # sampling (TABLESAMPLE materialized into a temp table).
+        default=True,
+        description="Whether to profile column level stats on a sample of the table rather "
+        "than all of it. Smaller tables are not sampled.",
+    )
+
+
 class SnowflakeV2Config(
     SnowflakeConfig,
     SnowflakeUsageConfig,
@@ -493,7 +505,20 @@ class SnowflakeV2Config(
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
     IncrementalPropertiesConfigMixin,
+    DataLakeLineageProviderConfigBase,
 ):
+    # Redeclared so Snowflake picks up its own profiling defaults; SQLCommonConfig
+    # declares the shared ProfilingConfig, which does not sample.
+    profiling: SnowflakeProfilingConfig = Field(
+        default_factory=SnowflakeProfilingConfig,
+        description="Configuration for profiling",
+    )
+
+    @field_validator("profiling", mode="before")
+    @classmethod
+    def coerce_profiling_config(cls, v: object) -> object:
+        return coerce_profiling_config_instance(v)
+
     include_usage_stats: bool = Field(
         default=True,
         description="If enabled, populates the snowflake usage statistics. Requires appropriate grants given to the role.",
@@ -1004,4 +1029,7 @@ class SnowflakeV2Config(
             qualified_table_target,
         )
 
+        # Returning None when there is no database is what opts this kind into
+        # the container rule: sql_probe applies it with the field it resolved,
+        # which this hook is not told.
         return qualified_table_target(database, schema, entity, warn)

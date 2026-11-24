@@ -1,9 +1,10 @@
-import { renderHook } from '@testing-library/react-hooks';
 import React, { PropsWithChildren } from 'react';
 import { describe, expect, it } from 'vitest';
 
-import { ModalContext, ModalContextType } from '@app/sharedV2/modals/ModalContext';
+import { ModalContext, ModalContextType } from '@components/components/Modal/ModalContext';
+
 import { useGetModalLinkProps } from '@app/sharedV2/modals/useGetModalLinkProps';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 function wrapperWithContext(value: ModalContextType) {
     return ({ children }: { children: React.ReactNode }) => (
@@ -44,17 +45,17 @@ describe('useGetModalLinkProps', () => {
     });
 
     it('should change reference when context value changes', () => {
-        const wrapper = ({ children, value }: PropsWithChildren<{ value: boolean }>) => (
-            <ModalContext.Provider value={{ isInsideModal: value }}>{children}</ModalContext.Provider>
+        // Testing Library doesn't pass hook props to the wrapper, so it reads the value from this variable
+        let isInsideModal = false;
+        const wrapper = ({ children }: PropsWithChildren<unknown>) => (
+            <ModalContext.Provider value={{ isInsideModal }}>{children}</ModalContext.Provider>
         );
 
-        const { result, rerender } = renderHook(() => useGetModalLinkProps(), {
-            initialProps: { value: false },
-            wrapper,
-        });
+        const { result, rerender } = renderHook(() => useGetModalLinkProps(), { wrapper });
 
         const first = result.current;
-        rerender({ value: true });
+        isInsideModal = true;
+        rerender();
         expect(result.current).not.toBe(first);
         expect(result.current).toEqual({
             target: '_blank',

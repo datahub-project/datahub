@@ -1,0 +1,78 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "4ec39007f5507bf831251bd33b3fae803a2d59351d435ea7d581753427ba4ad0",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table_a,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table_b,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "col_a",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table_a,PROD)",
+                    "column": "col_a"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"A\".\"COL_A\" AS \"COL_A\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "col_b",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table_b,PROD)",
+                    "column": "col_b"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"B\".\"COL_B\" AS \"COL_B\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table_a,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table_b,PROD)"
+            ],
+            "on_clause": "\"A\".\"ID\" = \"B\".\"ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table_a,PROD)",
+                    "column": "ID"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table_b,PROD)",
+                    "column": "ID"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.35,
+        "generalized_statement": "SELECT x.col_a, x.col_b FROM (SELECT * FROM my_db.my_schema.table_a AS a JOIN my_db.my_schema.table_b AS b ON a.id = b.id) AS x"
+    }
+}

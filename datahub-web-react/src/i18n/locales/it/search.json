@@ -148,7 +148,6 @@
     "searchBar.noResults.clearFilters": "cancellare i filtri",
     "searchBar.noResults.clearFiltersAndView": "cancellare i filtri e la vista selezionata",
     "searchBar.noResults.clearView": "cancellare la vista selezionata",
-    "searchBar.noResults.defaultMessage": "Provare a modificare la ricerca per trovare ciò che si sta cercando",
     "searchBar.noResults.orClearSuggestion": ", oppure <clickable>{{clearText}}</clickable>.",
     "searchBar.placeholder": "Trova tabelle, dashboard, persone e altro",
     "searchBar.placeholderWithShortcut": "{{message}} ({{shortcut}})",

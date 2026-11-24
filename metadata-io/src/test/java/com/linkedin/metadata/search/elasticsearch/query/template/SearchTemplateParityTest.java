@@ -67,7 +67,8 @@ public class SearchTemplateParityTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     javaBuilder = new V3SearchQueryBuilder(elastic.getSearch(), null);
     dataset = harness.registry.getEntitySpec("dataset");
     harness.opContext = harness.opContext.withSearchTemplateRuntime(coordinator);
@@ -344,7 +345,7 @@ public class SearchTemplateParityTest {
             "urn:li:searchTemplate:identity",
             URN,
             "qualifiedName",
-            "id.keyword"),
+            "\"id\""),
         different(
             "exact",
             "exact",
@@ -353,7 +354,7 @@ public class SearchTemplateParityTest {
             false,
             false,
             "urn:li:searchTemplate:exact",
-            List.of("orders by region", "match_phrase_prefix", "name.keyword"),
+            List.of("orders by region", "match_phrase_prefix", "case_insensitive"),
             List.of("urn.lowercase"),
             List.of("dis_max"),
             List.of("dis_max"),
@@ -418,7 +419,7 @@ public class SearchTemplateParityTest {
             false,
             true,
             "urn:li:searchTemplate:structured",
-            List.of("query_string", "orders"),
+            List.of("case_insensitive", "orders"),
             List.of(),
             List.of("dis_max"),
             List.of(),

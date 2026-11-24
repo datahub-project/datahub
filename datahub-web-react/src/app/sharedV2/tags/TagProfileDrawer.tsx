@@ -50,7 +50,7 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
                 }
             >
                 <>
-                    <TagStyleEntity urn={urn} hideDeleteAction />
+                    <TagStyleEntity urn={urn} />
                 </>
             </Drawer>
         </>

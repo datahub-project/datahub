@@ -2,8 +2,8 @@ import { useCallback, useMemo } from 'react';
 
 import { LinkAttributes } from '@app/entityV2/shared/externalUrl/types';
 import { sendClickExternalLinkAnalytics } from '@app/entityV2/shared/externalUrl/utils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { ExternalLinkType } from '@src/app/analytics';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
 
 export default function useExternalLinks(
     urn: string,

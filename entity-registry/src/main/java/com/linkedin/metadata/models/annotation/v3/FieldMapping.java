@@ -117,12 +117,18 @@ public class FieldMapping {
   /**
    * The root and label subfields V3 uses when {@code v3.mappings} is omitted. Analyzer subfields
    * are added only when the field has a search destination; {@code _aspects} does not use this.
+   *
+   * <p>A {@code RICH_TEXT} root is not indexed. The type exists for long bodies, which must not be
+   * one Lucene term, so it has no keyword to filter, sort or match exactly.
    */
   @Nonnull
   public static List<FieldMapping> fallback(
       @Nonnull FieldType fieldType, boolean hasSearchDestination) {
     List<FieldMapping> mappings = new ArrayList<>();
-    mappings.add(root(rootType(fieldType)));
+    mappings.add(
+        fieldType == FieldType.RICH_TEXT
+            ? root(rootType(fieldType), false, false)
+            : root(rootType(fieldType)));
     if (hasSearchDestination && hasAnalyzerFallback(fieldType)) {
       mappings.add(subfield(TEXT, Type.TEXT));
       mappings.add(subfield(STEMMED, Type.STEMMED));
@@ -306,6 +312,7 @@ public class FieldMapping {
 
   private static boolean hasAnalyzerFallback(@Nonnull FieldType fieldType) {
     return fieldType == FieldType.TEXT
+        || fieldType == FieldType.RICH_TEXT
         || fieldType == FieldType.TEXT_PARTIAL
         || fieldType == FieldType.WORD_GRAM
         || fieldType == FieldType.URN

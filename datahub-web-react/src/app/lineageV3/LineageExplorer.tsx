@@ -16,6 +16,7 @@ import useShouldHideTransformations from '@app/lineageV3/settings/useShouldHideT
 import useShouldShowDataProcessInstances from '@app/lineageV3/settings/useShouldShowDataProcessInstances';
 import useShouldShowGhostEntities from '@app/lineageV3/settings/useShouldShowGhostEntities';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -26,6 +27,12 @@ interface Props {
 
 export default function LineageExplorer(props: Props) {
     const { urn, type } = props;
+
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
+    // The DataProduct and SemanticModel member queries don't take the time params, so after the
+    // time-range reset nothing would re-add their members. Remounting refetches them. DataFlow
+    // refetches its child jobs on a time-range change itself (useFetchChildDataJobs).
+    const timeRangeKey = `${startTimeMillis}-${endTimeMillis}`;
 
     const [nodes] = useState(new Map<string, LineageEntity>());
     const [edges] = useState(new Map<EdgeId, LineageEdge>());
@@ -75,8 +82,12 @@ export default function LineageExplorer(props: Props) {
     return (
         <LineageNodesContext.Provider value={context}>
             {type === EntityType.DataFlow && <DAGNodeInitializer urn={urn} type={type} />}
-            {type === EntityType.DataProduct && <DataProductGraphInitializer urn={urn} type={type} />}
-            {type === EntityType.SemanticModel && <SemanticModelGraphInitializer urn={urn} type={type} />}
+            {type === EntityType.DataProduct && (
+                <DataProductGraphInitializer key={timeRangeKey} urn={urn} type={type} />
+            )}
+            {type === EntityType.SemanticModel && (
+                <SemanticModelGraphInitializer key={timeRangeKey} urn={urn} type={type} />
+            )}
             {type !== EntityType.DataFlow && !BOUNDING_BOX_ENTITY_TYPES.has(type) && (
                 <ImpactAnalysisNodeInitializer urn={urn} type={type} />
             )}

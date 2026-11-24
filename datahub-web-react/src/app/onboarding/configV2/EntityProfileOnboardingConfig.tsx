@@ -2,7 +2,7 @@ import { Text } from '@components';
 import React from 'react';
 import { Trans } from 'react-i18next';
 
-import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { OnboardingStep } from '@app/onboarding/types';
 
 export const ENTITY_PROFILE_V2_COLUMNS_ID = 'entity-profile-v2-columns';
@@ -102,7 +102,7 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: ENTITY_SIDEBAR_V2_ABOUT_TAB_ID,
-        selector: `[id^='entity-sidebar-tabs'][id$='About']`,
+        selector: `[data-sidebar-tab='${EntitySidebarTabKey.SUMMARY}']`,
         title: <Trans i18nKey="onboarding:entityProfileV2.summaryTitle" />,
         content: (
             <Text type="div" size="md">
@@ -114,7 +114,7 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: ENTITY_SIDEBAR_V2_COLUMNS_TAB_ID,
-        selector: `[id^='entity-sidebar-tabs'][id$='Columns']`,
+        selector: `[data-sidebar-tab='${EntitySidebarTabKey.COLUMNS}']`,
         title: <Trans i18nKey="common.labels:columns" />,
         content: (
             <Text type="div" size="md">
@@ -129,7 +129,7 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID,
-        selector: `[id^='entity-sidebar-tabs'][id$='Lineage']`,
+        selector: `[data-sidebar-tab='${EntitySidebarTabKey.LINEAGE}']`,
         title: <Trans i18nKey="onboarding:entityProfileV2.lineageTitle" />,
         content: (
             <Text type="div" size="md">
@@ -141,7 +141,7 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: ENTITY_SIDEBAR_V2_PROPERTIES_ID,
-        selector: `[id^='entity-sidebar-tabs'][id$='Properties']`,
+        selector: `[data-sidebar-tab='${EntitySidebarTabKey.PROPERTIES}']`,
         title: <Trans i18nKey="onboarding:entityProfileV2.propertiesTitle" />,
         content: (
             <Text type="div" size="md">

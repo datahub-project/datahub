@@ -102,9 +102,14 @@
     "searchActions.glossaryTerms.addTitle": "Добавить термины",
     "searchActions.glossaryTerms.name": "Термины",
     "searchActions.glossaryTerms.removeTitle": "Удалить термины",
+    "searchActions.noSelection": "Выберите хотя бы один ассет, чтобы использовать это действие.",
     "searchActions.notSupported": "Это действие не поддерживается для выбранных типов.",
     "searchActions.owners.addTitle": "Добавить владельцев",
     "searchActions.owners.removeTitle": "Удалить владельцев",
     "searchActions.tags.addTitle": "Добавить теги",
-    "searchActions.tags.removeTitle": "Удалить теги"
+    "searchActions.tags.removeTitle": "Удалить теги",
+    "structuredProperty.addMore": "+ Добавить ещё",
+    "structuredProperty.selectPlaceholder": "Выберите",
+    "viewAll.resultsIncomplete": "Результаты могут быть неполными.",
+    "viewAll.searchAllAssets": "Поиск по всем загруженным ассетам {{platform}}"
 }

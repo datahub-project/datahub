@@ -1,8 +1,8 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/siblingUtils';
 import LineageExplorer from '@app/lineageV3/LineageExplorer';
 
 const LineageFullscreenWrapper = styled.div`

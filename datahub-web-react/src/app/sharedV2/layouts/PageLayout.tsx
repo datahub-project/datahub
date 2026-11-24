@@ -1,8 +1,10 @@
 import { PageTitle } from '@components';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import { PanelResizeHandle } from '@app/sharedV2/layouts/PanelResizeHandle';
+import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
+import SidebarResizer from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarResizer';
+import usePersistedSidebarWidth, { SIDE_PANEL_MAX_ROW_SHARE } from '@app/sharedV2/sidebar/usePersistedSidebarWidth';
 
 const Card = styled.div`
     background-color: ${(props) => props.theme.colors.bg};
@@ -36,10 +38,17 @@ const Panel = styled(Card)`
     padding: 16px;
 `;
 
-const SidePanel = styled(Panel)<{ $closed?: boolean; $width?: number; $noTransition?: boolean }>`
+const SidePanel = styled(Panel)<{
+    $closed?: boolean;
+    $width?: number;
+    $noTransition?: boolean;
+    $isResizable?: boolean;
+}>`
+    ${({ $isResizable }) => ($isResizable ? 'position: relative;' : '')}
     width: ${({ $closed, $width }) => {
         if ($closed) return '0px';
-        if ($width) return `${$width}px`;
+        // A saved drag width must not crowd out the page on a narrower window.
+        if ($width) return `min(${$width}px, ${SIDE_PANEL_MAX_ROW_SHARE * 100}%)`;
         return '33.333%';
     }};
     flex-shrink: 0;
@@ -51,7 +60,7 @@ const SidePanel = styled(Panel)<{ $closed?: boolean; $width?: number; $noTransit
     min-height: 0;
     max-width: ${({ $closed, $width }) => {
         if ($closed) return '0px';
-        if ($width) return `${$width}px`;
+        if ($width) return `min(${$width}px, ${SIDE_PANEL_MAX_ROW_SHARE * 100}%)`;
         return '33.333%';
     }};
     overflow: hidden;
@@ -66,13 +75,10 @@ const SidePanel = styled(Panel)<{ $closed?: boolean; $width?: number; $noTransit
     }}
 `;
 
+/** Bounds for the drag-resizable right panel. */
 const MIN_RIGHT_PANEL_WIDTH = 320;
-const MAX_RIGHT_PANEL_WIDTH_RATIO = 0.6;
-
-function clampRightPanelWidth(width: number): number {
-    const max = window.innerWidth * MAX_RIGHT_PANEL_WIDTH_RATIO;
-    return Math.min(Math.max(width, MIN_RIGHT_PANEL_WIDTH), max);
-}
+const MAX_RIGHT_PANEL_WIDTH = 800;
+const DEFAULT_RIGHT_PANEL_RATIO = 0.3;
 
 const BottomPanel = styled(Panel)`
     height: 62px;
@@ -82,7 +88,7 @@ const VerticalContainer = styled.div`
     display: flex;
     flex: 1;
     flex-direction: column;
-    gap: 16px;
+    gap: ${PAGE_GAP_PX}px;
     /* Without this, one wide unbreakable descendant (a code block in the chat
        rail, a long link) inflates this column's min-content past the app row
        and the whole layout lays out wider than the viewport. */
@@ -91,19 +97,19 @@ const VerticalContainer = styled.div`
     overflow: hidden;
 `;
 
-const HorizontalContainer = styled.div<{ $hasBottomPanel?: boolean; $isRightPanelCollapsed?: boolean }>`
+const HorizontalContainer = styled.div<{ $isRightPanelCollapsed?: boolean }>`
     flex: 1;
     display: flex;
     flex-direction: row;
-    gap: 8px;
+    gap: ${PAGE_GAP_PX}px;
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-    max-height: calc(100vh - ${(props) => (props.$hasBottomPanel ? '156px' : '78px')});
+    /* Sized by the flex column inside the app shell, so the panels end on the shell's inset. */
     ${(props) =>
         props.$isRightPanelCollapsed &&
         `
-            margin-right: -8px;
+            margin-right: -${PAGE_GAP_PX}px;
         `}
 `;
 
@@ -131,15 +137,8 @@ interface Props {
     topRightContent?: React.ReactNode;
     /** Allow the user to drag-resize the right panel. Off by default. */
     isRightPanelResizable?: boolean;
-    /** When set, the resized right panel width is persisted to localStorage under this key. */
+    /** When set, the resized right panel width is saved under this key (bounds and storage via `usePersistedSidebarWidth`). */
     rightPanelWidthLocalStorageKey?: string;
-}
-
-function readStoredWidth(key: string | undefined): number | undefined {
-    if (!key) return undefined;
-    const stored = window.localStorage.getItem(key);
-    const parsed = stored ? Number(stored) : NaN;
-    return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 export function PageLayout({
@@ -156,75 +155,47 @@ export function PageLayout({
     isRightPanelResizable,
     rightPanelWidthLocalStorageKey,
 }: React.PropsWithChildren<Props>) {
-    const sidePanelRef = useRef<HTMLDivElement>(null);
-    const [rightPanelWidth, setRightPanelWidth] = useState<number | undefined>(() =>
-        readStoredWidth(rightPanelWidthLocalStorageKey),
-    );
+    const { width: rightPanelWidth, setWidth: setRightPanelWidth } = usePersistedSidebarWidth({
+        storageKey: rightPanelWidthLocalStorageKey,
+        minWidth: MIN_RIGHT_PANEL_WIDTH,
+        maxWidth: MAX_RIGHT_PANEL_WIDTH,
+        defaultRatio: DEFAULT_RIGHT_PANEL_RATIO,
+    });
     const [isDragging, setIsDragging] = useState(false);
-
-    const getInitialWidth = useCallback(
-        () => rightPanelWidth ?? sidePanelRef.current?.offsetWidth ?? MIN_RIGHT_PANEL_WIDTH,
-        [rightPanelWidth],
-    );
-
-    const handleResize = useCallback((width: number) => {
-        setIsDragging(true);
-        setRightPanelWidth(clampRightPanelWidth(width));
-    }, []);
-
-    const handleResizeEnd = useCallback(
-        (width: number) => {
-            setIsDragging(false);
-            const clamped = clampRightPanelWidth(width);
-            setRightPanelWidth(clamped);
-            if (rightPanelWidthLocalStorageKey) {
-                window.localStorage.setItem(rightPanelWidthLocalStorageKey, String(clamped));
-            }
-        },
-        [rightPanelWidthLocalStorageKey],
-    );
 
     const rightPanel = useMemo(() => {
         if (!rightPanelContent) return null;
         if (!isRightPanelResizable) {
             return <SidePanel $closed={isRightPanelCollapsed}>{rightPanelContent}</SidePanel>;
         }
-        // Rendered as siblings (not wrapped in a div) so SidePanel remains a direct flex child of
-        // HorizontalContainer — its percentage/pixel width is computed against that container, not
-        // against an intermediate wrapper with no defined width of its own.
         return (
-            <>
+            <SidePanel $closed={isRightPanelCollapsed} $width={rightPanelWidth} $noTransition={isDragging} $isResizable>
                 {!isRightPanelCollapsed && (
-                    <PanelResizeHandle
-                        getInitialWidth={getInitialWidth}
-                        onResize={handleResize}
-                        onResizeEnd={handleResizeEnd}
+                    <SidebarResizer
+                        edge="left"
+                        minWidth={MIN_RIGHT_PANEL_WIDTH}
+                        maxWidth={MAX_RIGHT_PANEL_WIDTH}
+                        capToRow
+                        onWidthChange={setRightPanelWidth}
+                        onResizeStart={() => setIsDragging(true)}
+                        onResizeEnd={() => setIsDragging(false)}
                     />
                 )}
-                <SidePanel
-                    ref={sidePanelRef}
-                    $closed={isRightPanelCollapsed}
-                    $width={rightPanelWidth}
-                    $noTransition={isDragging}
-                >
-                    {rightPanelContent}
-                </SidePanel>
-            </>
+                {rightPanelContent}
+            </SidePanel>
         );
     }, [
         rightPanelContent,
         isRightPanelResizable,
         isRightPanelCollapsed,
-        getInitialWidth,
-        handleResize,
-        handleResizeEnd,
+        setRightPanelWidth,
         rightPanelWidth,
         isDragging,
     ]);
 
     return (
         <VerticalContainer>
-            <HorizontalContainer $hasBottomPanel={!!bottomPanelContent} $isRightPanelCollapsed={isRightPanelCollapsed}>
+            <HorizontalContainer $isRightPanelCollapsed={isRightPanelCollapsed}>
                 {leftPanelContent && <SidePanel>{leftPanelContent}</SidePanel>}
 
                 <PageWrapper>

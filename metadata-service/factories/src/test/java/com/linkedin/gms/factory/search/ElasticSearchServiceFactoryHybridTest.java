@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.search;
 
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertNotNull;
@@ -42,13 +43,10 @@ public class ElasticSearchServiceFactoryHybridTest {
   }
 
   @Test
-  public void testRequiresV3KeywordAndSemanticReads() {
+  public void testRequiresSemanticReadsOnV3() {
     expectThrows(
         IllegalStateException.class,
         () -> build(entityIndex(v3 -> v3.keywordReadEnabled(false)), provider));
-    expectThrows(
-        IllegalStateException.class,
-        () -> build(entityIndex(v3 -> v3.semanticReadEnabled(false)), provider));
   }
 
   @Test
@@ -74,24 +72,48 @@ public class ElasticSearchServiceFactoryHybridTest {
   }
 
   @Test
-  public void testRequiresOpenSearch35OnTheSearchV3Cluster() throws IOException {
-    SearchClientShim<?> openSearch34 = mock(SearchClientShim.class);
-    when(openSearch34.getEngineType()).thenReturn(SearchEngineType.OPENSEARCH_3);
-    when(openSearch34.getEngineVersion()).thenReturn("3.4.0");
+  public void testAllowsSearchV3SemanticReadsBeforeOpenSearch35() throws IOException {
+    assertNotNull(reranker(SearchEngineType.OPENSEARCH_3, "3.4.0"));
+    assertNotNull(reranker(SearchEngineType.OPENSEARCH_2, "2.19.0"));
+  }
 
-    expectThrows(
-        IllegalStateException.class,
-        () ->
-            ElasticSearchServiceFactory.hybridSearchResultReranker(
-                entityIndex(v3 -> {}), () -> provider, () -> openSearch34));
+  @Test
+  public void testVectorRungsNeedSemanticReadAndARealProviderButNotHybridRead() {
+    assertNotNull(
+        ElasticSearchServiceFactory.vectorQueryEmbedding(
+            entityIndex(v3 -> v3.hybridReadEnabled(false)), () -> provider));
+    // Semantic read is semantic search with keyword reads on V3
+    assertNull(
+        ElasticSearchServiceFactory.vectorQueryEmbedding(
+            entityIndex(v3 -> v3.keywordReadEnabled(false)), () -> provider));
+    assertNull(
+        ElasticSearchServiceFactory.vectorQueryEmbedding(
+            entityIndex(v3 -> {}), NoOpEmbeddingProvider::new));
+    EntityIndexConfiguration otherModel = entityIndex(v3 -> {});
+    otherModel.getSemanticSearch().setModels(Map.of("other_model", new ModelEmbeddingConfig()));
+    assertNull(ElasticSearchServiceFactory.vectorQueryEmbedding(otherModel, () -> provider));
+  }
+
+  private HybridSearchResultReranker reranker(SearchEngineType engine, String version)
+      throws IOException {
+    SearchClientShim<?> client = mock(SearchClientShim.class);
+    when(client.getEngineType()).thenReturn(engine);
+    when(client.getEngineVersion()).thenReturn(version);
+    return ElasticSearchServiceFactory.hybridSearchResultReranker(
+        entityIndex(v3 -> {}), () -> provider, () -> client, null);
   }
 
   private static HybridSearchResultReranker build(
       EntityIndexConfiguration entityIndex, EmbeddingProvider provider) {
     SearchClientShim<?> elasticsearch = mock(SearchClientShim.class);
     when(elasticsearch.getEngineType()).thenReturn(SearchEngineType.ELASTICSEARCH_8);
+    try {
+      doReturn("8.18.0").when(elasticsearch).getEngineVersion();
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
     return ElasticSearchServiceFactory.hybridSearchResultReranker(
-        entityIndex, () -> provider, () -> elasticsearch);
+        entityIndex, () -> provider, () -> elasticsearch, null);
   }
 
   /** V3 with keyword, semantic and hybrid reads on, then {@code v3} adjusts the V3 settings. */
@@ -101,7 +123,6 @@ public class ElasticSearchServiceFactoryHybridTest {
         EntityIndexVersionConfiguration.builder()
             .enabled(true)
             .keywordReadEnabled(true)
-            .semanticReadEnabled(true)
             .hybridReadEnabled(true);
     v3.accept(v3Builder);
     EmbeddingProviderConfiguration providerConfiguration = new EmbeddingProviderConfiguration();
@@ -117,7 +138,9 @@ public class ElasticSearchServiceFactoryHybridTest {
                 true,
                 Set.of("document"),
                 new HashMap<>(Map.of("text_embedding_3_small", model)),
-                providerConfiguration))
+                providerConfiguration,
+                null,
+                null))
         .build();
   }
 }

@@ -3,7 +3,7 @@ import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import EntityContext from '@app/entity/shared/EntityContext';
+import EntityContext from '@app/entityV2/shared/EntityContext';
 import CreateGlossaryTermVersionModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryTermVersionModal';
 import { GlossaryEntityContext } from '@app/entityV2/shared/GlossaryEntityContext';
 import CustomThemeProvider from '@src/CustomThemeProvider';

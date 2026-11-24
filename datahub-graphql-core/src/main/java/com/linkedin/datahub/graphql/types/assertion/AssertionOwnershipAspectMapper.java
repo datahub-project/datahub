@@ -10,6 +10,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import javax.annotation.Nullable;
 
+/** Maps the ownership Pegasus aspect onto the GraphQL {@link Assertion} when present. */
 final class AssertionOwnershipAspectMapper {
 
   private AssertionOwnershipAspectMapper() {}

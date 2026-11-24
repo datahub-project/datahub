@@ -1,0 +1,13 @@
+{
+    "query_type": "UNKNOWN",
+    "query_type_props": {},
+    "query_fingerprint": "63718cd244e75a24b377c677747f3c2b3000597143352b9456dd6badb83e654a",
+    "in_tables": [],
+    "out_tables": [],
+    "column_lineage": null,
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "GRANT SELECT ON v TO r"
+    }
+}
