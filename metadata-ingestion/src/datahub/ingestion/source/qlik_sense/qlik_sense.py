@@ -215,6 +215,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     SqlParsingResult,
@@ -350,6 +351,8 @@ RELOAD_SQL_RE = re.compile(
 RELOAD_UNPARSED_SQL_RE = re.compile(
     r"^\s*(?:EXEC|EXECUTE|INSERT|MERGE|UPDATE|DELETE)\b", re.IGNORECASE
 )
+# Reload statements whose tables can be load sources of the app.
+READ_QUERY_TYPES = {QueryType.SELECT, QueryType.INSERT}
 QUOTE_CHARACTERS = '[]"`'
 # A file an app's last reload stored or loaded, as Qlik records it, such as
 # `STORE - lib://<space>:DataFiles/orders.qvd;` or `{lib://... (txt)};`.
@@ -629,6 +632,48 @@ class _ParsedReloadSql(BaseModel):
     # A statement kept a variable Qlik did not expand, so it may name any
     # table.
     unexpanded_variable: bool = False
+
+
+class _UntracedSources(BaseModel):
+    """Database sources of a graph table that the load script doesn't trace
+    and whose labels may name the same table, such as `dbo.orders` in two
+    databases."""
+
+    name: str
+    labels: Dict[str, str]
+    # How many of them the script traced to a table any of them may name, so
+    # without telling which.
+    traced_count: int = 0
+    # The tables the script linked, which the reload SQL can't link again.
+    script_urns: List[str] = []
+
+
+def _untraced_source_groups(
+    labels: Dict[str, str], script_urns: List[str]
+) -> List[_UntracedSources]:
+    """The database sources, by graph QRI and label, that the script's tables
+    don't trace. A script table traces a source only when it is the one source
+    of the graph table that could be it."""
+    groups: Dict[Tuple[str, str], Dict[str, str]] = {}
+    for qri, label in labels.items():
+        key = (_database_qri_platform(qri), _label_parts(label)[-1])
+        groups.setdefault(key, {})[qri] = label
+    untraced: List[_UntracedSources] = []
+    for (_, name), group in groups.items():
+        sources = _UntracedSources(
+            name=name, labels=dict(group), script_urns=script_urns
+        )
+        for urn in script_urns:
+            named = [
+                qri for qri, label in group.items() if _urn_names_table(urn, qri, label)
+            ]
+            if len(named) == 1:
+                sources.labels.pop(named[0], None)
+            elif named:
+                sources.traced_count += 1
+        if len(sources.labels) > sources.traced_count:
+            untraced.append(sources)
+    return untraced
 
 
 def _merged_lineage(
@@ -3461,21 +3506,33 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 parsed.skipped_table_names |= _table_clause_names(sql)
                 continue
-            if not result.in_tables:
+            # An UPDATE, DELETE or MERGE loads no rows, and the tables an
+            # INSERT writes are not read.
+            read_urns = (
+                [urn for urn in result.in_tables if urn not in result.out_tables]
+                if result.query_type in READ_QUERY_TYPES
+                else []
+            )
+            if not read_urns:
                 # Such as EXEC('SELECT ...'), whose tables the parser can't see.
                 parsed.skipped_table_names |= _table_clause_names(sql)
                 continue
+            parsed.skipped_table_names.update(
+                part
+                for urn in result.out_tables
+                for part in DatasetUrn.from_string(urn).name.lower().split(".")
+            )
             # SQL in a string literal runs dynamically and is never parsed.
             parsed.skipped_table_names |= _string_literal_table_names(sql)
             upstream_urns = [
                 urn
-                for urn in result.in_tables
+                for urn in read_urns
                 if has_qualified_name(
                     urn, connection.platform, connection.platform_instance
                 )
             ]
             statement_unqualified = [
-                urn for urn in result.in_tables if urn not in upstream_urns
+                urn for urn in read_urns if urn not in upstream_urns
             ]
             unqualified.extend(statement_unqualified)
             # A table without its database or schema may be the label's table
@@ -3538,21 +3595,25 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         doesn't trace, from the SQL of the app's last reload, by table QRI.
         The graph names each source table by a label such as `dbo.orders`,
         which is linked only when exactly one table the SQL reads matches it."""
-        untraced: Dict[str, Dict[str, str]] = {}
+        untraced: Dict[str, List[_UntracedSources]] = {}
         for table in app.lineage_tables:
             script_table = script_tables.get(table.qri)
-            traced = script_table.upstream_urns if script_table else []
-            labels = {
-                qri: label
-                for qri, label in table.database_source_labels.items()
-                if not any(_urn_names_table(urn, qri, label) for urn in traced)
-            }
-            if labels:
-                untraced[table.qri] = labels
+            groups = _untraced_source_groups(
+                table.database_source_labels,
+                script_table.upstream_urns if script_table else [],
+            )
+            if groups:
+                untraced[table.qri] = groups
         if not untraced or app.reload_statements is None:
             return {}
         parsed = self._parse_reload_sql(
-            app, [label for labels in untraced.values() for label in labels.values()]
+            app,
+            [
+                label
+                for groups in untraced.values()
+                for group in groups
+                for label in group.labels.values()
+            ],
         )
         lineages: Dict[str, ScriptTableLineage] = {}
         for table in app.lineage_tables:
@@ -3562,46 +3623,60 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 label=table.label,
                 identifier=self._lineage_table_identifier(app.id, table),
             )
-            for source_qri, label in untraced[table.qri].items():
-                urn = self._reload_sql_source(app, parsed, source_qri, label)
+            for group in untraced[table.qri]:
+                urn = self._reload_sql_source(app, parsed, group)
                 if urn is None:
                     continue
                 if urn not in lineage.upstream_urns:
                     lineage.upstream_urns.append(urn)
-                self._add_reload_column_lineage(lineage, table, parsed, source_qri, urn)
+                if len(group.labels) == 1 and not group.traced_count:
+                    # With several such sources, which one the table is isn't
+                    # known, so neither are the graph fields it loads.
+                    (source_qri,) = group.labels
+                    self._add_reload_column_lineage(
+                        lineage, table, parsed, source_qri, urn
+                    )
             if lineage.upstream_urns:
                 self.reporter.reload_sql_tables_with_lineage += 1
                 lineages[table.qri] = lineage
         return lineages
 
     def _reload_sql_source(
-        self, app: App, parsed: _ParsedReloadSql, source_qri: str, label: str
+        self, app: App, parsed: _ParsedReloadSql, group: _UntracedSources
     ) -> Optional[str]:
-        """The one table the reload SQL reads that a graph label names."""
+        """The one table the reload SQL reads, and the load script doesn't,
+        that the graph labels of a group of database sources name."""
         matches = {
             urn
             for statement in parsed.statements
             for urn in statement.upstream_urns
-            if _urn_names_table(urn, source_qri, label)
+            if urn not in group.script_urns
+            and any(
+                _urn_names_table(urn, qri, label) for qri, label in group.labels.items()
+            )
         }
-        name = _label_parts(label)[-1]
-        unread = parsed.unexpanded_variable or name in parsed.skipped_table_names
-        if len(matches) > 1:
+        labels = ", ".join(sorted(set(group.labels.values())))
+        unread = parsed.unexpanded_variable or group.name in parsed.skipped_table_names
+        untraced_count = len(group.labels) - group.traced_count
+        if len(matches) > 1 or (matches and untraced_count > 1):
             self.reporter.ambiguous_reload_sql_sources.append(
-                f"{app.id}: {label} matches {sorted(matches)}"
+                f"{app.id}: {labels} matches {sorted(matches)}"
             )
             return None
         if not matches:
             if not unread:
-                self.reporter.unmatched_reload_sql_sources.append(
-                    f"{app.id}: {label} ({_database_qri_platform(source_qri)})"
+                self.reporter.unmatched_reload_sql_sources.extend(
+                    dict.fromkeys(
+                        f"{app.id}: {label} ({_database_qri_platform(qri)})"
+                        for qri, label in group.labels.items()
+                    )
                 )
             return None
         if unread:
             # A statement that could not be read may name another table with
             # the label, so the match is not certain.
             self.reporter.ambiguous_reload_sql_sources.append(
-                f"{app.id}: {label} may also be named by reload SQL that could "
+                f"{app.id}: {labels} may also be named by reload SQL that could "
                 "not be read"
             )
             return None

@@ -3429,6 +3429,124 @@ def test_reload_sql_links_database_sources_the_script_does_not_trace(
     ]
 
 
+@pytest.mark.parametrize(
+    "script_urns, statements, linked, ambiguous",
+    [
+        pytest.param(
+            [SHOP_ORDERS],
+            [
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders"),
+                _sql("Finance:Archive", "SELECT * FROM dbo.orders"),
+            ],
+            [make_dataset_urn("mssql", "archive.dbo.orders")],
+            False,
+            id="script traces one, reload SQL reads the other",
+        ),
+        pytest.param(
+            [],
+            [_sql("Finance:Sales", "SELECT * FROM dbo.orders")],
+            [],
+            True,
+            id="one table read for two sources",
+        ),
+        pytest.param(
+            [],
+            [
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders"),
+                _sql("Finance:Archive", "SELECT * FROM dbo.orders"),
+            ],
+            [],
+            True,
+            id="which source is which is unknown",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_database_sources_sharing_a_label_need_one_untraced_match(
+    mock_api_cls: MagicMock,
+    script_urns: List[str],
+    statements: List[ReloadStatement],
+    linked: List[str],
+    ambiguous: bool,
+) -> None:
+    sources = {
+        "qri:db:sqlserver://ShopHash#Orders": "dbo.orders",
+        "qri:db:sqlserver://ArchiveHash#Orders": "dbo.orders",
+    }
+    app = _reload_app(statements)
+    table = app.lineage_tables[0]
+    table.source_qris = list(sources)
+    table.database_source_labels = sources
+    table.field_source_qris = {
+        "ORDER_ID": ["qri:db:sqlserver://ShopHash#Orders#order_id"]
+    }
+    source = _reload_source(mock_api_cls, app)
+    script_tables = {
+        table.qri: ScriptTableLineage(
+            label="Orders", identifier="etl-app.orders", upstream_urns=script_urns
+        )
+    }
+
+    workunits = list(source._gen_lineage_tables_workunit(app, script_tables))
+    written, _ = _lineage(workunits)
+
+    assert written.get(_urn("etl-app.orders"), []) == script_urns + linked
+    assert bool(source.reporter.ambiguous_reload_sql_sources) is ambiguous
+    # Which source the linked table is isn't known, so neither is the field
+    # the graph says each loads.
+    lineage = _upstream_lineage(workunits, _urn("etl-app.orders"))
+    column_sources = {
+        SchemaFieldUrn.from_string(upstream).parent
+        for f in (lineage.fineGrainedLineages or [] if lineage else [])
+        for upstream in f.upstreams or []
+    }
+    assert not column_sources & set(linked)
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        pytest.param("UPDATE dbo.orders SET amount = 0", id="update"),
+        pytest.param(
+            "UPDATE o SET amount = 0 FROM dbo.orders o JOIN dbo.rates r ON o.id = r.id",
+            id="update from",
+        ),
+        pytest.param(
+            "MERGE INTO dbo.orders t USING dbo.staging s ON t.id = s.id "
+            "WHEN MATCHED THEN UPDATE SET t.amount = s.amount",
+            id="merge",
+        ),
+        pytest.param("INSERT INTO dbo.orders SELECT * FROM dbo.staging", id="insert"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_reload_sql_tables_written_are_not_load_sources(
+    mock_api_cls: MagicMock, statement: str
+) -> None:
+    source = _reload_source(
+        mock_api_cls, _reload_app([_sql("Finance:Sales", statement)])
+    )
+
+    written, added = _lineage(source.get_workunits_internal())
+
+    assert written == {_urn("etl-app.orders"): []}
+    assert not added
+    # The written table may be the label's, so a match elsewhere isn't certain.
+    assert not source.reporter.unmatched_reload_sql_sources
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_reload_sql_insert_reads_its_select_tables(mock_api_cls: MagicMock) -> None:
+    app = _reload_app(
+        [_sql("Finance:Sales", "INSERT INTO dbo.audit SELECT * FROM dbo.orders")]
+    )
+    source = _reload_source(mock_api_cls, app)
+
+    written, _ = _lineage(source.get_workunits_internal())
+
+    assert written[_urn("etl-app.orders")] == [SHOP_ORDERS]
+
+
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_reload_sql_columns_merge_with_script_columns_in_any_case(
     mock_api_cls: MagicMock,
