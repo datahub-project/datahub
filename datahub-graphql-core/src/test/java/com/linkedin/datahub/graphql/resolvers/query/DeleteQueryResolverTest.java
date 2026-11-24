@@ -80,6 +80,51 @@ public class DeleteQueryResolverTest {
   }
 
   @Test
+  public void testGetFailureNonQueryUrn() {
+    QueryService mockService = Mockito.mock(QueryService.class);
+    DeleteQueryResolver resolver = new DeleteQueryResolver(mockService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_DATASET_URN.toString());
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    Mockito.verify(mockService, Mockito.never()).deleteQuery(any(), any());
+  }
+
+  @Test
+  public void testGetFailureNoSubjectsWithoutDeletePrivilege() {
+    // No query subjects stubbed: getQuerySubjects returns null.
+    QueryService mockService = Mockito.mock(QueryService.class);
+    DeleteQueryResolver resolver = new DeleteQueryResolver(mockService);
+
+    // Grants Edit Queries on the dataset only, which no longer applies without subjects.
+    QueryContext mockContext = getMockQueryContext(true);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_QUERY_URN.toString());
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    Mockito.verify(mockService, Mockito.never()).deleteQuery(any(), any());
+  }
+
+  @Test
+  public void testGetSuccessNoSubjectsWithDeletePrivilege() throws Exception {
+    QueryService mockService = Mockito.mock(QueryService.class);
+    DeleteQueryResolver resolver = new DeleteQueryResolver(mockService);
+
+    QueryContext mockContext =
+        getMockAllowContextForResource(TEST_ACTOR_URN.toString(), "DELETE_ENTITY", TEST_QUERY_URN);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_QUERY_URN.toString());
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    assertTrue(resolver.get(mockEnv).get());
+
+    Mockito.verify(mockService, Mockito.times(1)).deleteQuery(any(), Mockito.eq(TEST_QUERY_URN));
+  }
+
+  @Test
   public void testGetQueryServiceException() throws Exception {
     // Create resolver
     QueryService mockService = Mockito.mock(QueryService.class);
