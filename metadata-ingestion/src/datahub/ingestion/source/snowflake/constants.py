@@ -89,6 +89,13 @@ INTERACTIVE_TABLE_CREATE_RE = re.compile(
 # is searched and the `=` is required; a column or alias named target_lag in the query doesn't count.
 _TARGET_LAG_PROPERTY_RE = re.compile(r"\btarget_lag\s*=", re.IGNORECASE)
 _AS_QUERY_RE = re.compile(r"\bas\s*\(?\s*(?:select|with)\b", re.IGNORECASE)
+# Strings, quoted identifiers and comments, blanked before that search so a column COMMENT or a note
+# saying "as select" can't cut the head short ahead of TARGET_LAG. One alternation, so whichever
+# starts first wins (a `--` inside a string stays part of the string).
+_SQL_LITERAL_OR_COMMENT_RE = re.compile(
+    r"'(?:[^'\\]|\\.)*'|\"(?:[^\"]|\"\")*\"|\$\$.*?\$\$|--[^\n]*|//[^\n]*|/\*.*?\*/",
+    re.DOTALL,
+)
 
 
 def rewrite_interactive_table_create(sql: str) -> str:
@@ -96,7 +103,8 @@ def rewrite_interactive_table_create(sql: str) -> str:
 
 
 def has_target_lag_property(sql: str) -> bool:
-    head = _AS_QUERY_RE.split(sql, maxsplit=1)[0]
+    scan = _SQL_LITERAL_OR_COMMENT_RE.sub(" ", sql)
+    head = _AS_QUERY_RE.split(scan, maxsplit=1)[0]
     return _TARGET_LAG_PROPERTY_RE.search(head) is not None
 
 

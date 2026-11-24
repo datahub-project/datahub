@@ -2294,12 +2294,15 @@ class TestStreamUpstreamMultiTableInsert:
         assert f"{prefix}create or replace table db.s.it" in results[0].query
         assert extractor.report.num_interactive_table_ctas_observed == 1
 
-    def test_dynamic_interactive_table_ctas_is_not_parsed(self):
+    @pytest.mark.parametrize(
+        "columns", ["", "(id int comment 'built as select from src') "]
+    )
+    def test_dynamic_interactive_table_ctas_is_not_parsed(self, columns):
         """A TARGET_LAG create gets lineage from its definition, not the query log."""
         extractor = self._create_mock_extractor()
         row = self._audit_row(
             query_text=(
-                "create or replace interactive table db.s.it cluster by (id) "
+                f"create or replace interactive table db.s.it {columns}cluster by (id) "
                 "target_lag = '1 minute' warehouse = wh as select id from db.s.src"
             ),
             direct_objects_accessed=[
