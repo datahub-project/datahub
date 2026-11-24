@@ -1533,7 +1533,8 @@ class _ScriptParser(BaseModel):
         else:
             keywords = ""
         if SQL_RE.match(statement) or LOAD_RE.match(statement):
-            self._clear_pending()
+            # Kept until recorded, as a preceding load's Replace or Generic
+            # applies to this table; the caller clears them.
             self._record_table(
                 None,
                 merged=bool(prefix and MERGE_PREFIX_RE.search(prefix.group(0))),
