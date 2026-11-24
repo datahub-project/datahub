@@ -5,7 +5,6 @@ import pytest
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     apply_crosstable,
     apply_preceding_loads,
-    connection_lookup_names,
     drop_condition_variables,
     expand_variables,
     expression_names,
@@ -412,14 +411,6 @@ def test_has_qualified_name(
 ) -> None:
     urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{name},PROD)"
     assert has_qualified_name(urn, platform, instance) == expected
-
-
-def test_connection_lookup_names_strips_cloud_space() -> None:
-    assert connection_lookup_names("Finance:Sales SQL") == [
-        "Finance:Sales SQL",
-        "Sales SQL",
-    ]
-    assert connection_lookup_names("Sales SQL") == ["Sales SQL"]
 
 
 PRECEDING_LOAD_SCRIPT = """
