@@ -41,8 +41,8 @@ from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
     SNOWFLAKE_DATABASE,
     STREAMLIT_PLATFORM,
-    TARGET_LAG_RE,
     SnowflakeObjectDomain,
+    has_target_lag_property,
     rewrite_interactive_table_create,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
@@ -172,7 +172,7 @@ def _interactive_table_has_target_lag(table: SnowflakeInteractiveTable) -> bool:
     if table.target_lag or table.is_dynamic:
         return True
     definition = table.definition
-    return bool(definition and TARGET_LAG_RE.search(definition))
+    return bool(definition and has_target_lag_property(definition))
 
 
 # Token types whose text is data rather than code (strings and quoted identifiers); their spans get

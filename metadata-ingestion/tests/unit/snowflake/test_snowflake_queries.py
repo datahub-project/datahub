@@ -2258,15 +2258,23 @@ class TestStreamUpstreamMultiTableInsert:
         assert extractor.report.num_create_temp_view_queries_observed == 1
 
     @pytest.mark.parametrize(
-        "prefix", ["", "-- refresh the interactive table nightly\n"]
+        "prefix, select_list",
+        [
+            ("", "id"),
+            ("-- refresh the interactive table nightly\n", "id"),
+            ("-- create interactive table for daily sums\n", "id"),
+            ("", "id as target_lag"),
+        ],
     )
-    def test_interactive_table_ctas_falls_back_with_rewritten_text(self, prefix):
+    def test_interactive_table_ctas_falls_back_with_rewritten_text(
+        self, prefix, select_list
+    ):
         """ACCESS_HISTORY omits the CTAS target of an interactive table -> parse the text."""
         extractor = self._create_mock_extractor()
         row = self._audit_row(
             query_text=(
                 f"{prefix}create or replace interactive table db.s.it cluster by (id) "
-                "as select id from db.s.src"
+                f"as select {select_list} from db.s.src"
             ),
             direct_objects_accessed=[
                 {

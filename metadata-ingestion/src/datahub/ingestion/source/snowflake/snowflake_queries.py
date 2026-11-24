@@ -30,8 +30,8 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.snowflake.constants import (
     INTERACTIVE_TABLE_CREATE_RE,
-    TARGET_LAG_RE,
     SnowflakeObjectDomain,
+    has_target_lag_property,
     rewrite_interactive_table_create,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
@@ -648,7 +648,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             snowflake_query_type != CREATE_TABLE_AS_SELECT_QUERY_TYPE
             or objects_modified
             or INTERACTIVE_TABLE_CREATE_RE.search(query_text) is None
-            or TARGET_LAG_RE.search(query_text) is not None
+            or has_target_lag_property(query_text)
         ):
             return None
         self.report.num_interactive_table_ctas_observed += 1

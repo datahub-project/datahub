@@ -78,16 +78,26 @@ class SnowflakeObjectDomain(StrEnum):
 # so `.capitalize()` on the enum value would not match the case-sensitive SQL filter.
 INTERACTIVE_TABLE_ACCESS_HISTORY_DOMAIN = "Interactive Table"
 
-# sqlglot cannot parse CREATE INTERACTIVE TABLE; dropping INTERACTIVE makes it parse. Anchored to
-# CREATE so a comment or string mentioning "interactive table" ahead of the statement is left alone.
+# sqlglot cannot parse CREATE INTERACTIVE TABLE; dropping INTERACTIVE makes it parse. Anchored to the
+# statement start (past leading whitespace and comments) so a comment saying "create interactive
+# table" ahead of the statement is never the text that gets rewritten.
 INTERACTIVE_TABLE_CREATE_RE = re.compile(
-    r"\b(create\s+(?:or\s+replace\s+)?)interactive\s+(table)\b", re.IGNORECASE
+    r"^((?:\s|--[^\n]*|//[^\n]*|/\*.*?\*/)*create\s+(?:or\s+replace\s+)?)interactive\s+(table)\b",
+    re.IGNORECASE | re.DOTALL,
 )
-TARGET_LAG_RE = re.compile(r"\btarget_lag\b", re.IGNORECASE)
+# TARGET_LAG is a table property (`TARGET_LAG = '1 minute'`), so only the text ahead of the AS query
+# is searched and the `=` is required; a column or alias named target_lag in the query doesn't count.
+_TARGET_LAG_PROPERTY_RE = re.compile(r"\btarget_lag\s*=", re.IGNORECASE)
+_AS_QUERY_RE = re.compile(r"\bas\s*\(?\s*(?:select|with)\b", re.IGNORECASE)
 
 
 def rewrite_interactive_table_create(sql: str) -> str:
     return INTERACTIVE_TABLE_CREATE_RE.sub(r"\1\2", sql, count=1)
+
+
+def has_target_lag_property(sql: str) -> bool:
+    head = _AS_QUERY_RE.split(sql, maxsplit=1)[0]
+    return _TARGET_LAG_PROPERTY_RE.search(head) is not None
 
 
 # The plural keyword naming an object class in a SHOW statement, e.g. `SHOW DYNAMIC TABLES`.
