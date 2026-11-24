@@ -398,14 +398,17 @@ def _lib_path(segments: List[str]) -> str:
     return "/".join([f"lib://{qualified}", *rest])
 
 
+def _path_key_parts(path: str) -> List[str]:
+    return [part for part in re.split(r"[/\\]", _path_key(path)) if part]
+
+
 def _path_has_label(path: str, label: str) -> bool:
-    """Whether the path ends with Qlik's label for the file, which holds its
-    folders under the connection."""
-    return (
-        _path_key(path)
-        .replace("\\", "/")
-        .endswith("/" + _path_key(label).replace("\\", "/").strip("/"))
-    )
+    """Whether Qlik's label for the file, which holds its folders under the
+    connection, is the whole path under the connection."""
+    match = LIB_PATH_RE.match(path)
+    return match is not None and _path_key_parts(
+        match.group("path")
+    ) == _path_key_parts(label)
 
 
 def _label_parts(label: str) -> List[str]:
@@ -4371,7 +4374,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         `lib://<space>:DataFiles/orders.qvd` for a QVD in a space the API key
         can't see, and whether the apps that may give it were all read. Qlik's
         label is only a name, so a path is given only when every one of those
-        reloads was read and exactly one file they read or stored ends with it."""
+        reloads was read and exactly one file they read or stored is at it."""
         # By key, as the same file is recorded in several spellings.
         paths: Dict[str, str] = {}
         for app_id in sorted(apps.apps):

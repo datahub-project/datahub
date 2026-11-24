@@ -3516,6 +3516,28 @@ def test_graph_named_dataset_path_takes_the_spelling_of_the_scripts(
             ["hidden", "datafiles", "sub"],
             id="the label's folders decide between files of that name",
         ),
+        pytest.param(
+            {
+                "report-app": [
+                    _load("lib://hidden:datafiles/prices.qvd"),
+                    _load("lib://hidden:datafiles/archive/prices.qvd"),
+                ]
+            },
+            "lib://hidden:datafiles/prices.qvd",
+            ["hidden", "datafiles"],
+            id="a namesake in a nested folder doesn't match a root label",
+        ),
+        pytest.param(
+            {
+                "report-app": [
+                    _load("lib://hidden:datafiles/sub/prices.qvd"),
+                    _load("lib://hidden:datafiles/archive/sub/prices.qvd"),
+                ]
+            },
+            "lib://hidden:datafiles/sub/prices.qvd",
+            ["hidden", "datafiles", "sub"],
+            id="the label's folders start at the connection",
+        ),
         pytest.param({}, None, None, id="no file"),
         pytest.param(RuntimeError("Forbidden"), None, None, id="unread"),
         pytest.param(
@@ -3634,6 +3656,7 @@ def test_graph_named_dataset_takes_its_path_from_reload_files(
     [
         # A file of that name in another folder than the label's.
         "{lib://hidden:datafiles/archive/prices.qvd};",
+        "{lib://hidden:datafiles/archive/sub/prices.qvd};",
         "{lib://hidden:datafiles/sub/prices.qvd} unknown form;",
     ],
 )
