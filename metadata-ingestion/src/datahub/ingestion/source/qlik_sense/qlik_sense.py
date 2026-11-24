@@ -3347,8 +3347,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if source_app_id is not None and parsed.drops_unnamed_tables:
             # Any data model table could be one the script dropped and loaded again.
             return without_lineage(
-                "the script drops or replaces tables it doesn't name, so the "
-                "tables the file brings in are not known"
+                "the script drops, replaces or renames to tables it doesn't "
+                "name, so the tables the file brings in are not known"
             )
         labels = {label.lower() for label in parsed.table_labels}
         created = set(labels)
