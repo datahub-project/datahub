@@ -86,9 +86,20 @@ def test_fallback_values_fill_sql_until_the_script_sets_the_variable() -> None:
             id="LET in a loop",
         ),
         pytest.param(
-            "SUB LoadTable\nLET vTable = Upper(vSource);\n"
-            "T: SQL SELECT id FROM $(vTable);\nEND SUB;\nCALL LoadTable;",
-            id="LET in a sub",
+            "SUB LoadTable\nLET vTable = Upper(vSource);\nEND SUB;\n"
+            "CALL LoadTable;\nT: SQL SELECT id FROM $(vTable);\nCALL LoadTable;",
+            id="LET in a sub called again later",
+        ),
+        pytest.param(
+            "SUB LoadTable(vTable)\nLET vTable = Upper(vSource);\n"
+            "T: SQL SELECT id FROM $(vTable);\nEND SUB;\nCALL LoadTable('a');",
+            id="LET of a sub parameter",
+        ),
+        pytest.param(
+            "SUB LoadTable(vTable)\nIF vEnv = 'prod' THEN\nSET vTable = 'a';\n"
+            "ELSE\nSET vTable = 'b';\nEND IF;\nT: SQL SELECT id FROM $(vTable);\n"
+            "END SUB;\nCALL LoadTable('c');",
+            id="sub parameter set in branches that disagree",
         ),
         pytest.param(
             "IF vEnv = 'A' THEN\nLET vTable = Lower('SALES_' & vRegion);\n"
@@ -136,6 +147,28 @@ def test_app_value_fills_a_variable_after_branches_that_disagree() -> None:
         "END IF;\nT: SQL SELECT id FROM $(vTable);",
         {"vTable": "b"},
     ) == ["SELECT id FROM b"]
+
+
+def test_let_in_a_sub_called_once_takes_the_app_value() -> None:
+    assert _sql(
+        "LIB CONNECT TO 'db';\nSUB LoadTable\nLET vTable = Upper(vSource);\n"
+        "T: SQL SELECT id FROM $(vTable);\nEND SUB;\nCALL LoadTable;",
+        {"vTable": "b"},
+    ) == ["SELECT id FROM b"]
+
+
+def test_recipe_value_does_not_fill_a_variable_after_branches_that_disagree() -> None:
+    # The app doesn't have the variable, so which branch ran is not known.
+    source = _source({"vTable": "recipe_table"})
+    app = _app(
+        "LIB CONNECT TO 'db';\n"
+        "IF vEnv = 'prod' THEN\nSET vTable = 'a';\nELSE\nSET vTable = 'b';\n"
+        "END IF;\nT: SQL SELECT id FROM $(vTable);",
+        {},
+    )
+    assert [table.sql.strip() for table in source._parsed_script(app).tables] == [
+        "SELECT id FROM $(vTable)"
+    ]
 
 
 def test_expression_values_are_not_expanded() -> None:
