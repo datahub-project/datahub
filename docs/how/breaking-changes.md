@@ -346,31 +346,28 @@ it runs the semantic search template. **Action:** none, unless a client filters 
 
 On OpenSearch before 3.5, a search that a vector search template serves from the DataHub index now
 fails instead of returning an empty page. This covers a search that names
-`urn:li:searchTemplate:semantic` or `urn:li:searchTemplate:similarity` in the `searchTemplate` search
-flag, an entity URN that `semantic` sends to `similarity`, and a custom template whose ladder reaches a
-vector rung. Before 3.5 the OpenSearch k-NN plugin can apply these searches' filter to the wrong
-documents, so they found nothing. The search fails with a server error, GMS logs a warning once, and
-the `search.template.vectorRetrieval` metric counts it as `unavailable`. It fails whatever the
-template's `onFailure` says, and the `keywordFallbackOnEmbeddingFailure` search flag does not turn it
-into keyword results. Keyword search is not affected, including the rerank of the shipped `fulltext`
-template (`keywordRerank`), and neither is semantic search (`semanticSearchAcrossEntities`), which
-already stays on its own kNN search before 3.5. A template that an external vector store serves is not
-affected either. While GMS cannot read the OpenSearch version, these searches run as before.
-**Action:** to use vector templates, upgrade OpenSearch to 3.5 or later, then restart GMS, which keeps
-the version it has read until it restarts.
+`urn:li:searchTemplate:semantic` or `urn:li:searchTemplate:similarity` in the `searchTemplate`
+search flag, an entity URN that `semantic` sends to `similarity`, and a custom template whose ladder
+reaches a vector rung. Before 3.5 the OpenSearch k-NN plugin can apply these searches' filter to the
+wrong documents, so they could return an empty or incomplete page, depending on the filter; a search
+of this kind that returned results before now fails too. The search fails with a server error, GMS
+logs a warning once, and the `search.template.vectorRetrieval` metric counts it as `unavailable`. It
+fails whatever the template's `onFailure` says, and the `keywordFallbackOnEmbeddingFailure` search
+flag does not turn it into keyword results. Keyword search is not affected, including the rerank of
+the shipped `fulltext` template (`keywordRerank`), and neither is semantic search
+(`semanticSearchAcrossEntities`), which already stays on its own kNN search before 3.5. A template
+that an external vector store serves is not affected either. While GMS cannot read the OpenSearch
+version, or reads a version of 7 or above, which a cluster in compatibility mode reports whatever it
+runs, these searches run as before. **Action:** to use vector templates, upgrade OpenSearch to 3.5
+or later, then restart GMS, which keeps the version it has read until it restarts.
 
 ### `searchDocuments` through a vector template honors its search flags ([#21596](https://github.com/datahub-project/datahub/pull/21596))
 
 `searchDocuments` with a vector template named in the `searchTemplate` search flag now applies the
-`minSimilarity` search flag, which it ignored before, and honors `keywordFallbackOnEmbeddingFailure`,
-as `searchAcrossEntities` does. A query that cannot be embedded now fails with the reason, as
-`DEADLINE_EXCEEDED` (`timeout`), `SERVICE_UNAVAILABLE` (`rejected`, `reserveExhausted`, or
-`budgetExhausted`), or a server error (`failed`), instead of a generic server error, and a similarity
-search whose query names an entity it cannot use fails as a bad request (`BAD_REQUEST`). With
-`keywordFallbackOnEmbeddingFailure` set, such a query gets the keyword search results for the same
-request, without the named template; the `searchDocuments` result does not say that it fell back.
-**Action:** if a client retries these searches on a server error, retry on `SERVICE_UNAVAILABLE` and
-`DEADLINE_EXCEEDED` instead, and do not retry a bad request.
+`minSimilarity` search flag, which it ignored before, and honors
+`keywordFallbackOnEmbeddingFailure`, as `searchAcrossEntities` does: with it set, a query that
+cannot be embedded gets the keyword search results for the same request, without the named template.
+The `searchDocuments` result does not say that it fell back. **Action:** none.
 
 ### Search template writes reject unknown `retrieval` values ([#21596](https://github.com/datahub-project/datahub/pull/21596))
 

@@ -18,14 +18,15 @@ import lombok.extern.slf4j.Slf4j;
  * Whether the Search V3 engine can run a vector template's kNN request on the DataHub index:
  * Elasticsearch, or OpenSearch 3.5 or later. Before 3.5 the k-NN plugin applies a nested kNN
  * pre-filter in the chunk scope when it names an underscore-prefixed field such as {@code
- * _entityType}, which a vector rung's filter always does, and there it can match nothing.
+ * _entityType}, which a vector rung's filter always does, and there the filter can leave out
+ * documents it should match, so a page can come back empty or incomplete, depending on the filter.
  *
  * <p>The engine is read on the first {@link #read}, and kept once a read decides it: Elasticsearch,
  * or an OpenSearch version that parses. An engine type or version that cannot be read or parsed, as
  * restricted cluster info leaves the version, is {@link Support#UNKNOWN}, and the engine is read
- * again after {@link #ENGINE_READ_RETRY}. So is a 7.x version: OpenSearch never shipped one, and a
- * cluster in compatibility mode reports 7.10.2 whatever it runs. Each owner holds one instance,
- * which logs the owner's warnings once for each reason.
+ * again after {@link #ENGINE_READ_RETRY}. So is a version of 7 or above: OpenSearch never shipped
+ * one, and a cluster in compatibility mode reports 7.10.2 whatever it runs. Each owner holds one
+ * instance, which logs the owner's warnings once for each reason.
  */
 @Slf4j
 public final class SearchTemplateEngineSupport {
@@ -49,8 +50,9 @@ public final class SearchTemplateEngineSupport {
   private final LongSupplier currentTimeMillis;
   // Kept once a read decides it
   @Nullable private volatile Support decided;
+  // Written under this; read without it so an undecided engine with no read due takes no lock
+  private volatile long nextReadMillis;
   // Guarded by this
-  private long nextReadMillis;
   private final Set<String> warnedReasons = new HashSet<>();
 
   /**
@@ -71,7 +73,11 @@ public final class SearchTemplateEngineSupport {
   @Nonnull
   public Support read(@Nonnull OperationContext opContext) {
     final Support support = decided;
-    return support != null ? support : readEngine(opContext);
+    if (support != null) {
+      return support;
+    }
+    // Undecided with no read due: every vector rung asks, so answer without the lock
+    return currentTimeMillis.getAsLong() < nextReadMillis ? Support.UNKNOWN : readEngine(opContext);
   }
 
   @Nonnull
@@ -91,9 +97,9 @@ public final class SearchTemplateEngineSupport {
       return decided;
     }
     // The version is read on the request thread while holding this lock, so a cluster info call
-    // that hangs holds up the other requests that read the engine while it is undecided, for up to
-    // the client's socket timeout, at most once a minute. The read could move off the lock, sending
-    // concurrent callers on as undecided meanwhile.
+    // that hangs holds up the requests that arrive while that read is due, for up to the client's
+    // socket timeout, at most once a minute. Between reads, an undecided engine answers without the
+    // lock.
     // On a cluster that blocks the version read, the shim logs the failure with a stack trace each
     // time it is asked, so this retry repeats those log entries on each GMS instance about once a
     // minute until a read succeeds.
@@ -117,8 +123,8 @@ public final class SearchTemplateEngineSupport {
   }
 
   /**
-   * An OpenSearch version that parses and comes before 3.5, a 3.5.0 prerelease included. A 7.x
-   * version is not: compatibility mode reports 7.10.2 whatever the cluster runs.
+   * An OpenSearch version that parses and comes before 3.5, a 3.5.0 prerelease included. A version
+   * of 7 or above is not: compatibility mode reports 7.10.2 whatever the cluster runs.
    */
   private static boolean before35(@Nullable String version) {
     return OpenSearchSearchClientShim.isParseableVersion(version)
