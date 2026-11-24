@@ -582,7 +582,8 @@ def _strip_comments(script: str, expression: bool = False) -> str:
             # in its path, as in O'Brien.qvs, opens no quote.
             kept.extend(include.group(0))
             i = include.end()
-            statement_start = False
+            # An include is a whole statement and often has no semicolon.
+            statement_start = True
             continue
         # A REM comment runs to the next semicolon, and an apostrophe in it
         # does not open a quote.

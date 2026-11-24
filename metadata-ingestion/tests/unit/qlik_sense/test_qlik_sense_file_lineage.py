@@ -2011,6 +2011,22 @@ def test_commented_include_is_not_read_into_the_script(commented: str) -> None:
     assert not parsed.file_loads
 
 
+def test_rem_after_an_include_without_semicolon_is_a_comment() -> None:
+    files = {
+        "lib://Common:DataFiles/a.qvs": "A: LOAD * FROM [lib://L/a.csv];",
+        "lib://Common:DataFiles/b.qvs": "SET x = 1;\nB: LOAD * FROM [lib://L/b.csv];",
+    }
+    parsed = parse_script(
+        inline_includes(
+            "$(Include=lib://Common:DataFiles/a.qvs)\n"
+            "REM $(Include=lib://Common:DataFiles/b.qvs);",
+            {},
+            _reader(files),
+        )
+    )
+    assert [load.expanded for load in parsed.file_loads] == ["lib://L/a.csv"]
+
+
 def test_include_path_from_a_constructed_varying_variable_is_not_read() -> None:
     # `$(v$(vSuffix))` reads `vF` once `vSuffix` expands, and the script sets
     # `vF` in a branch, so the reload's value need not be the one left.
