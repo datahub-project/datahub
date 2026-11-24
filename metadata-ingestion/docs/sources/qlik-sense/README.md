@@ -1,12 +1,12 @@
 ## Overview
 
-Qlik Sense is a business intelligence and analytics platform. Learn more in the [official Qlik Sense documentation](https://www.qlik.com/us/products/qlik-sense).
+Qlik Sense is a business intelligence and analytics platform, available as Qlik Cloud and as Qlik Sense Enterprise on Windows. Learn more in the [official Qlik Sense documentation](https://www.qlik.com/us/products/qlik-sense).
 
-The DataHub integration for Qlik Sense covers BI entities such as dashboards, charts, datasets, and related ownership context. It also captures table- and column-level lineage, ownership, and stateful deletion detection.
+The DataHub integration for Qlik Sense covers spaces and streams, apps, sheets, charts, app tables, Qlik datasets and QVDs. It also captures table- and column-level lineage from load scripts, through QVDs and from cloud storage files, chart input fields, ownership, and stateful deletion detection.
 
 ## Concept Mapping
 
-| Qlik Sense | Datahub                                                                                                | Notes                                                                                                                                                                                                                                                                                               |
+| Qlik Sense | DataHub                                                                                                | Notes                                                                                                                                                                                                                                                                                               |
 | ---------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Space`    | [Container](../../metamodel/entities/container.md)                                                     | SubType `"Qlik Space"`. On-prem streams too.                                                                                                                                                                                                                                                        |
 | `App`      | [Container](../../metamodel/entities/container.md), [Dashboard](../../metamodel/entities/dashboard.md) | The container has SubTypes `"Qlik App"` and `"Workbook"`, so the UI treats it as its charts' workbook, as for Tableau. It holds the app's tables, sheets and charts, and a dashboard with SubType `"App"`, which links to the sheets and to the tables no chart reads, so the app shows in lineage. |
