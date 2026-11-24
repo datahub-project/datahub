@@ -919,6 +919,58 @@ def test_simple_dataset_tags_transformation(mock_time):
     assert isinstance(outputs[4].record, EndOfStream)
 
 
+def _tag_keys_emitted_by_simple_add_tags(
+    graph: Optional[DataHubGraph],
+) -> List[Optional[str]]:
+    transformer = SimpleAddDatasetTags.create(
+        {
+            "tag_urns": [
+                builder.make_tag_urn("Existing"),
+                builder.make_tag_urn("Missing"),
+            ]
+        },
+        PipelineContext(run_id="test-tags", graph=graph),
+    )
+    outputs = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [make_generic_dataset(), EndOfStream()]
+            ]
+        )
+    )
+    return [
+        o.record.entityUrn
+        for o in outputs
+        if isinstance(o.record, MetadataChangeProposalWrapper)
+        and o.record.aspectName == "tagKey"
+    ]
+
+
+def test_simple_dataset_tags_skips_existing_tags() -> None:
+    graph = mock.MagicMock(spec=DataHubGraph)
+    graph.get_entities.return_value = {builder.make_tag_urn("Existing"): {}}
+
+    assert _tag_keys_emitted_by_simple_add_tags(graph) == [
+        builder.make_tag_urn("Missing")
+    ]
+
+
+@pytest.mark.parametrize("graph_fails", [False, True])
+def test_simple_dataset_tags_emits_all_without_existence_check(
+    graph_fails: bool,
+) -> None:
+    graph: Optional[mock.MagicMock] = None
+    if graph_fails:
+        graph = mock.MagicMock(spec=DataHubGraph)
+        graph.get_entities.side_effect = RuntimeError("boom")
+
+    assert _tag_keys_emitted_by_simple_add_tags(graph) == [
+        builder.make_tag_urn("Existing"),
+        builder.make_tag_urn("Missing"),
+    ]
+
+
 def dummy_tag_resolver_method(dataset_snapshot):
     return []
 
