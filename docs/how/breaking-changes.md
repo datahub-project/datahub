@@ -367,7 +367,9 @@ or later, then restart GMS, which keeps the version it has read until it restart
 `minSimilarity` search flag, which it ignored before, and honors
 `keywordFallbackOnEmbeddingFailure`, as `searchAcrossEntities` does: with it set, a query that
 cannot be embedded gets the keyword search results for the same request, without the named template.
-The `searchDocuments` result does not say that it fell back. **Action:** none.
+The `searchDocuments` result does not say that it fell back. A `minSimilarity` outside -1 to 1, or
+one on a template whose embedding profile is not cosine, now fails the search as a bad request
+instead of being ignored. **Action:** none, unless a client sends such a `minSimilarity`.
 
 ### Search template writes reject unknown `retrieval` values ([#21596](https://github.com/datahub-project/datahub/pull/21596))
 

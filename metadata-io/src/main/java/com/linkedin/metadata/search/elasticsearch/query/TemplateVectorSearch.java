@@ -270,8 +270,14 @@ final class TemplateVectorSearch {
               + ", which has no adapter in this process");
     }
     // Before OpenSearch 3.5 the kNN pre-filter, which names _entityType, runs in the chunk scope,
-    // where it can match nothing: an empty page would look like a search that found nothing. An
-    // engine GMS cannot read lets the rung run, as there is no other path to serve it.
+    // where it can leave out documents it should match: an empty or short page would look like a
+    // search that found less. An engine GMS cannot read lets the rung run, as there is no other
+    // path
+    // to serve it. A read that is due runs here, after this rung's vector deadline started, so a
+    // slow cluster info call spends that deadline, and a rung that then runs out of time reports
+    // the
+    // embedding timeout. That happens on the first vector rung after startup, and at most once a
+    // minute while the engine reads as unknown.
     if (!store.external()
         && engineSupport.read(opContext) == SearchTemplateEngineSupport.Support.UNSUPPORTED) {
       SearchTemplateMetrics.vectorRetrieval(opContext, SearchTemplateVectorRetrieval.UNAVAILABLE);

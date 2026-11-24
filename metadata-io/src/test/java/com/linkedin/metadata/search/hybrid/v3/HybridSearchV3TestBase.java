@@ -831,6 +831,7 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
                 SearchTemplateFailClosedException.class,
                 () -> similar(IN_REVIEW_DOCUMENT, ownerRule));
         assertFalse(unavailable instanceof SearchTemplateNoAnchorException, unavailable.toString());
+        assertTrue(unavailable.getMessage().contains("OpenSearch 3.5"), unavailable.toString());
       }
 
       // Another viewer's rule does not admit the owner's document in review
