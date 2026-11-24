@@ -9,6 +9,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ParsedScript,
     PrecedingLoad,
     QvdReference,
+    QvdStore,
     ScriptTableLineage,
 )
 
@@ -135,6 +136,8 @@ class AppQvdLineage(BaseModel):
     qvds: AppQvds = AppQvds()
     # Canonical path of each QVD the app touches, by URN.
     paths: Dict[str, str] = {}
+    # QVDs the app touches on connections mapped to storage, by URN.
+    storage_urns: List[str] = []
     # A STORE names a data connection the resolver doesn't know.
     has_unresolved_store: bool = False
 
@@ -145,6 +148,22 @@ def _loaded_fields(load: PrecedingLoad) -> Optional[Dict[str, List[str]]]:
     if load.keeps_all or load.unreadable:
         return None
     return {field.name: field.sources for field in load.fields if field.named}
+
+
+def stored_fields(store: QvdStore, known: List[str]) -> Optional[List[QvdField]]:
+    """The fields a STORE writes, given the stored table's `known` fields, or
+    None when they can't be told."""
+    if store.fields is not None:
+        selected = _loaded_fields(store.fields)
+        return (
+            None
+            if selected is None
+            else [
+                QvdField(name=name, source=sources[0] if len(sources) == 1 else None)
+                for name, sources in selected.items()
+            ]
+        )
+    return [QvdField(name=name, source=name) for name in known] or None
 
 
 def app_qvd_lineage(
@@ -162,6 +181,8 @@ def app_qvd_lineage(
         # Not this connector's dataset, so only its lineage is written.
         storage_urn = resolver.storage_urn(file)
         if storage_urn is not None:
+            if storage_urn not in lineage.storage_urns:
+                lineage.storage_urns.append(storage_urn)
             return storage_urn
         path = resolver.resolve(file)
         if path is None:
@@ -195,6 +216,9 @@ def app_qvd_lineage(
             for source in sources:
                 if source not in read:
                     read.append(source)
+                # A storage file has no schema in DataHub for these fields.
+                if urn in lineage.storage_urns:
+                    continue
                 upstream = make_schema_field_urn(urn, source)
                 if upstream not in upstreams:
                     upstreams.append(upstream)
@@ -223,24 +247,10 @@ def app_qvd_lineage(
                 ]
             )
         )
-        if store.fields is not None:
-            selected = _loaded_fields(store.fields)
-            stored_fields: Optional[List[QvdField]] = (
-                None
-                if selected is None
-                else [
-                    QvdField(
-                        name=name,
-                        source=sources[0] if len(sources) == 1 else None,
-                    )
-                    for name, sources in selected.items()
-                ]
-            )
-        elif known:
-            stored_fields = [QvdField(name=name, source=name) for name in known]
-        else:
-            stored_fields = None
         lineage.qvds.writes.setdefault(urn, []).append(
-            QvdWrite(table_urn=make_urn(stored.identifier), fields=stored_fields)
+            QvdWrite(
+                table_urn=make_urn(stored.identifier),
+                fields=stored_fields(store, known),
+            )
         )
     return lineage

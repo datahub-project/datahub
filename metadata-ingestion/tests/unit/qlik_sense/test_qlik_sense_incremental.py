@@ -20,8 +20,10 @@ from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
+    DatasetLineageTypeClass,
     MetadataChangeProposalClass,
     StatusClass,
+    UpstreamClass,
     UpstreamLineageClass,
     _Aspect,
 )
@@ -888,12 +890,14 @@ def _qvd_qlik() -> _Qlik:
     return qlik
 
 
-def _qvd_lineage_ops(workunits: List[MetadataWorkUnit]) -> List[Tuple[str, str]]:
+def _qvd_lineage_ops(
+    workunits: List[MetadataWorkUnit], qvd_urn: str = CLEAN_QVD
+) -> List[Tuple[str, str]]:
     """The (op, upstream dataset) of each table edge patched onto the QVD."""
     ops = []
     for wu in workunits:
         if (
-            wu.get_urn() == CLEAN_QVD
+            wu.get_urn() == qvd_urn
             and isinstance(wu.metadata, MetadataChangeProposalClass)
             and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
             and wu.metadata.aspect is not None
@@ -927,6 +931,43 @@ def test_kept_unchanged_app_still_writes_its_qvd(
 
     assert second.reporter.apps_skipped_unchanged == 1
     assert _qvd_upstreams(second_wus) == [writer]
+
+
+def test_edge_into_a_storage_qvd_the_app_no_longer_writes_is_removed(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    storage_qvd = (
+        "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qlik/clean/orders.qvd,PROD)"
+    )
+    writer = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    mapping = {
+        "file_connection_to_storage": {
+            "Lake": {"storage_uri": "abfss://lake@account.dfs.core.windows.net/qlik"}
+        }
+    }
+    qlik = _qvd_qlik()
+    qlik.scripts["app-1"] = STORING_SCRIPT.replace(
+        "lib://QVD Data/clean", "lib://Lake/clean"
+    )
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1", **mapping)
+    datahub.write(first_wus)
+    assert _qvd_lineage_ops(first_wus, storage_qvd) == [("add", writer)]
+    # The patch as DataHub applied it.
+    datahub.aspects[(storage_qvd, UpstreamLineageClass.ASPECT_NAME)] = (
+        UpstreamLineageClass(
+            upstreams=[UpstreamClass(dataset=writer, type=DatasetLineageTypeClass.COPY)]
+        )
+    )
+
+    # No app touches the file any more, and storage files are never soft-deleted.
+    qlik.scripts["app-1"] = (
+        "Orders: LOAD id FROM [lib://QVD Data/raw/orders.qvd] (qvd);"
+    )
+    qlik.app = {**qlik.app, "modifiedDate": "2024-02-01T09:00:00.000Z"}
+    _, second_wus = _run(mock_datahub_graph, qlik, "run-2", **mapping)
+
+    assert _qvd_lineage_ops(second_wus, storage_qvd) == [("remove", writer)]
 
 
 def test_app_read_while_data_connections_were_unread_is_read_again(
@@ -1105,6 +1146,88 @@ def test_binary_tables_are_kept_when_a_read_cant_find_them(
     assert "Unable to fully read Qlik app" in [
         warning.title for warning in second.reporter.warnings
     ]
+
+
+def _partly_read(source: QlikSenseSource) -> bool:
+    return any(
+        entry.title == "Unable to fully read Qlik app"
+        for entry in [*source.reporter.warnings, *source.reporter.failures]
+    )
+
+
+def test_binary_app_whose_data_is_never_readable_is_not_partly_read(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _binary_qlik("Binary [lib://QVD Data/sales model.qvf];")
+    # As section access denying the data to the service user from the start.
+    qlik.data_model_fails_for = {"app-2"}
+    datahub = _DataHub(mock_datahub_graph)
+    on_prem: Dict[str, object] = {"read_data_model": True}
+    for run_id in ["run-1", "run-2"]:
+        source, workunits = _run(
+            mock_datahub_graph, qlik, run_id, on_prem=on_prem, skip_unchanged_apps=False
+        )
+        datahub.write(workunits)
+
+        # Its last read holds no BINARY tables to keep, so stale removal runs.
+        assert not source.reporter.failures
+        assert not _partly_read(source)
+        assert FRONT_ORDERS not in _stale_urns(source)
+
+
+def test_binary_path_variables_unread_without_read_data_model_is_not_partly_read(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _binary_qlik("Binary [lib://$(vApps)/sales model.qvf];")
+    qlik.variables = {"app-2": {"vApps": "QVD Data"}}
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1", skip_unchanged_apps=False)
+    datahub.write(first_wus)
+
+    qlik.variables_fail_for = {"app-2"}
+    second, _ = _run(mock_datahub_graph, qlik, "run-2", skip_unchanged_apps=False)
+
+    assert not second.reporter.failures
+    assert not _partly_read(second)
+
+
+def test_binary_tables_are_let_go_after_max_partial_reads_kept(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _binary_qlik("Binary [lib://QVD Data/sales model.qvf];")
+    datahub = _DataHub(mock_datahub_graph)
+    on_prem: Dict[str, object] = {"read_data_model": True}
+
+    def run(run_id: str) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
+        source, workunits = _run(
+            mock_datahub_graph,
+            qlik,
+            run_id,
+            on_prem=on_prem,
+            skip_unchanged_apps=False,
+            max_partial_reads_kept=1,
+        )
+        datahub.write(workunits)
+        return source, workunits
+
+    run("run-1")
+    # Section access now denies the app's data for good.
+    qlik.data_model_fails_for = {"app-2"}
+    kept, _ = run("run-2")
+    let_go, let_go_wus = run("run-3")
+    after, _ = run("run-4")
+
+    assert _partly_read(kept)
+    assert FRONT_ORDERS in _stale_urns(kept)
+    # A failure would skip stale removal for every app, run after run.
+    assert not let_go.reporter.failures
+    assert not _partly_read(let_go)
+    assert "Qlik BINARY tables are no longer kept" in [
+        warning.title for warning in let_go.reporter.warnings
+    ]
+    assert FRONT_ORDERS in _soft_deleted_urns(let_go_wus)
+    assert not after.reporter.failures
+    assert not _partly_read(after)
 
 
 @pytest.mark.parametrize(

@@ -106,11 +106,12 @@ def test_binary_file_to_app_paths_match_one_spelling():
             "on_prem": {
                 **ON_PREM,
                 "read_data_model": True,
-                "binary_file_to_app": {"\\\\NAS\\Apps\\Sales.qvf": "app-1"},
+                "binary_file_to_app": {"\\\\NAS\\Apps\\Sales.qvf": " APP-1 "},
             }
         }
     )
     assert config.on_prem is not None
+    # QRS app ids are lower-case GUIDs.
     assert config.on_prem.binary_file_to_app == {"//nas/apps/sales.qvf": "app-1"}
 
 

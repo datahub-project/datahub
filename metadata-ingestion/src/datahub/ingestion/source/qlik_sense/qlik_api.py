@@ -267,8 +267,12 @@ class QlikAPI(QlikBaseAPI):
         return meta if Constant.OWNERID in meta else None
 
     @staticmethod
+    def _table_label_key(label: str) -> str:
+        return label.replace('"', "").split(".")[-1]
+
+    @classmethod
     def _own_table_nodes_by_label(
-        table_nodes: Dict[str, Dict], app_id: str
+        cls, table_nodes: Dict[str, Dict], app_id: str
     ) -> Dict[str, str]:
         """The app's own table nodes by label, leaving out labels more than one
         node has, as those can't be told apart."""
@@ -277,7 +281,9 @@ class QlikAPI(QlikBaseAPI):
             if qri.startswith(f"qri:app:sense://{app_id}#") and node.get(
                 Constant.LABEL
             ):
-                by_label.setdefault(node[Constant.LABEL], []).append(qri)
+                by_label.setdefault(
+                    cls._table_label_key(node[Constant.LABEL]), []
+                ).append(qri)
         return {label: qris[0] for label, qris in by_label.items() if len(qris) == 1}
 
     def _add_qri_of_tables(
@@ -316,10 +322,8 @@ class QlikAPI(QlikBaseAPI):
                         for each_lineage in response.json()[Constant.RESOURCES][0][
                             Constant.LINEAGE
                         ]:
-                            table_name = (
+                            table_name = self._table_label_key(
                                 each_lineage[Constant.TABLELABEL]
-                                .replace('"', "")
-                                .split(".")[-1]
                             )
                             table_qri_dict[table_name] = each_lineage[Constant.TABLEQRI]
                         break
@@ -328,10 +332,13 @@ class QlikAPI(QlikBaseAPI):
                     table.tableQri = table_qri_dict[table.tableName]
                 table.graphQri = graph_qris.get(table.tableName)
             matched = {table.graphQri for table in tables if table.tableQri}
-            errors.graph_tables_unmatched = any(
-                qri not in matched
-                for qri in table_nodes
-                if qri.startswith(f"qri:app:sense://{app_id}#")
+            errors.unmatched_graph_tables = sorted(
+                {
+                    node.get(Constant.LABEL) or qri.rpartition("#")[2]
+                    for qri, node in table_nodes.items()
+                    if qri.startswith(f"qri:app:sense://{app_id}#")
+                    and qri not in matched
+                }
             )
         except Exception as e:
             errors.record(
@@ -526,7 +533,7 @@ class QlikAPI(QlikBaseAPI):
                         f"Unable to fetch table lineage of app {app_id}. Exception: {e}"
                     )
             app.lineage_graph_missing |= errors.lineage_graph_missing
-            app.graph_tables_unmatched = errors.graph_tables_unmatched
+            app.unmatched_graph_tables = errors.unmatched_graph_tables
             app.tables_read_failed = len(errors.messages) > read_errors
             if not app.tables or not all(table.tableQri for table in app.tables):
                 try:
