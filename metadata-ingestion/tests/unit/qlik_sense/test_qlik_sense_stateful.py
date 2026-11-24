@@ -388,6 +388,11 @@ def test_cloud_partly_read_app_keeps_the_connection_named_file_it_loads(
             False,
             id="QVD without a QRI",
         ),
+        pytest.param(
+            [ListedDataset(space_id="excluded-space", name="other.qvd")],
+            False,
+            id="QVD without a QRI in a left-out space",
+        ),
     ],
 )
 def test_graph_named_dataset_is_kept_when_sources_cannot_be_told(
