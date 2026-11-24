@@ -293,7 +293,7 @@ class _BinaryLink(BaseModel):
     table: str
     dataset_urn: str
     fields: List[str]
-    # An included script, which is not read, could change the table.
+    # An included script that is not read could change the table.
     additive: bool = False
     # The table's lineage from the app's own script.
     upstream_urns: List[str] = []
@@ -1966,11 +1966,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self._reported_include_apps.add(app_id)
                 self.reporter.warning(
                     title="Qlik app loads files from an included script",
-                    message="Files loaded in scripts brought in with $(Include) "
-                    "or $(Must_Include), or in a SUB the script calls but does "
-                    "not define, are not read, so a file in the app's "
-                    "lineage graph that its own script does not load only adds "
-                    "to the table's lineage.",
+                    message="The app includes a script with $(Include) or "
+                    "$(Must_Include) that was not read, or calls a SUB its script "
+                    "does not define. An include is not read on-prem, nor when its "
+                    "path varies as the script runs or does not expand to a "
+                    "lib:// path, it is nested more than 10 levels deep or in a "
+                    "cycle, or the file could not be read. A file in the app's "
+                    "lineage graph that its own script does not load only adds to "
+                    "the table's lineage.",
                     context=app_id,
                 )
             return True
@@ -3259,10 +3262,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if source_app_id is not None and parsed.has_includes:
             self.reporter.warning(
                 title="Qlik BINARY tables may be changed by an included script",
-                message="Scripts brought in with $(Include) or $(Must_Include), "
-                "or a SUB the script calls but does not define, are not read and "
-                "could drop or reload the tables a mapped BINARY load brings in, "
-                "so their lineage is only added to.",
+                message="A script included with $(Include) or $(Must_Include) "
+                "that was not read, or a SUB the script calls but does not "
+                "define, could drop or reload the tables a mapped BINARY load "
+                "brings in, so their lineage is only added to.",
                 context=app.id,
             )
         if source_app_id is None:
@@ -3972,8 +3975,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 message="Apps include these scripts with $(Include) or "
                 "$(Must_Include), but they could not be read, so what they load "
                 "is missing from lineage, and the apps' lineage is only added to. "
-                "Each entry gives the reason. An access error needs Can view for "
-                "the API key's user in the space holding the file.",
+                "Each entry gives the path, the app and space including it, and "
+                "the reason. A path without a space resolves in that app's space. "
+                "An access error needs Can view for the API key's user in the "
+                "space holding the file.",
                 context=_bounded_list(sorted(set(self.qlik_api.include_read_failures))),
             )
         if self.reporter.unresolved_file_connections:

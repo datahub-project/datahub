@@ -3,6 +3,7 @@ from typing import Dict, Iterable, List, Optional
 from urllib.parse import quote
 
 import requests
+from pydantic import BaseModel
 from requests.adapters import DEFAULT_POOLSIZE, HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -41,6 +42,11 @@ from datahub.ingestion.source.qlik_sense.websocket_connection import (
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+
+class IncludeRead(BaseModel):
+    content: Optional[str] = None
+    error: Optional[str] = None
 
 
 class QlikAPI(QlikBaseAPI):
@@ -83,7 +89,7 @@ class QlikAPI(QlikBaseAPI):
         # path, None when unreadable. Many apps include the same file, so each
         # is read once a run per space, as a path without a space resolves in
         # the reading app's space.
-        self._include_contents: Dict[str, Optional[str]] = {}
+        self._include_contents: Dict[str, IncludeRead] = {}
         # Test connection by fetching list of api keys
         logger.info(f"Trying to connect to {self.rest_api_url}")
         self.session.get(f"{self.rest_api_url}/api-keys").raise_for_status()
@@ -411,30 +417,82 @@ class QlikAPI(QlikBaseAPI):
         return connections
 
     def _read_include(
-        self, websocket_connection: WebsocketConnection, reader: str, path: str
-    ) -> Optional[str]:
+        self,
+        websocket_connection: WebsocketConnection,
+        reader: str,
+        path: str,
+        transient: Dict[str, IncludeRead],
+    ) -> IncludeRead:
         """The script of a file an app includes, read by the Engine as a reload
-        reads it. Needs Can view in the space holding the file."""
+        reads it. `transient` holds failures outside the Engine for the app
+        being read, so a hung file is not waited on again for that app."""
         key = f"{reader}|{path}"
         if key in self._include_contents:
             return self._include_contents[key]
+        if path in transient:
+            return transient[path]
         try:
             content = websocket_connection.websocket_send_request(
                 method="GetIncludeFileContent", params={"qPath": path}
             ).get("qContent")
         except EngineError as e:
-            self.include_read_failures.append(f"{path}: {e}")
-            self._include_contents[key] = None
-            return None
+            result = IncludeRead(error=str(e))
         except Exception as e:
-            # Not cached, as a dropped websocket may read it for the next app.
-            self.include_read_failures.append(f"{path}: {e}")
-            return None
-        if not isinstance(content, str):
-            self.include_read_failures.append(f"{path}: no script text returned")
-            content = None
-        self._include_contents[key] = content
-        return content
+            # Not cached for the run, as a dropped websocket may read it for
+            # the next app.
+            transient[path] = IncludeRead(error=str(e))
+            return transient[path]
+        else:
+            result = (
+                IncludeRead(content=content)
+                if isinstance(content, str)
+                else IncludeRead(error="no script text returned")
+            )
+        self._include_contents[key] = result
+        return result
+
+    def _inline_includes(
+        self,
+        websocket_connection: WebsocketConnection,
+        app_id: str,
+        app: App,
+        script: str,
+    ) -> str:
+        # A personal app's unqualified paths resolve in its owner's personal
+        # space, so its includes are cached apart.
+        personal = app.spaceId == Constant.PERSONAL_SPACE_ID
+        reader = app_id if personal else app.spaceId
+        space = (
+            Constant.PERSONAL_SPACE_NAME
+            if personal
+            else self.spaces.get(app.spaceId, app.spaceId)
+        )
+        unread: List[str] = []
+        transient: Dict[str, IncludeRead] = {}
+
+        def report(path: str, reason: str) -> None:
+            unread.append(f"{path} (app {app_id} in space {space}): {reason}")
+
+        def read(path: str) -> Optional[str]:
+            result = self._read_include(websocket_connection, reader, path, transient)
+            if result.error is not None:
+                report(path, result.error)
+            return result.content
+
+        try:
+            inlined = inline_includes(
+                script,
+                merged_variables(self.config.script_variables, app.variables),
+                read,
+                report,
+            )
+        except Exception as e:
+            # The app's own script still holds its includes, so it still
+            # counts as including scripts that are not read.
+            report("included scripts", f"Unable to inline. Exception: {e}")
+            inlined = script
+        self.include_read_failures.extend(unread)
+        return inlined
 
     def _get_app(self, app_id: str, script_app: bool = False) -> App:
         errors = ReadErrors()
@@ -471,19 +529,8 @@ class QlikAPI(QlikBaseAPI):
             app.graph_tables_unmatched = errors.graph_tables_unmatched
             app.tables_read_failed = len(errors.messages) > read_errors
             if not app.tables or not all(table.tableQri for table in app.tables):
-                # A personal app's unqualified paths resolve in its owner's
-                # personal space, so its includes are cached apart.
-                reader = (
-                    app_id if app.spaceId == Constant.PERSONAL_SPACE_ID else app.spaceId
-                )
                 try:
-                    app.script = inline_includes(
-                        websocket_connection.get_script(),
-                        merged_variables(self.config.script_variables, app.variables),
-                        lambda path: self._read_include(
-                            websocket_connection, reader, path
-                        ),
-                    )
+                    script = websocket_connection.get_script()
                 except Exception as e:
                     if isinstance(e, EngineError) and e.access_denied:
                         # Cloud only lets Owner, Can manage and Can operate read
@@ -499,6 +546,10 @@ class QlikAPI(QlikBaseAPI):
                         errors.record(
                             f"Unable to fetch load script of app {app_id}. Exception: {e}"
                         )
+                else:
+                    app.script = self._inline_includes(
+                        websocket_connection, app_id, app, script
+                    )
             if not app.tables or not all(table.tableQri for table in app.tables):
                 # Graph and script tables carry no fields of their own; the
                 # data model has them as the last reload left them.

@@ -82,7 +82,8 @@ A script pulled in with `$(Include=...)` or `$(Must_Include=...)` is read into t
 
 - its path is a `lib://` path that the app's variables expand. Those hold the values the app's last reload left, over any `script_variables` in the recipe; an empty value or an `=` expression keeps the recipe's value. A path that uses a variable the script sets more than once, or inside an `IF`, `SWITCH`, loop or `SUB`, or that is a loop variable or `SUB` parameter, is not read.
 - the API key's user has **Can view** in the space that holds the file.
-- it is nested no more than 10 levels deep.
+- it is nested no more than 10 levels deep, and does not include itself directly or through another included script.
+- the app's script with everything it includes stays under 5,000,000 characters.
 
 On-prem, included scripts are not read. An included script that is not read makes the connection and all variables unknown after the include, and the tables, QVDs and files it loads get no lineage from the script. On Qlik Cloud, a file in such an app's lineage graph that its own script does not load is only added to the table's lineage, never removed.
 
@@ -339,7 +340,7 @@ Apps read or store files through these connections, but their storage is not kno
 
 #### "Unable to read included Qlik scripts" (Qlik Cloud)
 
-Each entry gives the path of an included file and why it could not be read. For an access error, give the API key's user **Can view** in the space that holds the file. Until then, what the script loads is missing from lineage, and the app's lineage is only added to.
+Each entry gives the path of an included file, the app and space that include it, and why it could not be read: an Engine error, an include cycle, nesting more than 10 levels deep, or the size limit. A path without a space, such as `lib://DataFiles/common.qvs`, resolves in the space of the app that includes it. For an access error, give the API key's user **Can view** in the space that holds the file. Until then, what the script loads is missing from lineage, and the app's lineage is only added to.
 
 #### `apps_without_lineage_graph` in the report, or "Qlik Cloud has no lineage graph for app" (Qlik Cloud)
 

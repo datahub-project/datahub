@@ -22,7 +22,7 @@ from datahub.ingestion.source.qlik_sense.file_lineage import (
     file_storage_of_uri,
     qri_part_id,
 )
-from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
+from datahub.ingestion.source.qlik_sense.qlik_api import IncludeRead, QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import UNREAD_DATA_CONNECTIONS
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import (
@@ -1550,15 +1550,14 @@ def test_included_script_is_read_once_a_run_per_space() -> None:
     )
 
     for _ in range(2):
-        assert api._read_include(engine, "space-1", "lib://DataFiles/x.qvs") == (
-            "X: LOAD 1 AS a AUTOGENERATE 1;"
-        )
+        assert api._read_include(
+            engine, "space-1", "lib://DataFiles/x.qvs", {}
+        ) == IncludeRead(content="X: LOAD 1 AS a AUTOGENERATE 1;")
     # A path without a space resolves in the reading app's space.
-    assert api._read_include(engine, "space-2", "lib://DataFiles/x.qvs") == (
-        "Y: LOAD 2 AS a AUTOGENERATE 1;"
-    )
+    assert api._read_include(
+        engine, "space-2", "lib://DataFiles/x.qvs", {}
+    ) == IncludeRead(content="Y: LOAD 2 AS a AUTOGENERATE 1;")
     assert engine.websocket_send_request.call_count == 2
-    assert api.include_read_failures == []
 
 
 @pytest.mark.parametrize(
@@ -1569,22 +1568,28 @@ def test_include_the_engine_refuses_is_not_read_again(reply: object) -> None:
     api = _include_api()
     engine = _engine(reply)
 
+    # A new app each time, so only the run's cache can stop the second read.
     for _ in range(2):
-        assert api._read_include(engine, "space-1", "lib://B:DataFiles/y.qvs") is None
+        result = api._read_include(engine, "space-1", "lib://B:DataFiles/y.qvs", {})
+        assert result.content is None and result.error
     assert engine.websocket_send_request.call_count == 1
-    assert len(api.include_read_failures) == 1
 
 
-def test_include_read_failing_outside_the_engine_is_read_again() -> None:
+def test_include_read_failing_outside_the_engine_is_read_again_for_the_next_app() -> (
+    None
+):
     api = _include_api()
     engine = _engine(
         ConnectionError("socket closed"),
         {"qContent": "W: LOAD 3 AS a AUTOGENERATE 1;"},
     )
+    path = "lib://DataFiles/w.qvs"
+    first_app: Dict[str, IncludeRead] = {}
 
-    assert api._read_include(engine, "space-1", "lib://DataFiles/w.qvs") is None
-    assert api._read_include(engine, "space-1", "lib://DataFiles/w.qvs")
-    assert len(api.include_read_failures) == 1
+    for _ in range(2):
+        assert api._read_include(engine, "space-1", path, first_app).error
+    assert api._read_include(engine, "space-1", path, {}).content
+    assert engine.websocket_send_request.call_count == 2
 
 
 _INCLUDED_LOADS = {
@@ -1641,12 +1646,93 @@ def test_include_path_from_a_varying_variable_is_not_read(
     assert parsed.has_includes == (not loads)
 
 
-def test_self_including_script_stops_at_the_depth_cap() -> None:
+@pytest.mark.parametrize("fan_out", [1, 2, 4])
+def test_self_including_script_is_read_once(fan_out: int) -> None:
     path = "lib://S:DataFiles/self.qvs"
-    files = {path: f"X: LOAD * FROM [lib://S:Lake/x.csv];\n$(Include={path});"}
-    parsed = parse_script(inline_includes(f"$(Include={path});", {}, files.get))
+    body = "X: LOAD * FROM [lib://S:Lake/x.csv];\n"
+    files = {path: body + f"$(Include={path});\n" * fan_out}
+    unread: List[Tuple[str, str]] = []
+    inlined = inline_includes(
+        f"$(Include={path});",
+        {},
+        files.get,
+        lambda path, reason: unread.append((path, reason)),
+    )
+    parsed = parse_script(inlined)
 
-    assert parsed.file_loads
+    assert len(inlined) < 2 * len(files[path])
+    assert len(parsed.file_loads) == 1
+    assert parsed.has_includes
+    assert [p for p, _ in unread] == [path]
+
+
+def test_mutually_including_scripts_are_each_read_once() -> None:
+    a, b = "lib://S:DataFiles/a.qvs", "lib://S:DataFiles/b.qvs"
+    files = {
+        a: "A: LOAD * FROM [lib://S:Lake/a.csv];\n" + f"$(Include={b});\n" * 3,
+        b: "B: LOAD * FROM [lib://S:Lake/b.csv];\n" + f"$(Include={a});\n" * 3,
+    }
+    unread: List[Tuple[str, str]] = []
+    inlined = inline_includes(
+        f"$(Include={a});",
+        {},
+        files.get,
+        lambda path, reason: unread.append((path, reason)),
+    )
+    parsed = parse_script(inlined)
+
+    assert len(inlined) < 10 * (len(files[a]) + len(files[b]))
+    assert {load.expanded for load in parsed.file_loads} == {
+        "lib://S:Lake/a.csv",
+        "lib://S:Lake/b.csv",
+    }
+    assert parsed.has_includes
+    assert [p for p, _ in unread] == [a]
+
+
+def test_includes_past_the_size_limit_are_not_read() -> None:
+    # Each level includes the next twice, so the script would double each level.
+    files = {
+        f"lib://S:DataFiles/{level}.qvs": "X" * 400_000
+        + ";\n"
+        + f"$(Include=lib://S:DataFiles/{level + 1}.qvs);\n" * 2
+        for level in range(10)
+    }
+    unread: List[Tuple[str, str]] = []
+    inlined = inline_includes(
+        "$(Include=lib://S:DataFiles/0.qvs);",
+        {},
+        files.get,
+        lambda path, reason: unread.append((path, reason)),
+    )
+
+    assert len(inlined) < 6_000_000
+    assert unread
+    assert parse_script(inlined).has_includes
+
+
+def test_apostrophe_in_an_include_path_keeps_later_comments_out() -> None:
+    files = {
+        "lib://S:DataFiles/O'B.qvs": "A: LOAD * FROM [lib://S:Lake/a.csv];",
+        "lib://S:DataFiles/old.qvs": "B: LOAD * FROM [lib://S:Lake/b.csv];",
+    }
+    script = (
+        "$(Include=lib://S:DataFiles/O'B.qvs);\n"
+        "// $(Include=lib://S:DataFiles/old.qvs);\n"
+    )
+    parsed = parse_script(inline_includes(script, {}, files.get))
+
+    assert [load.expanded for load in parsed.file_loads] == ["lib://S:Lake/a.csv"]
+
+
+def test_unread_include_with_an_apostrophe_keeps_the_next_statement() -> None:
+    parsed = parse_script(
+        "$(Include=lib://S:DataFiles/O'B.qvs);\n"
+        "Orders: LOAD * FROM [lib://S:Lake/orders.csv];\n"
+        "// Old: LOAD * FROM [lib://S:Lake/old.csv];"
+    )
+
+    assert [load.expanded for load in parsed.file_loads] == ["lib://S:Lake/orders.csv"]
     assert parsed.has_includes
 
 

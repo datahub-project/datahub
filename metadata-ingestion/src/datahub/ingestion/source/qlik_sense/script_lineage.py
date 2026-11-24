@@ -62,8 +62,11 @@ INCLUDE_PATH_RE = re.compile(
     rf"\$\(\s*(?:Must_)?Include\s*=(?P<path>{_BALANCED_PARENS}|[^)]*)\)",
     re.IGNORECASE,
 )
-# Includes nested deeper than this are left unread, which also stops a cycle.
+# Includes nested deeper than this are left unread.
 _MAX_INCLUDE_DEPTH = 10
+# Includes that would grow the script past this many characters are left
+# unread, as a file included many times at each level grows it exponentially.
+_MAX_INLINED_LENGTH = 5_000_000
 VARIABLE_RE = re.compile(
     r"^(?P<kind>SET|LET)\s+(?P<name>[^\s=]+)\s*=(?P<value>.*)$",
     re.IGNORECASE | re.DOTALL,
@@ -548,6 +551,17 @@ def _strip_comments(script: str, expression: bool = False) -> str:
         if closing:
             if char == closing:
                 closing = None
+        elif (
+            not expression
+            and char == "$"
+            and (include := INCLUDE_PATH_RE.match(script, i))
+        ):
+            # Qlik expands an include before reading quotes, so an apostrophe
+            # in its path, as in O'Brien.qvs, opens no quote.
+            kept.extend(include.group(0))
+            i = include.end()
+            statement_start = False
+            continue
         # A REM comment runs to the next semicolon, and an apostrophe in it
         # does not open a quote.
         elif not expression and statement_start and REM_RE.match(script, i):
@@ -603,7 +617,16 @@ def _split_statements(script: str) -> List[str]:
     statements: List[str] = []
     current: List[str] = []
     closing: Optional[str] = None
-    for char in script:
+    i = 0
+    while i < len(script):
+        char = script[i]
+        include = (
+            INCLUDE_PATH_RE.match(script, i) if not closing and char == "$" else None
+        )
+        if include:
+            current.append(include.group(0))
+            i = include.end()
+            continue
         current.append(char)
         if closing:
             if char == closing:
@@ -613,6 +636,7 @@ def _split_statements(script: str) -> List[str]:
         elif char == STATEMENT_SEPARATOR:
             statements.append("".join(current[:-1]).strip())
             current = []
+        i += 1
     statements.append("".join(current).strip())
     return [statement for statement in statements if statement]
 
@@ -1552,18 +1576,25 @@ def inline_includes(
     script: str,
     app_variables: Dict[str, str],
     read: Callable[[str], Optional[str]],
+    report_unread: Optional[Callable[[str, str], None]] = None,
 ) -> str:
     """The script with each $(Include) and $(Must_Include) replaced by the
     script of the file it names, as Qlik splices it in at reload, including
     the includes of that file. The path is expanded with `app_variables`, the
-    values the app's last reload left merged over the recipe's. An include whose path doesn't expand, reads
-    a variable the script varies, or that `read` can't read, stays, so the
-    script still counts as including scripts that are not read."""
+    values the app's last reload left merged over the recipe's. An include
+    whose path doesn't expand, reads a variable the script varies, or that
+    `read` can't read, stays, so the script still counts as including scripts
+    that are not read. `report_unread` gets the path and reason of an include
+    left unread as a cycle, too deep, or over the size limit."""
     variables = unquoted_values(app_variables)
     varying = _varying_variables(script)
+    used: Set[str] = set()
+    unread: Dict[str, str] = {}
+    remaining = _MAX_INLINED_LENGTH
 
-    def inline(text: str, depth: int, used: Set[str]) -> str:
+    def inline(text: str, chain: List[str]) -> str:
         def replace(match: "re.Match[str]") -> str:
+            nonlocal remaining
             raw_path = match.group("path").strip()
             names = _path_variables(raw_path, variables)
             path = _expand_nested_variables(raw_path, variables)
@@ -1573,24 +1604,40 @@ def inline_includes(
                 or not names.isdisjoint(varying)
             ):
                 return match.group(0)
+            if path in chain:
+                unread[path] = "include cycle"
+                return match.group(0)
+            if len(chain) >= _MAX_INCLUDE_DEPTH:
+                unread[path] = f"nested more than {_MAX_INCLUDE_DEPTH} levels deep"
+                return match.group(0)
             content = read(path)
             if content is None:
                 return match.group(0)
+            if len(content) > remaining:
+                unread[path] = (
+                    f"the script with its includes is over "
+                    f"{_MAX_INLINED_LENGTH} characters"
+                )
+                return match.group(0)
+            remaining -= len(content)
             used.update(names)
-            return f"\n{inline(content, depth + 1, used)}\n"
+            return f"\n{inline(content, [*chain, path])}\n"
 
-        if depth >= _MAX_INCLUDE_DEPTH:
-            return text
         # A commented-out include is not run.
         return INCLUDE_PATH_RE.sub(replace, _strip_comments(text))
 
     while True:
-        used: Set[str] = set()
-        inlined = inline(script, 0, used)
+        used.clear()
+        unread.clear()
+        remaining = _MAX_INLINED_LENGTH
+        inlined = inline(script, [])
         # Included scripts can vary a variable too, as can an include in a
         # loop, so the variables read are checked again on the whole script.
         newly_varying = (used & _varying_variables(inlined)) - varying
         if not newly_varying:
+            if report_unread:
+                for path, reason in unread.items():
+                    report_unread(path, reason)
             return inlined
         varying |= newly_varying
 
