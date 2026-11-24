@@ -3545,13 +3545,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         """Yield each dbt project to emit, one at a time."""
         raise NotImplementedError()
 
-    def report_metric_source_limitations(self) -> None:
-        """Report what this source cannot read from dbt's `metrics:` block.
-
-        Separate from loading so the note is tied to a run that actually
-        emits semantic-model entities, rather than to the act of loading.
-        """
-
     def create_exposure_mcps(
         self,
         exposures: List[DBTExposure],
@@ -3933,7 +3926,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         semanticFieldAnnotation aspects.
         """
         parsed_metrics = project.metrics
-        self.report_metric_source_limitations()
         for unique_id, cause in parsed_metrics.unreadable:
             # Reported here rather than at parse time: this is the first point
             # at which the metric would actually have been emitted.

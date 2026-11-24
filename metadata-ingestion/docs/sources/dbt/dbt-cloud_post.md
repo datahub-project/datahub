@@ -6,7 +6,7 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
-**dbt Cloud metrics come from the environment definition.** The job query has no `semanticModels` or `metrics` field. Semantic models are read from `environment.definition.semanticModels`, and the `metrics:` block from `environment.definition.metrics`. Measures with `create_metric: true` are also emitted as metrics. The Semantic Layer GraphQL API, which runs metric queries, is a separate endpoint and is not used here.
+Semantic models and the `metrics:` block are ingested from dbt Cloud. Measures with `create_metric: true` are also emitted as metrics.
 
 ### Troubleshooting
 
