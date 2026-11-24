@@ -163,8 +163,24 @@ def test_set_functions_take_every_bare_table_argument() -> None:
     assert set(
         _tables("CROSSJOIN(Policies, FILTER(Claims, Claims[Paid] > 0), 'Region List')")
     ) == {"Policies", "Claims", "Region List"}
-    # A VAR argument is not a model table.
-    assert _tables("VAR Recent = Claims\nRETURN EXCEPT(Recent, Archive)") == ["Archive"]
+    # A VAR argument is not a model table; the table the VAR holds is.
+    assert _tables("VAR Recent = Claims\nRETURN EXCEPT(Recent, Archive)") == [
+        "Claims",
+        "Archive",
+    ]
+
+
+def test_bare_table_name_as_the_whole_value() -> None:
+    assert _tables("Policies") == ["Policies"]
+    assert _tables("VAR Base = Policies\nRETURN Base") == ["Policies"]
+    assert _tables("VAR Base = Policies\nVAR Other = Base\nRETURN Other") == [
+        "Policies"
+    ]
+    assert _tables("VAR n = 10 RETURN Claims") == ["Claims"]
+    # Arithmetic on a bare name, a boolean literal and a variable are not tables.
+    assert _tables("VAR x = Amount * 2 RETURN x") == []
+    assert _tables("VAR f = TRUE RETURN f") == []
+    assert _tables("TRUE") == []
 
 
 def test_variables_are_not_tables() -> None:
