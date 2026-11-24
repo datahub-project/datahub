@@ -89,3 +89,4 @@ bootstrap:
       mcps_location: "bootstrap_mcps/ingestion-datahub-documents.yaml"
       values_env: "DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_DOCUMENTS_REVISION"
+      valuesTrackedAcrossRuns: true

@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.mustachejava.DefaultMustacheFactory;
 import com.github.mustachejava.Mustache;
@@ -27,7 +28,10 @@ import java.io.InputStream;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -149,6 +153,35 @@ public class BootstrapMCPUtil {
       scopeValues.putAll(opContext.getObjectMapper().readValue(envValue, new TypeReference<>() {}));
     }
     return scopeValues;
+  }
+
+  /**
+   * Hash of the resolved {@code values_env}, stable across key order and whitespace. Unset values
+   * hash as an empty object, so an unset variable and {@code {}} are the same state.
+   */
+  @Nonnull
+  static String valuesHash(
+      @Nonnull OperationContext opContext, @Nonnull BootstrapMCPConfigFile.MCPTemplate mcpTemplate)
+      throws IOException {
+    String envValue = resolveEnv(mcpTemplate);
+    Object values =
+        envValue == null
+            ? Map.of()
+            : opContext.getObjectMapper().readValue(envValue, new TypeReference<Object>() {});
+    String canonical =
+        opContext
+            .getObjectMapper()
+            .writer()
+            .with(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
+            .writeValueAsString(values);
+    try {
+      return HexFormat.of()
+          .formatHex(
+              MessageDigest.getInstance("SHA-256")
+                  .digest(canonical.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 is required by the Java platform", e);
+    }
   }
 
   @Nullable

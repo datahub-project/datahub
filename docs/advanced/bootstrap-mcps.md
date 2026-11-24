@@ -44,6 +44,7 @@ bootstrap:
       optional: false
       mcps_location: <classpath or file location>
       values_env: <environment variable>
+      valuesTrackedAcrossRuns: false
 ```
 
 Each entry in the list of templates points to a single yaml file which can contain one or more MCP objects. The
@@ -52,16 +53,17 @@ unless `force=true` for each `name`/`version` combination.
 
 See the following table of options for descriptions of each field in the template configuration.
 
-| Field         | Default | Required | Description                                                                                                |
-| ------------- | ------- | -------- | ---------------------------------------------------------------------------------------------------------- |
-| name          |         | `true`   | The name for the collection of template MCPs.                                                              |
-| version       |         | `true`   | A string version for the collection of template MCPs.                                                      |
-| force         | `false` | `false`  | Ignores the previous run history, will not skip execution if run previously.                               |
-| blocking      | `false` | `false`  | Run before GMS and other components during upgrade/install if running in split blocking/non-blocking mode. |
-| async         | `true`  | `false`  | Controls whether the MCPs are executed for sync or async ingestion.                                        |
-| optional      | `false` | `false`  | Whether to ignore a failure or fail the entire `system-update` job.                                        |
-| mcps_location |         | `true`   | The location of the file which contains the template MCPs                                                  |
-| values_env    |         | `false`  | The environment variable which contains override template values.                                          |
+| Field                   | Default | Required | Description                                                                                                                                                                                                                                                                          |
+| ----------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| name                    |         | `true`   | The name for the collection of template MCPs.                                                                                                                                                                                                                                        |
+| version                 |         | `true`   | A string version for the collection of template MCPs.                                                                                                                                                                                                                                |
+| force                   | `false` | `false`  | Ignores the previous run history, will not skip execution if run previously.                                                                                                                                                                                                         |
+| blocking                | `false` | `false`  | Run before GMS and other components during upgrade/install if running in split blocking/non-blocking mode.                                                                                                                                                                           |
+| async                   | `true`  | `false`  | Controls whether the MCPs are executed for sync or async ingestion.                                                                                                                                                                                                                  |
+| optional                | `false` | `false`  | Whether to ignore a failure or fail the entire `system-update` job.                                                                                                                                                                                                                  |
+| mcps_location           |         | `true`   | The location of the file which contains the template MCPs                                                                                                                                                                                                                            |
+| values_env              |         | `false`  | The environment variable which contains override template values.                                                                                                                                                                                                                    |
+| valuesTrackedAcrossRuns | `false` | `false`  | Also re-runs the template when the resolved `values_env` content changes. The step stores a hash of the values and skips only while it is unchanged, so a value can be toggled and toggled back without a new `version` or `force`. A run recorded without a hash counts as changed. |
 
 ## Template MCPs
 

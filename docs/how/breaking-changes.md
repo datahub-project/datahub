@@ -52,14 +52,6 @@ then unset the variable. Then check that
 `datahub get --urn "urn:li:searchTemplate:semantic" --aspect searchTemplateProperties` shows an empty
 `routes` list, since system update only logs a revert the write validator rejects.
 
-### Document embedding ingestion source is off by default
-
-The system ingestion source `datahub-documents` no longer runs every 15 minutes unless it is enabled
-([PR #21178](https://github.com/datahub-project/datahub/pull/21178)). Its schedule now follows `DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES`. If your deployment relies on this source
-to embed documents, set `DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES='{"enabled": true}'` and re-run system-update so the
-bootstrap step applies it. Deployments that do not set it stop the scheduled runs after upgrading. You can still
-run the source on demand from the Ingestion page or the CLI.
-
 ### Show Applications setting is hidden by default
 
 Applications are being deprioritized. The **Show Applications** setting on the **Settings > Appearance**

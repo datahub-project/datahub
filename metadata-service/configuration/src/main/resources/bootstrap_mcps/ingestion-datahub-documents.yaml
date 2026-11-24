@@ -10,7 +10,8 @@
     name: '{{ingestion.name}}{{^ingestion.name}}datahub-documents{{/ingestion.name}}'
     schedule:
       timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
-      # Off by default (Feb 30 never fires). Enable via DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES='{"enabled": true}'.
+      # Off (Feb 30 never fires) unless DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES sets enabled to true. The datahub-upgrade
+      # image sets it, so the source runs there; override with DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES='{"enabled": false}'.
       # enabled must be a JSON boolean: a string "false" is truthy in mustache and would keep it on.
       # Disabling uses the schedule rather than enabledEnvVar, so an upgraded deployment's stored schedule is rewritten.
       interval: '{{#enabled}}{{schedule.interval}}{{^schedule.interval}}*/15 * * * *{{/schedule.interval}}{{/enabled}}{{^enabled}}0 0 30 2 *{{/enabled}}'
