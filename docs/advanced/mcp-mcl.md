@@ -235,6 +235,14 @@ dropped, because existence is checked against the entity as it was before the ba
 The header has no effect on timeseries aspects, such as `datasetProfile`. Writing one still creates the entity if it
 doesn't exist.
 
+`If-Version-Match` and `CREATE` only look at the written aspect, so they can't express this: a first write of a new
+aspect to an existing entity would fail them, and a write of an existing aspect to a deleted entity would pass them.
+
+A dropped write is not an error. A synchronous single-aspect POST to OpenAPI v3 returns 204 No Content, and batch
+endpoints leave the write out of their results. Existence is checked once per ingest request, so on the OpenAPI v2
+platform endpoint, which ingests each proposal in its list separately, a proposal can see an entity created by an
+earlier proposal in the same list.
+
 On SQL storage with the default locking, the existence check locks the entity's key aspect inside the write
 transaction, so a concurrent hard delete can't land between the check and the write. With
 `OPTIMISTIC_LOCKING_ENABLED=true`, or on Cassandra, the check takes no lock and is best effort: a hard delete that
