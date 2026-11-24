@@ -143,6 +143,8 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     script_tables_with_lineage: int = 0
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
     qvds_found: int = 0
+    # QVDs on connections in file_connection_to_storage, linked as storage files.
+    storage_qvds_resolved: int = 0
     # QVD paths a load script names that resolve to no single file, such as a
     # wildcard, a variable, a relative path or an unknown data connection.
     unresolved_qvd_paths: LossyList[str] = field(default_factory=LossyList)
@@ -160,6 +162,8 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     # Cloud STOREs of a table into different files from competing IF or SWITCH
     # branches, which are not linked.
     qvd_stores_in_competing_branches: LossyList[str] = field(default_factory=LossyList)
+    # Cloud STOREs linked as an edge from an app table into a file on storage.
+    file_stores_linked: int = 0
     apps_read: int = 0
     apps_skipped_unchanged: int = 0
     # Apps read again because checking whether they changed failed.

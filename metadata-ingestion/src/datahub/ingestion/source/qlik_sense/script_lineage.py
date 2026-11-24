@@ -126,6 +126,8 @@ LIB_PATH_RE = re.compile(
 # A file system path, which only legacy mode allows: C:\..., \\server\... or //server/...
 ABSOLUTE_PATH_RE = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\|//)")
 QVD_EXTENSION = ".qvd"
+# STORE formats other than QVD, which write files storage sources ingest.
+STORED_FILE_FORMATS = ("txt", "parquet")
 LOAD_FIELDS_RE = re.compile(
     r"^LOAD\s+(?:DISTINCT\s+)?(?P<fields>.*)$", re.IGNORECASE | re.DOTALL
 )
@@ -350,14 +352,11 @@ class QvdReference(BaseModel):
     connection: Optional[str] = None
     path: str
 
-    def same_file(self, other: "QvdReference") -> bool:
+    @property
+    def key(self) -> str:
         # Paths compare as the file datasets name them; connection names
         # resolve whatever their case.
-        return (self.connection or "").lower() == (
-            other.connection or ""
-        ).lower() and normalized_file_path(self.path) == normalized_file_path(
-            other.path
-        )
+        return f"{(self.connection or '').lower()}#{normalized_file_path(self.path)}"
 
 
 class QvdLoad(BaseModel):
@@ -387,18 +386,23 @@ class QvdStore(BaseModel):
 def stores_in_competing_branches(
     stores: List[QvdStore],
     table_key: Callable[[QvdStore], str] = lambda store: store.label.lower(),
+    same_file: Callable[[QvdStore, QvdStore], bool] = (
+        lambda store, other: store.file.key == other.file.key
+    ),
 ) -> List[QvdStore]:
     """STOREs of a table into different files from different branches of one
     IF or SWITCH, such as a prod and a dev path: which one ran can't be told,
     so none of them names the table's file for certain. `table_key` tells
-    which STOREs name the same table, such as by its name and by its alias."""
+    which STOREs name the same table, such as by its name and by its alias,
+    and `same_file` which write the same file, such as through two names of
+    one connection."""
     keys = [table_key(store) for store in stores]
     competing = []
     for store, key in zip(stores, keys, strict=True):
         branches = {branch.block: branch.branch for branch in store.branches}
         if any(
             other_key == key
-            and not other.file.same_file(store.file)
+            and not same_file(store, other)
             and any(
                 branches.get(branch.block, branch.branch) != branch.branch
                 for branch in other.branches
@@ -431,6 +435,10 @@ class ParsedScript(BaseModel):
     # A STORE wrote a QVD whose path can't be resolved, so the QVDs the app
     # writes are not all known.
     has_unresolved_store: bool = False
+    # STOREs into text and Parquet files, which Qlik Cloud links on storage.
+    file_stores: List[QvdStore] = []
+    # A text or Parquet STORE's path can't be resolved.
+    has_unresolved_file_store: bool = False
     # QVDs loaded without a label, which Qlik names itself.
     unlabelled_qvd_loads: List[str] = []
     # Every file a LOAD reads, in any format.
@@ -622,6 +630,12 @@ class _ControlFlowTracker(BaseModel):
     # its value before the first, as variables persist between reloads.
     assignments: Counter[str] = Field(default_factory=Counter)
     total_assignments: Counter[str] = Field(default_factory=Counter)
+    # Variables the app itself holds a value for. The recipe's values are only
+    # for variables neither the app nor the visible script has.
+    app_variable_names: Set[str] = set()
+    # The parameters of each SUB being run, innermost last. They are local to
+    # the call, so the app's global variable of that name is not their value.
+    parameters: List[Set[str]] = []
     blocks_opened: int = 0
 
     @property
@@ -667,11 +681,23 @@ class _ControlFlowTracker(BaseModel):
                 self.loops[-1].update(varied)
             else:
                 self.state.unknown.difference_update(
-                    name for name in varied if self._assigned_for_the_last_time(name)
+                    name for name in varied if self._takes_app_value(name)
                 )
 
     def _assigned_for_the_last_time(self, name: str) -> bool:
         return self.assignments[name] >= self.total_assignments[name]
+
+    def _is_parameter(self, name: str) -> bool:
+        return any(name in parameters for parameters in self.parameters)
+
+    def _takes_app_value(self, name: str) -> bool:
+        # After a loop or block that left it unknown, the app's value is the
+        # one its last assignment gave, if the app has it at all.
+        return (
+            self._assigned_for_the_last_time(name)
+            and name in self.app_variable_names
+            and not self._is_parameter(name)
+        )
 
     def _forget_variable(self, name: str) -> None:
         self.state.forget_variable(name)
@@ -720,7 +746,7 @@ class _ControlFlowTracker(BaseModel):
             # branch taken in the app's last reload gave it, which is the app's.
             # Inside an outer branch, that branch may not have run.
             unknown.difference_update(
-                name for name in made_unknown if self._assigned_for_the_last_time(name)
+                name for name in made_unknown if self._takes_app_value(name)
             )
         self.state = _BranchState(
             connection=first.connection
@@ -730,7 +756,7 @@ class _ControlFlowTracker(BaseModel):
             unknown=unknown,
         )
 
-    def record_variable(self, statement: str, in_sub: bool = False) -> bool:
+    def record_variable(self, statement: str) -> bool:
         match = VARIABLE_RE.match(statement)
         if not match:
             return False
@@ -749,13 +775,13 @@ class _ControlFlowTracker(BaseModel):
             self.state.set_variable(match.group("name"), value)
         elif (
             self.loops
-            or in_sub
             or self.blocks
+            or self._is_parameter(name)
             or not self._assigned_for_the_last_time(name)
         ):
-            # Run more than once, in a branch that may not have run, or set
-            # again later, so the value the app's last reload left need not be
-            # this one.
+            # Run more than once, in a branch that may not have run, local to a
+            # SUB call, or set again later, so the value the app's last reload
+            # left need not be this one.
             self._forget_variable(name)
         else:
             # LET evaluates an expression the parser can't, so the value the
@@ -965,6 +991,10 @@ def _script_pieces(script: str) -> _Script:
     return parsed
 
 
+def _format_name(spec: Optional[str]) -> str:
+    return (spec or "").split(",")[0].strip().lower()
+
+
 class _ScriptParser(BaseModel):
     subs: Dict[str, _Sub]
     # The app's variables from the Engine, for paths the script builds from
@@ -975,6 +1005,8 @@ class _ScriptParser(BaseModel):
     qvd_stores: List[QvdStore] = []
     unresolved_qvd_paths: List[str] = []
     has_unresolved_store: bool = False
+    file_stores: List[QvdStore] = []
+    has_unresolved_file_store: bool = False
     unlabelled_qvd_loads: List[str] = []
     file_loads: List[FileLoad] = []
     has_includes: bool = False
@@ -1043,7 +1075,9 @@ class _ScriptParser(BaseModel):
             else:
                 state.set_variable(param, value)
         self.calling.append(name.lower())
+        self.flow.parameters.append(set(sub.params))
         self.run(sub.body)
+        self.flow.parameters.pop()
         self.calling.pop()
         state = self.flow.state
         for param, (value, unknown) in saved.items():
@@ -1072,7 +1106,7 @@ class _ScriptParser(BaseModel):
         if EXIT_SCRIPT_RE.match(statement) and not self.flow.blocks:
             self.exited = True
             return
-        if self.flow.record_variable(statement, in_sub=bool(self.calling)):
+        if self.flow.record_variable(statement):
             self._clear_pending()
             return
         call = CALL_RE.match(statement)
@@ -1200,11 +1234,8 @@ class _ScriptParser(BaseModel):
     ) -> Optional[QvdReference]:
         """The QVD file a LOAD or STORE names, or None when it names another
         format or no single resolvable file."""
-        path = _unquote(path.strip()).strip()
-        if "$(" in path:
-            # Expanded first, as the variable may hold the `.qvd` name.
-            path = self._expand_app_variables(path)
-        format_name = (spec or "").split(",")[0].strip().lower()
+        path = self._expanded_file_path(path)
+        format_name = _format_name(spec)
         if format_name:
             is_qvd = format_name == "qvd"
         else:
@@ -1212,13 +1243,25 @@ class _ScriptParser(BaseModel):
             is_qvd = default_qvd or path.lower().endswith(QVD_EXTENSION)
         if not is_qvd:
             return None
+        return self._file_reference(path, self.unresolved_qvd_paths)
+
+    def _expanded_file_path(self, path: str) -> str:
+        path = _unquote(path.strip()).strip()
+        # Expanded first, as the variable may hold the file's extension.
+        return self._expand_app_variables(path) if "$(" in path else path
+
+    def _file_reference(
+        self, path: str, unresolved: List[str]
+    ) -> Optional[QvdReference]:
+        """The single file a path names, or None, adding the path to
+        `unresolved`, when it names none the connector can resolve."""
         if any(
             reference.group("name").strip() in self.flow.state.unknown
             for reference in VARIABLE_REFERENCE_RE.finditer(path)
         ):
             # Such as a connection prefix that varies in a loop: it is not an
             # unset prefix that expands to nothing.
-            self.unresolved_qvd_paths.append(path)
+            unresolved.append(path)
             return None
         lib_path = LIB_PATH_RE.match(path)
         if (
@@ -1234,12 +1277,12 @@ class _ScriptParser(BaseModel):
                 path=lib_path.group("path"),
             )
         if "$(" in path or "*" in path or "?" in path:
-            self.unresolved_qvd_paths.append(path)
+            unresolved.append(path)
             return None
         if ABSOLUTE_PATH_RE.match(path):
             return QvdReference(path=path)
         # Relative to the Directory statement or the working directory.
-        self.unresolved_qvd_paths.append(path)
+        unresolved.append(path)
         return None
 
     def _record_file_load(self, statement: str) -> None:
@@ -1280,10 +1323,20 @@ class _ScriptParser(BaseModel):
         self.qvd_loads.append(QvdLoad(label=label, file=file, fields=fields))
 
     def _store(self, store: "re.Match[str]") -> None:
-        unresolved = len(self.unresolved_qvd_paths)
-        file = self._qvd_file(store.group("path"), store.group("spec"), True)
+        # STORE writes a QVD when no format is given, whatever the extension.
+        format_name = _format_name(store.group("spec")) or "qvd"
+        if format_name != "qvd" and format_name not in STORED_FILE_FORMATS:
+            return
+        unresolved: List[str] = []
+        file = self._file_reference(
+            self._expanded_file_path(store.group("path")), unresolved
+        )
+        if format_name == "qvd":
+            self.unresolved_qvd_paths.extend(unresolved)
+            self.has_unresolved_store |= bool(unresolved)
+        else:
+            self.has_unresolved_file_store |= bool(unresolved)
         if file is None:
-            self.has_unresolved_store |= len(self.unresolved_qvd_paths) > unresolved
             return
         what = store.group("what")
         masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), what)
@@ -1295,7 +1348,7 @@ class _ScriptParser(BaseModel):
             if from_table
             else None
         )
-        self.qvd_stores.append(
+        (self.qvd_stores if format_name == "qvd" else self.file_stores).append(
             QvdStore(
                 label=_unquote(table.strip()),
                 file=file,
@@ -1306,8 +1359,12 @@ class _ScriptParser(BaseModel):
 
 
 def parse_script(
-    script: str, app_variables: Optional[Dict[str, str]] = None
+    script: str,
+    app_variables: Optional[Dict[str, str]] = None,
+    app_variable_names: Optional[AbstractSet[str]] = None,
 ) -> ParsedScript:
+    """`app_variables` may include recipe values; `app_variable_names` are the
+    ones the app itself holds, all of `app_variables` when not given."""
     parsed = _script_pieces(script)
     # A first pass counts the assignments the script runs, leaving out
     # comments, SUBs it never calls and anything after EXIT SCRIPT.
@@ -1315,6 +1372,9 @@ def parse_script(
     first.run(parsed.pieces)
     parser = _ScriptParser(subs=parsed.subs, app_variables=app_variables or {})
     parser.flow.total_assignments = first.flow.assignments
+    parser.flow.app_variable_names = set(
+        (app_variables or {}) if app_variable_names is None else app_variable_names
+    )
     parser.run(parsed.pieces)
     return ParsedScript(
         tables=parser.tables,
@@ -1322,6 +1382,8 @@ def parse_script(
         qvd_stores=parser.qvd_stores,
         unresolved_qvd_paths=parser.unresolved_qvd_paths,
         has_unresolved_store=parser.has_unresolved_store,
+        file_stores=parser.file_stores,
+        has_unresolved_file_store=parser.has_unresolved_file_store,
         unlabelled_qvd_loads=parser.unlabelled_qvd_loads,
         file_loads=parser.file_loads,
         has_includes=parser.has_includes,

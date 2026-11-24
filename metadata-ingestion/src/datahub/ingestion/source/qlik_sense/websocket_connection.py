@@ -40,13 +40,15 @@ REFUSED_BUDGET_SECONDS = 300.0
 
 class RefusedConnectionBudget:
     """How long connections to one Engine are retried while it refuses them.
-    It is shared by all workers and counts from the first refusal, so an Engine
-    that stays down fails each app read at once instead of after its own wait."""
+    It is shared by all workers and counts from the first refusal in a row, so an
+    Engine that stays down fails each app read at once instead of after its own
+    wait. Any other outcome of a connection attempt starts a new count."""
 
     def __init__(self, seconds: float = REFUSED_BUDGET_SECONDS) -> None:
-        self._seconds = seconds
+        self.seconds = seconds
         self._lock = threading.Lock()
         self._refused_since: Optional[float] = None
+        self._longest_streak = 0.0
 
     def record_refusal(self) -> bool:
         """Records a refusal and returns whether the budget still allows a retry."""
@@ -54,11 +56,21 @@ class RefusedConnectionBudget:
             now = time.monotonic()
             if self._refused_since is None:
                 self._refused_since = now
-            return now - self._refused_since < self._seconds
+            self._longest_streak = max(self._longest_streak, now - self._refused_since)
+            return now - self._refused_since < self.seconds
 
-    def connected(self) -> None:
+    def reset(self) -> None:
         with self._lock:
+            if self._refused_since is not None:
+                self._longest_streak = max(
+                    self._longest_streak, time.monotonic() - self._refused_since
+                )
             self._refused_since = None
+
+    @property
+    def longest_streak_seconds(self) -> float:
+        with self._lock:
+            return self._longest_streak
 
 
 class EngineError(RuntimeError):
@@ -112,29 +124,42 @@ class WebsocketConnection:
             )
 
         attempt = 1
+        first_refusal: Optional[float] = None
         while True:
             try:
                 connection = connect()
-            except _TRANSIENT_CONNECT_ERRORS as e:
-                if isinstance(e, ConnectionRefusedError) and refusals is not None:
-                    if not refusals.record_refusal():
+            except Exception as e:
+                if refusals is not None and isinstance(e, ConnectionRefusedError):
+                    now = time.monotonic()
+                    if first_refusal is None:
+                        first_refusal = now
+                    # Other workers' outcomes reset the shared count, so this read
+                    # also stops once it has waited for the whole budget itself.
+                    if (
+                        not refusals.record_refusal()
+                        or now - first_refusal >= refusals.seconds
+                    ):
                         raise
                     logger.info(
                         f"Engine at {url} refused the connection, retrying: {e}"
                     )
                     time.sleep(REFUSED_RETRY_SECONDS)
-                elif attempt >= CONNECT_ATTEMPTS:
+                    continue
+                if refusals is not None:
+                    refusals.reset()
+                if not isinstance(e, _TRANSIENT_CONNECT_ERRORS) or (
+                    attempt >= CONNECT_ATTEMPTS
+                ):
                     raise
-                else:
-                    logger.info(
-                        f"Retrying Engine connection to {url} after attempt "
-                        f"{attempt} failed: {e}"
-                    )
-                    time.sleep(CONNECT_RETRY_SECONDS * attempt)
-                    attempt += 1
+                logger.info(
+                    f"Retrying Engine connection to {url} after attempt "
+                    f"{attempt} failed: {e}"
+                )
+                time.sleep(CONNECT_RETRY_SECONDS * attempt)
+                attempt += 1
             else:
                 if refusals is not None:
-                    refusals.connected()
+                    refusals.reset()
                 return connection
 
     @classmethod
