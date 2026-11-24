@@ -10,6 +10,7 @@ from typing import (
     MutableMapping,
     Optional,
     Set,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -112,6 +113,9 @@ logger = logging.getLogger(__name__)
 # absent: DirectLake is recognised by the `entity` partition kind alone, so a
 # stray `mode: directLake` on an M / calculated / query partition never routes
 # the table into the DirectLake lineage branch. Unknown modes pass through.
+FIELD_KIND_COLUMN = "column"
+FIELD_KIND_MEASURE = "measure"
+
 PARTITION_MODE_TO_STORAGE_MODE: Dict[str, str] = {
     PARTITION_MODE_IMPORT: Constant.STORAGE_MODE_IMPORT,
     PARTITION_MODE_DIRECT_QUERY: Constant.STORAGE_MODE_DIRECT_QUERY,
@@ -1827,28 +1831,39 @@ class PowerBiAPI:
         measures_by_name = {
             measure.name.casefold(): measure for measure in table.measures or []
         }
-        matched: Set[str] = set()
+        # Keyed by (kind, name): a column and a measure are separate fields
+        # even if their names collide.
+        matched: Set[Tuple[str, str]] = set()
         for parsed_column in parsed_table.columns:
             column = columns_by_name.get(parsed_column.name.casefold())
             if column is not None:
-                matched.add(parsed_column.name.casefold())
+                matched.add((FIELD_KIND_COLUMN, parsed_column.name.casefold()))
                 self._overlay_column(column, parsed_column)
         for parsed_measure in parsed_table.measures:
             measure = measures_by_name.get(parsed_measure.name.casefold())
             if measure is not None:
-                matched.add(parsed_measure.name.casefold())
+                matched.add((FIELD_KIND_MEASURE, parsed_measure.name.casefold()))
                 self._overlay_measure(measure, parsed_measure)
-        scan_names = {key: column.name for key, column in columns_by_name.items()}
+        scan_names = {
+            (FIELD_KIND_COLUMN, key): column.name
+            for key, column in columns_by_name.items()
+        }
         scan_names.update(
-            {key: measure.name for key, measure in measures_by_name.items()}
+            {
+                (FIELD_KIND_MEASURE, key): measure.name
+                for key, measure in measures_by_name.items()
+            }
         )
         definition_names = {
-            name.casefold(): name
-            for name in [
-                *(column.name for column in parsed_table.columns),
-                *(measure.name for measure in parsed_table.measures),
-            ]
+            (FIELD_KIND_COLUMN, column.name.casefold()): column.name
+            for column in parsed_table.columns
         }
+        definition_names.update(
+            {
+                (FIELD_KIND_MEASURE, measure.name.casefold()): measure.name
+                for measure in parsed_table.measures
+            }
+        )
         self._report_field_mismatches(
             scan_only=sorted(
                 name for key, name in scan_names.items() if key not in matched

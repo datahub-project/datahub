@@ -558,6 +558,30 @@ def test_overlay_matches_tables_and_fields_case_insensitively() -> None:
     assert api.reporter.definition_fields_not_in_scan == 0
 
 
+def test_scan_measure_sharing_a_column_name_is_still_reported() -> None:
+    # Columns and measures are matched separately: a scan measure named like
+    # a matched column is still a scan-only field when the definition lacks it.
+    api = _api()
+    scan = _scan_result()
+    policies = scan["workspaces"][0]["datasets"][0]["tables"][0]
+    policies["measures"].append(
+        {"name": "State", "expression": "COUNTROWS('Policies')", "isHidden": False}
+    )
+    api._get_scan_result = MagicMock(return_value=scan)  # type: ignore[method-assign]
+    workspace = _workspace()
+
+    api.fill_metadata_from_scan_result([workspace])
+
+    # `Premium` (column) and `State` (measure) have no TMDL twin.
+    assert api.reporter.scan_fields_not_in_definition == 2
+    warning = next(
+        w
+        for w in api.reporter.warnings
+        if w.title == Constant.SCAN_FIELD_NOT_IN_DEFINITION
+    )
+    assert any("fields=['Premium', 'State']" in c for c in warning.context)
+
+
 def test_scan_column_renamed_in_definition_is_kept_and_reported() -> None:
     api = _renamed_api()
     workspace = _workspace()
