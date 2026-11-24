@@ -150,6 +150,9 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     # Apps whose last reload's file paths could not be read, so the datasets
     # only their upstream graph names may have no path.
     apps_without_reload_paths: LossyList[str] = field(default_factory=LossyList)
+    # Datasets Qlik's lineage graph names but no reload gives one path for,
+    # which are not ingested.
+    graph_named_datasets_without_path: LossyList[str] = field(default_factory=LossyList)
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
     qvds_found: int = 0
     # QVD paths a load script names that resolve to no single file, such as a

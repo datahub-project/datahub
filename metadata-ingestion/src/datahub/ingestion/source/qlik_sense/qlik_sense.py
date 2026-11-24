@@ -533,6 +533,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._graph_resource_writers: Dict[str, Set[str]] = {}
         # The files apps stored or loaded in their last reload, by app id.
         self._reload_files: Dict[str, List[_ReloadFile]] = {}
+        # Apps whose last reload's statements could not be read.
+        self._reload_files_unread: Set[str] = set()
         # The apps whose upstream graph names each graph-named dataset.
         self._graph_resource_readers: Dict[str, Set[str]] = {}
         self._allowed_space_ids: Set[str] = set()
@@ -3504,17 +3506,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             except Exception as e:
                 logger.debug(f"Unable to read reload statements of app {app_id}: {e}")
                 self.reporter.apps_without_reload_paths.append(f"{app_id}: {e}")
+                self._reload_files_unread.add(app_id)
                 statements = []
             self._reload_files[app_id] = _reload_files(statements)
         return self._reload_files[app_id]
 
-    def _graph_named_path(self, urn: str, label: str) -> Optional[str]:
+    def _graph_named_path(self, urn: str, label: str) -> Tuple[Optional[str], bool]:
         """The `lib://` path of a dataset only the upstream graph names, such as
         `lib://<space>:DataFiles/orders.qvd` for a QVD in a space the API key
         can't see, from the last reload of the apps that load it and of the
-        writer apps this run ingests. Qlik's label is only a name, so a path is
-        given only when exactly one file those apps read or stored has that
-        name. A writer's STORE keeps the path's case, which loads lose."""
+        writer apps this run ingests, and whether every one of those reloads
+        was read. Qlik's label is only a name, so a path is given only when
+        exactly one file those apps read or stored has that name."""
         apps = set(self._graph_resource_readers.get(urn, set())) | {
             app_id
             for qri in self._graph_resource_writers.get(urn, set())
@@ -3530,8 +3533,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 key = _path_key(file.path)
                 if key not in paths or (file.stored and not paths[key].stored):
                     paths[key] = file
+        all_read = not (apps & self._reload_files_unread)
         if len(paths) != 1:
-            return None
+            return None, all_read
         key, file = next(iter(paths.items()))
         if not file.stored:
             # Another app this run read may have stored it, though the graph
@@ -3545,13 +3549,34 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 ),
                 file,
             )
-        return file.path
+        return file.path, all_read
+
+    def _leave_out_unplaced(self, urn: str, label: str, all_read: bool) -> None:
+        """A dataset the graph names but whose path is not certain is not
+        emitted, so the tables reading it link to its URN alone. Datasets an
+        earlier run emitted are then soft-deleted, unless a reload that may give
+        the path could not be read this run."""
+        if not all_read:
+            if self.stale_entity_removal_handler is not None:
+                self.stale_entity_removal_handler.add_entity_to_state(
+                    guess_entity_type(urn), urn
+                )
+            return
+        self.reporter.graph_named_datasets_without_path.append(f"{label}: {urn}")
+        for urns in self._app_end_of_run_urns.values():
+            urns.discard(urn)
 
     def _gen_graph_named_resources(self) -> Iterable[MetadataWorkUnit]:
-        """The datasets and files only apps' upstream graphs name, and the
-        tables of the writer apps this run ingests as their upstreams."""
+        """The datasets and files only apps' upstream graphs name whose path is
+        certain, and the tables of the writer apps this run ingests as their
+        upstreams."""
+        emitted: Set[str] = set()
         for urn, label in self._graph_named_resources.items():
-            path = self._graph_named_path(urn, label)
+            path, all_read = self._graph_named_path(urn, label)
+            if path is None:
+                self._leave_out_unplaced(urn, label, all_read)
+                continue
+            emitted.add(urn)
             yield from self._gen_file_entity(
                 urn,
                 label,
@@ -3560,9 +3585,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 else DatasetSubTypes.QLIK_DATASET,
                 path,
             )
-            if path:
-                yield from self._gen_lib_path_location(urn, path)
+            yield from self._gen_lib_path_location(urn, path)
         for urn, writer_qris in self._graph_resource_writers.items():
+            if urn not in emitted:
+                # Its writers' edges would make the dataset exist.
+                continue
             # Only writer apps this run ingests: another app's table has no URN.
             writer_urns = {
                 writer
@@ -3572,6 +3599,19 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             }
             yield from self._patch_upstreams(
                 urn, sorted(writer_urns), DatasetLineageType.COPY
+            )
+        if self.reporter.graph_named_datasets_without_path:
+            self.reporter.info(
+                title="Qlik datasets without a certain path are left out",
+                message="Qlik's lineage graph names these datasets, but the "
+                "reloads of the apps that read or store them give no single path "
+                "for them, such as a file name read through two connections, so "
+                "they are not ingested, and the tables reading them link to their "
+                "URN alone. Map their storage in `file_connection_to_storage`, or "
+                "give the API key's user access to their space.",
+                context=_bounded_list(
+                    sorted(self.reporter.graph_named_datasets_without_path)
+                ),
             )
 
     def _record_model_fields(self, app: App) -> None:

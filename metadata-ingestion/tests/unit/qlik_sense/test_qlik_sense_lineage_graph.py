@@ -267,6 +267,16 @@ def _source(
     for item in api.get_items.return_value:
         if isinstance(item, App):
             item.script_read_failed = script_read_failed
+    # Each app's last reload loads, by path, every dataset its graph names.
+    loads = {
+        item.id: [
+            ReloadStatement(discriminator=f"lib://hidden:datafiles/{label};")
+            for label in item.lineage_upstreams.resource_labels.values()
+        ]
+        for item in api.get_items.return_value
+        if isinstance(item, App)
+    }
+    api.get_reload_statements.side_effect = lambda app_id: loads.get(app_id, [])
     return QlikSenseSource(
         QlikSourceConfig.model_validate({**CLOUD_CONFIG, **(config or {})}),
         PipelineContext(run_id="test-lineage-graph", graph=graph),
@@ -697,9 +707,8 @@ def test_unlisted_dataset_is_named_from_the_upstream_graph(
         and (p := wu.get_aspect_of_type(DatasetPropertiesClass))
     )
     assert properties.name == "prices"
-    # Qlik's label is not a path.
-    assert properties.qualifiedName is None
-    assert "path" not in properties.customProperties
+    # The path comes from the app's reload, not from Qlik's label.
+    assert properties.qualifiedName == "lib://hidden:datafiles/prices.qvd"
     subtypes = next(
         t
         for wu in workunits
@@ -2664,18 +2673,18 @@ def test_graph_named_dataset_takes_its_path_from_reload_files(
         )
 
     workunits = list(source.get_workunits_internal())
+    written, added = _lineage(workunits)
 
     prices = _urn(UNLISTED_QVD)
     properties = next(
-        p
-        for wu in workunits
-        if wu.get_urn() == prices
-        and (p := wu.get_aspect_of_type(DatasetPropertiesClass))
+        (
+            p
+            for wu in workunits
+            if wu.get_urn() == prices
+            and (p := wu.get_aspect_of_type(DatasetPropertiesClass))
+        ),
+        None,
     )
-    # The URN stays the QRI's, which every app reading the file shares.
-    assert properties.name == "prices"
-    assert properties.qualifiedName == path
-    assert properties.customProperties.get("path") == path
     browse_path = next(
         (
             b
@@ -2685,10 +2694,23 @@ def test_graph_named_dataset_takes_its_path_from_reload_files(
         ),
         None,
     )
-    # The space the API key can't see is named, not linked.
-    assert (
-        [e.id for e in browse_path.path] if browse_path is not None else None
-    ) == browse
+    # The reading table links to the URN, which every reading app shares,
+    # whether or not the dataset itself is certain enough to ingest.
+    assert written[_urn("report-app.prices")] == [prices]
+    if path is None:
+        # Without a certain path, nothing makes the dataset exist.
+        assert properties is None and browse_path is None
+        assert prices not in added
+        assert bool(source.reporter.graph_named_datasets_without_path) is not (
+            isinstance(statements, Exception)
+        )
+    else:
+        assert properties is not None and browse_path is not None
+        assert properties.name == "prices"
+        assert properties.qualifiedName == path
+        assert properties.customProperties.get("path") == path
+        assert [e.id for e in browse_path.path] == browse
+        assert added[prices] == [_urn("writer-app.out")]
     # Only the reading app and the writer apps this run ingests are asked.
     assert sorted(c.args[0] for c in api.get_reload_statements.call_args_list) == [
         "report-app",

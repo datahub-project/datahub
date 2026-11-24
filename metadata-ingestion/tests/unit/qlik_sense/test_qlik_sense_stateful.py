@@ -1,5 +1,5 @@
 import functools
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,6 +13,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     LineageTable,
     LineageUpstreams,
+    ReloadStatement,
     Sheet,
     Space,
 )
@@ -235,6 +236,7 @@ def _cloud_run(
     lineage_tables: Optional[List[LineageTable]] = None,
     loads_unlisted_qvd: bool = False,
     upstream_graph_unread: bool = False,
+    reload_files: Union[List[str], Exception, None] = None,
 ) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
     with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI") as api_cls:
         api = api_cls.return_value
@@ -268,6 +270,15 @@ def _cloud_run(
         api.include_read_failures = []
         api.upstream_graph_read_failures = []
         api.reload_statement_read_failures = []
+        if reload_files is None:
+            # The app's last reload loads the dataset its graph names by path.
+            reload_files = ["lib://hidden:datafiles/prices.qvd"]
+        if isinstance(reload_files, Exception):
+            api.get_reload_statements.side_effect = reload_files
+        else:
+            api.get_reload_statements.return_value = [
+                ReloadStatement(discriminator=f"{path};") for path in reload_files
+            ]
         api.get_user_name.return_value = None
         ctx = PipelineContext(run_id=run_id, pipeline_name="qlik-cloud", graph=graph)
         source = QlikSenseSource(
@@ -325,6 +336,53 @@ def test_graph_named_dataset_is_kept_with_a_partly_read_app(
     assert prices in {wu.get_urn() for wu in first_wus}
     assert prices not in {wu.get_urn() for wu in second_wus}
     assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
+
+
+@pytest.mark.parametrize(
+    "reload_files, removed",
+    [
+        # The same name through two connections: no certain path.
+        (
+            ["lib://hidden:datafiles/prices.qvd", "lib://other:datafiles/prices.qvd"],
+            True,
+        ),
+        ([], True),
+        # The reload that may give the path was not read this run.
+        (RuntimeError("Forbidden"), False),
+    ],
+)
+def test_graph_named_dataset_without_a_certain_path_is_removed(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+    reload_files: Union[List[str], Exception],
+    removed: bool,
+) -> None:
+    _, first_wus = _cloud_run(
+        mock_datahub_graph, "run-1", read_errors=[], loads_unlisted_qvd=True
+    )
+    second, second_wus = _cloud_run(
+        mock_datahub_graph,
+        "run-2",
+        read_errors=[],
+        loads_unlisted_qvd=True,
+        reload_files=reload_files,
+    )
+
+    prices = make_dataset_urn("qlik-sense", UNLISTED_QVD.lower())
+    assert prices in {wu.get_urn() for wu in first_wus}
+    assert prices not in {
+        wu.get_urn() for wu in second_wus if not wu.id.startswith("soft-delete-")
+    }
+    assert (
+        prices
+        in {wu.get_urn() for wu in second_wus if wu.id.startswith("soft-delete-")}
+    ) is removed
+    # The app's checkpoint lists only what it produced, so a later run that
+    # keeps the app's last read does not keep the dataset either.
+    checkpoint = second.app_state.state_provider.get_current_checkpoint(
+        second.app_state.job_id
+    )
+    assert checkpoint is not None
+    assert (prices in checkpoint.state.apps["app-1"].urns) is not removed
 
 
 def test_graph_named_dataset_is_kept_when_the_upstream_graph_is_unread(
