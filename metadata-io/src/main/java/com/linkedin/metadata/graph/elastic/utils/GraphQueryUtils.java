@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -348,12 +349,45 @@ public final class GraphQueryUtils {
       int remainingHops,
       ThreadSafePathStore existingPaths,
       boolean exploreMultiplePaths) {
+    return extractRelationships(
+        entityUrns,
+        searchResponse,
+        lineageGraphFilters,
+        visitedEntities,
+        viaEntities,
+        numHops,
+        remainingHops,
+        existingPaths,
+        exploreMultiplePaths,
+        () -> false);
+  }
+
+  /**
+   * As {@link #extractRelationships(Set, org.opensearch.action.search.SearchResponse,
+   * LineageGraphFilters, Set, Set, int, int, ThreadSafePathStore, boolean)}, but stops early once
+   * {@code abandoned} returns true: the caller has stopped waiting and will discard the result.
+   */
+  public static List<LineageRelationship> extractRelationships(
+      @Nonnull Set<Urn> entityUrns,
+      @Nonnull org.opensearch.action.search.SearchResponse searchResponse,
+      LineageGraphFilters lineageGraphFilters,
+      Set<Urn> visitedEntities,
+      Set<Urn> viaEntities,
+      int numHops,
+      int remainingHops,
+      ThreadSafePathStore existingPaths,
+      boolean exploreMultiplePaths,
+      @Nonnull BooleanSupplier abandoned) {
     try {
       Map<Urn, LineageRelationship> lineageRelationshipMap = new HashMap<>();
       final SearchHit[] hits = searchResponse.getHits().getHits();
       log.debug("numHits: {}, numHops {}, remainingHops {}", hits.length, numHops, remainingHops);
       int index = -1;
       for (SearchHit hit : hits) {
+        if (abandoned.getAsBoolean()) {
+          log.debug("Lineage hop abandoned by its caller, stopping relationship extraction");
+          break;
+        }
         processSearchHit(
             hit,
             entityUrns,
@@ -760,6 +794,8 @@ public final class GraphQueryUtils {
    * @param existingPaths Existing paths in the graph
    * @param exploreMultiplePaths Whether to explore multiple paths
    * @param entitiesPerHopLimit Limit on entities per hop
+   * @param abandoned returns true once the caller has stopped waiting for the result, so the
+   *     remaining hits are not processed
    * @return List of extracted lineage relationships
    */
   public static List<LineageRelationship> extractRelationshipsFromSearchResponses(
@@ -771,7 +807,8 @@ public final class GraphQueryUtils {
       int numHops,
       ThreadSafePathStore existingPaths,
       boolean exploreMultiplePaths,
-      @Nullable Integer entitiesPerHopLimit) {
+      @Nullable Integer entitiesPerHopLimit,
+      @Nonnull BooleanSupplier abandoned) {
 
     try {
       Map<Urn, LineageRelationship> lineageRelationshipMap = new ConcurrentHashMap<>();
@@ -818,6 +855,10 @@ public final class GraphQueryUtils {
         // Process hits for this input entity
         int index = -1;
         for (SearchHit hit : hits) {
+          if (abandoned.getAsBoolean()) {
+            log.debug("Lineage hop abandoned by its caller, stopping relationship extraction");
+            return new ArrayList<>(lineageRelationshipMap.values());
+          }
           index++;
           Map<String, Object> document = hit.getSourceAsMap();
 

@@ -67,6 +67,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -437,7 +438,9 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       boolean exploreMultiplePaths) {
     List<List<Urn>> batches =
         Lists.partition(entityUrns, config.getSearch().getGraph().getBatchSize());
-    return ConcurrencyUtils.getAllCompleted(
+    final AtomicBoolean abandoned = new AtomicBoolean(false);
+    final List<List<LineageRelationship>> completed =
+        ConcurrencyUtils.getAllCompleted(
             batches.stream()
                 .map(
                     batchUrns ->
@@ -452,13 +455,17 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                                     numHops,
                                     remainingHops,
                                     existingPaths,
-                                    exploreMultiplePaths)))
+                                    exploreMultiplePaths,
+                                    abandoned::get)))
                 .collect(Collectors.toList()),
             remainingTime,
-            TimeUnit.MILLISECONDS)
-        .stream()
-        .flatMap(List::stream)
-        .collect(Collectors.toList());
+            TimeUnit.MILLISECONDS);
+    // Batches still running after the timeout are dropped from the result, but their futures keep
+    // running on the common pool. Path extraction for a multi-path walk can take seconds, and on a
+    // host with few cores that starves every later lineage hop queued behind it, which then times
+    // out and is dropped as well. Tell the stragglers to stop.
+    abandoned.set(true);
+    return completed.stream().flatMap(List::stream).collect(Collectors.toList());
   }
 
   // Get 1-hop lineage relationships
@@ -472,7 +479,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       int numHops,
       int remainingHops,
       ThreadSafePathStore existingPaths,
-      boolean exploreMultiplePaths) {
+      boolean exploreMultiplePaths,
+      @Nonnull BooleanSupplier abandoned) {
     final LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
 
     Map<String, Set<Urn>> urnsPerEntityType =
@@ -495,7 +503,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
           numHops,
           existingPaths,
           exploreMultiplePaths,
-          lineageFlags.getEntitiesExploredPerHopLimit());
+          lineageFlags.getEntitiesExploredPerHopLimit(),
+          abandoned);
     } else {
       response =
           executeLineageSearchQuery(
@@ -509,7 +518,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
           numHops,
           remainingHops,
           existingPaths,
-          exploreMultiplePaths);
+          exploreMultiplePaths,
+          abandoned);
     }
   }
 
@@ -642,7 +652,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       int numHops,
       ThreadSafePathStore existingPaths,
       boolean exploreMultiplePaths,
-      @Nullable final Integer entitiesPerHopLimit) {
+      @Nullable final Integer entitiesPerHopLimit,
+      @Nonnull BooleanSupplier abandoned) {
 
     Set<Urn> entityUrnSet = new HashSet<>(entityUrns);
 
@@ -671,7 +682,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         numHops,
         existingPaths,
         exploreMultiplePaths,
-        entitiesPerHopLimit);
+        entitiesPerHopLimit,
+        abandoned);
   }
 
   public SearchResponse getSearchResponse(

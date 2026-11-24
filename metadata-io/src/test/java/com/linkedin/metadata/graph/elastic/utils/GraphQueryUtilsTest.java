@@ -31,6 +31,7 @@ import io.datahubproject.metadata.context.SearchContext;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.commons.lang3.tuple.Pair;
@@ -526,6 +527,31 @@ public class GraphQueryUtilsTest {
         GraphQueryUtils.buildQuery(mockOpContext, config, filtersNoTriplets);
 
     assertEquals(result.filter().size(), resultNoTriplets.filter().size());
+  }
+
+  @Test
+  public void testExtractRelationshipsStopsOnceAbandoned() {
+    org.mockito.Mockito.when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
+    org.mockito.Mockito.when(mockSearchHits.getHits()).thenReturn(new SearchHit[] {mockSearchHit});
+    Set<Urn> visitedEntities = new HashSet<>(Set.of(TEST_URN_1));
+
+    List<LineageRelationship> relationships =
+        GraphQueryUtils.extractRelationships(
+            Set.of(TEST_URN_1),
+            mockSearchResponse,
+            null,
+            visitedEntities,
+            new HashSet<>(),
+            1,
+            0,
+            new ThreadSafePathStore(),
+            true,
+            () -> true);
+
+    // The caller has already given up on this hop: no hit is read and no walk state is touched.
+    assertTrue(relationships.isEmpty());
+    assertEquals(visitedEntities, Set.of(TEST_URN_1));
+    org.mockito.Mockito.verifyNoInteractions(mockSearchHit);
   }
 
   @Test
