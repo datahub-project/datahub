@@ -9,6 +9,7 @@ import re
 from datetime import datetime
 from functools import partial
 from typing import (
+    Callable,
     Collection,
     Dict,
     Iterable,
@@ -95,6 +96,7 @@ from datahub.ingestion.source.qlik_sense.file_lineage import (
     FileStorage,
     file_dataset_urn,
     file_storage_of_uri,
+    normalized_file_path,
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
@@ -678,7 +680,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_recorded_app_workunit(self, app: App) -> Iterable[MetadataWorkUnit]:
         fingerprint = (
             self._salted_fingerprint(app.fingerprint)
-            if app.fingerprint and app.read_complete and not app.data_load_failed
+            if app.fingerprint
+            and app.read_complete
+            and not app.data_load_failed
+            # Its connection paths were unresolved, so it is read again next run.
+            and not self._data_connections_unread()
             else None
         )
         urns: Dict[str, None] = {}
@@ -1847,10 +1853,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return (
             app_id in self._apps_variables_unread
             or app_id in self._apps_file_paths_unknown
-            or any(
-                item.name == UNREAD_DATA_CONNECTIONS
-                for item in self.qlik_api.unread_items
-            )
+            or self._data_connections_unread()
+        )
+
+    def _data_connections_unread(self) -> bool:
+        return any(
+            item.name == UNREAD_DATA_CONNECTIONS for item in self.qlik_api.unread_items
         )
 
     def _app_variables(self, app: App) -> Dict[str, str]:
@@ -1945,6 +1953,30 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             return storage, detail
         return visible, detail
 
+    def _file_urn(
+        self, storage: FileStorage, detail: Optional[FileStorageDetail], path: str
+    ) -> str:
+        return file_dataset_urn(
+            storage,
+            # As Qlik Cloud names it, so lineage joins whichever way it was read.
+            normalized_file_path(path),
+            platform_instance=detail.platform_instance if detail else None,
+            # An env the mapping leaves unset is the recipe's.
+            env=detail.env
+            if detail and "env" in detail.model_fields_set
+            else self.config.env,
+            lowercase=detail.convert_urns_to_lowercase if detail else False,
+        )
+
+    @functools.cached_property
+    def _qvd_storage_urns(self) -> Dict[str, Callable[[str], str]]:
+        return {
+            name: partial(self._file_urn, storage, detail)
+            for name, detail in self.config.file_connection_to_storage.items()
+            if detail.storage_uri
+            and (storage := file_storage_of_uri(detail.storage_uri))
+        }
+
     def _resolve_file_source(self, app_id: str, file_qri: str) -> Optional[str]:
         """The dataset of a file in an app's lineage graph, such as a CSV on
         Azure Storage, when the app's load script reads it through a data
@@ -1984,16 +2016,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 and storage.qri_connection_id != candidates.connection_id
             ):
                 continue
-            urn = file_dataset_urn(
-                storage,
-                reference.path,
-                platform_instance=detail.platform_instance if detail else None,
-                # An env the mapping leaves unset is the recipe's.
-                env=detail.env
-                if detail and "env" in detail.model_fields_set
-                else self.config.env,
-                lowercase=detail.convert_urns_to_lowercase if detail else False,
-            )
+            urn = self._file_urn(storage, detail, reference.path)
             (confirmed if storage.qri_connection_id else unconfirmed).add(urn)
             if storage.likely_qri_connection_id == candidates.connection_id:
                 likely.add(urn)
@@ -2650,6 +2673,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             ignored_connections=on_prem.qvd_ignored_connections,
             folder_aliases=on_prem.qvd_folder_aliases,
             variables_known=not app.variables_read_failed,
+            storage_urns=self._qvd_storage_urns,
         )
         lineage = app_qvd_lineage(
             app.id,
@@ -2675,24 +2699,27 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.unlabelled_qvd_loads.append(f"{app.id}: {path}")
             self._unlabelled_qvd_loads += 1
         self.reporter.qvds_found += len(lineage.paths)
+        self.reporter.storage_qvds_resolved += len(lineage.storage_urns)
         if app.script is None or app.script_read_failed:
             # QVDs the script writes can't be known, so their lineage is kept.
             self._apps_qvds_unknown[app.id] = "its load script could not be read"
-        elif any(
-            item.name == UNREAD_DATA_CONNECTIONS for item in self.qlik_api.unread_items
-        ):
+            return lineage
+        if self._data_connections_unread():
             # Without the folder connections, the lib:// QVDs it writes are
             # unknown.
-            self._apps_qvds_unknown[app.id] = "data connections could not be listed"
+            unknown_reason: Optional[str] = "data connections could not be listed"
         elif parsed.has_unresolved_store or lineage.has_unresolved_store:
             # Such as a loop STORE, or a path built from a variable that failed
-            # to read. The writes that resolved are still added, and the app's
-            # edges into QVDs are kept.
-            lineage.qvds.writes_complete = False
-            self._app_qvds[app.id] = lineage.qvds
-            self._apps_qvds_unknown[app.id] = UNRESOLVED_STORE
+            # to read.
+            unknown_reason = UNRESOLVED_STORE
         else:
-            self._app_qvds[app.id] = lineage.qvds
+            unknown_reason = None
+        if unknown_reason:
+            # The writes that resolved, such as to a mapped storage connection,
+            # are still added, and the app's edges into QVDs are kept.
+            lineage.qvds.writes_complete = False
+            self._apps_qvds_unknown[app.id] = unknown_reason
+        self._app_qvds[app.id] = lineage.qvds
         return lineage
 
     @staticmethod
@@ -2768,7 +2795,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             for urn, read_fields in qvds.reads.items():
                 known = reads.setdefault(urn, [])
                 known.extend(field for field in read_fields if field not in known)
-        if not (writes or reads):
+        # Storage files are never removed as stale, so the edges of apps that
+        # stopped storing into them are only removed here.
+        stopped = self._storage_qvds_written_before()
+        if not (writes or reads or stopped):
             return
         unknown = dict(self._apps_qvds_unknown)
         if self.qlik_api.unread_items:
@@ -2785,7 +2815,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     [f"{app}: {reason}" for app, reason in sorted(unknown.items())]
                 ),
             )
-        qvd_urns = sorted({*writes, *reads})
+        qvd_urns = sorted({*writes, *reads, *stopped})
         # Read in batches up front rather than one request per QVD. Removal is
         # limited to edges from apps whose writes are known, so it runs even
         # while other apps are unknown.
@@ -2801,7 +2831,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 else None
             )
-            if fields is not None:
+            if fields is not None and self._is_own_dataset(urn):
                 yield MetadataChangeProposalWrapper(
                     entityUrn=urn,
                     aspect=SchemaMetadata(
@@ -2819,6 +2849,28 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._gen_qvd_upstreams(
                 urn, writes.get(urn, []), current_lineage.get(urn)
             )
+
+    def _storage_qvds_written_before(self) -> Set[str]:
+        """Storage QVDs that apps whose writes are known this run stored into
+        on their last read."""
+        failures: List[str] = []
+        urns: Set[str] = set()
+        for app_id in self._app_qvds:
+            if app_id in self._apps_qvds_unknown:
+                continue
+            previous = self._usable_checkpoint(app_id, failures)
+            if previous is not None and previous.qvds is not None:
+                urns.update(
+                    urn for urn in previous.qvds.writes if not self._is_own_dataset(urn)
+                )
+        if failures:
+            self.reporter.warning(
+                title="Unable to load the last checkpoint of a Qlik app",
+                message="Edges from these apps into storage QVDs they no longer "
+                "write are kept.",
+                context=_bounded_list(failures),
+            )
+        return urns
 
     def _report_unresolved_qvds(self) -> None:
         if not (self._unresolved_qvd_loads or self._unlabelled_qvd_loads):
@@ -2887,7 +2939,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             for write in writes
             for field in write.fields or []
-            if field.source
+            # A storage file has no schema in DataHub for these fields.
+            if field.source and self._is_own_dataset(qvd_urn)
         ]
         # Added as a patch, so lineage from elsewhere stays.
         patch = DatasetPatchBuilder(qvd_urn)
@@ -2928,8 +2981,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     patch.remove_fine_grained_lineage(lineage)
         for mcp in patch.build():
             yield MetadataWorkUnit(
-                id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+                id=MetadataWorkUnit.generate_workunit_id(mcp),
+                mcp_raw=mcp,
+                # A file on storage is not this source's to remove when stale.
+                is_primary_source=self._is_own_dataset(qvd_urn),
             )
+
+    def _is_own_dataset(self, urn: str) -> bool:
+        return DatasetUrn.from_string(urn).platform == builder.make_data_platform_urn(
+            self.platform
+        )
 
     def _check_missing_lineage_graph(self, app: App) -> None:
         # Qlik also answers 404 for lineage it has not computed yet, so a 404

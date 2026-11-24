@@ -143,6 +143,8 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     script_tables_with_lineage: int = 0
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
     qvds_found: int = 0
+    # QVDs on connections in file_connection_to_storage, linked as storage files.
+    storage_qvds_resolved: int = 0
     # QVD paths a load script names that resolve to no single file, such as a
     # wildcard, a variable, a relative path or an unknown data connection.
     unresolved_qvd_paths: LossyList[str] = field(default_factory=LossyList)
@@ -422,12 +424,14 @@ class QlikSourceConfig(
     )
     file_connection_to_storage: Dict[str, FileStorageDetail] = Field(
         default={},
-        description="Qlik Cloud only. Where the files of Azure Storage, Amazon S3 "
-        "and Google Cloud Storage data connections are in DataHub, for lineage from "
-        "the files apps load. Use the data connection name as key, as load scripts "
-        "write it (`<space>:<connection>` or `<connection>`). Set `storage_uri` "
-        "when the API key's user cannot see the connection, and `platform_instance` "
-        "and `env` to match the source that ingests the storage.",
+        description="Where the files of Azure Storage, Amazon S3 and Google Cloud "
+        "Storage data connections are in DataHub, for lineage from the files apps "
+        "load and the QVDs they store. Use the data connection name as key, as load "
+        "scripts write it (`<space>:<connection>` or `<connection>`). Set "
+        "`storage_uri` when the API key's user cannot see the connection, and "
+        "always on-prem, and `platform_instance` and `env` to match the source that "
+        "ingests the storage. On-prem, QVDs of these connections take the same "
+        "dataset as Qlik Cloud gives the file, so lineage joins across both.",
     )
 
     @field_validator("script_variables")
@@ -449,6 +453,17 @@ class QlikSourceConfig(
             if self.tenant_hostname or self.api_key is not None:
                 raise ValueError(
                     "Set either the on_prem block or tenant_hostname and api_key, not both"
+                )
+            # On-prem, only folder connections are read for where files are.
+            missing = [
+                name
+                for name, detail in self.file_connection_to_storage.items()
+                if not detail.storage_uri
+            ]
+            if missing:
+                raise ValueError(
+                    "On-prem, file_connection_to_storage entries need a storage_uri: "
+                    + ", ".join(missing)
                 )
             return self
         if not self.tenant_hostname or self.api_key is None:

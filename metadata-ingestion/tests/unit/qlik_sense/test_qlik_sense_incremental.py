@@ -20,8 +20,10 @@ from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
+    DatasetLineageTypeClass,
     MetadataChangeProposalClass,
     StatusClass,
+    UpstreamClass,
     UpstreamLineageClass,
     _Aspect,
 )
@@ -79,6 +81,7 @@ class _Qlik:
         self.failing_streams: Set[str] = set()
         self.scripts: Dict[str, str] = {}
         self.extra_connections: List[Dict[str, object]] = []
+        self.connections_fail = False
 
     def qrs_get(
         self, url: str, params: Optional[Dict[str, str]] = None, **_: object
@@ -107,6 +110,8 @@ class _Qlik:
                 return FakeResponse({}, status_code=503)
             return FakeResponse(self.objects)
         if url.endswith("/dataconnection/full"):
+            if self.connections_fail:
+                return FakeResponse({}, status_code=503)
             return FakeResponse([self.data_connection, *self.extra_connections])
         raise AssertionError(url)
 
@@ -873,12 +878,14 @@ def _qvd_qlik() -> _Qlik:
     return qlik
 
 
-def _qvd_lineage_ops(workunits: List[MetadataWorkUnit]) -> List[Tuple[str, str]]:
+def _qvd_lineage_ops(
+    workunits: List[MetadataWorkUnit], qvd_urn: str = CLEAN_QVD
+) -> List[Tuple[str, str]]:
     """The (op, upstream dataset) of each table edge patched onto the QVD."""
     ops = []
     for wu in workunits:
         if (
-            wu.get_urn() == CLEAN_QVD
+            wu.get_urn() == qvd_urn
             and isinstance(wu.metadata, MetadataChangeProposalClass)
             and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
             and wu.metadata.aspect is not None
@@ -912,6 +919,61 @@ def test_kept_unchanged_app_still_writes_its_qvd(
 
     assert second.reporter.apps_skipped_unchanged == 1
     assert _qvd_upstreams(second_wus) == [writer]
+
+
+def test_edge_into_a_storage_qvd_the_app_no_longer_writes_is_removed(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    storage_qvd = (
+        "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qlik/clean/orders.qvd,PROD)"
+    )
+    writer = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    mapping = {
+        "file_connection_to_storage": {
+            "Lake": {"storage_uri": "abfss://lake@account.dfs.core.windows.net/qlik"}
+        }
+    }
+    qlik = _qvd_qlik()
+    qlik.scripts["app-1"] = STORING_SCRIPT.replace(
+        "lib://QVD Data/clean", "lib://Lake/clean"
+    )
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1", **mapping)
+    datahub.write(first_wus)
+    assert _qvd_lineage_ops(first_wus, storage_qvd) == [("add", writer)]
+    # The patch as DataHub applied it.
+    datahub.aspects[(storage_qvd, UpstreamLineageClass.ASPECT_NAME)] = (
+        UpstreamLineageClass(
+            upstreams=[UpstreamClass(dataset=writer, type=DatasetLineageTypeClass.COPY)]
+        )
+    )
+
+    # No app touches the file any more, and storage files are never soft-deleted.
+    qlik.scripts["app-1"] = (
+        "Orders: LOAD id FROM [lib://QVD Data/raw/orders.qvd] (qvd);"
+    )
+    qlik.app = {**qlik.app, "modifiedDate": "2024-02-01T09:00:00.000Z"}
+    _, second_wus = _run(mock_datahub_graph, qlik, "run-2", **mapping)
+
+    assert _qvd_lineage_ops(second_wus, storage_qvd) == [("remove", writer)]
+
+
+def test_app_read_while_data_connections_were_unread_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _qvd_qlik()
+    qlik.connections_fail = True
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    opens = qlik.engine_opens
+
+    # Its lib:// QVDs were unresolved, so it is not kept as unchanged even
+    # though the connections still can't be listed.
+    second, _ = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert second.reporter.apps_skipped_unchanged == 0
+    assert qlik.engine_opens == opens + 2
 
 
 def test_app_checkpoint_from_before_qvd_lineage_is_read_again(
