@@ -296,7 +296,7 @@ describe('WelcomeToDataHubModal GitHub star slide', () => {
         expect(starLink).toHaveAttribute('target', '_blank');
 
         fireEvent.click(starLink);
-        expect(eventSpy).toHaveBeenCalledWith({ type: EventType.GithubStarClickEvent, source: 'welcomeModal' });
+        expect(eventSpy).toHaveBeenCalledWith({ type: EventType.GithubStarClickEvent, sourceType: 'welcomeModal' });
     });
 
     it('waits for app config before opening, so the GitHub slide is there from the start', () => {
