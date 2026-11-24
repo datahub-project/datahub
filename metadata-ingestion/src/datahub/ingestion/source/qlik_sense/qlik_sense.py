@@ -2632,6 +2632,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # what that app stores into the file, so its edge is never this
             # app's to remove.
             owned = set() if shared is None else pending.app_table_urns - shared
+            if shared is None:
+                # Nothing is removed this run, so a later run must still know
+                # the app may have edges into the file.
+                self._keep_stored_file(pending.app_id, pending.file_urn)
             yield from self._gen_qvd_upstreams(
                 pending.file_urn,
                 pending.writes,
@@ -2640,6 +2644,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 has_field_schema=pending.has_field_schema,
             )
         self._pending_stored_files = []
+
+    def _keep_stored_file(self, app_id: str, file_urn: str) -> None:
+        files = self._app_stored_files.setdefault(app_id, [])
+        if file_urn not in files:
+            files.append(file_urn)
+            files.sort()
+        self.app_state.add_stored_files(app_id, [file_urn])
 
     def _table_urns_of_other_apps(self, app_id: str) -> Optional[Set[str]]:
         """The tables of the other apps read or kept this run, or recorded by
