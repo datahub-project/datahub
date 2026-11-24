@@ -26,6 +26,7 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.agentskill.AgentSkillInfo;
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePathEntry;
@@ -196,7 +197,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   // no aspect labels a field entityName
   private static final Urn NIGHTLY_JOB =
       UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(airflow,nightly,PROD),refresh)");
-  private static final List<String> EXTRA_ENTITY_TYPES = List.of(DATA_JOB_ENTITY_NAME, "service");
+  private static final List<String> EXTRA_ENTITY_TYPES =
+      List.of(DATA_JOB_ENTITY_NAME, "service", "agentSkill");
   private static final String BROWSE_DELIMITER = "␟";
   private static final String SEARCH_TEMPLATE = "urn:li:searchTemplate:search";
   private static final String LIST_BY_URN_TEMPLATE = "urn:li:searchTemplate:listUrn";
@@ -2152,6 +2154,55 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   @Test
   public void testEntityNamesAreStemmed() {
     assertEquals(searchDashboards("markets"), List.of(STEMMED_NAME));
+  }
+
+  /**
+   * A SKILL.md body over the 32,766-byte keyword limit is indexed whole: words past the old cutoff
+   * and the required tool ID both find the skill through the shared other field.
+   */
+  @Test
+  public void testSkillBodyOverTheKeywordLimitIsSearchable() throws Exception {
+    Urn skill = UrnUtils.getUrn("urn:li:agentSkill:oversized_body_skill");
+    Urn tool = UrnUtils.getUrn("urn:li:api:lookuptool");
+    // Two-byte characters put the body over the byte limit, so the last words sit past the cutoff.
+    String body = "é".repeat(20_000) + " zzfarwordzz zzlastwordzz";
+    UpdateIndicesV3Strategy indexer = longQueryIndexer();
+    try {
+      indexer.processBatch(
+          opContext,
+          Map.of(
+              skill,
+              events(
+                  skill,
+                  new AgentSkillInfo()
+                      .setName("oversized body skill")
+                      .setInstructions(body)
+                      .setRequiredTools(new UrnArray(List.of(tool))))),
+          false);
+      syncAfterWrite(getBulkProcessor());
+
+      assertEquals(searchSkills("zzfarwordzz zzlastwordzz"), List.of(skill));
+      assertEquals(searchSkills("lookuptool"), List.of(skill));
+    } finally {
+      indexer.processBatch(opContext, Map.of(skill, keyDeletion(skill)), false);
+      syncAfterWrite(getBulkProcessor());
+    }
+  }
+
+  private List<Urn> searchSkills(String query) {
+    return searchService
+        .search(
+            opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+            List.of("agentSkill"),
+            query,
+            null,
+            null,
+            0,
+            10)
+        .getEntities()
+        .stream()
+        .map(SearchEntity::getEntity)
+        .collect(Collectors.toList());
   }
 
   private List<Urn> searchDashboards(String query) {

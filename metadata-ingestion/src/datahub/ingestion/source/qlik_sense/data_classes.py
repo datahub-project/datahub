@@ -368,7 +368,11 @@ class QlikTable(_QlikBaseModel):
         values[Constant.DATACONNECTORPLATFORM] = values[Constant.CONNECTIONINFO][
             Constant.SOURCECONNECTORID
         ]
-        values[Constant.SPACEID] = values[Constant.CONNECTIONINFO][Constant.SPACE]
+        # A connection in a personal space has no space.
+        values[Constant.SPACEID] = (
+            values[Constant.CONNECTIONINFO].get(Constant.SPACE)
+            or Constant.PERSONAL_SPACE_ID
+        )
         return values
 
 

@@ -45,6 +45,7 @@
     "inviteToken.copyTooltip": "Kopier invitasjonslenke.",
     "inviteToken.createError": "Kunne ikke opprette invitasjonstoken for rollen {{roleName}}: \n {{error}}",
     "inviteToken.footerText": "Kopier en invitasjonslenke og send den til brukerne dine. Når de blir med, tildeles de automatisk den valgte rollen.",
+    "inviteToken.footerTextNoRole": "Kopier en invitasjonslenke og send den til brukerne dine. De kan opprette en konto, men blir ikke tildelt noen rolle.",
     "inviteToken.generateNewLinkTooltip": "Generer en ny lenke. Gamle lenker vil ikke lenger være gyldige.",
     "inviteToken.generateSuccess": "Ny invitasjonslenke generert",
     "inviteToken.modalTitle": "Del invitasjonslenke",

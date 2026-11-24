@@ -26,7 +26,11 @@ import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.config.PreProcessHooks;
@@ -382,6 +386,42 @@ public class AspectResourceTest {
     Actor actor = new Actor(ActorType.USER, "user");
     when(mockAuthentication.getActor()).thenReturn(actor);
     aspectResource.ingestProposal(mcp, "true");
+  }
+
+  /** A validator that denies the write (e.g. a privilege constraint) is a 403, not a 422. */
+  @Test
+  public void testIngestRejectedByAuthorizationValidatorIsForbidden() throws URISyntaxException {
+    Urn urn = new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD);
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    mcp.setEntityUrn(urn);
+    mcp.setAspectName(STATUS_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(new com.linkedin.common.Status()));
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+
+    BatchItem deniedItem = mock(BatchItem.class);
+    when(deniedItem.getUrn()).thenReturn(urn);
+    when(deniedItem.getAspectName()).thenReturn(STATUS_ASPECT_NAME);
+    when(deniedItem.getChangeType()).thenReturn(ChangeType.UPSERT);
+    ValidationExceptionCollection denied = ValidationExceptionCollection.newCollection();
+    denied.addException(AspectValidationException.forAuth(deniedItem, "not allowed"));
+    EntityService<?> rejectingService = mock(EntityService.class);
+    when(rejectingService.ingestProposal(
+            any(OperationContext.class), any(AspectsBatch.class), anyBoolean()))
+        .thenThrow(new ValidationException(denied));
+
+    aspectResource.setEntityService(rejectingService);
+    try {
+      RestLiServiceException error =
+          org.testng.Assert.expectThrows(
+              RestLiServiceException.class, () -> aspectResource.ingestProposal(mcp, "false"));
+      assertEquals(error.getStatus(), HttpStatus.S_403_FORBIDDEN);
+    } finally {
+      aspectResource.setEntityService(entityService);
+    }
   }
 
   @Test

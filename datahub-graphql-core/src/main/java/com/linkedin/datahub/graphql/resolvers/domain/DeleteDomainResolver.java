@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -30,8 +31,9 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
     final Urn urn = Urn.createFromString(domainUrn);
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (AuthorizationUtils.canManageDomains(context)
-              || AuthorizationUtils.canDeleteEntity(urn, context)) {
+          if (AuthorizationUtils.isEntityType(urn, Constants.DOMAIN_ENTITY_NAME)
+              && (AuthorizationUtils.canManageDomains(context)
+                  || AuthorizationUtils.canDeleteEntity(urn, context))) {
             try {
               // Make sure there are no child domains
               if (DomainUtils.hasChildDomains(urn, context, _entityClient)) {
@@ -40,11 +42,11 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
               }
 
               final var references =
-                  _entityClient.deleteEntityThenReferences(context.getOperationContext(), urn);
+                  _entityClient.deleteReferencesThenEntity(context.getOperationContext(), urn);
               log.info(
                   String.format("I've successfully deleted the entity %s with urn", domainUrn));
 
-              // Asynchronously Delete all references to the entity (to return quickly)
+              // The entity is already gone. This removes the remaining references.
               CompletableFuture.runAsync(
                   () -> {
                     try {

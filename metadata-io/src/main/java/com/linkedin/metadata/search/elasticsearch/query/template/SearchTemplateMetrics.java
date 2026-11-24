@@ -18,6 +18,7 @@ public final class SearchTemplateMetrics {
   public static final String FALLBACK = "search.template.fallback";
   public static final String KEYWORD_RERANK_KEPT = "search.template.keywordRerank.kept";
   public static final String VECTOR_RETRIEVAL = "search.template.vectorRetrieval";
+  public static final String KEYWORD_FALLBACK = "search.template.keywordFallback";
   public static final String RUNG = "search.template.rung";
   public static final String CLAUSE_BUDGET = "search.template.clause.budget.reduction";
   public static final String CACHE_AGE = "search.template.cache.age";
@@ -30,7 +31,8 @@ public final class SearchTemplateMetrics {
       Set.of(
           SearchTemplateSurfaces.SEARCH_ENTITIES,
           SearchTemplateSurfaces.SCROLL_ENTITIES,
-          SearchTemplateSurfaces.AGGREGATE_ENTITIES);
+          SearchTemplateSurfaces.AGGREGATE_ENTITIES,
+          SearchTemplateSurfaces.SEMANTIC_SEARCH);
 
   private static final Set<String> SLOTS =
       Set.of(
@@ -91,6 +93,15 @@ public final class SearchTemplateMetrics {
    */
   public static void vectorRetrieval(@Nonnull OperationContext opContext, @Nonnull String outcome) {
     counter(opContext, VECTOR_RETRIEVAL, "outcome", outcome);
+  }
+
+  /**
+   * Semantic search, or a keyword search through a template the caller named, served keyword
+   * results because it could not embed the query and the caller opted in, by the reason the
+   * embedding failed.
+   */
+  public static void keywordFallback(@Nonnull OperationContext opContext, @Nonnull String reason) {
+    counter(opContext, KEYWORD_FALLBACK, "reason", reason);
   }
 
   public static void rung(

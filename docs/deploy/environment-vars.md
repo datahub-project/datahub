@@ -1006,25 +1006,25 @@ When a FULL build exceeds `maxVertices`, the cache key enters **`OVER_LIMIT`** (
 
 **Smoke tests:** `pytest tests/e2e/entity_graph_cache` against a running GMS exercises bundled domain/glossary hierarchy reads and sync invalidation — see [Verification (smoke tests)](./gms-entity-graph-cache.md#verification-smoke-tests).
 
-Pod-level eviction (`entityGraphCache.eviction.local`, `memoryPressure`, and `hazelcast` in `application.yaml`) has **no dedicated environment variables** — edit `application.yaml` or mount a customized GMS config. Defaults below match bundled `metadata-service/configuration/src/main/resources/application.yaml`.
+Pod-level eviction (`entityGraphCache.eviction.local` and `memoryPressure` in `application.yaml`) has **no dedicated environment variables** — edit `application.yaml` or mount a customized GMS config. The Hazelcast snapshot cap is the exception: `ENTITY_GRAPH_CACHE_HAZELCAST_MAX_SIZE_PER_NODE` overrides `maxSizePerNode`. Defaults below match bundled `metadata-service/configuration/src/main/resources/application.yaml`.
 
-| YAML path                                                            | Default           | Effect                                                                        | Components |
-| -------------------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------- | ---------- |
-| `entityGraphCache.eviction.local.enabled`                            | `true`            | Enable per-pod LRU cache of deserialized graph views                          | GMS        |
-| `entityGraphCache.eviction.local.maxViews`                           | `16`              | Max cached views per graph id on each GMS pod                                 | GMS        |
-| `entityGraphCache.eviction.local.maxEstimatedBytes`                  | `268435456`       | Estimated heap cap for local views (~256 MiB) per graph id                    | GMS        |
-| `entityGraphCache.eviction.memoryPressure.enabled`                   | `true`            | Monitor heap usage and evict local views under pressure                       | GMS        |
-| `entityGraphCache.eviction.memoryPressure.checkIntervalSeconds`      | `30`              | Heap check interval                                                           | GMS        |
-| `entityGraphCache.eviction.memoryPressure.heapUsageThresholdPercent` | `85`              | Trigger eviction when heap usage reaches this percent                         | GMS        |
-| `entityGraphCache.eviction.memoryPressure.action`                    | `EVICT_LOCAL_LRU` | `EVICT_LOCAL_LRU` (default) or `EVICT_ALL_LOCAL`                              | GMS        |
-| `entityGraphCache.eviction.memoryPressure.cooldownSeconds`           | `120`             | Minimum time between pressure-driven evictions                                | GMS        |
-| `entityGraphCache.eviction.memoryPressure.hysteresisPercent`         | `5`               | Clear pressure when heap falls below threshold minus this percent (85% → 80%) | GMS        |
-| `entityGraphCache.eviction.hazelcast.evictionPolicy`                 | `MAX_SIZE`        | Hazelcast map eviction policy for snapshot IMaps                              | GMS        |
-| `entityGraphCache.eviction.hazelcast.maxSizePerNode`                 | `32`              | Max snapshot entries per cluster node (`entityGraphSnapshots.*`)              | GMS        |
-| `entityGraphCache.eviction.hazelcast.maxSizePolicy`                  | `PER_NODE`        | Size limit scope for snapshot IMaps                                           | GMS        |
-| `entityGraphCache.eviction.hazelcast.heapMaxSizePercent`             | `0`               | Heap-percent cap (`0` = disabled; use entry count instead)                    | GMS        |
-| `entityGraphCache.eviction.hazelcast.ttlSeconds`                     | `0`               | Snapshot TTL (`0` = no TTL eviction)                                          | GMS        |
-| `entityGraphCache.eviction.hazelcast.backupCount`                    | `1`               | Hazelcast backup replicas for snapshot IMaps                                  | GMS        |
+| YAML path                                                            | Default           | Effect                                                                                                                                                                                                     | Components |
+| -------------------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `entityGraphCache.eviction.local.enabled`                            | `true`            | Enable per-pod LRU cache of deserialized graph views                                                                                                                                                       | GMS        |
+| `entityGraphCache.eviction.local.maxViews`                           | `16`              | Max cached views per graph id on each GMS pod                                                                                                                                                              | GMS        |
+| `entityGraphCache.eviction.local.maxEstimatedBytes`                  | `268435456`       | Estimated heap cap for local views (~256 MiB) per graph id                                                                                                                                                 | GMS        |
+| `entityGraphCache.eviction.memoryPressure.enabled`                   | `true`            | Monitor heap usage and evict local views under pressure                                                                                                                                                    | GMS        |
+| `entityGraphCache.eviction.memoryPressure.checkIntervalSeconds`      | `30`              | Heap check interval                                                                                                                                                                                        | GMS        |
+| `entityGraphCache.eviction.memoryPressure.heapUsageThresholdPercent` | `85`              | Trigger eviction when heap usage reaches this percent                                                                                                                                                      | GMS        |
+| `entityGraphCache.eviction.memoryPressure.action`                    | `EVICT_LOCAL_LRU` | `EVICT_LOCAL_LRU` (default) or `EVICT_ALL_LOCAL`                                                                                                                                                           | GMS        |
+| `entityGraphCache.eviction.memoryPressure.cooldownSeconds`           | `120`             | Minimum time between pressure-driven evictions                                                                                                                                                             | GMS        |
+| `entityGraphCache.eviction.memoryPressure.hysteresisPercent`         | `5`               | Clear pressure when heap falls below threshold minus this percent (85% → 80%)                                                                                                                              | GMS        |
+| `entityGraphCache.eviction.hazelcast.evictionPolicy`                 | `MAX_SIZE`        | Hazelcast map eviction policy for snapshot IMaps                                                                                                                                                           | GMS        |
+| `entityGraphCache.eviction.hazelcast.maxSizePerNode`                 | `542`             | Max snapshot entries per cluster node (`entityGraphSnapshots.*`). Env: `ENTITY_GRAPH_CACHE_HAZELCAST_MAX_SIZE_PER_NODE`. Above Hazelcast's 271 partitions so a partition can hold more than one component. | GMS        |
+| `entityGraphCache.eviction.hazelcast.maxSizePolicy`                  | `PER_NODE`        | Size limit scope for snapshot IMaps                                                                                                                                                                        | GMS        |
+| `entityGraphCache.eviction.hazelcast.heapMaxSizePercent`             | `0`               | Heap-percent cap (`0` = disabled; use entry count instead)                                                                                                                                                 | GMS        |
+| `entityGraphCache.eviction.hazelcast.ttlSeconds`                     | `0`               | Snapshot TTL (`0` = no TTL eviction)                                                                                                                                                                       | GMS        |
+| `entityGraphCache.eviction.hazelcast.backupCount`                    | `1`               | Hazelcast backup replicas for snapshot IMaps                                                                                                                                                               | GMS        |
 
 The `entityGraphStatus` Hazelcast map does **not** use size eviction. Graph cache invalidation requires the **sync gate** (UI source or sync-index header); async Kafka ingestion and non-gated synchronous ingest can leave graphs stale for up to `population.intervalSeconds` — see [Invalidation (sync writes)](./gms-entity-graph-cache.md#invalidation-sync-writes). See [GMS Entity Graph Cache — Configuration reference](./gms-entity-graph-cache.md#configuration-reference).
 
@@ -1062,6 +1062,7 @@ Reference Links:
 | `NESTED_DOMAINS_ENABLED`                | `true`  | Enable nested Domains feature                                                                                   | GMS        |
 | `SCHEMA_FIELD_ENTITY_FETCH_ENABLED`     | `true`  | Enable fetching schema field entities                                                                           | GMS        |
 | `BUSINESS_ATTRIBUTE_ENTITY_ENABLED`     | `false` | Enable business attribute entity                                                                                | GMS        |
+| `SHOW_APPLICATIONS_FEATURE_TOGGLE`      | `false` | Show the "Show Applications" toggle on the Appearance settings page                                             | GMS        |
 | `DATA_CONTRACTS_ENABLED`                | `true`  | Enable Data Contracts feature                                                                                   | GMS        |
 | `DATASET_SUMMARY_PAGE_V1`               | `true`  | Enable Asset Summary pages for Datasets                                                                         | GMS        |
 | `ALTERNATE_MCP_VALIDATION`              | `false` | Enable alternate MCP validation flow                                                                            | GMS        |
@@ -1088,6 +1089,7 @@ Reference Links:
 | `LOGICAL_MODELS_ENABLED`                | `false` | Enable logical models feature                                                                                   | GMS        |
 | `MULTIPLE_DATA_PRODUCTS_PER_ASSET`      | `true`  | Allow assets to belong to multiple Data Products simultaneously                                                 | GMS        |
 | `SHOW_HOMEPAGE_USER_ROLE`               | `false` | Display homepage user role underneath name                                                                      | GMS        |
+| `SHOW_GITHUB_STAR_PROMPT`               | `true`  | Show "Star us on GitHub" asks                                                                                   | GMS        |
 | `VIEWS_ENABLED`                         | `true`  | Enable views feature                                                                                            | GMS        |
 
 ## System Updates
@@ -1401,23 +1403,24 @@ See [Monitoring — API usage aggregation metrics](../advanced/monitoring.md#api
 
 ### Cache Configuration
 
-| Environment Variable                                | Default     | Description                                              | Components                     |
-| --------------------------------------------------- | ----------- | -------------------------------------------------------- | ------------------------------ |
-| `CACHE_TTL_SECONDS`                                 | `600`       | Default cache time to live                               | GMS                            |
-| `CACHE_MAX_SIZE`                                    | `10000`     | Maximum number of items to cache                         | GMS                            |
-| `CACHE_ENTITY_COUNTS_TTL_SECONDS`                   | `600`       | Homepage entity count time to live                       | GMS                            |
-| `CACHE_SEARCH_LINEAGE_TTL_SECONDS`                  | `86400`     | Search lineage cache time to live                        | GMS                            |
-| `CACHE_SEARCH_LINEAGE_LIGHTNING_THRESHOLD`          | `300`       | Lineage graphs exceeding this limit will use local cache | GMS                            |
-| `CACHE_CLIENT_USAGE_CLIENT_ENABLED`                 | `true`      | Enable usage client cache                                | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_USAGE_CLIENT_STATS_ENABLED`           | `true`      | Enable usage client cache stats                          | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_USAGE_CLIENT_STATS_INTERVAL_SECONDS`  | `120`       | Usage client cache stats interval                        | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_USAGE_CLIENT_TTL_SECONDS`             | `86400`     | Usage client cache TTL                                   | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_USAGE_CLIENT_MAX_BYTES`               | `52428800`  | Usage client cache max bytes (50MB)                      | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_ENTITY_CLIENT_ENABLED`                | `true`      | Enable entity client cache                               | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_ENTITY_CLIENT_STATS_ENABLED`          | `true`      | Enable entity client cache stats                         | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_ENTITY_CLIENT_STATS_INTERVAL_SECONDS` | `120`       | Entity client cache stats interval                       | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_ENTITY_CLIENT_TTL_SECONDS`            | `0`         | Entity client cache TTL (0 = no cache)                   | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_ENTITY_CLIENT_MAX_BYTES`              | `104857600` | Entity client cache max bytes (100MB)                    | GMS, MAE Consumer, PE Consumer |
+| Environment Variable                                | Default     | Description                                                                                | Components                     |
+| --------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------ | ------------------------------ |
+| `CACHE_TTL_SECONDS`                                 | `600`       | Default cache time to live                                                                 | GMS                            |
+| `CACHE_MAX_SIZE`                                    | `10000`     | Maximum number of items to cache                                                           | GMS                            |
+| `CACHE_ENTITY_COUNTS_TTL_SECONDS`                   | `600`       | Homepage entity count time to live                                                         | GMS                            |
+| `CACHE_SEARCH_LINEAGE_TTL_SECONDS`                  | `86400`     | Search lineage cache time to live                                                          | GMS                            |
+| `CACHE_SEARCH_LINEAGE_LIGHTNING_THRESHOLD`          | `300`       | Lineage graphs exceeding this limit will use local cache                                   | GMS                            |
+| `CACHE_SEARCH_LINEAGE_PARTIAL_TTL_SECONDS`          | `300`       | Cache time to live for lineage left partial by timeouts or failures; `0` disables caching. | GMS                            |
+| `CACHE_CLIENT_USAGE_CLIENT_ENABLED`                 | `true`      | Enable usage client cache                                                                  | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_USAGE_CLIENT_STATS_ENABLED`           | `true`      | Enable usage client cache stats                                                            | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_USAGE_CLIENT_STATS_INTERVAL_SECONDS`  | `120`       | Usage client cache stats interval                                                          | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_USAGE_CLIENT_TTL_SECONDS`             | `86400`     | Usage client cache TTL                                                                     | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_USAGE_CLIENT_MAX_BYTES`               | `52428800`  | Usage client cache max bytes (50MB)                                                        | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_ENTITY_CLIENT_ENABLED`                | `true`      | Enable entity client cache                                                                 | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_ENTITY_CLIENT_STATS_ENABLED`          | `true`      | Enable entity client cache stats                                                           | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_ENTITY_CLIENT_STATS_INTERVAL_SECONDS` | `120`       | Entity client cache stats interval                                                         | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_ENTITY_CLIENT_TTL_SECONDS`            | `0`         | Entity client cache TTL (0 = no cache)                                                     | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_ENTITY_CLIENT_MAX_BYTES`              | `104857600` | Entity client cache max bytes (100MB)                                                      | GMS, MAE Consumer, PE Consumer |
 
 ### GraphQL Configuration
 

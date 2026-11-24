@@ -116,6 +116,11 @@ type PlatformPrivileges {
   manageDomains: Boolean!
 
   """
+  Whether the user should be able to create, edit, and remove Data Products in any Domain
+  """
+  manageAllDataProducts: Boolean!
+
+  """
   Whether the user is able to manage UI-based ingestion
   """
   manageIngestion: Boolean!
@@ -724,6 +729,11 @@ type FeatureFlagsConfig {
   dataContractsEnabled: Boolean!
 
   """
+  Whether the "Show Applications" toggle is shown on the Appearance settings page
+  """
+  showApplicationsFeatureToggle: Boolean!
+
+  """
   Whether dataset names are editable
   """
   editableDatasetNameEnabled: Boolean!
@@ -940,6 +950,12 @@ type FeatureFlagsConfig {
   showTestsInHealthIcon: Boolean!
 
   """
+  If enabled, DataHub's built-in MCP server is on, and the UI shows the MCP settings page and the
+  Connect AI Tools home page module. Controlled by MCP_SERVER_ENABLED.
+  """
+  mcpServerEnabled: Boolean!
+
+  """
   If enabled, internationalization (i18n) features are active.
   """
   i18nEnabled: Boolean!
@@ -956,6 +972,11 @@ type FeatureFlagsConfig {
   Requires browserTracingEnabled. Controlled by BROWSER_WEB_VITALS_ENABLED.
   """
   browserWebVitalsEnabled: Boolean!
+
+  """
+  If enabled, shows the "Star us on GitHub" asks.
+  """
+  showGithubStarPrompt: Boolean!
 }
 
 """

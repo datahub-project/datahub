@@ -120,7 +120,8 @@ public class EntityResourceTest {
             mock(DeleteEntityService.class),
             timeseriesAspectService,
             new ReliableHardDelete(entityService, false),
-            null));
+            null,
+            5000));
     entityResource.setAuthorizer(authorizer);
     entityResource.setSystemOperationContext(systemOperationContext);
 

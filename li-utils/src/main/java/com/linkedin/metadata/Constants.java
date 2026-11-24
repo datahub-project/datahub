@@ -13,6 +13,8 @@ public class Constants {
 
   // Use on specific MCP to request an synchronous index update avoid the kafka lag.
   public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
+  // Use on specific MCP to drop the write instead of creating the entity when it doesn't exist.
+  public static final String IF_ENTITY_EXISTS_HEADER_NAME = "If-Entity-Exists";
   public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
   // MCP header carrying the caller of a queued write; only trusted from system writers.
   public static final String ATTRIBUTED_ACTOR_HEADER_NAME = "X-DataHub-Attributed-Actor";

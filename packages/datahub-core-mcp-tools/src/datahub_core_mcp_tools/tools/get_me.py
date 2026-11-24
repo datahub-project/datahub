@@ -1,0 +1,68 @@
+"""The get_me tool: who the caller is in DataHub."""
+
+from typing import Any
+
+from fastmcp.exceptions import ToolError
+from loguru import logger
+
+from .. import graphql_helpers
+from ..gms_server_info import GmsServerInfo
+from ..version_requirements import min_version, read_only
+
+# GMS answers `me` for the actor it authenticated. With metadata-service auth off it
+# accepts any token, or none, and answers for an actor that may have no user entity.
+AUTH_OFF_MESSAGE = (
+    "DataHub authentication is off (METADATA_SERVICE_AUTH_ENABLED=false), so every "
+    "request runs as DataHub's system user."
+)
+NONEXISTENT_USER_WARNING = (
+    "DataHub returned a user that does not exist ({user}). Check the auth "
+    "settings and METADATA_SERVICE_AUTH_ENABLED; the supplied token might be invalid."
+)
+
+
+@read_only
+@min_version(cloud="0.3.16", oss="1.4.0")
+def get_me() -> dict[str, Any]:
+    """Get information about the currently authenticated user.
+
+    This tool fetches detailed information about the authenticated user including:
+    - User profile information (username, email, full name, etc.)
+    - Group memberships
+
+    Returns:
+        Dictionary with:
+        - success: Boolean indicating if the operation succeeded
+        - data: User information under me.corpUser
+        - message: Success message, or a warning when DataHub reports the user
+          does not exist
+
+    Example:
+        # Get current user information
+        get_me()
+    """
+    client = graphql_helpers.get_datahub_client()
+
+    result = graphql_helpers.execute_graphql(
+        client._graph,
+        query=graphql_helpers.load_gql_document("get_me.gql"),
+        variables={},
+        operation_name="getMe",
+    )
+
+    me_data = result.get("me") if isinstance(result, dict) else None
+    if not me_data:
+        raise ToolError("No authenticated user found")
+
+    message = "Successfully retrieved authenticated user information"
+    corp_user = me_data.get("corpUser") or {}
+    info = graphql_helpers.get_mcp_context().tool_context.get(GmsServerInfo)
+    if info is not None and info.auth_enabled is False:
+        message = AUTH_OFF_MESSAGE
+    elif corp_user.get("exists") is False:
+        message = NONEXISTENT_USER_WARNING.format(
+            user=corp_user.get("urn") or corp_user.get("username") or "unknown"
+        )
+        logger.warning(message)
+
+    return {"success": True, "data": me_data, "message": message}

@@ -31,3 +31,5 @@ export const NAV_SIDEBAR_WIDTH_EXPANDED = 264;
 /** Collapsed nav is fully hidden (0px); expand/collapse togglers sit in the page chrome. */
 export const NAV_SIDEBAR_WIDTH_COLLAPSED = 0;
 export const NAV_SIDEBAR_COLLAPSE_TRANSITION_MS = 180;
+
+export const DATAHUB_GITHUB_URL = 'https://github.com/datahub-project/datahub';

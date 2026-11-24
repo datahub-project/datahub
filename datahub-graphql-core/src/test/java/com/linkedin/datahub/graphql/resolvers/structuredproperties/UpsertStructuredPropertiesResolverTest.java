@@ -252,6 +252,31 @@ public class UpsertStructuredPropertiesResolverTest {
         .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
+  /** An empty list used to pass authorization and rewrite the current aspect. */
+  @Test
+  public void testEmptyInputDoesNotWrite() throws Exception {
+    EntityClient mockEntityClient = initMockEntityClient(true, null);
+    UpsertStructuredPropertiesResolver resolver =
+        new UpsertStructuredPropertiesResolver(mockEntityClient);
+    UpsertStructuredPropertiesInput empty =
+        new UpsertStructuredPropertiesInput(TEST_DATASET_URN, ImmutableList.of());
+
+    QueryContext denyContext = getMockDenyContext();
+    DataFetchingEnvironment denied = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(denied.getArgument(Mockito.eq("input"))).thenReturn(empty);
+    Mockito.when(denied.getContext()).thenReturn(denyContext);
+    assertThrows(CompletionException.class, () -> resolver.get(denied).join());
+
+    QueryContext allowContext = getMockAllowContext();
+    DataFetchingEnvironment allowed = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(allowed.getArgument(Mockito.eq("input"))).thenReturn(empty);
+    Mockito.when(allowed.getContext()).thenReturn(allowContext);
+    assertEquals(resolver.get(allowed).get().getProperties().size(), 0);
+
+    Mockito.verify(mockEntityClient, Mockito.times(0))
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
+  }
+
   // getMockDenyContext (used by testGetUnauthorized) denies every privilege outright, so it
   // would pass even if the resolver never forwarded the structured property urns for scoped
   // authorization. This proves a per-property constraint - entity edit allowed, one property

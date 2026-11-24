@@ -1,11 +1,11 @@
 import logging
-from typing import Iterable, List
+from typing import Dict, Iterable, List, Literal
 
 import requests
+from typing_extensions import assert_never
 
 from datahub.emitter.mce_builder import (
     make_chart_urn,
-    make_container_urn,
     make_dashboard_urn,
     make_schema_field_urn,
 )
@@ -22,6 +22,20 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
+from datahub.ingestion.source.grafana.constants import (
+    DASHBOARD_FOLDER_NOT_INGESTED_MESSAGE,
+    DASHBOARD_FOLDER_NOT_INGESTED_TITLE,
+    DASHBOARD_WITHOUT_FOLDER_ID_MESSAGE,
+    DASHBOARD_WITHOUT_FOLDER_ID_TITLE,
+    FOLDERS_UNPARSEABLE_MESSAGE,
+    FOLDERS_UNPARSEABLE_TITLE,
+    GRAFANA_BASIC_EXTRACTION,
+    GRAFANA_DASHBOARD_EXTRACTION,
+    GRAFANA_FOLDER_EXTRACTION,
+    GRAFANA_GENERAL_FOLDER_ID,
+    GRAFANA_PANEL_EXTRACTION,
+    FolderPlacement,
+)
 from datahub.ingestion.source.grafana.entity_mcp_builder import (
     build_chart_mcps,
     build_dashboard_mcps,
@@ -53,12 +67,6 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     StatusClass,
 )
-
-# Grafana-specific ingestion stages
-GRAFANA_BASIC_EXTRACTION = "Grafana Basic Dashboard Extraction"
-GRAFANA_FOLDER_EXTRACTION = "Grafana Folder Extraction"
-GRAFANA_DASHBOARD_EXTRACTION = "Grafana Dashboard Extraction"
-GRAFANA_PANEL_EXTRACTION = "Grafana Panel Extraction"
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +102,10 @@ class GrafanaSource(StatefulIngestionSourceBase):
         self.platform_instance = self.config.platform_instance
         self.env = self.config.env
         self.report = GrafanaSourceReport()
+        # Filled by the folder stage, read by the dashboard stage that follows it.
+        self._folder_placements: Dict[
+            str, Literal[FolderPlacement.PLACED, FolderPlacement.FILTERED]
+        ] = {}
 
         self.api_client = GrafanaAPIClient(
             base_url=self.config.url,
@@ -215,10 +227,23 @@ class GrafanaSource(StatefulIngestionSourceBase):
         """Enhanced extraction mode - full hierarchy, panels, and lineage"""
         # Process folders first
         with self.report.new_stage(GRAFANA_FOLDER_EXTRACTION):
-            for folder in self.api_client.get_folders():
+            listing = self.api_client.get_folders()
+            if listing.unparseable and self._removes_stale_metadata():
+                # Stale-entity removal is skipped only on a failure. Without one
+                # it would soft-delete the skipped folders' containers while
+                # dashboards from earlier runs still point at them.
+                self.report.failure(
+                    title=FOLDERS_UNPARSEABLE_TITLE,
+                    message=FOLDERS_UNPARSEABLE_MESSAGE,
+                    context=f"{listing.unparseable} folder(s)",
+                )
+            for folder in listing.folders:
                 if self.config.folder_pattern.allowed(folder.title):
                     self.report.report_folder_scanned()
                     yield from self._process_folder(folder)
+                    self._folder_placements[folder.id] = FolderPlacement.PLACED
+                else:
+                    self._folder_placements[folder.id] = FolderPlacement.FILTERED
 
         # Process dashboards
         with self.report.new_stage(GRAFANA_DASHBOARD_EXTRACTION):
@@ -229,14 +254,8 @@ class GrafanaSource(StatefulIngestionSourceBase):
 
     def _process_folder(self, folder: Folder) -> Iterable[MetadataWorkUnit]:
         """Process Grafana folder metadata"""
-        folder_key = FolderKey(
-            platform=self.config.platform,
-            instance=self.config.platform_instance,
-            folder_id=folder.id,
-        )
-
         yield from gen_containers(
-            container_key=folder_key,
+            container_key=self._folder_key(folder.id),
             name=folder.title,
             sub_types=[BIContainerSubTypes.LOOKER_FOLDER],
             description=folder.description,
@@ -246,13 +265,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
         """Process dashboard and its panels"""
         chart_urns = []
 
-        # First create the dashboard container
-        dashboard_container_key = DashboardContainerKey(
-            platform=self.config.platform,
-            instance=self.config.platform_instance,
-            dashboard_id=dashboard.uid,
-            folder_id=dashboard.folder_id,
-        )
+        dashboard_container_key = self._dashboard_container_key(dashboard)
 
         # Generate dashboard container first
         yield from gen_containers(
@@ -262,18 +275,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
             description=dashboard.description,
         )
 
-        # If dashboard is in a folder, add it to folder container
-        if dashboard.folder_id:
-            folder_key = FolderKey(
-                platform=self.config.platform,
-                instance=self.config.platform_instance,
-                folder_id=dashboard.folder_id,
-            )
-
-            yield from add_dataset_to_container(
-                container_key=folder_key,
-                dataset_urn=make_container_urn(dashboard_container_key),
-            )
+        yield from self._add_dashboard_to_folder(dashboard, dashboard_container_key)
 
         # Process panels and create per-panel datasets
         yield from build_datasource_mcps(
@@ -358,26 +360,65 @@ class GrafanaSource(StatefulIngestionSourceBase):
             dataset_urn=dashboard_urn,
         )
 
-    def _add_dashboard_to_folder(
-        self, dashboard: Dashboard
-    ) -> Iterable[MetadataWorkUnit]:
-        """Add dashboard to folder container"""
-        folder_key = FolderKey(
+    def _folder_key(self, folder_id: str) -> FolderKey:
+        return FolderKey(
             platform=self.config.platform,
             instance=self.config.platform_instance,
-            folder_id=str(dashboard.folder_id),
+            folder_id=folder_id,
         )
 
-        dashboard_key = DashboardContainerKey(
+    def _dashboard_container_key(self, dashboard: Dashboard) -> DashboardContainerKey:
+        return DashboardContainerKey(
             platform=self.config.platform,
             instance=self.config.platform_instance,
             dashboard_id=dashboard.uid,
             folder_id=dashboard.folder_id,
         )
 
-        yield from add_dataset_to_container(
-            container_key=folder_key,
-            dataset_urn=dashboard_key.as_urn(),
+    def _add_dashboard_to_folder(
+        self, dashboard: Dashboard, dashboard_container_key: DashboardContainerKey
+    ) -> Iterable[MetadataWorkUnit]:
+        """Place the dashboard in its folder, but only if that folder's container
+        was emitted this run, so the dashboard never points at a missing parent."""
+        folder_id = dashboard.folder_id
+        if folder_id is None:
+            self.report.report_dashboard_without_folder_id()
+            self.report.warning(
+                title=DASHBOARD_WITHOUT_FOLDER_ID_TITLE,
+                message=DASHBOARD_WITHOUT_FOLDER_ID_MESSAGE,
+                context=f"{dashboard.title} (uid {dashboard.uid})",
+            )
+            return
+
+        placement = self._folder_placement(folder_id)
+        if placement == FolderPlacement.PLACED:
+            yield from add_dataset_to_container(
+                container_key=self._folder_key(folder_id),
+                dataset_urn=dashboard_container_key.as_urn(),
+            )
+        elif placement == FolderPlacement.GENERAL:
+            pass
+        elif placement == FolderPlacement.FILTERED:
+            self.report.report_dashboard_in_filtered_folder()
+        elif placement == FolderPlacement.NOT_INGESTED:
+            self.report.report_dashboard_without_folder_container()
+            self.report.warning(
+                title=DASHBOARD_FOLDER_NOT_INGESTED_TITLE,
+                message=DASHBOARD_FOLDER_NOT_INGESTED_MESSAGE,
+                context=f"{dashboard.title} (uid {dashboard.uid}, folder id {folder_id})",
+            )
+        else:
+            assert_never(placement)
+
+    def _folder_placement(self, folder_id: str) -> FolderPlacement:
+        if folder_id == GRAFANA_GENERAL_FOLDER_ID:
+            return FolderPlacement.GENERAL
+        return self._folder_placements.get(folder_id, FolderPlacement.NOT_INGESTED)
+
+    def _removes_stale_metadata(self) -> bool:
+        stateful = self.config.stateful_ingestion
+        return (
+            stateful is not None and stateful.enabled and stateful.remove_stale_metadata
         )
 
     def _add_input_fields_to_chart(

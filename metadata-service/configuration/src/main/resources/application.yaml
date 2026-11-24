@@ -339,7 +339,9 @@ datahub:
           hysteresisPercent: 5
         hazelcast:
           evictionPolicy: MAX_SIZE
-          maxSizePerNode: 32
+          # Hazelcast uses 271 partitions. A PER_NODE cap below that is clamped to about one entry
+          # per partition, so two components in one partition evict each other.
+          maxSizePerNode: ${ENTITY_GRAPH_CACHE_HAZELCAST_MAX_SIZE_PER_NODE:542}
           maxSizePolicy: PER_NODE
           heapMaxSizePercent: 0
           ttlSeconds: 0
@@ -429,6 +431,18 @@ datahub:
       drainIntervalMs: ${RETENTION_BUFFER_DRAIN_INTERVAL_MS:5000}
       # Drain-lock lease; must exceed a drain's worst-case duration, else ticks double-drain (safe, wasteful).
       drainLockLeaseMs: ${RETENTION_BUFFER_DRAIN_LOCK_LEASE_MS:60000}
+
+# In-process hard delete.
+hardDelete:
+  # Most incoming graph edges an entity-and-references delete removes before deleting the entity,
+  # when the delete runs in this process. Above this the delete is refused and nothing is removed:
+  # deleting the entity alone would leave those referrers pointing at nothing. The error says to
+  # raise this limit or to remove the references first (datahub delete references --urn <urn>).
+  # References that are not graph edges are cleaned as part of a delete that goes ahead.
+  # 0 turns graph reference cleanup off: the entity is deleted alone and its referrers are left
+  # dangling. A value above the 1000-entry page size reads more than one page of referrers, and
+  # Neo4j pages by offset, so a referrer removed between pages can make it skip another one.
+  graph-reference-cleanup-limit: ${DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT:100}
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
@@ -1459,6 +1473,14 @@ elasticsearch:
           scrollEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SCROLL_ENTITIES_PERCENT:-1}
           aggregateEntities: ${SEARCH_V3_TEMPLATES_ROLLOUT_AGGREGATE_ENTITIES:}
           aggregateEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_AGGREGATE_ENTITIES_PERCENT:-1}
+          # Semantic search (semanticSearchAcrossEntities and semanticSearch) through the
+          # semanticSearch surface below.
+          # Off unless set: blank does not use mode or percent. active serves the template to
+          # semanticSearchPercent of actors, all of them when that is unset. off and shadow keep
+          # semantic search on its legacy kNN search.
+          # On OpenSearch it needs 3.5 or later; an older or unreadable version keeps the legacy search.
+          semanticSearch: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH:}
+          semanticSearchPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH_PERCENT:-1}
         # storage reads the aspect and fills a missing shipped template from the classpath.
         # System update sets classpath and does not read stored templates.
         # A merged template stays cached for cache.primary.ttlSeconds, the same TTL as entity
@@ -1512,6 +1534,11 @@ elasticsearch:
           aggregateEntities:
             fulltext:
               default: urn:li:searchTemplate:search
+          # Semantic search, when its rollout above serves it. Only a vector rung may serve this
+          # surface: a slot that selects a keyword template fails the search.
+          semanticSearch:
+            fulltext:
+              default: urn:li:searchTemplate:semantic
 
 
 # TODO: Kafka topic convention
@@ -2186,6 +2213,7 @@ featureFlags:
   nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
   schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true} # Enables fetching for schema field entities from the database when we hydrate them on schema fields
   businessAttributeEntityEnabled: ${BUSINESS_ATTRIBUTE_ENTITY_ENABLED:false} # Enables business attribute entity which can be associated with field of dataset
+  showApplicationsFeatureToggle: ${SHOW_APPLICATIONS_FEATURE_TOGGLE:false} # Shows the "Show Applications" toggle on the Appearance settings page. Applications are deprioritized, so the toggle is hidden by default
   dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:true} # Enables the Data Contracts feature (Tab) in the UI
   alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false} # Enables alternate MCP validation flow
   themeV2Enabled: ${THEME_V2_ENABLED:true} # Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be false for this to have any effect.
@@ -2219,6 +2247,7 @@ featureFlags:
   #productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-cloud/} # URL to fetch product updates JSON from remote source.
   #productUpdatesJsonFallbackResource: ${PRODUCT_UPDATES_JSON_FALLBACK_RESOURCE:product-update-saas.json} # Classpath resource to use as fallback when remote fetch fails.
   logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:true} # Enables logical models feature
+  showGithubStarPrompt: ${SHOW_GITHUB_STAR_PROMPT:true} # Shows the "Star us on GitHub" asks
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false} # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:true} # Enables displaying the asset summary page
@@ -2232,6 +2261,7 @@ featureFlags:
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:true} # Enables glossary-based policies to be created
   structuredPropertiesInPoliciesEnabled: ${STRUCTURED_PROPERTIES_IN_POLICIES_ENABLED:true} # Enables structured properties as criteria in policies
   showTestsInHealthIcon: ${SHOW_TESTS_IN_HEALTH_ICON:false} # If enabled, shows tests status in the health icon on entity pages
+  mcpServerEnabled: ${MCP_SERVER_ENABLED:false} # If enabled, DataHub's built-in MCP server is on: datahub-ai-service serves /mcp, and the UI shows the MCP settings page and the Connect AI Tools home page module. Off: /mcp answers 404 and the UI hides both. GMS reports it in /config so the service can follow it.
   i18nEnabled: ${I18N_ENABLED:true} # If enabled, internationalization (i18n) features are active
   timeseriesAspectBatchLoadEnabled: ${TIMESERIES_ASPECT_BATCH_LOAD_ENABLED:true} # If enabled, TimeSeriesAspectResolver uses the DataLoader batch path; disable to revert to single-URN queries
   timeseriesAspectAggBatchLoadEnabled: ${TIMESERIES_ASPECT_AGG_BATCH_LOAD_ENABLED:true} # If enabled, Dashboard.statsSummary uses the batch aggregation DataLoader; disable to revert to per-URN queries
@@ -2316,6 +2346,7 @@ cache:
     lineage:
       ttlSeconds: ${CACHE_SEARCH_LINEAGE_TTL_SECONDS:86400} # 1 day
       lightningThreshold: ${CACHE_SEARCH_LINEAGE_LIGHTNING_THRESHOLD:300}
+      partialTtlSeconds: ${CACHE_SEARCH_LINEAGE_PARTIAL_TTL_SECONDS:300} # 5 minutes; results left partial by timeouts or failures, 0 disables caching them
   client:
     usageClient:
       enabled: ${CACHE_CLIENT_USAGE_CLIENT_ENABLED:true}

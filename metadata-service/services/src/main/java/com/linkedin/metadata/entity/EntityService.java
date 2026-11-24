@@ -585,6 +585,19 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull OperationContext opContext, @Nonnull Urn urn);
 
   /**
+   * Runs what a hard delete of {@code urn} checks before it writes anything: the delete validators
+   * for the key aspect, and the guard that keeps an ordinary delete of a structured property that
+   * is not soft-deleted. Reads only. The delete runs the same checks again in its transaction, so a
+   * caller that must not change anything else until the delete is allowed (removing the references
+   * to the entity, for one) calls this first; a state that changes in between is still refused by
+   * the delete itself.
+   *
+   * @throws ValidationException when a validator rejects the delete
+   * @throws IllegalArgumentException when the guard rejects it
+   */
+  void validateKeyDelete(@Nonnull OperationContext opContext, @Nonnull Urn urn);
+
+  /**
    * {@link #deleteUrn(OperationContext, Urn)}, bounded by {@code ceiling} when it is not null (null
    * is exactly {@link #deleteUrn(OperationContext, Urn)}). Within the delete transaction every
    * latest row of {@code urn} is read for update; the entity is deleted as today only when each is
