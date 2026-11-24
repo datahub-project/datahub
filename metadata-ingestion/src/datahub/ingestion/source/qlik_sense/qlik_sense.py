@@ -378,7 +378,10 @@ def _schema_field_parent(urn: str) -> Optional[str]:
 
 
 def _app_field_names(app: App) -> List[str]:
-    names = [field.name for table in app.data_model_tables for field in table.fields]
+    names = [field.name for table in app.tables for field in table.datasetSchema]
+    names.extend(
+        field.name for table in app.data_model_tables for field in table.fields
+    )
     names.extend(field for table in app.lineage_tables for field in table.fields)
     return list(dict.fromkeys(names))
 
@@ -3769,8 +3772,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if source_app_id is not None and parsed.drops_unnamed_tables:
             # Any data model table could be one the script dropped and loaded again.
             return without_lineage(
-                "the script drops or replaces tables it doesn't name, so the "
-                "tables the file brings in are not known"
+                "the script drops, replaces or renames to tables it doesn't "
+                "name, so the tables the file brings in are not known"
             )
         labels = {label.lower() for label in parsed.table_labels}
         created = set(labels)
