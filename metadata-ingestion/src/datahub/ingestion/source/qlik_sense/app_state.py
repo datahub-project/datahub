@@ -16,6 +16,12 @@ from datahub.ingestion.source.state.use_case_handler import (
 )
 
 
+class UnmappedFileStore(BaseModel):
+    # The file's `lib://` path, as reported when no app reads it.
+    path: str
+    table_urns: List[str]
+
+
 class AppCheckpoint(BaseModel):
     # None, or "" in older state, makes the next run read the app again.
     fingerprint: Optional[str] = None
@@ -38,10 +44,14 @@ class AppCheckpoint(BaseModel):
     # link their columns while the app is kept.
     data_model_fields: Optional[Dict[str, List[str]]] = None
     # The read ingested tables the app's BINARY statement brought in, so a
-    # later read that can't find them keeps them.
-    binary_tables: bool = False
+    # later read that can't find them keeps them. None in older state.
+    binary_tables: Optional[bool] = None
     # The files on storage the app stores into, on Qlik Cloud.
     stored_file_urns: List[str] = []
+    # File URN -> the app's tables stored into a file on a connection of
+    # unknown storage, so a run that keeps the app still links them when
+    # another app reads the file.
+    unmapped_file_stores: Dict[str, UnmappedFileStore] = {}
     # Field names of the app's tables, so a renamed load from a kept app still
     # names its source field. None in older state.
     field_names: Optional[List[str]] = None

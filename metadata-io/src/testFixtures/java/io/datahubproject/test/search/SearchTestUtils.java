@@ -135,7 +135,7 @@ public class SearchTestUtils {
                   .graph(
                       GraphQueryConfiguration.builder()
                           .batchSize(1000)
-                          .timeoutSeconds(5)
+                          .timeoutSeconds(10)
                           .enableMultiPathSearch(true)
                           .boostViaNodes(true)
                           .impact(

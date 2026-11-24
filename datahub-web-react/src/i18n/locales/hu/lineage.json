@@ -72,6 +72,7 @@
     "levelFilter.directTooltip": "Közvetlenül kapcsolódó adateszközök megjelenítése",
     "levelFilter.indirect": "közvetett",
     "levelFilter.indirectTooltip": "Közvetetten kapcsolódó adateszközök megjelenítése",
+    "loadError": "A Lineage nem tölthető be. Kérjük, próbálja újra.",
     "manageLineage.changeToHome": "Beállítás kezdőként",
     "manageLineage.dashboardNoDownstream": "Az irányítópult-entitásoknak nincs céloldali Lineage-ük",
     "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",
