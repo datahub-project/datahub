@@ -143,6 +143,10 @@ public class V2SemanticSearchMappingsBuilderTest {
       Map<String, Object> cohereModelProperties =
           (Map<String, Object>) cohereModel.get("properties");
 
+      // The V2 sidecar keeps dynamic mapping for profile fields the shared builder does not
+      // declare (modelVersion, totalChunks, ...); only the V3 mapping closes it.
+      assertFalse(cohereModel.containsKey("dynamic"), "V2 model entry must stay dynamic");
+
       // Verify chunks field
       assertTrue(cohereModelProperties.containsKey("chunks"), "Should have chunks field");
       @SuppressWarnings("unchecked")

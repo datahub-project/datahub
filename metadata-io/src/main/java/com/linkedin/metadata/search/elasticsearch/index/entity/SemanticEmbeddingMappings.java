@@ -178,8 +178,6 @@ public final class SemanticEmbeddingMappings {
       modelEntryProps.put("refreshMarker", ImmutableMap.of("type", "object", "enabled", false));
       Map<String, Object> augmentedModelEntry = new HashMap<>(modelEntry);
       augmentedModelEntry.put("properties", modelEntryProps);
-      // Writers retain model metadata in _source; only declared search fields should be indexed.
-      augmentedModelEntry.put("dynamic", false);
 
       modelProperties.put(modelKey, augmentedModelEntry);
     }

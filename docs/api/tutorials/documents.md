@@ -613,6 +613,13 @@ it back to `{"enabled": true}` turns it back on at the next system update. The s
 image defaults to `{"enabled": true}`, so removing your override there has the same effect. If
 you don't want to wait for the next scheduled run, you can trigger it on demand as shown below.
 
+The bootstrap step owns the `datahub-documents` source definition. Whenever `DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES`
+changes, the next system update writes the whole source again, so edits made to the source in the UI or API (schedule,
+recipe, executor, extra environment variables) are replaced. To customize the source, put the change in the values
+instead: `schedule.timezone`, `schedule.interval`, `ingestion.name`, `ingestion.version` and `ingestion.extra_env_vars`.
+To apply the current values again without changing them, set `DATAHUB_DOCUMENTS_REVISION='{"force": true}'` on the
+system-update job.
+
 ### Step 1: Push Your Documents
 
 Push one or more documents using the Python SDK:
