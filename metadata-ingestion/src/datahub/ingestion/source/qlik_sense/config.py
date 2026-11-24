@@ -14,6 +14,7 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import file_storage_of_uri
+from datahub.ingestion.source.qlik_sense.qvd_lineage import canonical_path
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -150,6 +151,9 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     unresolved_qvd_paths: LossyList[str] = field(default_factory=LossyList)
     # QVDs loaded without a table label, which Qlik names itself.
     unlabelled_qvd_loads: LossyList[str] = field(default_factory=LossyList)
+    binary_loads_found: int = 0
+    # BINARY loads whose tables get no lineage, with the reason.
+    binary_loads_without_lineage: LossyList[str] = field(default_factory=LossyList)
     # Apps Qlik Cloud has no lineage graph for whose last read had no tables
     # with a QRI, so their tables get none and use load script lineage.
     apps_without_lineage_graph: LossyList[str] = field(default_factory=LossyList)
@@ -320,6 +324,48 @@ class QlikOnPremConfig(ConfigModel):
         description="Folder data connections whose QVDs are not ingested. By "
         "default the connections the monitoring apps read their logs through.",
     )
+    binary_file_to_app: Dict[str, str] = Field(
+        default={},
+        description="App files that BINARY statements load -> the id of the app "
+        "each file was exported from, for example "
+        "`{'lib://Apps/Sales Model.qvf': '<app id>'}`. Qlik Sense Enterprise "
+        "only loads BINARY from a .qvf file, which doesn't say which app it "
+        "holds. A mapped BINARY load links the app's tables to that app's "
+        "tables of the same name, with column lineage between their fields; "
+        "when the script includes other scripts, that lineage is only added "
+        "to. An unmapped one links them to the file instead. When the tables "
+        "a BINARY load brings in can't be told apart, for example because the "
+        "script also creates tables it doesn't name, they are not ingested. "
+        "Paths match as the script names them, or as the file path they "
+        "resolve to. App ids match whatever their case. Needs "
+        "`read_data_model`, as the load script doesn't name the tables a "
+        "BINARY load brings in.",
+    )
+
+    @field_validator("binary_file_to_app")
+    @classmethod
+    def canonical_binary_files(cls, value: Dict[str, str]) -> Dict[str, str]:
+        apps: Dict[str, str] = {}
+        for path, written_id in value.items():
+            canonical = canonical_path(path)
+            # App ids are lower-case GUIDs in QRS.
+            app_id = written_id.strip().lower()
+            if apps.get(canonical, app_id) != app_id:
+                raise ValueError(
+                    f"binary_file_to_app maps {path!r} to more than one app: "
+                    "paths match without regard to case or slash direction"
+                )
+            apps[canonical] = app_id
+        return apps
+
+    @model_validator(mode="after")
+    def warn_unused_binary_file_to_app(self) -> "QlikOnPremConfig":
+        if self.binary_file_to_app and not self.read_data_model:
+            logger.warning(
+                "binary_file_to_app needs read_data_model: the tables a BINARY "
+                "load brings in are only known from the app's data model."
+            )
+        return self
 
     @model_validator(mode="after")
     def warn_unused_server_cert_hostname(self) -> "QlikOnPremConfig":
