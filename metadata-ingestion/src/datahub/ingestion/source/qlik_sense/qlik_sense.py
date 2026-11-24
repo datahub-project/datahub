@@ -388,6 +388,15 @@ def _table_clause_names(sql: str) -> Set[str]:
     return names
 
 
+def _string_literal_table_names(sql: str) -> Set[str]:
+    return {
+        name
+        for token in SQL_TOKEN_RE.findall(sql)
+        if token.startswith("'")
+        for name in _table_clause_names(token.strip("'").replace("''", "'"))
+    }
+
+
 def _database_qri_platform(source_qri: str) -> str:
     scheme = source_qri[len(DATABASE_QRI_PREFIX) :].partition("://")[0].lower()
     # A scheme that isn't mapped is compared as is, such as `oracle`, so one
@@ -421,8 +430,8 @@ class _ReloadSql(BaseModel):
 class _ParsedReloadSql(BaseModel):
     statements: List[_ReloadSql] = []
     # The names in the table lists of statements that may name a label but
-    # were not read, for an unresolved connection or a parse error, and the
-    # names of tables read without their database or schema.
+    # were not read, for an unresolved connection, a parse error or dynamic
+    # SQL, and the names of tables read without their database or schema.
     skipped_table_names: Set[str] = set()
     # A statement kept a variable Qlik did not expand, so it may name any
     # table.
@@ -440,8 +449,13 @@ def _merged_lineage(
         column: list(upstreams)
         for column, upstreams in script_table.column_upstreams.items()
     }
+    # The parser may fold the case of the script's columns, so the reload
+    # SQL's field joins the script's column of the same name in any case.
+    script_columns = {column.lower(): column for column in column_upstreams}
     for column, upstreams in reload_table.column_upstreams.items():
-        merged = column_upstreams.setdefault(column, [])
+        merged = column_upstreams.setdefault(
+            script_columns.get(column.lower(), column), []
+        )
         merged.extend(upstream for upstream in upstreams if upstream not in merged)
     return script_table.model_copy(
         update={"upstream_urns": upstream_urns, "column_upstreams": column_upstreams}
@@ -3029,6 +3043,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 parsed.skipped_table_names |= _table_clause_names(sql)
                 continue
+            if not result.in_tables:
+                # Such as EXEC('SELECT ...'), whose tables the parser can't see.
+                parsed.skipped_table_names |= _table_clause_names(sql)
+                continue
+            # SQL in a string literal runs dynamically and is never parsed.
+            parsed.skipped_table_names |= _string_literal_table_names(sql)
             upstream_urns = [
                 urn
                 for urn in result.in_tables
@@ -3269,11 +3289,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # or the graph's, plus those the SQL gives lineage to.
             fields = self._lineage_table_fields(table, script_tables.get(table.qri))
             if reload_table is not None:
-                names = {field.name for field in fields}
+                names = {field.name.lower() for field in fields}
                 fields.extend(
                     QlikDatasetSchemaField(name=column)
                     for column in reload_table.column_upstreams
-                    if column not in names
+                    if column.lower() not in names
                 )
             schema = self._table_schema(identifier, fields)
             if schema and all(field.dataType is None for field in schema):

@@ -2915,6 +2915,42 @@ def test_unread_reload_sql_only_counts_names_in_table_lists(
             id="also named by SQL without its schema",
         ),
         pytest.param(
+            [
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders"),
+                _sql("Finance:Archive", "EXEC('SELECT * FROM dbo.orders')"),
+            ],
+            ORDERS_DB_TABLE,
+            [],
+            True,
+            id="also named by dynamic SQL",
+        ),
+        pytest.param(
+            [
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders"),
+                _sql(
+                    "Finance:Archive",
+                    "INSERT INTO dbo.jobs (query) SELECT 'SELECT * FROM dbo.orders'",
+                ),
+            ],
+            ORDERS_DB_TABLE,
+            [],
+            True,
+            id="also named by parsed SQL reading no table",
+        ),
+        pytest.param(
+            [
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders"),
+                _sql(
+                    "Finance:Archive",
+                    "SELECT id, 'SELECT * FROM dbo.orders' AS query FROM dbo.jobs",
+                ),
+            ],
+            ORDERS_DB_TABLE,
+            [],
+            True,
+            id="also named in a string literal of parsed SQL",
+        ),
+        pytest.param(
             [_sql("Finance:Sales", "SELECT * FROM dbo.orders")],
             "qri:db:databricks://Hash#Orders",
             [],
@@ -3242,6 +3278,58 @@ def test_reload_sql_links_database_sources_the_script_does_not_trace(
     assert written[_urn("etl-app.orders")] == [
         traced,
         make_dataset_urn("mssql", "shop.dbo.orders_2024"),
+    ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_reload_sql_columns_merge_with_script_columns_in_any_case(
+    mock_api_cls: MagicMock,
+) -> None:
+    sources = {
+        "qri:db:sqlserver://Hash#Orders2023": "dbo.orders_2023",
+        "qri:db:sqlserver://Hash#Orders2024": "dbo.orders_2024",
+    }
+    app = _reload_app([_sql("Finance:Sales", "SELECT order_id FROM dbo.orders_2024")])
+    table = app.lineage_tables[0]
+    table.source_qris = list(sources)
+    table.database_source_labels = sources
+    source = _reload_source(mock_api_cls, app)
+    traced = make_dataset_urn("mssql", "shop.dbo.orders_2023")
+    # The parser folded the script's column to lower case; the graph's field
+    # that the reload SQL maps is ORDER_ID.
+    script_tables = {
+        table.qri: ScriptTableLineage(
+            label="Orders",
+            identifier="etl-app.orders",
+            upstream_urns=[traced],
+            column_upstreams={"order_id": [make_schema_field_urn(traced, "order_id")]},
+        )
+    }
+
+    workunits = list(source._gen_lineage_tables_workunit(app, script_tables))
+
+    [schema] = [
+        aspect
+        for wu in workunits
+        if wu.get_urn() == _urn("etl-app.orders")
+        for aspect in [wu.get_aspect_of_type(SchemaMetadataClass)]
+        if aspect
+    ]
+    assert [field.fieldPath for field in schema.fields] == ["order_id"]
+    lineage = _upstream_lineage(workunits, _urn("etl-app.orders"))
+    assert lineage is not None
+    assert [
+        (SchemaFieldUrn.from_string(downstream).field_path, sorted(f.upstreams or []))
+        for f in lineage.fineGrainedLineages or []
+        for downstream in f.downstreams or []
+    ] == [
+        (
+            "order_id",
+            sorted(
+                make_schema_field_urn(urn, "order_id")
+                for urn in [traced, make_dataset_urn("mssql", "shop.dbo.orders_2024")]
+            ),
+        )
     ]
 
 
