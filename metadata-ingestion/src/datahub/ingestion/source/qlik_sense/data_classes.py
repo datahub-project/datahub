@@ -218,6 +218,10 @@ class LineageTable(BaseModel):
     qri: str
     label: str
     source_qris: List[str] = []
+    # Labels of the database tables among the sources, such as
+    # `dbo.orders`, by QRI. Qlik names the database itself only by an opaque
+    # hash.
+    database_source_labels: Dict[str, str] = {}
     # The table's field names, and the field nodes each is loaded or stored
     # from, when the graph was read at field level.
     fields: List[str] = []
@@ -229,6 +233,8 @@ class LineageTable(BaseModel):
 
 # Qlik Cloud datasets, such as QVDs stored in a space.
 QLIK_DATASET_QRI_PREFIX = "qri:qdf:"
+# Database tables an app's script reads with SQL.
+DATABASE_QRI_PREFIX = "qri:db:"
 # Qlik Cloud datasets and data connection files, the upstream resources
 # LineageUpstreams can name.
 UPSTREAM_RESOURCE_QRI_PREFIXES = (QLIK_DATASET_QRI_PREFIX, "qri:file:")
@@ -243,6 +249,18 @@ class LineageUpstreams(BaseModel):
     resource_labels: Dict[str, str] = {}
     # Table QRI to the QRIs of the app tables Qlik saw store into it.
     stored_from: Dict[str, List[str]] = {}
+    # Database table QRI to its label, such as `dbo.orders`; None when the
+    # graph was not read.
+    database_labels: Optional[Dict[str, str]] = None
+
+
+class ReloadStatement(BaseModel):
+    """A statement Qlik Cloud ran in an app's last reload, with its variables
+    expanded and included scripts inlined."""
+
+    # Such as `<space>:<connection>` for SQL, `RESIDENT <table>` or `INLINE`.
+    discriminator: str
+    statement: str = ""
 
 
 class ListedDataset(BaseModel):
@@ -458,6 +476,10 @@ class App(Item):
     # The data model or the load script could not be read, so the app's tables,
     # and with them the chart inputs, are unknown.
     tables_read_failed: bool = False
+    # Statements of the app's last reload, read when its lineage graph names
+    # database tables; None when not read.
+    reload_statements: Optional[List[ReloadStatement]] = None
+    reload_statements_read_failed: bool = False
     # The app was opened without its data after loading it failed, so the next
     # run must try again rather than skip it as unchanged.
     data_load_failed: bool = False

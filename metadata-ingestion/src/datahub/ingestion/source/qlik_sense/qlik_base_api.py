@@ -100,6 +100,7 @@ class QlikBaseAPI(ABC):
         self.change_check_failures: List[str] = []
         # Datasets whose lineage graph could not be read.
         self.lineage_read_failures: List[str] = []
+        self.reload_statement_read_failures: List[str] = []
         self.field_lineage_failures: List[str] = []
         # Apps opened without their data because opening them with it failed.
         self.opened_without_data: List[str] = []
@@ -136,6 +137,10 @@ class QlikBaseAPI(ABC):
     def get_lineage_upstreams(self, qri: str) -> LineageUpstreams:
         # Enterprise on Windows has no lineage graph.
         return LineageUpstreams()
+
+    def get_database_labels(self, qri: str) -> Dict[str, str]:
+        # Enterprise on Windows has no lineage graph.
+        return {}
 
     @abstractmethod
     def _list_items(self, space_id: str) -> Iterable[Dict]:

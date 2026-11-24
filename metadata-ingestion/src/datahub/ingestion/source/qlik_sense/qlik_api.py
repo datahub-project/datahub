@@ -8,6 +8,7 @@ from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
+    DATABASE_QRI_PREFIX,
     PERSONAL_SPACE_DICT,
     App,
     Item,
@@ -18,6 +19,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     ListedDataset,
     QlikDataset,
     QlikTable,
+    ReloadStatement,
     Space,
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import (
@@ -45,6 +47,14 @@ from datahub.ingestion.source.qlik_sense.websocket_connection import (
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+
+def _database_labels(graph: LineageGraph) -> Dict[str, str]:
+    return {
+        qri: node.label
+        for qri, node in graph.nodes.items()
+        if qri.startswith(DATABASE_QRI_PREFIX) and node.label
+    }
 
 
 class QlikAPI(QlikBaseAPI):
@@ -215,6 +225,7 @@ class QlikAPI(QlikBaseAPI):
             }
         )
         tables = self._upstream_graph(qri, LineageGraphLevel.TABLE, 2)
+        upstreams.database_labels = _database_labels(tables)
         for edge in tables.edges:
             if (
                 edge.source
@@ -528,6 +539,34 @@ class QlikAPI(QlikBaseAPI):
         self.include_read_failures.extend(unread)
         return inlined
 
+    def get_reload_statements(self, app_id: str) -> List[ReloadStatement]:
+        response = self.session.get(f"{self.rest_api_url}/apps/{app_id}/data/lineage")
+        response.raise_for_status()
+        return [ReloadStatement.model_validate(entry) for entry in response.json()]
+
+    def _read_reload_statements(self, app: App) -> None:
+        """The statements of the app's last reload, which may name the database
+        tables its lineage graph tables load from."""
+        if not any(
+            qri.startswith(DATABASE_QRI_PREFIX)
+            for table in app.lineage_tables
+            for qri in table.source_qris
+        ):
+            return
+        try:
+            app.reload_statements = self.get_reload_statements(app.id)
+        except Exception as e:
+            log_read_error(
+                f"Unable to fetch reload statements of app {app.id}. Exception: {e}"
+            )
+            app.reload_statements_read_failed = True
+            self.reload_statement_read_failures.append(f"{app.id}: {e}")
+
+    def get_database_labels(self, qri: str) -> Dict[str, str]:
+        """Labels of the database tables the app's lineage graph tables load
+        from, which only the upstream graph gives."""
+        return _database_labels(self._upstream_graph(qri, LineageGraphLevel.TABLE, 1))
+
     def _get_app(self, app_id: str, script_app: bool = False) -> App:
         errors = ReadErrors()
         websocket_connection = self._open_engine(app_id)
@@ -559,6 +598,7 @@ class QlikAPI(QlikBaseAPI):
                     errors.record(
                         f"Unable to fetch table lineage of app {app_id}. Exception: {e}"
                     )
+                self._read_reload_statements(app)
             app.lineage_graph_missing |= errors.lineage_graph_missing
             app.unmatched_graph_tables = errors.unmatched_graph_tables
             app.tables_read_failed = len(errors.messages) > read_errors
