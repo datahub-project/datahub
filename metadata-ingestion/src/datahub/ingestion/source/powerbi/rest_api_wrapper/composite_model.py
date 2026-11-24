@@ -33,8 +33,22 @@ DATASET_ID_RE = re.compile(
 )
 
 
+# M comments outside string literals. Strings are matched first and kept, so
+# the `//` of a `powerbi://` URL is not taken for a comment.
+M_STRING_OR_COMMENT_RE = re.compile(r'"(?:[^"]|"")*"|//[^\n]*|/\*.*?\*/', re.DOTALL)
+
+
+def _without_comments(expression: str) -> str:
+    # A connection kept as a comment above the live one must not be matched.
+    return M_STRING_OR_COMMENT_RE.sub(
+        lambda m: m.group(0) if m.group(0).startswith('"') else " ", expression
+    )
+
+
 def is_analysis_services_expression(expression: str) -> bool:
-    return ANALYSIS_SERVICES_DATABASE_RE.search(expression) is not None
+    return (
+        ANALYSIS_SERVICES_DATABASE_RE.search(_without_comments(expression)) is not None
+    )
 
 
 def _dataset_id(value: Optional[str]) -> Optional[str]:
@@ -70,7 +84,7 @@ def parse_remote_model_reference(
     `DirectQuery to AS - <Model Name>` title (and stays the id otherwise).
     A dataset id is kept from the `Catalog` option or the database argument
     when either carries one."""
-    match = ANALYSIS_SERVICES_DATABASE_RE.search(expression)
+    match = ANALYSIS_SERVICES_DATABASE_RE.search(_without_comments(expression))
     if match is None:
         return None
     url = match.group("url").strip()

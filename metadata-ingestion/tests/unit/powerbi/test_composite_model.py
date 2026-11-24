@@ -119,6 +119,33 @@ def test_analysis_services_targets_distinguish_power_bi_from_other_servers() -> 
     assert targets["DirectQuery to AS - Finance"] is None
 
 
+# The previous connection kept as comments above the live one in the Advanced
+# Editor; only the uncommented call names the source model.
+COMMENTED_OUT = """let
+    // Source = AnalysisServices.Database("powerbi://api.powerbi.com/v1.0/myorg/Old WS", "Old Model"),
+    /* Source = AnalysisServices.Database("powerbi://api.powerbi.com/v1.0/myorg/Older WS", "Older Model"), */
+    Source = AnalysisServices.Database("powerbi://api.powerbi.com/v1.0/myorg/New WS", "New Model")
+in
+    Source"""
+
+
+def test_commented_out_connections_are_ignored() -> None:
+    assert parse_remote_model_reference("Remote", COMMENTED_OUT) == (
+        RemoteModelReference("New WS", "New Model")
+    )
+    # A non-AnalysisServices source with a commented-out AS call is not a target.
+    targets = analysis_services_targets(
+        {
+            "Warehouse": """let
+    // Source = AnalysisServices.Database("powerbi://api.powerbi.com/v1.0/myorg/Old WS", "Old Model"),
+    Source = Sql.Database("server", "db")
+in
+    Source""",
+        }
+    )
+    assert targets == {}
+
+
 def test_remote_model_key_folds_case_and_whitespace() -> None:
     assert remote_model_key(" Sales Analytics", "SALES model ") == (
         "sales analytics/sales model"
