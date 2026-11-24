@@ -3632,7 +3632,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._note_unseen_space(_path_space(path), "datasets")
             yield from self._gen_file_entity(
                 urn,
-                label,
+                # The label holds the folders under the connection, which the
+                # browse path already gives, so the name is the file's alone.
+                re.split(r"[/\\]", label)[-1],
                 DatasetSubTypes.QLIK_QVD
                 if label.lower().endswith(QVD_EXTENSION)
                 else DatasetSubTypes.QLIK_DATASET,

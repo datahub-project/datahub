@@ -2662,8 +2662,10 @@ def test_graph_named_dataset_takes_its_path_from_reload_files(
     path: Optional[str],
     browse: Optional[List[str]],
 ) -> None:
+    # The graph labels a file with the folders under its connection.
+    label = "Sub/Prices.qvd" if path and "/sub/" in path else "prices.qvd"
     upstreams = LineageUpstreams(
-        resource_labels={UNLISTED_QVD: "prices.qvd"},
+        resource_labels={UNLISTED_QVD: label},
         stored_from={
             f"{UNLISTED_QVD}#Prices": [WRITER_TABLE, "qri:app:sense://unread-app#Out"]
         },
@@ -2720,7 +2722,7 @@ def test_graph_named_dataset_takes_its_path_from_reload_files(
         assert browse is not None
         # The dataset's space is one the key can't see.
         assert _unseen_spaces(source) == [f"{browse[0]}: datasets"]
-        assert properties.name == "prices"
+        assert properties.name == label.split("/")[-1][: -len(".qvd")]
         assert properties.qualifiedName == path
         assert properties.customProperties.get("path") == path
         assert [e.id for e in browse_path.path] == browse
