@@ -2653,8 +2653,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     urn, connection.platform, connection.platform_instance
                 )
             ]
-            unqualified.extend(
+            statement_unqualified = [
                 urn for urn in result.in_tables if urn not in upstream_urns
+            ]
+            unqualified.extend(statement_unqualified)
+            # A table without its database or schema may be the label's table
+            # in another database, so it counts as SQL that could not be read.
+            parsed.skipped_sql.extend(
+                DatasetUrn.from_string(urn).name.lower()
+                for urn in statement_unqualified
             )
             if upstream_urns:
                 parsed.statements.append(
