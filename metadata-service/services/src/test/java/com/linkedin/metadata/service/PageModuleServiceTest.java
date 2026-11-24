@@ -57,7 +57,7 @@ public class PageModuleServiceTest {
   public void setUp() throws Exception {
     MockitoAnnotations.openMocks(this);
     references = mock(EntityClient.ReferencesCleanup.class);
-    when(mockEntityClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
+    when(mockEntityClient.deleteReferencesThenEntity(any(), any())).thenReturn(references);
     service = new PageModuleService(mockEntityClient);
   }
 
@@ -326,7 +326,7 @@ public class PageModuleServiceTest {
       spyService.deletePageModule(mockOpContext, moduleUrn);
 
       // Assert
-      verify(mockEntityClient, times(1)).deleteEntityThenReferences(mockOpContext, moduleUrn);
+      verify(mockEntityClient, times(1)).deleteReferencesThenEntity(mockOpContext, moduleUrn);
     }
   }
 
@@ -337,7 +337,7 @@ public class PageModuleServiceTest {
 
     doThrow(new RuntimeException("Test exception"))
         .when(mockEntityClient)
-        .deleteEntityThenReferences(any(), any());
+        .deleteReferencesThenEntity(any(), any());
 
     // Act & Assert
     assertThrows(
@@ -508,7 +508,7 @@ public class PageModuleServiceTest {
       spyService.deletePageModule(mockOpContext, moduleUrn);
 
       // Assert
-      verify(mockEntityClient, times(1)).deleteEntityThenReferences(mockOpContext, moduleUrn);
+      verify(mockEntityClient, times(1)).deleteReferencesThenEntity(mockOpContext, moduleUrn);
     }
   }
 

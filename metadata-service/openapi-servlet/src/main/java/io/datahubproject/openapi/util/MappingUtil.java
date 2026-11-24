@@ -19,9 +19,9 @@ import com.linkedin.data.ByteString;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
@@ -471,8 +471,12 @@ public class MappingUtil {
       String actorUrn,
       EntityService<ChangeItemImpl> entityService,
       boolean async) {
-    return ingestBatchProposal(opContext, List.of(serviceProposal), actorUrn, entityService, async)
-        .get(0);
+    List<Pair<String, Boolean>> results =
+        ingestBatchProposal(
+            opContext, List.of(serviceProposal), actorUrn, entityService, async, true);
+    return results.isEmpty()
+        ? Pair.of(String.valueOf(serviceProposal.getEntityUrn()), false)
+        : results.get(0);
   }
 
   public static List<Pair<String, Boolean>> ingestBatchProposal(
@@ -481,6 +485,21 @@ public class MappingUtil {
       String actorUrn,
       EntityService<ChangeItemImpl> entityService,
       boolean async) {
+    return ingestBatchProposal(opContext, serviceProposals, actorUrn, entityService, async, false);
+  }
+
+  /**
+   * @param rejectInvalidProposals fail with a 4xx when a proposal can't be turned into a batch
+   *     item, instead of skipping it, which would be indistinguishable from a skipped conditional
+   *     write
+   */
+  private static List<Pair<String, Boolean>> ingestBatchProposal(
+      @Nonnull OperationContext opContext,
+      List<com.linkedin.mxe.MetadataChangeProposal> serviceProposals,
+      String actorUrn,
+      EntityService<ChangeItemImpl> entityService,
+      boolean async,
+      boolean rejectInvalidProposals) {
 
     // TODO: Use the actor present in the IC.
     final com.linkedin.common.AuditStamp auditStamp =
@@ -491,10 +510,25 @@ public class MappingUtil {
     log.info("Proposal: {}", serviceProposals);
     Throwable exceptionally = null;
     try {
-      AspectsBatch batch =
-          AspectsBatchImpl.builder()
-              .mcps(serviceProposals, auditStamp, opContext.getRetrieverContext())
-              .build(opContext);
+      AspectsBatchImpl.AspectsBatchImplBuilder builder =
+          rejectInvalidProposals
+              ? AspectsBatchImpl.builder()
+                  .mcpsRecordingRejected(
+                      serviceProposals, auditStamp, opContext.getRetrieverContext(), false, false)
+              : AspectsBatchImpl.builder()
+                  .mcps(serviceProposals, auditStamp, opContext.getRetrieverContext());
+      AspectsBatchImpl batch = builder.build(opContext);
+      if (!batch.getRejectedProposals().isEmpty()) {
+        Exception rejection = batch.getRejectedProposals().get(0).getSecond();
+        throw HttpClientErrorException.create(
+            rejection instanceof ValidationException
+                ? HttpStatus.UNPROCESSABLE_ENTITY
+                : HttpStatus.BAD_REQUEST,
+            rejection.getMessage(),
+            null,
+            null,
+            null);
+      }
 
       Map<Urn, List<IngestResult>> resultMap =
           entityService.ingestProposal(opContext, batch, async).stream()
@@ -591,6 +625,9 @@ public class MappingUtil {
     }
     if (metadataChangeProposal.getAspectName() != null) {
       serviceProposal.setAspectName(metadataChangeProposal.getAspectName());
+    }
+    if (metadataChangeProposal.getHeaders() != null) {
+      serviceProposal.setHeaders(new StringMap(metadataChangeProposal.getHeaders()));
     }
 
     if (auditHeader != null) {

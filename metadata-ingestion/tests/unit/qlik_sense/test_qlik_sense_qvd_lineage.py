@@ -1603,6 +1603,35 @@ def test_binary_load_links_a_suffixed_table_only_when_the_source_app_has_it(
     assert bool(reported) is not linked
 
 
+@pytest.mark.parametrize(
+    "model_tables, written_whole",
+    [
+        pytest.param(ORDERS_MODEL, True, id="source app lacks the table"),
+        pytest.param({}, False, id="source app's data model unknown"),
+    ],
+)
+def test_binary_load_keeps_script_lineage_of_a_table_qlik_may_have_renamed(
+    model_tables: Dict[str, List[str]], written_whole: bool
+) -> None:
+    model = _app("model-app", MODEL_SCRIPT, model_tables)
+    front = _app(
+        "front-app",
+        FRONT_SCRIPT
+        + "[Calendar-2024]: LOAD day FROM [lib://QVD Data/raw/cal.qvd] (qvd);",
+        {**FRONT_MODEL, "Calendar-2024": ["day"]},
+    )
+    _, aspects = _run([model, front], on_prem=MAPPED)
+
+    calendar = _urn("front-app.calendar-2024")
+    cal_qvd = _urn("//nas/qvd/raw/cal.qvd")
+    if written_whole:
+        assert _written_upstreams(aspects, calendar) == [cal_qvd]
+    else:
+        assert "UpstreamLineageClass" not in aspects[calendar]
+        assert _upstreams(aspects, calendar, "add") == [cal_qvd]
+    assert _urn("model-app.calendar-2024") not in str(aspects[calendar])
+
+
 def test_unmapped_binary_load_reports_a_table_qlik_may_have_renamed() -> None:
     front = _app(
         "front-app",

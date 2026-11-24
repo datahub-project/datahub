@@ -131,7 +131,8 @@ public class SemanticSearchService {
    * the rule the template coordinator applies: templates execute, and that surface's rollout, which
    * is off by default, serves this actor. On OpenSearch before 3.5 it does not, whatever the
    * rollout says, and while the OpenSearch version cannot be read it does not either. A caller
-   * decides once per request, then calls either {@link #semanticSearchAcrossEntities} or {@link
+   * decides once per request, then calls either the legacy search, {@link
+   * #semanticSearchAcrossEntities} or {@link #semanticSearch}, or {@link
    * #semanticSearchAcrossEntitiesByTemplate}.
    */
   public boolean isServedByTemplate(@Nonnull OperationContext opContext) {

@@ -36,7 +36,7 @@ elif doc.is_external:
 if doc.show_in_global_context:
     print("Visible in global search and sidebar")
 else:
-    print("Hidden from global context (accessible only via related assets)")
+    print("Hidden from global search and the sidebar by default (not access control)")
 
 # Check related entities
 if doc.related_assets:

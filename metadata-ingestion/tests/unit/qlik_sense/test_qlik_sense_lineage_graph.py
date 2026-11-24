@@ -1011,6 +1011,28 @@ def test_unlisted_dataset_is_named_from_the_upstream_graph(
 
 
 @pytest.mark.parametrize(
+    "excluded_name, named",
+    [
+        # The unlisted QVD may be the one the listing gave no QRI.
+        pytest.param("other.qvd", False, id="QVD without a QRI"),
+        # Qlik doesn't trace such files, so the graph never names one.
+        pytest.param("notes.txt", True, id="untraced file without a QRI"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_dataset_of_an_excluded_space_without_a_qri_blocks_graph_naming(
+    mock_api_cls: MagicMock, excluded_name: str, named: bool
+) -> None:
+    upstreams = LineageUpstreams(resource_labels={UNLISTED_QVD: "prices.qvd"})
+    datasets = [*DATASETS, ListedDataset(space_id="space-2", name=excluded_name)]
+    _, written, _ = _run(
+        mock_api_cls, datasets, items=_reader_and_writer(), upstreams=upstreams
+    )
+
+    assert (_urn(UNLISTED_QVD) in written[_urn("report-app.prices")]) is named
+
+
+@pytest.mark.parametrize(
     "source_qris, stored_qri",
     [
         pytest.param(
