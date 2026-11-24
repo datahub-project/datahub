@@ -42,7 +42,7 @@ public class DeleteStructuredPropertyResolverTest {
 
     // Validate that we called delete, then the references in the background
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .deleteEntityThenReferences(any(), Mockito.eq(UrnUtils.getUrn(TEST_PROP_URN)));
+        .deleteReferencesThenEntity(any(), Mockito.eq(UrnUtils.getUrn(TEST_PROP_URN)));
   }
 
   @Test
@@ -61,7 +61,7 @@ public class DeleteStructuredPropertyResolverTest {
 
     // Validate that we did NOT call delete
     Mockito.verify(mockEntityClient, Mockito.times(0))
-        .deleteEntityThenReferences(any(), Mockito.eq(UrnUtils.getUrn(TEST_PROP_URN)));
+        .deleteReferencesThenEntity(any(), Mockito.eq(UrnUtils.getUrn(TEST_PROP_URN)));
   }
 
   @Test
@@ -81,16 +81,16 @@ public class DeleteStructuredPropertyResolverTest {
     // Validate that the delete was called, but since it's the thing that failed it was called
     // once still
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .deleteEntityThenReferences(any(), Mockito.eq(UrnUtils.getUrn(TEST_PROP_URN)));
+        .deleteReferencesThenEntity(any(), Mockito.eq(UrnUtils.getUrn(TEST_PROP_URN)));
   }
 
   private EntityClient initMockEntityClient(boolean shouldSucceed) throws Exception {
     EntityClient client = Mockito.mock(EntityClient.class);
-    Mockito.when(client.deleteEntityThenReferences(any(), any())).thenReturn(references);
+    Mockito.when(client.deleteReferencesThenEntity(any(), any())).thenReturn(references);
     if (!shouldSucceed) {
       Mockito.doThrow(new RemoteInvocationException())
           .when(client)
-          .deleteEntityThenReferences(any(), any());
+          .deleteReferencesThenEntity(any(), any());
     }
     return client;
   }

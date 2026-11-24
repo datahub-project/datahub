@@ -197,6 +197,7 @@
     "marketplace.home": "Adattermékek kezdőlapja",
     "marketplace.applicationFilter.placeholder": "Alkalmazások szűrése",
     "marketplace.createTooltip": "Adattermék létrehozása",
+    "marketplace.createUnauthorized": "Nincs jogosultsága itt adattermékeket létrehozni. Próbáljon meg létrehozni egyet egy Ön által kezelt tartomány Adattermékek lapján.",
     "marketplace.cardAssets_other": "{{count}} eszköz",
     "marketplace.cardDeprecated": "Elavult",
     "marketplace.cardMetaWithSubProducts": "{{assets}} · {{subProducts}}",

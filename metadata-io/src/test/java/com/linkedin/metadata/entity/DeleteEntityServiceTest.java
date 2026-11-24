@@ -60,6 +60,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -633,6 +634,111 @@ public class DeleteEntityServiceTest {
             Mockito.any(MetadataChangeProposal.class),
             Mockito.any(AuditStamp.class),
             Mockito.anyBoolean());
+  }
+
+  /**
+   * Graph cleanup applies one page before asking for the next, and drops the page it has already
+   * applied. The second scroll clears the first page's list; a retained copy would still be read.
+   */
+  @Test
+  public void testDeleteGraphReferencesAppliesOnePageBeforeReadingTheNext()
+      throws URISyntaxException {
+    EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
+    GraphService mockGraphService = Mockito.mock(GraphService.class);
+    DeleteEntityService deleteEntityService =
+        new DeleteEntityService(
+            mockEntityService, mockGraphService, mock(EntitySearchService.class), null, null);
+
+    final Urn deleted = UrnUtils.getUrn("urn:li:tag:paged");
+    final Urn firstReferrer = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:s,first,PROD)");
+    final Urn secondReferrer =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:s,second,PROD)");
+    final List<RelatedEntities> firstPageEntities = new java.util.ArrayList<>();
+    firstPageEntities.add(
+        incomingRelation("TaggedWith", firstReferrer.toString(), deleted.toString()));
+    final RelatedEntitiesScrollResult firstPage =
+        scrollGraphResult(2, "scroll-1", firstPageEntities);
+    final RelatedEntitiesScrollResult secondPage =
+        scrollGraphResult(
+            2,
+            null,
+            List.of(incomingRelation("TaggedWith", secondReferrer.toString(), deleted.toString())));
+
+    Mockito.when(
+            mockGraphService.scrollRelatedEntities(
+                any(OperationContext.class),
+                nullable(Set.class),
+                eq(newFilter("urn", deleted.toString())),
+                nullable(Set.class),
+                eq(EMPTY_FILTER),
+                eq(ImmutableSet.of()),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1000),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenAnswer(
+            invocation -> {
+              if (invocation.getArgument(8) == null) {
+                return firstPage;
+              }
+              firstPageEntities.clear();
+              return secondPage;
+            });
+    Mockito.when(
+            mockEntityService.getEntityV2(
+                any(OperationContext.class),
+                Mockito.anyString(),
+                Mockito.any(Urn.class),
+                Mockito.anySet()))
+        .thenReturn(null);
+
+    deleteEntityService.deleteGraphReferences(opContext, deleted);
+
+    final InOrder inOrder = Mockito.inOrder(mockGraphService, mockEntityService);
+    inOrder
+        .verify(mockGraphService)
+        .scrollRelatedEntities(
+            any(OperationContext.class),
+            nullable(Set.class),
+            eq(newFilter("urn", deleted.toString())),
+            nullable(Set.class),
+            eq(EMPTY_FILTER),
+            eq(ImmutableSet.of()),
+            eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+            eq(Edge.EDGE_SORT_CRITERION),
+            Mockito.isNull(),
+            eq("5m"),
+            eq(1000),
+            nullable(Long.class),
+            nullable(Long.class));
+    inOrder
+        .verify(mockEntityService)
+        .getEntityV2(
+            any(OperationContext.class), eq("dataset"), eq(firstReferrer), Mockito.anySet());
+    inOrder
+        .verify(mockGraphService)
+        .scrollRelatedEntities(
+            any(OperationContext.class),
+            nullable(Set.class),
+            eq(newFilter("urn", deleted.toString())),
+            nullable(Set.class),
+            eq(EMPTY_FILTER),
+            eq(ImmutableSet.of()),
+            eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+            eq(Edge.EDGE_SORT_CRITERION),
+            eq("scroll-1"),
+            eq("5m"),
+            eq(1000),
+            nullable(Long.class),
+            nullable(Long.class));
+    inOrder
+        .verify(mockEntityService)
+        .getEntityV2(
+            any(OperationContext.class), eq("dataset"), eq(secondReferrer), Mockito.anySet());
+    assertTrue(firstPageEntities.isEmpty());
   }
 
   @DataProvider(name = "dryRun")
@@ -1427,5 +1533,54 @@ public class DeleteEntityServiceTest {
             .tag("operation_type", "deleteReferencesTo")
             .counter(),
         "cascade entities_processed counter should be emitted");
+  }
+
+  /** The count is the scroll total, and the page that produced it is closed. */
+  @Test
+  public void testCountGraphReferrersReadsTheTotalAndClosesTheScroll() {
+    GraphService mockGraphService = Mockito.mock(GraphService.class);
+    DeleteEntityService service =
+        new DeleteEntityService(
+            Mockito.mock(EntityService.class),
+            mockGraphService,
+            Mockito.mock(EntitySearchService.class),
+            null,
+            null);
+    final Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
+
+    Mockito.when(
+            mockGraphService.scrollRelatedEntities(
+                any(OperationContext.class),
+                nullable(Set.class),
+                eq(newFilter("urn", urn.toString())),
+                nullable(Set.class),
+                eq(EMPTY_FILTER),
+                eq(ImmutableSet.of()),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(scrollGraphResult(7, "scroll-1", ImmutableList.of()));
+
+    assertEquals(service.countGraphReferrers(opContext, urn), 7);
+    Mockito.verify(mockGraphService).closeRelatedEntitiesScroll(opContext, "scroll-1");
+    Mockito.verify(mockGraphService, Mockito.never())
+        .scrollRelatedEntities(
+            any(OperationContext.class),
+            nullable(Set.class),
+            any(Filter.class),
+            nullable(Set.class),
+            any(Filter.class),
+            any(),
+            any(),
+            any(),
+            nullable(String.class),
+            any(),
+            eq(1000),
+            nullable(Long.class),
+            nullable(Long.class));
   }
 }

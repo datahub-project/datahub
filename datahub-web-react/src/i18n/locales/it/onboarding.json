@@ -158,6 +158,9 @@
     "users.ssoTitle": "Configurazione del Single Sign-On (SSO)",
     "welcome.docsLink": "Documentazione DataHub",
     "welcome.getStarted": "Inizia",
+    "welcome.githubRepoDescription": "La piattaforma di metadati per lo stack di dati e IA",
+    "welcome.githubStargazers": "Unisciti ai {{stars}} sviluppatori che hanno assegnato una stella a DataHub",
+    "welcome.githubStargazersNoCount": "Unisciti agli sviluppatori che hanno assegnato una stella a DataHub",
     "welcome.loadingVideo": "Caricamento video in corso...",
     "welcome.modalTitle": "Benvenuti in DataHub",
     "welcome.slideDocsDescription": "Risparmio di ore di lavoro manuale e maggiore possibilità di scoperta dei dati",
@@ -168,6 +171,8 @@
     "welcome.slideImpactTitle": "Gestione sicura dei Breaking Change",
     "welcome.slideLineageDescription": "La storia completa di come i dati sono stati creati e trasformati",
     "welcome.slideLineageTitle": "Comprendere l'origine dei dati",
+    "welcome.slideGithubDescription": "Se DataHub è utile al proprio team, una stella su GitHub aiuta anche altri team di dati a scoprirlo.",
+    "welcome.slideGithubTitle": "Soddisfatti finora?",
     "welcome.slideReadyDescription": "Esplorare la documentazione completa oppure iniziare subito a scoprire i dati",
     "welcome.slideReadyTitle": "Pronti per iniziare?"
 }

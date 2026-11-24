@@ -807,14 +807,15 @@ public abstract class GenericEntitiesController<
             async);
 
     if (!async) {
-      return ResponseEntity.of(
-          results.stream()
-              .filter(item -> aspectSpec.getName().equals(item.getRequest().getAspectName()))
-              .findFirst()
-              .map(
-                  result ->
+      return results.stream()
+          .filter(item -> aspectSpec.getName().equals(item.getRequest().getAspectName()))
+          .findFirst()
+          .map(
+              result ->
+                  ResponseEntity.ok(
                       buildGenericEntity(
-                          aspectSpec.getName(), result.getResult(), withSystemMetadata)));
+                          aspectSpec.getName(), result.getResult(), withSystemMetadata)))
+          .orElseGet(() -> ResponseEntity.noContent().build());
     } else {
       return results.stream()
           .filter(item -> aspectSpec.getName().equals(item.getRequest().getAspectName()))
