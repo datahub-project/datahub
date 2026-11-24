@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -24,12 +24,13 @@ from datahub.ingestion.source.qlik_sense.file_lineage import (
     file_storage_of_uri,
     qri_part_id,
 )
-from datahub.ingestion.source.qlik_sense.qlik_api import IncludeRead, QlikAPI
+from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import UNREAD_DATA_CONNECTIONS
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     DataConnectionInfo,
     FileLoad,
+    IncludeRead,
     inline_includes,
     parse_script,
 )
@@ -1505,7 +1506,7 @@ def test_included_scripts_are_read_into_the_script() -> None:
         "$(Must_Include=lib://Common:DataFiles/env.qvs);\n"
         "$(Include=lib://Common:DataFiles/missing.qvs);\n"
     )
-    inlined = inline_includes(script, {"vCommon": "'Common:'"}, files.get)
+    inlined = inline_includes(script, {"vCommon": "'Common:'"}, _reader(files))
     parsed = parse_script(inlined)
 
     assert [load.expanded for load in parsed.file_loads] == [
@@ -1514,7 +1515,7 @@ def test_included_scripts_are_read_into_the_script() -> None:
     # The include that could not be read still leaves the script incomplete.
     assert parsed.has_includes
     assert not parse_script(
-        inline_includes(script.split("\n")[0], {"vCommon": "'Common:'"}, files.get)
+        inline_includes(script.split("\n")[0], {"vCommon": "'Common:'"}, _reader(files))
     ).has_includes
 
 
@@ -1539,7 +1540,7 @@ def test_include_path_with_parentheses_is_read() -> None:
         inline_includes(
             "$(Include=lib://$(vCommon)DataFiles/loads (v2).qvs);",
             {"vCommon": "'Common:'"},
-            files.get,
+            _reader(files),
         )
     )
 
@@ -1554,7 +1555,7 @@ def test_unread_include_path_with_parentheses_forgets_the_connection() -> None:
         "Orders: SQL SELECT * FROM sales.orders;"
     )
     files: Dict[str, str] = {}
-    parsed = parse_script(inline_includes(script, {}, files.get))
+    parsed = parse_script(inline_includes(script, {}, _reader(files)))
 
     assert [(table.label, table.connection) for table in parsed.tables] == [
         ("Orders", None)
@@ -1564,7 +1565,7 @@ def test_unread_include_path_with_parentheses_forgets_the_connection() -> None:
 
 def test_include_outside_a_lib_path_is_not_read() -> None:
     files = {"common.qvs": "X: LOAD * FROM [lib://S:Lake/x.csv];"}
-    parsed = parse_script(inline_includes("$(Include=common.qvs);", {}, files.get))
+    parsed = parse_script(inline_includes("$(Include=common.qvs);", {}, _reader(files)))
 
     assert not parsed.file_loads
     assert parsed.has_includes
@@ -1631,6 +1632,14 @@ def test_include_read_failing_outside_the_engine_is_read_again_for_the_next_app(
     assert engine.websocket_send_request.call_count == 2
 
 
+def _reader(files: Dict[str, str]) -> Callable[[str], IncludeRead]:
+    return lambda path: (
+        IncludeRead(content=files[path])
+        if path in files
+        else IncludeRead(error="not found")
+    )
+
+
 _INCLUDED_LOADS = {
     "lib://S:DataFiles/a.qvs": "A: LOAD * FROM [lib://S:Lake/a.csv];",
     "lib://S:DataFiles/b.qvs": "B: LOAD * FROM [lib://S:Lake/b.csv];",
@@ -1677,12 +1686,63 @@ def test_include_path_from_a_varying_variable_is_not_read(
     script: str, loads: List[str]
 ) -> None:
     inlined = inline_includes(
-        script, {"vF": "'lib://S:DataFiles/b.qvs'"}, _INCLUDED_LOADS.get
+        script, {"vF": "'lib://S:DataFiles/b.qvs'"}, _reader(_INCLUDED_LOADS)
     )
     parsed = parse_script(inlined)
 
     assert [load.expanded for load in parsed.file_loads] == loads
     assert parsed.has_includes == (not loads)
+
+
+@pytest.mark.parametrize("varied_by_include", [False, True])
+def test_only_read_errors_of_includes_the_final_script_reads_are_reported(
+    varied_by_include: bool,
+) -> None:
+    files = {
+        "lib://S:DataFiles/b.qvs": "SET vF = 'lib://S:DataFiles/a.qvs';\n"
+        + ("SET vF = 'lib://S:DataFiles/b.qvs';\n" if varied_by_include else "")
+        + "$(Include=lib://S:DataFiles/missing.qvs);"
+    }
+    unread: List[Tuple[str, str]] = []
+    inline_includes(
+        "$(Include=$(vF));",
+        {"vF": "'lib://S:DataFiles/b.qvs'"},
+        _reader(files),
+        lambda path, reason: unread.append((path, reason)),
+    )
+
+    # Once b.qvs varies vF, the script is inlined again without reading b.qvs,
+    # so the include b.qvs holds is never needed.
+    assert [path for path, _ in unread] == (
+        [] if varied_by_include else ["lib://S:DataFiles/missing.qvs"]
+    )
+
+
+def test_app_reports_no_read_error_of_an_include_its_script_does_not_read() -> None:
+    api = _include_api()
+    api.spaces = {"space-1": "Sales Space"}
+    engine = _engine(
+        {
+            "qContent": "SET vF = 'lib://S:DataFiles/a.qvs';\n"
+            "SET vF = 'lib://S:DataFiles/b.qvs';\n"
+            "$(Include=lib://S:DataFiles/missing.qvs);"
+        },
+        EngineError({"code": 5, "message": "Access denied"}),
+    )
+    app = App.model_validate(
+        {
+            "id": "app-1",
+            "qTitle": "Sales",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "space-1",
+            "variables": {"vF": "'lib://S:DataFiles/b.qvs'"},
+        }
+    )
+
+    api._inline_includes(engine, "app-1", app, "$(Include=$(vF));")
+
+    assert not api.include_read_failures
 
 
 @pytest.mark.parametrize("fan_out", [1, 2, 4])
@@ -1694,7 +1754,7 @@ def test_self_including_script_is_read_once(fan_out: int) -> None:
     inlined = inline_includes(
         f"$(Include={path});",
         {},
-        files.get,
+        _reader(files),
         lambda path, reason: unread.append((path, reason)),
     )
     parsed = parse_script(inlined)
@@ -1715,7 +1775,7 @@ def test_mutually_including_scripts_are_each_read_once() -> None:
     inlined = inline_includes(
         f"$(Include={a});",
         {},
-        files.get,
+        _reader(files),
         lambda path, reason: unread.append((path, reason)),
     )
     parsed = parse_script(inlined)
@@ -1741,7 +1801,7 @@ def test_includes_past_the_size_limit_are_not_read() -> None:
     inlined = inline_includes(
         "$(Include=lib://S:DataFiles/0.qvs);",
         {},
-        files.get,
+        _reader(files),
         lambda path, reason: unread.append((path, reason)),
     )
 
@@ -1759,7 +1819,7 @@ def test_apostrophe_in_an_include_path_keeps_later_comments_out() -> None:
         "$(Include=lib://S:DataFiles/O'B.qvs);\n"
         "// $(Include=lib://S:DataFiles/old.qvs);\n"
     )
-    parsed = parse_script(inline_includes(script, {}, files.get))
+    parsed = parse_script(inline_includes(script, {}, _reader(files)))
 
     assert [load.expanded for load in parsed.file_loads] == ["lib://S:Lake/a.csv"]
 
@@ -1785,7 +1845,7 @@ def test_unread_include_with_an_apostrophe_keeps_the_next_statement() -> None:
 )
 def test_commented_include_is_not_read_into_the_script(commented: str) -> None:
     files = {"lib://Common:DataFiles/loads.qvs": "Rates: LOAD * FROM [lib://L/r.csv];"}
-    parsed = parse_script(inline_includes(commented, {}, files.get))
+    parsed = parse_script(inline_includes(commented, {}, _reader(files)))
     assert not parsed.file_loads
 
 
@@ -1799,7 +1859,7 @@ def test_include_path_from_a_constructed_varying_variable_is_not_read() -> None:
     inlined = inline_includes(
         script,
         {"vSuffix": "F", "vF": "'lib://S:DataFiles/b.qvs'"},
-        _INCLUDED_LOADS.get,
+        _reader(_INCLUDED_LOADS),
     )
     parsed = parse_script(inlined)
 
