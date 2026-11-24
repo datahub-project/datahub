@@ -1,4 +1,5 @@
 import json
+import logging
 import pathlib
 import threading
 from typing import Any, Dict, List, NoReturn, Optional, Set
@@ -112,6 +113,34 @@ def test_http_glob_matching_nothing_keeps_the_query_string_out_of_the_failure() 
     assert source.report.failures
     for entry in [*source.report.failures, *source.report.warnings]:
         assert "secret" not in " ".join(entry.context)
+
+
+_URL_PASSWORD = "my_password"
+_URL_SIGNATURE = "my_signature"
+_CREDENTIALED_HTTP_GLOB = (
+    f"https://my_user:{_URL_PASSWORD}@host.example/dbt/*/manifest.json"
+    f"?X-Amz-Signature={_URL_SIGNATURE}"
+)
+
+
+def test_http_glob_report_entries_omit_url_credentials(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Basic-auth credentials embedded in an artifact URL are kept out of the
+    report and the log, which still name the host and path."""
+    source = _make_source(manifest_path=_CREDENTIALED_HTTP_GLOB)
+
+    with caplog.at_level(logging.WARNING):
+        assert _load_projects(source) == []
+
+    # The unsupported-glob warning and the matched-nothing failure both name the URL.
+    assert len(source.report.warnings) == 1
+    assert len(source.report.failures) == 1
+    entries = [*source.report.warnings, *source.report.failures]
+    for text in [*(" ".join(entry.context) for entry in entries), caplog.text]:
+        assert "https://host.example/dbt/*/manifest.json" in text
+        assert _URL_PASSWORD not in text
+        assert _URL_SIGNATURE not in text
 
 
 def test_refused_cloud_listing_is_reported_once(tmp_path: pathlib.Path) -> None:

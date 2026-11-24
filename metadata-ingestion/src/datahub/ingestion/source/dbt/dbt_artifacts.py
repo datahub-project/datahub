@@ -35,11 +35,16 @@ def is_glob_pattern(path: str) -> bool:
 
 
 def redact_url_query(path: str) -> str:
-    """Drop an HTTP(S) URL's query string, where a presigned URL carries its signature."""
+    """Drop an HTTP(S) URL's query string, where a presigned URL carries its
+    signature, and any `user:password@` embedded in its authority."""
     if not is_http_uri(path):
         return path
     parsed = urlparse(path)
-    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+    # Split on the last "@" as urlparse does for .hostname, but keep the
+    # authority's own text so an IPv6 host stays bracketed and a malformed
+    # port cannot raise on the error path that calls this.
+    host_and_port = parsed.netloc.rpartition("@")[2]
+    return f"{parsed.scheme}://{host_and_port}{parsed.path}"
 
 
 def sibling_artifact_path(manifest_path: str, filename: str) -> str:
