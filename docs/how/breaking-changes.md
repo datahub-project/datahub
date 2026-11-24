@@ -351,6 +351,45 @@ unpublished documents that have no lifecycle stage. `semanticSearchAcrossEntitie
 it runs the semantic search template. **Action:** none, unless a client filters on
 `showInGlobalContext` and expects documents hidden from global context to stay out.
 
+### Vector search templates need OpenSearch 3.5 or later ([#21596](https://github.com/datahub-project/datahub/pull/21596))
+
+On OpenSearch before 3.5, a search that a vector search template serves from the DataHub index now
+fails instead of returning an empty page. This covers a search that names
+`urn:li:searchTemplate:semantic` or `urn:li:searchTemplate:similarity` in the `searchTemplate`
+search flag, an entity URN that `semantic` sends to `similarity`, and a custom template whose ladder
+reaches a vector rung. Before 3.5 the OpenSearch k-NN plugin can apply these searches' filter to the
+wrong documents, so they could return an empty or incomplete page, depending on the filter; a search
+of this kind that returned results before now fails too. The search fails with a server error, GMS
+logs a warning once, and the `search.template.vectorRetrieval` metric counts it as `unavailable`. It
+fails whatever the template's `onFailure` says, and the `keywordFallbackOnEmbeddingFailure` search
+flag does not turn it into keyword results. Keyword search is not affected, including the rerank of
+the shipped `fulltext` template (`keywordRerank`), and neither is semantic search
+(`semanticSearchAcrossEntities`), which already stays on its own kNN search before 3.5. A template
+that an external vector store serves is not affected either. While GMS cannot read the OpenSearch
+version, or reads a version of 7 or above, which a cluster in compatibility mode reports whatever it
+runs, these searches run as before. **Action:** to use vector templates, upgrade OpenSearch to 3.5
+or later, then restart GMS, which keeps the version it has read until it restarts.
+
+### `searchDocuments` through a vector template honors its search flags ([#21596](https://github.com/datahub-project/datahub/pull/21596))
+
+`searchDocuments` with a vector template named in the `searchTemplate` search flag now applies the
+`minSimilarity` search flag, which it ignored before, and honors
+`keywordFallbackOnEmbeddingFailure`, as `searchAcrossEntities` does: with it set, a query that
+cannot be embedded gets the keyword search results for the same request, without the named template.
+The `searchDocuments` result does not say that it fell back. A `minSimilarity` outside -1 to 1, or
+one on a template whose embedding profile is not cosine, now fails the search as a bad request
+instead of being ignored. **Action:** none, unless a client sends such a `minSimilarity`.
+
+### Search template writes reject unknown `retrieval` values ([#21596](https://github.com/datahub-project/datahub/pull/21596))
+
+Writing a search template now fails when `retrieval.total`, `retrieval.facets`, `retrieval.page`, or
+`retrieval.authorization` holds a value DataHub does not define, whether the template sets it or
+inherits it from a parent. `total` accepts `candidates` and `facets` accepts `candidateUrns`. `page`
+and `authorization` have no value yet, so any value there is rejected. No release reads these fields
+and the shipped templates set none of them, so search results do not change, and a template that
+already stores another value still loads. **Action:** if a custom template sets one of these fields to
+another value, remove it before you next write that template or a template that inherits from it.
+
 ### Parent Data Product is now checked on every API
 
 Setting a Data Product's parent through OpenAPI, Rest.li or YAML now fails if the parent doesn't exist
