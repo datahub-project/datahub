@@ -6,6 +6,7 @@
     "addDataProductError": "Det gick inte att lägga till tillgångar i dataprodukten. Ett okänt fel uppstod.",
     "addDataProductModalTitle": "Lägg till tillgångar i dataprodukten",
     "addDataProductTooltip": "Lägg till tillgångar i dataprodukten",
+    "addDataProductUnauthorized": "Du har inte behörighet att lägga till tillgångar i den här dataprodukten",
     "addDomainError": "Det gick inte att lägga till tillgångar i domänen: {{error}}",
     "addDomainModalTitle": "Lägg till tillgångar i domänen",
     "addDomainTooltip": "Lägg till tillgångar i domänen",
