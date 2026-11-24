@@ -39,7 +39,7 @@
     "menu.replaceProperty": "Replace Property",
     "properties.glossaryTerms": "Glossary Terms",
     "properties.lastModified": "Last Modified",
-    "properties.lastSynced": "Last Synced",
+    "properties.lastSynced": "Metadata Last Synced",
     "properties.semanticModel": "Semantic Model",
     "properties.terms": "Terms"
 }
