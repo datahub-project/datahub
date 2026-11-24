@@ -144,6 +144,8 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     script_tables_with_lineage: int = 0
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
     qvds_found: int = 0
+    # QVDs on connections in file_connection_to_storage, linked as storage files.
+    storage_qvds_resolved: int = 0
     # QVD paths a load script names that resolve to no single file, such as a
     # wildcard, a variable, a relative path or an unknown data connection.
     unresolved_qvd_paths: LossyList[str] = field(default_factory=LossyList)
@@ -167,6 +169,8 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     # Cloud STOREs of a table into different files from competing IF or SWITCH
     # branches, which are not linked.
     qvd_stores_in_competing_branches: LossyList[str] = field(default_factory=LossyList)
+    # Cloud STOREs linked as an edge from an app table into a file on storage.
+    file_stores_linked: int = 0
     apps_read: int = 0
     apps_skipped_unchanged: int = 0
     # Apps read again because checking whether they changed failed.
@@ -305,7 +309,7 @@ class QlikOnPremConfig(ConfigModel):
         "data, which is much faster, and table fields come only from the load "
         "script. Opening an app with its data loads it into Engine memory until "
         "the app cache time set in the QMC has passed since its last session, "
-        "reads one app at a time unless `max_workers` is set. An app whose data "
+        "and reads one app at a time unless `max_workers` is set. An app whose data "
         "can't be loaded, such as when section access denies it to the service "
         "user, is read without its data and reported.",
     )
@@ -332,10 +336,11 @@ class QlikOnPremConfig(ConfigModel):
         "holds. A mapped BINARY load links the app's tables to that app's "
         "tables of the same name, with column lineage between their fields; "
         "when the script includes other scripts, that lineage is only added "
-        "to. An unmapped one links them to the file instead, unless the script "
-        "also creates tables it doesn't name or includes other scripts, when "
-        "they get no lineage. Paths match as the "
-        "script names them, or as the file path they resolve to. Needs "
+        "to. An unmapped one links them to the file instead. When the tables "
+        "a BINARY load brings in can't be told apart, for example because the "
+        "script also creates tables it doesn't name, they are not ingested. "
+        "Paths match as the script names them, or as the file path they "
+        "resolve to. App ids match whatever their case. Needs "
         "`read_data_model`, as the load script doesn't name the tables a "
         "BINARY load brings in.",
     )
@@ -344,8 +349,10 @@ class QlikOnPremConfig(ConfigModel):
     @classmethod
     def canonical_binary_files(cls, value: Dict[str, str]) -> Dict[str, str]:
         apps: Dict[str, str] = {}
-        for path, app_id in value.items():
+        for path, written_id in value.items():
             canonical = canonical_path(path)
+            # App ids are lower-case GUIDs in QRS.
+            app_id = written_id.strip().lower()
             if apps.get(canonical, app_id) != app_id:
                 raise ValueError(
                     f"binary_file_to_app maps {path!r} to more than one app: "
