@@ -100,6 +100,19 @@ DAX_ROW_CONTEXT_ITERATOR_RE = re.compile(
 # `VAR Name =`: a variable, which may hold a table and be passed to a table
 # function, so it must not be mistaken for a model table.
 DAX_VARIABLE_RE = re.compile(r"\bVAR\s+(?P<name>[A-Za-z_]\w*)\s*=", re.IGNORECASE)
+# A whole expression, a VAR's value or the RETURN value that is a single bare
+# name, e.g. a calculated table defined as `Policies`. Such a name is a table
+# (or a variable, skipped by the caller); nothing else is a bare identifier.
+DAX_BARE_EXPRESSION_RE = re.compile(r"\s*(?P<bare>[A-Za-z_]\w*)\s*")
+DAX_BARE_VARIABLE_VALUE_RE = re.compile(
+    r"\bVAR\s+[A-Za-z_]\w*\s*=\s*(?P<bare>[A-Za-z_]\w*)\s*(?=\bVAR\b|\bRETURN\b|$)",
+    re.IGNORECASE,
+)
+DAX_BARE_RETURN_VALUE_RE = re.compile(
+    r"\bRETURN\s+(?P<bare>[A-Za-z_]\w*)\s*$", re.IGNORECASE
+)
+# Boolean literals DAX accepts without parentheses.
+DAX_BARE_LITERALS = frozenset({"true", "false"})
 
 ROW_CONTEXT_VARIABLE_PREFIX = "@"
 STRING_QUOTE = '"'
@@ -340,8 +353,20 @@ def extract_dax_references(expression: Optional[str]) -> DaxReferences:
             name = argument.strip()
             if DAX_BARE_TABLE_NAME_RE.fullmatch(name):
                 table_arguments.append((start, name))
+    whole = DAX_BARE_EXPRESSION_RE.fullmatch(masked)
+    if whole is not None:
+        table_arguments.append((whole.start("bare"), whole.group("bare")))
+    table_arguments.extend(
+        (match.start("bare"), match.group("bare"))
+        for match in (
+            *DAX_BARE_VARIABLE_VALUE_RE.finditer(masked),
+            *DAX_BARE_RETURN_VALUE_RE.finditer(masked),
+        )
+    )
     for _, name in sorted(table_arguments):
-        if name.casefold() not in variables:
+        if name.casefold() not in variables and name.casefold() not in (
+            DAX_BARE_LITERALS
+        ):
             add_table(name)
 
     references.has_row_context_iterators = bool(iterator_spans)
