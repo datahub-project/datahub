@@ -672,7 +672,7 @@ PROPERTIES_TABLE_TMDL = """table Policies
 ROLE_TMDL = """role 'Regional Managers'
 \tmodelPermission: read
 
-\ttablePermission Policies = 'Policies'[State] = "CA"
+\ttablePermission policies = 'Policies'[State] = "CA"
 
 \ttablePermission Missing = TRUE()
 
@@ -689,6 +689,7 @@ def _properties_definition() -> ItemDefinition:
             DefinitionPart("definition/roles/Regional Managers.tmdl", ROLE_TMDL),
             DefinitionPart("definition/roles/Broken.tmdl", "annotation Only = 1\n"),
         ],
+        failed_parts=["definition/roles/Undecodable.tmdl"],
     )
 
 
@@ -711,7 +712,8 @@ def test_model_properties_attach_rls_filters_and_count() -> None:
     assert table.refresh_policy == RefreshPolicy(
         rolling_window_granularity="year", rolling_window_periods="2"
     )
-    # Only the filter on a table of the model is attached; members never are.
+    # Only the filter on a table of the model is attached, matched
+    # case-insensitively (`policies` -> Policies); members never are.
     assert [(f.role, f.filter) for f in table.rls_filters] == [
         ("Regional Managers", "'Policies'[State] = \"CA\"")
     ]
@@ -722,7 +724,8 @@ def test_model_properties_attach_rls_filters_and_count() -> None:
     assert measures["Premium"] == FieldModelProperties(format_string="$#,##0")
 
     assert api.reporter.rls_roles_parsed == 1
-    assert api.reporter.tmdl_roles_failed == 1
+    # Broken.tmdl did not parse and Undecodable.tmdl did not decode.
+    assert api.reporter.tmdl_roles_failed == 2
     # The `Missing` table filter is reported, not silently dropped.
     assert api.reporter.rls_filters_unresolved == 1
     assert api.reporter.dataset_parameters_emitted == 2
