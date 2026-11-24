@@ -1440,6 +1440,39 @@ def test_composite_model_source_resolving_to_itself_is_ambiguous() -> None:
     ]
 
 
+def test_remote_table_lineage_withheld_when_source_model_unresolved() -> None:
+    # The remote table also has a model-internal edge (a measure reading
+    # another table). When its source model does not resolve this run, an
+    # aspect with only that edge would replace the composite edge stored by
+    # an earlier run, so nothing is emitted.
+    agents = Table(
+        name="Agents", full_name="Exec_Model.Agents", columns=[_column("Rate")]
+    )
+    table = _remote_table()
+    table.measures = [
+        Measure(
+            name="Avg Rate",
+            expression="AVERAGE('Agents'[Rate])",
+            isHidden=False,
+            references=[DaxFieldReference("Agents", "Rate")],
+        )
+    ]
+    _dataset([table, agents])
+
+    resolved = _composite_mapper({SOURCE_KEY: _source_model()})
+    aspect = _extract(resolved, table)
+    assert aspect is not None
+    assert [u.dataset for u in aspect.upstreams] == [
+        _urn(resolved, _source_model().tables[0]),
+        _urn(resolved, agents),
+    ]
+
+    unresolved = _composite_mapper()
+    assert _extract(unresolved, table) is None
+    assert _reporter(unresolved).model_internal_lineage_withheld == 1
+    assert _reporter(unresolved).composite_model_sources_not_ingested == 1
+
+
 def test_measure_on_a_remote_table_chains_through_the_composite_lineage() -> None:
     # A local measure reading the remote table's mirrored column keeps its
     # model-internal edge next to the composite edge on the same aspect.
