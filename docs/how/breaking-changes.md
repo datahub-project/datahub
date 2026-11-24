@@ -220,15 +220,40 @@ Rest.li and the `datahub delete` CLI. A bulk delete that removes parents and chi
 reject some parents on the first pass; run it again, or delete the children first. Rolling back an
 ingestion run is not affected.
 
-### Unrecognized environments in Spark and OpenLineage settings
+### Custom environments
 
-The Spark lineage agent and DataHub's OpenLineage endpoint no longer replace an unrecognized
-environment with a default. Before, a misspelled value such as `env = staging` (the built-in
-value is `STG`) was silently turned into `PROD`, or, for a per-connection `env`, into the job's
-environment, so lineage was recorded under the wrong environment. Now the value is used as written,
-in uppercase, and DataHub rejects the metadata if it is neither a built-in environment nor a
+DataHub can now accept environment names beyond the built-in ones (`PROD`, `DEV`, `STG` and so
+on), such as `PERF` or `EU_PROD`. Administrators register them in **Settings > Environments**, and
+assets such as datasets, ML models, containers and pipelines can then use them. See
+[Custom Environment](../generated/metamodel/entities/customFabricType.md).
+
+The feature is off by default (`CUSTOM_FABRIC_TYPES_ENABLED=false`), and nothing changes until you
+turn it on: existing metadata needs no migration or reindex, and only the built-in environments are
+accepted. Turn it on only after every GMS and consumer runs this release, and only once you won't
+roll back below it.
+
+**Rolling back:**
+
+- If the feature was never turned on, you can roll back to an earlier release as usual.
+- Once custom environments are in use, an earlier release can't read or update the assets that use
+  them, so don't roll back below this release. Turning the setting off again stops new uses, but
+  existing custom environments and the assets in them stay as they are.
+
+The Java `FabricType` enum and the Python `FabricTypeClass` still list only the built-in
+environments. If your own code reads an asset's environment through them, a custom value reads as
+`$UNKNOWN` in Java; read the value as a string instead, for example with the `getEnv()` methods of
+the Java URN classes.
+
+### Misspelled environments in Spark and OpenLineage settings now fail instead of becoming a default
+
+This is a behaviour fix. The Spark lineage agent and DataHub's OpenLineage endpoint used to replace
+an unrecognized environment with a default without saying so. A misspelled value such as
+`env = staging` (the built-in value is `STG`) silently became `PROD`, or, for a per-connection
+`env`, the job's environment, so lineage was recorded under the wrong environment and nothing
+pointed at the mistake. Now the value is used as written, in uppercase, and DataHub rejects the
+metadata with an error that names the environment if it is neither a built-in environment nor a
 registered custom environment. If lineage from Spark or OpenLineage stops appearing after the
-upgrade, check these settings for a misspelled environment:
+upgrade, check these settings for a misspelled environment and correct it:
 
 - `spark.datahub.metadata.dataset.env`
 - `spark.datahub.metadata.dataset.connections."<namespace>".env`
