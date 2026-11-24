@@ -205,7 +205,7 @@ public class UpsertStructuredPropertiesResolverTest {
   /** An empty list used to pass authorization and rewrite the current aspect. */
   @Test
   public void testEmptyInputDoesNotWrite() throws Exception {
-    EntityClient mockEntityClient = initMockEntityClient(true, null);
+    EntityClient mockEntityClient = initMockEntityClient(true, null, null);
     UpsertStructuredPropertiesResolver resolver =
         new UpsertStructuredPropertiesResolver(mockEntityClient);
     UpsertStructuredPropertiesInput empty =
