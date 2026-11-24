@@ -31,8 +31,7 @@ public class ClientWriteRecorderTest {
   }
 
   private ClientWriteRecorder recorder(int maxTrackedKeys) {
-    return new ClientWriteRecorder(
-        registry, Duration.ofHours(1), maxTrackedKeys, clock::get, summaries::add);
+    return new ClientWriteRecorder(registry, true, maxTrackedKeys, clock::get, summaries::add);
   }
 
   @Test
@@ -57,15 +56,16 @@ public class ClientWriteRecorderTest {
   }
 
   @Test
-  public void testSummaryAttributesWritesPerActorOncePerInterval() {
+  public void testFlushAttributesWritesPerActorAndRecordNeverLogs() {
     ClientWriteRecorder recorder = recorder(100);
     recorder.record(CUSTOM_CODE, "urn:li:corpuser:svc_loader", false);
     recorder.record(CUSTOM_CODE, "urn:li:corpuser:svc_loader", false);
     recorder.record(PYTHON_CLI, null, false);
-    assertTrue(summaries.isEmpty());
-
     clock.set(Duration.ofHours(1).toMillis());
     recorder.record(CUSTOM_CODE, "urn:li:corpuser:svc_loader", false);
+    assertTrue(summaries.isEmpty(), "record() must not write the summary");
+
+    recorder.flush();
 
     assertEquals(summaries.size(), 2);
     String custom =
@@ -73,15 +73,41 @@ public class ClientWriteRecorderTest {
     assertTrue(custom.startsWith(ClientWriteRecorder.SUMMARY_PREFIX));
     assertTrue(custom.contains("client=unknown"));
     assertTrue(custom.contains("count=3"));
+    assertTrue(custom.contains("window_seconds=3600"));
     assertTrue(custom.contains("user_agent=\"curl/8.4.0\""));
     assertTrue(summaries.stream().anyMatch(s -> s.contains("actor=anonymous")));
 
-    // Counts restart after a summary.
+    // Counts restart after a flush, and an empty window writes nothing.
     summaries.clear();
-    clock.set(Duration.ofHours(2).toMillis());
+    recorder.flush();
+    assertTrue(summaries.isEmpty());
     recorder.record(PYTHON_CLI, null, false);
+    recorder.flush();
     assertEquals(summaries.size(), 1);
     assertTrue(summaries.get(0).contains("count=1"));
+  }
+
+  @Test
+  public void testCloseFlushesTheFinalWindowOnce() {
+    ClientWriteRecorder recorder = recorder(100);
+    recorder.record(PYTHON_CLI, "urn:li:corpuser:a", false);
+
+    recorder.close();
+    recorder.close();
+
+    assertEquals(summaries.size(), 1);
+    assertTrue(summaries.get(0).contains("actor=urn:li:corpuser:a"));
+  }
+
+  @Test
+  public void testDisabledSummaryStillCountsTheMetric() {
+    ClientWriteRecorder recorder =
+        new ClientWriteRecorder(registry, false, 100, clock::get, summaries::add);
+    recorder.record(PYTHON_CLI, "urn:li:corpuser:a", false);
+    recorder.flush();
+
+    assertTrue(summaries.isEmpty());
+    assertEquals(registry.get(ClientWriteRecorder.METRIC_NAME).counter().count(), 1.0);
   }
 
   @Test
@@ -91,13 +117,12 @@ public class ClientWriteRecorderTest {
     recorder.record(CUSTOM_CODE, "urn:li:corpuser:b", false);
     recorder.record(CUSTOM_CODE, "urn:li:corpuser:c", false);
 
-    clock.set(Duration.ofHours(1).toMillis());
-    recorder.record(CUSTOM_CODE, "urn:li:corpuser:a", false);
+    recorder.flush();
 
     assertTrue(summaries.stream().anyMatch(s -> s.contains("untracked=2")));
     assertEquals(
         registry.get(ClientWriteRecorder.METRIC_NAME).counter().count(),
-        4.0,
+        3.0,
         "the metric counts every write, tracked or not");
   }
 

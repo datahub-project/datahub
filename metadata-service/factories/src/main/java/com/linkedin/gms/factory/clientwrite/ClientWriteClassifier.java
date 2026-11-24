@@ -29,6 +29,7 @@ public final class ClientWriteClassifier {
 
   static final String API_RESTLI = "restli";
   static final String API_OPENAPI = "openapi";
+  static final String API_GRAPHQL = "graphql";
 
   static final String CLIENT_PYTHON = "python";
   static final String CLIENT_JAVA = "java";
@@ -70,6 +71,10 @@ public final class ClientWriteClassifier {
   private ClientWriteClassifier() {}
 
   /**
+   * Classifies a Rest.li or OpenAPI request. GraphQL requests are never writes here: whether one
+   * mutates is only known once the document is parsed, so the GraphQL controller uses {@link
+   * #classifyGraphQL} instead.
+   *
    * @param method HTTP method
    * @param path request path with any GMS base path already removed
    * @param queryString raw query string, or null
@@ -86,7 +91,30 @@ public final class ClientWriteClassifier {
     if (api == null) {
       return Optional.empty();
     }
+    return Optional.of(identifyClient(api, headers));
+  }
 
+  /**
+   * Classifies a GraphQL request. Only mutations sent by the Python client (SDK, CLI or ingestion)
+   * count as writes; browser and other GraphQL traffic is left to the usage metrics.
+   *
+   * @param mutation whether the operation GMS will execute is a mutation
+   * @param headers header lookup by name, returning null when absent
+   * @return the write and its client, or empty when it is not a Python client mutation
+   */
+  @Nonnull
+  public static Optional<ClientWrite> classifyGraphQL(
+      boolean mutation, @Nonnull UnaryOperator<String> headers) {
+    if (!mutation) {
+      return Optional.empty();
+    }
+    ClientWrite write = identifyClient(API_GRAPHQL, headers);
+    return CLIENT_PYTHON.equals(write.getClient()) ? Optional.of(write) : Optional.empty();
+  }
+
+  @Nonnull
+  private static ClientWrite identifyClient(
+      @Nonnull String api, @Nonnull UnaryOperator<String> headers) {
     String userAgent = headers.apply(USER_AGENT_HEADER);
     String client;
     String rawVersion;
@@ -118,13 +146,12 @@ public final class ClientWriteClassifier {
       rawVersion = null;
     }
 
-    return Optional.of(
-        new ClientWrite(
-            api,
-            client,
-            normalizeClientMode(rawMode),
-            normalizeVersion(rawVersion),
-            sanitizeForLog(userAgent, MAX_USER_AGENT_LENGTH)));
+    return new ClientWrite(
+        api,
+        client,
+        normalizeClientMode(rawMode),
+        normalizeVersion(rawVersion),
+        sanitizeForLog(userAgent, MAX_USER_AGENT_LENGTH));
   }
 
   @Nullable

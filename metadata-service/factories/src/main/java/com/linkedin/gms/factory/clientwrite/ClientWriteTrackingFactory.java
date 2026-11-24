@@ -27,14 +27,12 @@ public class ClientWriteTrackingFactory {
     return configured != null ? configured : new ClientWriteTrackingConfiguration();
   }
 
-  @Bean
+  /** Closed on shutdown, which stops the summary thread and logs the final partial window. */
+  @Bean(destroyMethod = "close")
   @Nonnull
   public ClientWriteRecorder clientWriteRecorder(
       ClientWriteTrackingConfiguration clientWriteTrackingConfiguration,
       @Autowired(required = false) MeterRegistry meterRegistry) {
-    return new ClientWriteRecorder(
-        meterRegistry,
-        clientWriteTrackingConfiguration.getSummaryIntervalSeconds(),
-        clientWriteTrackingConfiguration.getMaxTrackedKeys());
+    return new ClientWriteRecorder(meterRegistry, clientWriteTrackingConfiguration);
   }
 }

@@ -143,4 +143,20 @@ public class ClientWriteClassifierTest {
     assertEquals(ClientWriteClassifier.normalizeClientMode("cli"), "CLI");
     assertEquals(ClientWriteClassifier.normalizeClientMode("SOMETHING"), "other");
   }
+
+  @Test
+  public void testGraphQLCountsOnlyPythonClientMutations() {
+    Map<String, String> python =
+        Map.of("X-DataHub-Py-Cli-Version", "1.7.0", "X-DataHub-Client-Mode", "SDK");
+    ClientWrite write = ClientWriteClassifier.classifyGraphQL(true, python::get).orElseThrow();
+    assertEquals(write.getApi(), "graphql");
+    assertEquals(write.getClient(), "python");
+    assertEquals(write.getClientMode(), "SDK");
+
+    assertFalse(ClientWriteClassifier.classifyGraphQL(false, python::get).isPresent());
+    Map<String, String> browser = Map.of("X-DataHub-Request-Source", "browser");
+    assertFalse(ClientWriteClassifier.classifyGraphQL(true, browser::get).isPresent());
+    Map<String, String> none = Map.of();
+    assertFalse(ClientWriteClassifier.classifyGraphQL(true, none::get).isPresent());
+  }
 }

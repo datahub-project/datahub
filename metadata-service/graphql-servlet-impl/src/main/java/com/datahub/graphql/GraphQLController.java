@@ -16,7 +16,10 @@ import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
 import com.linkedin.datahub.graphql.instrumentation.RootFieldNameInstrumentation;
+import com.linkedin.gms.factory.clientwrite.ClientWriteClassifier;
+import com.linkedin.gms.factory.clientwrite.ClientWriteRecorder;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.ClientWriteTrackingConfiguration;
 import com.linkedin.metadata.ratelimit.ClientClass;
 import com.linkedin.metadata.ratelimit.ClientClassifier;
 import com.linkedin.metadata.ratelimit.GraphqlDocumentAnalyzer;
@@ -28,6 +31,7 @@ import com.linkedin.metadata.ratelimit.model.RateLimitLease;
 import com.linkedin.metadata.usage.instrumentation.UsageMetricsSessionEnricher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
+import graphql.language.OperationDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.graphql.GraphqlUsageClassificationRegistry;
 import io.opentelemetry.api.trace.Span;
@@ -84,6 +88,12 @@ public class GraphQLController {
 
   @Autowired(required = false)
   UsageMetricsSessionEnricher usageMetricsSessionEnricher;
+
+  @Autowired(required = false)
+  ClientWriteRecorder clientWriteRecorder;
+
+  @Autowired(required = false)
+  ClientWriteTrackingConfiguration clientWriteTrackingConfiguration;
 
   @Nonnull
   @Inject
@@ -292,6 +302,8 @@ public class GraphQLController {
       return tooManyRequests(rateLimitDecision, mapper);
     }
 
+    recordClientWrite(request, documentMetadata, authentication, systemActor);
+
     SpringQueryContext context =
         new SpringQueryContext(
             true,
@@ -449,6 +461,39 @@ public class GraphQLController {
       if (!asyncStarted) {
         releaseRateLimitOnce.accept(false);
       }
+    }
+  }
+
+  /**
+   * Counts a mutation sent by the Python client (SDK, CLI or ingestion) as a metadata write, the
+   * same way the client write tracking filter counts Rest.li and OpenAPI writes. Its resolvers
+   * write in-process, so the filter never sees them. The operation kind comes from the document
+   * already analyzed for rate limiting, so the body is not parsed again. Never fails the request.
+   */
+  void recordClientWrite(
+      @Nonnull HttpServletRequest request,
+      @Nonnull GraphqlDocumentMetadata documentMetadata,
+      @Nullable Authentication authentication,
+      boolean systemActor) {
+    if (clientWriteRecorder == null
+        || clientWriteTrackingConfiguration == null
+        || !clientWriteTrackingConfiguration.isEnabled()) {
+      return;
+    }
+    try {
+      boolean mutation =
+          documentMetadata.selectedOperation().getKind() == OperationDefinition.Operation.MUTATION;
+      ClientWriteClassifier.classifyGraphQL(mutation, request::getHeader)
+          .ifPresent(
+              write ->
+                  clientWriteRecorder.record(
+                      write,
+                      authentication != null && authentication.getActor() != null
+                          ? authentication.getActor().toUrnStr()
+                          : null,
+                      systemActor));
+    } catch (RuntimeException e) {
+      log.debug("Client write tracking failed; the request continues unaffected", e);
     }
   }
 

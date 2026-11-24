@@ -11,7 +11,10 @@ public class ClientWriteTrackingConfiguration {
   /** Count write requests by client type, client version and actor. */
   private boolean enabled = true;
 
-  /** How often per-actor totals are written to the GMS log. */
+  /**
+   * How often a background thread writes per-actor totals to the GMS log. Zero or less turns the
+   * summary off; the metric is still recorded.
+   */
   private int summaryIntervalSeconds = 3600;
 
   /**

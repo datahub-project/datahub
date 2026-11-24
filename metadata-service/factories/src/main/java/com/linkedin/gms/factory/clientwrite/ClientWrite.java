@@ -5,7 +5,7 @@ import lombok.Value;
 /** A write request to GMS, with the client that sent it as identified from its headers. */
 @Value
 public class ClientWrite {
-  /** API family the write arrived on: {@code restli} or {@code openapi}. */
+  /** API family the write arrived on: {@code restli}, {@code openapi} or {@code graphql}. */
   String api;
 
   /** {@code python}, {@code java}, {@code browser}, or {@code unknown} for custom code. */
