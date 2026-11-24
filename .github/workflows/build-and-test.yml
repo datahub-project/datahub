@@ -4,7 +4,6 @@ on:
     branches:
       - master
       - releases/**
-      - hotfixes/**
     paths:
       - "**"
       - "!docs/**"
@@ -139,6 +138,10 @@ jobs:
             -x :metadata-ingestion:check \
             -x :datahub-agent-context:build \
             -x :datahub-agent-context:check \
+            -x :packages:datahub-core-mcp-tools:build \
+            -x :packages:datahub-core-mcp-tools:check \
+            -x :packages:datahub-ai-service:build \
+            -x :packages:datahub-ai-service:check \
             -x :datahub-actions:build \
             -x :datahub-actions:check \
             -x :docs-website:build \
@@ -543,6 +546,10 @@ jobs:
             -x :metadata-ingestion:check \
             -x :datahub-agent-context:build \
             -x :datahub-agent-context:check \
+            -x :packages:datahub-core-mcp-tools:build \
+            -x :packages:datahub-core-mcp-tools:check \
+            -x :packages:datahub-ai-service:build \
+            -x :packages:datahub-ai-service:check \
             -x :datahub-actions:build \
             -x :datahub-actions:check \
             -x :metadata-integration:java:acryl-spark-lineage:build \

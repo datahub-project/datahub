@@ -331,6 +331,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cache.primary.maxSize",
           "cache.primary.ttlSeconds",
           "cache.search.lineage.lightningThreshold",
+          "cache.search.lineage.partialTtlSeconds",
           "cache.search.lineage.ttlSeconds",
           // Authentication mode flags (not credentials)
           "opensearchUseAwsIamAuth",
@@ -646,6 +647,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showSeparateSiblings",
           "featureFlags.showSimplifiedHomepageByDefault",
           "featureFlags.showTestsInHealthIcon",
+          "featureFlags.mcpServerEnabled",
           "featureFlags.i18nEnabled",
           "featureFlags.timeseriesAspectBatchLoadEnabled",
           "featureFlags.timeseriesAspectAggBatchLoadEnabled",
@@ -882,6 +884,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.v3.templates.rollout.scrollEntitiesPercent",
           "elasticsearch.search.v3.templates.rollout.aggregateEntities",
           "elasticsearch.search.v3.templates.rollout.aggregateEntitiesPercent",
+          "elasticsearch.search.v3.templates.rollout.semanticSearch",
+          "elasticsearch.search.v3.templates.rollout.semanticSearchPercent",
           // Additional DataHub services and features
           "businessAttribute.fetchRelatedEntitiesBatchSize",
           "businessAttribute.fetchRelatedEntitiesCount",

@@ -136,6 +136,20 @@ public class AuthorizationUtils {
         context.getOperationContext(), DELETE, List.of(entityUrn));
   }
 
+  /**
+   * Typed delete and update resolvers authorize a type-specific privilege and then act on the URN
+   * they were given, and the entity client does not authorize deletes. They must reject URNs of any
+   * other entity type, or the narrow privilege would authorize deleting arbitrary entities.
+   */
+  public static boolean isEntityType(@Nonnull Urn urn, @Nonnull String... entityTypes) {
+    for (String entityType : entityTypes) {
+      if (entityType.equals(urn.getEntityType())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public static boolean canManageUserCredentials(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
@@ -187,6 +201,23 @@ public class AuthorizationUtils {
   }
 
   /**
+   * Structured-property value writes. Uses the shared privilege set, including the entity's update
+   * privileges, and evaluates the property URNs as sub-resources. An empty collection names no
+   * property, so it is not a wildcard and it is not a free pass: it takes the same check as {@link
+   * #canEditProperties}. The privilege flag passes the wildcard itself.
+   */
+  public static boolean canEditStructuredProperties(
+      @Nonnull Urn targetUrn,
+      @Nonnull QueryContext context,
+      @Nonnull Collection<Urn> structuredPropertyUrns) {
+    if (structuredPropertyUrns.isEmpty()) {
+      return canEditProperties(targetUrn, context, structuredPropertyUrns);
+    }
+    return AuthUtil.isAuthorizedForStructuredPropertyModification(
+        context.getOperationContext(), targetUrn, structuredPropertyUrns, UPDATE);
+  }
+
+  /**
    * Checks EDIT_ENTITY_PROPERTIES on the target, scoped to the structured properties being modified
    * so per-property privilege constraints are enforced. Callers that are not modifying structured
    * properties must pass an empty collection explicitly.
@@ -235,11 +266,16 @@ public class AuthorizationUtils {
                 ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType()))));
-    return entityUrns.stream()
-        .allMatch(
-            entityUrn ->
-                isAuthorized(
-                    context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups));
+    // allMatch is vacuously true for an empty list.
+    return !entityUrns.isEmpty()
+        && entityUrns.stream()
+            .allMatch(
+                entityUrn ->
+                    isAuthorized(
+                        context,
+                        entityUrn.getEntityType(),
+                        entityUrn.toString(),
+                        orPrivilegeGroups));
   }
 
   public static boolean canCreateQuery(
@@ -248,14 +284,38 @@ public class AuthorizationUtils {
     return canEditEntityQueries(subjectUrns, context);
   }
 
+  /**
+   * @param newSubjectUrns the subjects the update sets, or null when it leaves them unchanged
+   */
   public static boolean canUpdateQuery(
-      @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
+      @Nonnull Urn queryUrn,
+      @Nonnull List<Urn> currentSubjectUrns,
+      @Nullable List<Urn> newSubjectUrns,
+      @Nonnull QueryContext context) {
+    final List<Urn> resultingSubjectUrns =
+        newSubjectUrns != null ? newSubjectUrns : currentSubjectUrns;
+    // A query left without subjects has no entity to authorize against, and only Delete Entity can
+    // remove it afterwards. Updates that leave it that way need the same privilege as deleting it.
+    if (resultingSubjectUrns.isEmpty()) {
+      return canDeleteEntity(queryUrn, context);
+    }
     // Currently - you only need permission to edit an entity's queries to update any query.
-    return canEditEntityQueries(subjectUrns, context);
+    final List<Urn> impactedSubjectUrns = new ArrayList<>(currentSubjectUrns);
+    if (newSubjectUrns != null) {
+      impactedSubjectUrns.addAll(newSubjectUrns);
+    }
+    return canEditEntityQueries(impactedSubjectUrns, context);
   }
 
   public static boolean canDeleteQuery(
       @Nonnull Urn entityUrn, @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
+    if (!isEntityType(entityUrn, QUERY_ENTITY_NAME)) {
+      return false;
+    }
+    // A query without subjects has no entity to authorize against.
+    if (subjectUrns.isEmpty()) {
+      return canDeleteEntity(entityUrn, context);
+    }
     // Currently - you only need permission to edit an entity's queries to remove any query.
     return canEditEntityQueries(subjectUrns, context);
   }

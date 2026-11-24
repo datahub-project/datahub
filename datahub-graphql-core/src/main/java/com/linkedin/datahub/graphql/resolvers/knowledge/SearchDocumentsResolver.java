@@ -122,6 +122,11 @@ public class SearchDocumentsResolver
             Filter filter =
                 DocumentSearchFilterUtils.buildCombinedFilter(
                     baseUserCriteria, userAndGroupUrns, true, canManageDocuments, requestedStates);
+            // A similarity anchor the query names must be a document these results could show:
+            // the visibility rule on its own, without the caller's criteria, states, or view
+            final Filter anchorFilter =
+                DocumentSearchFilterUtils.buildCombinedFilter(
+                    Collections.emptyList(), userAndGroupUrns, true, canManageDocuments);
 
             if (input.getViewUrn() != null) {
               final DataHubViewInfo resolvedView =
@@ -156,7 +161,7 @@ public class SearchDocumentsResolver
             try {
               gmsResult =
                   _documentService.searchDocuments(
-                      context.getOperationContext(),
+                      context.getOperationContext().withAnchorFilter(anchorFilter),
                       query,
                       filter,
                       sortCriterion,

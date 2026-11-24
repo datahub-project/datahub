@@ -14,6 +14,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadataArray;
+import com.linkedin.metadata.search.QueryEmbeddingException;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -29,9 +30,11 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateF
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateVectorRetrieval;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateWalk;
 import com.linkedin.metadata.search.embedding.EmbeddingProfile;
+import com.linkedin.metadata.search.embedding.EmbeddingThrottledException;
 import com.linkedin.metadata.search.embedding.VectorStore;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
@@ -42,7 +45,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.opentelemetry.context.Context;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -109,10 +111,12 @@ final class TemplateVectorSearch {
   /**
    * One walk attempt for a vector rung. No eligible entity type is an empty page. A failed
    * embedding, store, hydration, or facet request follows the rung's {@code onFailure}: {@code
-   * next} returns the failure to the ladder, and anything else fails the search. A store with no
-   * adapter, or a caller filter on a store without preFilter, fails closed. Similarity checks its
-   * anchor first, so an anchor it cannot use fails the search even when no requested type is
-   * eligible.
+   * next} returns the failure to the ladder, and anything else fails the search. On the semantic
+   * search surface it always fails the search, and a failed embedding is a {@link
+   * QueryEmbeddingException} with its reason. A store with no adapter, or a caller filter on a
+   * store without preFilter, fails closed. Similarity checks its anchor first, so an anchor it
+   * cannot use fails the search even when no requested type is eligible. A caller floor out of
+   * range fails as a bad request before either.
    */
   @Nonnull
   SearchTemplateWalk.AttemptResult<SearchResult> attempt(
@@ -124,6 +128,7 @@ final class TemplateVectorSearch {
       int from,
       @Nullable Integer size,
       @Nonnull List<String> facets) {
+    requireCallerFloorInRange(opContext, template);
     final SearchTemplateGates gates = SearchTemplateRuntimes.coordinator(opContext).gates();
     final ResolvedSearchTemplate resolved =
         opContext.getSearchContext().getResolvedSearchTemplate();
@@ -183,8 +188,11 @@ final class TemplateVectorSearch {
       // scope assigns candidate types only, so it does not apply to the anchor.
       final Set<String> anchorProfiles = gates.profileIds(template, anchor.getEntityType(), system);
       if (anchorProfiles.size() != 1) {
-        throw SearchTemplateVectorRetrieval.noAnchor(
-            opContext, template, anchor + " has no embedding profile to search with");
+        throw SearchTemplateVectorRetrieval.anchorWithoutProfile(
+            opContext,
+            template,
+            anchor,
+            gates.anchorProfileFailure(template, anchor.getEntityType(), system));
       }
       profile = anchorProfiles.iterator().next();
       anchorVectors = anchorVectors(opContext, template, store, anchor, profile, deadlineNanos);
@@ -249,6 +257,8 @@ final class TemplateVectorSearch {
               + ", which has no adapter in this process");
     }
     requirePreFilter(opContext, template, system, store, postFilters);
+    requireCosineForCallerFloor(
+        opContext, template, gates, anchor == null ? embedding.getModelEmbeddingKey() : profile);
     try {
       return retrieve(
           opContext,
@@ -275,8 +285,10 @@ final class TemplateVectorSearch {
           e instanceof RuntimeException runtime
               ? runtime
               : new ESQueryException("Vector retrieval failed", e);
-      // Similarity has no other rung to serve its neighbors, so it always fails
+      // Similarity has no other rung to serve its neighbors, so it always fails. Semantic search
+      // serves only a vector rung, so it fails there too, and the caller decides any fallback.
       if (anchor == null
+          && !SearchTemplateSurfaces.semantic(opContext)
           && SearchTemplateCapabilities.ON_FAILURE_NEXT.equals(
               template.getRetrieval().getOnFailure())) {
         // The next rung's page must not be cached, or the next search skips this rung
@@ -356,11 +368,14 @@ final class TemplateVectorSearch {
               deadlineNanos);
       candidates = hits.size();
     } else {
-      final float[] vector = embedding.embed(input, deadlineNanos).vector();
+      final float[] vector = queryVector(embedding, input, deadlineNanos);
       final long remainingNanos = deadlineNanos - System.nanoTime();
       if (remainingNanos <= 0) {
-        throw new UncheckedTimeoutException(
-            "The vector retrieval deadline passed before the kNN call");
+        // The embedding answered after the deadline, so the query embedding timed out
+        throw new QueryEmbeddingException(
+            QueryEmbeddingException.TIMEOUT,
+            new UncheckedTimeoutException(
+                "The vector retrieval deadline passed before the kNN call"));
       }
       final VectorStore.Request request =
           new VectorStore.Request(profileId, vector, k, searched, storeFilter);
@@ -380,14 +395,21 @@ final class TemplateVectorSearch {
     final Float inheritedFloor = templateFloor == null ? gates.minSimilarity(template) : null;
     final EmbeddingProfile profile = gates.profiles().profile(profileId);
     final boolean cosine = profile != null && profile.cosine();
-    final Float minSimilarity =
+    final Float floorInEffect =
         templateFloor != null ? templateFloor : cosine ? inheritedFloor : null;
     if (inheritedFloor != null && !cosine) {
       explanation.setMinSimilaritySkipped(SearchTemplateVectorRetrieval.PROFILE_NOT_COSINE);
     }
+    // The caller's floor may raise the one in effect and never lowers it
+    final Float callerFloor = flags.hasMinSimilarity() ? flags.getMinSimilarity() : null;
+    final Float minSimilarity =
+        callerFloor == null || (floorInEffect != null && floorInEffect >= callerFloor)
+            ? floorInEffect
+            : callerFloor;
     final Float minScore = flags.hasMinScore() ? flags.getMinScore() : null;
     final List<Neighbor> kept = new ArrayList<>();
     int belowMinSimilarity = 0;
+    int belowCallerMinSimilarity = 0;
     int belowMinScore = 0;
     for (Neighbor hit : hits) {
       // Compared as floats, so a hit at the floor is kept
@@ -395,6 +417,11 @@ final class TemplateVectorSearch {
           minSimilarity != null && (float) hit.similarity() < minSimilarity;
       final boolean underScore = minScore != null && (float) hit.score() < minScore;
       belowMinSimilarity += underSimilarity ? 1 : 0;
+      // Dropped only because the caller raised the floor
+      belowCallerMinSimilarity +=
+          underSimilarity && (floorInEffect == null || (float) hit.similarity() >= floorInEffect)
+              ? 1
+              : 0;
       belowMinScore += underScore ? 1 : 0;
       if (!underSimilarity && !underScore) {
         kept.add(hit);
@@ -440,7 +467,9 @@ final class TemplateVectorSearch {
         .setK(k)
         .setCandidates(candidates)
         .setMinSimilarity(minSimilarity, SetMode.IGNORE_NULL)
+        .setCallerMinSimilarity(callerFloor, SetMode.IGNORE_NULL)
         .setBelowMinSimilarity(belowMinSimilarity)
+        .setBelowCallerMinSimilarity(belowCallerMinSimilarity)
         .setBelowMinScore(belowMinScore)
         .setFilterInVectorSearch(preFilter);
     return page(opContext, explanation, survivors, aggregations, from, pageSize);
@@ -583,18 +612,18 @@ final class TemplateVectorSearch {
     }
   }
 
-  /** The anchor URN, the whole trimmed query. A query that is not a URN fails the search. */
+  /** The anchor URN the query names, read as bind reads it. A query that is not a URN fails. */
   @Nonnull
   private static Urn anchor(
       @Nonnull OperationContext opContext,
       @Nonnull MergedSearchTemplate template,
       @Nonnull String input) {
-    try {
-      return Urn.createFromString(input.trim());
-    } catch (URISyntaxException e) {
+    final Urn anchor = SearchTemplateVectorRetrieval.anchorUrn(input);
+    if (anchor == null) {
       throw SearchTemplateVectorRetrieval.noAnchor(
           opContext, template, "the query is not an entity URN");
     }
+    return anchor;
   }
 
   /**
@@ -714,6 +743,12 @@ final class TemplateVectorSearch {
     final SearchResultMetadata metadata = new SearchResultMetadata().setAggregations(aggregations);
     if (Boolean.TRUE.equals(opContext.getSearchContext().getSearchFlags().isIncludeExplain())) {
       metadata.setVectorRetrieval(explanation);
+      // The templates the route walk visited, as a keyword page reports them
+      final ResolvedSearchTemplate resolved =
+          opContext.getSearchContext().getResolvedSearchTemplate();
+      if (resolved != null && !resolved.getRouteChain().isEmpty()) {
+        metadata.setRouteChain(new StringArray(resolved.getRouteChain()));
+      }
     }
     final SearchResult result =
         new SearchResult()
@@ -916,6 +951,75 @@ final class TemplateVectorSearch {
   private Map<String, VectorStoreConfiguration> stores() {
     return SearchTemplateVectorRetrieval.stores(
         dao.searchConfiguration.getEntityIndex().getSemanticSearch());
+  }
+
+  /**
+   * The query's vector. A failure is typed by reason: one the provider throttled is rejected, one
+   * that ended at the search's deadline timed out, as keywordRerank counts it, any other failed,
+   * and one the embedding service typed keeps its reason.
+   */
+  @Nonnull
+  private static float[] queryVector(
+      @Nonnull HybridQueryEmbeddingService embedding, @Nonnull String input, long deadlineNanos) {
+    try {
+      return embedding.embed(input, deadlineNanos).vector();
+    } catch (QueryEmbeddingException e) {
+      throw e;
+    } catch (EmbeddingThrottledException e) {
+      throw new QueryEmbeddingException(QueryEmbeddingException.REJECTED, e);
+    } catch (RuntimeException e) {
+      throw new QueryEmbeddingException(
+          e instanceof UncheckedTimeoutException || System.nanoTime() - deadlineNanos >= 0
+              ? QueryEmbeddingException.TIMEOUT
+              : QueryEmbeddingException.FAILED,
+          e);
+    }
+  }
+
+  /**
+   * {@code SearchFlags.minSimilarity} is a raw cosine from -1 to 1. Out of range, the search fails
+   * as a bad request, also from a parallel group, before any eligibility or store check.
+   */
+  private static void requireCallerFloorInRange(
+      @Nonnull OperationContext opContext, @Nonnull MergedSearchTemplate template) {
+    final SearchFlags flags = opContext.getSearchContext().getSearchFlags();
+    if (flags.hasMinSimilarity()
+        && !(flags.getMinSimilarity() >= -1f && flags.getMinSimilarity() <= 1f)) {
+      throw callerFloorRejected(
+          template,
+          "SearchFlags.minSimilarity must be a raw cosine from -1 to 1: "
+              + flags.getMinSimilarity());
+    }
+  }
+
+  /**
+   * A profile whose metric is not cosine rejects the caller's floor, as it rejects a template
+   * floor. Checked once the rung knows its profile.
+   */
+  private static void requireCosineForCallerFloor(
+      @Nonnull OperationContext opContext,
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull SearchTemplateGates gates,
+      @Nonnull String profileId) {
+    if (!opContext.getSearchContext().getSearchFlags().hasMinSimilarity()) {
+      return;
+    }
+    final EmbeddingProfile profile = gates.profiles().profile(profileId);
+    if (profile == null || !profile.cosine()) {
+      throw callerFloorRejected(
+          template,
+          "SearchFlags.minSimilarity is a raw cosine, and embedding profile "
+              + profileId
+              + " is not cosine");
+    }
+  }
+
+  @Nonnull
+  private static SearchTemplateFailClosedException callerFloorRejected(
+      @Nonnull MergedSearchTemplate template, @Nonnull String rejection) {
+    return new SearchTemplateFailClosedException(
+        "Search template " + template.getUrn() + " cannot apply the caller's floor",
+        new IllegalArgumentException(rejection));
   }
 
   /**

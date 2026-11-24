@@ -507,11 +507,6 @@ module.exports = {
               id: "docs/managed-datahub/observe/data-health-dashboard",
               className: "saasOnly",
             },
-            {
-              label: "Data Contracts",
-              type: "doc",
-              id: "docs/managed-datahub/observe/data-contract",
-            },
           ],
         },
         {
@@ -801,6 +796,32 @@ module.exports = {
               label: "Home Page",
               type: "doc",
               id: "docs/features/feature-guides/custom-home-page",
+            },
+            {
+              label: "Grouping Lineage by Lens",
+              type: "category",
+              className: "saasOnly",
+              link: {
+                type: "doc",
+                id: "docs/features/feature-guides/lineage-group-by/overview",
+              },
+              items: [
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/lineage-group-by/using-group-by",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/lineage-group-by/filtering-grouped-lineage",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/lineage-group-by/custom-lenses",
+                  className: "saasOnly",
+                },
+              ],
             },
             {
               label: "Service Catalog",
@@ -1577,7 +1598,6 @@ module.exports = {
         "docs/api/tutorials/sdk/bulk-assertions-sdk",
         "docs/api/tutorials/incidents",
         "docs/api/tutorials/operations",
-        "docs/api/tutorials/data-contracts",
         "docs/api/tutorials/domains",
         "docs/api/tutorials/forms",
         "docs/api/tutorials/lineage",

@@ -99,4 +99,25 @@ public class DeleteApplicationResolverTest {
     Mockito.verify(mockApplicationService, Mockito.never())
         .deleteApplicationThenReferences(any(), any());
   }
+
+  @Test
+  public void testGetFailureNonApplicationUrn() throws Exception {
+    Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)");
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(datasetUrn.toString());
+    Mockito.when(mockApplicationService.verifyEntityExists(any(), eq(datasetUrn))).thenReturn(true);
+
+    // The allow-all context would pass a privilege check, so only the type check can stop this.
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verify(mockApplicationService, Mockito.never())
+        .deleteApplicationThenReferences(any(), any());
+  }
+
+  @Test
+  public void testUnauthorizedCallerCannotProbeExistence() throws Exception {
+    QueryContext mockDenyContext = getMockDenyContext();
+    Mockito.when(mockEnv.getContext()).thenReturn(mockDenyContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verify(mockApplicationService, Mockito.never()).verifyEntityExists(any(), any());
+  }
 }

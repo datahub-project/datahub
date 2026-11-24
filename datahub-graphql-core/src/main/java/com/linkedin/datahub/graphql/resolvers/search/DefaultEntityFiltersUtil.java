@@ -125,7 +125,8 @@ public class DefaultEntityFiltersUtil {
    *
    * @param baseFilter The existing filter to combine with default filters (can be null)
    * @param entityTypes List of entity type names being searched
-   * @param applyShowInGlobalContext Whether to filter out showInGlobalContext=false documents
+   * @param applyShowInGlobalContext Whether to filter out showInGlobalContext=false documents. A
+   *     branch of the base filter that filters on showInGlobalContext itself is not filtered.
    * @param canManageDocuments When true, unpublished documents are not filtered out (for users with
    *     MANAGE_DOCUMENTS privilege). DRAFT documents remain excluded regardless.
    * @return The combined filter with default entity filters applied
@@ -150,7 +151,30 @@ public class DefaultEntityFiltersUtil {
       return documentDefaults;
     }
 
-    return FilterUtils.combineFilters(baseFilter, documentDefaults);
+    // Placement is not an access rule, so a caller branch that filters on showInGlobalContext gets
+    // the defaults without the placement clause. A filter on state or lifecycleStage lifts nothing,
+    // since the published-document default controls who sees unpublished documents.
+    Filter withoutPlacement = buildDocumentDefaultFilter(false, canManageDocuments);
+    List<ConjunctiveCriterion> combined = new ArrayList<>();
+    for (ConjunctiveCriterion branch : baseFilter.getOr()) {
+      combined.addAll(
+          FilterUtils.combineFilters(
+                  new Filter().setOr(new ConjunctiveCriterionArray(branch)),
+                  filtersOnPlacement(branch) ? withoutPlacement : documentDefaults)
+              .getOr());
+    }
+    return new Filter().setOr(new ConjunctiveCriterionArray(combined));
+  }
+
+  /** Whether a caller branch filters on showInGlobalContext, by the field or its keyword. */
+  private static boolean filtersOnPlacement(@Nonnull ConjunctiveCriterion branch) {
+    for (Criterion criterion : branch.getAnd()) {
+      String field = criterion.getField();
+      if ("showInGlobalContext".equals(field) || "showInGlobalContext.keyword".equals(field)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -181,6 +205,35 @@ public class DefaultEntityFiltersUtil {
             && AuthorizationUtils.canManageDocuments(context);
     return addDefaultEntityFilters(baseFilter, entityTypes, true, canManageDocs);
   }
+
+  /**
+   * A cross-entity search's filters from one manage-documents check: the request filter with the
+   * default entity filters added, as {@link #applyDefaultEntityFilters} adds them, and the anchor
+   * filter, the document defaults on their own. Search resolvers record the anchor filter on the
+   * search context for a similarity anchor to pass, whatever types the request searches: a request
+   * without documents adds no defaults but can still name a document as its anchor. When the
+   * request sets {@code includeHiddenLifecycleStages}, the request filter is left as it is and the
+   * anchor filter is null. The rule is written for documents, the only entity type that can anchor
+   * a similarity search in this build; an anchor of another type would be held to it too, so it
+   * needs a per-type branch before another type can anchor.
+   */
+  @Nonnull
+  public static SearchFilters searchFilters(
+      @Nullable Filter baseFilter,
+      @Nonnull List<String> entityTypes,
+      @Nullable SearchFlags searchFlags,
+      @Nonnull QueryContext context) {
+    if (searchFlags != null && Boolean.TRUE.equals(searchFlags.isIncludeHiddenLifecycleStages())) {
+      return new SearchFilters(baseFilter, null);
+    }
+    final boolean canManageDocuments = AuthorizationUtils.canManageDocuments(context);
+    return new SearchFilters(
+        addDefaultEntityFilters(baseFilter, entityTypes, true, canManageDocuments),
+        addDefaultEntityFilters(null, List.of(DOCUMENT_ENTITY_NAME), true, canManageDocuments));
+  }
+
+  /** A search's request filter and the anchor filter it records, from {@link #searchFilters}. */
+  public record SearchFilters(@Nullable Filter filter, @Nullable Filter anchorFilter) {}
 
   /** Field names from caller-owned optional OR branches. */
   @Nonnull

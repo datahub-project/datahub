@@ -10,6 +10,9 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.entity.GraphReferenceLimitExceededException;
 import com.linkedin.metadata.graph.LineageTimeoutException;
+import com.linkedin.metadata.search.QueryEmbeddingException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
 import com.linkedin.metadata.service.async.delete.PartialHardDeleteException;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
@@ -643,6 +646,65 @@ public class DataHubDataFetcherExceptionHandlerTest {
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
     assertTrue(error.getMessage().contains("Slice 0 timed out"));
     assertEquals(error.getErrorCode(), 504);
+  }
+
+  @Test
+  public void testHandleQueryEmbeddingExceptionByReason()
+      throws ExecutionException, InterruptedException {
+    // As a resolver that wraps every failure reports a search template's vector rung that could
+    // not embed the query, e.g. aggregateAcrossEntities naming the semantic template
+    assertEquals(
+        errorFor(embeddingFailure(QueryEmbeddingException.TIMEOUT, null)).getErrorCode(), 504);
+    DataHubGraphQLError throttled =
+        errorFor(embeddingFailure(QueryEmbeddingException.REJECTED, null));
+    assertEquals(throttled.getErrorCode(), 503);
+    assertTrue(throttled.getMessage().contains(QueryEmbeddingException.REJECTED));
+    // A provider's own invalid argument is not the caller's
+    assertEquals(
+        errorFor(
+                embeddingFailure(
+                    QueryEmbeddingException.FAILED,
+                    new IllegalArgumentException("Illegal character in path")))
+            .getErrorCode(),
+        500);
+  }
+
+  @Test
+  public void testHandleSearchTemplateNoAnchorExceptionAsBadRequest()
+      throws ExecutionException, InterruptedException {
+    // A similarity search whose anchor the request cannot use, as a resolver that wraps every
+    // failure reports it
+    SearchTemplateNoAnchorException noAnchor =
+        new SearchTemplateNoAnchorException(
+            "Search template urn:li:searchTemplate:similarity finds similar entities, and the query"
+                + " is not an entity URN");
+    DataHubGraphQLError error =
+        errorFor(new RuntimeException("Failed to search documents", noAnchor));
+
+    assertEquals(error.getErrorCode(), 400);
+    assertTrue(error.getMessage().contains("the query is not an entity URN"));
+    // Ahead of the DataHubGraphQLException branch: a typed server error that carries the unusable
+    // anchor, as a failed keyword fallback does, is the caller's error too
+    assertEquals(
+        errorFor(
+                new DataHubGraphQLException(
+                    "Search failed", DataHubGraphQLErrorCode.SERVER_ERROR, noAnchor))
+            .getErrorCode(),
+        400);
+  }
+
+  private DataHubGraphQLError errorFor(Throwable exception)
+      throws ExecutionException, InterruptedException {
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+    return (DataHubGraphQLError) handler.handleException(mockParameters).get().getErrors().get(0);
+  }
+
+  private static RuntimeException embeddingFailure(String reason, Throwable cause) {
+    return new RuntimeException(
+        "Failed to execute aggregate across entities",
+        new SearchTemplateFailClosedException(
+            "Search template urn:li:searchTemplate:semantic failed to retrieve by vector",
+            new QueryEmbeddingException(reason, cause)));
   }
 
   private static BatchItem mockBatchItem() {
