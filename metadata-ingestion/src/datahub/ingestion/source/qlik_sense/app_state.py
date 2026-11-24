@@ -114,6 +114,9 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
         last = self._trusted_last_apps()
         return last.get(app_id) if last is not None else None
 
+    def previous_apps(self) -> Dict[str, AppCheckpoint]:
+        return self._trusted_last_apps() or {}
+
     def keep_unrecorded_apps(self) -> None:
         """Carries the last read of every app this run did not record into its
         checkpoint. A failed run may not reach every app, and without this its
