@@ -20,11 +20,19 @@ import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.graph.EdgeDiff;
 import com.linkedin.metadata.graph.GraphIndexUtils;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -36,6 +44,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -107,20 +116,15 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
    * that value and this version can't validate it (e.g. an enum symbol only the newer version
    * defines). {@code unvalidatedPrevious} is that value as deserialized here, or null if it can't
    * be; only its urns are read. An upsert diffs against it, or replaces the edges of the new
-   * value's relationship types when it is null. A delete removes its edges.
+   * value's relationship types when it is null. A delete removes its edges. As for any upsert, the
+   * edges to entity types this version doesn't know are left as they are (see {@link
+   * #handleUpdateChangeEvent}).
    */
   public void handleChangeEventWithUnvalidatedPrevious(
       @Nonnull OperationContext opContext,
       @Nonnull final MetadataChangeLog event,
       @Nullable final RecordTemplate unvalidatedPrevious) {
     MCLItemImpl mclItem = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
-    if (unvalidatedPrevious != null && UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
-      // As building an item does with a valid previous value: the new value no longer holds
-      // references to entity types this version doesn't know, so the diff must not see them in the
-      // previous value either, or it deletes the newer version's edges. A delete removes the
-      // previous value in full.
-      handling().stripUnknownReferences(unvalidatedPrevious, opContext.getEntityRegistry());
-    }
     handleItem(opContext, mclItem, unvalidatedPrevious, unvalidatedPrevious != null);
   }
 
@@ -190,6 +194,32 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
 
     RecordTemplate aspect = event.getRecordTemplate();
 
+    // With entity tolerance on, edges to entity types this version doesn't know (written by a
+    // newer version) are left as they are (see knownDestinations). Building the item removed the
+    // references to those types, whole list elements with them, so for an aspect whose MCL still
+    // holds such references the graph is computed from the MCL's value instead: the known edges
+    // of those elements are kept, added and removed like any other. Restore indices sends values
+    // already stripped on read, so the edges to unknown types are kept even when the MCL holds
+    // none of them.
+    final EntityRegistry registry = opContext.getEntityRegistry();
+    final boolean leaveUnknownDestinations = handling().toleratesUnknownEntityAspect();
+    RecordTemplate graphAspect = aspect;
+    RecordTemplate graphPrevious = previousAspect;
+    if (leaveUnknownDestinations) {
+      final RecordTemplate storedAspect =
+          asStored(event.getMetadataChangeLog().getAspect(), aspectSpec, aspect);
+      final RecordTemplate storedPrevious =
+          event.getMetadataChangeLog().hasPreviousAspectValue()
+              ? asStored(
+                  event.getMetadataChangeLog().getPreviousAspectValue(), aspectSpec, previousAspect)
+              : previousAspect;
+      if (referencesUnknownEntityType(storedAspect, registry)
+          || referencesUnknownEntityType(storedPrevious, registry)) {
+        graphAspect = storedAspect;
+        graphPrevious = storedPrevious;
+      }
+    }
+
     // For all aspects, attempt to update Graph
     SystemMetadata systemMetadata = event.getSystemMetadata();
     if (graphDiffMode
@@ -198,9 +228,21 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
             || systemMetadata.getProperties() == null
             || !Boolean.parseBoolean(systemMetadata.getProperties().get(FORCE_INDEXING_KEY)))) {
       updateGraphServiceDiff(
-          opContext, urn, aspectSpec, previousAspect, aspect, event.getMetadataChangeLog());
+          opContext,
+          urn,
+          aspectSpec,
+          graphPrevious,
+          graphAspect,
+          event.getMetadataChangeLog(),
+          leaveUnknownDestinations);
     } else {
-      updateGraphService(opContext, urn, aspectSpec, aspect, event.getMetadataChangeLog());
+      updateGraphService(
+          opContext,
+          urn,
+          aspectSpec,
+          graphAspect,
+          event.getMetadataChangeLog(),
+          leaveUnknownDestinations);
     }
   }
 
@@ -243,13 +285,20 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     }
   }
 
-  /** Process snapshot and update graph index */
+  /**
+   * Process snapshot and update graph index
+   *
+   * @param leaveUnknownDestinations when true, edges to entity types this version doesn't know are
+   *     neither removed nor added
+   */
   private void updateGraphService(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final AspectSpec aspectSpec,
       @Nonnull final RecordTemplate aspect,
-      @Nonnull final MetadataChangeLog event) {
+      @Nonnull final MetadataChangeLog event,
+      final boolean leaveUnknownDestinations) {
+    final EntityRegistry registry = opContext.getEntityRegistry();
     Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
         GraphIndexUtils.getEdgesAndRelationshipTypesFromAspect(
             urn,
@@ -258,11 +307,16 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
             event,
             true,
             fineGrainedLineageNotAllowedForPlatforms,
-            opContext.getEntityRegistry());
+            registry);
 
-    final List<Edge> edgesToAdd = edgeAndRelationTypes.getFirst();
+    final List<Edge> edgesToAdd =
+        knownDestinations(edgeAndRelationTypes.getFirst(), leaveUnknownDestinations, registry);
     final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded =
         edgeAndRelationTypes.getSecond();
+    final Filter destinationFilter =
+        leaveUnknownDestinations
+            ? knownDestinationTypes(registry, edgesToAdd)
+            : new Filter().setOr(new ConjunctiveCriterionArray());
 
     log.debug("Here's the relationship types found {}", urnToRelationshipTypesBeingAdded);
     if (!urnToRelationshipTypesBeingAdded.isEmpty()) {
@@ -271,9 +325,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
             opContext,
             entry.getKey(),
             entry.getValue(),
-            newRelationshipFilter(
-                new Filter().setOr(new ConjunctiveCriterionArray()),
-                RelationshipDirection.OUTGOING));
+            newRelationshipFilter(destinationFilter, RelationshipDirection.OUTGOING));
       }
       edgesToAdd.forEach(edge -> graphService.addEdge(opContext, edge));
     }
@@ -285,7 +337,9 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
       @Nonnull final AspectSpec aspectSpec,
       @Nullable final RecordTemplate oldAspect,
       @Nonnull final RecordTemplate newAspect,
-      @Nonnull final MetadataChangeLog event) {
+      @Nonnull final MetadataChangeLog event,
+      final boolean leaveUnknownDestinations) {
+    final EntityRegistry registry = opContext.getEntityRegistry();
     EdgeDiff edgeDiff =
         GraphIndexUtils.computeAspectEdgeDiff(
             urn,
@@ -294,16 +348,19 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
             newAspect,
             event,
             fineGrainedLineageNotAllowedForPlatforms,
-            opContext.getEntityRegistry());
+            registry);
 
     // Edges to add
-    final List<Edge> additiveDifference = edgeDiff.getEdgesToAdd();
+    final List<Edge> additiveDifference =
+        knownDestinations(edgeDiff.getEdgesToAdd(), leaveUnknownDestinations, registry);
 
     // Edges to remove
-    final List<Edge> subtractiveDifference = edgeDiff.getEdgesToRemove();
+    final List<Edge> subtractiveDifference =
+        knownDestinations(edgeDiff.getEdgesToRemove(), leaveUnknownDestinations, registry);
 
     // Edges to update
-    final List<Edge> mergedEdges = edgeDiff.getEdgesToUpdate();
+    final List<Edge> mergedEdges =
+        knownDestinations(edgeDiff.getEdgesToUpdate(), leaveUnknownDestinations, registry);
 
     // Remove any old edges that no longer exist first
     if (!subtractiveDifference.isEmpty()) {
@@ -342,6 +399,77 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
                   metricUtils.increment(
                       this.getClass(), GRAPH_DIFF_MODE_UPDATE_METRIC, mergedEdges.size()));
     }
+  }
+
+  /**
+   * The aspect as stored, read from the MCL; {@code fallback} when there is none or it's
+   * unreadable.
+   */
+  private static RecordTemplate asStored(
+      @Nullable final GenericAspect stored,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nullable final RecordTemplate fallback) {
+    if (stored == null) {
+      return fallback;
+    }
+    try {
+      return GenericRecordUtils.deserializeAspect(
+          stored.getValue(), stored.getContentType(), aspectSpec);
+    } catch (RuntimeException unreadable) {
+      return fallback;
+    }
+  }
+
+  /**
+   * The edges, without those whose destination's entity type this version doesn't know when {@code
+   * leaveUnknownDestinations}. Only the destination's own type is checked, as {@link
+   * #knownDestinationTypes} does for a delete.
+   */
+  private static List<Edge> knownDestinations(
+      @Nonnull final List<Edge> edges,
+      final boolean leaveUnknownDestinations,
+      @Nonnull final EntityRegistry registry) {
+    if (!leaveUnknownDestinations) {
+      return edges;
+    }
+    return edges.stream()
+        .filter(edge -> registry.findEntitySpec(edge.getDestination().getEntityType()).isPresent())
+        .toList();
+  }
+
+  /**
+   * Matches edges whose destination's entity type this version knows. The match on the stored type
+   * is exact while registry lookups ignore case, so each type is matched as the registry names it
+   * and in lower case, and the types of {@code edges} as they are spelled in their urns. An edge to
+   * a known type spelled in another case, and no longer in the aspect, isn't matched.
+   */
+  private static Filter knownDestinationTypes(
+      @Nonnull final EntityRegistry registry, @Nonnull final List<Edge> edges) {
+    final Set<String> types = new TreeSet<>();
+    registry
+        .getEntitySpecs()
+        .values()
+        .forEach(
+            spec -> {
+              types.add(spec.getName());
+              types.add(spec.getName().toLowerCase());
+            });
+    edges.forEach(edge -> types.add(edge.getDestination().getEntityType()));
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                new ConjunctiveCriterion()
+                    .setAnd(
+                        new CriterionArray(
+                            CriterionUtils.buildCriterion(
+                                GraphQueryConstants.DESTINATION + ".entityType",
+                                Condition.EQUAL,
+                                types)))));
+  }
+
+  private static boolean referencesUnknownEntityType(
+      @Nullable final RecordTemplate aspect, @Nonnull final EntityRegistry registry) {
+    return aspect != null && handling().aspectReferencesUnknownEntityType(aspect, registry);
   }
 
   private void deleteGraphData(
