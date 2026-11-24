@@ -16,7 +16,7 @@
                 "odcs.sourceFile": "fundamentals__table-column-description.odcs.yaml"
             },
             "name": "my_quantum \u2014 tbl",
-            "description": "Provides core payment metrics",
+            "description": "Provides core payment metrics\n\n**Grain:** Aggregation on columns txn_ref_dt, pmt_txn_id",
             "tags": []
         }
     },

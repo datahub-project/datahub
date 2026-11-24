@@ -1,12 +1,12 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
 import useFetchColumnCounts, { buildRelatedColumnFilters } from '@app/lineageV3/LineageEntityNode/Column.hooks';
 import { generateIgnoreAsHops } from '@app/lineageV3/common';
 import { ColumnAsset, LineageAssetType } from '@app/lineageV3/types';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { GetColumnLineageCountsDocument } from '@graphql/lineage.generated';
 import { EntityType, FilterOperator } from '@types';

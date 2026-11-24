@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { ListDomainFragment } from '@graphql/domain.generated';
 

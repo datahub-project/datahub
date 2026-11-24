@@ -3,7 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
-import DomainIcon from '@app/domain/DomainIcon';
+import DomainIcon from '@app/domainV2/DomainIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEmbeddedProfileLinkProps } from '@app/sharedV2/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';

@@ -1,10 +1,10 @@
-import { waitFor } from '@testing-library/react';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DocumentTreeNode, DocumentTreeProvider, useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useRevealDocumentInTree } from '@app/document/hooks/useRevealDocumentInTree';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const mockGetCurrentDocumentUrn = vi.fn();
 const mockUseGetDocumentQuery = vi.fn();

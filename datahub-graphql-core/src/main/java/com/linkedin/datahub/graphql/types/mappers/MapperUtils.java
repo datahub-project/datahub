@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
 import static com.linkedin.datahub.graphql.util.SearchInsightsUtil.*;
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.linkedin.common.AuditStamp;
@@ -169,9 +170,11 @@ public class MapperUtils {
 
   public static ResolvedAuditStamp createResolvedAuditStamp(AuditStamp auditStamp) {
     final ResolvedAuditStamp resolvedAuditStamp = new ResolvedAuditStamp();
-    final CorpUser emptyCreatedUser = new CorpUser();
-    emptyCreatedUser.setUrn(auditStamp.getActor().toString());
-    resolvedAuditStamp.setActor(emptyCreatedUser);
+    if (CORP_USER_ENTITY_NAME.equals(auditStamp.getActor().getEntityType())) {
+      final CorpUser emptyCreatedUser = new CorpUser();
+      emptyCreatedUser.setUrn(auditStamp.getActor().toString());
+      resolvedAuditStamp.setActor(emptyCreatedUser);
+    }
     resolvedAuditStamp.setTime(auditStamp.getTime());
     return resolvedAuditStamp;
   }

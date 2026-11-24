@@ -90,6 +90,14 @@ markers = [
     "global_policy_mutator: module mutates shared platform policy state (disables All Users defaults and/or heavy policy-cache tests); smoke.sh runs these serially in a second pytest invocation after non-mutators",
     "p0: critical smoke test; runs on every pull request",
     "domain(*names): product domain(s) owning this test, from the Domain enum in utilities/domains.py; select with --domain",
+    # Smart-testing tags, one marker per taxonomy dimension. Values come from the
+    # enums in smart_testing/taxonomy.py; conftest also applies them from
+    # smart_testing/test_tags.yaml when SMOKE_SMART_TESTING is shadow or active.
+    "feature_user(*tags): smart-testing feature-user tags (smart_testing.taxonomy.FeatureUser)",
+    "feature_dev(*tags): smart-testing feature-dev tags (smart_testing.taxonomy.FeatureDev)",
+    "compound(*tags): smart-testing compound tags (smart_testing.taxonomy.Compound)",
+    "technical_layer(*tags): smart-testing technical-layer tags (smart_testing.taxonomy.TechnicalLayer)",
+    "entity_scope(*tags): smart-testing entity-scope tags (smart_testing.taxonomy.EntityScope)",
 ]
 filterwarnings = [
     # Ignore some warnings that come from dependencies.

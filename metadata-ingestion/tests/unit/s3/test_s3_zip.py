@@ -10,10 +10,9 @@ from mypy_boto3_s3 import S3Client
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.s3.source import S3Source, SeekableS3File, TableData
+from datahub.ingestion.source.s3.source import S3Source, TableData
 
 BUCKET = "zip-unit-test-bucket"
-KEY = "data/content.bin"
 
 
 @pytest.fixture()
@@ -33,8 +32,19 @@ def s3_client(s3_session):
     return client
 
 
-def _upload(s3_client: S3Client, content: bytes) -> None:
-    s3_client.put_object(Bucket=BUCKET, Key=KEY, Body=content)
+def _make_s3_source() -> S3Source:
+    return S3Source.create(
+        config_dict={
+            "platform": "s3",
+            "path_specs": [{"include": f"s3://{BUCKET}/{{table}}/*.zip"}],
+            "aws_config": {
+                "aws_region": "us-east-1",
+                "aws_access_key_id": "test",
+                "aws_secret_access_key": "test",
+            },
+        },
+        ctx=PipelineContext(run_id="test-zip"),
+    )
 
 
 def _make_local_source() -> S3Source:
@@ -50,179 +60,6 @@ def _make_zip(entries: dict) -> bytes:
         for name, data in entries.items():
             zf.writestr(name, data)
     return buf.getvalue()
-
-
-class TestSeekableS3File:
-    def test_initial_state(self, s3_client):
-        content = b"abcde"
-        _upload(s3_client, content)
-        f = SeekableS3File(s3_client, BUCKET, KEY)
-        assert f._size == len(content)
-        assert f.tell() == 0
-        assert f.seekable()
-        assert f.readable()
-
-    def test_sequential_reads(self, s3_client):
-        _upload(s3_client, b"Hello, World!")
-        f = SeekableS3File(s3_client, BUCKET, KEY)
-        assert f.read(5) == b"Hello"
-        assert f.tell() == 5
-        assert f.read(2) == b", "
-        assert f.tell() == 7
-
-    def test_read_all(self, s3_client):
-        content = b"complete content"
-        _upload(s3_client, content)
-        f = SeekableS3File(s3_client, BUCKET, KEY)
-        assert f.read() == content
-        assert f.tell() == len(content)
-
-    def test_read_past_eof_returns_empty(self, s3_client):
-        _upload(s3_client, b"short")
-        f = SeekableS3File(s3_client, BUCKET, KEY)
-        f.read()
-        assert f.read(10) == b""
-        assert f.read() == b""
-
-    def test_seek_set(self, s3_client):
-        _upload(s3_client, b"0123456789")
-        f = SeekableS3File(s3_client, BUCKET, KEY)
-        f.seek(4)
-        assert f.tell() == 4
-        assert f.read(3) == b"456"
-
-    def test_seek_from_current(self, s3_client):
-        _upload(s3_client, b"0123456789")
-        f = SeekableS3File(s3_client, BUCKET, KEY)
-        f.read(3)
-        f.seek(2, 1)
-        assert f.tell() == 5
-        assert f.read(2) == b"56"
-
-    def test_seek_from_end(self, s3_client):
-        _upload(s3_client, b"0123456789")
-        f = SeekableS3File(s3_client, BUCKET, KEY)
-        f.seek(-3, 2)
-        assert f.tell() == 7
-        assert f.read() == b"789"
-
-    def test_seek_clamps_to_zero(self, s3_client):
-        _upload(s3_client, b"abcde")
-        f = SeekableS3File(s3_client, BUCKET, KEY)
-        f.seek(-100)
-        assert f.tell() == 0
-
-    def test_zipfile_round_trip(self, s3_client):
-        csv_content = b"name,age\nAlice,30\n"
-        _upload(s3_client, _make_zip({"data.csv": csv_content}))
-        f = SeekableS3File(s3_client, BUCKET, KEY)
-        with zipfile.ZipFile(f) as zf:
-            assert zf.namelist() == ["data.csv"]
-            assert zf.read("data.csv") == csv_content
-
-
-class TestOpenZipEntry:
-    def test_single_csv_entry(self, tmp_path):
-        csv_bytes = b"name,age\nAlice,30\n"
-        zip_path = tmp_path / "data.csv.zip"
-        zip_path.write_bytes(_make_zip({"data.csv": csv_bytes}))
-
-        source = _make_local_source()
-        file, ext = source._open_zip_entry(
-            str(zip_path), None, PathSpec(include="s3://bucket/*.zip")
-        )
-
-        assert file is not None
-        assert ext == ".csv"
-        assert file.read() == csv_bytes
-
-    def test_single_json_entry(self, tmp_path):
-        zip_path = tmp_path / "data.json.zip"
-        zip_path.write_bytes(_make_zip({"data.json": b'[{"name": "Alice"}]'}))
-
-        source = _make_local_source()
-        file, ext = source._open_zip_entry(
-            str(zip_path), None, PathSpec(include="s3://bucket/*.zip")
-        )
-
-        assert file is not None
-        assert ext == ".json"
-
-    def test_multi_file_zip_warns_and_uses_first_supported(self, tmp_path, caplog):
-        zip_path = tmp_path / "multi.zip"
-        zip_path.write_bytes(
-            _make_zip(
-                {
-                    "README.txt": b"readme",
-                    "a.csv": b"x,y\n1,2\n",
-                    "b.csv": b"x,y\n3,4\n",
-                }
-            )
-        )
-
-        source = _make_local_source()
-        with caplog.at_level("WARNING"):
-            file, ext = source._open_zip_entry(
-                str(zip_path), None, PathSpec(include="s3://bucket/*.zip")
-            )
-
-        assert file is not None
-        assert ext == ".csv"
-        assert any("3 files" in r.message for r in caplog.records)
-
-    def test_no_supported_extension_returns_none(self, tmp_path):
-        zip_path = tmp_path / "data.zip"
-        zip_path.write_bytes(_make_zip({"README.txt": b"nothing here"}))
-
-        source = _make_local_source()
-        file, ext = source._open_zip_entry(
-            str(zip_path), None, PathSpec(include="s3://bucket/*.zip")
-        )
-
-        assert file is None
-        assert source.report.warnings
-
-    def test_bad_zip_returns_none(self, tmp_path):
-        bad_zip = tmp_path / "bad.zip"
-        bad_zip.write_bytes(b"this is not a zip file")
-
-        source = _make_local_source()
-        file, ext = source._open_zip_entry(
-            str(bad_zip), None, PathSpec(include="s3://bucket/*.zip")
-        )
-
-        assert file is None
-        assert source.report.warnings
-
-    def test_entry_exceeding_size_limit_is_skipped(self, tmp_path, monkeypatch):
-        zip_path = tmp_path / "big.csv.zip"
-        zip_path.write_bytes(_make_zip({"data.csv": b"name,age\nAlice,30\n"}))
-
-        monkeypatch.setattr(
-            "datahub.ingestion.source.s3.source.MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES", 1
-        )
-        source = _make_local_source()
-        file, ext = source._open_zip_entry(
-            str(zip_path), None, PathSpec(include="s3://bucket/*.zip")
-        )
-
-        assert file is None
-        assert source.report.warnings
-
-    def test_file_types_restricts_selected_entry(self, tmp_path):
-        zip_path = tmp_path / "data.zip"
-        zip_path.write_bytes(_make_zip({"data.csv": b"x,y\n1,2\n"}))
-
-        source = _make_local_source()
-        # Only JSON is accepted, so the CSV member must not be selected.
-        file, ext = source._open_zip_entry(
-            str(zip_path),
-            None,
-            PathSpec(include="s3://bucket/*.zip", file_types=["json"]),
-        )
-
-        assert file is None
-        assert source.report.warnings
 
 
 class TestGetFieldsZip:
@@ -270,12 +107,9 @@ class TestGetFieldsZip:
 
     def test_extension_map_in_zip_infers_schema(self, tmp_path):
         zip_path = tmp_path / "archive.zip"
-        zip_path.write_bytes(
-            _make_zip({"data.js": b'[{"event": "click", "user": "alice"}]'})
-        )
+        self._write_zip(zip_path, "data.js", b'[{"event": "click", "user": "alice"}]')
 
-        source = _make_local_source()
-        fields = source.get_fields(
+        fields = _make_local_source().get_fields(
             self._table_data(str(zip_path)),
             PathSpec(
                 include=str(tmp_path / "*.zip"),
@@ -284,24 +118,18 @@ class TestGetFieldsZip:
             ),
         )
 
-        field_names = {f.fieldPath for f in fields}
-        assert {"event", "user"}.issubset(field_names)
+        assert {"event", "user"}.issubset({f.fieldPath for f in fields})
 
     def test_extension_map_plain_file_infers_schema(self, tmp_path):
         js_path = tmp_path / "data.js"
         js_path.write_bytes(b'[{"product": "widget", "price": 9.99}]')
 
-        source = _make_local_source()
-        fields = source.get_fields(
+        fields = _make_local_source().get_fields(
             self._table_data(str(js_path)),
-            PathSpec(
-                include=str(tmp_path / "*.js"),
-                extension_map={"js": "json"},
-            ),
+            PathSpec(include=str(tmp_path / "*.js"), extension_map={"js": "json"}),
         )
 
-        field_names = {f.fieldPath for f in fields}
-        assert {"product", "price"}.issubset(field_names)
+        assert {"product", "price"}.issubset({f.fieldPath for f in fields})
 
     def test_compression_disabled_skips_zip(self, tmp_path):
         zip_path = tmp_path / "data.csv.zip"
@@ -314,4 +142,80 @@ class TestGetFieldsZip:
         )
 
         assert fields == []
-        assert any("unsupported extension" in w.message for w in source.report.warnings)
+        assert source.report.warnings
+
+    def test_archive_content_type_does_not_override_member_format(self, tmp_path):
+        zip_path = tmp_path / "data.zip"
+        self._write_zip(zip_path, "data.csv", b"name,age\nAlice,30\n")
+        table_data = self._table_data(str(zip_path))
+        table_data.content_type = "application/zip"
+
+        source = _make_local_source()
+        fields = source.get_fields(
+            table_data, PathSpec(include=str(tmp_path / "*.zip"))
+        )
+
+        assert {f.fieldPath for f in fields} == {"name", "age"}
+
+    def test_member_suffix_wins_over_archive_name(self, tmp_path):
+        zip_path = tmp_path / "data.csv.zip"
+        self._write_zip(zip_path, "data.json", b'{"name": "Alice", "age": 30}\n')
+
+        source = _make_local_source()
+        fields = source.get_fields(
+            self._table_data(str(zip_path)),
+            PathSpec(include=str(tmp_path / "*.zip")),
+        )
+
+        assert {f.fieldPath for f in fields} == {"name", "age"}
+
+
+def test_s3_zip_member_is_read_over_range_requests(s3_client: S3Client) -> None:
+    # A key with '#' must reach S3 intact.
+    key = "orders/part#1/orders.csv.zip"
+    s3_client.put_object(
+        Bucket=BUCKET,
+        Key=key,
+        Body=_make_zip(
+            {"__MACOSX/._orders.csv": b"\x00", "orders.csv": b"id,total\n1,9.5\n"}
+        ),
+    )
+    full_path = f"s3://{BUCKET}/{key}"
+
+    source = _make_s3_source()
+    fields = source.get_fields(
+        TableData(
+            display_name="orders",
+            is_s3=True,
+            full_path=full_path,
+            timestamp=datetime.now(),
+            table_path=full_path,
+            size_in_bytes=1024,
+            number_of_files=1,
+        ),
+        PathSpec(include=f"s3://{BUCKET}/{{table}}/*/*.zip"),
+    )
+
+    assert {f.fieldPath for f in fields} == {"id", "total"}
+    assert not source.report.warnings
+
+
+def test_s3_zip_read_failure_is_raised(s3_client: S3Client) -> None:
+    # Like any other file, a storage failure must raise so ingest_table drops
+    # the schema rather than emitting one with no fields.
+    full_path = f"s3://{BUCKET}/orders/missing.csv.zip"
+
+    source = _make_s3_source()
+    with pytest.raises(OSError):
+        source.get_fields(
+            TableData(
+                display_name="orders",
+                is_s3=True,
+                full_path=full_path,
+                timestamp=datetime.now(),
+                table_path=full_path,
+                size_in_bytes=1024,
+                number_of_files=1,
+            ),
+            PathSpec(include=f"s3://{BUCKET}/{{table}}/*.zip"),
+        )

@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 import click
 import yaml
 from docgen_types import Platform, Plugin
-from docs_config_table import gen_md_table_from_pydantic
+from docs_config_table import gen_md_table_from_pydantic, is_removed_property
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.decorators import (
@@ -1151,8 +1151,11 @@ This is a summary of automatic lineage extraction support in our data source. Pl
                         config_names = "<br />".join(
                             [
                                 f"- {property_name}"
-                                for property_name in config_properties
+                                for property_name, property_schema in (
+                                    config_properties.items()
+                                )
                                 if "lineage" in property_name
+                                and not is_removed_property(property_schema)
                             ]
                         )
                 lineage_not_applicable_sources = [

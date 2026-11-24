@@ -6,6 +6,8 @@ import styled from 'styled-components';
 
 import { ItemType } from '@components/components/Menu/types';
 
+import { ActionDisabledReason } from '@app/entityV2/shared/components/styled/search/types';
+
 const DownArrow = styled(CaretDown).attrs({ size: 10, weight: 'fill' })`
     margin-left: 2px;
     margin-top: 2px;
@@ -33,9 +35,10 @@ type Props = {
     name: string;
     actions: Array<Action>;
     disabled?: boolean;
+    disabledReason?: ActionDisabledReason;
 };
 
-export default function ActionDropdown({ name, actions, disabled }: Props) {
+export default function ActionDropdown({ name, actions, disabled, disabledReason }: Props) {
     const { t } = useTranslation('entity.shared.components');
 
     const items: ItemType[] = useMemo(
@@ -49,8 +52,13 @@ export default function ActionDropdown({ name, actions, disabled }: Props) {
         [actions],
     );
 
+    const getDisabledTooltip = () =>
+        disabledReason === ActionDisabledReason.NO_SELECTION
+            ? t('searchActions.noSelection')
+            : t('searchActions.notSupported');
+
     return (
-        <Tooltip title={disabled ? t('searchActions.notSupported') : ''}>
+        <Tooltip title={disabled ? getDisabledTooltip() : ''}>
             <Menu items={items} disabled={disabled} trigger={['click']}>
                 <DropdownWrapper disabled={!!disabled}>
                     {name}

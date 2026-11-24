@@ -60,9 +60,8 @@ queryConfigurations:
     functionScore:
       functions:
         - filter:
-            term:
-              hasActiveIncidents:
-                value: true
+            exists:
+              field: activeIncidents
           weight: 2.0
         - filter:
             term:
@@ -90,14 +89,12 @@ queryConfigurations:
                 value: true
           weight: 1.1
         - filter:
-            term:
-              hasRowCount:
-                value: true
+            exists:
+              field: rowCount
           weight: 1.05
         - filter:
-            term:
-              hasColumnCount:
-                value: true
+            exists:
+              field: columnCount
           weight: 1.05
         - filter:
             term:

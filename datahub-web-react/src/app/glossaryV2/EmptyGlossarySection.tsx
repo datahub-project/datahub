@@ -5,6 +5,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
+import useGlossaryCreatePrivileges from '@app/glossaryV2/useGlossaryCreatePrivileges';
+
 // Fills the remaining vertical space inside the parent flex column so the
 // EmptyState lands in the optical center of the page rather than hugging the
 // top-left of whatever container it sits in.
@@ -22,11 +24,14 @@ interface Props {
     description?: string;
     onAddTerm: () => void;
     onAddtermGroup: () => void;
+    /** The parent group's `privileges.canManageChildren`; omit at the glossary root. */
+    canManageChildren?: boolean;
 }
 
 function EmptyGlossarySection(props: Props) {
     const { t } = useTranslation('governance.glossary');
-    const { title, description, onAddTerm, onAddtermGroup } = props;
+    const { title, description, onAddTerm, onAddtermGroup, canManageChildren } = props;
+    const { canCreate } = useGlossaryCreatePrivileges(canManageChildren);
 
     // Alchemy EmptyState requires a non-empty title. Some callers (e.g. the
     // glossary-node ChildrenTab) only have a single line of copy to show — for
@@ -41,19 +46,27 @@ function EmptyGlossarySection(props: Props) {
                 icon={BookmarksSimple}
                 title={resolvedTitle}
                 description={resolvedDescription}
-                action={{
-                    label: t('empty.addTerm'),
-                    icon: { icon: Plus },
-                    onClick: onAddTerm,
-                    dataTestId: 'add-term-button',
-                }}
-                secondaryAction={{
-                    label: t('empty.addTermGroup'),
-                    icon: { icon: Plus },
-                    variant: 'secondary',
-                    onClick: onAddtermGroup,
-                    dataTestId: 'add-term-group-button',
-                }}
+                action={
+                    canCreate
+                        ? {
+                              label: t('empty.addTerm'),
+                              icon: { icon: Plus },
+                              onClick: onAddTerm,
+                              dataTestId: 'add-term-button',
+                          }
+                        : undefined
+                }
+                secondaryAction={
+                    canCreate
+                        ? {
+                              label: t('empty.addTermGroup'),
+                              icon: { icon: Plus },
+                              variant: 'secondary',
+                              onClick: onAddtermGroup,
+                              dataTestId: 'add-term-group-button',
+                          }
+                        : undefined
+                }
             />
         </CenteredWrapper>
     );

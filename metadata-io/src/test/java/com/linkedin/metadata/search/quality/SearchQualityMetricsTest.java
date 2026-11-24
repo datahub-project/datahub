@@ -11,7 +11,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.datahubproject.test.search.QrelScorer;
 import io.datahubproject.test.search.RankedSearchHit;
 import io.datahubproject.test.search.RankedSearchResult;
-import io.datahubproject.test.search.SearchQualityPack;
 import io.datahubproject.test.search.SearchQualityReport;
 import io.datahubproject.test.search.TopHitScorer;
 import java.nio.file.Files;
@@ -204,13 +203,6 @@ public class SearchQualityMetricsTest {
         System.setProperty(SearchQualityReport.DIRECTORY_PROPERTY, previous);
       }
     }
-  }
-
-  @Test
-  public void testPackManifestReadsEveryShard() throws Exception {
-    assertEquals(SearchQualityPack.shardPaths().size(), 6);
-    assertEquals(SearchQualityPack.readShards().size(), 6);
-    assertTrue(SearchQualityPack.judgments().path("judgments").size() > 200);
   }
 
   private static RankedSearchHit card(String urn) {

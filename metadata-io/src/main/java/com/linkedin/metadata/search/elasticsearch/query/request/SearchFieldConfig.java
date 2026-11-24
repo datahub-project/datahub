@@ -51,7 +51,9 @@ public class SearchFieldConfig {
       Set.of(
           SearchableAnnotation.FieldType.TEXT,
           SearchableAnnotation.FieldType.TEXT_PARTIAL,
-          SearchableAnnotation.FieldType.WORD_GRAM
+          SearchableAnnotation.FieldType.WORD_GRAM,
+          // Search V3 source type. V2 queries it with the existing delimited text field.
+          SearchableAnnotation.FieldType.RICH_TEXT
           // NOT URN_PARTIAL (urn field is special)
           );
   // NOT comprehensive
@@ -68,6 +70,7 @@ public class SearchFieldConfig {
       Set.of(
           SearchableAnnotation.FieldType.TEXT,
           SearchableAnnotation.FieldType.TEXT_PARTIAL,
+          SearchableAnnotation.FieldType.RICH_TEXT,
           SearchableAnnotation.FieldType.KEYWORD,
           SearchableAnnotation.FieldType.WORD_GRAM,
           // not analyzed

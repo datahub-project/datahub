@@ -1,0 +1,73 @@
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+
+import { Avatar } from '@components/components/Avatar';
+import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
+import { Button } from '@components/components/Button';
+import { AvatarSizeOptions } from '@components/theme/config';
+
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { mapAvatarTypeToEntityType } from '@app/sharedV2/avatar/avatar.utils';
+import isPresent from '@utils/isPresent';
+
+const PillsContainer = styled.div`
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+`;
+
+interface Props {
+    avatars: AvatarItemProps[];
+    entityRegistry: EntityRegistry;
+    size?: AvatarSizeOptions;
+    maxVisible?: number;
+    type?: AvatarType;
+}
+
+const HoverSectionContent = ({ avatars, entityRegistry, size, maxVisible = 4, type }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
+    const [expanded, setExpanded] = useState(false);
+
+    const visibleAvatars = expanded ? avatars : avatars.slice(0, maxVisible);
+    const hasMore = avatars.length > maxVisible;
+
+    return (
+        <div>
+            <PillsContainer>
+                {visibleAvatars.map((user) => {
+                    const userAvatar = (
+                        <Avatar
+                            showInPill
+                            size={size}
+                            isOutlined
+                            imageUrl={user.imageUrl}
+                            name={user.name}
+                            type={type}
+                            icon={user.icon}
+                        />
+                    );
+                    return (
+                        <>
+                            {isPresent(user.type) && user.urn ? (
+                                <Link to={entityRegistry.getEntityUrl(mapAvatarTypeToEntityType(user.type), user.urn)}>
+                                    {userAvatar}
+                                </Link>
+                            ) : (
+                                userAvatar
+                            )}
+                        </>
+                    );
+                })}
+            </PillsContainer>
+            {hasMore && (
+                <Button variant="text" size="sm" color="gray" onClick={() => setExpanded((prev) => !prev)}>
+                    {expanded ? tc('viewLess') : tc('viewMore')}
+                </Button>
+            )}
+        </div>
+    );
+};
+
+export default HoverSectionContent;

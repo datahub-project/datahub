@@ -1,11 +1,10 @@
-import { renderHook } from '@testing-library/react-hooks';
-
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import useStructuredProperties, {
     getStructuredPropertyRows,
     identifyAndAddParentRows,
 } from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { PropertyValueInput, StructuredPropertyEntity } from '@types';
 
@@ -53,7 +52,7 @@ describe('getStructuredPropertyRows deduplication', () => {
 const mockUseEntityData = vi.hoisted(() => vi.fn());
 const mockUseGetEntityWithSchema = vi.hoisted(() => vi.fn());
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: mockUseEntityData,
 }));
 

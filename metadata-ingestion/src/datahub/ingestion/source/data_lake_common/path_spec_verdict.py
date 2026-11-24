@@ -51,7 +51,7 @@ CONTAINER_WARNING = (
 
 def _matches(path: str, glob: str) -> bool:
     """The glob test PathSpec.allowed applies: `*` does not match a leading dot."""
-    return pathlib.PurePath(path).globmatch(glob, flags=pathlib.GLOBSTAR)
+    return PathSpec.glob_matches(path, glob)
 
 
 def _reaches(path: str, glob: str) -> bool:

@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import { useRoutedTab } from '@app/entityV2/shared/containers/profile/utils';
 import { EntityTab } from '@app/entityV2/shared/types';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 

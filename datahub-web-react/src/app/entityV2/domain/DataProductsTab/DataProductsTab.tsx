@@ -1,4 +1,4 @@
-import { Button, EmptyState, Loader, Pagination } from '@components';
+import { Button, EmptyState, Loader, Pagination, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import * as QueryString from 'query-string';
 import React, { useState } from 'react';
@@ -6,10 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import { DomainsPaginationContainer } from '@app/domain/DomainsList';
-import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import CreateDataProductModal from '@app/entityV2/domain/DataProductsTab/CreateDataProductModal';
 import DataProductResult from '@app/entityV2/domain/DataProductsTab/DataProductResult';
+import { useEntityContext, useEntityData } from '@app/entityV2/shared/EntityContext';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { SearchBar } from '@app/search/SearchBar';
 import { DOMAINS_FILTER_NAME } from '@app/search/utils/constants';
@@ -19,8 +18,14 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { DataProduct, Domain, EntityType } from '@types';
 
-const DataProductsPaginationWrapper = styled(DomainsPaginationContainer)`
+const DataProductsPaginationWrapper = styled.div`
+    display: flex;
     justify-content: center;
+    align-items: center;
+    padding: 12px;
+    padding-left: 16px;
+    border-bottom: 1px solid;
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 const ResultsWrapper = styled.div`
@@ -54,6 +59,7 @@ export default function DataProductsTab() {
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<string | undefined>(paramsQuery);
     const [page, setPage] = useState(1);
+    const canCreate = !!entityData?.privileges?.canManageDataProducts;
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(params.createModal === 'true');
     const [createdDataProducts, setCreatedDataProducts] = useState<DataProduct[]>([]);
     const [editedDataProducts, setEditedDataProducts] = useState<DataProduct[]>([]);
@@ -104,14 +110,19 @@ export default function DataProductsTab() {
     return (
         <>
             <TabToolbar>
-                <Button
-                    variant="text"
-                    icon={{ icon: Plus }}
-                    onClick={() => setIsCreateModalVisible(true)}
-                    data-testid="create-data-product-button"
-                >
-                    {t('dataProduct.newDataProduct')}
-                </Button>
+                <Tooltip title={canCreate ? null : t('dataProduct.createUnauthorized')}>
+                    <span>
+                        <Button
+                            variant="text"
+                            icon={{ icon: Plus }}
+                            onClick={() => setIsCreateModalVisible(true)}
+                            disabled={!canCreate}
+                            data-testid="create-data-product-button"
+                        >
+                            {t('dataProduct.newDataProduct')}
+                        </Button>
+                    </span>
+                </Tooltip>
                 <SearchBar
                     initialQuery={query || ''}
                     placeholderText={t('dataProduct.searchPlaceholder')}
@@ -159,7 +170,7 @@ export default function DataProductsTab() {
                     showSizeChanger={false}
                 />
             </DataProductsPaginationWrapper>
-            {isCreateModalVisible && (
+            {isCreateModalVisible && canCreate && (
                 <CreateDataProductModal
                     domain={entityData as Domain}
                     onCreateDataProduct={onCreateDataProduct}

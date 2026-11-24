@@ -1,0 +1,2 @@
+# These are source scripts, unlike the generated bin directories elsewhere.
+!bin/

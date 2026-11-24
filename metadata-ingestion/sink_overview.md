@@ -10,7 +10,7 @@ Sinks are **destinations for metadata**.
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sources-sinks.png"/>
 </p>
 
-In general, the sink will be defined in the [recipe](./recipe_overview.md) after the [source](./source-docs-template.md) like below.
+In general, the sink will be defined in the [recipe](./recipe_overview.md) after the [source](./source_overview.md) like below.
 
 ```yaml
 source: ...

@@ -577,6 +577,7 @@ public class SearchClientShimUtil {
     @Nullable private String proxyScheme;
     @Nullable private String proxyUsername;
     @Nullable private String proxyPassword;
+    @Nullable private String engineVersionOverride;
 
     public ShimConfigurationBuilder() {}
 
@@ -601,6 +602,7 @@ public class SearchClientShimUtil {
       this.proxyScheme = existing.getProxyScheme();
       this.proxyUsername = existing.getProxyUsername();
       this.proxyPassword = existing.getProxyPassword();
+      this.engineVersionOverride = existing.getEngineVersionOverride();
     }
 
     public ShimConfigurationBuilder withEngineType(SearchEngineType engineType) {
@@ -671,6 +673,15 @@ public class SearchClientShimUtil {
       return this;
     }
 
+    public ShimConfigurationBuilder withEngineVersionOverride(
+        @Nullable String engineVersionOverride) {
+      this.engineVersionOverride =
+          engineVersionOverride == null || engineVersionOverride.isBlank()
+              ? null
+              : engineVersionOverride.trim();
+      return this;
+    }
+
     public ShimConfigurationBuilder withHttpProxy(
         @Nullable String proxyHost,
         @Nullable Integer proxyPort,
@@ -706,7 +717,8 @@ public class SearchClientShimUtil {
           proxyPort,
           proxyScheme,
           proxyUsername,
-          proxyPassword);
+          proxyPassword,
+          engineVersionOverride);
     }
   }
 
@@ -733,6 +745,7 @@ public class SearchClientShimUtil {
     @Nullable private final String proxyScheme;
     @Nullable private final String proxyUsername;
     @Nullable private final String proxyPassword;
+    @Nullable private final String engineVersionOverride;
 
     public ShimConfigurationImpl(
         SearchEngineType engineType,
@@ -754,7 +767,8 @@ public class SearchClientShimUtil {
         @Nullable Integer proxyPort,
         @Nullable String proxyScheme,
         @Nullable String proxyUsername,
-        @Nullable String proxyPassword) {
+        @Nullable String proxyPassword,
+        @Nullable String engineVersionOverride) {
       this.engineType = engineType;
       this.host = host;
       this.port = port;
@@ -775,6 +789,7 @@ public class SearchClientShimUtil {
       this.proxyScheme = proxyScheme;
       this.proxyUsername = proxyUsername;
       this.proxyPassword = proxyPassword;
+      this.engineVersionOverride = engineVersionOverride;
     }
   }
 }

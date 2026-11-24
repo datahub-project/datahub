@@ -252,7 +252,7 @@ class TestCmdStartRemote:
         calls = self._setup(tmp_path, monkeypatch)
         datahub_dev._cmd_start_remote(self._make_args())
         verbs = [c[1] for c in calls if c[0] == "/fake/runner.sh"]
-        assert verbs == ["sync", "exec", "tunnel"], verbs
+        assert verbs == ["resume", "sync", "exec", "tunnel"], verbs
 
     def test_sync_has_no_extra_args(self, tmp_path, monkeypatch):
         calls = self._setup(tmp_path, monkeypatch)

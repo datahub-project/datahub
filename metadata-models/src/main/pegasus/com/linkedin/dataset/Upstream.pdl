@@ -41,7 +41,11 @@ record Upstream {
     "fieldName": "upstreams",
     "hasValuesFieldName": "hasUpstreams",
     "fieldType": "URN",
-    "queryByDefault": false
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "upstreams",
+      "queryByDefault": false
+    }
   }
   dataset: DatasetUrn
 

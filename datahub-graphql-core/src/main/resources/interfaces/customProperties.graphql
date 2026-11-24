@@ -1,0 +1,34 @@
+"""
+An aspect with custom properties
+"""
+interface HasCustomProperties {
+  """
+  Custom properties of the entity
+  """
+  customProperties: [CustomPropertiesEntry!]
+}
+
+extend type ApplicationProperties implements HasCustomProperties
+extend type AssertionInfo implements HasCustomProperties
+extend type BusinessAttributeInfo implements HasCustomProperties
+extend type ChartProperties implements HasCustomProperties
+extend type ContainerProperties implements HasCustomProperties
+extend type CorpUserProperties implements HasCustomProperties
+extend type DashboardProperties implements HasCustomProperties
+extend type DataFlowProperties implements HasCustomProperties
+extend type DataJobProperties implements HasCustomProperties
+extend type DataPlatformInstanceProperties implements HasCustomProperties
+extend type DataProcessInstanceProperties implements HasCustomProperties
+extend type DataProductProperties implements HasCustomProperties
+extend type DatasetProperties implements HasCustomProperties
+extend type DocumentInfo implements HasCustomProperties
+extend type DomainProperties implements HasCustomProperties
+extend type GlossaryNodeProperties implements HasCustomProperties
+extend type GlossaryTermProperties implements HasCustomProperties
+extend type MLFeatureProperties implements HasCustomProperties
+extend type MLFeatureTableProperties implements HasCustomProperties
+extend type MLModelGroupProperties implements HasCustomProperties
+extend type MLModelProperties implements HasCustomProperties
+extend type MLPrimaryKeyProperties implements HasCustomProperties
+extend type NotebookInfo implements HasCustomProperties
+extend type QueryProperties implements HasCustomProperties

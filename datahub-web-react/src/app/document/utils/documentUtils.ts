@@ -5,7 +5,7 @@ import { FolderDashed } from '@phosphor-icons/react/dist/csr/FolderDashed';
 import i18next from 'i18next';
 
 import { DocumentCreator, DocumentTreeNode } from '@app/document/DocumentTreeContext';
-import { INGESTION_ACTOR_URN } from '@app/entity/shared/constants';
+import { INGESTION_ACTOR_URN } from '@app/entityV2/shared/constants';
 
 import { Document, DocumentSourceType, DocumentState, EntityType } from '@types';
 

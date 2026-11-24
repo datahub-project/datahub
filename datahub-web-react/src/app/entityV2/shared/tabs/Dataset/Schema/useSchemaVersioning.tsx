@@ -65,6 +65,9 @@ export default function useSchemaVersioning({ datasetUrn, urlParam, skip }: Args
         versionList,
         isLatest: selectedVersion === latestVersion,
         schema: versionedDatasetData.data?.versionedDataset?.schema ?? undefined,
-        editableSchemaMetadata: versionedDatasetData.data?.versionedDataset?.editableSchemaMetadata ?? undefined,
+        editableSchemaMetadata:
+            (versionedDatasetData.data?.versionedDataset?.editableSchemaMetadata as
+                | EditableSchemaMetadata
+                | undefined) ?? undefined,
     };
 }

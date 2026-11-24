@@ -1,3 +1,4 @@
+import { isRemovedAssociation } from '@app/sharedV2/tags/tags.utils';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType, SchemaField } from '@types';
@@ -16,15 +17,22 @@ function matchesTagsOrTermsOrDescription(
     schemaFilterTypes: SchemaFilterType[],
 ) {
     return (
-        (field.globalTags?.tags?.find((tagAssociation) =>
-            entityRegistry.getDisplayName(EntityType.Tag, tagAssociation.tag).toLocaleLowerCase().includes(filterText),
+        (field.globalTags?.tags?.find(
+            (tagAssociation) =>
+                !isRemovedAssociation(tagAssociation) &&
+                entityRegistry
+                    .getDisplayName(EntityType.Tag, tagAssociation.tag)
+                    .toLocaleLowerCase()
+                    .includes(filterText),
         ) &&
             schemaFilterTypes.includes(SchemaFilterType.Tags)) ||
-        (field.glossaryTerms?.terms?.find((termAssociation) =>
-            entityRegistry
-                .getDisplayName(EntityType.GlossaryTerm, termAssociation.term)
-                .toLocaleLowerCase()
-                .includes(filterText),
+        (field.glossaryTerms?.terms?.find(
+            (termAssociation) =>
+                !isRemovedAssociation(termAssociation) &&
+                entityRegistry
+                    .getDisplayName(EntityType.GlossaryTerm, termAssociation.term)
+                    .toLocaleLowerCase()
+                    .includes(filterText),
         ) &&
             schemaFilterTypes.includes(SchemaFilterType.Terms)) ||
         (field.description?.toLocaleLowerCase().includes(filterText) &&

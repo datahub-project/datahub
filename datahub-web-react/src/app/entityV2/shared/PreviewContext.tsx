@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { PreviewType } from '@app/entityV2/Entity';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 
 type PreviewContextType = {

@@ -1,23 +1,29 @@
+import contextlib
 import dataclasses
 import functools
 import io
 import logging
 import os
-import pathlib
 import posixpath
 import re
 import time
-import zipfile
 from datetime import datetime
 from pathlib import PurePath
-from typing import IO, TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
-from urllib.parse import urlparse
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+)
 
 import smart_open.compression as so_compression
+from botocore.exceptions import BotoCoreError, ClientError
 from smart_open import open as smart_open
-
-if TYPE_CHECKING:
-    from mypy_boto3_s3 import S3Client
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -25,6 +31,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import AwsAccountKey, ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -45,7 +52,10 @@ from datahub.ingestion.source.aws.s3_util import (
     get_key_prefix,
     strip_s3_prefix,
 )
-from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.data_lake_common.data_lake_utils import (
     ContainerWUCreator,
     add_partition_columns_to_schema,
@@ -60,11 +70,15 @@ from datahub.ingestion.source.data_lake_common.path_listing import (
     table_marker_prefix,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import (
-    SUPPORTED_COMPRESSIONS,
     FolderTraversalMethod,
     PathSpec,
 )
-from datahub.ingestion.source.s3.config import DataLakeSourceConfig
+from datahub.ingestion.source.data_lake_common.zip_utils import (
+    ZipEntry,
+    is_zip_path,
+    read_first_supported_zip_entry,
+)
+from datahub.ingestion.source.s3.config import DataLakeSourceConfig, S3AccountConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
 from datahub.ingestion.source.schema_inference.base import SchemaInferenceBase
@@ -88,64 +102,15 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3Client
+
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 # Hack to support the .gzip extension with smart_open.
 so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
-
-
-class SeekableS3File:
-    """Seekable file-like wrapper around an S3 object using HTTP range requests.
-
-    zipfile.ZipFile requires random access (seek + tell) because the central
-    directory lives at the end of the archive. This wrapper satisfies that
-    interface without downloading the entire file upfront — only the bytes
-    actually requested are fetched.
-    """
-
-    def __init__(self, s3_client: "S3Client", bucket: str, key: str) -> None:
-        self._s3 = s3_client
-        self._bucket = bucket
-        self._key = key
-        self._pos = 0
-        self._size: int = s3_client.head_object(Bucket=bucket, Key=key)["ContentLength"]
-
-    def read(self, size: int = -1) -> bytes:
-        if self._pos >= self._size:
-            return b""
-        end = (
-            (self._size - 1) if size < 0 else min(self._pos + size - 1, self._size - 1)
-        )
-        data: bytes = self._s3.get_object(
-            Bucket=self._bucket, Key=self._key, Range=f"bytes={self._pos}-{end}"
-        )["Body"].read()
-        self._pos += len(data)
-        return data
-
-    def seek(self, offset: int, whence: int = 0) -> int:
-        if whence == 0:
-            self._pos = offset
-        elif whence == 1:
-            self._pos += offset
-        elif whence == 2:
-            self._pos = self._size + offset
-        self._pos = max(0, min(self._pos, self._size))
-        return self._pos
-
-    def tell(self) -> int:
-        return self._pos
-
-    def seekable(self) -> bool:
-        return True
-
-    def readable(self) -> bool:
-        return True
-
-    def close(self) -> None:
-        pass
-
 
 # config flags to emit telemetry for
 config_options_to_report = [
@@ -170,11 +135,6 @@ profiling_flags_to_report = [
 ]
 
 URI_SCHEME_REGEX = re.compile(r"^[a-z0-9]+://")
-
-# Upper bound on the uncompressed size of a single zip entry we will read into
-# memory for schema inference. A crafted archive can otherwise decompress a tiny
-# file into gigabytes and exhaust the ingestion process (zip bomb).
-MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES = 1 * 1024 * 1024 * 1024  # 1 GiB
 
 
 def partitioned_folder_comparator(folder1: str, folder2: str) -> int:
@@ -286,11 +246,7 @@ class S3Source(StatefulIngestionSourceBase):
         self.source_config = config
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
-        self.container_WU_creator = ContainerWUCreator(
-            self.source_config.platform,
-            self.source_config.platform_instance,
-            self.source_config.env,
-        )
+        self.container_WU_creator = self._new_container_wu_creator()
 
         # Create an object store adapter for handling external URLs and paths
         if self.is_s3_platform():
@@ -374,6 +330,37 @@ class S3Source(StatefulIngestionSourceBase):
                     "pip install 'acryl-datahub[s3]' or 'acryl-datahub[gcs]'"
                 ) from e
 
+    def _new_container_wu_creator(
+        self, bucket_parent_key: Optional[ContainerKey] = None
+    ) -> ContainerWUCreator:
+        return ContainerWUCreator(
+            self.source_config.platform,
+            self.source_config.platform_instance,
+            self.source_config.env,
+            bucket_parent_key=bucket_parent_key,
+        )
+
+    def _account_key(self, account: S3AccountConfig) -> AwsAccountKey:
+        # Keyed like BucketKey, so accounts and their buckets split by env and
+        # platform_instance the same way.
+        return AwsAccountKey(
+            platform=self.source_config.platform,
+            instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+            backcompat_env_as_instance=True,
+            account_id=account.account_id,
+        )
+
+    def _account_container(
+        self, account: S3AccountConfig
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from gen_containers(
+            container_key=self._account_key(account),
+            name=account.name or account.account_id,
+            sub_types=[DatasetContainerSubTypes.AWS_ACCOUNT],
+            extra_properties={"account_id": account.account_id},
+        )
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = DataLakeSourceConfig.model_validate(config_dict)
@@ -385,77 +372,24 @@ class S3Source(StatefulIngestionSourceBase):
         full_path: str,
         s3_client: Optional["S3Client"],
         path_spec: PathSpec,
-    ) -> Tuple[Optional[IO[bytes]], str]:
-        """Open the first supported entry inside a .zip archive.
+    ) -> Optional[ZipEntry]:
+        # smart_open's S3 reader is seekable, so zipfile fetches only the central
+        # directory and the chosen member with range requests. Storage errors
+        # propagate so ingest_table drops the schema, as it does for other files.
+        with self._smart_open(full_path, s3_client) as zip_file:
+            return read_first_supported_zip_entry(
+                zip_file,
+                context=full_path,
+                report=self.report,
+                file_types=path_spec.zip_member_types,
+                max_entry_size=path_spec.max_zip_entry_size,
+            )
 
-        For S3 paths a seekable range-request wrapper is used so that only the
-        bytes actually needed are downloaded (central directory + chosen entry).
-        For local paths the file is already seekable so zipfile works directly.
-
-        Returns (file_like_object, inner_extension) or (None, "") when no
-        supported entry is found.
-        """
+    def _smart_open(self, full_path: str, s3_client: Optional["S3Client"]) -> IO[bytes]:
         if s3_client is not None:
-            parsed = urlparse(re.sub(URI_SCHEME_REGEX, "s3://", full_path))
-            zip_file: IO[bytes] = SeekableS3File(  # type: ignore[assignment]
-                s3_client, parsed.netloc, parsed.path.lstrip("/")
-            )
-        else:
-            zip_file = open(full_path, "rb")
-
-        try:
-            zf = zipfile.ZipFile(zip_file)
-        except zipfile.BadZipFile as e:
-            self.report.report_warning(full_path, f"could not open zip archive: {e}")
-            zip_file.close()
-            return None, ""
-
-        members = zf.namelist()
-        # Restrict candidate members to the inner types this path_spec accepts
-        # (file_types plus any custom-mapped extensions), so an archive holding
-        # several formats does not select one the user excluded.
-        accepted = set(path_spec.file_types) | set(path_spec.extension_map.keys())
-        supported = [
-            m for m in members if pathlib.Path(m).suffix.lstrip(".") in accepted
-        ]
-
-        if not supported:
-            self.report.report_warning(
-                full_path,
-                f"zip archive contains no files with a supported extension "
-                f"({sorted(accepted)}); found: {members}",
-            )
-            zf.close()
-            zip_file.close()
-            return None, ""
-
-        if len(members) > 1:
-            logger.warning(
-                f"zip archive {full_path} contains {len(members)} files; "
-                f"using first supported entry: {supported[0]}"
-            )
-
-        entry_name = supported[0]
-        inner_extension = pathlib.Path(entry_name).suffix
-        try:
-            # The uncompressed size in the central-directory header is
-            # attacker-controlled and never verified by zipfile, so a crafted
-            # entry can understate file_size yet still decompress to gigabytes.
-            # Decompress incrementally and stop one byte past the cap instead of
-            # trusting the header (ZipExtFile.read(n) bounds decompressed bytes).
-            with zf.open(entry_name) as entry:
-                entry_bytes = entry.read(MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES + 1)
-            if len(entry_bytes) > MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES:
-                self.report.report_warning(
-                    full_path,
-                    f"zip entry {entry_name} uncompressed size exceeds the "
-                    f"{MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES} byte limit; skipping",
-                )
-                return None, ""
-        finally:
-            zf.close()
-            zip_file.close()
-        return io.BytesIO(entry_bytes), inner_extension
+            path = re.sub(URI_SCHEME_REGEX, "s3://", full_path)
+            return smart_open(path, "rb", transport_params={"client": s3_client})
+        return smart_open(full_path, "rb")
 
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
         s3_client: Optional["S3Client"] = None
@@ -466,37 +400,24 @@ class S3Source(StatefulIngestionSourceBase):
                 self.source_config.verify_ssl
             )
 
-        extension = pathlib.Path(table_data.full_path).suffix
-
-        if path_spec.enable_compression and extension[1:] in SUPPORTED_COMPRESSIONS:
-            if extension[1:] == "zip":
-                file, extension = self._open_zip_entry(
-                    table_data.full_path, s3_client, path_spec
-                )
-                if file is None:
-                    return []
-            else:
-                # .gz / .bz2 — smart_open decompresses transparently
-                if s3_client is not None:
-                    path = re.sub(URI_SCHEME_REGEX, "s3://", table_data.full_path)
-                    file = smart_open(
-                        path, "rb", transport_params={"client": s3_client}
-                    )
-                else:
-                    file = smart_open(table_data.full_path, "rb")
-                # Strip the compression suffix to reveal the inner format (.json.gz -> .json)
-                extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
+        content_type = table_data.content_type
+        if path_spec.enable_compression and is_zip_path(table_data.full_path):
+            entry = self._open_zip_entry(table_data.full_path, s3_client, path_spec)
+            if entry is None:
+                return []
+            file: IO[bytes] = io.BytesIO(entry.data)
+            extension = path_spec.resolve_extension(entry.suffix)
+            # A zip's content type describes the archive, not the member we
+            # just unwrapped, so it must not drive inference of the inner file.
+            content_type = None
         else:
-            if s3_client is not None:
-                path = re.sub(URI_SCHEME_REGEX, "s3://", table_data.full_path)
-                file = smart_open(path, "rb", transport_params={"client": s3_client})
-            else:
-                file = smart_open(table_data.full_path, "rb")
-
-        extension = path_spec.resolve_schema_extension(extension, table_data.full_path)
+            # smart_open decompresses .gz / .bz2 transparently. Their content type
+            # describes the inner payload (e.g. application/json for a .json.gz).
+            file = self._smart_open(table_data.full_path, s3_client)
+            extension = path_spec.resolve_format_extension(table_data.full_path)
 
         fields = []
-        inferrer = self._get_inferrer(extension, table_data.content_type)
+        inferrer = self._get_inferrer(extension, content_type)
         if inferrer:
             try:
                 fields = inferrer.infer_schema(file)
@@ -1292,58 +1213,153 @@ class S3Source(StatefulIngestionSourceBase):
                         partitions=[],
                     )
 
+    @contextlib.contextmanager
+    def _account_scope(self, account: S3AccountConfig) -> Iterator[None]:
+        """Point the source at one account for the duration of the block.
+
+        The listing, tagging and profiling helpers all read self.source_config,
+        so the account's config is swapped in rather than threaded through them.
+        """
+        recipe_config = self.source_config
+        recipe_container_wu_creator = self.container_WU_creator
+        profiling = recipe_config.is_profiling_enabled()
+        recipe_profiler_aws_config = self.profiler.aws_config if profiling else None
+        account_aws_config = recipe_config.aws_config_for_account(account)
+        try:
+            self.source_config = recipe_config.model_copy(
+                update={
+                    "aws_config": account_aws_config,
+                    "aws_accounts": [],
+                }
+            )
+            self.container_WU_creator = self._new_container_wu_creator(
+                bucket_parent_key=self._account_key(account)
+            )
+            if profiling:
+                self.profiler.aws_config = account_aws_config
+            yield
+        finally:
+            account_aws_config.close_cached_s3_clients()
+            self.source_config = recipe_config
+            self.container_WU_creator = recipe_container_wu_creator
+            if profiling:
+                self.profiler.aws_config = recipe_profiler_aws_config
+
+    def _ingest_account(self, account: S3AccountConfig) -> Iterable[MetadataWorkUnit]:
+        # A failure is reported and the next path spec or account carries on. Any
+        # reported failure also keeps stale-entity removal from running, so no
+        # account's existing metadata is soft-deleted after a partial run.
+        context = f"account={account.account_id}, role={account.aws_role.RoleArn}"
+        failed = False
+        emitted = 0
+        try:
+            with self._account_scope(account):
+                for path_spec in self.source_config.path_specs:
+                    spec_context = f"{context}, path_spec={path_spec.include}"
+                    try:
+                        for wu in self._ingest_path_spec(path_spec):
+                            if not emitted:
+                                # Only once the role has worked, so a denied account
+                                # does not appear as an empty container.
+                                yield from self._account_container(account)
+                            emitted += 1
+                            yield wu
+                    except (BotoCoreError, ClientError) as e:
+                        failed = True
+                        self.report.failure(
+                            title="Failed to read an AWS account",
+                            message="Could not assume the account's role or list its "
+                            "S3 data. Check the role's trust policy and S3 permissions.",
+                            context=spec_context,
+                            exc=e,
+                        )
+                    except Exception as e:
+                        failed = True
+                        self.report.failure(
+                            title="Unexpected error while ingesting an AWS account",
+                            message="Ingestion of this path spec stopped for the account.",
+                            context=spec_context,
+                            exc=e,
+                        )
+        except Exception as e:
+            failed = True
+            self.report.failure(
+                title="Could not set up AWS account",
+                message="The account's AWS configuration could not be built.",
+                context=context,
+                exc=e,
+            )
+
+        if failed:
+            self.report.aws_accounts_failed.append(account.account_id)
+            stateful = self.source_config.stateful_ingestion
+            if stateful and stateful.enabled and stateful.remove_stale_metadata:
+                self.report.stale_removal_skipped_due_to_account_failures = True
+            return
+        self.report.aws_accounts_ingested += 1
+        if not emitted:
+            self.report.warning(
+                title="AWS account produced no metadata",
+                message="The account's role worked but nothing matched the path specs. "
+                "Check the role belongs to the intended account.",
+                context=context,
+            )
+
+    def _ingest_path_specs(self) -> Iterable[MetadataWorkUnit]:
+        assert self.source_config.path_specs
+        for path_spec in self.source_config.path_specs:
+            yield from self._ingest_path_spec(path_spec)
+
+    def _ingest_path_spec(self, path_spec: PathSpec) -> Iterable[MetadataWorkUnit]:
+        if path_spec.emit_folders_only:
+            yield from self._process_folders(path_spec)
+            return
+
+        file_browser = (
+            self.s3_browser(path_spec, self.source_config.number_of_files_to_sample)
+            if self.is_s3_platform()
+            else self.local_browser(path_spec)
+        )
+        table_dict: Dict[str, TableData] = {}
+        for browse_path in file_browser:
+            # Normalize URI for pattern matching
+            normalized_file_path = self._normalize_uri_for_pattern_matching(
+                browse_path.file
+            )
+
+            if not path_spec.allowed(
+                normalized_file_path,
+                ignore_ext=self.is_s3_platform()
+                and self.source_config.use_s3_content_type,
+            ):
+                continue
+            table_data = self.extract_table_data(path_spec, browse_path)
+            if table_data.table_path not in table_dict:
+                table_dict[table_data.table_path] = table_data
+            else:
+                table_dict[table_data.table_path].number_of_files = (
+                    table_dict[table_data.table_path].number_of_files + 1
+                )
+                table_dict[table_data.table_path].size_in_bytes = (
+                    table_dict[table_data.table_path].size_in_bytes
+                    + table_data.size_in_bytes
+                )
+                if (
+                    table_dict[table_data.table_path].timestamp < table_data.timestamp
+                ) and (table_data.size_in_bytes > 0):
+                    table_dict[table_data.table_path].full_path = table_data.full_path
+                    table_dict[table_data.table_path].timestamp = table_data.timestamp
+
+        for _, table_data in table_dict.items():
+            yield from self.ingest_table(table_data, path_spec)
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with PerfTimer() as timer:
-            assert self.source_config.path_specs
-            for path_spec in self.source_config.path_specs:
-                if path_spec.emit_folders_only:
-                    yield from self._process_folders(path_spec)
-                    continue
-
-                file_browser = (
-                    self.s3_browser(
-                        path_spec, self.source_config.number_of_files_to_sample
-                    )
-                    if self.is_s3_platform()
-                    else self.local_browser(path_spec)
-                )
-                table_dict: Dict[str, TableData] = {}
-                for browse_path in file_browser:
-                    # Normalize URI for pattern matching
-                    normalized_file_path = self._normalize_uri_for_pattern_matching(
-                        browse_path.file
-                    )
-
-                    if not path_spec.allowed(
-                        normalized_file_path,
-                        ignore_ext=self.is_s3_platform()
-                        and self.source_config.use_s3_content_type,
-                    ):
-                        continue
-                    table_data = self.extract_table_data(path_spec, browse_path)
-                    if table_data.table_path not in table_dict:
-                        table_dict[table_data.table_path] = table_data
-                    else:
-                        table_dict[table_data.table_path].number_of_files = (
-                            table_dict[table_data.table_path].number_of_files + 1
-                        )
-                        table_dict[table_data.table_path].size_in_bytes = (
-                            table_dict[table_data.table_path].size_in_bytes
-                            + table_data.size_in_bytes
-                        )
-                        if (
-                            table_dict[table_data.table_path].timestamp
-                            < table_data.timestamp
-                        ) and (table_data.size_in_bytes > 0):
-                            table_dict[
-                                table_data.table_path
-                            ].full_path = table_data.full_path
-                            table_dict[
-                                table_data.table_path
-                            ].timestamp = table_data.timestamp
-
-                for _, table_data in table_dict.items():
-                    yield from self.ingest_table(table_data, path_spec)
+            if self.source_config.aws_accounts:
+                for account in self.source_config.aws_accounts:
+                    yield from self._ingest_account(account)
+            else:
+                yield from self._ingest_path_specs()
 
             if not self.source_config.is_profiling_enabled():
                 return

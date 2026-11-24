@@ -4,17 +4,13 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Iterable, List
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.sagemaker_processors.common import (
     SagemakerSourceReport,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    MLFeatureSnapshot,
-    MLFeatureTableSnapshot,
-    MLPrimaryKeySnapshot,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     MLFeaturePropertiesClass,
@@ -78,11 +74,11 @@ class FeatureGroupProcessor:
 
         return feature_group
 
-    def get_feature_group_wu(
+    def gen_feature_group_workunits(
         self, feature_group_details: "DescribeFeatureGroupResponseTypeDef"
-    ) -> MetadataWorkUnit:
+    ) -> Iterable[MetadataWorkUnit]:
         """
-        Generate an MLFeatureTable workunit for a SageMaker feature group.
+        Generate MLFeatureTable workunits for a SageMaker feature group.
 
         Parameters
         ----------
@@ -92,44 +88,43 @@ class FeatureGroupProcessor:
 
         feature_group_name = feature_group_details["FeatureGroupName"]
 
-        feature_group_snapshot = MLFeatureTableSnapshot(
-            urn=builder.make_ml_feature_table_urn("sagemaker", feature_group_name),
-            aspects=[
-                BrowsePathsClass(paths=["/sagemaker"]),
-            ],
+        feature_table_urn = builder.make_ml_feature_table_urn(
+            "sagemaker", feature_group_name
         )
-
-        feature_group_snapshot.aspects.append(
-            MLFeatureTablePropertiesClass(
-                description=feature_group_details.get("Description"),
-                # non-primary key features
-                mlFeatures=[
-                    builder.make_ml_feature_urn(
-                        feature_group_name,
-                        feature["FeatureName"],
-                    )
-                    for feature in feature_group_details["FeatureDefinitions"]
-                    if feature["FeatureName"]
-                    != feature_group_details["RecordIdentifierFeatureName"]
+        feature_table_properties = MLFeatureTablePropertiesClass(
+            description=feature_group_details.get("Description"),
+            # non-primary key features
+            mlFeatures=[
+                builder.make_ml_feature_urn(
+                    feature_group_name,
+                    feature["FeatureName"],
+                )
+                for feature in feature_group_details["FeatureDefinitions"]
+                if feature["FeatureName"]
+                != feature_group_details["RecordIdentifierFeatureName"]
+            ],
+            mlPrimaryKeys=[
+                builder.make_ml_primary_key_urn(
+                    feature_group_name,
+                    feature_group_details["RecordIdentifierFeatureName"],
+                )
+            ],
+            # additional metadata
+            customProperties={
+                "arn": feature_group_details["FeatureGroupArn"],
+                "creation_time": str(feature_group_details["CreationTime"]),
+                "status": feature_group_details["FeatureGroupStatus"],
+            },
+        )
+        yield from auto_workunit(
+            MetadataChangeProposalWrapper.construct_many(
+                entityUrn=feature_table_urn,
+                aspects=[
+                    BrowsePathsClass(paths=["/sagemaker"]),
+                    feature_table_properties,
                 ],
-                mlPrimaryKeys=[
-                    builder.make_ml_primary_key_urn(
-                        feature_group_name,
-                        feature_group_details["RecordIdentifierFeatureName"],
-                    )
-                ],
-                # additional metadata
-                customProperties={
-                    "arn": feature_group_details["FeatureGroupArn"],
-                    "creation_time": str(feature_group_details["CreationTime"]),
-                    "status": feature_group_details["FeatureGroupStatus"],
-                },
             )
         )
-
-        # make the MCE and workunit
-        mce = MetadataChangeEvent(proposedSnapshot=feature_group_snapshot)
-        return MetadataWorkUnit(id=feature_group_name, mce=mce)
 
     field_type_mappings = {
         "String": MLFeatureDataType.TEXT,
@@ -150,13 +145,13 @@ class FeatureGroupProcessor:
 
         return mapped_type
 
-    def get_feature_wu(
+    def gen_feature_workunits(
         self,
         feature_group_details: "DescribeFeatureGroupResponseTypeDef",
         feature: "FeatureDefinitionTypeDef",
-    ) -> MetadataWorkUnit:
+    ) -> Iterable[MetadataWorkUnit]:
         """
-        Generate an MLFeature workunit for a SageMaker feature.
+        Generate an MLFeature or MLPrimaryKey workunit for a SageMaker feature.
 
         Parameters
         ----------
@@ -219,49 +214,29 @@ class FeatureGroupProcessor:
         # lacks enough metadata to create a dataset
         # (only specifies the security config and whether it's enabled at all)
 
-        # append feature name and type
-        if is_record_identifier:
-            primary_key_snapshot: MLPrimaryKeySnapshot = MLPrimaryKeySnapshot(
-                urn=builder.make_ml_primary_key_urn(
-                    feature_group_details["FeatureGroupName"],
-                    feature["FeatureName"],
-                ),
-                aspects=[
-                    MLPrimaryKeyPropertiesClass(
-                        dataType=self.get_feature_type(
-                            feature["FeatureType"], feature["FeatureName"]
-                        ),
-                        sources=feature_sources,
-                    ),
-                ],
-            )
-
-            # make the MCE and workunit
-            mce = MetadataChangeEvent(proposedSnapshot=primary_key_snapshot)
-        else:
-            # create snapshot instance for the feature
-            feature_snapshot: MLFeatureSnapshot = MLFeatureSnapshot(
-                urn=builder.make_ml_feature_urn(
-                    feature_group_details["FeatureGroupName"],
-                    feature["FeatureName"],
-                ),
-                aspects=[
-                    MLFeaturePropertiesClass(
-                        dataType=self.get_feature_type(
-                            feature["FeatureType"], feature["FeatureName"]
-                        ),
-                        sources=feature_sources,
-                    )
-                ],
-            )
-
-            # make the MCE and workunit
-            mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
-
-        return MetadataWorkUnit(
-            id=f"{feature_group_details['FeatureGroupName']}-{feature['FeatureName']}",
-            mce=mce,
+        data_type = self.get_feature_type(
+            feature["FeatureType"], feature["FeatureName"]
         )
+        if is_record_identifier:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=builder.make_ml_primary_key_urn(
+                    feature_group_details["FeatureGroupName"],
+                    feature["FeatureName"],
+                ),
+                aspect=MLPrimaryKeyPropertiesClass(
+                    dataType=data_type, sources=feature_sources
+                ),
+            ).as_workunit()
+        else:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=builder.make_ml_feature_urn(
+                    feature_group_details["FeatureGroupName"],
+                    feature["FeatureName"],
+                ),
+                aspect=MLFeaturePropertiesClass(
+                    dataType=data_type, sources=feature_sources
+                ),
+            ).as_workunit()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         feature_groups = self.get_all_feature_groups()
@@ -273,6 +248,6 @@ class FeatureGroupProcessor:
 
             for feature in feature_group_details["FeatureDefinitions"]:
                 self.report.report_feature_scanned()
-                yield self.get_feature_wu(feature_group_details, feature)
+                yield from self.gen_feature_workunits(feature_group_details, feature)
             self.report.report_feature_group_scanned()
-            yield self.get_feature_group_wu(feature_group_details)
+            yield from self.gen_feature_group_workunits(feature_group_details)

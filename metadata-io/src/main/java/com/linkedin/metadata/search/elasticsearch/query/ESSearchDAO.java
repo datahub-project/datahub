@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query;
 import static com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.X_CONTENT_REGISTRY;
 import static com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder.URN_FIELD;
 import static com.linkedin.metadata.utils.SearchUtil.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -13,6 +14,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.ConfigUtils;
@@ -31,10 +33,12 @@ import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.IncidentStats;
+import com.linkedin.metadata.search.KeywordRerankExplanation;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
@@ -45,7 +49,6 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
-import com.linkedin.metadata.search.elasticsearch.query.request.PreparedSearchRequest;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
@@ -56,21 +59,21 @@ import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryUnderstanding;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateBootstrap;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponent;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentPage;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRequest;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponents;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateContextVariables;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFields;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateJson;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateKeywordRerank;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLight;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMustache;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateQueryShape;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRollout;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateWalk;
-import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
+import com.linkedin.metadata.search.embedding.VectorStore;
+import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
+import com.linkedin.metadata.search.hybrid.HybridRerankPlan;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -80,7 +83,6 @@ import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import com.linkedin.search.template.SearchTemplateComponentMode;
 import com.linkedin.search.template.SearchTemplateProperties;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
@@ -179,29 +181,50 @@ public class ESSearchDAO {
   // remote calls end by the same deadline, so a worker is free about when its search falls back;
   // the in-process providers ignore it and keep their worker until they finish. The queue is
   // bounded: when the workers and the queue are full, searches get the keyword ranking right away
-  private static final ExecutorService HYBRID_EXECUTOR =
-      new ThreadPoolExecutor(
-          8,
-          8,
-          0L,
-          TimeUnit.MILLISECONDS,
-          new ArrayBlockingQueue<>(16),
-          new ThreadFactoryBuilder().setNameFormat("hybrid-rerank-%d").setDaemon(true).build());
+  private static final ExecutorService HYBRID_EXECUTOR = newHybridExecutor();
 
-  private final boolean pointInTimeCreationEnabled;
-  @Nonnull private final ElasticSearchConfiguration searchConfiguration;
-  @Nullable private final CustomSearchConfiguration customSearchConfiguration;
-  @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
+  // A test that fills the pool builds its own from this, since the shared pool keeps the workers
+  // that earlier tests started
+  @VisibleForTesting
+  static ThreadPoolExecutor newHybridExecutor() {
+    return new ThreadPoolExecutor(
+        8,
+        8,
+        0L,
+        TimeUnit.MILLISECONDS,
+        new ArrayBlockingQueue<>(16),
+        new ThreadFactoryBuilder().setNameFormat("hybrid-rerank-%d").setDaemon(true).build());
+  }
+
+  final boolean pointInTimeCreationEnabled;
+  @Nonnull final ElasticSearchConfiguration searchConfiguration;
+  @Nullable final CustomSearchConfiguration customSearchConfiguration;
+  @Nonnull final QueryFilterRewriteChain queryFilterRewriteChain;
   private final boolean testLoggingEnabled;
-  @Nonnull private final SearchServiceConfiguration searchServiceConfig;
+  @Nonnull final SearchServiceConfiguration searchServiceConfig;
   @Nonnull private final EntityDocumentIdHasher entityDocumentIdHasher;
   @Nullable private final HybridSearchResultReranker hybridSearchResultReranker;
+
+  /**
+   * Embeds the query of a search template vector rung. Null when this process cannot run one, which
+   * fails that rung closed.
+   */
+  @Nullable final HybridQueryEmbeddingService vectorQueryEmbedding;
+
+  /**
+   * Adapters for the external vector stores named in {@code semanticSearch.stores}. DataHub ships
+   * none, so a profile served by an external store fails its vector rung closed.
+   */
+  @Nonnull volatile Map<String, VectorStore> vectorStores = Map.of();
+
+  private final TemplateSearchExecutor templateSearch = new TemplateSearchExecutor(this);
 
   private final AtomicInteger hybridFailures = new AtomicInteger();
   private final AtomicLong hybridPausedUntilNanos = new AtomicLong(System.nanoTime());
   private final AtomicLong hybridLastFailureNanos = new AtomicLong(System.nanoTime());
   private volatile long hybridPauseNanos = TimeUnit.MILLISECONDS.toNanos(HYBRID_PAUSE_MILLIS);
-  private volatile long hybridTimeoutMillis = HYBRID_TIMEOUT_MILLIS;
+  volatile long hybridTimeoutMillis = HYBRID_TIMEOUT_MILLIS;
+  volatile ExecutorService hybridExecutor = HYBRID_EXECUTOR;
 
   public ESSearchDAO(
       boolean pointInTimeCreationEnabled,
@@ -252,11 +275,12 @@ public class ESSearchDAO {
         testLoggingEnabled,
         searchServiceConfig,
         entityDocumentIdHasher,
+        null,
         null);
   }
 
   @Nonnull
-  private SearchClientShim<?> searchClient(
+  SearchClientShim<?> searchClient(
       @Nonnull OperationContext opContext, @Nonnull SearchRequest searchRequest) {
     return SearchClients.forEntityIndices(opContext, searchRequest, searchConfiguration);
   }
@@ -347,7 +371,7 @@ public class ESSearchDAO {
   }
 
   @Nonnull
-  private SearchClientShim<?> searchClient(
+  SearchClientShim<?> searchClient(
       @Nonnull OperationContext opContext, @Nullable String... indices) {
     return SearchClients.forEntityIndices(opContext, searchConfiguration, indices);
   }
@@ -553,7 +577,7 @@ public class ESSearchDAO {
                     opContext, indexConvention, result.getMetadata().getAggregations())));
   }
 
-  private ScrollResult transformIndexIntoEntityName(
+  ScrollResult transformIndexIntoEntityName(
       @Nonnull OperationContext opContext, IndexConvention indexConvention, ScrollResult result) {
     return result.setMetadata(
         result
@@ -670,23 +694,31 @@ public class ESSearchDAO {
       int from,
       @Nullable Integer size,
       @Nonnull List<String> facets) {
-    if (templateReads(opContext)) {
+    if (templateSearch.templateReads(opContext)) {
       final int hybridFetchSize =
           hybridFetchSize(opContext, entityNames, input, sortCriteria, from, size);
-      final int requestFrom = hybridFetchSize > 0 ? 0 : from;
-      final Integer requestSize = hybridFetchSize > 0 ? hybridFetchSize : size;
-      final BoundSearch searched =
-          searchWithTemplates(
+      final TemplateSearchExecutor.BoundSearch searched =
+          templateSearch.searchWithTemplates(
               opContext,
               entityNames,
               input,
               postFilters,
               sortCriteria,
-              requestFrom,
-              requestSize,
+              from,
+              size,
+              hybridFetchSize,
               facets);
+      // A rung that fetched only the page is not sliced again. A keywordRerank rung still reports
+      // why it kept keyword order.
       return finishTemplateHybrid(
-          searched.context(), entityNames, input, searched.result(), from, size, hybridFetchSize);
+          searched.context(),
+          entityNames,
+          input,
+          sortCriteria,
+          searched.result(),
+          from,
+          size,
+          searched.pageFetched() ? 0 : hybridFetchSize);
     }
 
     // A hybrid search fetches the keyword rows from the top to rerank them, then slices the page
@@ -759,19 +791,181 @@ public class ESSearchDAO {
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String input,
+      @Nullable List<SortCriterion> sortCriteria,
       @Nonnull SearchResult result,
       int from,
       @Nullable Integer size,
       int hybridFetchSize) {
+    ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
+    // A keywordRerank rung owns the rerank of its window, so the default reranker stays off.
+    if (resolved != null && resolved.getTemplateRerank() != null) {
+      return rerankTemplate(
+          opContext,
+          resolved,
+          entityNames,
+          input,
+          sortCriteria,
+          result,
+          from,
+          size,
+          hybridFetchSize);
+    }
     if (hybridFetchSize == 0) {
       return result;
     }
-    ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
     // An explicit template kNN section is reranked by CachingEntitySearchService. It takes
     // precedence over the default entity hybrid reranker, but still receives the requested page.
     return resolved != null && resolved.isKnnApplied()
         ? sliceHybridWindow(result, from, size)
         : rerankHybrid(opContext, entityNames, input, result, from, size);
+  }
+
+  /**
+   * Reranks the window of the served keywordRerank rung, or keeps keyword order and reports why.
+   * Rows the rung's entity gates leave out keep their places, and the total and facets stay the
+   * keyword query's.
+   */
+  @Nonnull
+  private SearchResult rerankTemplate(
+      @Nonnull OperationContext opContext,
+      @Nonnull ResolvedSearchTemplate resolved,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable List<SortCriterion> sortCriteria,
+      @Nonnull SearchResult result,
+      int from,
+      @Nullable Integer size,
+      int hybridFetchSize) {
+    final List<SearchEntity> rows =
+        result.getEntities() == null ? List.of() : new ArrayList<>(result.getEntities());
+    final SearchFlags flags = opContext.getSearchContext().getSearchFlags();
+    final Float minScore = flags != null && flags.hasMinScore() ? flags.getMinScore() : null;
+    String reason;
+    HybridRerankPlan plan = null;
+    try {
+      final SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+      final MergedSearchTemplate template =
+          coordinator.loader().load(opContext, resolved.getTemplateRerank());
+      reason =
+          templateRerankSkip(
+              opContext,
+              resolved,
+              template,
+              entityNames,
+              input,
+              sortCriteria,
+              from,
+              size,
+              hybridFetchSize);
+      // When the served request applied the rung's own sort, that sort orders the window, so there
+      // is no relevance order to rerank. A sort section that renders empty leaves score order.
+      if (reason == null) {
+        reason =
+            resolved.isTemplateSortApplied()
+                ? SearchTemplateKeywordRerank.NOT_APPLICABLE
+                : SearchTemplateKeywordRerank.keptReason(
+                    template,
+                    coordinator.gates(),
+                    entityNames,
+                    resolved.getSearchSystem(),
+                    hybridSearchResultReranker.modelEmbeddingKey());
+      }
+      if (reason == null) {
+        plan =
+            SearchTemplateKeywordRerank.plan(
+                template, coordinator.gates(), entityNames, resolved.getSearchSystem(), minScore);
+      }
+    } catch (RuntimeException e) {
+      log.warn("keywordRerank could not plan its rerank; serving the keyword ranking", e);
+      reason = SearchTemplateKeywordRerank.FAILED;
+    }
+    List<SearchEntity> ranked = rows;
+    if (plan != null) {
+      final WindowRerank window = rerankWindow(opContext, entityNames, input, rows, plan);
+      ranked = window.rows();
+      reason = window.keptReason();
+    }
+    if (reason != null && !SearchTemplateKeywordRerank.NOT_APPLICABLE.equals(reason)) {
+      SearchTemplateMetrics.keywordRerankKept(opContext, reason);
+    }
+    if (flags != null && Boolean.TRUE.equals(flags.isIncludeExplain())) {
+      explainTemplateRerank(result, rows, plan, reason, minScore != null);
+    }
+    result.setEntities(new SearchEntityArray(ranked));
+    return hybridFetchSize == 0 ? result : sliceHybridWindow(result, from, size);
+  }
+
+  // Search-level, because the outcome is known only after the rerank, which follows extraction.
+  private static void explainTemplateRerank(
+      @Nonnull SearchResult result,
+      @Nonnull List<SearchEntity> rows,
+      @Nullable HybridRerankPlan plan,
+      @Nullable String reason,
+      boolean minScore) {
+    final KeywordRerankExplanation explanation =
+        new KeywordRerankExplanation()
+            .setOutcome(
+                reason == null
+                    ? SearchTemplateKeywordRerank.APPLIED
+                    : SearchTemplateKeywordRerank.KEPT_KEYWORD_ORDER)
+            .setReason(reason, SetMode.IGNORE_NULL);
+    if (plan != null) {
+      final int window = Math.min(HYBRID_RERANK_WINDOW, rows.size());
+      final int eligible =
+          (int)
+              rows.subList(0, window).stream()
+                  .filter(
+                      row ->
+                          row.getEntity() != null
+                              && plan.eligibleEntityNames()
+                                  .contains(row.getEntity().getEntityType()))
+                  .count();
+      explanation.setEligibleRows(eligible).setIneligibleRows(window - eligible);
+    }
+    if (minScore) {
+      explanation.setDeprecations(
+          new StringArray(SearchTemplateKeywordRerank.MIN_SCORE_DEPRECATION));
+    }
+    final SearchResultMetadata metadata =
+        result.hasMetadata() ? result.getMetadata() : new SearchResultMetadata();
+    result.setMetadata(metadata.setKeywordRerank(explanation));
+  }
+
+  /**
+   * Why a keywordRerank rung cannot rerank this request before its window is looked at, or null:
+   * the request ranks no relevance window, hybrid read is off, the rung's scope assigns it no
+   * Document, semantic read is off, no requested type has vectors, or hybrid read is paused.
+   */
+  @Nullable
+  private String templateRerankSkip(
+      @Nonnull OperationContext opContext,
+      @Nonnull ResolvedSearchTemplate resolved,
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size,
+      int hybridFetchSize) {
+    if (!rankingWindowApplies(opContext, input, sortCriteria, from, size)) {
+      return SearchTemplateKeywordRerank.NOT_APPLICABLE;
+    }
+    if (hybridSearchResultReranker == null) {
+      return SearchTemplateKeywordRerank.HYBRID_READ_OFF;
+    }
+    // The rung searched only its assigned types, so Document elsewhere in the request is not enough
+    if (!SearchTemplateCapabilities.assignsDocument(template, entityNames)) {
+      return SearchTemplateKeywordRerank.NO_DOCUMENT;
+    }
+    if (!resolved.isDocumentRerank()) {
+      return SearchTemplateKeywordRerank.SEMANTIC_READ_OFF;
+    }
+    if (hybridSearchResultReranker.vectorEntityNames(opContext, entityNames).isEmpty()) {
+      return SearchTemplateKeywordRerank.NO_ELIGIBLE_ROWS;
+    }
+    // Otherwise only a pause keeps the window from being fetched. A search that fetched it finds a
+    // pause that began since in the window runner.
+    return hybridFetchSize == 0 ? SearchTemplateKeywordRerank.PAUSED : null;
   }
 
   /**
@@ -788,29 +982,8 @@ public class ESSearchDAO {
       @Nullable List<SortCriterion> sortCriteria,
       int from,
       @Nullable Integer size) {
-    // A count has no hits to rerank. The lexical query and facets still run.
-    if (size != null && size == 0) {
-      return 0;
-    }
-    if (hybridSearchResultReranker == null || from >= HYBRID_RERANK_WINDOW) {
-      return 0;
-    }
-    final int pageSize = ConfigUtils.applyLimit(searchServiceConfig, size);
-    final SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
-    final String trimmed = input.trim();
-    if (pageSize == 0
-        || !isRelevanceSort(sortCriteria)
-        || searchFlags == null
-        || !Boolean.TRUE.equals(searchFlags.isFulltext())
-        || trimmed.isEmpty()
-        || "*".equals(trimmed)
-        || trimmed.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)
-        || isExactLookup(trimmed)) {
-      return 0;
-    }
-    final int fetchSize = Math.max(HYBRID_RERANK_WINDOW, from + pageSize);
-    // A fetch above the result limit would be cut short, or rejected in strict mode
-    if (fetchSize > searchServiceConfig.getLimit().getResults().getMax()
+    if (hybridSearchResultReranker == null
+        || !rankingWindowApplies(opContext, input, sortCriteria, from, size)
         || hybridSearchResultReranker.vectorEntityNames(opContext, entityNames).isEmpty()) {
       return 0;
     }
@@ -818,7 +991,39 @@ public class ESSearchDAO {
       countHybrid(opContext, "hybridReadSkipped");
       return 0;
     }
-    return fetchSize;
+    return Math.max(HYBRID_RERANK_WINDOW, from + ConfigUtils.applyLimit(searchServiceConfig, size));
+  }
+
+  /**
+   * Whether the request ranks a relevance window a rerank can reorder: it sorts by relevance, asks
+   * for rows on a page that starts inside the window, its input is a full-text query that is not
+   * empty, match-all, structured, or an exact lookup, and the window fits the result limit.
+   */
+  private boolean rankingWindowApplies(
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size) {
+    // A count has no hits to rerank. The lexical query and facets still run.
+    if ((size != null && size == 0)
+        || from >= HYBRID_RERANK_WINDOW
+        || !isRelevanceSort(sortCriteria)) {
+      return false;
+    }
+    final int pageSize = ConfigUtils.applyLimit(searchServiceConfig, size);
+    final SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    final String trimmed = input.trim();
+    // A fetch above the result limit would be cut short, or rejected in strict mode
+    return pageSize != 0
+        && searchFlags != null
+        && Boolean.TRUE.equals(searchFlags.isFulltext())
+        && !trimmed.isEmpty()
+        && !"*".equals(trimmed)
+        && !trimmed.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)
+        && !isExactLookup(trimmed)
+        && Math.max(HYBRID_RERANK_WINDOW, from + pageSize)
+            <= searchServiceConfig.getLimit().getResults().getMax();
   }
 
   /**
@@ -834,86 +1039,11 @@ public class ESSearchDAO {
       @Nonnull SearchResult keywordResult,
       int from,
       @Nullable Integer size) {
-    final List<SearchEntity> rows = keywordResult.getEntities();
-    final int windowEnd = Math.min(HYBRID_RERANK_WINDOW, rows.size());
-    List<SearchEntity> ranked = rows;
-    Future<Optional<List<SearchEntity>>> rerank = null;
-    final Set<String> vectorEntityNames =
-        hybridSearchResultReranker.vectorEntityNames(opContext, entityNames);
-    final long windowVectorRows =
-        rows.subList(0, windowEnd).stream()
-            .map(SearchEntity::getEntity)
-            .filter(urn -> urn != null && vectorEntityNames.contains(urn.getEntityType()))
-            .distinct()
-            .count();
-    // Fewer than two rows of an entity type with vectors cannot trade positions, so no embedding or
-    // kNN call
-    if (windowVectorRows >= 2 && isHybridPaused()) {
-      // Hybrid read paused after this search fetched its window: it keeps the keyword ranking
-      countHybrid(opContext, "hybridReadSkipped");
-    } else if (windowVectorRows >= 2) {
-      final long startNanos = System.nanoTime();
-      final long deadlineNanos = startNanos + TimeUnit.MILLISECONDS.toNanos(hybridTimeoutMillis);
-      try {
-        // The worker gets its own copies: a rerank that finishes after the timeout must not change
-        // the rows served as the keyword fallback
-        final List<SearchEntity> window = new ArrayList<>(windowEnd);
-        for (SearchEntity row : rows.subList(0, windowEnd)) {
-          window.add(row.copy());
-        }
-        rerank =
-            HYBRID_EXECUTOR.submit(
-                Context.current()
-                    .wrap(
-                        () ->
-                            hybridSearchResultReranker.rerank(
-                                opContext,
-                                entityNames,
-                                input,
-                                window,
-                                List.of(URN_FIELD),
-                                deadlineNanos)));
-        final Optional<List<SearchEntity>> reranked =
-            rerank.get(hybridTimeoutMillis, TimeUnit.MILLISECONDS);
-        // Also a rerank that found no vectors
-        recordHybridSuccess(startNanos);
-        if (reranked.isPresent()) {
-          ranked = new ArrayList<>(reranked.get());
-          ranked.addAll(rows.subList(windowEnd, rows.size()));
-          countHybrid(opContext, "hybridReadApplied");
-        }
-      } catch (RejectedExecutionException e) {
-        // A rejected search waited for nothing and says nothing about the provider, so a burst of
-        // searches does not pause hybrid read; searches that do wait and fail count instead
-        countHybrid(opContext, "hybridReadRejected");
-      } catch (TimeoutException e) {
-        // The interrupt ends a call blocked in an interruptible wait, and a queued call does not
-        // start
-        rerank.cancel(true);
-        countHybridTimeout(opContext);
-        recordHybridFailure(startNanos);
-      } catch (InterruptedException e) {
-        // The search itself was interrupted, which says nothing about the provider, so it does not
-        // count toward the pause
-        rerank.cancel(true);
-        Thread.currentThread().interrupt();
-        countHybrid(opContext, "hybridReadFailed");
-      } catch (Exception e) {
-        final Throwable cause =
-            e instanceof ExecutionException && e.getCause() != null ? e.getCause() : e;
-        recordHybridFailure(startNanos);
-        if (System.nanoTime() - deadlineNanos >= 0) {
-          // The embedding or kNN call gave up at the deadline, just as the search did
-          countHybridTimeout(opContext);
-        } else {
-          countHybrid(opContext, "hybridReadFailed");
-          // One line per failed search; the stack trace only at debug, so an outage does not
-          // flood logs
-          log.warn("Hybrid read failed; serving the keyword ranking: {}", cause.toString());
-        }
-        log.debug("Hybrid read failure", cause);
-      }
-    }
+    final HybridRerankPlan plan =
+        new HybridRerankPlan(
+            hybridSearchResultReranker.vectorEntityNames(opContext, entityNames), null, null);
+    final List<SearchEntity> ranked =
+        rerankWindow(opContext, entityNames, input, keywordResult.getEntities(), plan).rows();
     final int pageSize = ConfigUtils.applyLimit(searchServiceConfig, size);
     final int pageStart = Math.min(from, ranked.size());
     final int pageEnd = (int) Math.min((long) from + pageSize, ranked.size());
@@ -921,6 +1051,107 @@ public class ESSearchDAO {
         .setEntities(new SearchEntityArray(ranked.subList(pageStart, pageEnd)))
         .setFrom(from)
         .setPageSize(pageSize);
+  }
+
+  /** The rows of one window rerank, and why they kept keyword order, or null when it applied. */
+  private record WindowRerank(@Nonnull List<SearchEntity> rows, @Nullable String keptReason) {}
+
+  /**
+   * Reranks the first {@link #HYBRID_RERANK_WINDOW} rows by {@code plan}; the rows past the window
+   * follow unchanged. Any failure keeps the keyword ranking and names a {@link
+   * SearchTemplateKeywordRerank} reason.
+   */
+  @Nonnull
+  private WindowRerank rerankWindow(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nonnull List<SearchEntity> rows,
+      @Nonnull HybridRerankPlan plan) {
+    final int windowEnd = Math.min(HYBRID_RERANK_WINDOW, rows.size());
+    Future<Optional<List<SearchEntity>>> rerank = null;
+    final long windowVectorRows =
+        rows.subList(0, windowEnd).stream()
+            .map(SearchEntity::getEntity)
+            .filter(urn -> urn != null && plan.eligibleEntityNames().contains(urn.getEntityType()))
+            .distinct()
+            .count();
+    // Fewer than two eligible rows cannot trade positions, so no embedding or kNN call
+    if (windowVectorRows < 2) {
+      return new WindowRerank(rows, SearchTemplateKeywordRerank.NO_ELIGIBLE_ROWS);
+    }
+    if (isHybridPaused()) {
+      // Hybrid read paused after this search fetched its window: it keeps the keyword ranking
+      countHybrid(opContext, "hybridReadSkipped");
+      return new WindowRerank(rows, SearchTemplateKeywordRerank.PAUSED);
+    }
+    final long startNanos = System.nanoTime();
+    final long deadlineNanos = startNanos + TimeUnit.MILLISECONDS.toNanos(hybridTimeoutMillis);
+    try {
+      // The worker gets its own copies: a rerank that finishes after the timeout must not change
+      // the rows served as the keyword fallback
+      final List<SearchEntity> window = new ArrayList<>(windowEnd);
+      for (SearchEntity row : rows.subList(0, windowEnd)) {
+        window.add(row.copy());
+      }
+      rerank =
+          hybridExecutor.submit(
+              Context.current()
+                  .wrap(
+                      () ->
+                          hybridSearchResultReranker.rerank(
+                              opContext,
+                              entityNames,
+                              input,
+                              window,
+                              List.of(URN_FIELD),
+                              deadlineNanos,
+                              plan)));
+      final Optional<List<SearchEntity>> reranked =
+          rerank.get(hybridTimeoutMillis, TimeUnit.MILLISECONDS);
+      // Also a rerank that found no vectors
+      recordHybridSuccess(startNanos);
+      if (reranked.isEmpty()) {
+        return new WindowRerank(rows, SearchTemplateKeywordRerank.NO_ELIGIBLE_ROWS);
+      }
+      final List<SearchEntity> ranked = new ArrayList<>(reranked.get());
+      ranked.addAll(rows.subList(windowEnd, rows.size()));
+      countHybrid(opContext, "hybridReadApplied");
+      return new WindowRerank(ranked, null);
+    } catch (RejectedExecutionException e) {
+      // A rejected search waited for nothing and says nothing about the provider, so a burst of
+      // searches does not pause hybrid read; searches that do wait and fail count instead
+      countHybrid(opContext, "hybridReadRejected");
+      return new WindowRerank(rows, SearchTemplateKeywordRerank.REJECTED);
+    } catch (TimeoutException e) {
+      // The interrupt ends a call blocked in an interruptible wait, and a queued call does not
+      // start
+      rerank.cancel(true);
+      countHybridTimeout(opContext);
+      recordHybridFailure(startNanos);
+      return new WindowRerank(rows, SearchTemplateKeywordRerank.TIMEOUT);
+    } catch (InterruptedException e) {
+      // The search itself was interrupted, which says nothing about the provider, so it does not
+      // count toward the pause
+      rerank.cancel(true);
+      Thread.currentThread().interrupt();
+      countHybrid(opContext, "hybridReadFailed");
+      return new WindowRerank(rows, SearchTemplateKeywordRerank.FAILED);
+    } catch (Exception e) {
+      final Throwable cause =
+          e instanceof ExecutionException && e.getCause() != null ? e.getCause() : e;
+      recordHybridFailure(startNanos);
+      log.debug("Hybrid read failure", cause);
+      if (System.nanoTime() - deadlineNanos >= 0) {
+        // The embedding or kNN call gave up at the deadline, just as the search did
+        countHybridTimeout(opContext);
+        return new WindowRerank(rows, SearchTemplateKeywordRerank.TIMEOUT);
+      }
+      countHybrid(opContext, "hybridReadFailed");
+      // One line per failed search; the stack trace only at debug, so an outage does not flood logs
+      log.warn("Hybrid read failed; serving the keyword ranking: {}", cause.toString());
+      return new WindowRerank(rows, SearchTemplateKeywordRerank.FAILED);
+    }
   }
 
   @Nonnull
@@ -984,8 +1215,18 @@ public class ESSearchDAO {
   }
 
   @VisibleForTesting
+  void setVectorStores(@Nonnull Map<String, VectorStore> stores) {
+    vectorStores = Map.copyOf(stores);
+  }
+
+  @VisibleForTesting
   void setHybridTimeoutMillis(long millis) {
     hybridTimeoutMillis = millis;
+  }
+
+  @VisibleForTesting
+  void setHybridExecutor(@Nonnull ExecutorService executor) {
+    hybridExecutor = executor;
   }
 
   private void countHybridTimeout(@Nonnull OperationContext opContext) {
@@ -1112,12 +1353,12 @@ public class ESSearchDAO {
   }
 
   /** Whether an empty light result stands: an ID or long-name input, and every shard in time. */
-  private static boolean stopsOnEmpty(@Nonnull SearchResponse response, @Nonnull String input) {
+  static boolean stopsOnEmpty(@Nonnull SearchResponse response, @Nonnull String input) {
     return skipsFullQuery(input) && response.getFailedShards() == 0 && !response.isTimedOut();
   }
 
   /** Total hits decide, not the page's hits: a later page of a light result can be empty. */
-  private static boolean hasHits(@Nonnull SearchResponse response) {
+  static boolean hasHits(@Nonnull SearchResponse response) {
     TotalHits totalHits = response.getHits().getTotalHits();
     return totalHits != null
         ? totalHits.value > 0
@@ -1191,7 +1432,7 @@ public class ESSearchDAO {
   }
 
   /** No sort, or only by descending score (the explain API's default), orders by relevance. */
-  private static boolean isRelevanceSort(@Nullable List<SortCriterion> sortCriteria) {
+  static boolean isRelevanceSort(@Nullable List<SortCriterion> sortCriteria) {
     if (sortCriteria == null || sortCriteria.isEmpty()) {
       return true;
     }
@@ -1275,11 +1516,11 @@ public class ESSearchDAO {
       List<SortCriterion> sortCriteria,
       int from,
       @Nullable Integer size) {
-    if (templateReads(opContext)) {
-      return searchOnce(
+    if (templateSearch.templateReads(opContext)) {
+      return templateSearch.searchOnce(
           opContext, List.of(entityName), "*", filters, sortCriteria, from, size, List.of());
     }
-    shadowTemplates(opContext, List.of(entityName), "*", false);
+    templateSearch.shadowTemplates(opContext, List.of(entityName), "*", false);
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     Filter transformedFilters = transformFilter(opContext, filters, indexConvention);
@@ -1318,6 +1559,13 @@ public class ESSearchDAO {
       @Nullable String field,
       @Nullable Filter requestParams,
       @Nullable Integer limit) {
+    // An entity type this registry doesn't know (e.g. requested by a client built for a newer
+    // version after a rollback) is a bad request, not a query failure.
+    if (handling().toleratesUnknownEntityAspect()
+        && opContext.getEntityRegistry().findEntitySpec(entityName).isEmpty()) {
+      throw new IllegalArgumentException(
+          String.format("Unknown entity type for autocomplete: %s", entityName));
+    }
     if (EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())) {
       if (query.isBlank()) {
         return emptyAutocomplete(query);
@@ -1403,6 +1651,23 @@ public class ESSearchDAO {
     Map<String, Object> context = new HashMap<>();
     context.put(
         SearchTemplateContextVariables.PREFIX_FIELD, autocompletePrefixField(entitySpec, field));
+    // The whole-name prefix reads the default name only, and only when the entity's name opted
+    // into v3.lowercase. A caller-chosen field keeps the analyzed prefix alone, since the
+    // lowercase subfield exists only on the name. The default field, and an explicit email
+    // field, also prefix the email keyword. Email has no lowercase subfield, so the template
+    // matches it case-insensitively.
+    if (isDefaultAutocompleteField(field)
+        && new SearchFieldResolver(List.of(entitySpec)).hasLowercaseSubfield("name")) {
+      context.put(
+          SearchTemplateContextVariables.PREFIX_KEYWORD,
+          SearchTemplateFields.lowercaseKeywordPath("name"));
+    }
+    if (isDefaultAutocompleteField(field) || isEmailAutocompleteField(field)) {
+      context.put(
+          SearchTemplateContextVariables.EMAIL_KEYWORD, SearchTemplateFields.keywordPath("email"));
+    }
+    context.put(
+        SearchTemplateContextVariables.NORMALIZED_KEYWORD, ESUtils.keywordNormalize(query.strip()));
     context.put(SearchTemplateContextVariables.UNQUOTED, query);
     context.put(
         SearchTemplateContextVariables.PREFIX_MAX_EXPANSIONS,
@@ -1449,10 +1714,19 @@ public class ESSearchDAO {
     return shipped.getQuery();
   }
 
+  /** GraphQL sends {@code name} for the default autocomplete field, so it is not a custom pick. */
+  private static boolean isDefaultAutocompleteField(@Nullable String field) {
+    return field == null || field.isBlank() || "name".equals(field.strip());
+  }
+
+  private static boolean isEmailAutocompleteField(@Nullable String field) {
+    return field != null && "email".equalsIgnoreCase(field.strip());
+  }
+
   @Nonnull
   private static String autocompletePrefixField(
       @Nonnull EntitySpec entitySpec, @Nullable String field) {
-    if (field == null || field.isBlank()) {
+    if (isDefaultAutocompleteField(field)) {
       return "name" + V3SearchFields.TEXT_SUFFIX;
     }
     SearchFieldResolver resolver = new SearchFieldResolver(List.of(entitySpec));
@@ -1613,12 +1887,14 @@ public class ESSearchDAO {
       searchRequest.indices(entityIndexNames(opContext, entityNames));
     }
     List<String> names = entitySpecs.stream().map(EntitySpec::getName).toList();
-    if (templateReads(opContext)) {
+    if (templateSearch.templateReads(opContext)) {
       // The template supplies the lexical query and its authorization filters. The terms
       // aggregation, its size cap, and the zero-hit request stay the Java aggregation above.
-      searchRequest.source().query(renderedStarQuery(opContext, names, requestParams));
+      searchRequest
+          .source()
+          .query(templateSearch.renderedStarQuery(opContext, names, requestParams));
     } else {
-      shadowTemplates(opContext, names, "*", false);
+      templateSearch.shadowTemplates(opContext, names, "*", false);
     }
     return searchRequest;
   }
@@ -1634,9 +1910,9 @@ public class ESSearchDAO {
    * Max entity URNs per active-incident-stats request. The batch size on the health {@code
    * DataLoader} that calls this is unbounded, so a large search page would otherwise send its whole
    * URN set in one request. Both ES limits this query is exposed to default to 65536: {@code
-   * index.max_terms_count} (the {@code entities.keyword} terms filter) and {@code
-   * search.max_buckets} (the by-entity aggregation materialises one bucket, with a {@code top_hits}
-   * sub-agg, per URN). Partitioning keeps each request comfortably under both, mirroring {@code
+   * index.max_terms_count} (the entities terms filter) and {@code search.max_buckets} (the
+   * by-entity aggregation materialises one bucket, with a {@code top_hits} sub-agg, per URN).
+   * Partitioning keeps each request comfortably under both, mirroring {@code
    * LineageSearchService.MAX_TERMS} and the assertion-run batch path.
    */
   @VisibleForTesting static final int INCIDENT_STATS_URN_BATCH_SIZE = 1000;
@@ -1680,11 +1956,12 @@ public class ESSearchDAO {
   public SearchRequest buildActiveIncidentStatsRequest(
       @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns) {
     final String[] urnStrings = entityUrns.stream().map(Urn::toString).toArray(String[]::new);
+    final String entitiesField = incidentEntitiesField(opContext);
 
     final BoolQueryBuilder query =
         QueryBuilders.boolQuery()
             .filter(QueryBuilders.termQuery(INCIDENT_STATE_FIELD, INCIDENT_ACTIVE_STATE))
-            .filter(QueryBuilders.termsQuery(INCIDENT_ENTITIES_FIELD, urnStrings));
+            .filter(QueryBuilders.termsQuery(entitiesField, urnStrings));
 
     // This aggregation bypasses SearchRequestHandler, so apply the same soft-delete / hidden-stage
     // defaults the unbatched entityClient.filter path gets, keeping the two paths in agreement.
@@ -1699,7 +1976,7 @@ public class ESSearchDAO {
 
     final TermsAggregationBuilder byEntity =
         AggregationBuilders.terms(BY_ENTITY_AGG)
-            .field(INCIDENT_ENTITIES_FIELD)
+            .field(entitiesField)
             .includeExclude(new IncludeExclude(urnStrings, null))
             .size(entityUrns.size())
             .subAggregation(
@@ -1716,6 +1993,23 @@ public class ESSearchDAO {
         new SearchRequest(entityIndexName(opContext, Constants.INCIDENT_ENTITY_NAME));
     request.source(source);
     return request;
+  }
+
+  /**
+   * Field that stores the complete entity URN. V2 keeps it on {@code entities.keyword}. On V3 the
+   * root {@code entities} holds the parsed name, and {@link SearchFieldResolver} returns the
+   * sibling that holds the complete URN for a filter.
+   */
+  @Nonnull
+  private String incidentEntitiesField(@Nonnull OperationContext opContext) {
+    if (!EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())) {
+      return INCIDENT_ENTITIES_FIELD;
+    }
+    EntitySpec incident =
+        opContext.getEntityRegistry().getEntitySpec(Constants.INCIDENT_ENTITY_NAME);
+    return new SearchFieldResolver(List.of(incident))
+        .exactPath(
+            V3SearchFields.rootPath(INCIDENT_ENTITIES_FIELD), SearchFieldResolver.Intent.FILTER);
   }
 
   private static Map<Urn, IncidentStats> extractIncidentStats(
@@ -1767,8 +2061,8 @@ public class ESSearchDAO {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       @Nullable Integer size) {
-    if (templateReads(opContext)) {
-      return scrollWithTemplates(
+    if (templateSearch.templateReads(opContext)) {
+      return templateSearch.scrollWithTemplates(
           opContext, entities, input, postFilters, sortCriteria, scrollId, keepAlive, size);
     }
 
@@ -1914,7 +2208,10 @@ public class ESSearchDAO {
         urns.stream()
             .flatMap(
                 urn ->
-                    Optional.ofNullable(entityRegistry.getEntitySpec(urn.getEntityType()))
+                    // While unknown data is tolerated, urns of entity types this registry
+                    // doesn't know are left out; otherwise they fail as before.
+                    handling()
+                        .entitySpecForData(entityRegistry, urn.getEntityType())
                         .map(spec -> Map.entry(urn, spec))
                         .stream())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -1986,8 +2283,8 @@ public class ESSearchDAO {
         .index(entityIndexName(opContext, entityName));
     try {
       explainRequest.query(
-          templateReads(opContext)
-              ? templateExplainQuery(
+          templateSearch.templateReads(opContext)
+              ? templateSearch.templateExplainQuery(
                   opContext,
                   query,
                   entityName,
@@ -1997,7 +2294,7 @@ public class ESSearchDAO {
                   keepAlive,
                   size,
                   facets)
-              : servedQuery(
+              : templateSearch.servedQuery(
                   opContext,
                   explainRequest.index(),
                   searchRequest.getLeft().source().query(),
@@ -2014,94 +2311,6 @@ public class ESSearchDAO {
       log.error("Failed to explain query.", e);
       throw new IllegalStateException("Failed to explain query:", e);
     }
-  }
-
-  /**
-   * The template query a search or scroll for the same input would serve. Scroll renders the routed
-   * seed and does not walk {@code next}. A search walks the ladder, including a page of size zero,
-   * which fails the light page-size select and continues.
-   */
-  @Nonnull
-  private QueryBuilder templateExplainQuery(
-      @Nonnull OperationContext opContext,
-      @Nonnull String query,
-      @Nonnull String entityName,
-      @Nullable Filter postFilters,
-      List<SortCriterion> sortCriteria,
-      @Nullable String scrollId,
-      @Nullable String keepAlive,
-      @Nullable Integer size,
-      @Nonnull List<String> facets) {
-    boolean scroll = scrollId != null || keepAlive != null;
-    List<String> entityNames = List.of(entityName);
-    OperationContext bound = bindTemplates(opContext, query, scroll, entityNames);
-    ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
-    String renderUrn = resolved == null ? null : resolved.getUrn();
-    if (!scroll && renderUrn != null) {
-      SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
-      SearchTemplateWalk.Served<SearchResult> served =
-          SearchTemplateWalk.walk(
-              bound,
-              coordinator.loader(),
-              coordinator.ladderExecutor(),
-              renderUrn,
-              new SearchTemplateWalk.Request(
-                  query, postFilters, sortCriteria, size, SearchTemplateWalk.identity()),
-              urn ->
-                  searchAttempt(
-                      bound, urn, entityNames, query, postFilters, sortCriteria, 0, size, facets),
-              (first, entities, total) -> {
-                SearchResult copy = new SearchResult();
-                copy.setEntities(new SearchEntityArray(entities));
-                copy.setMetadata(first.getMetadata());
-                copy.setFrom(first.getFrom());
-                copy.setPageSize(first.getPageSize());
-                copy.setNumEntities(total);
-                return copy;
-              });
-      if (served.urn() != null) {
-        renderUrn = served.urn();
-      }
-    }
-    return prepareTemplateSearch(
-            bound, entityNames, query, postFilters, sortCriteria, 0, size, facets, renderUrn)
-        .prepared()
-        .request()
-        .source()
-        .query();
-  }
-
-  /**
-   * The query a search for the same input would serve: the light query when it matches anything
-   * (counted without fetching hits), else the full query, as {@link #searchLightFirst} decides.
-   */
-  private QueryBuilder servedQuery(
-      @Nonnull OperationContext opContext,
-      @Nonnull String index,
-      @Nonnull QueryBuilder fullQuery,
-      @Nullable QueryBuilder lightQuery,
-      @Nonnull String input)
-      throws IOException {
-    if (lightQuery == null) {
-      return fullQuery;
-    }
-    QueryBuilder lightSourceQuery = buildLightSourceQuery(fullQuery, lightQuery);
-    if (lightSourceQuery == null) {
-      return fullQuery;
-    }
-    SearchRequest countRequest =
-        new SearchRequest(index)
-            .source(
-                new SearchSourceBuilder().query(lightSourceQuery).size(0).trackTotalHitsUpTo(1));
-    SearchResponse count =
-        SearchTookMetrics.time(
-            opContext,
-            SearchOperation.ENTITY_SEARCH,
-            () ->
-                searchClient(opContext, countRequest)
-                    .search(opContext, countRequest, RequestOptions.DEFAULT));
-    // The decision searchLightFirst makes
-    return hasHits(count) || stopsOnEmpty(count, input) ? lightSourceQuery : fullQuery;
   }
 
   /**
@@ -2129,7 +2338,7 @@ public class ESSearchDAO {
    * again, so the normalization must stay idempotent.
    */
   @Nullable
-  private Filter transformFilter(
+  Filter transformFilter(
       @Nonnull OperationContext opContext,
       @Nullable Filter filter,
       @Nonnull IndexConvention indexConvention) {
@@ -2138,307 +2347,25 @@ public class ESSearchDAO {
         : EntityFilter.toEntityFilter(opContext, filter);
   }
 
+  Filter transformFilter(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> entityNames,
+      @Nullable Filter filter,
+      @Nonnull IndexConvention indexConvention) {
+    return transformFilter(opContext, filter, indexConvention);
+  }
+
   @Nonnull
-  private String[] entityIndexNames(
+  String[] entityIndexNames(
       @Nonnull OperationContext opContext, @Nonnull Collection<String> entityNames) {
     return EntitySearchIndexResolver.indexNames(
         opContext, entityNames, searchConfiguration.getEntityIndex());
   }
 
   @Nonnull
-  private String entityIndexName(@Nonnull OperationContext opContext, @Nonnull String entityName) {
+  String entityIndexName(@Nonnull OperationContext opContext, @Nonnull String entityName) {
     return EntitySearchIndexResolver.indexName(
         opContext, entityName, searchConfiguration.getEntityIndex());
-  }
-
-  private record SearchExecution<T>(
-      @Nonnull T page, boolean shardFailed, @Nullable RenderedSearchTemplate renderedTemplate) {}
-
-  private record PreparedRequestComponents(
-      @Nonnull PreparedSearchRequest prepared,
-      @Nullable Filter filter,
-      @Nonnull List<EntitySpec> entitySpecs) {}
-
-  /** The context {@code armServed} updated, plus the page that search returned. */
-  private record BoundSearch(@Nonnull OperationContext context, @Nonnull SearchResult result) {}
-
-  @Nonnull
-  private BoundSearch searchWithTemplates(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<String> entityNames,
-      @Nonnull String input,
-      @Nullable Filter postFilters,
-      List<SortCriterion> sortCriteria,
-      int from,
-      @Nullable Integer size,
-      @Nonnull List<String> facets) {
-    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
-    if (coordinator == null || !coordinator.executes(opContext)) {
-      return new BoundSearch(
-          opContext,
-          searchOnce(opContext, entityNames, input, postFilters, sortCriteria, from, size, facets));
-    }
-    OperationContext bound = bindTemplates(opContext, input, false, entityNames);
-    ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
-    if (resolved == null) {
-      return new BoundSearch(
-          bound,
-          searchOnce(bound, entityNames, input, postFilters, sortCriteria, from, size, facets));
-    }
-    SearchTemplateWalk.Served<SearchResult> served =
-        SearchTemplateWalk.walk(
-            bound,
-            coordinator.loader(),
-            coordinator.ladderExecutor(),
-            resolved.getUrn(),
-            new SearchTemplateWalk.Request(
-                input,
-                postFilters,
-                sortCriteria,
-                size,
-                (urn, raw) ->
-                    componentReorder(
-                        bound, urn, raw, input, postFilters, sortCriteria, from, size)),
-            urn ->
-                searchAttempt(
-                    bound, urn, entityNames, input, postFilters, sortCriteria, from, size, facets),
-            (first, entities, total) -> {
-              SearchResult copy = new SearchResult();
-              copy.setEntities(new SearchEntityArray(entities));
-              copy.setMetadata(first.getMetadata());
-              copy.setFrom(first.getFrom());
-              copy.setPageSize(first.getPageSize());
-              copy.setNumEntities(total);
-              return copy;
-            });
-    ResolvedSearchTemplate current = bound.getSearchContext().getResolvedSearchTemplate();
-    if (current != null) {
-      current.setHighlightFields(served.highlights());
-    }
-    coordinator.armServed(bound, isRelevanceSort(sortCriteria) ? served.urn() : null);
-    return new BoundSearch(bound, served.page());
-  }
-
-  /**
-   * Binds the shipped or stored template when the caller has not already chosen one. Search through
-   * the cache binds first; a direct search still has to, or the ladder never runs.
-   */
-  @Nonnull
-  private OperationContext bindTemplates(
-      @Nonnull OperationContext opContext,
-      @Nonnull String query,
-      boolean scroll,
-      @Nonnull List<String> entityNames) {
-    if (opContext.getSearchContext().getResolvedSearchTemplate() != null) {
-      return opContext;
-    }
-    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
-    if (coordinator == null) {
-      return opContext;
-    }
-    return coordinator.bind(opContext, query, scroll, entityNames);
-  }
-
-  @Nonnull
-  private SearchTemplateWalk.AttemptResult<SearchResult> searchAttempt(
-      @Nonnull OperationContext opContext,
-      @Nonnull String urn,
-      @Nonnull List<String> entityNames,
-      @Nonnull String input,
-      @Nullable Filter postFilters,
-      @Nullable List<SortCriterion> sortCriteria,
-      int from,
-      @Nullable Integer size,
-      @Nonnull List<String> facets) {
-    try {
-      SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
-      int fetchFrom = from;
-      Integer fetchSize = size;
-      if (coordinator != null) {
-        MergedSearchTemplate template = coordinator.loader().load(opContext, urn);
-        com.linkedin.search.template.SearchTemplateComponent spec = template.getComponent();
-        if (!SearchTemplateComponents.empty(spec)
-            && spec.getMode() == SearchTemplateComponentMode.OWN_RUNG) {
-          Map<String, String> config = SearchTemplateComponents.config(spec);
-          SearchTemplateComponent implementation =
-              coordinator.components().require(spec.getName(), spec.getVersion());
-          SearchTemplateComponentPage ranked =
-              implementation.execute(
-                  SearchTemplateComponentRequest.builder()
-                      .opContext(opContext)
-                      .query(input)
-                      .filter(postFilters)
-                      .sort(sortCriteria)
-                      .from(from)
-                      .size(size)
-                      .config(config)
-                      .mode(spec.getMode())
-                      .build());
-          SearchResult owned = new SearchResult();
-          owned.setEntities(new SearchEntityArray(ranked.hits()));
-          owned.setNumEntities((int) Math.min(Integer.MAX_VALUE, Math.max(0, ranked.total())));
-          owned.setFrom(from);
-          owned.setPageSize(size == null ? ranked.hits().size() : size);
-          if (ranked.metadata() != null) {
-            owned.setMetadata(ranked.metadata());
-          }
-          return SearchTemplateWalk.AttemptResult.ok(
-              owned,
-              owned.getNumEntities(),
-              new ArrayList<>(owned.getEntities()),
-              List.of(),
-              ranked.shardFailed(),
-              null);
-        }
-        if (!SearchTemplateComponents.empty(spec)
-            && spec.getMode() == SearchTemplateComponentMode.POST_PROCESS) {
-          Map<String, String> config = SearchTemplateComponents.config(spec);
-          SearchTemplateComponentRequest planned =
-              SearchTemplateComponentRequest.builder()
-                  .opContext(opContext)
-                  .query(input)
-                  .filter(postFilters)
-                  .sort(sortCriteria)
-                  .from(from)
-                  .size(size)
-                  .config(config)
-                  .mode(spec.getMode())
-                  .build();
-          int window =
-              coordinator
-                  .components()
-                  .require(spec.getName(), spec.getVersion())
-                  .plan(planned, config);
-          if (!SearchTemplateComponents.skip(false, size, sortCriteria, from, window)) {
-            fetchFrom = 0;
-            fetchSize = window;
-          }
-        }
-      }
-      SearchExecution<SearchResult> execution =
-          searchOnceExecution(
-              opContext,
-              entityNames,
-              input,
-              postFilters,
-              sortCriteria,
-              fetchFrom,
-              fetchSize,
-              facets,
-              urn);
-      SearchResult page = execution.page();
-      List<SearchEntity> entities =
-          page.getEntities() == null ? List.of() : new ArrayList<>(page.getEntities());
-      String rendered =
-          execution.renderedTemplate() == null
-              ? null
-              : execution.renderedTemplate().query().toString();
-      return SearchTemplateWalk.AttemptResult.ok(
-          page,
-          page.getNumEntities(),
-          entities,
-          execution.renderedTemplate() == null
-              ? List.of()
-              : execution.renderedTemplate().highlights(),
-          execution.shardFailed(),
-          rendered);
-    } catch (RuntimeException e) {
-      return SearchTemplateWalk.AttemptResult.failed(e);
-    }
-  }
-
-  @Nonnull
-  private SearchTemplateWalk.AttemptResult<?> componentReorder(
-      @Nonnull OperationContext opContext,
-      @Nonnull String urn,
-      @Nonnull SearchTemplateWalk.AttemptResult<?> raw,
-      @Nonnull String input,
-      @Nullable Filter postFilters,
-      @Nullable List<SortCriterion> sortCriteria,
-      int from,
-      @Nullable Integer size) {
-    if (!(raw.page() instanceof SearchResult page)) {
-      return raw;
-    }
-    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
-    if (coordinator == null) {
-      return raw;
-    }
-    MergedSearchTemplate template = coordinator.loader().load(opContext, urn);
-    com.linkedin.search.template.SearchTemplateComponent spec = template.getComponent();
-    if (SearchTemplateComponents.empty(spec) || spec.getMode() == null) {
-      return raw;
-    }
-    @SuppressWarnings("unchecked")
-    SearchTemplateWalk.AttemptResult<SearchResult> typed =
-        (SearchTemplateWalk.AttemptResult<SearchResult>) raw;
-    List<SearchEntity> hits =
-        page.getEntities() == null ? List.of() : new ArrayList<>(page.getEntities());
-    return SearchTemplateComponents.reorder(
-        coordinator.components(),
-        template,
-        SearchTemplateComponentRequest.builder()
-            .opContext(opContext)
-            .query(input)
-            .renderedQuery(typed.renderedQuery())
-            .filter(postFilters)
-            .sort(sortCriteria)
-            .from(from)
-            .size(size)
-            .hits(hits)
-            .total(page.getNumEntities())
-            .metadata(page.getMetadata())
-            .config(SearchTemplateComponents.config(spec))
-            .mode(spec.getMode())
-            .build(),
-        typed);
-  }
-
-  @Nonnull
-  private SearchResult searchOnce(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<String> entityNames,
-      @Nonnull String input,
-      @Nullable Filter postFilters,
-      List<SortCriterion> sortCriteria,
-      int from,
-      @Nullable Integer size,
-      @Nonnull List<String> facets) {
-    return searchOnceExecution(
-            opContext, entityNames, input, postFilters, sortCriteria, from, size, facets, null)
-        .page();
-  }
-
-  @Nonnull
-  private SearchExecution<SearchResult> searchOnceExecution(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<String> entityNames,
-      @Nonnull String input,
-      @Nullable Filter postFilters,
-      @Nullable List<SortCriterion> sortCriteria,
-      int from,
-      @Nullable Integer size,
-      @Nonnull List<String> facets,
-      @Nullable String renderUrn) {
-    PreparedRequestComponents components =
-        prepareTemplateSearch(
-            opContext,
-            entityNames,
-            input,
-            postFilters,
-            sortCriteria,
-            from,
-            size,
-            facets,
-            renderUrn);
-    return executeTemplateSearch(
-        opContext,
-        components.entitySpecs(),
-        components.prepared().request(),
-        components.filter(),
-        from,
-        size,
-        components.prepared().template());
   }
 
   @VisibleForTesting
@@ -2449,9 +2376,10 @@ public class ESSearchDAO {
       List<SortCriterion> sortCriteria,
       int from,
       @Nullable Integer size) {
-    if (templateReads(opContext)) {
-      return prepareTemplateSearch(
-              opContext,
+    if (templateSearch.templateReads(opContext)) {
+      return templateSearch
+          .prepareTemplateSearch(
+              templateSearch.bindWhole(opContext, "*", List.of(entityName)),
               List.of(entityName),
               "*",
               filters,
@@ -2463,7 +2391,7 @@ public class ESSearchDAO {
           .prepared()
           .request();
     }
-    shadowTemplates(opContext, List.of(entityName), "*", false);
+    templateSearch.shadowTemplates(opContext, List.of(entityName), "*", false);
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     Filter transformedFilters =
         transformFilter(opContext, filters, opContext.getSearchContext().getIndexConvention());
@@ -2484,10 +2412,10 @@ public class ESSearchDAO {
   public CountRequest buildDocCountRequest(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nullable Filter filter) {
     QueryBuilder query;
-    if (templateReads(opContext)) {
-      query = renderedStarQuery(opContext, List.of(entityName), filter);
+    if (templateSearch.templateReads(opContext)) {
+      query = templateSearch.renderedStarQuery(opContext, List.of(entityName), filter);
     } else {
-      shadowTemplates(opContext, List.of(entityName), "*", false);
+      templateSearch.shadowTemplates(opContext, List.of(entityName), "*", false);
       EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
       query =
           SearchRequestHandler.getFilterQuery(
@@ -2499,264 +2427,6 @@ public class ESSearchDAO {
               searchConfiguration.getEntityIndex());
     }
     return new CountRequest(entityIndexName(opContext, entityName)).query(query);
-  }
-
-  @Nonnull
-  private ScrollResult scrollWithTemplates(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<String> entities,
-      @Nonnull String input,
-      @Nullable Filter postFilters,
-      List<SortCriterion> sortCriteria,
-      @Nullable String scrollId,
-      @Nullable String keepAlive,
-      @Nullable Integer size) {
-    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
-    ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
-    if (coordinator != null && resolved != null) {
-      SearchExecution<ScrollResult> execution =
-          scrollOnceExecution(
-              opContext,
-              entities,
-              input,
-              postFilters,
-              sortCriteria,
-              scrollId,
-              keepAlive,
-              size,
-              resolved.getUrn());
-      if (execution.renderedTemplate() != null) {
-        resolved.setHighlightFields(execution.renderedTemplate().highlights());
-      }
-      return execution.page();
-    }
-    return scrollOnceExecution(
-            opContext, entities, input, postFilters, sortCriteria, scrollId, keepAlive, size, null)
-        .page();
-  }
-
-  @Nonnull
-  private SearchExecution<ScrollResult> scrollOnceExecution(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<String> entities,
-      @Nonnull String input,
-      @Nullable Filter postFilters,
-      @Nullable List<SortCriterion> sortCriteria,
-      @Nullable String scrollId,
-      @Nullable String keepAlive,
-      @Nullable Integer size,
-      @Nullable String renderUrn) {
-    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    final String finalInput = input.isEmpty() ? "*" : input;
-    List<EntitySpec> entitySpecs =
-        entities.stream()
-            .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
-            .distinct()
-            .collect(Collectors.toList());
-    String[] indexArray = entityIndexNames(opContext, entities);
-    Filter transformedFilters = transformFilter(opContext, postFilters, indexConvention);
-    boolean hasSliceOptions = opContext.getSearchContext().getSearchFlags().hasSliceOptions();
-    boolean usePIT = (pointInTimeCreationEnabled || hasSliceOptions) && keepAlive != null;
-    String pitId =
-        usePIT
-            ? ESUtils.computePointInTime(
-                opContext, scrollId, keepAlive, searchClient(opContext, indexArray), indexArray)
-            : null;
-    Object[] sort = scrollId != null ? SearchAfterWrapper.fromScrollId(scrollId).getSort() : null;
-    PreparedSearchRequest prepared =
-        SearchRequestHandler.getBuilder(
-                opContext,
-                entitySpecs,
-                searchConfiguration,
-                customSearchConfiguration,
-                queryFilterRewriteChain,
-                searchServiceConfig)
-            .prepareSearchRequest(
-                opContext,
-                finalInput,
-                transformedFilters,
-                sortCriteria,
-                sort,
-                pitId,
-                keepAlive,
-                size,
-                List.of(),
-                renderUrn,
-                true);
-    if (!usePIT) {
-      prepared.request().indices(indexArray);
-    }
-    return executeTemplateScroll(
-        opContext,
-        entitySpecs,
-        prepared.request(),
-        transformedFilters,
-        keepAlive,
-        size,
-        prepared.template());
-  }
-
-  @Nonnull
-  private PreparedRequestComponents prepareTemplateSearch(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<String> entityNames,
-      @Nonnull String input,
-      @Nullable Filter postFilters,
-      @Nullable List<SortCriterion> sortCriteria,
-      int from,
-      @Nullable Integer size,
-      @Nonnull List<String> facets,
-      @Nullable String renderUrn) {
-    final String finalInput = input.isEmpty() ? "*" : input;
-    List<EntitySpec> entitySpecs =
-        entityNames.stream()
-            .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
-            .distinct()
-            .collect(Collectors.toList());
-    Filter transformedFilters =
-        transformFilter(opContext, postFilters, opContext.getSearchContext().getIndexConvention());
-    PreparedSearchRequest prepared =
-        SearchRequestHandler.getBuilder(
-                opContext,
-                entitySpecs,
-                searchConfiguration,
-                customSearchConfiguration,
-                queryFilterRewriteChain,
-                searchServiceConfig)
-            .prepareSearchRequest(
-                opContext,
-                finalInput,
-                transformedFilters,
-                sortCriteria,
-                from,
-                size,
-                facets,
-                renderUrn,
-                false);
-    prepared.request().indices(entityIndexNames(opContext, entityNames));
-    return new PreparedRequestComponents(prepared, transformedFilters, entitySpecs);
-  }
-
-  @Nonnull
-  private SearchExecution<SearchResult> executeTemplateSearch(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<EntitySpec> entitySpecs,
-      @Nonnull SearchRequest searchRequest,
-      @Nullable Filter filter,
-      int from,
-      @Nullable Integer size,
-      @Nullable RenderedSearchTemplate template) {
-    SearchResponse searchResponse = null;
-    try {
-      searchResponse =
-          searchClient(opContext, searchRequest)
-              .search(opContext, searchRequest, RequestOptions.DEFAULT);
-      boolean shardFailed = searchResponse.getFailedShards() > 0 || searchResponse.isTimedOut();
-      SearchResult page =
-          transformIndexIntoEntityName(
-              opContext,
-              opContext.getSearchContext().getIndexConvention(),
-              SearchRequestHandler.getBuilder(
-                      opContext,
-                      entitySpecs,
-                      searchConfiguration,
-                      customSearchConfiguration,
-                      queryFilterRewriteChain,
-                      searchServiceConfig)
-                  .extractResult(
-                      opContext,
-                      searchResponse,
-                      filter,
-                      from,
-                      ConfigUtils.applyLimit(searchServiceConfig, size),
-                      template));
-      return new SearchExecution<>(page, shardFailed, template);
-    } catch (Exception e) {
-      log.error("Search query failed", e);
-      throw new ESQueryException("Search query failed:", e);
-    }
-  }
-
-  @Nonnull
-  private SearchExecution<ScrollResult> executeTemplateScroll(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<EntitySpec> entitySpecs,
-      @Nonnull SearchRequest searchRequest,
-      @Nullable Filter filter,
-      @Nullable String keepAlive,
-      @Nullable Integer size,
-      @Nullable RenderedSearchTemplate template) {
-    try {
-      SearchResponse searchResponse =
-          searchClient(opContext, searchRequest)
-              .search(opContext, searchRequest, RequestOptions.DEFAULT);
-      ScrollResult page =
-          transformIndexIntoEntityName(
-              opContext,
-              opContext.getSearchContext().getIndexConvention(),
-              SearchRequestHandler.getBuilder(
-                      opContext,
-                      entitySpecs,
-                      searchConfiguration,
-                      customSearchConfiguration,
-                      queryFilterRewriteChain,
-                      searchServiceConfig)
-                  .extractScrollResult(
-                      opContext,
-                      searchResponse,
-                      filter,
-                      keepAlive,
-                      size,
-                      pointInTimeCreationEnabled,
-                      template));
-      return new SearchExecution<>(
-          page, searchResponse.getFailedShards() > 0 || searchResponse.isTimedOut(), template);
-    } catch (Exception e) {
-      log.error("Search query failed: {}", searchRequest, e);
-      throw new ESQueryException("Search query failed:", e);
-    }
-  }
-
-  private boolean templateReads(@Nonnull OperationContext opContext) {
-    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
-    return coordinator != null && coordinator.executes(opContext);
-  }
-
-  /**
-   * Renders the template for a path whose Java request is not built by {@code SearchQueryBuilder}.
-   * The rendered body is not attached to the request.
-   */
-  private void shadowTemplates(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<String> entityNames,
-      @Nonnull String query,
-      boolean scroll) {
-    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
-    if (coordinator == null
-        || entityNames.isEmpty()
-        || coordinator.effect(opContext) != SearchTemplateRollout.Effect.SHADOW) {
-      return;
-    }
-    List<EntitySpec> entitySpecs = new ArrayList<>();
-    for (String entityName : entityNames) {
-      entitySpecs.add(opContext.getEntityRegistry().getEntitySpec(entityName));
-    }
-    boolean fulltext =
-        opContext.getSearchContext().getSearchFlags() != null
-            && Boolean.TRUE.equals(opContext.getSearchContext().getSearchFlags().isFulltext());
-    coordinator.shadow(opContext, entitySpecs, query, fulltext, scroll);
-  }
-
-  @Nonnull
-  private QueryBuilder renderedStarQuery(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<String> entityNames,
-      @Nullable Filter filter) {
-    return prepareTemplateSearch(opContext, entityNames, "*", filter, null, 0, 0, List.of(), null)
-        .prepared()
-        .request()
-        .source()
-        .query();
   }
 
   /**

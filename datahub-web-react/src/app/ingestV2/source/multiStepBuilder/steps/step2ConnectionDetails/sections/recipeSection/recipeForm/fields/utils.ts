@@ -1,4 +1,4 @@
-import { RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
+import { RecipeField, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 export function resolveDynamicOptions<T extends RecipeField>(field: T, values: Record<string, any>): T {
     let resolvedField = field;
@@ -19,4 +19,26 @@ export function resolveDynamicOptions<T extends RecipeField>(field: T, values: R
     }
 
     return resolvedField;
+}
+
+// A change that shows hidden fields again, such as switching a deployment or auth
+// mode back, writes only the changed field; the shown fields keep their values in
+// the form, so write those values to the recipe too or the two disagree.
+export function writeShownFieldValues(
+    recipe: any,
+    fields: RecipeField[],
+    changedValues: Record<string, any>,
+    allValues: Record<string, any>,
+): any {
+    let updatedRecipe = recipe;
+    fields.forEach((field) => {
+        if (!field.dynamicHidden || !field.hidden || field.name in changedValues) return;
+        if (field.dynamicHidden(allValues)) return;
+        const value = allValues[field.name];
+        if (value === undefined || value === null || value === '') return;
+        updatedRecipe = field.setValueOnRecipeOverride
+            ? field.setValueOnRecipeOverride(updatedRecipe, value)
+            : setFieldValueOnRecipe(updatedRecipe, value, field.fieldPath);
+    });
+    return updatedRecipe;
 }

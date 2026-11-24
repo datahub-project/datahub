@@ -22,8 +22,7 @@ this source and is being phased out. To ingest ODCS YAML, use `source.type: odcs
 
 **A single ODCS file may describe multiple tables.** Each `schema[]` entry becomes its own
 logical `odcs` Dataset. Contract-level owners and top-level tags apply to every logical
-dataset by default; the contract `description` is used only for a table that has no
-description of its own. See the Concept Mapping table on the platform
+dataset by default, and the contract `description` is added to every table's description. See the Concept Mapping table on the platform
 Overview above for per-row semantics, and the [Limitations](#limitations) section below for
 how to disable replication.
 
@@ -68,6 +67,11 @@ how to disable replication.
   `outputPorts`. The product must already exist, resolved by id or by display name; the
   association is an additive patch that never clears assets added by hand or by another
   source.
+- **Domain assignment is opt-in.** The contract-level `domain` field is emitted only as the
+  `odcs.domain` custom property by default. Set `emit_domain_association: true` to set that
+  DataHub Domain on the contract's logical `odcs` datasets, resolved by id or by name and
+  created when missing (`verify_domain_exists: true` reports it instead). The contract then
+  owns that domain: removing `domain` from a contract clears it, including one set by hand.
 - **Logical Models are in private beta.** The logical `odcs` datasets this source emits —
   and the assertions attached to them — render in the UI only when `LOGICAL_MODELS_ENABLED`
   is enabled (off by default). The metadata is ingested either way. The recommended workflow

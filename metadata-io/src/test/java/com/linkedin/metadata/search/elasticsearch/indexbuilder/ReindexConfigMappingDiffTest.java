@@ -6,6 +6,7 @@ import static org.testng.Assert.assertTrue;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.testng.annotations.Test;
 
 public class ReindexConfigMappingDiffTest {
@@ -22,6 +23,56 @@ public class ReindexConfigMappingDiffTest {
             Map.of("name", Map.of("type", "keyword", "copy_to", List.of("name", "other"))));
 
     assertTrue(diff.isEmpty(), diff.toString());
+  }
+
+  @Test
+  public void testStructuredPropertyParameterDifferencesOnSameTypedFieldsOnly() {
+    Map<String, Object> current =
+        structuredProperties(
+            Map.of(
+                "limitChanged", Map.of("type", "keyword", "ignore_above", 256),
+                "subfieldAdded", Map.of("type", "keyword"),
+                "subfieldLimitChanged",
+                    Map.of(
+                        "type",
+                        "text",
+                        "fields",
+                        Map.of("keyword", Map.of("type", "keyword", "ignore_above", 256))),
+                "unchanged", Map.of("type", "keyword", "ignore_above", "256"),
+                "typeChanged", Map.of("type", "text")));
+    Map<String, Object> target =
+        structuredProperties(
+            Map.of(
+                "limitChanged", Map.of("type", "keyword", "ignore_above", 512),
+                "subfieldAdded",
+                    Map.of("type", "keyword", "fields", Map.of("raw", Map.of("type", "keyword"))),
+                "subfieldLimitChanged",
+                    Map.of(
+                        "type",
+                        "text",
+                        "fields",
+                        Map.of("keyword", Map.of("type", "keyword", "ignore_above", "8191"))),
+                "unchanged", Map.of("type", "keyword", "ignore_above", 256),
+                "typeChanged", Map.of("type", "keyword", "ignore_above", 512)));
+
+    assertEquals(
+        ReindexConfig.structuredPropertyParameterDifferences(current, target),
+        Set.of(
+            "limitChanged (current ignore_above=256 subfields={}, target ignore_above=512"
+                + " subfields={})",
+            "subfieldAdded (current ignore_above=null subfields={}, target ignore_above=null"
+                + " subfields={raw=keyword})",
+            "subfieldLimitChanged (current ignore_above=null subfields={keyword=keyword"
+                + " ignore_above=256}, target ignore_above=null subfields={keyword=keyword"
+                + " ignore_above=8191})"));
+  }
+
+  private static Map<String, Object> structuredProperties(Map<String, Object> fields) {
+    return Map.of(
+        "properties",
+        Map.of(
+            "structuredProperties",
+            Map.of("type", "object", "dynamic", false, "properties", fields)));
   }
 
   @Test

@@ -1,0 +1,251 @@
+{
+  "sources": [
+    {
+      "id": 101,
+      "name": "Analytics Warehouse",
+      "slug": "analytics-warehouse",
+      "workspaceId": 1,
+      "createdAt": "2023-01-01T00:00:00.000Z",
+      "updatedAt": "2023-01-02T00:00:00.000Z",
+      "type": "snowflake",
+      "configuration": {
+        "account": "example-account",
+        "warehouse": "COMPUTE_WH",
+        "database": "ANALYTICS",
+        "schema": "PUBLIC"
+      }
+    }
+  ],
+  "models": [
+    {
+      "id": 201,
+      "name": "Product Events",
+      "slug": "product-events",
+      "description": "One row per product interaction.",
+      "workspaceId": 1,
+      "primaryKey": "event_id",
+      "createdAt": "2023-01-01T00:00:00.000Z",
+      "updatedAt": "2023-01-02T00:00:00.000Z",
+      "createdBy": {"id": 1, "name": "Jane Doe", "email": "jane.doe@example.com"},
+      "updatedBy": null,
+      "sourceId": 101,
+      "queryType": "table",
+      "tags": {"team": "growth"},
+      "isSchema": false,
+      "isGeneralModel": false,
+      "syncs": [401, 402],
+      "lastRunSize": 1200,
+      "table": {"name": "PRODUCT_EVENTS"}
+    },
+    {
+      "id": 202,
+      "name": "Active Customers",
+      "slug": "active-customers",
+      "description": null,
+      "workspaceId": 1,
+      "primaryKey": "customer_id",
+      "createdAt": "2023-01-01T00:00:00.000Z",
+      "updatedAt": "2023-01-02T00:00:00.000Z",
+      "createdBy": null,
+      "updatedBy": null,
+      "sourceId": 101,
+      "queryType": "raw_sql",
+      "tags": {},
+      "isSchema": false,
+      "isGeneralModel": false,
+      "syncs": [403],
+      "lastRunSize": 350,
+      "raw": {
+        "sql": "SELECT customer_id, email, lifetime_value FROM analytics.public.customers WHERE is_active = TRUE"
+      }
+    }
+  ],
+  "destinations": [
+    {
+      "id": 301,
+      "name": "CRM",
+      "slug": "crm",
+      "workspaceId": 1,
+      "createdAt": "2023-01-01T00:00:00.000Z",
+      "updatedAt": "2023-01-02T00:00:00.000Z",
+      "type": "salesforce",
+      "syncs": [401, 402, 403],
+      "configuration": {"instanceUrl": "https://example.my.salesforce.com"}
+    }
+  ],
+  "syncs": [
+    {
+      "id": 401,
+      "slug": "product-events-to-leads",
+      "workspaceId": 1,
+      "createdAt": "2023-02-01T00:00:00.000Z",
+      "updatedAt": "2023-02-02T00:00:00.000Z",
+      "createdBy": {"id": 1, "name": "Jane Doe", "email": "jane.doe@example.com"},
+      "updatedBy": null,
+      "destinationId": 301,
+      "modelId": 201,
+      "configuration": {
+        "mode": "upsert",
+        "object": "Lead",
+        "mappings": [
+          {"from": "user_email", "to": "Email", "type": "standard"},
+          {"from": "event_name", "to": "Last_Event__c", "type": "standard"}
+        ],
+        "externalIdMapping": {"from": "event_id", "to": "External_Id__c", "type": "standard"},
+        "associationMappings": []
+      },
+      "schedule": {
+        "type": "interval",
+        "schedule": {"interval": {"unit": "hour", "quantity": 1}}
+      },
+      "status": "querying",
+      "disabled": false,
+      "lastRunAt": "2023-12-01T11:00:00.000Z",
+      "referencedColumns": ["event_id", "user_email", "event_name"],
+      "primaryKey": "event_id",
+      "externalSegment": {},
+      "tags": {"owner": "growth"},
+      "syncTemplateId": null,
+      "syncTemplateOverrides": null
+    },
+    {
+      "id": 402,
+      "slug": "product-events-to-contacts",
+      "workspaceId": 1,
+      "createdAt": "2023-02-01T00:00:00.000Z",
+      "updatedAt": "2023-02-02T00:00:00.000Z",
+      "createdBy": null,
+      "updatedBy": null,
+      "destinationId": 301,
+      "modelId": 201,
+      "configuration": {
+        "mode": "update",
+        "object": "Contact",
+        "mappings": [
+          {"from": "user_email", "to": "Email", "type": "standard"},
+          {"from": "event_timestamp", "to": "Last_Activity__c", "type": "standard"}
+        ],
+        "associationMappings": []
+      },
+      "schedule": null,
+      "status": "failed",
+      "disabled": false,
+      "lastRunAt": "2023-12-01T09:00:00.000Z",
+      "referencedColumns": ["event_id", "user_email", "event_timestamp"],
+      "primaryKey": "event_id",
+      "externalSegment": {},
+      "tags": {},
+      "syncTemplateId": null,
+      "syncTemplateOverrides": null
+    },
+    {
+      "id": 403,
+      "slug": "active-customers-to-accounts",
+      "workspaceId": 1,
+      "createdAt": "2023-02-01T00:00:00.000Z",
+      "updatedAt": "2023-02-02T00:00:00.000Z",
+      "createdBy": null,
+      "updatedBy": null,
+      "destinationId": 301,
+      "modelId": 202,
+      "configuration": {
+        "mode": "upsert",
+        "object": "Account",
+        "mappings": [
+          {"from": "email", "to": "Email__c", "type": "standard"},
+          {"from": "lifetime_value", "to": "Lifetime_Value__c", "type": "standard"}
+        ],
+        "externalIdMapping": {"from": "customer_id", "to": "Customer_Id__c", "type": "standard"},
+        "associationMappings": []
+      },
+      "schedule": {
+        "type": "cron",
+        "schedule": {"expression": "0 6 * * *"}
+      },
+      "status": "disabled",
+      "disabled": true,
+      "lastRunAt": null,
+      "referencedColumns": ["customer_id", "email", "lifetime_value"],
+      "primaryKey": "customer_id",
+      "externalSegment": {},
+      "tags": {},
+      "syncTemplateId": null,
+      "syncTemplateOverrides": null
+    }
+  ],
+  "sync_runs": {
+    "401": [
+      {
+        "id": 5002,
+        "createdAt": "2023-12-01T11:00:00.000Z",
+        "startedAt": "2023-12-01T11:00:00.000Z",
+        "finishedAt": null,
+        "querySize": 0,
+        "status": "querying",
+        "completionRatio": 0,
+        "plannedRows": {"addedCount": 0, "changedCount": 0, "removedCount": 0},
+        "successfulRows": {"addedCount": 0, "changedCount": 0, "removedCount": 0},
+        "failedRows": {"addedCount": 0, "changedCount": 0, "removedCount": 0}
+      },
+      {
+        "id": 5001,
+        "createdAt": "2023-12-01T10:00:00.000Z",
+        "startedAt": "2023-12-01T10:00:00.000Z",
+        "finishedAt": "2023-12-01T10:05:00.000Z",
+        "querySize": 1200,
+        "status": "success",
+        "completionRatio": 1,
+        "plannedRows": {"addedCount": 50, "changedCount": 30, "removedCount": 0},
+        "successfulRows": {"addedCount": 50, "changedCount": 30, "removedCount": 0},
+        "failedRows": {"addedCount": 0, "changedCount": 0, "removedCount": 0}
+      }
+    ],
+    "402": [
+      {
+        "id": 5101,
+        "createdAt": "2023-12-01T09:00:00.000Z",
+        "startedAt": "2023-12-01T09:00:00.000Z",
+        "finishedAt": "2023-12-01T09:02:00.000Z",
+        "querySize": 1200,
+        "status": "failed",
+        "completionRatio": 0.5,
+        "plannedRows": {"addedCount": 0, "changedCount": 40, "removedCount": 0},
+        "successfulRows": {"addedCount": 0, "changedCount": 20, "removedCount": 0},
+        "failedRows": {"addedCount": 0, "changedCount": 20, "removedCount": 0},
+        "error": "Destination rejected 20 rows: required field missing"
+      }
+    ],
+    "403": []
+  },
+  "contracts": [
+    {
+      "id": "contract-1",
+      "name": "Web Events",
+      "slug": "web-events",
+      "description": "Events sent from the website.",
+      "workspaceId": 1,
+      "createdAt": "2023-03-01T00:00:00.000Z",
+      "updatedAt": "2023-03-02T00:00:00.000Z",
+      "onUndeclaredSchema": "ALLOW_EVENT",
+      "events": [
+        {
+          "type": "track",
+          "name": "Product Viewed",
+          "slug": "track-product-viewed",
+          "version": "default",
+          "schema": {
+            "type": "object",
+            "required": ["product_id"],
+            "properties": {
+              "product_id": {"type": "string"},
+              "price": {"type": "number"}
+            }
+          },
+          "onSchemaViolation": "BLOCK_EVENT",
+          "onUndeclaredFields": "OMIT_FIELDS"
+        }
+      ],
+      "eventSources": [{"id": "event-source-1", "name": "Website SDK"}]
+    }
+  ]
+}

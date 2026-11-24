@@ -1,9 +1,10 @@
 """Unit tests for the ODCS mapper — spec-exact routing, logical-dataset targeting."""
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type, cast
 
 import pytest
+from pydantic import BaseModel
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.odcs.odcs_config import (
@@ -23,13 +24,19 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
+    substitute_object_placeholder,
     unmapped_owner_roles,
     unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
+    LENIENT_FIELDS_BY_MODEL,
+    ODCSContext,
     ODCSContract,
+    ODCSEnumValue,
+    ODCSProperty,
     ODCSQualityRule,
     ODCSSchemaObject,
+    ODCSSynonym,
 )
 from datahub.metadata.schema_classes import (
     AiContextClass,
@@ -534,31 +541,52 @@ def test_logical_dataset_mcps_carry_provenance_and_schema() -> None:
     assert props.description is not None and "**purpose**: P" in props.description
 
 
-def test_schema_description_wins_over_contract_description() -> None:
-    contract = _make_contract(
-        schema=[{"name": "t", "description": "Table-level description."}],
-        description="Contract-level description.",
-    )
+def _logical_description(contract: ODCSContract) -> Optional[str]:
     mcps, _ = odcs_to_logical_dataset_mcps(
         contract=contract,
         schema_entry=_first_schema(contract),
         logical_urn=LOGICAL_URN,
     )
     props = next(m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass))
-    assert props.description == "Table-level description."
+    return props.description
 
 
-def test_contract_description_is_fallback() -> None:
+def test_dataset_description_combines_table_grain_and_contract() -> None:
+    contract = _make_contract(
+        schema=[
+            {
+                "name": "t",
+                "description": "One row per order.",
+                "dataGranularityDescription": "One row per order_id.",
+            }
+        ],
+        description={"purpose": "Revenue analysis.", "usage": "Join on order_id."},
+    )
+    assert _logical_description(contract) == (
+        "One row per order.\n\n**Grain:** One row per order_id.\n\n"
+        "**purpose**: Revenue analysis.\n\n**usage**: Join on order_id."
+    )
+
+
+def test_dataset_description_blank_grain_ignored() -> None:
+    contract = _make_contract(
+        schema=[{"name": "t", "description": "T.", "dataGranularityDescription": "   "}]
+    )
+    assert _logical_description(contract) == "T."
+
+
+def test_grain_off_spec_value_dropped() -> None:
+    entry = ODCSSchemaObject.model_validate(
+        {"name": "t", "dataGranularityDescription": {"x": 1}}
+    )
+    assert entry.dataGranularityDescription is None
+
+
+def test_contract_description_alone_when_table_has_none() -> None:
     contract = _make_contract(
         schema=[{"name": "t"}], description="Contract-level description."
     )
-    mcps, _ = odcs_to_logical_dataset_mcps(
-        contract=contract,
-        schema_entry=_first_schema(contract),
-        logical_urn=LOGICAL_URN,
-    )
-    props = next(m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass))
-    assert props.description == "Contract-level description."
+    assert _logical_description(contract) == "Contract-level description."
 
 
 def test_description_object_renders_non_spec_extra_prose_keys() -> None:
@@ -1957,3 +1985,544 @@ def test_binding_malformed_catalog_url_does_not_raise() -> None:
     assert binding.physical_urn == (
         "urn:li:dataset:(urn:li:dataPlatform:iceberg,sales.orders,PROD)"
     )
+
+
+def _field_descriptions(properties: List[Dict[str, Any]]) -> Dict[str, Optional[str]]:
+    entry = ODCSSchemaObject.model_validate(
+        {"name": "orders", "properties": properties}
+    )
+    schema = build_schema_metadata(entry).schema_metadata
+    assert schema is not None
+    return {f.fieldPath: f.description for f in schema.fields}
+
+
+@pytest.mark.parametrize(
+    "extra, expected",
+    [
+        (
+            {
+                "transformDescription": "Sum of line items.",
+                "transformLogic": "SUM(amount)",
+            },
+            "Order total.\n\n**Derivation:** Sum of line items."
+            "\n\n```sql\nSUM(amount)\n```",
+        ),
+        (
+            {"transformLogic": "SUM(amount)"},
+            "Order total.\n\n**Derivation:**\n\n```sql\nSUM(amount)\n```",
+        ),
+        (
+            {"transformDescription": "Sum of line items."},
+            "Order total.\n\n**Derivation:** Sum of line items.",
+        ),
+        (
+            # A fence in the logic must not close the block early.
+            {"transformLogic": "SELECT '```' AS x"},
+            "Order total.\n\n**Derivation:**\n\n````sql\nSELECT '```' AS x\n````",
+        ),
+        ({"transformDescription": "  ", "transformLogic": ""}, "Order total."),
+        ({}, "Order total."),
+    ],
+)
+def test_field_description_appends_derivation(
+    extra: Dict[str, Any], expected: str
+) -> None:
+    descriptions = _field_descriptions(
+        [{"name": "total", "description": "Order total.", **extra}]
+    )
+    assert descriptions["total"] == expected
+
+
+def test_field_description_derivation_without_base_description() -> None:
+    descriptions = _field_descriptions(
+        [{"name": "total", "transformLogic": "SUM(amount)"}]
+    )
+    assert descriptions["total"] == "**Derivation:**\n\n```sql\nSUM(amount)\n```"
+
+
+def test_field_description_derivation_on_nested_field() -> None:
+    descriptions = _field_descriptions(
+        [
+            {
+                "name": "address",
+                "logicalType": "object",
+                "properties": [{"name": "city", "transformLogic": "upper(city)"}],
+            }
+        ]
+    )
+    assert "upper(city)" in (descriptions["address.city"] or "")
+
+
+def test_transform_fields_off_spec_values_dropped() -> None:
+    prop = ODCSProperty.model_validate(
+        {"name": "total", "transformLogic": 5, "transformDescription": ["x"]}
+    )
+    assert prop.transformLogic is None
+    assert prop.transformDescription is None
+
+
+def test_substitute_object_placeholder_all_forms() -> None:
+    query = (
+        "SELECT count(*) FROM {object} a JOIN ${object} b ON a.id = b.id "
+        "WHERE x IN (SELECT id FROM {object})"
+    )
+    assert substitute_object_placeholder(query, "db.sch.orders") == (
+        "SELECT count(*) FROM db.sch.orders a JOIN db.sch.orders b ON a.id = b.id "
+        "WHERE x IN (SELECT id FROM db.sch.orders)"
+    )
+
+
+def _object_rule_infos(bound_table: Optional[str]) -> List[AssertionInfoClass]:
+    contract = _make_contract(
+        schema=[
+            {
+                "name": "t",
+                "quality": [
+                    {
+                        "type": "sql",
+                        "query": "SELECT count(*) FROM {object}",
+                        "mustBe": 0,
+                    },
+                    # No threshold: routed to a custom assertion carrying the query.
+                    {"type": "sql", "query": "SELECT count(*) FROM {object}"},
+                ],
+            }
+        ]
+    )
+    _, mcps, _ = odcs_to_assertion_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn=LOGICAL_URN,
+        bound_table=bound_table,
+    )
+    return [m.aspect for m in mcps if isinstance(m.aspect, AssertionInfoClass)]
+
+
+def test_sql_rule_object_replaced_in_sql_and_custom_fallback() -> None:
+    sql_info, custom_info = _object_rule_infos("db.sch.orders")
+    assert sql_info.sqlAssertion is not None
+    assert sql_info.sqlAssertion.statement == "SELECT count(*) FROM db.sch.orders"
+    assert _custom_logic(custom_info) == "SELECT count(*) FROM db.sch.orders"
+
+
+def test_sql_rule_object_kept_when_unbound() -> None:
+    sql_info, _ = _object_rule_infos(None)
+    assert sql_info.sqlAssertion is not None
+    assert sql_info.sqlAssertion.statement == "SELECT count(*) FROM {object}"
+
+
+def test_field_description_allowed_values_after_derivation() -> None:
+    descriptions = _field_descriptions(
+        [
+            {
+                "name": "status",
+                "description": "Order status.",
+                "transformLogic": "upper(s)",
+                "enum": [
+                    {
+                        "value": "open",
+                        "label": "Open",
+                        "description": "Not shipped yet",
+                    },
+                    {"value": "shipped", "label": "shipped"},
+                    {"value": "void", "description": "Cancelled"},
+                    "legacy",
+                    {"label": "no value"},
+                ],
+            }
+        ]
+    )
+    assert (descriptions["status"] or "").endswith(
+        "```\n\n**Allowed values:**\n"
+        "- `open` (Open): Not shipped yet\n"
+        "- `shipped`\n"
+        "- `void`: Cancelled\n"
+        "- `legacy`"
+    )
+
+
+def test_field_description_allowed_values_on_nested_field() -> None:
+    descriptions = _field_descriptions(
+        [
+            {
+                "name": "address",
+                "logicalType": "object",
+                "properties": [{"name": "country", "enum": [{"value": "DE"}]}],
+            }
+        ]
+    )
+    assert descriptions["address.country"] == "**Allowed values:**\n- `DE`"
+
+
+def test_enum_values_render_in_json_spelling() -> None:
+    prop = ODCSProperty.model_validate(
+        {
+            "name": "s",
+            "enum": [
+                True,
+                0,
+                1.5,
+                {"value": False},
+                {"value": None, "label": "Unknown"},
+            ],
+        }
+    )
+    assert [e.value for e in prop.enum or []] == [
+        "true",
+        "0",
+        "1.5",
+        "false",
+        "null",
+    ]
+    assert (prop.enum or [])[-1].label == "Unknown"
+
+
+def test_enum_values_whitespace_shown_exactly() -> None:
+    prop = ODCSProperty.model_validate(
+        {
+            "name": "s",
+            "enum": [{"value": ""}, "  ", "open", "a  b", "x\ny", "a b"],
+        }
+    )
+    assert [e.value for e in prop.enum or []] == [
+        '""',
+        '"  "',
+        "open",
+        '"a  b"',
+        '"x\\ny"',
+        "a b",
+    ]
+
+
+def test_enum_value_model_normalizes_its_own_value() -> None:
+    assert ODCSEnumValue.model_validate({"value": "a\n- b"}).value == '"a\\n- b"'
+
+
+def test_allowed_values_cannot_break_the_markdown() -> None:
+    descriptions = _field_descriptions(
+        [
+            {
+                "name": "s",
+                "enum": [
+                    {"value": "a`b", "label": "A\nB"},
+                    {"value": "`x", "description": "d1\n\n- injected"},
+                    {"value": "x`"},
+                    {"value": "a\n\nb"},
+                ],
+            }
+        ]
+    )
+    assert descriptions["s"] == (
+        "**Allowed values:**\n- ``a`b`` (A B)\n- `` `x ``: d1 - injected\n"
+        '- `` x` ``\n- `"a\\n\\nb"`'
+    )
+
+
+def test_enum_off_spec_dropped() -> None:
+    assert ODCSProperty.model_validate({"name": "s", "enum": "open"}).enum is None
+    prop = ODCSProperty.model_validate(
+        {"name": "s", "enum": [{"label": "x"}, None, {"value": [1]}, {"value": {}}]}
+    )
+    assert prop.enum is None
+
+
+def test_binding_table_name_excludes_platform_instance() -> None:
+    contract = _make_contract(
+        servers=[
+            {"server": "srv", "type": "postgres", "database": "db", "schema": "sch"}
+        ],
+        schema=[{"name": "t1", "physicalName": "tbl"}],
+    )
+    bindings = odcs_to_physical_bindings(
+        contract,
+        _config(server_overrides=[{"server": "srv", "platform_instance": "inst1"}]),
+    )
+    assert "inst1.db.sch.tbl" in (bindings[0].physical_urn or "")
+    assert bindings[0].table_name == "db.sch.tbl"
+
+
+def test_override_that_is_not_a_dataset_urn_is_refused() -> None:
+    contract = _make_contract(schema=[{"name": "a"}, {"name": "b"}, {"name": "c"}])
+    bindings = odcs_to_physical_bindings(
+        contract,
+        _config(
+            physical_urn_overrides={
+                "c1": {
+                    "a": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.a,PROD)",
+                    "b": "urn:li:datset:typo",
+                    "c": "appdb.public.c",
+                }
+            }
+        ),
+    )
+    assert bindings[0].table_name == "db.sch.a"
+    for refused, value in (
+        (bindings[1], "urn:li:datset:typo"),
+        (bindings[2], "appdb.public.c"),
+    ):
+        assert refused.physical_urn is None
+        assert refused.table_name is None
+        assert refused.refusal is not None
+        assert refused.refusal.kind is RefusalKind.INVALID_OVERRIDE
+        assert value in refused.refusal.message
+
+
+def test_override_table_name_strips_contract_server_instance() -> None:
+    contract = _make_contract(
+        servers=[{"server": "srv", "type": "postgres", "database": "db"}],
+        schema=[{"name": "a"}, {"name": "b"}, {"name": "c"}, {"name": "d"}],
+    )
+    bindings = odcs_to_physical_bindings(
+        contract,
+        _config(
+            server_overrides=[
+                {"server": "srv", "platform_instance": "inst1"},
+                {"server": "other-srv", "platform_instance": "db"},
+            ],
+            physical_urn_overrides={
+                "c1": {
+                    "a": "urn:li:dataset:(urn:li:dataPlatform:postgres,inst1.db.sch.a,PROD)",
+                    "b": "urn:li:dataset:(urn:li:dataPlatform:postgres,other.db.sch.b,PROD)",
+                    "c": "urn:li:dataset:(urn:li:dataPlatform:snowflake,inst1.db.sch.c,PROD)",
+                    "d": "urn:li:dataset:(urn:li:dataPlatform:postgres,INST1.db.sch.d,PROD)",
+                }
+            },
+        ),
+    )
+    assert bindings[0].table_name == "db.sch.a"
+    # A prefix no server_overrides entry names is part of the table path.
+    assert bindings[1].table_name == "other.db.sch.b"
+    # A configured instance the contract's server doesn't confirm is not guessed.
+    assert bindings[2].physical_urn is not None
+    assert bindings[2].table_name is None
+    # The contract's own instance is stripped in any case.
+    assert bindings[3].table_name == "db.sch.d"
+
+
+def test_override_table_name_unknown_without_a_resolved_server() -> None:
+    contract = _make_contract(schema=[{"name": "a"}, {"name": "b"}])
+    bindings = odcs_to_physical_bindings(
+        contract,
+        _config(
+            server_overrides=[{"server": "srv", "platform_instance": "inst1"}],
+            physical_urn_overrides={
+                "c1": {
+                    "a": "urn:li:dataset:(urn:li:dataPlatform:postgres,inst1.db.sch.a,PROD)",
+                    "b": "urn:li:dataset:(urn:li:dataPlatform:postgres,db.sch.b,PROD)",
+                }
+            },
+        ),
+    )
+    assert bindings[0].table_name is None
+    assert bindings[1].table_name == "db.sch.b"
+
+
+def test_override_table_name_ignores_other_platform_and_case() -> None:
+    contract = _make_contract(schema=[{"name": "a"}, {"name": "b"}])
+    bindings = odcs_to_physical_bindings(
+        contract,
+        _config(
+            server_overrides=[
+                {
+                    "server": "sf",
+                    "platform": "snowflake",
+                    "platform_instance": "analytics",
+                },
+                {"server": "pg", "platform_instance": "pg1"},
+            ],
+            physical_urn_overrides={
+                "c1": {
+                    "a": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics.public.t,PROD)",
+                    "b": "urn:li:dataset:(urn:li:dataPlatform:postgres,PG1.db.public.t,PROD)",
+                }
+            },
+        ),
+    )
+    # A snowflake instance can't prefix a postgres URN.
+    assert bindings[0].table_name == "analytics.public.t"
+    assert bindings[1].table_name is None
+
+
+@pytest.mark.parametrize(
+    "override, kind",
+    [
+        (
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,${SCHEMA}.t,PROD)",
+            RefusalKind.UNRESOLVED_VARIABLE,
+        ),
+        (
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,db.sch.t,NOTANENV)",
+            RefusalKind.INVALID_OVERRIDE,
+        ),
+        (
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,db.sch.t,prod)",
+            RefusalKind.INVALID_OVERRIDE,
+        ),
+        ("urn:li:chart:(looker,x)", RefusalKind.INVALID_OVERRIDE),
+    ],
+)
+def test_override_with_variable_or_bad_env_is_refused(
+    override: str, kind: RefusalKind
+) -> None:
+    contract = _make_contract(schema=[{"name": "t"}])
+    (binding,) = odcs_to_physical_bindings(
+        contract, _config(physical_urn_overrides={"c1": {"t": override}})
+    )
+    assert binding.physical_urn is None
+    assert binding.table_name is None
+    assert binding.refusal_kind is kind
+
+
+def test_doubled_braces_are_not_the_object_placeholder() -> None:
+    assert (
+        substitute_object_placeholder(
+            "{{object}} {{object} {object}} {${object} {object} ${object}", "db.t"
+        )
+        == "{{object}} {{object} {object}} {${object} db.t db.t"
+    )
+
+
+def test_override_table_name_kept_when_server_has_no_mapping() -> None:
+    contract = _make_contract(
+        servers=[{"server": "srv", "type": "postgres", "database": "db"}],
+        schema=[{"name": "a"}],
+    )
+    (binding,) = odcs_to_physical_bindings(
+        contract,
+        _config(
+            physical_urn_overrides={
+                "c1": {
+                    "a": "urn:li:dataset:(urn:li:dataPlatform:postgres,inst1.db.sch.a,PROD)"
+                }
+            },
+        ),
+    )
+    assert binding.table_name == "inst1.db.sch.a"
+
+
+@pytest.mark.parametrize(
+    "lowercase, expected", [(True, "db.sch.mytable"), (False, "DB.Sch.MyTable")]
+)
+def test_binding_table_name_follows_lowercase_setting(
+    lowercase: bool, expected: str
+) -> None:
+    contract = _make_contract(
+        servers=[
+            {"server": "srv", "type": "snowflake", "database": "DB", "schema": "Sch"}
+        ],
+        schema=[{"name": "t1", "physicalName": "MyTable"}],
+    )
+    bindings = odcs_to_physical_bindings(
+        contract, _config(lowercase_physical_urns=lowercase)
+    )
+    assert bindings[0].table_name == expected
+
+
+def test_substitute_object_placeholder_leaves_longer_tokens() -> None:
+    query = "SELECT ${object_id}, ${object:-x} FROM {objects}"
+    assert substitute_object_placeholder(query, "db.sch.orders") == query
+
+
+def test_dataset_description_context_section() -> None:
+    contract = _make_contract(
+        schema=[{"name": "t", "description": "T.", "context": "Prefer the daily view."}]
+    )
+    contract = contract.model_copy(
+        update={
+            "context": ODCSContract.model_validate(
+                {
+                    "id": "c1",
+                    "context": {
+                        "instructions": "Use for revenue analysis.",
+                        "constraints": [
+                            {"constraint": "Do not join without tenant_id."}
+                        ],
+                        "verifiedStatements": [
+                            {
+                                "question": "How is revenue defined?",
+                                "answer": "SUM(amount) of shipped orders.",
+                            },
+                            {"question": "Which orders are late?"},
+                        ],
+                    },
+                }
+            ).context
+        }
+    )
+    assert _logical_description(contract) == (
+        "T.\n\n**Guidance for AI and analysts:**\n\n"
+        "Use for revenue analysis.\n\nPrefer the daily view.\n\n"
+        "**Constraints:**\n- Do not join without tenant_id.\n\n"
+        "**Verified Q&A:**\n"
+        "- Q: How is revenue defined? A: SUM(amount) of shipped orders.\n"
+        "- Q: Which orders are late?"
+    )
+
+
+def test_context_string_form_is_instructions() -> None:
+    contract = ODCSContract.model_validate({"id": "c1", "context": "Use daily."})
+    assert contract.context == ODCSContext(instructions="Use daily.")
+
+
+def test_context_list_items_are_single_lines_and_blanks_skipped() -> None:
+    contract = ODCSContract.model_validate(
+        {
+            "id": "c1",
+            "context": {
+                "constraints": [{"constraint": "  "}, {"constraint": "No\njoins."}],
+                "verifiedStatements": [
+                    {"question": "  ", "answer": "x"},
+                    {"question": "Q\n1?", "answer": "A\n\n- 1"},
+                ],
+            },
+            "schema": [{"name": "t"}],
+        }
+    )
+    assert _logical_description(contract) == (
+        "**Guidance for AI and analysts:**\n\n"
+        "**Constraints:**\n- No joins.\n\n"
+        "**Verified Q&A:**\n- Q: Q 1? A: A - 1"
+    )
+
+
+def test_context_string_with_variable_kept_verbatim() -> None:
+    contract = ODCSContract.model_validate(
+        {"id": "c1", "context": "Filter on ${REGION}.", "schema": [{"name": "t"}]}
+    )
+    assert "Filter on ${REGION}." in (_logical_description(contract) or "")
+
+
+def test_context_off_spec_dropped_and_blank_context_adds_nothing() -> None:
+    assert ODCSContract.model_validate({"id": "c1", "context": 5}).context is None
+    contract = ODCSContract.model_validate(
+        {
+            "id": "c1",
+            "context": {"instructions": "  ", "constraints": [{"id": "x"}, "bad"]},
+            "schema": [{"name": "t", "description": "T."}],
+        }
+    )
+    assert _logical_description(contract) == "T."
+    # No usable entry left is a dropped field, not an empty list.
+    assert contract.context is not None
+    assert contract.context.constraints is None
+
+
+def test_lenient_fields_by_model_matches_the_lenient_validators() -> None:
+    # The source's "dropped as off-spec" report reads this map; a lenient
+    # validator missing from it would drop values without a report.
+    # `ODCSSynonym.synonym` is pre-filtered by the list validator instead.
+    reported = {
+        (model, field_name)
+        for model, fields in LENIENT_FIELDS_BY_MODEL.items()
+        for field_name in fields
+    }
+    lenient = {
+        (model, field_name)
+        for model in LENIENT_FIELDS_BY_MODEL
+        for name, decorator in cast(
+            Type[BaseModel], model
+        ).__pydantic_decorators__.field_validators.items()
+        if name.startswith("_lenient")
+        for field_name in decorator.info.fields
+    } - {(ODCSSynonym, "synonym")}
+    assert lenient <= reported

@@ -1,19 +1,23 @@
 import datetime
+import functools
 import logging
 import os
 import re
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 import parse
 from cached_property import cached_property
 from pydantic import ConfigDict, field_validator, model_validator
 from pydantic.fields import Field
-from wcmatch import pathlib
+from wcmatch import glob, pathlib
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.azure.abs_utils import is_abs_uri
+from datahub.ingestion.source.data_lake_common.zip_utils import (
+    DEFAULT_MAX_ZIP_ENTRY_SIZE,
+)
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 # hide annoying debug errors from py4j
@@ -30,7 +34,7 @@ SUPPORTED_FILE_TYPES: List[str] = [
 ]
 
 # gz and bz2 come from the smart_open library (streamed, transparent decompression).
-# zip is handled separately using zipfile + seekable S3 range requests.
+# zip is read with zipfile; only the archive's first supported member is used.
 SUPPORTED_COMPRESSIONS: List[str] = [
     "gz",
     "bz2",
@@ -47,6 +51,24 @@ java_to_python_mapping = {
     "mm": "M",
     "ss": "S",
 }
+
+
+class DirFoldResult(NamedTuple):
+    """Outcome of folding a directory prefix to a spec's ``{table}`` boundary.
+
+    ``table_path`` is the folded dataset path, or ``None`` when this spec does not
+    cover the prefix at all. ``denied`` means the prefix *does* lie under the spec
+    but the user's ``exclude`` or ``tables_filter_pattern`` rejects it — callers
+    must then emit nothing rather than trying another spec or falling back to the
+    raw path, otherwise an explicit denial gets silently overridden.
+    """
+
+    table_path: Optional[str] = None
+    denied: bool = False
+
+
+_NO_FOLD = DirFoldResult()
+_FOLD_DENIED = DirFoldResult(denied=True)
 
 
 class SortKeyType(Enum):
@@ -91,6 +113,14 @@ class FolderTraversalMethod(Enum):
     MAX = "MAX"
 
 
+# glob.compile(...) uses the same wcmatch internals as PurePath.globmatch, so results
+# match as long as the subject path is normalized the same way (see
+# PathSpec._globmatch).
+@functools.lru_cache(maxsize=1024)
+def _compile_globs(patterns: Tuple[str, ...]) -> "glob.WcMatcher":
+    return glob.compile(list(patterns), flags=glob.GLOBSTAR)
+
+
 class PathSpec(ConfigModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -111,13 +141,6 @@ class PathSpec(ConfigModel):
         description="Assume this file type for files where the format cannot be inferred from the file name. This includes files with no extension and files whose apparent extension (the part after the last dot) is not a recognised format (which can happen for file names whose stem contains dots, e.g. ``foo.bar.baz-<hash>.gz``). If unset, such files are skipped.",
     )
 
-    extension_map: Dict[str, str] = Field(
-        default={},
-        description="Map non-standard file extensions to a supported type for schema inference. "
-        "Keys are the custom extensions (without leading dot, e.g. 'js'), values must be one of "
-        f'{SUPPORTED_FILE_TYPES} (e.g. \'json\'). Example: {{"js": "json"}} treats .js files as JSON.',
-    )
-
     table_name: Optional[str] = Field(
         None,
         description="Display name of the dataset.Combination of named variables from include path and strings",
@@ -129,11 +152,28 @@ class PathSpec(ConfigModel):
         description="Sort key to use when sorting the partitions. This is useful when the partitions are not sorted in the order of the data. The key can be a compound key based on the path_spec variables.",
     )
 
+    extension_map: Dict[str, str] = Field(
+        default={},
+        description="Map non-standard file extensions to a supported type. Keys are the custom "
+        "extensions (without leading dot, e.g. 'js'), values must be one of "
+        f'{SUPPORTED_FILE_TYPES} (e.g. \'json\'). Example: {{"js": "json"}} treats .js files as JSON, '
+        "including inside .gz, .bz2 and .zip archives.",
+    )
+
     enable_compression: bool = Field(
         True,
         description="Enable or disable processing compressed files. Supported formats: .gz, .bz2, and .zip. "
         "For .zip archives, only the first file with a supported extension is read; archives containing "
         "multiple files will emit a warning and process only the first matching entry.",
+    )
+
+    max_zip_entry_size: int = Field(
+        DEFAULT_MAX_ZIP_ENTRY_SIZE,
+        ge=1,
+        description="Maximum uncompressed size (in bytes) of a single entry read from a .zip archive. "
+        "Protects against zip-bomb archives that expand to far more than their compressed size and "
+        "could exhaust worker memory. Entries larger than this are skipped with a warning. "
+        "Defaults to 512 MiB.",
     )
 
     sample_files: bool = Field(
@@ -201,17 +241,13 @@ class PathSpec(ConfigModel):
         if self.is_path_hidden(path) and not self.include_hidden_folders:
             return "include_hidden_folders"
 
-        if not pathlib.PurePath(path).globmatch(
-            self.glob_include, flags=pathlib.GLOBSTAR
-        ):
+        if not self._globmatch(self._include_matcher, path):
             return "include"
 
-        if self.exclude:
-            for exclude_path in self.exclude:
-                if pathlib.PurePath(path).globmatch(
-                    exclude_path, flags=pathlib.GLOBSTAR
-                ):
-                    return "exclude"
+        if self._exclude_matcher is not None and self._globmatch(
+            self._exclude_matcher, path
+        ):
+            return "exclude"
 
         table_name, _ = self.extract_table_name_and_path(path)
         if not self.tables_filter_pattern.allowed(table_name):
@@ -267,7 +303,22 @@ class PathSpec(ConfigModel):
         ext = os.path.splitext(path)[1].strip(".").lower()
         if self.enable_compression and ext in SUPPORTED_COMPRESSIONS:
             ext = os.path.splitext(os.path.splitext(path)[0])[1].strip(".").lower()
+        ext = self.extension_map.get(ext, ext)
         return ext if ext in SUPPORTED_FILE_TYPES else None
+
+    def resolve_extension(self, ext: str) -> str:
+        """Map a leading-dot suffix through ``extension_map`` (``.js`` -> ``.json``)."""
+        mapped = self.extension_map.get(ext.lstrip(".").lower())
+        return f".{mapped}" if mapped else ext
+
+    @property
+    def zip_member_types(self) -> List[str]:
+        """Member suffixes to look for inside a .zip: ``file_types`` plus mapped extensions."""
+        return self.file_types + [
+            ext
+            for ext, target in self.extension_map.items()
+            if target in self.file_types
+        ]
 
     def resolve_format_extension(self, path: str) -> str:
         """Resolve the format extension (e.g. ``.json``) for a file name.
@@ -351,6 +402,63 @@ class PathSpec(ConfigModel):
         `is_path_hidden` inspects every path component and `exclude` globs match the full
         path, so filtering a resolved leaf also drops hidden/excluded ancestors."""
         return self.folder_rejection_reason(path) is None
+
+    def fold_dir_to_table(self, path: str) -> DirFoldResult:
+        """Fold a directory prefix up to this spec's ``{table}`` component.
+
+        A directory prefix does not satisfy the file-oriented `allowed()` check, so
+        the boundary is first located structurally, then resolved through the same
+        parse that `allowed()` and `extract_table_name_and_path()` use. Going through
+        that parse is what keeps the folded dataset path and the table name identical
+        to the ones file mode produces, even when `{table}` covers only part of a path
+        segment (`tbl_{table}`) or `table_name` composes several variables.
+        """
+        if "{table}" not in self.include:
+            return _NO_FOLD
+        parts = path.rstrip("/").split("/")
+        if len(parts) <= self.table_depth:
+            return _NO_FOLD
+        table_prefix = "/".join(parts[: self.table_depth + 1])
+        table_glob = "/".join(self.glob_include.split("/")[: self.table_depth + 1])
+        if not pathlib.PurePath(table_prefix).globmatch(
+            table_glob, flags=pathlib.GLOBSTAR
+        ):
+            return _NO_FOLD
+        # Hidden folders never become datasets, matching `allowed`/`folder_allowed`.
+        if self.is_path_hidden(table_prefix) and not self.include_hidden_folders:
+            return _NO_FOLD
+        if self._dir_excluded(path, table_prefix):
+            return _FOLD_DENIED
+
+        # Rebuild a synthetic file path that satisfies this spec's glob so the
+        # spec's own parse can extract `{table}`. Same trick as `dir_allowed`.
+        probe_path = table_prefix + "/" + self.get_remaining_glob_include(table_prefix)
+        if self.get_named_vars(probe_path) is None:
+            return _NO_FOLD
+        table_name, table_path = self.extract_table_name_and_path(probe_path)
+        if not self.tables_filter_pattern.allowed(table_name):
+            return _FOLD_DENIED
+        return DirFoldResult(table_path=table_path)
+
+    def _dir_excluded(self, path: str, table_prefix: str) -> bool:
+        """Whether `exclude` rejects this directory prefix.
+
+        Excludes are matched against the original input path, because folding to
+        `table_prefix` strips the very segments a `**` suffix needs to match. That
+        alone misses the table root itself — `s3://lake/internal` does not glob-match
+        `s3://lake/internal/**` — so a `/**` suffix is also tested against the root.
+        """
+        for exclude_path in self.exclude or []:
+            excl = exclude_path.rstrip("/")
+            if pathlib.PurePath(path.rstrip("/")).globmatch(
+                excl, flags=pathlib.GLOBSTAR
+            ):
+                return True
+            if excl.endswith("/**") and pathlib.PurePath(table_prefix).globmatch(
+                excl[: -len("/**")], flags=pathlib.GLOBSTAR
+            ):
+                return True
+        return False
 
     @classmethod
     def get_parsable_include(cls, include: str) -> str:
@@ -479,7 +587,7 @@ class PathSpec(ConfigModel):
             and include_ext not in ["*", ""]
             and not self.default_extension
             and include_ext not in SUPPORTED_COMPRESSIONS
-            and include_ext not in self.extension_map
+            and include_ext.lower() not in self.extension_map
         ):
             raise ValueError(
                 f"file type specified ({include_ext}) in path_spec.include is not in specified file "
@@ -513,22 +621,18 @@ class PathSpec(ConfigModel):
     @field_validator("extension_map", mode="after")
     @classmethod
     def validate_extension_map(cls, v: Dict[str, str]) -> Dict[str, str]:
-        # Normalize keys to the bare, leading-dot-free form so lookups in
-        # resolve_extension() and the zip entry filters (which strip dots from
-        # the file suffix) match consistently. A leading-dot or empty key would
-        # otherwise be accepted here but silently never resolve.
+        # Keys are stored bare and lower-cased because lookups use the lower-cased
+        # suffix without its dot; a ".js" or "JS" key would otherwise never match.
         normalized: Dict[str, str] = {}
-        source_key: Dict[str, str] = {}
         for ext, target in v.items():
-            key = ext.lstrip(".")
+            key = ext.lstrip(".").lower()
             if not key:
                 raise ValueError(
                     f"extension_map key '{ext}' is empty; specify a bare extension like 'js'"
                 )
             if key in normalized:
                 raise ValueError(
-                    f"extension_map keys '{source_key[key]}' and '{ext}' both normalize to "
-                    f"'{key}'; declare each extension only once"
+                    f"extension_map has more than one key for '{key}'; declare each extension once"
                 )
             if target not in SUPPORTED_FILE_TYPES:
                 raise ValueError(
@@ -536,30 +640,7 @@ class PathSpec(ConfigModel):
                     f"Please specify one from {SUPPORTED_FILE_TYPES}"
                 )
             normalized[key] = target
-            source_key[key] = ext
         return normalized
-
-    def resolve_extension(self, ext: str) -> str:
-        """Resolve a raw file extension through extension_map.
-
-        Input and output both use the leading-dot form (e.g. '.js' -> '.json').
-        Returns the original extension unchanged if no mapping exists.
-        """
-        mapped = self.extension_map.get(ext.lstrip("."))
-        return f".{mapped}" if mapped else ext
-
-    def resolve_schema_extension(self, raw_extension: str, full_path: str) -> str:
-        """Parser extension for a file that may use extension_map.
-
-        A mapped or already-supported suffix wins, so ``.js`` mapped to json is
-        not replaced by default_extension. Anything else uses
-        resolve_format_extension, which drops fake suffixes from dotted stems.
-        """
-        mapped = self.resolve_extension(raw_extension)
-        bare = mapped.lstrip(".").lower()
-        if bare in SUPPORTED_FILE_TYPES:
-            return f".{bare}"
-        return self.resolve_format_extension(full_path)
 
     @field_validator("exclude", mode="after")
     @classmethod
@@ -720,6 +801,36 @@ class PathSpec(ConfigModel):
         logger.debug(f"Setting _glob_include: {glob_include}")
         return glob_include
 
+    @functools.cached_property
+    def _include_matcher(self) -> "glob.WcMatcher":
+        return _compile_globs((self.glob_include,))
+
+    @functools.cached_property
+    def _exclude_matcher(self) -> Optional["glob.WcMatcher"]:
+        return _compile_globs(tuple(self.exclude)) if self.exclude else None
+
+    @staticmethod
+    def glob_matches(path: str, pattern: str) -> bool:
+        """The glob test `allowed` applies to the include and exclude patterns.
+        Callers that match other globs the same way (e.g. the path_spec probe)
+        use this so the two can't drift apart."""
+        return PathSpec._globmatch(_compile_globs((pattern,)), path)
+
+    @staticmethod
+    def _globmatch(matcher: "glob.WcMatcher", path: str) -> bool:
+        # PurePath.globmatch matches against str(PurePath(path)), which collapses
+        # duplicate separators ("s3://" -> "s3:/") and strips trailing slashes;
+        # normalize identically so the precompiled matcher stays equivalent.
+        return matcher.match(str(pathlib.PurePath(path)))
+
+    @cached_property
+    def table_depth(self):
+        """Number of ``/`` preceding the ``{table}`` component of ``include``.
+
+        Only meaningful when ``include`` contains ``{table}``; callers check first.
+        """
+        return self.include.count("/", 0, self.include.find("{table}"))
+
     def _extract_table_name(self, named_vars: dict) -> str:
         if self.table_name is None:
             raise ValueError("path_spec.table_name is not set")
@@ -769,10 +880,10 @@ class PathSpec(ConfigModel):
         if parsed_vars is None or "table" not in parsed_vars.named:
             return os.path.basename(path.removesuffix("/")), path
         else:
-            include = self.include
-            depth = include.count("/", 0, include.find("{table}"))
             table_path = (
-                "/".join(path.split("/")[:depth]) + "/" + parsed_vars.named["table"]
+                "/".join(path.split("/")[: self.table_depth])
+                + "/"
+                + parsed_vars.named["table"]
             )
         return self._extract_table_name(parsed_vars.named), table_path
 

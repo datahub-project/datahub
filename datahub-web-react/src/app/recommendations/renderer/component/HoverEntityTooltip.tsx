@@ -16,6 +16,8 @@ type Props = {
     previewContext?: PreviewContextProps;
     /** Set when the trigger is an owner of some asset, so the card can show that role. */
     ownershipRole?: HoverCardOwnershipRole;
+    /** Replaces the default card. It mounts only when the tooltip opens, so it can fetch more data then. */
+    card?: React.ReactNode;
 };
 
 export const HoverEntityTooltip = ({
@@ -26,6 +28,7 @@ export const HoverEntityTooltip = ({
     showArrow = false,
     previewContext,
     ownershipRole,
+    card,
 }: Props) => {
     if (!entity || !entity.type || !entity.urn) {
         return <>{children}</>;
@@ -37,11 +40,13 @@ export const HoverEntityTooltip = ({
             open={canOpen ? undefined : false}
             placement={placement || 'bottom'}
             content={
-                <EntityHoverCard
-                    entity={entity}
-                    propagationDetails={previewContext?.propagationDetails}
-                    ownershipRole={ownershipRole}
-                />
+                card ?? (
+                    <EntityHoverCard
+                        entity={entity}
+                        propagationDetails={previewContext?.propagationDetails}
+                        ownershipRole={ownershipRole}
+                    />
+                )
             }
             // Above the 1051 browser/modal wrappers a hover trigger can sit inside.
             zIndex={1100}

@@ -27,6 +27,7 @@ from datahub.masking.masking_filter import (
     StreamMaskingWrapper,
     _update_existing_handlers,
     install_masking_filter,
+    uninstall_masking_filter,
 )
 from datahub.masking.secret_registry import SecretRegistry
 
@@ -273,43 +274,63 @@ class TestUpdateExistingHandlers:
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
 
-    def test_update_existing_handlers_with_stdout_handler(self):
-        """Test that existing stdout handlers are updated."""
-        # Create a logger with a stdout handler
-        test_logger = logging.getLogger("test_stdout_update")
-        test_logger.handlers.clear()
+    @pytest.mark.parametrize("stream_name", ["<stdout>", "<stderr>"])
+    def test_update_existing_handlers_wraps_std_stream_in_place(
+        self, stream_name: str
+    ) -> None:
+        """A stdout/stderr handler gets a wrapper around its own stream, so it
+        keeps writing to the same place, and uninstalling restores the stream."""
 
-        stdout_handler = logging.StreamHandler(sys.stdout)
-        test_logger.addHandler(stdout_handler)
+        class NamedStream(StringIO):
+            name = stream_name
 
-        # Install masking
-        install_masking_filter(install_stdout_wrapper=True)
+        original = NamedStream()
+        handler = logging.StreamHandler(original)
+        test_logger = logging.getLogger("test_std_stream_update")
+        test_logger.addHandler(handler)
+        try:
+            masking_filter = install_masking_filter(install_stdout_wrapper=True)
+            _update_existing_handlers(masking_filter)
 
-        # Update handlers
-        _update_existing_handlers()
+            assert isinstance(handler.stream, StreamMaskingWrapper)
+            assert handler.stream._original is original
 
-        # Cleanup
-        test_logger.removeHandler(stdout_handler)
-        test_logger.handlers.clear()
+            uninstall_masking_filter()
+            assert handler.stream is original
+        finally:
+            uninstall_masking_filter()
+            test_logger.removeHandler(handler)
 
-    def test_update_existing_handlers_with_stderr_handler(self):
-        """Test that existing stderr handlers are updated."""
-        # Create a logger with a stderr handler
-        test_logger = logging.getLogger("test_stderr_update")
-        test_logger.handlers.clear()
+    def test_update_existing_handlers_survives_a_stream_whose_name_raises(
+        self,
+    ) -> None:
+        """A detached stream raises ValueError on .name; it must not stop the
+        other handlers from being wrapped or abort masking setup."""
 
-        stderr_handler = logging.StreamHandler(sys.stderr)
-        test_logger.addHandler(stderr_handler)
+        class DetachedStream(StringIO):
+            @property
+            def name(self) -> str:
+                raise ValueError("underlying buffer has been detached")
 
-        # Install masking
-        install_masking_filter(install_stdout_wrapper=True)
+        class NamedStream(StringIO):
+            name = "<stderr>"
 
-        # Update handlers
-        _update_existing_handlers()
+        detached = DetachedStream()
+        good = NamedStream()
+        detached_handler = logging.StreamHandler(detached)
+        good_handler = logging.StreamHandler(good)
+        test_logger = logging.getLogger("test_detached_stream_update")
+        test_logger.addHandler(detached_handler)
+        test_logger.addHandler(good_handler)
+        try:
+            install_masking_filter(install_stdout_wrapper=True)
 
-        # Cleanup
-        test_logger.removeHandler(stderr_handler)
-        test_logger.handlers.clear()
+            assert detached_handler.stream is detached
+            assert isinstance(good_handler.stream, StreamMaskingWrapper)
+        finally:
+            uninstall_masking_filter()
+            test_logger.removeHandler(detached_handler)
+            test_logger.removeHandler(good_handler)
 
     def test_update_existing_handlers_with_custom_stream(self):
         """Test that handlers with custom streams are not updated."""
@@ -321,10 +342,10 @@ class TestUpdateExistingHandlers:
         test_logger.addHandler(custom_handler)
 
         # Install masking
-        install_masking_filter(install_stdout_wrapper=True)
+        masking_filter = install_masking_filter(install_stdout_wrapper=True)
 
         # Update handlers
-        _update_existing_handlers()
+        _update_existing_handlers(masking_filter)
 
         # Custom handler should not be updated
         assert custom_handler.stream is custom_stream
@@ -340,10 +361,10 @@ class TestUpdateExistingHandlers:
         # but are not actual Logger instances
 
         # Install masking
-        install_masking_filter(install_stdout_wrapper=True)
+        masking_filter = install_masking_filter(install_stdout_wrapper=True)
 
         # Call update (should handle placeholders gracefully)
-        _update_existing_handlers()
+        _update_existing_handlers(masking_filter)
 
         # Should not raise any errors
 

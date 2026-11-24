@@ -3,10 +3,8 @@ import functools
 import io
 import logging
 import os
-import pathlib
 import re
 import time
-import zipfile
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import PurePath
@@ -51,8 +49,10 @@ from datahub.ingestion.source.data_lake_common.data_lake_utils import (
     ContainerWUCreator,
     add_partition_columns_to_schema,
 )
-from datahub.ingestion.source.data_lake_common.path_spec import (
-    SUPPORTED_COMPRESSIONS,
+from datahub.ingestion.source.data_lake_common.zip_utils import (
+    ZipEntry,
+    is_zip_path,
+    read_first_supported_zip_entry,
 )
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -78,69 +78,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 1000
 
-# Upper bound on the uncompressed size of a single zip entry we will read into
-# memory for schema inference. A crafted archive can otherwise decompress a tiny
-# file into gigabytes and exhaust the ingestion process (zip bomb).
-MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES = 1 * 1024 * 1024 * 1024  # 1 GiB
-
 # Hack to support the .gzip extension with smart_open.
 so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
-
-
-class SeekableABSFile:
-    """Seekable file-like wrapper around an Azure Blob Storage object.
-
-    zipfile.ZipFile requires random access (seek + tell) because the central
-    directory lives at the end of the archive. This wrapper satisfies that
-    interface by using BlobClient.download_blob(offset, length) range requests,
-    so only the bytes actually needed are downloaded.
-    """
-
-    def __init__(
-        self,
-        blob_service_client: BlobServiceClient,
-        container_name: str,
-        blob_name: str,
-    ) -> None:
-        self._blob_client = blob_service_client.get_blob_client(
-            container=container_name, blob=blob_name
-        )
-        self._pos = 0
-        self._size: int = self._blob_client.get_blob_properties()["size"]
-
-    def read(self, size: int = -1) -> bytes:
-        if self._pos >= self._size:
-            return b""
-        length = (
-            (self._size - self._pos) if size < 0 else min(size, self._size - self._pos)
-        )
-        data: bytes = self._blob_client.download_blob(
-            offset=self._pos, length=length
-        ).readall()
-        self._pos += len(data)
-        return data
-
-    def seek(self, offset: int, whence: int = 0) -> int:
-        if whence == 0:
-            self._pos = offset
-        elif whence == 1:
-            self._pos += offset
-        elif whence == 2:
-            self._pos = self._size + offset
-        self._pos = max(0, min(self._pos, self._size))
-        return self._pos
-
-    def tell(self) -> int:
-        return self._pos
-
-    def seekable(self) -> bool:
-        return True
-
-    def readable(self) -> bool:
-        return True
-
-    def close(self) -> None:
-        pass
 
 
 # config flags to emit telemetry for
@@ -261,78 +200,35 @@ class ABSSource(StatefulIngestionSourceBase):
         table_data: TableData,
         blob_service_client: Optional[BlobServiceClient],
         path_spec: PathSpec,
-    ) -> Tuple[Optional[IO[bytes]], str]:
-        """Open the first supported entry inside a .zip archive.
+    ) -> Optional[ZipEntry]:
+        # smart_open's Azure reader is seekable, so zipfile fetches only the
+        # central directory and the chosen member with ranged downloads. Storage
+        # errors propagate so ingest_table drops the schema, as it does for other
+        # files.
+        with self._smart_open(table_data, blob_service_client) as zip_file:
+            return read_first_supported_zip_entry(
+                zip_file,
+                context=table_data.full_path,
+                report=self.report,
+                file_types=path_spec.zip_member_types,
+                max_entry_size=path_spec.max_zip_entry_size,
+            )
 
-        For ABS paths a seekable range-request wrapper is used so that only the
-        bytes actually needed are downloaded (central directory + chosen entry).
-        For local paths the file is already seekable so zipfile works directly.
-
-        Returns (file_like_object, inner_extension) or (None, "") when no
-        supported entry is found.
-        """
+    def _smart_open(
+        self,
+        table_data: TableData,
+        blob_service_client: Optional[BlobServiceClient],
+    ) -> IO[bytes]:
         if (
             blob_service_client is not None
             and self.source_config.azure_config is not None
         ):
-            zip_file: IO[bytes] = SeekableABSFile(  # type: ignore[assignment]
-                blob_service_client,
-                self.source_config.azure_config.container_name,
-                table_data.rel_path,
+            return smart_open(
+                f"azure://{self.source_config.azure_config.container_name}/{table_data.rel_path}",
+                "rb",
+                transport_params={"client": blob_service_client},
             )
-        else:
-            zip_file = open(table_data.full_path, "rb")
-
-        try:
-            zf = zipfile.ZipFile(zip_file)
-        except zipfile.BadZipFile as e:
-            self.report.report_warning(
-                table_data.full_path, f"could not open zip archive: {e}"
-            )
-            zip_file.close()
-            return None, ""
-
-        members = zf.namelist()
-        # Restrict candidate members to the inner types this path_spec accepts
-        # (file_types plus any custom-mapped extensions), so an archive holding
-        # several formats does not select one the user excluded.
-        accepted = set(path_spec.file_types) | set(path_spec.extension_map.keys())
-        supported = [
-            m for m in members if pathlib.Path(m).suffix.lstrip(".") in accepted
-        ]
-
-        if not supported:
-            self.report.report_warning(
-                table_data.full_path,
-                f"zip archive contains no files with a supported extension "
-                f"({sorted(accepted)}); found: {members}",
-            )
-            zf.close()
-            zip_file.close()
-            return None, ""
-
-        if len(members) > 1:
-            logger.warning(
-                f"zip archive {table_data.full_path} contains {len(members)} files; "
-                f"using first supported entry: {supported[0]}"
-            )
-
-        entry_name = supported[0]
-        inner_extension = pathlib.Path(entry_name).suffix
-        try:
-            if zf.getinfo(entry_name).file_size > MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES:
-                self.report.report_warning(
-                    table_data.full_path,
-                    f"zip entry {entry_name} uncompressed size "
-                    f"{zf.getinfo(entry_name).file_size} exceeds the "
-                    f"{MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES} byte limit; skipping",
-                )
-                return None, ""
-            entry_bytes = zf.read(entry_name)
-        finally:
-            zf.close()
-            zip_file.close()
-        return io.BytesIO(entry_bytes), inner_extension
+        return smart_open(table_data.full_path, "rb")
 
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
         blob_service_client: Optional[BlobServiceClient] = None
@@ -343,45 +239,17 @@ class ABSSource(StatefulIngestionSourceBase):
                 self.source_config.azure_config.get_blob_service_client()
             )
 
-        extension = pathlib.Path(table_data.full_path).suffix
-
-        if path_spec.enable_compression and extension[1:] in SUPPORTED_COMPRESSIONS:
-            if extension[1:] == "zip":
-                file, extension = self._open_zip_entry(
-                    table_data, blob_service_client, path_spec
-                )
-                if file is None:
-                    return []
-            else:
-                # .gz / .bz2 — smart_open decompresses transparently
-                if (
-                    blob_service_client is not None
-                    and self.source_config.azure_config is not None
-                ):
-                    file = smart_open(
-                        f"azure://{self.source_config.azure_config.container_name}/{table_data.rel_path}",
-                        "rb",
-                        transport_params={"client": blob_service_client},
-                    )
-                else:
-                    file = smart_open(table_data.full_path, "rb")
-                # Strip the compression suffix to reveal the inner format (.json.gz -> .json)
-                extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
-        else:
-            if (
-                blob_service_client is not None
-                and self.source_config.azure_config is not None
-            ):
-                file = smart_open(
-                    f"azure://{self.source_config.azure_config.container_name}/{table_data.rel_path}",
-                    "rb",
-                    transport_params={"client": blob_service_client},
-                )
-            else:
-                file = smart_open(table_data.full_path, "rb")
-
         fields = []
-        extension = path_spec.resolve_schema_extension(extension, table_data.full_path)
+        if path_spec.enable_compression and is_zip_path(table_data.full_path):
+            entry = self._open_zip_entry(table_data, blob_service_client, path_spec)
+            if entry is None:
+                return []
+            file: IO[bytes] = io.BytesIO(entry.data)
+            extension = path_spec.resolve_extension(entry.suffix)
+        else:
+            # smart_open decompresses .gz / .bz2 transparently
+            file = self._smart_open(table_data, blob_service_client)
+            extension = path_spec.resolve_format_extension(table_data.full_path)
 
         try:
             if extension == ".parquet":
@@ -522,8 +390,11 @@ class ABSSource(StatefulIngestionSourceBase):
                 )
                 aspects.append(schema_metadata)
             except Exception as e:
-                logger.error(
-                    f"Failed to extract schema from file {table_data.full_path}. The error was:{e}"
+                self.report.warning(
+                    title="Failed to extract schema from file",
+                    message="Schema may be missed for dataset because of failure when extracting schema from file",
+                    context=f"dataset={table_data.display_name}, file={table_data.full_path}",
+                    exc=e,
                 )
                 # Schema was not emitted, so drop the property that names the
                 # source file to avoid a dangling schema_inferred_from.

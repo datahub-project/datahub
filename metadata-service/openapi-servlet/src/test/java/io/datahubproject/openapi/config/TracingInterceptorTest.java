@@ -15,6 +15,8 @@ import io.opentelemetry.api.trace.TraceFlags;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
+import io.opentelemetry.context.propagation.TextMapGetter;
+import io.opentelemetry.context.propagation.TextMapPropagator;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -34,6 +36,7 @@ public class TracingInterceptorTest {
   @Mock private HttpServletRequest request;
   @Mock private HttpServletResponse response;
   @Mock private Scope scope;
+  @Mock private TextMapPropagator propagator;
 
   private TracingInterceptor interceptorWithTracer;
   private TracingInterceptor interceptorNoTracer;
@@ -43,10 +46,14 @@ public class TracingInterceptorTest {
     MockitoAnnotations.openMocks(this);
 
     when(systemTelemetryContext.getTracer()).thenReturn(tracer);
+    when(systemTelemetryContext.getTextMapPropagator()).thenReturn(propagator);
+    when(propagator.extract(any(Context.class), any(), any(TextMapGetter.class)))
+        .thenAnswer(inv -> inv.getArgument(0));
     interceptorWithTracer = new TracingInterceptor(systemTelemetryContext);
 
     SystemTelemetryContext noTracerContext = mock(SystemTelemetryContext.class);
     when(noTracerContext.getTracer()).thenReturn(null);
+    when(noTracerContext.getTextMapPropagator()).thenReturn(null);
     interceptorNoTracer = new TracingInterceptor(noTracerContext);
 
     when(tracer.spanBuilder(anyString())).thenReturn(spanBuilder);
@@ -111,6 +118,31 @@ public class TracingInterceptorTest {
     verify(response)
         .setHeader(
             eq("traceparent"), eq("00-aabbccddeeff00112233445566778899-0011223344556677-01"));
+  }
+
+  @Test
+  public void testPreHandle_normalDispatch_extractsTraceparentFromRequest() {
+    when(spanContext.isValid()).thenReturn(false);
+
+    interceptorWithTracer.preHandle(request, response, new Object());
+
+    verify(propagator).extract(any(Context.class), eq(request), any(TextMapGetter.class));
+    verify(spanBuilder).setParent(any(Context.class));
+  }
+
+  @Test
+  public void testPreHandle_normalDispatch_noPropagator_stillCreatesSpan() {
+    SystemTelemetryContext noPropagatorContext = mock(SystemTelemetryContext.class);
+    when(noPropagatorContext.getTracer()).thenReturn(tracer);
+    when(noPropagatorContext.getTextMapPropagator()).thenReturn(null);
+    TracingInterceptor interceptor = new TracingInterceptor(noPropagatorContext);
+
+    when(spanContext.isValid()).thenReturn(false);
+
+    boolean result = interceptor.preHandle(request, response, new Object());
+
+    assertTrue(result);
+    verify(request).setAttribute(eq("span"), eq(span));
   }
 
   @Test

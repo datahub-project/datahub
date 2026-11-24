@@ -13,6 +13,7 @@ import static org.testng.AssertJUnit.assertNotNull;
 import static org.testng.AssertJUnit.assertNull;
 import static org.testng.AssertJUnit.assertTrue;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -41,6 +42,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -231,6 +233,32 @@ public class ResolverUtilsTest {
     assertNull(getQueryContext(env));
   }
 
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testGetAuthentication_throwsWhenQueryContextNull() {
+    DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
+    when(env.getContext()).thenReturn(null);
+    when(env.getGraphQlContext()).thenReturn(null);
+    getAuthentication(env);
+  }
+
+  @Test
+  public void testGetAuthentication_returnsAuthWhenContextFromGetContext() {
+    DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
+    QueryContext ctx = TestUtils.getMockAllowContext();
+    when(env.getContext()).thenReturn(ctx);
+    assertNotNull(getAuthentication(env));
+  }
+
+  @Test
+  public void testGetAuthentication_returnsAuthWhenContextFromGraphQLContext() {
+    DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
+    QueryContext ctx = TestUtils.getMockAllowContext();
+    GraphQLContext graphqlContext = GraphQLContext.newContext().of(QueryContext.class, ctx).build();
+    when(env.getContext()).thenReturn(null);
+    when(env.getGraphQlContext()).thenReturn(graphqlContext);
+    assertNotNull(getAuthentication(env));
+  }
+
   @Test
   public void testEscapeForwardSlash_withSlash() {
     assertEquals(escapeForwardSlash("foo/bar"), "foo\\/bar");
@@ -329,5 +357,56 @@ public class ResolverUtilsTest {
         getLineageEndTimeMillis(opContext, 1000L, null),
         Long.valueOf(Instant.parse("2026-08-16T19:05:00Z").toEpochMilli()));
     assertEquals(getLineageEndTimeMillis(opContext, 1000L, 2000L), Long.valueOf(2000L));
+  }
+
+  @Test
+  public void testBindArgumentByTypeRef_simpleMap() {
+    Map<String, Object> inputMap = new HashMap<>();
+    inputMap.put("name", "test");
+    inputMap.put("value", 123);
+
+    TypeReference<Map<String, Object>> typeRef = new TypeReference<Map<String, Object>>() {};
+    Map<String, Object> result = bindArgumentByTypeRef(inputMap, typeRef);
+
+    assertEquals(result.get("name"), "test");
+    assertEquals(result.get("value"), 123);
+  }
+
+  @Test
+  public void testBindArgumentByTypeRef_list() {
+    List<String> inputList = ImmutableList.of("a", "b", "c");
+    TypeReference<List<String>> listTypeRef = new TypeReference<List<String>>() {};
+    List<String> resultList = bindArgumentByTypeRef(inputList, listTypeRef);
+
+    assertEquals(resultList, inputList);
+  }
+
+  @Test
+  public void testBindArgumentByTypeRef_customObject() {
+    Map<String, String> customObject = new HashMap<>();
+    customObject.put("field1", "value1");
+    customObject.put("field2", "value2");
+
+    TypeReference<Map<String, String>> customTypeRef = new TypeReference<Map<String, String>>() {};
+    Map<String, String> resultCustom = bindArgumentByTypeRef(customObject, customTypeRef);
+
+    assertEquals(resultCustom.get("field1"), "value1");
+    assertEquals(resultCustom.get("field2"), "value2");
+  }
+
+  @Test
+  public void testCreateUrnFilter_matchesAnyOfTheUrns() {
+    Urn first = UrnUtils.getUrn("urn:li:glossaryNode:first");
+    Urn second = UrnUtils.getUrn("urn:li:glossaryNode:second");
+
+    Filter filter = createUrnFilter("parentNode", ImmutableList.of(first, second));
+
+    assertEquals(filter.getOr().size(), 1);
+    CriterionArray criteria = filter.getOr().get(0).getAnd();
+    assertEquals(criteria.size(), 1);
+    assertEquals(criteria.get(0).getField(), "parentNode");
+    assertEquals(criteria.get(0).getCondition(), Condition.EQUAL);
+    assertEquals(
+        criteria.get(0).getValues(), ImmutableList.of(first.toString(), second.toString()));
   }
 }

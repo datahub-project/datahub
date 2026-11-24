@@ -1,8 +1,6 @@
 import { Loader } from '@components';
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
-import { Typography } from 'antd';
-import React, { CSSProperties } from 'react';
-import styled, { useTheme } from 'styled-components';
+import React from 'react';
 
 import {
     BrowseProvider,
@@ -15,35 +13,22 @@ import {
     useOnSelectBrowsePath,
     usePlatformAggregation,
 } from '@app/searchV2/sidebar/BrowseContext';
+import BrowseRowIcon from '@app/searchV2/sidebar/BrowseRowIcon';
 import EntityLink from '@app/searchV2/sidebar/EntityLink';
-import ExpandableNode from '@app/searchV2/sidebar/ExpandableNode';
 import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
 import useBrowsePagination from '@app/searchV2/sidebar/useBrowsePagination';
 import useSidebarAnalytics from '@app/searchV2/sidebar/useSidebarAnalytics';
-import { formatNumber } from '@app/sharedV2/formatNumber';
+import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
+import { TREE_ROW_ENTITY_ICON_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import useToggle from '@app/sharedV2/useToggle';
 
 import { EntityType } from '@types';
 
-const TRIANGLE_BUTTON_STYLE: CSSProperties = { display: 'block', width: 18 };
+type Props = {
+    level: number;
+};
 
-const FolderStyled = styled(Folder).attrs({ size: 16 })`
-    color: ${(props) => props.theme.colors.text};
-    margin-right: 4px;
-`;
-
-const Count = styled(Typography.Text)`
-    font-size: 10px;
-    color: ${(props) => props.color};
-    padding: 2px 8px;
-    margin-left: 8px;
-    border-radius: 12px;
-    background-color: ${(props) => props.theme.colors.bg};
-    display: block;
-    flex-grow: 0;
-`;
-
-const BrowseNode = () => {
+const BrowseNode = ({ level }: Props) => {
     const isBrowsePathPrefix = useIsBrowsePathPrefix();
     const isBrowsePathSelected = useIsBrowsePathSelected();
     const onSelectBrowsePath = useOnSelectBrowsePath();
@@ -51,63 +36,49 @@ const BrowseNode = () => {
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
     const browseResultGroup = useBrowseResultGroup();
-    const { count, entity } = browseResultGroup;
+    const { count, entity, hasSubGroups } = browseResultGroup;
     const hasEntityLink = !!entity && entity.type !== EntityType.DataPlatformInstance;
     const displayName = useBrowseDisplayName();
     const { trackSelectNodeEvent, trackToggleNodeEvent } = useSidebarAnalytics();
 
-    const { isOpen, isClosing, toggle } = useToggle({
+    const { isOpen, toggle } = useToggle({
         initialValue: isBrowsePathPrefix && !isBrowsePathSelected,
-        closeDelay: 250,
         onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen, 'browse'),
     });
 
-    const onClickTriangle = () => {
-        if (count) toggle();
-    };
-
-    const onClickBrowseHeader = () => {
+    const onSelect = () => {
         const isNowSelected = !isBrowsePathSelected;
         onSelectBrowsePath(isNowSelected);
         trackSelectNodeEvent(isNowSelected ? 'select' : 'deselect', 'browse');
     };
 
-    const { error, groups, loading, loaded, observable, path, retry } = useBrowsePagination({
-        skip: !isOpen || !browseResultGroup.hasSubGroups,
+    const { error, groups, loading, observable, path, retry } = useBrowsePagination({
+        skip: !isOpen || !hasSubGroups,
     });
 
-    const theme = useTheme();
-    const color = theme.colors.text;
-
     return (
-        <ExpandableNode
-            isOpen={isOpen && !isClosing && loaded}
-            header={
-                <ExpandableNode.SelectableHeader
-                    isOpen={isOpen}
-                    $isSelected={isBrowsePathSelected}
-                    onClick={onClickBrowseHeader}
-                    data-testid={`browse-node-${displayName}`}
-                >
-                    <ExpandableNode.HeaderLeft>
-                        <ExpandableNode.TriangleButton
-                            isOpen={isOpen && !isClosing}
-                            isVisible={browseResultGroup.hasSubGroups}
-                            onClick={onClickTriangle}
-                            dataTestId={`browse-node-expand-${displayName}`}
-                            style={TRIANGLE_BUTTON_STYLE}
-                        />
-                        <FolderStyled />
-                        <ExpandableNode.Title color={color} size={12} dynamicWidth padLeft>
-                            {displayName}
-                        </ExpandableNode.Title>
-                        {hasEntityLink && <EntityLink entity={entity} targetNode="browse" />}
-                    </ExpandableNode.HeaderLeft>
-                    <Count color={color}>{formatNumber(count)}</Count>
-                </ExpandableNode.SelectableHeader>
-            }
-            body={
-                <ExpandableNode.Body>
+        <>
+            <HierarchicalBrowseTreeRow
+                level={level}
+                isSelected={isBrowsePathSelected}
+                hasChildren={hasSubGroups}
+                isExpanded={isOpen}
+                count={count}
+                icon={
+                    <BrowseRowIcon $isSelected={isBrowsePathSelected}>
+                        <Folder size={TREE_ROW_ENTITY_ICON_SIZE} weight={isBrowsePathSelected ? 'fill' : 'regular'} />
+                    </BrowseRowIcon>
+                }
+                label={displayName}
+                labelTitle={displayName}
+                trailing={hasEntityLink ? <EntityLink entity={entity} targetNode="browse" /> : undefined}
+                onSelect={onSelect}
+                onToggleExpand={hasSubGroups ? toggle : undefined}
+                data-testid={`browse-node-${displayName}`}
+                expandButtonTestId={`browse-node-expand-${displayName}`}
+            />
+            {isOpen && hasSubGroups && (
+                <>
                     {groups.map((group) => (
                         <BrowseProvider
                             key={group.name}
@@ -117,15 +88,15 @@ const BrowseNode = () => {
                             browseResultGroup={group}
                             parentPath={path}
                         >
-                            <BrowseNode />
+                            <BrowseNode level={level + 1} />
                         </BrowseProvider>
                     ))}
                     {loading && <Loader size="sm" />}
                     {error && <SidebarLoadingError onClickRetry={retry} />}
                     {observable}
-                </ExpandableNode.Body>
-            }
-        />
+                </>
+            )}
+        </>
     );
 };
 

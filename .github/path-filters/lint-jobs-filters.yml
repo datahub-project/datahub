@@ -71,7 +71,7 @@ spotless:
   - "**/*.gradle"
   - "**/*.gradle.kts"
 product-update-sync:
-  - docs/how/updating-datahub.md
+  - docs/how/breaking-changes.md
   - docs/managed-datahub/release-notes/**
   - metadata-service/configuration/src/main/resources/product-update.json
   - metadata-service/configuration/src/main/resources/product-update-saas.json

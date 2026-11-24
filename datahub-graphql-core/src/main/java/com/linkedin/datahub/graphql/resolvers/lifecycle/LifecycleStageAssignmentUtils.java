@@ -17,7 +17,8 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.LifecycleStages;
-import java.util.List;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import javax.annotation.Nonnull;
 
 /** Shared validation for user-initiated lifecycle stage assignments and proposals. */
@@ -48,18 +49,18 @@ public final class LifecycleStageAssignmentUtils {
       @Nonnull Urn targetUrn,
       @Nonnull Urn stageUrn)
       throws Exception {
+    // Read from primary: LifecycleStageTransitionHook judges the write against the committed
+    // Status, so a stale replica read here could accept a transition the hook silently reverts.
+    final OperationContext primary =
+        context.getOperationContext().withReadPreference(ReadPreference.PRIMARY);
     LifecycleStageTypeInfo stageInfo =
         (LifecycleStageTypeInfo)
-            entityService.getAspect(
-                context.getOperationContext(), stageUrn, LifecycleStageTypeMapper.INFO_ASPECT, 0L);
+            entityService.getAspect(primary, stageUrn, LifecycleStageTypeMapper.INFO_ASPECT, 0L);
     if (stageInfo == null) {
       throw invalidStage(String.format("Lifecycle stage '%s' does not exist.", stageUrn));
     }
 
-    List<String> entityTypes = stageInfo.hasEntityTypes() ? stageInfo.getEntityTypes() : null;
-    if (entityTypes != null
-        && !entityTypes.isEmpty()
-        && !entityTypes.contains(targetUrn.getEntityType())) {
+    if (!LifecycleStages.appliesToEntityType(stageInfo, targetUrn.getEntityType())) {
       throw invalidStage(
           String.format(
               "Lifecycle stage '%s' does not apply to entity type '%s'.",
@@ -74,9 +75,7 @@ public final class LifecycleStageAssignmentUtils {
     }
 
     final Status currentStatus =
-        (Status)
-            entityService.getAspect(
-                context.getOperationContext(), targetUrn, Constants.STATUS_ASPECT_NAME, 0L);
+        (Status) entityService.getAspect(primary, targetUrn, Constants.STATUS_ASPECT_NAME, 0L);
     final Urn currentStage =
         currentStatus != null && currentStatus.hasLifecycleStage()
             ? currentStatus.getLifecycleStage()
@@ -98,10 +97,7 @@ public final class LifecycleStageAssignmentUtils {
       @Nonnull Urn stageUrn,
       @Nonnull LifecycleStageTypeInfo stageInfo,
       @Nonnull String entityType) {
-    List<String> entityTypes = stageInfo.hasEntityTypes() ? stageInfo.getEntityTypes() : null;
-    boolean applies =
-        entityTypes == null || entityTypes.isEmpty() || entityTypes.contains(entityType);
-    return applies
+    return LifecycleStages.appliesToEntityType(stageInfo, entityType)
         && stageInfo.getSettings().isUserAssignable()
         && !isDocumentDraft(stageUrn, entityType);
   }

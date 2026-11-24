@@ -25,6 +25,13 @@ public class RestEmitterConfig {
   public static final String DEFAULT_AUTH_TOKEN = null;
   public static final String CLIENT_VERSION_PROPERTY = "clientVersion";
 
+  /**
+   * Request header carrying the datahub-client version on every REST call. The Python client sends
+   * the equivalent {@code X-DataHub-Py-Cli-Version}; together they let the server tell SDK traffic
+   * apart from hand-rolled HTTP clients, which send neither.
+   */
+  public static final String CLIENT_VERSION_HEADER = "X-DataHub-Java-Sdk-Version";
+
   @Builder.Default String server = "http://localhost:8080";
 
   Integer timeoutSec;
@@ -40,6 +47,9 @@ public class RestEmitterConfig {
 
   @Builder.Default @NonNull Map<String, String> extraHeaders = Collections.EMPTY_MAP;
 
+  /** Version of this client as packaged in {@code client.properties}; {@code unknown} if absent. */
+  @Builder.Default @NonNull String clientVersion = loadClientVersion();
+
   @Builder.Default
   EventFormatter eventFormatter = new EventFormatter(EventFormatter.Format.PEGASUS_JSON);
 
@@ -47,23 +57,23 @@ public class RestEmitterConfig {
 
   HttpAsyncClientBuilder asyncHttpClientBuilder;
 
-  public static class RestEmitterConfigBuilder {
-
-    private String getVersion() {
-      try (InputStream foo =
-          this.getClass().getClassLoader().getResourceAsStream("client.properties")) {
-        Properties properties = new Properties();
-        properties.load(foo);
-        return properties.getProperty(CLIENT_VERSION_PROPERTY, "unknown");
-      } catch (Exception e) {
-        log.warn("Unable to find a version for datahub-client. Will set to unknown", e);
-        return "unknown";
-      }
+  static String loadClientVersion() {
+    try (InputStream foo =
+        RestEmitterConfig.class.getClassLoader().getResourceAsStream("client.properties")) {
+      Properties properties = new Properties();
+      properties.load(foo);
+      return properties.getProperty(CLIENT_VERSION_PROPERTY, "unknown");
+    } catch (Exception e) {
+      log.warn("Unable to find a version for datahub-client. Will set to unknown", e);
+      return "unknown";
     }
+  }
+
+  public static class RestEmitterConfigBuilder {
 
     private HttpAsyncClientBuilder asyncHttpClientBuilder =
         HttpAsyncClients.custom()
-            .setUserAgent("DataHub-RestClient/" + getVersion())
+            .setUserAgent("DataHub-RestClient/" + loadClientVersion())
             .setDefaultRequestConfig(
                 RequestConfig.custom()
                     .setConnectionRequestTimeout(

@@ -15,6 +15,7 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     ServerEmbeddingConfig,
 )
 from datahub.ingestion.source.unstructured.chunking_source import DocumentChunkingSource
+from datahub.ingestion.source.unstructured.embedding_providers.base import EmbeddingTask
 from datahub.ingestion.source.unstructured.embedding_providers.factory import (
     create_embedding_provider,
 )
@@ -224,7 +225,7 @@ def test_provider_embed_cls_3d_with_token_type_ids(tmp_path, monkeypatch):
     )
     provider = OnnxEmbeddingProvider(model="m", model_dir=str(_model_dir(tmp_path)))
     assert provider.model_id == "onnx/m"
-    result = provider.embed(["a", "b"])
+    result = provider.embed(["a", "b"], task=EmbeddingTask.DOCUMENT)
     assert result.embeddings == [[1.0, 2.0], [7.0, 8.0]]
     assert set(cap["feeds"]) == {"input_ids", "attention_mask", "token_type_ids"}
     assert cap["feeds"]["input_ids"].dtype == np.int64
@@ -239,7 +240,7 @@ def test_provider_embed_omits_undeclared_token_type_ids(tmp_path, monkeypatch):
     out = np.zeros((1, 3, 2), dtype=np.float32)
     cap = _stub_onnx_modules(monkeypatch, out)  # model declares no token_type_ids
     provider = OnnxEmbeddingProvider(model="m", model_dir=str(_model_dir(tmp_path)))
-    provider.embed(["a"])
+    provider.embed(["a"], task=EmbeddingTask.DOCUMENT)
     assert "token_type_ids" not in cap["feeds"]
 
 
@@ -261,7 +262,10 @@ def test_provider_embed_mean_3d_excludes_padding(tmp_path, monkeypatch):
     provider = OnnxEmbeddingProvider(
         model="m", model_dir=str(_model_dir(tmp_path)), pooling="mean"
     )
-    assert provider.embed(["a", "b"]).embeddings == [[4.0, 4.0], [2.0, 2.0]]
+    assert provider.embed(["a", "b"], task=EmbeddingTask.DOCUMENT).embeddings == [
+        [4.0, 4.0],
+        [2.0, 2.0],
+    ]
 
 
 def test_provider_embed_2d_output_used_as_is(tmp_path, monkeypatch):
@@ -273,7 +277,9 @@ def test_provider_embed_2d_output_used_as_is(tmp_path, monkeypatch):
     out = np.array([[0.5, -0.5]], dtype=np.float32)  # model already pooled
     _stub_onnx_modules(monkeypatch, out)
     provider = OnnxEmbeddingProvider(model="m", model_dir=str(_model_dir(tmp_path)))
-    assert provider.embed(["a"]).embeddings == [[0.5, -0.5]]
+    assert provider.embed(["a"], task=EmbeddingTask.DOCUMENT).embeddings == [
+        [0.5, -0.5]
+    ]
 
 
 def test_provider_embed_empty_short_circuits(tmp_path, monkeypatch):
@@ -284,7 +290,7 @@ def test_provider_embed_empty_short_circuits(tmp_path, monkeypatch):
 
     cap = _stub_onnx_modules(monkeypatch, None)
     provider = OnnxEmbeddingProvider(model="m", model_dir=str(_model_dir(tmp_path)))
-    assert provider.embed([]).embeddings == []
+    assert provider.embed([], task=EmbeddingTask.DOCUMENT).embeddings == []
     assert "feeds" not in cap  # session.run never invoked
 
 
@@ -312,7 +318,7 @@ def test_provider_embed_rejects_batch_mismatch(tmp_path, monkeypatch):
     _stub_onnx_modules(monkeypatch, out)
     provider = OnnxEmbeddingProvider(model="m", model_dir=str(_model_dir(tmp_path)))
     with pytest.raises(RuntimeError, match="malformed embeddings"):
-        provider.embed(["a", "b"])
+        provider.embed(["a", "b"], task=EmbeddingTask.DOCUMENT)
 
 
 def test_provider_init_invalid_pooling_raises(tmp_path, monkeypatch):
@@ -350,3 +356,25 @@ def test_provider_init_missing_deps_friendly_error(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "onnxruntime", None)
     with pytest.raises(ImportError, match="onnx-embeddings"):
         OnnxEmbeddingProvider(model="m", model_dir=str(tmp_path))
+
+
+@pytest.mark.parametrize("instruction", ["", "Represent this query: ", "   "])
+@pytest.mark.parametrize("task", list(EmbeddingTask))
+def test_query_instruction_prefix(tmp_path, monkeypatch, instruction, task):
+    from unittest.mock import patch
+
+    from datahub.ingestion.source.unstructured.embedding_providers.onnx import (
+        OnnxEmbeddingProvider,
+    )
+
+    np = pytest.importorskip("numpy")
+    _stub_onnx_modules(monkeypatch, np.array([[1.0, 2.0]]))
+    monkeypatch.setenv("ONNX_EMBEDDING_QUERY_INSTRUCTION", instruction)
+    provider = OnnxEmbeddingProvider(model="m", model_dir=str(_model_dir(tmp_path)))
+    monkeypatch.setenv("ONNX_EMBEDDING_QUERY_INSTRUCTION", "changed after construction")
+    with patch.object(
+        provider._tokenizer, "encode_batch", wraps=provider._tokenizer.encode_batch
+    ) as tokenize:
+        provider.embed(["text"], task=task)
+    prefix = instruction if task is EmbeddingTask.QUERY and instruction.strip() else ""
+    tokenize.assert_called_once_with([prefix + "text"])

@@ -5,7 +5,7 @@ import styled, { useTheme } from 'styled-components';
 
 import { Label } from '@components/components/TextArea/components';
 
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { ChatIconPicker } from '@app/entityV2/shared/containers/profile/header/IconPicker/IconPicker';
 import { resolveDisplayIconName } from '@app/sharedV2/icons/resolveDisplayIcon';
 

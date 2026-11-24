@@ -1,7 +1,8 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useQueryParamSortCriterion } from '@app/sharedV2/sorting/useQueryParamSortCriterion';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { SortOrder } from '@types';
 

@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, tzinfo
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
@@ -17,6 +18,8 @@ from datahub_airflow_plugin._airflow_version_specific import (
     get_task_instance_attributes,
 )
 from datahub_airflow_plugin._config import DatahubLineageConfig, DatajobUrl
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from airflow import DAG
@@ -52,14 +55,15 @@ def _get_base_url() -> str:
 
     Prefers the Airflow 3 `[api] base_url`; falls back to `[webserver] base_url`
     for users who haven't migrated their `airflow.cfg`, then to localhost.
+    Trailing slashes are stripped so callers can append `/dags/...` safely.
     """
     api_base_url = conf.get("api", "base_url", fallback=None)
     if api_base_url:
-        return api_base_url
+        return api_base_url.rstrip("/")
 
     base_url = conf.get("webserver", "base_url", fallback=None)
     if base_url:
-        return base_url
+        return base_url.rstrip("/")
 
     return "http://localhost:8080"
 
@@ -135,6 +139,34 @@ class AirflowGenerator:
         return [owner.strip() for owner in dag.owner.split(",")]
 
     @staticmethod
+    def _get_schedule(dag: "DagType") -> Optional[str]:
+        """Return the DAG's timetable summary, as shown in the Airflow UI.
+
+        Task SDK timetables (Airflow 3.2+) have no `summary` and are coerced to
+        core first. `"None"` means unscheduled; Python `None` means unknown.
+        """
+        timetable = dag.timetable
+        summary = getattr(timetable, "summary", None)
+        if summary is None:
+            try:
+                from airflow.serialization.encoders import coerce_to_core_timetable
+            except ImportError:
+                # Airflow < 3.2: core timetables always expose `summary`.
+                return None
+            try:
+                summary = coerce_to_core_timetable(timetable).summary
+            except Exception:
+                logger.warning(
+                    "Could not derive schedule for DAG %s from timetable %s; omitting `schedule`",
+                    getattr(dag, "dag_id", "<unknown>"),
+                    type(timetable).__name__,
+                    exc_info=True,
+                )
+                return None
+        # NullTimetable.summary is the string "None" (unscheduled DAG).
+        return summary if isinstance(summary, str) else None
+
+    @staticmethod
     def generate_dataflow(
         config: DatahubLineageConfig,
         dag: "DagType",
@@ -200,9 +232,13 @@ class AirflowGenerator:
                 value = getattr(dag, key)
                 flow_property_bag[key] = _serialize_dag_property(value)
 
+        schedule = AirflowGenerator._get_schedule(dag)
+        if schedule is not None:
+            flow_property_bag["schedule"] = schedule
+
         data_flow.properties = flow_property_bag
         base_url = _get_base_url()
-        data_flow.url = f"{base_url}/tree?dag_id={dag.dag_id}"
+        data_flow.url = f"{base_url}/dags/{dag.dag_id}"
 
         if config.capture_ownership_info and dag.owner:
             owners = AirflowGenerator._extract_owners(dag)

@@ -17,12 +17,19 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.search.template.RankingNormalization;
+import com.linkedin.search.template.RankingNormalizationType;
+import com.linkedin.search.template.RankingSignal;
+import com.linkedin.search.template.RankingSignalArray;
+import com.linkedin.search.template.RankingSignalKind;
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateRanking;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -308,6 +315,203 @@ public class SearchTemplateLoaderCacheTest {
   }
 
   @Test
+  public void testARankingReferenceEditRemergesTheLeaf() {
+    String target = "urn:li:searchTemplate:rescore-default";
+    indexed.put(target, ranked(target, 1.0, 1L));
+    primary.put(target, ranked(target, 1.0, 1L));
+    indexed.put(CHILD, reference(CHILD, target, 1L));
+    primary.put(CHILD, reference(CHILD, target, 1L));
+
+    MergedSearchTemplate first = loader.load(opContext, CHILD);
+    assertEquals(first.getRanking().getSignals().get(0).getBoost(), 1.0);
+    assertTrue(first.getChain().contains(target));
+
+    indexed.put(target, ranked(target, 2.0, 2L));
+    primary.put(target, ranked(target, 2.0, 2L));
+    clock.set(1_000L + TTL_MILLIS + 1);
+    MergedSearchTemplate next = loader.load(opContext, CHILD);
+    assertEquals(next.getRanking().getSignals().get(0).getBoost(), 2.0);
+    assertEquals(next.getLastModified(), 2L);
+  }
+
+  @Test
+  public void testAChildRankingReferenceReplacesAnInheritedPreset() {
+    String library = "urn:li:searchTemplate:library";
+    indexed.put(PARENT, presetNone(PARENT, 1L));
+    primary.put(PARENT, presetNone(PARENT, 1L));
+    indexed.put(library, ranked(library, 1.5, 1L));
+    primary.put(library, ranked(library, 1.5, 1L));
+    SearchTemplateDocuments.Document child = reference(CHILD, library, 1L);
+    child.properties().setParent(UrnUtils.getUrn(PARENT));
+    indexed.put(CHILD, child);
+    primary.put(CHILD, child);
+
+    MergedSearchTemplate loaded = loader.load(opContext, CHILD);
+    assertFalse(loaded.getRanking().hasPreset());
+    assertEquals(loaded.getRanking().getSignals().get(0).getBoost(), 1.5);
+  }
+
+  @Test
+  public void testAnInlineChildRankingDropsAnInheritedReference() {
+    String library = "urn:li:searchTemplate:library";
+    indexed.put(library, ranked(library, 1.5, 1L));
+    primary.put(library, ranked(library, 1.5, 1L));
+    indexed.put(PARENT, reference(PARENT, library, 1L));
+    primary.put(PARENT, reference(PARENT, library, 1L));
+    indexed.put(CHILD, presetNone(CHILD, 1L));
+    SearchTemplateDocuments.Document child = indexed.get(CHILD);
+    child.properties().setParent(UrnUtils.getUrn(PARENT));
+    primary.put(CHILD, child);
+
+    MergedSearchTemplate loaded = loader.load(opContext, CHILD);
+    assertEquals(loaded.getRanking().getPreset(), "none");
+    assertFalse(loaded.getRanking().hasSignals());
+    assertFalse(loaded.getRanking().hasTemplate());
+  }
+
+  @Test
+  public void testAnEmptySignalListDropsSignalsAndKeepsTheRanking() {
+    SearchTemplateDocuments.Document parent = presetNone(PARENT, 1L);
+    parent.properties().getRanking().setWindow(40);
+    parent.properties().getRanking().setWindowSizer("fixed");
+    parent.properties().getRanking().setFormula("usage");
+    parent.properties().setCapabilities(new StringArray("rankingFormula"));
+    indexed.put(PARENT, parent);
+    primary.put(PARENT, parent);
+    SearchTemplateProperties childProperties = properties(CHILD, null);
+    childProperties.setParent(UrnUtils.getUrn(PARENT));
+    childProperties.setRanking(new SearchTemplateRanking().setSignals(new RankingSignalArray()));
+    SearchTemplateDocuments.Document child =
+        new SearchTemplateDocuments.Document(childProperties, 1L);
+    indexed.put(CHILD, child);
+    primary.put(CHILD, child);
+
+    MergedSearchTemplate loaded = loader.load(opContext, CHILD);
+    assertEquals(loaded.getRanking().getPreset(), "none");
+    assertEquals(loaded.getRanking().getWindow(), Integer.valueOf(40));
+    assertEquals(loaded.getRanking().getWindowSizer(), "fixed");
+    assertEquals(loaded.getRanking().getFormula(), "usage");
+    assertFalse(loaded.getRanking().hasSignals());
+  }
+
+  @Test
+  public void testAnEmptySignalListKeepsInheritedReferencePatches() {
+    String library = "urn:li:searchTemplate:library";
+    SearchTemplateDocuments.Document libraryDocument = ranked(library, 1.5, 1L);
+    RankingSignal kept = new RankingSignal();
+    kept.setName("viewCount");
+    kept.setKind(RankingSignalKind.FIELD_NUMBER);
+    kept.setField("viewCount");
+    kept.setNormalization(new RankingNormalization().setType(RankingNormalizationType.NONE));
+    kept.setBoost(2.0);
+    libraryDocument.properties().getRanking().getSignals().add(kept);
+    indexed.put(library, libraryDocument);
+    primary.put(library, libraryDocument);
+    SearchTemplateDocuments.Document parent = reference(PARENT, library, 1L);
+    parent.properties().getRanking().setRemove(new StringArray("queryCountPercentileLast30Days"));
+    indexed.put(PARENT, parent);
+    primary.put(PARENT, parent);
+    SearchTemplateProperties childProperties = properties(CHILD, null);
+    childProperties.setParent(UrnUtils.getUrn(PARENT));
+    childProperties.setRanking(new SearchTemplateRanking().setSignals(new RankingSignalArray()));
+    SearchTemplateDocuments.Document child =
+        new SearchTemplateDocuments.Document(childProperties, 1L);
+    indexed.put(CHILD, child);
+    primary.put(CHILD, child);
+
+    MergedSearchTemplate loaded = loader.load(opContext, CHILD);
+    assertEquals(loaded.getRanking().getSignals().size(), 1);
+    assertEquals(loaded.getRanking().getSignals().get(0).getName(), "viewCount");
+  }
+
+  @Test
+  public void testAnEmptyFormulaDropsTheFormulaAndKeepsSignals() {
+    SearchTemplateDocuments.Document parent = ranked(PARENT, 1.5, 1L);
+    parent.properties().getRanking().setFormula("usage");
+    parent.properties().getCapabilities().add("rankingFormula");
+    indexed.put(PARENT, parent);
+    primary.put(PARENT, parent);
+    SearchTemplateProperties childProperties = properties(CHILD, "{ \"match_all\": {} }");
+    childProperties.setParent(UrnUtils.getUrn(PARENT));
+    childProperties.setRanking(new SearchTemplateRanking().setFormula(""));
+    SearchTemplateDocuments.Document child =
+        new SearchTemplateDocuments.Document(childProperties, 1L);
+    indexed.put(CHILD, child);
+    primary.put(CHILD, child);
+
+    MergedSearchTemplate loaded = loader.load(opContext, CHILD);
+    assertEquals(loaded.getRanking().getSignals().get(0).getBoost(), 1.5);
+    assertFalse(loaded.getRanking().hasFormula());
+  }
+
+  @Test
+  public void testAnEmptyTemplateDropsReferencePatches() {
+    String library = "urn:li:searchTemplate:library";
+    indexed.put(library, ranked(library, 1.5, 1L));
+    primary.put(library, ranked(library, 1.5, 1L));
+    SearchTemplateDocuments.Document parent = reference(PARENT, library, 1L);
+    parent.properties().getRanking().setRemove(new StringArray("queryCountPercentileLast30Days"));
+    indexed.put(PARENT, parent);
+    primary.put(PARENT, parent);
+    SearchTemplateProperties childProperties = properties(CHILD, null);
+    childProperties.setParent(UrnUtils.getUrn(PARENT));
+    SearchTemplateRanking ranking = new SearchTemplateRanking();
+    ranking.setTemplate("");
+    ranking.setWindow(10);
+    ranking.setWindowSizer("fixed");
+    childProperties.setRanking(ranking);
+    SearchTemplateDocuments.Document child =
+        new SearchTemplateDocuments.Document(childProperties, 1L);
+    indexed.put(CHILD, child);
+    primary.put(CHILD, child);
+
+    MergedSearchTemplate loaded = loader.load(opContext, CHILD);
+    assertEquals(loaded.getRanking().getWindow(), Integer.valueOf(10));
+    assertEquals(loaded.getRanking().getWindowSizer(), "fixed");
+    assertFalse(loaded.getRanking().hasTemplate());
+    assertFalse(loaded.getRanking().hasRemove());
+    assertFalse(loaded.getRanking().hasSignals());
+  }
+
+  @Test
+  public void testSignalsLeaveAnInheritedPresetUnset() {
+    indexed.put(PARENT, presetNone(PARENT, 1L));
+    primary.put(PARENT, presetNone(PARENT, 1L));
+    SearchTemplateDocuments.Document child = ranked(CHILD, 2.5, 1L);
+    child.properties().setParent(UrnUtils.getUrn(PARENT));
+    indexed.put(CHILD, child);
+    primary.put(CHILD, child);
+
+    MergedSearchTemplate loaded = loader.load(opContext, CHILD);
+    assertFalse(loaded.getRanking().hasPreset());
+    assertEquals(loaded.getRanking().getSignals().get(0).getBoost(), 2.5);
+  }
+
+  @Test
+  public void testARankingReferenceAncestorEditRemergesTheLeaf() {
+    String library = "urn:li:searchTemplate:library";
+    indexed.put(PARENT, ranked(PARENT, 1.0, 1L));
+    primary.put(PARENT, ranked(PARENT, 1.0, 1L));
+    indexed.put(library, child(library, PARENT, 1L));
+    primary.put(library, child(library, PARENT, 1L));
+    indexed.put(CHILD, reference(CHILD, library, 1L));
+    primary.put(CHILD, reference(CHILD, library, 1L));
+
+    MergedSearchTemplate first = loader.load(opContext, CHILD);
+    assertEquals(first.getRanking().getSignals().get(0).getBoost(), 1.0);
+    assertTrue(first.getChain().contains(library));
+    assertTrue(first.getChain().contains(PARENT));
+    assertEquals(first.getLastModified(), 1L);
+
+    indexed.put(PARENT, ranked(PARENT, 4.0, 4L));
+    primary.put(PARENT, ranked(PARENT, 4.0, 4L));
+    clock.set(1_000L + TTL_MILLIS + 1);
+    MergedSearchTemplate next = loader.load(opContext, CHILD);
+    assertEquals(next.getRanking().getSignals().get(0).getBoost(), 4.0);
+    assertEquals(next.getLastModified(), 4L);
+  }
+
+  @Test
   public void testAFailedReloadKeepsThePreviousSnapshot() {
     indexed.put(CHILD, body(CHILD, "{ \"match_all\": {} }", 1L));
     MergedSearchTemplate first = loader.load(opContext, CHILD);
@@ -353,6 +557,39 @@ public class SearchTemplateLoaderCacheTest {
   private static SearchTemplateDocuments.Document child(String urn, String parent, long modified) {
     SearchTemplateProperties properties = properties(urn, null);
     properties.setParent(UrnUtils.getUrn(parent));
+    return new SearchTemplateDocuments.Document(properties, modified);
+  }
+
+  private static SearchTemplateDocuments.Document presetNone(String urn, long modified) {
+    SearchTemplateProperties properties = properties(urn, "{ \"match_all\": {} }");
+    SearchTemplateRanking ranking = new SearchTemplateRanking();
+    ranking.setPreset("none");
+    properties.setRanking(ranking);
+    return new SearchTemplateDocuments.Document(properties, modified);
+  }
+
+  private static SearchTemplateDocuments.Document ranked(String urn, double boost, long modified) {
+    SearchTemplateProperties properties = properties(urn, null);
+    properties.setCapabilities(new StringArray("rankingSignals"));
+    RankingSignal signal = new RankingSignal();
+    signal.setName("queryCountPercentileLast30Days");
+    signal.setKind(RankingSignalKind.FIELD_NUMBER);
+    signal.setField("queryCountPercentileLast30Days");
+    signal.setNormalization(new RankingNormalization().setType(RankingNormalizationType.NONE));
+    signal.setBoost(boost);
+    SearchTemplateRanking ranking = new SearchTemplateRanking();
+    ranking.setSignals(new RankingSignalArray(signal));
+    properties.setRanking(ranking);
+    return new SearchTemplateDocuments.Document(properties, modified);
+  }
+
+  private static SearchTemplateDocuments.Document reference(
+      String urn, String target, long modified) {
+    SearchTemplateProperties properties = properties(urn, "{ \"match_all\": {} }");
+    properties.setCapabilities(new StringArray("rankingSignals"));
+    SearchTemplateRanking ranking = new SearchTemplateRanking();
+    ranking.setTemplate(target);
+    properties.setRanking(ranking);
     return new SearchTemplateDocuments.Document(properties, modified);
   }
 

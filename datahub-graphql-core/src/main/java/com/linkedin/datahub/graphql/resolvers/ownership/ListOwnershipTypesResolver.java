@@ -12,34 +12,49 @@ import com.linkedin.datahub.graphql.generated.ListOwnershipTypesResult;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@RequiredArgsConstructor
 public class ListOwnershipTypesResolver
     implements DataFetcher<CompletableFuture<ListOwnershipTypesResult>> {
 
   private static final String CREATED_AT_FIELD = "createdAt";
-  private static final SortCriterion DEFAULT_SORT_CRITERION =
-      new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING);
 
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
   private static final String DEFAULT_QUERY = "";
 
   private final EntityClient _entityClient;
+  @Nullable private final EntityIndexConfiguration _entityIndexConfiguration;
+
+  public ListOwnershipTypesResolver(@Nonnull final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public ListOwnershipTypesResolver(
+      @Nonnull final EntityClient entityClient,
+      @Nullable final EntityIndexConfiguration entityIndexConfiguration) {
+    _entityClient = entityClient;
+    _entityIndexConfiguration = entityIndexConfiguration;
+  }
 
   @Override
   public CompletableFuture<ListOwnershipTypesResult> get(DataFetchingEnvironment environment)
@@ -64,7 +79,7 @@ public class ListOwnershipTypesResolver
                     Constants.OWNERSHIP_TYPE_ENTITY_NAME,
                     query,
                     buildFilter(filters, Collections.emptyList()),
-                    Collections.singletonList(DEFAULT_SORT_CRITERION),
+                    Collections.singletonList(sortCriterion(context.getOperationContext())),
                     start,
                     count);
 
@@ -84,6 +99,18 @@ public class ListOwnershipTypesResolver
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  private SortCriterion sortCriterion(@Nonnull final OperationContext opContext) {
+    return new SortCriterion()
+        .setField(
+            EntitySearchIndexResolver.indexedField(
+                _entityIndexConfiguration,
+                opContext,
+                CREATED_AT_FIELD,
+                MappingConstants.SYSTEM_CREATED_TIME_FIELD,
+                Intent.SORT))
+        .setOrder(SortOrder.DESCENDING);
   }
 
   private List<OwnershipTypeEntity> mapUnresolvedOwnershipTypes(List<Urn> entityUrns) {

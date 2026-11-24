@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 

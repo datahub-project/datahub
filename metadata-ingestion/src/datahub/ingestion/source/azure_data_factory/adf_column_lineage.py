@@ -48,6 +48,10 @@ class DatasetSchemaInfo:
     """
 
     columns: list[str]
+    # True for a schema ingested into DataHub by the dataset's own source,
+    # which lists every column. An ADF dataset's structure/schema may list
+    # only some of them.
+    from_datahub: bool = False
 
 
 # Type alias for schema resolver callback
@@ -254,37 +258,86 @@ def translator_has_explicit_mappings(translator: dict[str, Any]) -> bool:
     return bool(mappings_list and isinstance(mappings_list, list))
 
 
+# Called with (sink_urn, column) when a source column has no unique
+# case-insensitive match in the sink's known schema.
+UnmatchedSinkColumnCallback = Callable[[str, str], None]
+
+
+@dataclass(frozen=True)
+class SinkColumnCasing:
+    """Resolves auto-mapped column names to the field paths DataHub stores
+    for the sink, so the downstream schemaField URN joins to a real field
+    (e.g. source "Ship_Date" vs sink "ship_date").
+
+    Matching is case-insensitive even though ADF's own default mapping is
+    case-sensitive: DataHub may store a platform's column names in a
+    different case than the source query or dataset reports them. Sink
+    columns that differ only by case are ambiguous and never matched.
+    """
+
+    columns_by_lower: dict[str, str]
+    # Only a complete schema (from DataHub) proves an unmatched column is
+    # not in the sink.
+    drop_unmatched: bool
+
+    @classmethod
+    def from_schema(cls, schema: Optional[DatasetSchemaInfo]) -> "SinkColumnCasing":
+        if not schema or not schema.columns:
+            return cls(columns_by_lower={}, drop_unmatched=False)
+        columns_by_lower: dict[str, str] = {}
+        ambiguous: set[str] = set()
+        for col in schema.columns:
+            if not col:
+                continue
+            key = col.lower()
+            if key in columns_by_lower and columns_by_lower[key] != col:
+                ambiguous.add(key)
+            columns_by_lower.setdefault(key, col)
+        for key in ambiguous:
+            del columns_by_lower[key]
+        return cls(
+            columns_by_lower=columns_by_lower, drop_unmatched=schema.from_datahub
+        )
+
+    def resolve(self, column: str) -> Optional[str]:
+        """The sink's casing for `column`. With no unique match: None when the
+        sink schema came from DataHub, since a URN for that field would point
+        at nothing; otherwise the column unchanged."""
+        match = self.columns_by_lower.get(column.lower())
+        if match is not None or self.drop_unmatched:
+            return match
+        return column
+
+
 def infer_auto_mappings_by_name(
     source_urn: str,
     sink_urn: str,
     source_schema: Optional[DatasetSchemaInfo],
+    sink_schema: Optional[DatasetSchemaInfo] = None,
+    on_unmatched_sink_column: Optional[UnmatchedSinkColumnCallback] = None,
 ) -> list[FineGrainedLineageClass]:
-    """Infer 1:1 column mappings from a source schema by name.
-
-    When no explicit column mappings are configured and the translator
-    type is TabularTranslator, ADF auto-maps columns by name. We
-    replicate this behavior by creating identity mappings for each
-    source column. Also used outside this module (adf_source.py) to
-    apply the same assumption using a schema looked up from DataHub
-    itself, for a source table this connector has no direct schema
-    access to (e.g. a dynamic "SELECT *" query).
+    """Infer 1:1 column mappings from a source schema by name, as ADF does
+    for a Copy activity with no explicit mappings. Also used by adf_source.py
+    with a schema looked up from DataHub (e.g. for a "SELECT *" query source).
 
     Reference: https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-schema-and-type-mapping#default-mapping
     """
     if not source_schema or not source_schema.columns:
         return []
 
+    sink_casing = SinkColumnCasing.from_schema(sink_schema)
+
     lineages: list[FineGrainedLineageClass] = []
     for col in source_schema.columns:
         if not col:
             continue
+        sink_column = sink_casing.resolve(col)
+        if sink_column is None:
+            if on_unmatched_sink_column is not None:
+                on_unmatched_sink_column(sink_urn, col)
+            continue
         lineages.append(
-            create_fine_grained_lineage(
-                source_urn,
-                col,
-                sink_urn,
-                col,  # Auto-mapped: same column name
-            )
+            create_fine_grained_lineage(source_urn, col, sink_urn, sink_column)
         )
     return lineages
 
@@ -310,6 +363,11 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
     - https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-schema-and-type-mapping
     - https://learn.microsoft.com/en-us/javascript/api/@azure/arm-datafactory/tabulartranslator
     """
+
+    def __init__(
+        self, on_unmatched_sink_column: Optional[UnmatchedSinkColumnCallback] = None
+    ) -> None:
+        self._on_unmatched_sink_column = on_unmatched_sink_column
 
     def supports_activity(self, activity_type: str) -> bool:
         """Only supports Copy activities."""
@@ -346,31 +404,19 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         source_urn = str(inlets[0])
         sink_urn = str(outlets[0])
 
-        # Get source schema for auto-mapping inference
-        # The schema resolver may raise an exception if the backend is unavailable
-        source_schema: Optional[DatasetSchemaInfo] = None
-        try:
-            source_schema = schema_resolver(source_urn)
-        except Exception as e:
-            logger.debug(f"Failed to resolve schema for {source_urn}: {e}")
-
-        # Get translator - check SDK-flattened attribute first, then typeProperties
         translator = self._get_translator(activity)
         if not translator:
-            # No explicit translator - try auto-mapping if we have source schema
-            return self._infer_auto_mappings(source_urn, sink_urn, source_schema)
+            return self._infer_auto_mappings(source_urn, sink_urn, schema_resolver)
 
-        # Extract mappings based on translator format
         lineages = self._parse_translator(translator, source_urn, sink_urn)
 
-        # If no explicit mappings found but translator is TabularTranslator,
-        # try auto-mapping inference
-        if not lineages:
-            translator_type = self._get_translator_type(translator)
-            if translator_type == "TabularTranslator":
-                lineages = self._infer_auto_mappings(
-                    source_urn, sink_urn, source_schema
-                )
+        # A TabularTranslator with no explicit mappings means ADF's default
+        # name-based mapping.
+        if (
+            not lineages
+            and self._get_translator_type(translator) == "TabularTranslator"
+        ):
+            lineages = self._infer_auto_mappings(source_urn, sink_urn, schema_resolver)
 
         return lineages
 
@@ -429,15 +475,17 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         return parse_list_translator_format(mappings_list, source_urn, sink_urn)
 
     def _infer_auto_mappings(
-        self,
-        source_urn: str,
-        sink_urn: str,
-        source_schema: Optional[DatasetSchemaInfo],
+        self, source_urn: str, sink_urn: str, schema_resolver: SchemaResolver
     ) -> list[FineGrainedLineageClass]:
-        """Infer 1:1 column mappings from source schema.
-
-        When no explicit column mappings are configured and the translator type
-        is TabularTranslator, ADF auto-maps columns by name. We replicate this
-        behavior by creating identity mappings for each source column.
-        """
-        return infer_auto_mappings_by_name(source_urn, sink_urn, source_schema)
+        """Same-name mappings from the source schema. The sink schema is only
+        looked up once the source has columns to map."""
+        source_schema = schema_resolver(source_urn)
+        if not source_schema or not source_schema.columns:
+            return []
+        return infer_auto_mappings_by_name(
+            source_urn,
+            sink_urn,
+            source_schema,
+            schema_resolver(sink_urn),
+            self._on_unmatched_sink_column,
+        )

@@ -17,10 +17,12 @@
 import * as path from 'path';
 import type { Page } from '@playwright/test';
 import type { DataHubLogger } from '../utils/logger';
+import { EntityHoverCardComponent } from './common/entity-hover-card.component';
 import { ToastComponent } from './common/toast-component';
 
 export class BasePage {
   protected readonly toast: ToastComponent;
+  protected readonly entityHoverCard: EntityHoverCardComponent;
 
   constructor(
     protected readonly page: Page,
@@ -28,6 +30,7 @@ export class BasePage {
     protected readonly logDir?: string,
   ) {
     this.toast = new ToastComponent(page);
+    this.entityHoverCard = new EntityHoverCardComponent(page);
   }
 
   async navigate(url: string): Promise<void> {

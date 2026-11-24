@@ -1,12 +1,12 @@
 /// <reference types="vite/client" />
 /// <reference types="vite-plugin-svgr/client" />
 /// <reference types="@testing-library/jest-dom" />
-import type { FeatureFlagsConfig } from '@src/types.generated';
+import type { FeatureFlags } from '@src/appConfigContext';
 
 declare global {
     interface Window {
         datahub?: {
-            features?: FeatureFlagsConfig & {
+            features?: FeatureFlags & {
                 _loaded?: string;
                 _version?: string;
             };

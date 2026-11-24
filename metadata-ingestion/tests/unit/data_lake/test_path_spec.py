@@ -1,7 +1,9 @@
+from typing import List
 from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
+from wcmatch import pathlib as wcmatch_pathlib
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.data_lake_common.path_spec import (
@@ -702,56 +704,51 @@ def test_validate_path_spec_compression_extension() -> None:
     assert path_spec.enable_compression is True
 
 
-def test_validate_path_spec_zip_extension() -> None:
-    assert "zip" in SUPPORTED_COMPRESSIONS
+def test_extension_map_normalizes_keys() -> None:
     path_spec = PathSpec(
-        include="s3://bucket/{table}/*.csv.zip",
-        file_types=["csv"],
-        enable_compression=True,
+        include="s3://bucket/{table}/*.js", extension_map={".JS": "json"}
     )
-    assert path_spec.enable_compression is True
+    assert path_spec.extension_map == {"js": "json"}
+    assert path_spec.resolve_extension(".js") == ".json"
 
 
 @pytest.mark.parametrize(
-    "include",
+    "path, extension",
     [
-        "s3://bucket/{table}/*.csv.zip",
-        "s3://bucket/{table}/*.json.zip",
-        "s3://bucket/{table}/*.tsv.zip",
-        "s3://bucket/{table}/*.parquet.zip",
-        "s3://bucket/{table}/*.avro.zip",
+        ("s3://bucket/t/data.js", ".json"),
+        ("s3://bucket/t/data.js.gz", ".json"),
+        ("s3://bucket/t/data.js.zip", ".json"),
+        ("s3://bucket/t/data.csv", ".csv"),
     ],
 )
-def test_validate_path_spec_zip_outer_extension_accepted(include: str) -> None:
-    # PathSpec validation only inspects the outer `.zip` extension against
-    # SUPPORTED_COMPRESSIONS; the inner type is not validated here (it is enforced
-    # when the archive is opened, in the s3/abs sources). So every inner type is
-    # accepted at construction as long as the outer extension is a supported
-    # compression.
-    path_spec = PathSpec(include=include, enable_compression=True)
-    assert path_spec.enable_compression is True
-
-
-def test_extension_map_normalizes_leading_dot_keys() -> None:
+def test_extension_map_selects_and_resolves_mapped_files(
+    path: str, extension: str
+) -> None:
     path_spec = PathSpec(
-        include="s3://bucket/{table}/*.js", extension_map={".js": "json"}
+        include="s3://bucket/{table}/*.*", extension_map={"js": "json"}
     )
-    # Keys are stored without the leading dot so resolve_extension and the zip
-    # entry filters (which strip dots from the suffix) match consistently.
-    assert path_spec.extension_map == {"js": "json"}
-    assert path_spec.resolve_extension(".js") == ".json"
-    assert path_spec.resolve_schema_extension(".js", "s3://bucket/t/data.js") == ".json"
+    assert path_spec.allowed(path)
+    assert path_spec.resolve_format_extension(path) == extension
 
 
-def test_resolve_schema_extension_falls_back_for_unrecognised_suffix() -> None:
+def test_extension_map_target_must_be_in_file_types() -> None:
     path_spec = PathSpec(
-        include="s3://bucket/{table}/*",
+        include="s3://bucket/{table}/*.*",
+        file_types=["csv"],
+        extension_map={"js": "json"},
+    )
+    assert path_spec.rejection_reason("s3://bucket/t/data.js") == "file_types"
+    assert path_spec.zip_member_types == ["csv"]
+
+
+def test_extension_map_wins_over_default_extension() -> None:
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.*",
         default_extension="csv",
-        enable_compression=True,
+        extension_map={"js": "json"},
     )
-    hashed = "s3://bucket/t/foo.bar.baz-abc123.gz"
-    assert path_spec.resolve_schema_extension(".baz-abc123", hashed) == ".csv"
-    assert path_spec.resolve_format_extension(hashed) == ".csv"
+    assert path_spec.resolve_format_extension("s3://bucket/t/data.js") == ".json"
+    assert path_spec.resolve_format_extension("s3://bucket/t/data.txt") == ".csv"
 
 
 def test_extension_map_rejects_empty_key() -> None:
@@ -767,6 +764,33 @@ def test_extension_map_rejects_colliding_keys() -> None:
             include="s3://bucket/{table}/*.js",
             extension_map={"js": "json", ".js": "parquet"},
         )
+
+
+@pytest.mark.parametrize(
+    "path, enable_compression, allowed, extension",
+    [
+        ("s3://bucket/orders/data.csv.zip", True, True, ".csv"),
+        ("s3://bucket/orders/data.csv.zip", False, False, ""),
+        ("s3://bucket/orders/data.htm.zip", True, False, ""),
+        # Like a bare .gz, a bare archive needs default_extension.
+        ("s3://bucket/orders/archive.zip", True, False, ""),
+    ],
+)
+def test_zip_archive_selection(
+    path: str, enable_compression: bool, allowed: bool, extension: str
+) -> None:
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.zip", enable_compression=enable_compression
+    )
+    assert path_spec.allowed(path) is allowed
+    assert path_spec.resolve_format_extension(path) == extension
+
+
+def test_max_zip_entry_size_rejects_non_positive() -> None:
+    # A non-positive cap would silently skip every zip entry, so it must be
+    # rejected at config load rather than failing quietly at ingestion time.
+    with pytest.raises(ValidationError):
+        PathSpec(include="s3://bucket/{table}/*.csv.zip", max_zip_entry_size=0)
 
 
 # Tests for partition extraction
@@ -958,3 +982,59 @@ def test_resolve_extension_passthrough() -> None:
     path_spec = PathSpec(include="s3://bucket/{table}/*.csv")
     assert path_spec.resolve_extension(".csv") == ".csv"
     assert path_spec.resolve_extension(".unknown") == ".unknown"
+
+
+# The precompiled include/exclude matchers must give the same verdicts as the
+# per-call PurePath.globmatch they replaced.
+@pytest.mark.parametrize(
+    "include, exclude, allow_double_stars",
+    [
+        ("s3://bucket/{table}/*.csv", [], False),
+        ("s3://bucket/{table}/{partition0}/*.csv", [], False),
+        ("s3://bucket/{table}/**", [], True),
+        ("s3://bucket/{table}/*.csv", ["*/temp/*", "*/staging/*"], False),
+        ("s3://bucket/data/*/*.parquet", ["*/_delta_log/*"], False),
+        # Included paths that an exclude also matches, so the "exclude" verdict runs.
+        ("s3://bucket/{table}/*.csv", ["s3://bucket/table/*.csv"], False),
+        ("s3://bucket/{table}/**", ["**/temp/**", "**/staging/*"], True),
+        ("s3://bucket/data/*/*.parquet", ["s3://bucket/data/t1/*"], False),
+    ],
+)
+def test_rejection_reason_matches_reference_globmatch(
+    include: str, exclude: List[str], allow_double_stars: bool
+) -> None:
+    # Hidden folders are let through so `_delta_log` reaches the glob checks.
+    path_spec = PathSpec(
+        include=include,
+        exclude=exclude,
+        allow_double_stars=allow_double_stars,
+        include_hidden_folders=True,
+    )
+
+    paths = [
+        "s3://bucket/table/f.csv",
+        "s3://bucket/table/p1/f.csv",
+        "s3://bucket/table/p1/p2/f.csv",
+        "s3://bucket/table/temp/f.csv",
+        "s3://bucket/table/staging/f.csv",
+        "s3://bucket/data/t1/f.parquet",
+        "s3://bucket/data/t1/_delta_log/000.parquet",
+        "s3://bucket//table/f.csv",
+        "s3://bucket/table/f.json",
+        "s3://bucket/table/sub/",
+    ]
+    for path in paths:
+        included = wcmatch_pathlib.PurePath(path).globmatch(
+            path_spec.glob_include, flags=wcmatch_pathlib.GLOBSTAR
+        )
+        excluded = any(
+            wcmatch_pathlib.PurePath(path).globmatch(e, flags=wcmatch_pathlib.GLOBSTAR)
+            for e in exclude
+        )
+        reason = path_spec.rejection_reason(path)
+        if not included:
+            assert reason == "include", path
+        elif excluded:
+            assert reason == "exclude", path
+        else:
+            assert reason not in ("include", "exclude"), path

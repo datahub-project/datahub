@@ -13,12 +13,17 @@ record IncidentAssignee {
   * The user or group assigned to the incident.
   */
   @Searchable = {
-    "v3": {
-      "queryByDefault": true
-    },
+    "fieldName": "assignees",
     "addToFilters": true,
     "filterNameOverride": "Assignee",
-    "fieldName": "assignees"
+    "v3": {
+      "queryByDefault": false,
+      "searchLabel": "owners",
+      "hasValuesFieldName": "hasOwners",
+      "mappings": [
+        { "type": "URN" }
+      ]
+    }
   }
   actor: Urn
 

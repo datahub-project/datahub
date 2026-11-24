@@ -20,12 +20,7 @@ export function capitalizeFirstLetterOnly(str?: string | null) {
 }
 
 export function validateCustomUrnId(str: string) {
-    if (str.indexOf(' ') > 0) return false;
-    if (str.indexOf(',') > 0) return false;
-    if (str.indexOf('(') > 0) return false;
-    if (str.indexOf(')') > 0) return false;
-    if (str.indexOf(':') > 0) return false;
-    return true;
+    return !/[ ,():]/.test(str);
 }
 
 /**
@@ -58,3 +53,9 @@ export function pluralizeIfIrregular(noun: string, suffix = 's'): string {
     }
     return `${noun}${suffix}`;
 }
+
+export const getCapitalizeWord = (word: string) =>
+    word
+        ?.toLowerCase()
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());

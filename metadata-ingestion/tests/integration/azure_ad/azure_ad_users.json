@@ -11,7 +11,11 @@
         "mail": "johngreen@acryl.io",
         "mobilePhone": null,
         "officeLocation": null,
-        "preferredLanguage": null
+        "preferredLanguage": null,
+        "accountEnabled": true,
+        "usageLocation": "GB",
+        "department": "Data Engineering",
+        "companyName": "Example Corp"
     },
     {
         "@odata.type": "#microsoft.graph.user",
@@ -25,6 +29,8 @@
         "mail": "adamhall@acryl.io",
         "mobilePhone": null,
         "officeLocation": null,
-        "preferredLanguage": null
+        "preferredLanguage": null,
+        "accountEnabled": false,
+        "usageLocation": "ES"
     }
 ]

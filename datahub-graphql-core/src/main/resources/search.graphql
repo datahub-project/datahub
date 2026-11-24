@@ -74,14 +74,6 @@ extend type Query {
   ): SearchResults
 
   """
-  List Application assets for a given urn
-  """
-  listApplicationAssets(
-    urn: String!
-    input: SearchAcrossEntitiesInput!
-  ): SearchResults
-
-  """
   Browse for different entities by getting organizational groups and their
   aggregated counts + content. Uses browsePathsV2 aspect and replaces our old
   browse endpoint.
@@ -242,20 +234,43 @@ input SearchFlags {
   searchType: String
 
   """
-  Minimum relevance score (inclusive) for the semantic (kNN) search path. Hits scoring below this
-  floor are dropped, letting an agent abstain instead of returning weak matches. Currently honored
-  only by the semantic search path.
+  Deprecated. Minimum engine kNN score (inclusive). On the cosine engines that hybrid read allows,
+  the engine score is (1 + cosine) / 2, a normalized value from 0 to 1.
 
-  The value is compared against the engine's raw kNN relevance score (cosine-derived), which is not
-  a normalized 0..1 value; its scale depends on the embedding model and search engine, so a suitable
-  floor must be calibrated per deployment rather than assumed.
+  On semantic search, a hit below this score is dropped, letting an agent abstain instead of
+  returning weak matches. On document rerank, a row below it is not blended and keeps its keyword
+  position; the row is not dropped. Search templates add retrieval.minSimilarity, a raw cosine, on
+  the vector leg and knn.blendFloor on rerank. Until this flag is removed, a hit or row must pass
+  both it and those controls.
   """
   minScore: Float
 
   """
+  Raw cosine floor, from -1 to 1, on the hits a vector rung (retrieval.combine: vector) retrieves.
+  A hit below it is dropped and a hit at it is kept; the window is not refilled. With no floor in
+  effect it sets one. With retrieval.minSimilarity, or else semanticSearch.minSimilarity, in effect
+  it can only raise it: the higher of the two applies. A profile whose metric is not cosine rejects
+  it. Only a vector rung reads it, as on semantic search through the semantic search template.
+  Semantic search on its legacy path rejects it.
+  """
+  minSimilarity: Float
+
+  """
+  Semantic search through the semantic search template, and searchAcrossEntities and search through
+  a template named in searchTemplate, such as semantic, answer a query they could not embed with an
+  error naming why: timeout, rejected, reserveExhausted, budgetExhausted, or failed. With this flag
+  set they serve keyword search results for the same request instead, without the named template,
+  and SearchResults.keywordFallback marks them with that reason. Those results cover every requested
+  entity type, not only the ones semantic search covers. Only a failed query embedding falls back:
+  a failed kNN or facet request, and similarity, still fail. Semantic search on its legacy path
+  fails as it does without the flag.
+  """
+  keywordFallbackOnEmbeddingFailure: Boolean
+
+  """
   Caller-selected search template URN (`urn:li:searchTemplate:<id>`). When set, the server uses this
   template and skips query classification and engine lookup. The resolved template is not written
-  back onto this field. The caller must have the MANAGE_SYSTEM_OPERATIONS privilege.
+  back onto this field.
   """
   searchTemplate: String
 }
@@ -809,6 +824,25 @@ type SearchResults {
   Templates visited while choosing this result, when the caller asked for an explanation
   """
   routeChain: [String!]
+
+  """
+  How the served template's keywordRerank ordered this result, when the caller asked for an
+  explanation
+  """
+  keywordRerank: KeywordRerankExplanation
+
+  """
+  How the served template's vector rung retrieved this result, when the caller asked for an
+  explanation
+  """
+  vectorRetrieval: VectorRetrievalExplanation
+
+  """
+  Set when a search served keyword search results because the template serving it could not embed
+  the query and the caller set SearchFlags.keywordFallbackOnEmbeddingFailure: why the embedding
+  failed (timeout, rejected, reserveExhausted, budgetExhausted, or failed)
+  """
+  keywordFallback: String
 }
 
 type ExtraProperty {
@@ -1767,4 +1801,139 @@ enum LineageSearchPath {
   Designates the lightning lineage code path
   """
   LIGHTNING
+}
+
+"""
+How the served template's keywordRerank ordered a search result
+"""
+type KeywordRerankExplanation {
+  """
+  applied when the rerank reordered the ranking window, else keptKeywordOrder
+  """
+  outcome: String!
+
+  """
+  Why the result kept keyword order, such as hybridReadOff, noEligibleRows, failed, timeout, or
+  notApplicable. Unset when the rerank applied
+  """
+  reason: String
+
+  """
+  Rows in the ranking window whose entity type passes the entity gates
+  """
+  eligibleRows: Int
+
+  """
+  Rows in the ranking window that keep their keyword places because their entity type fails the
+  entity gates
+  """
+  ineligibleRows: Int
+
+  """
+  Deprecated inputs this search used, each with its replacement
+  """
+  deprecations: [String!]
+}
+
+"""
+How the served template's vector rung (combine: vector) retrieved a search result
+"""
+type VectorRetrievalExplanation {
+  """
+  served, empty (no hit survived), pastWindow (the page starts past the surviving hits), or
+  noEligibleEntities (no requested entity type passes the entity gates)
+  """
+  outcome: String!
+
+  """
+  The embedding profile the kNN request queried
+  """
+  profile: String
+
+  """
+  The store that served the neighbors: elasticsearch or opensearch for the DataHub index, else the
+  external store's configured name
+  """
+  store: String
+
+  """
+  Milliseconds the external store's search call took. Absent on the DataHub index
+  """
+  adapterLatencyMillis: Long
+
+  """
+  Hits an external store returned that hydration on the DataHub index dropped: deleted, hidden,
+  outside the filter there, or not viewable by the caller
+  """
+  removedByHydration: Int!
+
+  """
+  Requested entity types the kNN request searched
+  """
+  entityTypes: [String!]
+
+  """
+  Requested entity types left out of the vector leg, each as entityType:reason
+  """
+  excludedEntityTypes: [String!]
+
+  """
+  Neighbors requested: the template's candidateCap, clamped to the store's maximum, or the window
+  semantic search fetches for the page when the template sets no cap
+  """
+  k: Int
+
+  """
+  The template's candidateCap, set when it exceeded the store's maximum and k was clamped to it
+  """
+  clampedCandidateCap: Int
+
+  """
+  Hits the store returned, before any floor
+  """
+  candidates: Int
+
+  """
+  The raw cosine floor in effect: retrieval.minSimilarity, else semanticSearch.minSimilarity, or
+  SearchFlags.minSimilarity when that is higher or no other floor is in effect
+  """
+  minSimilarity: Float
+
+  """
+  SearchFlags.minSimilarity, the floor the caller set, whether or not it raised the floor in effect
+  """
+  callerMinSimilarity: Float
+
+  """
+  Why the floor inherited from semanticSearch.minSimilarity was not applied, such as
+  profileNotCosine
+  """
+  minSimilaritySkipped: String
+
+  """
+  Hits below minSimilarity. They are dropped and the window is not refilled
+  """
+  belowMinSimilarity: Int!
+
+  """
+  Of the hits below minSimilarity, those SearchFlags.minSimilarity dropped by raising the floor:
+  the floor in effect without it would have kept them
+  """
+  belowCallerMinSimilarity: Int!
+
+  """
+  Hits below the deprecated SearchFlags.minScore. They are dropped and the window is not refilled
+  """
+  belowMinScore: Int!
+
+  """
+  The caller's filter and the default search filters ran inside the vector search. False on an
+  external store without preFilter, where hydration applies the default search filters
+  """
+  filterInVectorSearch: Boolean!
+
+  """
+  Deprecated inputs this search used, each with its replacement
+  """
+  deprecations: [String!]
 }

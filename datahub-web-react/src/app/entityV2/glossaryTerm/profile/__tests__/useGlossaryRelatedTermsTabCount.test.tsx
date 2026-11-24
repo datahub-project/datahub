@@ -9,7 +9,7 @@ const { entityState, relatedTermsQuery } = vi.hoisted(() => ({
     relatedTermsQuery: vi.fn(),
 }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: () => ({ urn: entityState.urn }),
 }));
 

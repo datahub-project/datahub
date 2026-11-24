@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 from typing import (
@@ -46,6 +47,10 @@ from datahub.ingestion.source.data_lake_common.profiling.readers import (
     read_csv,
     read_json,
     read_parquet,
+)
+from datahub.ingestion.source.data_lake_common.zip_utils import (
+    is_zip_path,
+    read_first_supported_zip_entry,
 )
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
@@ -326,13 +331,6 @@ class FileProfiler:
         config = self.profiling_config
         extension = os.path.splitext(table_data.full_path)[1]
 
-        # Resolve custom extensions (e.g. `.js` -> `.json`) so files declared via
-        # PathSpec.extension_map are profiled instead of skipped as unsupported.
-        if path_spec is not None:
-            if extension == "" and path_spec.default_extension:
-                extension = f".{path_spec.default_extension}"
-            extension = path_spec.resolve_extension(extension)
-
         telemetry.telemetry_instance.ping("data_lake_file", {"extension": extension})
 
         allowed_columns: Optional[List[str]] = None
@@ -359,7 +357,35 @@ class FileProfiler:
             for path in paths:
                 try:
                     with self._open_file(path) as file_obj:
-                        source = self._read_source(file_obj, extension)
+                        read_stream: IO[bytes] = file_obj
+                        # Strips .gz/.bz2 (smart_open decompresses them) and applies
+                        # extension_map and default_extension, matching get_fields.
+                        read_extension = (
+                            path_spec.resolve_format_extension(path)
+                            if path_spec is not None
+                            else extension
+                        )
+                        if (
+                            path_spec is not None
+                            and path_spec.enable_compression
+                            and is_zip_path(path)
+                        ):
+                            entry = read_first_supported_zip_entry(
+                                file_obj,
+                                context=path,
+                                report=self.report,
+                                file_types=path_spec.zip_member_types,
+                                max_entry_size=path_spec.max_zip_entry_size,
+                            )
+                            if entry is None:
+                                # Profiling the table's other files would emit a
+                                # profile that silently omits this one.
+                                table_read_failed = True
+                                break
+                            read_stream = io.BytesIO(entry.data)
+                            read_extension = path_spec.resolve_extension(entry.suffix)
+
+                        source = self._read_source(read_stream, read_extension)
                         if source is None:
                             self.report.warning(
                                 title="Skipped file with unsupported extension during profiling",

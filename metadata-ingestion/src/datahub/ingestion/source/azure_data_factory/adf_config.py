@@ -177,6 +177,20 @@ class AzureDataFactoryConfig(
         le=90,
     )
 
+    max_dynamic_lineage_pairs_per_activity: int = Field(
+        default=50,
+        description=(
+            "When execution history shows an activity (e.g. a Copy activity "
+            "inside a ForEach) reading several distinct tables and writing "
+            "several distinct tables, each source/sink pair gets its own "
+            "DataJob, up to this many per activity. Pairs are taken in URN "
+            "order; lineage for pairs over the cap is not emitted and a "
+            "warning is reported."
+        ),
+        ge=1,
+        le=500,
+    )
+
     # Platform Mapping
     platform_instance_map: dict[str, str] = Field(
         default_factory=dict,

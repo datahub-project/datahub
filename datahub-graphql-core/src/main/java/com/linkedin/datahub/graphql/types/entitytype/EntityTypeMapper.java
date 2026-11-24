@@ -61,6 +61,7 @@ public class EntityTypeMapper {
           .put(EntityType.DATA_CONTRACT, Constants.DATA_CONTRACT_ENTITY_NAME)
           .put(EntityType.APPLICATION, Constants.APPLICATION_ENTITY_NAME)
           .put(EntityType.API, Constants.API_ENTITY_NAME)
+          .put(EntityType.REPOSITORY, Constants.REPOSITORY_ENTITY_NAME)
           .put(EntityType.DOCUMENT, Constants.DOCUMENT_ENTITY_NAME)
           .put(EntityType.METRIC, Constants.METRIC_ENTITY_NAME)
           .put(EntityType.SEMANTIC_MODEL, Constants.SEMANTIC_MODEL_ENTITY_NAME)

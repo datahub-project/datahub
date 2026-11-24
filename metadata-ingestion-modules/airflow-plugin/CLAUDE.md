@@ -98,7 +98,7 @@ Match the conventions already in `docs/lineage/airflow.md`:
 - Describe the user-visible symptom of a fix, not the patch. Readers decide whether to upgrade
   from the symptom.
 - Cross-check every breaking change against
-  [`docs/how/updating-datahub.md`](../../docs/how/updating-datahub.md), which carries the full
+  [`docs/how/breaking-changes.md`](../../docs/how/breaking-changes.md), which carries the full
   migration text, and keep the two consistent.
 - Link to the relevant section of the same page when one exists, rather than restating it.
 - Collapse a run of unchanged versions into one heading — for example,
@@ -130,7 +130,7 @@ Run this from the repository root:
 > - Cross-check published GA versions against
 >   `https://pypi.org/pypi/acryl-datahub-airflow-plugin/json`, and give a heading only to GA
 >   versions.
-> - Cross-check breaking changes against `docs/how/updating-datahub.md` and keep them consistent.
+> - Cross-check breaking changes against `docs/how/breaking-changes.md` and keep them consistent.
 > - Collapse runs of unchanged versions into a single heading.
 > - Finish with `./gradlew :datahub-web-react:mdPrettierWrite`.
 >

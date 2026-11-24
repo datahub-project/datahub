@@ -8,6 +8,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.MetricsOptions;
 import com.linkedin.metadata.config.kafka.ConsumerConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import io.datahubproject.test.wiring.WiringCoverage;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -47,6 +48,7 @@ public class MessagingQueueMetricsConfigurationTest {
 
     contextRunner =
         new ApplicationContextRunner()
+            .withInitializer(WiringCoverage.initializer())
             .withUserConfiguration(MessagingQueueMetricsConfiguration.class)
             .withBean(ConfigurationProvider.class, () -> configurationProvider);
 

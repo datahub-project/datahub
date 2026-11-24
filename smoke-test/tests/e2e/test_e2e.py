@@ -1,6 +1,5 @@
 import concurrent.futures
 import logging
-import time
 import urllib
 from http import HTTPStatus
 from typing import Any, Dict, Optional
@@ -21,6 +20,7 @@ from tests.e2e.utils import (
     get_kafka_schema_registry,
     get_root_urn,
     ingest_file_via_rest,
+    reads_search_v3,
     wait_for_writes_to_sync,
     with_test_retry,
 )
@@ -44,7 +44,6 @@ bq_sample_data = "./sample_bq_data.json"
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
 }
-async_messaging_post_ingestion_wait_sec = 30
 
 BQ_SAMPLE_DATASET_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
@@ -163,8 +162,9 @@ def fixture_ingestion_via_kafka(auth_session):
             },
         },
     )
-    # Kafka emission is asynchronous; allow consumers to catch up.
-    time.sleep(async_messaging_post_ingestion_wait_sec)
+    # The sink flushes its producer on close, so every MCP is in the topic now;
+    # the offset-checkpoint wait covers their consumption and the resulting MCLs.
+    wait_for_writes_to_sync()
 
 
 def fixture_ingestion_via_pgqueue(auth_session):
@@ -405,6 +405,20 @@ def test_frontend_auth(auth_session):
 
 
 def test_frontend_browse_datasets(auth_session):
+    if reads_search_v3(auth_session):
+        query = """query browseV2($input: BrowseV2Input!) {
+            browseV2(input: $input) {
+                groups {
+                    name
+                }
+            }
+        }"""
+        variables = {"input": {"type": "DATASET", "path": ["prod"]}}
+        res_data = execute_graphql(auth_session, query, variables)
+        assert res_data["data"]["browseV2"]
+        assert len(res_data["data"]["browseV2"]["groups"]) > 0
+        return
+
     query = """query browse($input: BrowseInput!) {
         browse(input: $input) {
             start

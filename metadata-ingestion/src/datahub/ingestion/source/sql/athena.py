@@ -367,6 +367,15 @@ class CustomAthenaRestDialect(AthenaRestDialect):
         return detected_col_type(*args)
 
 
+def _custom_dialect_for(engine: Any) -> CustomAthenaRestDialect:
+    # The swapped-in dialect needs the engine's DBAPI: SQLAlchemy wraps driver
+    # errors through it, and without one a refused SHOW CREATE VIEW (Athena
+    # refuses it for views it did not create) raised InvalidRequestError, so
+    # get_view_definition's NoSuchTableError fallback never ran and the view
+    # was dropped.
+    return CustomAthenaRestDialect(dbapi=engine.dialect.dbapi)
+
+
 class AthenaProbeReadFailed(Exception):
     """The dialect could not read something and would have returned it as empty.
 
@@ -525,7 +534,7 @@ class AthenaConfig(SQLCommonConfig):
         # go missing) and does not unpack the complex types Athena reports as DDL
         # strings. A probe on the stock dialect would answer differently from the
         # ingestion it exists to predict.
-        dialect = CustomAthenaRestDialect()
+        dialect = _custom_dialect_for(engine)
         # A report has to be wired, and it has to be one that raises. Leaving it
         # None looks harmless because every use is guarded -- but the guarded use
         # is the S3 Tables fallback's failure path, which logs, warns and returns
@@ -607,7 +616,7 @@ class AthenaSource(SQLAlchemySource):
         engine = create_engine(url, **self.config.options)
 
         # set custom dialect to be used by the inspector
-        dialect = CustomAthenaRestDialect()
+        dialect = _custom_dialect_for(engine)
         # Wire up the report so S3 Tables fallback errors surface via report.warning.
         dialect._report = self.report
         engine.dialect = dialect

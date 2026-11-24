@@ -23,6 +23,7 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     ServerEmbeddingConfig,
 )
 from datahub.ingestion.source.unstructured.chunking_source import DocumentChunkingSource
+from datahub.ingestion.source.unstructured.embedding_providers.base import EmbeddingTask
 from datahub.ingestion.source.unstructured.embedding_providers.classical import (
     ClassicalEmbeddingProvider,
 )
@@ -61,7 +62,11 @@ GOLDEN: list[tuple[str, str, str]] = _load_golden()
 
 
 def _embed(text: str, model: str = MODEL) -> list[float]:
-    return ClassicalEmbeddingProvider(model=model).embed([text]).embeddings[0]
+    return (
+        ClassicalEmbeddingProvider(model=model)
+        .embed([text], task=EmbeddingTask.DOCUMENT)
+        .embeddings[0]
+    )
 
 
 def _digest(vector: list[float]) -> str:
@@ -127,14 +132,18 @@ def test_empty_text_gives_sentinel(text: str) -> None:
 def test_batch_returns_one_vector_per_input_in_order() -> None:
     provider = ClassicalEmbeddingProvider(model=MODEL)
     texts = ["Hello, World!", "id", "", "user_id customer_id"]
-    assert provider.embed(texts).embeddings == [_embed(t) for t in texts]
-    assert provider.embed([]).embeddings == []
+    assert provider.embed(texts, task=EmbeddingTask.DOCUMENT).embeddings == [
+        _embed(t) for t in texts
+    ]
+    assert provider.embed([], task=EmbeddingTask.DOCUMENT).embeddings == []
 
 
 def test_model_id_and_dimensions_come_from_model_name() -> None:
     provider = ClassicalEmbeddingProvider(model="hash-v1-1024")
     assert provider.model_id == "classical/hash-v1-1024"
-    assert len(provider.embed(["id"]).embeddings[0]) == 1024
+    assert (
+        len(provider.embed(["id"], task=EmbeddingTask.DOCUMENT).embeddings[0]) == 1024
+    )
 
 
 @pytest.mark.parametrize(
@@ -205,3 +214,10 @@ def test_embedding_capability_runs_real_provider() -> None:
     )
     assert report.capable
     assert "dimension: 2048" in (report.mitigation_message or "")
+
+
+def test_classical_tasks_are_symmetric():
+    provider = ClassicalEmbeddingProvider(model="hash-v1-2048")
+    assert provider.embed(
+        ["document text"], task=EmbeddingTask.QUERY
+    ) == provider.embed(["document text"], task=EmbeddingTask.DOCUMENT)

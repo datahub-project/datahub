@@ -7,11 +7,16 @@ import static com.linkedin.metadata.Constants.DATASET_USAGE_STATISTICS_ASPECT_NA
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_TRANSFORM_LOGIC_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VIEW_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
+import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
@@ -20,6 +25,8 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.authorization.AssertionAuthorizationUtils.AssertionWrite;
+import com.linkedin.metadata.authorization.AssertionAuthorizationUtils.AssertionWrites;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -36,12 +43,15 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
+import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpStatus;
 
@@ -66,6 +76,9 @@ import org.apache.http.HttpStatus;
  */
 @Slf4j
 public final class EntityAuthorizationUtils {
+
+  private static final Set<ApiOperation> ASSERTION_WRITE_OPERATIONS =
+      EnumSet.of(CREATE, UPDATE, DELETE);
 
   private EntityAuthorizationUtils() {}
 
@@ -93,13 +106,20 @@ public final class EntityAuthorizationUtils {
             .toList();
     List<Urn> queries =
         urns.stream().filter(EntityAspectAuthorizationUtils::isQueryEntity).toList();
+    List<Urn> assertions =
+        urns.stream().filter(AssertionAuthorizationUtils::isAssertionEntity).toList();
     List<Urn> others =
         urns.stream()
             .filter(urn -> !DocumentAuthorizationUtils.isDocumentEntity(urn))
             .filter(urn -> !EntityAspectAuthorizationUtils.isSchemaFieldEntity(urn))
             .filter(urn -> !EntityAspectAuthorizationUtils.isQueryEntity(urn))
+            .filter(urn -> !AssertionAuthorizationUtils.isAssertionEntity(urn))
             .toList();
     if (!others.isEmpty() && !AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, others)) {
+      return false;
+    }
+    if (!assertions.isEmpty()
+        && !isAPIAuthorizedAssertionUrns(opContext, apiOperation, assertions)) {
       return false;
     }
     if (!schemaFields.isEmpty()
@@ -165,6 +185,38 @@ public final class EntityAuthorizationUtils {
   }
 
   /**
+   * Authorizes assertion URNs for API surfaces. Writes (CREATE/UPDATE/DELETE) are allowed with the
+   * generic privilege on the assertion itself, or, matching the GraphQL assertion mutations, with
+   * {@code EDIT_ENTITY_ASSERTIONS} / {@code EDIT_ENTITY} on the persisted asserted entity. Other
+   * operations use {@link AuthUtil} without inheritance.
+   *
+   * <p>Deletes and run events additionally need the asserted-entity privilege even when the
+   * assertion-level check passes; {@code AssertionAuthorizationValidator} enforces that in the
+   * write path so every API that deletes or ingests reaches it.
+   */
+  private static boolean isAPIAuthorizedAssertionUrns(
+      @Nonnull OperationContext opContext,
+      @Nonnull final ApiOperation apiOperation,
+      @Nonnull final Collection<Urn> assertionUrns) {
+    final boolean authorized =
+        AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, assertionUrns);
+    if (authorized
+        || !ASSERTION_WRITE_OPERATIONS.contains(apiOperation)
+        || !AuthUtil.isRestApiAuthorizationEnabled()) {
+      return authorized;
+    }
+    final Set<Urn> denied =
+        assertionUrns.stream()
+            .filter(
+                urn -> !AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, List.of(urn)))
+            .collect(Collectors.toSet());
+    return denied.isEmpty()
+        || AssertionAuthorizationUtils.filterAuthorizedViaAssertedEntities(
+                opContext, denied, AssertionWrites.NONE)
+            .equals(denied);
+  }
+
+  /**
    * Authorizes schema field URNs for API surfaces. READ reuses parent-dataset inheritance via
    * {@link EntityAspectAuthorizationUtils#canViewSchemaFieldEntity} when REST API authorization is
    * enabled; other operations use {@link AuthUtil} without inheritance.
@@ -216,7 +268,18 @@ public final class EntityAuthorizationUtils {
                 })
             .toList();
 
-    return authorizeResolvedChangeUrns(opContext, resolvedProposals);
+    final AssertionWrites assertionWrites =
+        AssertionAuthorizationUtils.collectAssertionWrites(
+            resolvedProposals.stream()
+                .filter(
+                    p -> AssertionAuthorizationUtils.isAssertionEntity(p.getSecond().getSecond()))
+                .map(
+                    p ->
+                        AssertionWrite.fromProposal(
+                            opContext, entityRegistry, p.getSecond().getSecond(), p.getFirst()))
+                .toList());
+
+    return authorizeResolvedChangeUrns(opContext, resolvedProposals, assertionWrites);
   }
 
   /**
@@ -239,7 +302,14 @@ public final class EntityAuthorizationUtils {
             .map(item -> Pair.of((BatchItem) item, Pair.of(item.getChangeType(), item.getUrn())))
             .toList();
 
-    return authorizeResolvedChangeUrns(opContext, resolved);
+    final AssertionWrites assertionWrites =
+        AssertionAuthorizationUtils.collectAssertionWrites(
+            items.stream()
+                .filter(item -> AssertionAuthorizationUtils.isAssertionEntity(item.getUrn()))
+                .map(AssertionWrite::fromItem)
+                .toList());
+
+    return authorizeResolvedChangeUrns(opContext, resolved, assertionWrites);
   }
 
   /**
@@ -248,7 +318,8 @@ public final class EntityAuthorizationUtils {
    * entities that do not exist yet.
    *
    * <p>Unlike the MCP paths this does not seed proposed domains: no snapshot aspect union includes
-   * {@code Domains}, so a snapshot can never propose one.
+   * {@code Domains}, so a snapshot can never propose one. Nor does it include an assertion
+   * snapshot, so no assertion writes reach this path.
    */
   public static boolean isAPIAuthorizedUpsertUrns(
       @Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns) {
@@ -257,13 +328,16 @@ public final class EntityAuthorizationUtils {
     }
     return authorizeResolvedChangeUrns(
             opContext,
-            urns.stream().map(urn -> Pair.of(urn, Pair.of(ChangeType.UPSERT, urn))).toList())
+            urns.stream().map(urn -> Pair.of(urn, Pair.of(ChangeType.UPSERT, urn))).toList(),
+            AssertionWrites.NONE)
         .stream()
         .allMatch(result -> result.getSecond() == HttpStatus.SC_OK);
   }
 
   private static <T> List<Pair<T, Integer>> authorizeResolvedChangeUrns(
-      @Nonnull OperationContext opContext, @Nonnull List<Pair<T, Pair<ChangeType, Urn>>> resolved) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final List<Pair<T, Pair<ChangeType, Urn>>> resolved,
+      @Nonnull final AssertionWrites assertionWrites) {
 
     Set<Urn> allUrns =
         resolved.stream().map(pair -> pair.getSecond().getSecond()).collect(Collectors.toSet());
@@ -288,18 +362,92 @@ public final class EntityAuthorizationUtils {
                             : changeUrn));
 
     Map<Pair<ChangeType, Urn>, Integer> authorizationResults =
-        AuthUtil.isAPIAuthorizedUrns(
-            opContext, ENTITY, Set.copyOf(effectiveAuthorizationKeys.values()), entityExists);
+        new HashMap<>(
+            AuthUtil.isAPIAuthorizedUrns(
+                opContext, ENTITY, Set.copyOf(effectiveAuthorizationKeys.values()), entityExists));
+
+    // Assertion writes denied on the assertion itself fall back to the asserted entity rule.
+    final Set<Urn> deniedAssertions =
+        authorizationResults.entrySet().stream()
+            .filter(e -> e.getValue() == HttpStatus.SC_FORBIDDEN)
+            .map(e -> e.getKey().getSecond())
+            .filter(AssertionAuthorizationUtils::isAssertionEntity)
+            .collect(Collectors.toSet());
+    if (!deniedAssertions.isEmpty()) {
+      final Set<Urn> allowedAssertions =
+          AssertionAuthorizationUtils.filterAuthorizedViaAssertedEntities(
+              opContext, deniedAssertions, assertionWrites);
+      authorizationResults.replaceAll(
+          (key, status) ->
+              status == HttpStatus.SC_FORBIDDEN && allowedAssertions.contains(key.getSecond())
+                  ? HttpStatus.SC_OK
+                  : status);
+    }
 
     return resolved.stream()
         .map(
-            proposal ->
-                Pair.of(
-                    proposal.getFirst(),
-                    authorizationResults.getOrDefault(
-                        effectiveAuthorizationKeys.get(proposal.getSecond()),
-                        HttpStatus.SC_INTERNAL_SERVER_ERROR)))
+            proposal -> {
+              int status =
+                  authorizationResults.getOrDefault(
+                      effectiveAuthorizationKeys.get(proposal.getSecond()),
+                      HttpStatus.SC_INTERNAL_SERVER_ERROR);
+              String aspectName = aspectName(proposal.getFirst());
+              if (isSubResourceCheckedAspect(aspectName)) {
+                status =
+                    coarseSubResourceStatus(
+                        opContext,
+                        proposal.getSecond().getFirst(),
+                        proposal.getSecond().getSecond(),
+                        aspectName,
+                        entityExists);
+              }
+              return Pair.of(proposal.getFirst(), status);
+            })
         .toList();
+  }
+
+  /**
+   * Aspects that hold only the sub-resource their validator checks. The gate accepts the same
+   * privilege set and a wildcard sub-resource, so a policy with a list is not rejected before the
+   * validator sees the diff. The validator then applies the list to the real URNs.
+   *
+   * <p>{@code schemaMetadata} and {@code editableSchemaMetadata} are excluded on purpose: they hold
+   * more than tags, so they keep the entity privilege check. A column tag privilege alone must not
+   * admit a write to them.
+   */
+  private static boolean isSubResourceCheckedAspect(@Nullable String aspectName) {
+    return STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectName)
+        || GLOBAL_TAGS_ASPECT_NAME.equals(aspectName);
+  }
+
+  @Nullable
+  private static String aspectName(@Nonnull Object item) {
+    if (item instanceof MetadataChangeProposal mcp) {
+      return mcp.getAspectName();
+    }
+    if (item instanceof BatchItem batchItem) {
+      return batchItem.getAspectName();
+    }
+    return null;
+  }
+
+  private static int coarseSubResourceStatus(
+      @Nonnull OperationContext opContext,
+      @Nonnull ChangeType changeType,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      @Nullable Map<Urn, Boolean> entityExists) {
+    // A missing answer is not "does not exist". Treating it as a create would let Create Entity
+    // authorize a property or tag write on an entity that may already exist.
+    if (AuthUtil.subResourceWriteOperationNeedsExistence(changeType, urn)
+        && (entityExists == null || entityExists.get(urn) == null)) {
+      return HttpStatus.SC_FORBIDDEN;
+    }
+    boolean exists = entityExists != null && Boolean.TRUE.equals(entityExists.get(urn));
+    return AuthUtil.isCoarseSubResourceWriteAuthorized(
+            opContext, changeType, urn, aspectName, exists)
+        ? HttpStatus.SC_OK
+        : HttpStatus.SC_FORBIDDEN;
   }
 
   /**
