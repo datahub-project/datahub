@@ -342,6 +342,16 @@ unpublished documents that have no lifecycle stage. `semanticSearchAcrossEntitie
 it runs the semantic search template. **Action:** none, unless a client filters on
 `showInGlobalContext` and expects documents hidden from global context to stay out.
 
+### Search template writes reject unknown `retrieval` values
+
+Writing a search template now fails when `retrieval.total`, `retrieval.facets`, `retrieval.page`, or
+`retrieval.authorization` holds a value DataHub does not define, whether the template sets it or
+inherits it from a parent. `total` accepts `candidates` and `facets` accepts `candidateUrns`. `page`
+and `authorization` have no value yet, so any value there is rejected. No release reads these fields
+and the shipped templates set none of them, so search results do not change, and a template that
+already stores another value still loads. **Action:** if a custom template sets one of these fields to
+another value, remove it before you next write that template or a template that inherits from it.
+
 ### Parent Data Product is now checked on every API
 
 Setting a Data Product's parent through OpenAPI, Rest.li or YAML now fails if the parent doesn't exist

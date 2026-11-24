@@ -450,6 +450,27 @@ public final class SearchTemplatePolicyChecks {
     if (onFailure != null) {
       requireClosed("retrieval onFailure", onFailure, SearchTemplateCapabilities.ON_FAILURES);
     }
+    // Nothing reads these four yet, so only the values the design doc defines are stored, and a
+    // release that gives them meaning finds no other value. Templates stored before still load.
+    String total = text(retrieval.getTotal());
+    if (total != null) {
+      requireClosed("retrieval total", total, SearchTemplateCapabilities.RETRIEVAL_TOTALS);
+    }
+    String facets = text(retrieval.getFacets());
+    if (facets != null) {
+      requireClosed("retrieval facets", facets, SearchTemplateCapabilities.RETRIEVAL_FACETS);
+    }
+    String page = text(retrieval.getPage());
+    if (page != null) {
+      requireClosed("retrieval page", page, SearchTemplateCapabilities.RETRIEVAL_PAGES);
+    }
+    String authorization = text(retrieval.getAuthorization());
+    if (authorization != null) {
+      requireClosed(
+          "retrieval authorization",
+          authorization,
+          SearchTemplateCapabilities.RETRIEVAL_AUTHORIZATIONS);
+    }
     String querySource = text(retrieval.getQuerySource());
     if (querySource != null) {
       requireClosed("retrieval querySource", querySource, SearchTemplateCapabilities.QUERY_SOURCES);
