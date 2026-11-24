@@ -99,6 +99,10 @@ public class FeatureFlags {
   private boolean unknownEntityAspectToleranceEnabled = false;
   // Enum symbols and union members this version's schemas don't define.
   private boolean unknownEnumToleranceEnabled = false;
+  // Custom environment names (customFabricType entities) beyond the built-in FabricType values.
+  // Off: only built-in envs are accepted for new uses, and creating a customFabricType is refused.
+  // Values already stored are kept either way.
+  private boolean customFabricTypesEnabled = false;
   private boolean i18nEnabled = true;
   private boolean timeseriesAspectBatchLoadEnabled = true;
   private boolean timeseriesAspectAggBatchLoadEnabled = true;

@@ -27,6 +27,8 @@ import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.aspect.validation.CorpUserCredentialsAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
+import com.linkedin.metadata.aspect.validation.CustomFabricTypeDeleteValidator;
+import com.linkedin.metadata.aspect.validation.CustomFabricTypeKeyValidator;
 import com.linkedin.metadata.aspect.validation.DataPlatformInstanceWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.DataProductDeleteValidator;
 import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizationValidator;
@@ -34,6 +36,8 @@ import com.linkedin.metadata.aspect.validation.DataProductPropertiesParentValida
 import com.linkedin.metadata.aspect.validation.DomainPropertiesParentValidator;
 import com.linkedin.metadata.aspect.validation.DomainWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
+import com.linkedin.metadata.aspect.validation.FabricTypeNameFields;
+import com.linkedin.metadata.aspect.validation.FabricTypeValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.aspect.validation.FormAssignmentAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
@@ -1089,6 +1093,59 @@ public class SpringStandardPluginConfiguration {
                             .build(),
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(DATA_PRODUCT_ENTITY_NAME)
+                            .aspectName(STATUS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  /** Checks env / origin values on new uses, in every FabricTypeName field of the registry. */
+  @Bean
+  public AspectPayloadValidator fabricTypeValidator(
+      @Qualifier("entityRegistry") EntityRegistry entityRegistry,
+      ConfigurationProvider configurationProvider) {
+    return FabricTypeValidator.create(
+        entityRegistry, () -> configurationProvider.getFeatureFlags().isCustomFabricTypesEnabled());
+  }
+
+  @Bean
+  public AspectPayloadValidator customFabricTypeKeyValidator(
+      ConfigurationProvider configurationProvider) {
+    return new CustomFabricTypeKeyValidator()
+        .setCustomTypesEnabled(
+            () -> configurationProvider.getFeatureFlags().isCustomFabricTypesEnabled())
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(CustomFabricTypeKeyValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CUSTOM_FABRIC_TYPE_ENTITY_NAME)
+                            .aspectName(CUSTOM_FABRIC_TYPE_KEY_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator customFabricTypeDeleteValidator(
+      @Qualifier("entityRegistry") EntityRegistry entityRegistry) {
+    return new CustomFabricTypeDeleteValidator()
+        .setFields(FabricTypeNameFields.discover(entityRegistry))
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(CustomFabricTypeDeleteValidator.class.getName())
+                .enabled(true)
+                // RESTATE is left out so restoring a backup in any order is not blocked.
+                .supportedOperations(List.of(DELETE, UPSERT, CREATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CUSTOM_FABRIC_TYPE_ENTITY_NAME)
+                            .aspectName(CUSTOM_FABRIC_TYPE_KEY_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CUSTOM_FABRIC_TYPE_ENTITY_NAME)
                             .aspectName(STATUS_ASPECT_NAME)
                             .build()))
                 .build());

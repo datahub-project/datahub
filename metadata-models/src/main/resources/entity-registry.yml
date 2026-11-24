@@ -783,6 +783,7 @@ entities:
       - customFabricTypeInfo
       - status
       - ownership
+      - deprecation
   - name: businessAttribute
     category: core
     keyAspect: businessAttributeKey
