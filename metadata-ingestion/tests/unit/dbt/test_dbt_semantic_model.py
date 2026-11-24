@@ -12,6 +12,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTMetric,
     DBTNode,
     DBTSourceReport,
+    extract_dbt_metrics,
     parse_dbt_metric_filter,
     parse_semantic_model,
 )
@@ -19,7 +20,6 @@ from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
     _resolve_database_schema,
-    extract_dbt_metrics,
 )
 from datahub.ingestion.source.dbt.dbt_semantic_model import (
     DbtSemanticModelMapper,

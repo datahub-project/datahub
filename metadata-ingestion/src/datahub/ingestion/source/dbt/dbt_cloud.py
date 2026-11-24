@@ -36,14 +36,11 @@ from datahub.ingestion.source.dbt.dbt_cloud_models import (
 from datahub.ingestion.source.dbt.dbt_common import (
     DBT_EXPOSURE_MATURITY,
     DBT_EXPOSURE_TYPES,
-    METRIC_TYPE_SIMPLE,
     DBTColumn,
     DBTCommonConfig,
     DBTConstraint,
     DBTContract,
     DBTExposure,
-    DBTMetric,
-    DBTMetricInput,
     DBTMetricsParse,
     DBTModelPerformance,
     DBTNode,
@@ -52,6 +49,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTSourceBase,
     DBTSourceReport,
     convert_semantic_model_fields_to_columns,
+    extract_dbt_metrics,
     parse_dbt_constraint,
     parse_dbt_metric_filter,
     parse_dbt_timestamp,
@@ -451,12 +449,16 @@ query DatahubDiscoveryMetrics(
       metrics(first: $first, after: $after) {
         edges {
           node {
+            uniqueId
             name
+            packageName
             label
             description
             type
+            typeParams
             formula
             filter
+            meta
             tags
             parents {
               name
@@ -944,9 +946,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             and node.get("name")
             and node.get("uniqueId")
         }
-        create_metric_owners = self._create_metric_measure_owners(raw_nodes)
-        metrics: List[DBTMetric] = []
-        seen: Set[str] = set()
+        manifest_metrics: Dict[str, Dict] = {}
         for environment_id in environment_ids:
             logger.info(f"Fetching dbt Cloud metrics for environment {environment_id}")
             try:
@@ -965,15 +965,22 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     exc=e,
                 )
                 continue
+            metric_ids = {
+                node["name"].casefold(): self._metric_unique_id(node)
+                for node in nodes
+                if isinstance(node.get("name"), str)
+            }
             for node in nodes:
-                metric = self._metric_from_discovery_node(
-                    node, semantic_model_ids, create_metric_owners
+                manifest_node = self._manifest_metric_node(
+                    node, semantic_model_ids, metric_ids
                 )
-                if metric is None or metric.unique_id in seen:
-                    continue
-                seen.add(metric.unique_id)
-                metrics.append(metric)
-        return DBTMetricsParse(metrics=metrics)
+                if manifest_node is not None:
+                    manifest_metrics.setdefault(
+                        self._metric_unique_id(node), manifest_node
+                    )
+        return extract_dbt_metrics(
+            manifest_metrics=manifest_metrics, tag_prefix=self.config.tag_prefix
+        )
 
     @staticmethod
     def _fetch_discovery_metrics(
@@ -1018,45 +1025,31 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         return results
 
     @staticmethod
-    def _create_metric_measure_owners(raw_nodes: List[Dict]) -> Dict[str, Set[str]]:
-        """Which semantic models declare a `create_metric` measure of each name.
+    def _metric_unique_id(node: Dict) -> str:
+        unique_id = node.get("uniqueId")
+        if isinstance(unique_id, str) and unique_id:
+            return unique_id
+        package_name = node.get("packageName")
+        prefix = f"metric.{package_name}." if package_name else "metric."
+        return f"{prefix}{node.get('name')}"
 
-        Keyed by casefolded measure name, valued with the unique ids of the
-        semantic models that declare it.
-        """
-        owners: Dict[str, Set[str]] = {}
-        for node in raw_nodes:
-            if node.get("resourceType") != "semantic_model":
-                continue
-            unique_id = node.get("uniqueId")
-            if not unique_id:
-                continue
-            for measure in node.get("measures") or []:
-                if not isinstance(measure, dict) or not measure.get("createMetric"):
-                    continue
-                measure_name = measure.get("name")
-                if isinstance(measure_name, str) and measure_name:
-                    owners.setdefault(measure_name.casefold(), set()).add(unique_id)
-        return owners
-
-    def _metric_from_discovery_node(
+    def _manifest_metric_node(
         self,
         node: Dict,
         semantic_model_ids: Dict[str, str],
-        create_metric_owners: Optional[Dict[str, Set[str]]] = None,
-    ) -> Optional[DBTMetric]:
+        metric_ids: Dict[str, str],
+    ) -> Optional[Dict]:
+        """Shape a Discovery metric as a manifest `metrics` entry.
+
+        `typeParams` is the manifest's own `type_params` object, so the dbt Core
+        parser reads measures, ratio inputs, `expr`, windows and the rest of it
+        directly.
+        """
         name = node.get("name")
         if not isinstance(name, str) or not name:
             return None
-        raw_type = node.get("type")
-        metric_type = (
-            raw_type.lower() if isinstance(raw_type, str) else METRIC_TYPE_SIMPLE
-        )
-        label = node.get("label")
-        formula = node.get("formula")
         raw_filter = node.get("filter")
-        filter_sql = parse_dbt_metric_filter(raw_filter)
-        if raw_filter and filter_sql is None:
+        if raw_filter and parse_dbt_metric_filter(raw_filter) is None:
             self.report.warning(
                 title="Could not read a dbt Cloud metric filter",
                 message="The metric's filter is in a shape this connector does not "
@@ -1064,11 +1057,14 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 "covers more rows than dbt's definition.",
                 context=f"{name}: {raw_filter!r}",
             )
-        tags = node.get("tags") or []
-        if not isinstance(tags, list):
-            tags = []
+        raw_type = node.get("type")
+        type_params = node.get("typeParams")
+        formula = node.get("formula")
+        if type_params is None and isinstance(formula, str):
+            # An environment that does not return typeParams still has the
+            # rendered formula, which is better than no expression at all.
+            type_params = {"expr": formula}
         depends_on: List[str] = []
-        input_metrics: List[DBTMetricInput] = []
         for parent in node.get("parents") or []:
             if not isinstance(parent, dict):
                 continue
@@ -1077,42 +1073,27 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 continue
             resource_type = str(parent.get("resourceType") or "").lower()
             if resource_type in {"semantic_model", "semanticmodel"}:
-                unique_id = semantic_model_ids.get(parent_name.casefold())
-                if unique_id:
-                    depends_on.append(unique_id)
+                parent_id = semantic_model_ids.get(parent_name.casefold())
             elif resource_type == "metric":
-                input_metrics.append(DBTMetricInput(name=parent_name))
-        measures: List[DBTMetricInput] = []
-        owners = (create_metric_owners or {}).get(name.casefold())
-        if (
-            metric_type == METRIC_TYPE_SIMPLE
-            and owners
-            # Discovery's `parents` is what ties the metric to its semantic
-            # model; when it comes back empty, a measure name only one semantic
-            # model declares is still unambiguous.
-            and (set(depends_on) & owners if depends_on else len(owners) == 1)
-        ):
-            # dbt materializes a create_metric measure into the metrics: block
-            # as a same-named simple metric, so Discovery returns it with no
-            # measure input. Restoring it is what lets the emitter recognise
-            # the copy instead of warning about it, and fall back to the
-            # measure's aggregation when `formula` comes back null.
-            measures.append(DBTMetricInput(name=name))
-        return DBTMetric(
-            name=name,
-            unique_id=f"metric.{name}",
-            label=label if isinstance(label, str) and label else None,
-            description=node.get("description")
-            if isinstance(node.get("description"), str)
-            else None,
-            type=metric_type or METRIC_TYPE_SIMPLE,
-            expr=formula if isinstance(formula, str) else None,
-            filter=filter_sql,
-            measures=measures,
-            tags=[self.config.tag_prefix + tag for tag in tags if isinstance(tag, str)],
-            depends_on=depends_on,
-            input_metrics=input_metrics,
-        )
+                parent_id = metric_ids.get(parent_name.casefold())
+            else:
+                parent_id = None
+            if parent_id:
+                depends_on.append(parent_id)
+        return {
+            "name": name,
+            "label": node.get("label"),
+            "description": node.get("description"),
+            "type": raw_type.lower() if isinstance(raw_type, str) else None,
+            "type_params": type_params,
+            "filter": raw_filter,
+            "tags": [tag for tag in node.get("tags") or [] if isinstance(tag, str)]
+            if isinstance(node.get("tags"), list)
+            else [],
+            "meta": node.get("meta") or {},
+            "package_name": node.get("packageName"),
+            "depends_on": {"nodes": depends_on},
+        }
 
     @staticmethod
     def _get_jobs_for_project(

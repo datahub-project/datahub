@@ -27,7 +27,7 @@ from datahub.ingestion.source.dbt.dbt_cloud_models import (
     DBTCloudEnvironment,
     DBTCloudJob,
 )
-from datahub.ingestion.source.dbt.dbt_common import DBTMetric
+from datahub.ingestion.source.dbt.dbt_common import DBTMetric, extract_dbt_metrics
 
 
 class TestAutoDiscoveryConfig:
@@ -857,8 +857,26 @@ class TestParseIntoDBTNodeFreshness:
         assert dbt_node.freshness_info is None
 
 
-class TestCreateMetricEchoes:
-    """dbt returns a create_metric measure as a same-named simple metric."""
+class TestDiscoveryMetrics:
+    """Discovery metrics are shaped as manifest entries and read by the dbt Core parser."""
+
+    @staticmethod
+    def _parse(nodes: List[Dict[str, Any]]) -> List[DBTMetric]:
+        source = TestDiscoveryMetrics._source()
+        semantic_model_ids = {"orders": "semantic_model.proj.orders"}
+        metric_ids = {
+            node["name"].casefold(): source._metric_unique_id(node) for node in nodes
+        }
+        manifest = {
+            source._metric_unique_id(node): source._manifest_metric_node(
+                node, semantic_model_ids, metric_ids
+            )
+            for node in nodes
+        }
+        return extract_dbt_metrics(
+            manifest_metrics={k: v for k, v in manifest.items() if v is not None},
+            tag_prefix="",
+        ).metrics
 
     @staticmethod
     def _source() -> DBTCloudSource:
@@ -874,45 +892,65 @@ class TestCreateMetricEchoes:
             config, PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
         )
 
-    @staticmethod
-    def _semantic_model_nodes() -> List[Dict[str, Any]]:
-        return [
-            {
-                "uniqueId": "semantic_model.proj.orders",
-                "name": "orders",
-                "resourceType": "semantic_model",
-                "measures": [
-                    {"name": "order_total", "createMetric": True},
-                    {"name": "order_count", "createMetric": False},
-                ],
-            }
-        ]
-
-    def _metric(self, name: str, parent: str = "orders") -> Optional[DBTMetric]:
-        source = self._source()
-        nodes = self._semantic_model_nodes()
-        return source._metric_from_discovery_node(
-            {
-                "name": name,
-                "type": "SIMPLE",
-                "formula": None,
-                "parents": [{"name": parent, "resourceType": "semantic_model"}],
-            },
-            {"orders": "semantic_model.proj.orders"},
-            source._create_metric_measure_owners(nodes),
-        )
-
-    def test_the_measure_input_is_restored_for_a_create_metric_echo(self) -> None:
-        metric = self._metric("order_total")
-
-        assert metric is not None
-        assert [m.name for m in metric.measures] == ["order_total"]
-
-    def test_a_metric_that_is_not_a_create_metric_echo_gets_no_measure_input(
+    def test_a_create_metric_echo_keeps_its_measure_and_the_real_unique_id(
         self,
     ) -> None:
-        # order_count does not set create_metric, so a same-named metric is an
-        # author's own and has to be reported if it shadows anything.
-        assert self._metric("order_count") is not None
-        assert self._metric("order_count").measures == []  # type: ignore[union-attr]
-        assert self._metric("revenue").measures == []  # type: ignore[union-attr]
+        # dbt returns a create_metric measure as a same-named simple metric.
+        (metric,) = self._parse(
+            [
+                {
+                    "uniqueId": "metric.proj.order_total",
+                    "name": "order_total",
+                    "packageName": "proj",
+                    "type": "SIMPLE",
+                    "typeParams": {"measure": {"name": "order_total"}},
+                    "formula": None,
+                    "parents": [{"name": "orders", "resourceType": "semantic_model"}],
+                }
+            ]
+        )
+
+        assert metric.unique_id == "metric.proj.order_total"
+        assert [m.name for m in metric.measures] == ["order_total"]
+        assert metric.depends_on == ["semantic_model.proj.orders"]
+
+    def test_a_ratio_keeps_its_numerator_and_denominator(self) -> None:
+        (metric,) = self._parse(
+            [
+                {
+                    "uniqueId": "metric.proj.ratio",
+                    "name": "ratio",
+                    "type": "RATIO",
+                    "typeParams": {
+                        "numerator": {"name": "a"},
+                        "denominator": {"name": "b"},
+                    },
+                    "parents": [],
+                }
+            ]
+        )
+
+        assert metric.numerator is not None and metric.numerator.name == "a"
+        assert metric.denominator is not None and metric.denominator.name == "b"
+
+    def test_a_filter_object_and_a_missing_type_params_still_give_a_metric(
+        self,
+    ) -> None:
+        (metric,) = self._parse(
+            [
+                {
+                    "name": "paying",
+                    "type": "SIMPLE",
+                    "typeParams": None,
+                    "formula": "hubspot_company_id",
+                    "filter": {
+                        "where_filters": [{"where_sql_template": "{{ x }} = true"}]
+                    },
+                    "parents": [],
+                }
+            ]
+        )
+
+        assert metric.unique_id == "metric.paying"
+        assert metric.filter == "{{ x }} = true"
+        assert metric.expr == "hubspot_company_id"

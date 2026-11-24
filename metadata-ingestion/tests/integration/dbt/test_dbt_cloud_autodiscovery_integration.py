@@ -109,12 +109,23 @@ def mock_graphql_response() -> Dict[str, Any]:
                     "edges": [
                         {
                             "node": {
+                                "uniqueId": "metric.test_project.revenue",
                                 "name": "revenue",
+                                "packageName": "test_project",
                                 "label": "Revenue (Booked)",
                                 "description": "Revenue",
                                 "type": "SIMPLE",
+                                "typeParams": {
+                                    "measure": {"name": "revenue"},
+                                    "expr": "sum(revenue)",
+                                },
                                 "formula": "sum(revenue)",
-                                "filter": None,
+                                "filter": {
+                                    "where_filters": [
+                                        {"where_sql_template": "amount > 0"}
+                                    ]
+                                },
+                                "meta": {},
                                 "tags": ["finance"],
                                 "parents": [
                                     {
@@ -287,6 +298,9 @@ class TestAutoDiscoveryEndToEnd:
         assert project.metrics.metrics[0].label == "Revenue (Booked)"
         assert project.metrics.metrics[0].type == "simple"
         assert project.metrics.metrics[0].expr == "sum(revenue)"
+        assert project.metrics.metrics[0].unique_id == "metric.test_project.revenue"
+        assert project.metrics.metrics[0].filter == "amount > 0"
+        assert [m.name for m in project.metrics.metrics[0].measures] == ["revenue"]
         assert project.metrics.metrics[0].depends_on == [
             "semantic_model.test_project.test_metrics"
         ]

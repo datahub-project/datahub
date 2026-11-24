@@ -9,7 +9,6 @@ from typing import (
     List,
     Literal,
     Optional,
-    Set,
     Tuple,
     cast,
 )
@@ -49,23 +48,19 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBT_EXPOSURE_MATURITY,
     DBT_EXPOSURE_TYPES,
     DBT_NODE_TYPE_SEMANTIC_MODEL,
-    METRIC_TYPE_SIMPLE,
     DBTColumn,
     DBTCommonConfig,
     DBTConstraint,
     DBTContract,
     DBTExposure,
-    DBTMetric,
-    DBTMetricInput,
-    DBTMetricsParse,
     DBTModelPerformance,
     DBTNode,
     DBTProject,
     DBTSourceBase,
     DBTSourceReport,
     convert_semantic_model_fields_to_columns,
+    extract_dbt_metrics,
     parse_dbt_constraint,
-    parse_dbt_metric_filter,
     parse_dbt_timestamp,
     parse_semantic_model,
 )
@@ -654,174 +649,6 @@ def extract_dbt_exposures(
             )
         )
     return exposures
-
-
-def _metric_input(value: Any) -> Optional[DBTMetricInput]:
-    """Coerce a dbt measure/metric reference into a DBTMetricInput.
-
-    dbt >= 1.7 emits ``{"name": ..., "alias": ...}``; dbt 1.6 sometimes emits a
-    bare string. Anything else (including a null) yields None.
-    """
-    if isinstance(value, str):
-        return DBTMetricInput(name=value) if value else None
-    if isinstance(value, dict):
-        name = value.get("name")
-        if isinstance(name, str) and name:
-            return DBTMetricInput(
-                name=name, filter=parse_dbt_metric_filter(value.get("filter"))
-            )
-    return None
-
-
-def _metric_inputs(values: Any) -> List[DBTMetricInput]:
-    if not isinstance(values, list):
-        return []
-    return [parsed for parsed in (_metric_input(value) for value in values) if parsed]
-
-
-def _dedupe_metric_inputs(inputs: List[DBTMetricInput]) -> List[DBTMetricInput]:
-    seen: Set[str] = set()
-    deduped: List[DBTMetricInput] = []
-    for item in inputs:
-        if item.name in seen:
-            continue
-        seen.add(item.name)
-        deduped.append(item)
-    return deduped
-
-
-def _metric_window(value: Any) -> Optional[str]:
-    """Flatten a cumulative metric's window into `"<count> <granularity>"`.
-
-    dbt >= 1.7 emits ``{"count": 7, "granularity": "day"}``; earlier versions
-    emitted a bare string.
-    """
-    if isinstance(value, str):
-        return value or None
-    if isinstance(value, dict):
-        count = value.get("count")
-        granularity = value.get("granularity")
-        if isinstance(count, int) and isinstance(granularity, str):
-            return f"{count} {granularity}"
-    return None
-
-
-def _optional_str_value(value: Any) -> Optional[str]:
-    """Keep a non-string manifest value out of the typed model."""
-    return value if isinstance(value, str) else None
-
-
-def _parse_metric(key: str, metric_node: Dict[str, Any], tag_prefix: str) -> DBTMetric:
-    type_params = metric_node.get("type_params")
-    if type_params is None:
-        type_params = {}
-    elif not isinstance(type_params, dict):
-        # Not a parse crash, so the per-entry guard would never engage - and
-        # everything a metric is computed from lives in here, so the metric
-        # would be published with neither an expression nor an upstream. Raised
-        # so it is dropped and reported like any other unreadable entry.
-        raise ValueError(
-            f"type_params is {type(type_params).__name__}, expected an object"
-        )
-
-    # Rendered into a subTypes aspect, so a non-string would fail at
-    # serialization; fall back to the same default as an absent type.
-    metric_type = _optional_str_value(metric_node.get("type")) or METRIC_TYPE_SIMPLE
-
-    measures = _metric_inputs(type_params.get("input_measures"))
-    single_measure = _metric_input(type_params.get("measure"))
-    if single_measure:
-        measures.append(single_measure)
-
-    input_metrics = _metric_inputs(type_params.get("metrics"))
-    # A ratio's numerator/denominator name metrics in modern dbt but named
-    # measures in early 1.6. Collect both; the emitter resolves against the
-    # known metric names first and falls back to measures.
-    numerator = _metric_input(type_params.get("numerator"))
-    denominator = _metric_input(type_params.get("denominator"))
-    for ratio_input in (numerator, denominator):
-        if ratio_input:
-            input_metrics.append(ratio_input)
-
-    # dbt 1.9 moved conversion/cumulative inputs into their own blocks.
-    for nested_key, measure_keys in (
-        ("conversion_type_params", ("base_measure", "conversion_measure")),
-        ("cumulative_type_params", ("measure",)),
-    ):
-        nested = type_params.get(nested_key)
-        if not isinstance(nested, dict):
-            continue
-        for measure_key in measure_keys:
-            nested_measure = _metric_input(nested.get(measure_key))
-            if nested_measure:
-                measures.append(nested_measure)
-
-    depends_on = metric_node.get("depends_on")
-    depends_on_nodes = (
-        depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
-    )
-
-    tags = [tag_prefix + tag for tag in metric_node.get("tags") or []]
-
-    # dbt 1.9 moved these into their own block; earlier versions put them
-    # directly on type_params.
-    cumulative = type_params.get("cumulative_type_params")
-    cumulative = cumulative if isinstance(cumulative, dict) else {}
-
-    return DBTMetric(
-        # Coerced like expr and grain_to_date below: a manifest can hold
-        # anything, `name` becomes a urn id and `label` becomes metricInfo.name,
-        # and a non-string reaching either fails at serialization in the sink,
-        # outside every guard this source has. A non-string name is dropped to
-        # "" and skipped by the emitter, like an absent one.
-        name=_optional_str_value(metric_node.get("name")) or "",
-        unique_id=key,
-        label=_optional_str_value(metric_node.get("label")),
-        description=_optional_str_value(metric_node.get("description")),
-        type=metric_type,
-        measures=_dedupe_metric_inputs(measures),
-        input_metrics=_dedupe_metric_inputs(input_metrics),
-        numerator=numerator,
-        denominator=denominator,
-        # Coerced: the emitter calls .strip() on it, and a manifest can hold
-        # anything. Same guard as a measure's `agg`.
-        expr=_optional_str_value(type_params.get("expr")),
-        filter=parse_dbt_metric_filter(metric_node.get("filter")),
-        window=_metric_window(type_params.get("window") or cumulative.get("window")),
-        grain_to_date=_optional_str_value(
-            type_params.get("grain_to_date") or cumulative.get("grain_to_date")
-        ),
-        tags=tags,
-        depends_on=depends_on_nodes,
-    )
-
-
-def extract_dbt_metrics(
-    manifest_metrics: Dict[str, Dict[str, Any]], tag_prefix: str
-) -> DBTMetricsParse:
-    """Extract dbt metrics from the manifest.json metrics section (dbt 1.6+).
-
-    Unreadable entries are returned rather than reported here: metrics are
-    parsed on every run but only used when semanticModel/metric emission is
-    on, and a warning about skipping a metric that was never going to be
-    emitted is noise for everyone else. The caller reports them at the point
-    of use.
-    """
-    metrics: List[DBTMetric] = []
-    unreadable: List[Tuple[str, Exception]] = []
-    for key, metric_node in manifest_metrics.items():
-        # Per entry: one unreadable metric must not cost the project every
-        # other one.
-        try:
-            parsed = _parse_metric(key, metric_node, tag_prefix)
-        except Exception as e:
-            # Logged unconditionally, so a dropped metric is never invisible
-            # even on a run that does not reach the report.
-            logger.warning(f"Could not read dbt metric {key}: {e}", exc_info=True)
-            unreadable.append((key, e))
-            continue
-        metrics.append(parsed)
-    return DBTMetricsParse(metrics=metrics, unreadable=unreadable)
 
 
 def _resolve_database_schema(
