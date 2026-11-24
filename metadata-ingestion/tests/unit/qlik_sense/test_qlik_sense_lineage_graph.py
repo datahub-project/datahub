@@ -759,6 +759,18 @@ def test_app_table_links_tables_of_a_kept_app_it_loads(
     assert _lineage(workunits)[0][_urn("report-app.prices")] == [curve]
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_read_data_model_app_records_its_field_names(mock_api_cls: MagicMock) -> None:
+    data_model = _app("dm-app", [])
+    data_model.tables = [_data_model_table()]
+    source = _source(mock_api_cls, DATASETS)
+
+    with patch.object(source.app_state, "record") as record:
+        list(source._gen_recorded_app_workunit(data_model))
+
+    assert record.call_args.args[1].field_names == ["order_id"]
+
+
 @pytest.mark.parametrize("loader_first", [True, False])
 @pytest.mark.parametrize("kept_by", ["unchanged", "partly_read"])
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
