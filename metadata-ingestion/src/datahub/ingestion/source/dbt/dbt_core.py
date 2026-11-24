@@ -65,6 +65,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTSourceReport,
     convert_semantic_model_fields_to_columns,
     parse_dbt_constraint,
+    parse_dbt_metric_filter,
     parse_dbt_timestamp,
     parse_semantic_model,
 )
@@ -215,7 +216,10 @@ class DBTCoreConfig(DBTCommonConfig):
                 ("catalog_path", self.catalog_path),
                 ("sources_path", self.sources_path),
                 ("platform_instance", self.platform_instance),
-                ("semantic_model_project_name", self.semantic_model_project_name),
+                (
+                    "emit_semantic_model_entities.project_name",
+                    self.emit_semantic_model_entities.project_name,
+                ),
                 ("git_info", self.git_info),
             )
             if value is not None
@@ -663,7 +667,9 @@ def _metric_input(value: Any) -> Optional[DBTMetricInput]:
     if isinstance(value, dict):
         name = value.get("name")
         if isinstance(name, str) and name:
-            return DBTMetricInput(name=name, filter=_metric_filter(value.get("filter")))
+            return DBTMetricInput(
+                name=name, filter=parse_dbt_metric_filter(value.get("filter"))
+            )
     return None
 
 
@@ -703,34 +709,6 @@ def _metric_window(value: Any) -> Optional[str]:
 def _optional_str_value(value: Any) -> Optional[str]:
     """Keep a non-string manifest value out of the typed model."""
     return value if isinstance(value, str) else None
-
-
-def _metric_filter(value: Any) -> Optional[str]:
-    """Flatten a dbt metric filter into a single SQL predicate.
-
-    dbt >= 1.7 emits ``{"where_filters": [{"where_sql_template": "..."}]}``;
-    dbt 1.6 emitted a bare string.
-    """
-    if isinstance(value, str):
-        return value or None
-    if isinstance(value, dict):
-        where_filters = value.get("where_filters")
-        if isinstance(where_filters, list):
-            templates = [
-                where_filter["where_sql_template"]
-                for where_filter in where_filters
-                if isinstance(where_filter, dict)
-                and isinstance(where_filter.get("where_sql_template"), str)
-            ]
-            if len(templates) > 1:
-                # AND binds tighter than OR, so joining `a OR b` to `c OR d`
-                # bare gives `a OR (b AND c) OR d` - a different predicate
-                # than dbt's, which applies each where_filter in turn. A lone
-                # template needs no grouping, since nothing is joined to it.
-                return " AND ".join(f"({template})" for template in templates)
-            if templates:
-                return templates[0]
-    return None
 
 
 def _parse_metric(key: str, metric_node: Dict[str, Any], tag_prefix: str) -> DBTMetric:
@@ -808,7 +786,7 @@ def _parse_metric(key: str, metric_node: Dict[str, Any], tag_prefix: str) -> DBT
         # Coerced: the emitter calls .strip() on it, and a manifest can hold
         # anything. Same guard as a measure's `agg`.
         expr=_optional_str_value(type_params.get("expr")),
-        filter=_metric_filter(metric_node.get("filter")),
+        filter=parse_dbt_metric_filter(metric_node.get("filter")),
         window=_metric_window(type_params.get("window") or cumulative.get("window")),
         grain_to_date=_optional_str_value(
             type_params.get("grain_to_date") or cumulative.get("grain_to_date")

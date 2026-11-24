@@ -12,6 +12,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTMetric,
     DBTNode,
     DBTSourceReport,
+    parse_dbt_metric_filter,
     parse_semantic_model,
 )
 from datahub.ingestion.source.dbt.dbt_core import (
@@ -20,7 +21,10 @@ from datahub.ingestion.source.dbt.dbt_core import (
     _resolve_database_schema,
     extract_dbt_metrics,
 )
-from datahub.ingestion.source.dbt.dbt_semantic_model import DbtSemanticModelMapper
+from datahub.ingestion.source.dbt.dbt_semantic_model import (
+    DbtSemanticModelMapper,
+    _MeasureIndex,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DatasetPropertiesClass,
@@ -70,6 +74,7 @@ def _sm_node(
     upstreams: Optional[List[str]] = None,
     package_name: str = _PROJECT,
     convert_urns_to_lowercase: bool = False,
+    description: str = "",
 ) -> DBTNode:
     return DBTNode(
         dbt_name=f"semantic_model.{package_name}.{name}",
@@ -83,7 +88,7 @@ def _sm_node(
         node_type="semantic_model",
         max_loaded_at=None,
         comment="",
-        description="",
+        description=description,
         upstream_nodes=upstreams or [],
         materialization=None,
         catalog_type=None,
@@ -288,6 +293,85 @@ def test_every_dataset_points_back_at_the_project_semantic_model():
     assert {aspect.semanticModel for _, aspect in props} == {
         "urn:li:semanticModel:(urn:li:dataPlatform:dbt,jaffle_shop,semantic_layer)"
     }
+
+
+def test_per_semantic_model_granularity_emits_one_semantic_model_each():
+    workunits = _emit(
+        _mapper(emit_semantic_model_entities={"granularity": "semantic_model"}),
+        [_sm_node("orders", _ORDERS), _sm_node("customers", _CUSTOMERS)],
+    )
+
+    infos = _aspects(workunits, SemanticModelInfoClass)
+    assert {urn for urn, _ in infos} == {
+        "urn:li:semanticModel:(urn:li:dataPlatform:dbt,jaffle_shop,orders)",
+        "urn:li:semanticModel:(urn:li:dataPlatform:dbt,jaffle_shop,customers)",
+    }
+    # Joins cannot span two semanticModel entities.
+    assert all(not info.relationships for _, info in infos)
+
+    props = {
+        aspect.alias: aspect.semanticModel
+        for _, aspect in _aspects(workunits, SemanticModelPropertiesClass)
+    }
+    assert props == {
+        "orders": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,jaffle_shop,orders)",
+        "customers": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,jaffle_shop,customers)",
+    }
+
+
+def test_per_semantic_model_granularity_carries_each_semantic_models_description():
+    workunits = _emit(
+        _mapper(emit_semantic_model_entities={"granularity": "semantic_model"}),
+        [
+            _sm_node("orders", _ORDERS, description="One row per order"),
+            _sm_node("customers", _CUSTOMERS),
+        ],
+    )
+
+    descriptions = {
+        urn.rsplit(",", 1)[1].rstrip(")"): info.description
+        for urn, info in _aspects(workunits, SemanticModelInfoClass)
+    }
+    assert descriptions == {"orders": "One row per order", "customers": None}
+
+
+def test_per_semantic_model_granularity_attaches_metrics_to_the_model_they_read():
+    workunits = _emit(
+        _mapper(emit_semantic_model_entities={"granularity": "semantic_model"}),
+        [_sm_node("orders", _ORDERS), _sm_node("customers", _CUSTOMERS)],
+        metrics=_metrics(
+            {
+                "metric.jaffle_shop.ltv_per_order": {
+                    "name": "ltv_per_order",
+                    "type": "ratio",
+                    "type_params": {
+                        "numerator": {"name": "customer_ltv"},
+                        "denominator": {"name": "order_count"},
+                    },
+                },
+                "metric.jaffle_shop.ltv_copy": {
+                    "name": "ltv_copy",
+                    "type": "derived",
+                    "type_params": {
+                        "expr": "ltv_per_order",
+                        "metrics": [{"name": "ltv_per_order"}],
+                    },
+                },
+            }
+        ),
+    )
+
+    parent_by_metric = {
+        urn.rsplit(",", 1)[1].rstrip(")"): info.semanticModel
+        for urn, info in _aspects(workunits, MetricInfoClass)
+    }
+    orders = "urn:li:semanticModel:(urn:li:dataPlatform:dbt,jaffle_shop,orders)"
+    customers = "urn:li:semanticModel:(urn:li:dataPlatform:dbt,jaffle_shop,customers)"
+    assert parent_by_metric["order_total"] == orders
+    # Reads measures from both models: the first one wins.
+    assert parent_by_metric["ltv_per_order"] == customers
+    # Reads no dataset itself, so it follows the metric it derives from.
+    assert parent_by_metric["ltv_copy"] == parent_by_metric["ltv_per_order"]
 
 
 def test_platform_instance_is_folded_into_the_semantic_model_path():
@@ -1402,7 +1486,7 @@ def test_a_failed_metrics_probe_warns_even_on_the_auto_enable_path():
 
 
 def test_config_pins_the_project_name_over_the_manifest():
-    source = _source(semantic_model_project_name="pinned")
+    source = _source(emit_semantic_model_entities={"project_name": "pinned"})
     assert source._resolve_semantic_model_project_name("from_manifest", []) == "pinned"
 
 
@@ -1440,13 +1524,29 @@ def test_an_undeterminable_project_name_is_a_failure_not_a_guess():
     assert source.report.failures
 
 
+def test_the_deprecated_top_level_project_name_still_pins_it():
+    source = _source(semantic_model_project_name="pinned")
+    assert source._resolve_semantic_model_project_name("from_manifest", []) == "pinned"
+
+
+def test_a_boolean_is_shorthand_for_enabled():
+    config = DBTCommonConfig.model_validate(
+        {"target_platform": "postgres", "emit_semantic_model_entities": True}
+    )
+    assert config.emit_semantic_model_entities.enabled is True
+    assert config.emit_semantic_model_entities.granularity == "project"
+
+
 @pytest.mark.parametrize("value", ["", "   ", "a,b", "a(b", "a)b"])
 def test_an_unusable_project_name_override_is_rejected_at_config_time(
     value: str,
 ) -> None:
     with pytest.raises(ValueError):
         DBTCommonConfig.model_validate(
-            {"target_platform": "postgres", "semantic_model_project_name": value}
+            {
+                "target_platform": "postgres",
+                "emit_semantic_model_entities": {"project_name": value},
+            }
         )
 
 
@@ -1531,3 +1631,51 @@ def test_an_author_written_expr_keeps_the_accumulation_note():
     assert _expression_of(info.expression).expression == (
         "order_count * 2 /* cumulative over 7 day */"
     )
+
+
+def test_a_metric_filter_in_dbt_cloud_object_shape_reaches_the_expression():
+    # dbt Cloud's Discovery API returns a metric filter as an object, not a string.
+    filter_sql = parse_dbt_metric_filter(
+        {
+            "where_filters": [
+                {
+                    "where_sql_template": "{{ Dimension('customer_week__is_onboarded_in_week') }} = true"
+                }
+            ]
+        }
+    )
+    metric = DBTMetric(
+        name="weekly_ai_context_queries",
+        unique_id="metric.weekly_ai_context_queries",
+        type="simple",
+        expr="ai_context_queries",
+        filter=filter_sql,
+    )
+    mapper = _mapper()
+    expression = mapper._metric_definition_expression(metric, _MeasureIndex())
+
+    assert expression is not None
+    assert expression.expression == (
+        "ai_context_queries /* filtered: "
+        "{{ Dimension('customer_week__is_onboarded_in_week') }} = true */"
+    )
+
+
+def test_parse_dbt_metric_filter_keeps_the_predicates_of_each_where_filter_together():
+    assert parse_dbt_metric_filter("a = 1") == "a = 1"
+    assert (
+        parse_dbt_metric_filter({"where_filters": [{"where_sql_template": "a"}]}) == "a"
+    )
+    assert (
+        parse_dbt_metric_filter(
+            {
+                "where_filters": [
+                    {"where_sql_template": "a OR b"},
+                    {"where_sql_template": "c"},
+                ]
+            }
+        )
+        == "(a OR b) AND (c)"
+    )
+    assert parse_dbt_metric_filter({"unexpected": True}) is None
+    assert parse_dbt_metric_filter(None) is None

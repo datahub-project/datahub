@@ -49,9 +49,11 @@ from datahub.sdk.semantic_model import (
 
 logger = logging.getLogger(__name__)
 
-# A dbt project's semantic layer is modelled as a single semanticModel whose
-# `path` carries the project. A constant id keeps `id` free for any future
-# sub-project scoping, matching MicroStrategy's _SEMANTIC_MODEL_ID.
+# By default a dbt project's semantic layer is modelled as a single
+# semanticModel whose `path` carries the project. A constant id keeps `id` free
+# for any future sub-project scoping, matching MicroStrategy's
+# _SEMANTIC_MODEL_ID. With emit_semantic_model_entities.granularity: semantic_model the id is
+# instead the dbt semantic model's alias.
 SEMANTIC_MODEL_ID = "semantic_layer"
 
 # MDX / TABLEAU / MAQL are BI-tool dialects and can never be a dbt adapter.
@@ -185,6 +187,10 @@ class _MeasureIndex:
     by_name: Dict[str, _MeasureLocation] = field(default_factory=dict)
     by_model: Dict[str, Dict[str, _MeasureLocation]] = field(default_factory=dict)
     dataset_urn_by_dbt_name: Dict[str, str] = field(default_factory=dict)
+    model_urn_by_dataset_urn: Dict[str, str] = field(default_factory=dict)
+    # Parent of a metric that reads no dataset and derives from no placed
+    # metric: the first semantic model in name order.
+    default_model_urn: str = ""
 
 
 @dataclass(frozen=True)
@@ -214,13 +220,17 @@ class _PreparedModel:
     fields: Dict[str, SemanticFieldInput]
     measures: List[DBTSemanticMeasure]
     dataset: SemanticModelDataset
+    model_urn: str
+    model_id: str
 
 
 class DbtSemanticModelMapper:
     """Maps dbt semantic models and metrics to first-class DataHub entities.
 
-    One `semanticModel` per dbt project holding the join relationships, one
-    `metric` per `create_metric` measure and per top-level `metrics:` entry,
+    One `semanticModel` per dbt project holding the join relationships (or, with
+    `emit_semantic_model_entities.granularity: semantic_model`, one per dbt semantic model and
+    no relationships), one `metric` per `create_metric` measure and per
+    top-level `metrics:` entry,
     and - layered onto the dataset the connector already emits for each dbt
     semantic model - the aspects that make it a semantic-model dataset.
 
@@ -241,14 +251,18 @@ class DbtSemanticModelMapper:
         self.project_name = project_name
         self.platform_instance = platform_instance
         self.path = self._build_path(platform_instance, project_name)
-        self.model_urn = str(
-            SemanticModelUrn(
-                platform=DBT_PLATFORM, path=self.path, id=SEMANTIC_MODEL_ID
-            )
+        self.per_semantic_model = (
+            config.emit_semantic_model_entities.granularity == "semantic_model"
         )
         self.dialect = _TARGET_PLATFORM_TO_DIALECT.get(
             (config.target_platform or "").lower(), DialectClass.ANSI_SQL
         )
+
+    def _model_id(self, alias: str) -> str:
+        return alias if self.per_semantic_model else SEMANTIC_MODEL_ID
+
+    def _model_urn(self, model_id: str) -> str:
+        return str(SemanticModelUrn(platform=DBT_PLATFORM, path=self.path, id=model_id))
 
     @staticmethod
     def _build_path(platform_instance: Optional[str], project_name: str) -> str:
@@ -287,16 +301,82 @@ class DbtSemanticModelMapper:
                 )
             return
 
-        relationships = self._relationships(models)
         metrics = self._metrics(models, metric_definitions)
 
+        # One group per semanticModel entity: the whole project, or a single
+        # dbt semantic model.
+        groups = (
+            [[prepared] for prepared in models] if self.per_semantic_model else [models]
+        )
+        if self.per_semantic_model:
+            # Joins live inside a semanticModel, so none can span two of them.
+            # Derived anyway so the unresolved-reference report stays accurate.
+            skipped_joins = self._relationships(models)
+            if skipped_joins:
+                logger.info(
+                    f"{len(skipped_joins)} dbt join relationship(s) between "
+                    "semantic models were not emitted because "
+                    "emit_semantic_model_entities.granularity is 'semantic_model'"
+                )
+
+        workunits: List[MetadataWorkUnit] = []
+        failed_model_urns: Set[str] = set()
+        annotated_datasets = 0
+        emitted_entities = 0
+        emitted_relationships = 0
+        for group in groups:
+            group_result = self._group_workunits(group, failed_model_urns)
+            if group_result is None:
+                continue
+            group_workunits, relationship_count, datasets_annotated = group_result
+            workunits.extend(group_workunits)
+            emitted_entities += 1
+            emitted_relationships += relationship_count
+            annotated_datasets += datasets_annotated
+
+        emitted_metrics = 0
+        for metric in metrics:
+            if metric.semantic_model in failed_model_urns:
+                # Its parent semanticModel was not emitted, so the metric would
+                # point at nothing.
+                self.report.num_metrics_dropped += 1
+                continue
+            entity_workunits = self._entity_workunits(metric, f"metric {metric.urn}")
+            if entity_workunits is None:
+                self.report.num_metrics_dropped += 1
+                continue
+            workunits.extend(entity_workunits)
+            emitted_metrics += 1
+
+        # Counted before yielding, so the report is accurate even if the
+        # pipeline stops part-way through the stream.
+        self.report.num_semantic_model_entities_emitted += emitted_entities
+        self.report.num_semantic_model_datasets_annotated += annotated_datasets
+        self.report.num_semantic_model_relationships_emitted += emitted_relationships
+        self.report.num_metrics_emitted += emitted_metrics
+
+        yield from workunits
+
+    def _group_workunits(
+        self, group: List[_PreparedModel], failed_model_urns: Set[str]
+    ) -> Optional[Tuple[List[MetadataWorkUnit], int, int]]:
+        """The workunits for one semanticModel entity and its datasets.
+
+        Returns None when the entity could not be built, after recording its urn
+        in `failed_model_urns` so the metrics that hang off it are dropped too.
+        """
+        relationships = [] if self.per_semantic_model else self._relationships(group)
+        first = group[0]
         model = SemanticModel(
             platform=DBT_PLATFORM,
             path=self.path,
-            id=SEMANTIC_MODEL_ID,
+            id=first.model_id,
             platform_instance=self.platform_instance,
-            name=self.project_name,
-            datasets=[prepared.dataset for prepared in models],
+            name=first.alias if self.per_semantic_model else self.project_name,
+            description=(first.node.description or None)
+            if self.per_semantic_model
+            else None,
+            datasets=[prepared.dataset for prepared in group],
             relationships=relationships or None,
             extra_aspects=self._common_aspects(),
         )
@@ -310,51 +390,34 @@ class DbtSemanticModelMapper:
             workunits = list(model.as_workunits())
         except SdkUsageError as e:
             # The semanticModel carries the relationships and owns every
-            # dataset's membership, so losing it makes the whole layer useless.
+            # dataset's membership, so losing it makes its datasets useless.
             self.report.failure(
                 title="Failed to emit dbt semantic model entities",
-                message="No semanticModel or metric entities were emitted for "
-                "this project, and no dataset was annotated. The datasets "
-                "themselves are unaffected. Fix the reported modelling "
-                "problem, or set emit_semantic_model_entities to false.",
-                context=f"dbt project {self.project_name}",
+                message="This semanticModel was not emitted, and none of its "
+                "datasets were annotated. The datasets themselves are "
+                "unaffected. Fix the reported modelling problem, or set "
+                "emit_semantic_model_entities to false.",
+                context=f"dbt project {self.project_name}, "
+                f"semantic model {first.model_id}",
                 exc=e,
             )
-            # Everything built for this project is now dropped. Counted so the
-            # report still reconciles: from_measures + from_manifest ==
-            # emitted + dropped.
-            self.report.num_semantic_model_datasets_dropped += len(models)
-            self.report.num_metrics_dropped += len(metrics)
-            return
+            # Counted so the report still reconciles: from_measures +
+            # from_manifest == emitted + dropped.
+            self.report.num_semantic_model_datasets_dropped += len(group)
+            failed_model_urns.add(first.model_urn)
+            return None
 
         annotated_datasets = 0
-        for prepared in models:
+        for prepared in group:
             # Per-entity, so one unrepresentable dataset does not cost the
-            # whole project.
+            # whole group.
             dataset_workunits = self._dataset_annotation_workunits(prepared)
             if dataset_workunits is None:
                 self.report.num_semantic_model_datasets_dropped += 1
                 continue
             workunits.extend(dataset_workunits)
             annotated_datasets += 1
-
-        emitted_metrics = 0
-        for metric in metrics:
-            entity_workunits = self._entity_workunits(metric, f"metric {metric.urn}")
-            if entity_workunits is None:
-                self.report.num_metrics_dropped += 1
-                continue
-            workunits.extend(entity_workunits)
-            emitted_metrics += 1
-
-        # Counted before yielding, so the report is accurate even if the
-        # pipeline stops part-way through the stream.
-        self.report.num_semantic_model_entities_emitted += 1
-        self.report.num_semantic_model_datasets_annotated += annotated_datasets
-        self.report.num_semantic_model_relationships_emitted += len(relationships)
-        self.report.num_metrics_emitted += emitted_metrics
-
-        yield from workunits
+        return workunits, len(relationships), annotated_datasets
 
     def _entity_workunits(
         self, entity: Entity, context: str
@@ -488,6 +551,8 @@ class DbtSemanticModelMapper:
                 )
                 self.report.semantic_models_skipped.append(node.dbt_name)
                 continue
+            model_id = self._model_id(alias)
+            model_urn = self._model_urn(model_id)
             try:
                 # Deliberately minimal. `name` reproduces the urn the dbt path
                 # already emitted for this node, and nothing else the Dataset
@@ -496,7 +561,7 @@ class DbtSemanticModelMapper:
                 dataset = SemanticModelDataset(
                     platform=DBT_PLATFORM,
                     name=self._dataset_name(node),
-                    semantic_model=self.model_urn,
+                    semantic_model=model_urn,
                     alias=alias,
                     schema=list(fields.values()),
                     platform_instance=self.platform_instance,
@@ -523,6 +588,8 @@ class DbtSemanticModelMapper:
                     fields=fields,
                     measures=annotated.measures,
                     dataset=dataset,
+                    model_urn=model_urn,
+                    model_id=model_id,
                 )
             )
         return models
@@ -858,10 +925,11 @@ class DbtSemanticModelMapper:
         first model in sort order, matching how an ambiguous join target is
         reported rather than silently resolved.
         """
-        index = _MeasureIndex()
+        index = _MeasureIndex(default_model_urn=models[0].model_urn)
         for prepared in models:
             dataset_urn = str(prepared.dataset.urn)
             index.dataset_urn_by_dbt_name[prepared.node.dbt_name] = dataset_urn
+            index.model_urn_by_dataset_urn[dataset_urn] = prepared.model_urn
             # prepared.measures, not definition.measures: see _AnnotatedFields.
             for measure in prepared.measures:
                 key = measure.name.casefold()
@@ -906,6 +974,7 @@ class DbtSemanticModelMapper:
                     measure=measure,
                     alias=prepared.alias,
                     dataset_urn=str(prepared.dataset.urn),
+                    semantic_model=prepared.model_urn,
                 )
         return metrics
 
@@ -934,14 +1003,47 @@ class DbtSemanticModelMapper:
             {definition.name.casefold(): definition.name for definition in accepted}
         )
 
+        inputs_awaiting_parent: Dict[str, List[str]] = {}
         for metric_definition in accepted:
             metrics[metric_definition.name.casefold()] = self._metric_from_definition(
                 metric_definition=metric_definition,
                 index=index,
                 canonical_id_by_name=canonical_id_by_name,
+                inputs_awaiting_parent=inputs_awaiting_parent,
             )
 
+        self._inherit_parent_models(metrics, inputs_awaiting_parent)
         return [metrics[key] for key in sorted(metrics)]
+
+    @staticmethod
+    def _inherit_parent_models(
+        metrics: Dict[str, Metric], inputs_awaiting_parent: Dict[str, List[str]]
+    ) -> None:
+        """Give a metric that reads no dataset the semanticModel of its inputs.
+
+        Only matters when each dbt semantic model is its own semanticModel; with
+        one per project every metric already has the same parent. Repeated
+        because a derived metric can be built before the metric it derives from
+        has settled on a parent.
+        """
+        by_urn = {str(metric.urn): metric for metric in metrics.values()}
+        pending = dict(inputs_awaiting_parent)
+        progressed = True
+        while pending and progressed:
+            progressed = False
+            for urn, input_urns in list(pending.items()):
+                for input_urn in input_urns:
+                    parent = (
+                        by_urn[input_urn].semantic_model
+                        if input_urn in by_urn
+                        else None
+                    )
+                    if parent is None or input_urn in pending:
+                        continue
+                    by_urn[urn].set_semantic_model(parent)
+                    del pending[urn]
+                    progressed = True
+                    break
 
     def _accepted_metric_definitions(
         self, metric_definitions: List[DBTMetric], measure_metric_keys: Set[str]
@@ -1025,14 +1127,19 @@ class DbtSemanticModelMapper:
         return f"{agg}({alias}.{measure.name})" if agg else None
 
     def _metric_from_measure(
-        self, *, measure: DBTSemanticMeasure, alias: str, dataset_urn: str
+        self,
+        *,
+        measure: DBTSemanticMeasure,
+        alias: str,
+        dataset_urn: str,
+        semantic_model: str,
     ) -> Metric:
         expression = self._expression(self._measure_expression(measure, alias))
         return Metric(
             platform=DBT_PLATFORM,
             path=self.path,
             id=measure.name,
-            semantic_model=self.model_urn,
+            semantic_model=semantic_model,
             platform_instance=self.platform_instance,
             name=measure.name,
             description=measure.description or None,
@@ -1050,6 +1157,7 @@ class DbtSemanticModelMapper:
         metric_definition: DBTMetric,
         index: _MeasureIndex,
         canonical_id_by_name: Dict[str, str],
+        inputs_awaiting_parent: Dict[str, List[str]],
     ) -> Metric:
         resolved = self._resolve_metric_inputs(
             metric_definition, index, canonical_id_by_name
@@ -1088,11 +1196,27 @@ class DbtSemanticModelMapper:
             # dataset upstream, so emit it rather than skipping it.
             self.report.num_metrics_without_upstreams += 1
 
+        # A metric belongs to one semanticModel, but may read datasets from
+        # several: take the first, which is deterministic because the inputs
+        # above are visited in a fixed order. A metric with no dataset of its
+        # own inherits from the metrics it derives from (see `_metrics`).
+        semantic_model = next(
+            (
+                index.model_urn_by_dataset_urn[urn]
+                for urn in upstreams
+                if urn in index.model_urn_by_dataset_urn
+            ),
+            index.default_model_urn,
+        )
+        metric_id = metric_definition.name
+        if not upstreams and resolved.metric_urns:
+            inputs_awaiting_parent[self._metric_urn(metric_id)] = resolved.metric_urns
+
         return Metric(
             platform=DBT_PLATFORM,
             path=self.path,
-            id=metric_definition.name,
-            semantic_model=self.model_urn,
+            id=metric_id,
+            semantic_model=semantic_model,
             platform_instance=self.platform_instance,
             name=metric_definition.display_name,
             description=metric_definition.description or None,

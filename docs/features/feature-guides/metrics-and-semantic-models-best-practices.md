@@ -180,7 +180,7 @@ The flag is tri-state — unset means "follow the server" (enabled on recent Dat
 - **Metric type, filters, and cumulative windows don't have dedicated fields on `metricInfo`.** The type is captured as a subtype; filters are folded into the expression as a `FILTER (WHERE ...)` clause (or left as a trailing SQL comment where the expression can't carry one — ratios, author-written `expr` cases); cumulative windows become a trailing comment such as `/* cumulative over 7 day */`.
 - **Time-dimension granularity** is recorded as "this is a time dimension" without the grain itself.
 
-**Project name identity:** `semanticModel` and `metric` URNs are keyed by the dbt project name (`manifest.metadata.project_name` for dbt Core, package name for dbt Cloud). Pin it in the recipe with `semantic_model_project_name` if it might change — a rename reissues URNs as if the project were new.
+**Project name identity:** `semanticModel` and `metric` URNs are keyed by the dbt project name (`manifest.metadata.project_name` for dbt Core, package name for dbt Cloud). Pin it in the recipe with `emit_semantic_model_entities.project_name` if it might change — a rename reissues URNs as if the project were new.
 
 ### From an in-house framework via the Python SDK
 

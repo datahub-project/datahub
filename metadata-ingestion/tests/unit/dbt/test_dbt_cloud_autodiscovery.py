@@ -8,7 +8,7 @@ Tests focus on:
 - Auto-discovery orchestration
 """
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from unittest import mock
 
 import pytest
@@ -27,6 +27,7 @@ from datahub.ingestion.source.dbt.dbt_cloud_models import (
     DBTCloudEnvironment,
     DBTCloudJob,
 )
+from datahub.ingestion.source.dbt.dbt_common import DBTMetric
 
 
 class TestAutoDiscoveryConfig:
@@ -854,3 +855,64 @@ class TestParseIntoDBTNodeFreshness:
         dbt_node = source._parse_into_dbt_node(node)
 
         assert dbt_node.freshness_info is None
+
+
+class TestCreateMetricEchoes:
+    """dbt returns a create_metric measure as a same-named simple metric."""
+
+    @staticmethod
+    def _source() -> DBTCloudSource:
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            job_id=1,
+            target_platform="snowflake",
+        )
+        return DBTCloudSource(
+            config, PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        )
+
+    @staticmethod
+    def _semantic_model_nodes() -> List[Dict[str, Any]]:
+        return [
+            {
+                "uniqueId": "semantic_model.proj.orders",
+                "name": "orders",
+                "resourceType": "semantic_model",
+                "measures": [
+                    {"name": "order_total", "createMetric": True},
+                    {"name": "order_count", "createMetric": False},
+                ],
+            }
+        ]
+
+    def _metric(self, name: str, parent: str = "orders") -> Optional[DBTMetric]:
+        source = self._source()
+        nodes = self._semantic_model_nodes()
+        return source._metric_from_discovery_node(
+            {
+                "name": name,
+                "type": "SIMPLE",
+                "formula": None,
+                "parents": [{"name": parent, "resourceType": "semantic_model"}],
+            },
+            {"orders": "semantic_model.proj.orders"},
+            source._create_metric_measure_owners(nodes),
+        )
+
+    def test_the_measure_input_is_restored_for_a_create_metric_echo(self) -> None:
+        metric = self._metric("order_total")
+
+        assert metric is not None
+        assert [m.name for m in metric.measures] == ["order_total"]
+
+    def test_a_metric_that_is_not_a_create_metric_echo_gets_no_measure_input(
+        self,
+    ) -> None:
+        # order_count does not set create_metric, so a same-named metric is an
+        # author's own and has to be reported if it shadows anything.
+        assert self._metric("order_count") is not None
+        assert self._metric("order_count").measures == []  # type: ignore[union-attr]
+        assert self._metric("revenue").measures == []  # type: ignore[union-attr]

@@ -186,7 +186,7 @@ def test_expand_run_results_paths_preserves_config_order(
         ("s3://bucket/*/manifest.json", {"platform_instance": "shared"}, False),
         (
             "s3://bucket/*/manifest.json",
-            {"semantic_model_project_name": "pinned"},
+            {"emit_semantic_model_entities": {"project_name": "pinned"}},
             False,
         ),
         (
@@ -198,7 +198,7 @@ def test_expand_run_results_paths_preserves_config_order(
         ("s3://bucket/project_a/manifest.json", {"platform_instance": "shared"}, True),
         (
             "s3://bucket/project_a/manifest.json",
-            {"semantic_model_project_name": "pinned"},
+            {"emit_semantic_model_entities": {"project_name": "pinned"}},
             True,
         ),
         (

@@ -693,6 +693,72 @@ class MaterializedNodePatternConfig(ConfigModel):
     )
 
 
+class DBTSemanticModelEntitiesConfig(ConfigModel):
+    """Settings for the `semanticModel` and `metric` entities dbt can emit."""
+
+    enabled: Optional[bool] = Field(
+        default=None,
+        description="Tri-state control for describing dbt semantic models with "
+        "first-class `semanticModel` and `metric` entities, per-field semantic "
+        "annotations on each semantic model's existing dbt dataset, and one "
+        "`metric` per `create_metric` measure and per top-level `metrics:` "
+        "definition. Purely additive: the dataset urns and every aspect the "
+        "connector already emits for them are unchanged. "
+        "`None` (default): follow the server - enabled on DataHub Cloud new "
+        "enough to register these entity types, unless the Metrics feature is "
+        "explicitly disabled; off on OSS/self-hosted, older Cloud, and "
+        "connectionless runs (e.g. a file sink). It also stays off if the "
+        "server version cannot be parsed or the Metrics probe cannot be read. "
+        "`true`: request emission - refused with a reported reason where the "
+        "server cannot accept these entities. "
+        "`false`: force the old dataset-only behavior.",
+    )
+    granularity: Literal["project", "semantic_model"] = Field(
+        default="project",
+        description="How dbt semantic models are grouped into `semanticModel` "
+        "entities. `project` (default): one `semanticModel` per dbt project that "
+        "holds every dbt semantic model as a dataset, plus the join relationships "
+        "between them. `semantic_model`: one `semanticModel` per dbt semantic "
+        "model, each holding a single dataset and carrying that semantic model's "
+        "description. Relationships live inside a `semanticModel`, so joins "
+        "between dbt semantic models are not emitted in this mode. Each metric is "
+        "attached to the `semanticModel` of the dataset it reads. Changing it "
+        "changes the `semanticModel` urns.",
+    )
+    project_name: Optional[str] = Field(
+        default=None,
+        description="Overrides the dbt project name used in the `semanticModel` "
+        "and `metric` urns. By default it is read from "
+        "`manifest.metadata.project_name` (dbt Core) or from the semantic "
+        "models' package name (dbt Cloud). Set this to pin it, since it is part "
+        "of the entity identity and must stay stable across runs.",
+    )
+
+    @field_validator("project_name")
+    @classmethod
+    def validate_project_name(cls, v: Optional[str]) -> Optional[str]:
+        # This lands verbatim in semanticModel and metric urns, where the
+        # reserved characters would produce a malformed urn and an empty value
+        # would silently fall back to inference.
+        if v is None:
+            return None
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError(
+                "project_name must not be blank; omit it to infer "
+                "the project name instead"
+            )
+        # `,` and `)` terminate a urn's tuple syntax, and `(` opens a nested
+        # one. dbt project names are letters, digits and underscores anyway.
+        invalid = [c for c in ",()" if c in stripped]
+        if invalid:
+            raise ValueError(
+                f"project_name must not contain {invalid}; it is "
+                "used verbatim in the semanticModel and metric urns"
+            )
+        return stripped
+
+
 class DBTCommonConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
@@ -718,33 +784,20 @@ class DBTCommonConfig(
         default=None,
         description="The platform instance for the platform that dbt is operating on. Use this if you have multiple instances of the same platform (e.g. redshift) and need to distinguish between them.",
     )
-    emit_semantic_model_entities: Optional[bool] = Field(
-        default=None,
-        description="Tri-state control for describing dbt semantic models with "
-        "first-class `semanticModel` and `metric` entities: one `semanticModel` "
-        "per dbt project holding the join relationships, per-field semantic "
-        "annotations on each semantic model's existing dbt dataset, and one "
-        "`metric` per `create_metric` measure and per top-level `metrics:` "
-        "definition (dbt Core only - the dbt Cloud Discovery API does not "
-        "expose the `metrics:` block). Purely additive: the dataset urns and "
-        "every aspect the connector already emits for them are unchanged. "
-        "`None` (default): follow the server - enabled on DataHub Cloud new "
-        "enough to register these entity types, unless the Metrics feature is "
-        "explicitly disabled; off on OSS/self-hosted, older Cloud, and "
-        "connectionless runs (e.g. a file sink). It also stays off if the "
-        "server version cannot be parsed or the Metrics probe cannot be read. "
-        "`true`: request emission - refused with a reported reason where the "
-        "server cannot accept these entities. "
-        "`false`: force the old dataset-only behavior.",
+    emit_semantic_model_entities: DBTSemanticModelEntitiesConfig = Field(
+        default_factory=DBTSemanticModelEntitiesConfig,
+        description="Controls the first-class `semanticModel` and `metric` entities "
+        "dbt can emit. Either a boolean (shorthand for `enabled`) or an object "
+        "with `enabled`, `granularity` and `project_name`.",
     )
     semantic_model_project_name: Optional[str] = Field(
         default=None,
-        description="Overrides the dbt project name used in the `semanticModel` "
-        "and `metric` urns. By default it is read from "
-        "`manifest.metadata.project_name` (dbt Core) or from the semantic "
-        "models' package name (dbt Cloud). Set this to pin it, since it is part "
-        "of the entity identity and must stay stable across runs. Only used "
-        "when `emit_semantic_model_entities` resolves to true.",
+        description="Deprecated: use `emit_semantic_model_entities.project_name`.",
+    )
+    _deprecate_semantic_model_project_name = pydantic_field_deprecated(
+        "semantic_model_project_name",
+        message="semantic_model_project_name is deprecated; use "
+        "emit_semantic_model_entities.project_name instead.",
     )
     emit_target_platform_instance_aspects: bool = Field(
         default=True,
@@ -1053,29 +1106,31 @@ class DBTCommonConfig(
 
         return self
 
-    @field_validator("semantic_model_project_name")
+    @field_validator("emit_semantic_model_entities", mode="before")
     @classmethod
-    def validate_semantic_model_project_name(cls, v: Optional[str]) -> Optional[str]:
-        # This lands verbatim in semanticModel and metric urns, where the
-        # reserved characters would produce a malformed urn and an empty value
-        # would silently fall back to inference.
-        if v is None:
-            return None
-        stripped = v.strip()
-        if not stripped:
+    def expand_semantic_model_entities_shorthand(cls, v: Any) -> Any:
+        if v is None or isinstance(v, bool):
+            return {"enabled": v}
+        return v
+
+    @model_validator(mode="after")
+    def fold_legacy_semantic_model_project_name(self) -> "DBTCommonConfig":
+        legacy = self.semantic_model_project_name
+        if legacy is None:
+            return self
+        settings = self.emit_semantic_model_entities
+        if settings.project_name is None:
+            settings.project_name = DBTSemanticModelEntitiesConfig(
+                project_name=legacy
+            ).project_name
+        elif settings.project_name != legacy.strip():
             raise ValueError(
-                "semantic_model_project_name must not be blank; omit it to infer "
-                "the project name instead"
+                "semantic_model_project_name conflicts with "
+                "emit_semantic_model_entities.project_name; remove the deprecated "
+                "semantic_model_project_name"
             )
-        # `,` and `)` terminate a urn's tuple syntax, and `(` opens a nested
-        # one. dbt project names are letters, digits and underscores anyway.
-        invalid = [c for c in ",()" if c in stripped]
-        if invalid:
-            raise ValueError(
-                f"semantic_model_project_name must not contain {invalid}; it is "
-                "used verbatim in the semanticModel and metric urns"
-            )
-        return stripped
+        self.semantic_model_project_name = None
+        return self
 
     @model_validator(mode="after")
     def validate_skip_sources_in_lineage(self) -> "DBTCommonConfig":
@@ -2374,6 +2429,35 @@ METRIC_TYPES_WITH_METRIC_INPUTS = frozenset(
 )
 
 
+def parse_dbt_metric_filter(value: Any) -> Optional[str]:
+    """Flatten a dbt metric filter into a single SQL predicate.
+
+    dbt >= 1.7 emits ``{"where_filters": [{"where_sql_template": "..."}]}``;
+    dbt 1.6 emitted a bare string. dbt Cloud's Discovery API returns the same
+    object shape.
+    """
+    if isinstance(value, str):
+        return value or None
+    if isinstance(value, dict):
+        where_filters = value.get("where_filters")
+        if isinstance(where_filters, list):
+            templates = [
+                where_filter["where_sql_template"]
+                for where_filter in where_filters
+                if isinstance(where_filter, dict)
+                and isinstance(where_filter.get("where_sql_template"), str)
+            ]
+            if len(templates) > 1:
+                # AND binds tighter than OR, so joining `a OR b` to `c OR d`
+                # bare gives `a OR (b AND c) OR d` - a different predicate
+                # than dbt's, which applies each where_filter in turn. A lone
+                # template needs no grouping, since nothing is joined to it.
+                return " AND ".join(f"({template})" for template in templates)
+            if templates:
+                return templates[0]
+    return None
+
+
 @dataclass(frozen=True)
 class DBTMetricInput:
     """A measure or metric reference inside a dbt metric's `type_params`.
@@ -3475,7 +3559,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         if (
             not self.config.entities_enabled.can_emit_semantic_models
-            and self.config.emit_semantic_model_entities
+            and self.config.emit_semantic_model_entities.enabled
         ):
             # Only when the recipe asked outright. An unset flag auto-enables
             # on a capable server, so warning unconditionally would fire on
@@ -3572,7 +3656,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if self._emit_semantic_models is not None:
             return self._emit_semantic_models
 
-        recipe_value = self.config.emit_semantic_model_entities
+        recipe_value = self.config.emit_semantic_model_entities.enabled
         decision = resolve_emit_semantic_model_entities(
             graph=self.ctx.graph, recipe_value=recipe_value
         )
@@ -3625,8 +3709,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         "do not emit": minting entity identity under a generic placeholder
         would need a hard delete to correct later.
         """
-        if self.config.semantic_model_project_name:
-            return self.config.semantic_model_project_name
+        pinned = self.config.emit_semantic_model_entities.project_name
+        if pinned:
+            return pinned
         if project_name:
             return project_name
 
@@ -3646,7 +3731,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 title="Ambiguous dbt project name",
                 message="Semantic models come from more than one dbt package, "
                 "so the project name was inferred from the most common one. Set "
-                "`semantic_model_project_name` to pin it, since it is part of "
+                "`emit_semantic_model_entities.project_name` to pin it, since it is part of "
                 "the semanticModel and metric urns and must stay stable.",
                 context=f"packages={sorted(packages)}",
             )
@@ -3659,7 +3744,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             "dataset was annotated. The project name is part of those urns, so "
             "it cannot be defaulted - entities minted under a placeholder name "
             "would need a hard delete to correct. Set "
-            "`semantic_model_project_name` in the recipe.",
+            "`emit_semantic_model_entities.project_name` in the recipe.",
             context=f"{len(semantic_model_nodes)} semantic models",
         )
         return None
@@ -3695,7 +3780,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         logger.info(
             f"Creating dbt semantic model metadata for "
             f"{len(semantic_model_nodes)} semantic models and "
-            f"{len(parsed_metrics.metrics)} metrics"
+            f"{len(parsed_metrics.metrics)} metrics "
+            f"(granularity={self.config.emit_semantic_model_entities.granularity})"
         )
         # Imported here rather than at module level: dbt_semantic_model imports
         # DBTNode, DBTCommonConfig and DBTSourceReport from this module, so a

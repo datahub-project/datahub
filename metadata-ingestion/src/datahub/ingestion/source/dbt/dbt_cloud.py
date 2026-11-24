@@ -53,6 +53,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTSourceReport,
     convert_semantic_model_fields_to_columns,
     parse_dbt_constraint,
+    parse_dbt_metric_filter,
     parse_dbt_timestamp,
     parse_semantic_model,
 )
@@ -943,6 +944,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             and node.get("name")
             and node.get("uniqueId")
         }
+        create_metric_owners = self._create_metric_measure_owners(raw_nodes)
         metrics: List[DBTMetric] = []
         seen: Set[str] = set()
         for environment_id in environment_ids:
@@ -964,7 +966,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 )
                 continue
             for node in nodes:
-                metric = self._metric_from_discovery_node(node, semantic_model_ids)
+                metric = self._metric_from_discovery_node(
+                    node, semantic_model_ids, create_metric_owners
+                )
                 if metric is None or metric.unique_id in seen:
                     continue
                 seen.add(metric.unique_id)
@@ -1013,8 +1017,33 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 )
         return results
 
+    @staticmethod
+    def _create_metric_measure_owners(raw_nodes: List[Dict]) -> Dict[str, Set[str]]:
+        """Which semantic models declare a `create_metric` measure of each name.
+
+        Keyed by casefolded measure name, valued with the unique ids of the
+        semantic models that declare it.
+        """
+        owners: Dict[str, Set[str]] = {}
+        for node in raw_nodes:
+            if node.get("resourceType") != "semantic_model":
+                continue
+            unique_id = node.get("uniqueId")
+            if not unique_id:
+                continue
+            for measure in node.get("measures") or []:
+                if not isinstance(measure, dict) or not measure.get("createMetric"):
+                    continue
+                measure_name = measure.get("name")
+                if isinstance(measure_name, str) and measure_name:
+                    owners.setdefault(measure_name.casefold(), set()).add(unique_id)
+        return owners
+
     def _metric_from_discovery_node(
-        self, node: Dict, semantic_model_ids: Dict[str, str]
+        self,
+        node: Dict,
+        semantic_model_ids: Dict[str, str],
+        create_metric_owners: Optional[Dict[str, Set[str]]] = None,
     ) -> Optional[DBTMetric]:
         name = node.get("name")
         if not isinstance(name, str) or not name:
@@ -1026,6 +1055,15 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         label = node.get("label")
         formula = node.get("formula")
         raw_filter = node.get("filter")
+        filter_sql = parse_dbt_metric_filter(raw_filter)
+        if raw_filter and filter_sql is None:
+            self.report.warning(
+                title="Could not read a dbt Cloud metric filter",
+                message="The metric's filter is in a shape this connector does not "
+                "read, so the metric is emitted without it and its expression "
+                "covers more rows than dbt's definition.",
+                context=f"{name}: {raw_filter!r}",
+            )
         tags = node.get("tags") or []
         if not isinstance(tags, list):
             tags = []
@@ -1044,6 +1082,22 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     depends_on.append(unique_id)
             elif resource_type == "metric":
                 input_metrics.append(DBTMetricInput(name=parent_name))
+        measures: List[DBTMetricInput] = []
+        owners = (create_metric_owners or {}).get(name.casefold())
+        if (
+            metric_type == METRIC_TYPE_SIMPLE
+            and owners
+            # Discovery's `parents` is what ties the metric to its semantic
+            # model; when it comes back empty, a measure name only one semantic
+            # model declares is still unambiguous.
+            and (set(depends_on) & owners if depends_on else len(owners) == 1)
+        ):
+            # dbt materializes a create_metric measure into the metrics: block
+            # as a same-named simple metric, so Discovery returns it with no
+            # measure input. Restoring it is what lets the emitter recognise
+            # the copy instead of warning about it, and fall back to the
+            # measure's aggregation when `formula` comes back null.
+            measures.append(DBTMetricInput(name=name))
         return DBTMetric(
             name=name,
             unique_id=f"metric.{name}",
@@ -1053,7 +1107,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             else None,
             type=metric_type or METRIC_TYPE_SIMPLE,
             expr=formula if isinstance(formula, str) else None,
-            filter=raw_filter if isinstance(raw_filter, str) and raw_filter else None,
+            filter=filter_sql,
+            measures=measures,
             tags=[self.config.tag_prefix + tag for tag in tags if isinstance(tag, str)],
             depends_on=depends_on,
             input_metrics=input_metrics,

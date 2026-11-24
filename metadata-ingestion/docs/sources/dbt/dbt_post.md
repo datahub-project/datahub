@@ -648,15 +648,30 @@ source:
     emit_semantic_model_entities: true
 ```
 
-`emit_semantic_model_entities` is three-valued:
+`emit_semantic_model_entities` takes a boolean, which is shorthand for `enabled`, or an object that holds all the semantic model settings: `enabled`, `granularity` and `project_name`. `enabled` is three-valued:
 
-| Value           | Behavior                                                                                                                                                                                                                        |
+| `enabled`       | Behavior                                                                                                                                                                                                                        |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | unset (default) | Follow the server. Enabled on DataHub Cloud new enough to register these entity types, unless the Metrics feature is disabled. Off on OSS, older DataHub Cloud, and runs with no server connection (for example a `file` sink). |
 | `true`          | Request emission. Refused, with the reason in the ingestion report, where the server cannot accept these entities.                                                                                                              |
 | `false`         | Off, whatever the server says.                                                                                                                                                                                                  |
 
 Because nothing about the datasets changes, you can turn this on and off freely: there is no urn change and no migration.
+
+##### Semantic Model Granularity
+
+By default every dbt semantic model in a project becomes a dataset inside one `semanticModel`, which also holds the joins between them. To get one `semanticModel` per dbt semantic model instead, set `granularity`:
+
+```yaml
+source:
+  type: dbt
+  config:
+    emit_semantic_model_entities:
+      enabled: true
+      granularity: semantic_model
+```
+
+Each `semanticModel` then has the urn `urn:li:semanticModel:(urn:li:dataPlatform:dbt,<project>,<semantic_model_name>)`, holds a single dataset, and carries that dbt semantic model's description. Joins live inside a `semanticModel`, so the relationships between dbt semantic models are not emitted in this mode. A metric is attached to the `semanticModel` of the first dataset it reads, or, if it reads none, of the metric it is derived from. Metric urns are the same in both modes. Switching modes changes the `semanticModel` urns, so delete the old ones if you no longer want them.
 
 ##### Project Name
 
@@ -666,9 +681,12 @@ The `semanticModel` and `metric` urns are keyed by your dbt project name, read f
 source:
   type: dbt
   config:
-    emit_semantic_model_entities: true
-    semantic_model_project_name: jaffle_shop
+    emit_semantic_model_entities:
+      enabled: true
+      project_name: jaffle_shop
 ```
+
+`project_name` replaces the older top-level `semantic_model_project_name`, which still works but is deprecated.
 
 If the project name cannot be determined, the run reports a failure and emits no semantic model or metric entities rather than inventing a placeholder name - the datasets are unaffected.
 
@@ -676,7 +694,6 @@ When `platform_instance` is set it is folded into the path segment of these urns
 
 ##### Limitations
 
-- **dbt Cloud has no `metrics:` block.** The Discovery API does not expose it, so only metrics from `create_metric: true` measures are ingested there. The ingestion report says so on every dbt Cloud run that emits these entities. Use the dbt Core source if you need the `metrics:` block.
 - **Metric type, filters and cumulative windows have no field of their own on `metricInfo`.** The type becomes a subtype; a filter is folded into the metric's expression as a `FILTER (WHERE ...)` clause, or stated as a trailing SQL comment where the expression cannot carry one (a ratio, or an author-written `expr`); a cumulative window becomes a trailing comment such as `/* cumulative over 7 day */`. dbt keeps filters as Jinja templates, so a folded filter is not always parseable SQL.
 - **Time-dimension granularity** is recorded only as "this is a time dimension" - the annotation has no field for the grain itself.
 
