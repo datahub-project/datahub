@@ -24,6 +24,7 @@ import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.key.DomainKey;
@@ -52,6 +53,19 @@ public class DomainReferenceDetachSideEffectTest {
   private static final Urn PRODUCT_URN = UrnUtils.getUrn("urn:li:dataProduct:campaign_metrics");
   private static final Urn DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
+
+  private static final AspectPluginConfig CONFIG =
+      AspectPluginConfig.builder()
+          .className(DomainReferenceDetachSideEffect.class.getName())
+          .enabled(true)
+          .supportedOperations(List.of("DELETE"))
+          .supportedEntityAspectNames(
+              List.of(
+                  AspectPluginConfig.EntityAspectName.builder()
+                      .entityName(DOMAIN_ENTITY_NAME)
+                      .aspectName(DOMAIN_KEY_ASPECT_NAME)
+                      .build()))
+          .build();
 
   private CachingAspectRetriever mockAspectRetriever;
   private SearchRetriever mockSearchRetriever;
@@ -91,8 +105,9 @@ public class DomainReferenceDetachSideEffectTest {
 
   private List<MCPItem> run(MCLItem item) {
     DomainReferenceDetachSideEffect test = new DomainReferenceDetachSideEffect();
-    test.setConfig(test.keyDeleteConfig());
-    return test.postApply(OperationFingerprint.EMPTY, List.of(item), retrieverContext).toList();
+    test.setConfig(CONFIG);
+    return test.postMCPSideEffect(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+        .toList();
   }
 
   private static Domains domainsAspect(Urn domainUrn) {
@@ -238,6 +253,12 @@ public class DomainReferenceDetachSideEffectTest {
                     new Aspect(domainsAspect(UrnUtils.getUrn("urn:li:domain:other")).data()))));
 
     List<MCPItem> output = run(domainKeyMcl(ChangeType.DELETE));
+    assertTrue(output.isEmpty());
+  }
+
+  @Test
+  public void testNonDeleteEmitsNothing() {
+    List<MCPItem> output = run(domainKeyMcl(ChangeType.UPSERT));
     assertTrue(output.isEmpty());
   }
 
