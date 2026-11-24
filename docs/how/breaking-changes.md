@@ -203,7 +203,7 @@ or when every write in its batch is rejected. A rejected write that shares a bat
 ones is reported by the Python SDK from the next release, as described below. Upgrade and bootstrap
 jobs are not affected.
 
-### Ingestion reports writes the server rejected in a batch
+### Ingestion reports writes the server rejected in a batch ([#21582](https://github.com/datahub-project/datahub/pull/21582))
 
 With the default settings, ingestion sends writes to DataHub in batches. When DataHub saves a batch
 without some of its writes, it lists the rejected ones in its response. The Python SDK and the
