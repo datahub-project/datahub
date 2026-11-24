@@ -72,6 +72,10 @@ import com.linkedin.datahub.graphql.resolvers.config.ProductUpdateResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.UpsertConnectionResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ParentContainersResolver;
+import com.linkedin.datahub.graphql.resolvers.customfabrictype.CreateCustomFabricTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.customfabrictype.DeleteCustomFabricTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.customfabrictype.ListCustomFabricTypesResolver;
+import com.linkedin.datahub.graphql.resolvers.customfabrictype.UpdateCustomFabricTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.datacontract.EntityDataContractResolver;
@@ -318,12 +322,14 @@ import com.linkedin.datahub.graphql.types.assertion.AssertionType;
 import com.linkedin.datahub.graphql.types.auth.AccessTokenMetadataType;
 import com.linkedin.datahub.graphql.types.businessattribute.BusinessAttributeType;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
+import com.linkedin.datahub.graphql.types.common.mappers.FabricTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OperationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.connection.DataHubConnectionType;
 import com.linkedin.datahub.graphql.types.container.ContainerType;
 import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
+import com.linkedin.datahub.graphql.types.customfabrictype.CustomFabricTypeType;
 import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
@@ -573,6 +579,7 @@ public class GmsGraphQLEngine {
   private final RepositoryType repositoryType;
   private final OwnershipType ownershipType;
   private final StructuredPropertyType structuredPropertyType;
+  private final CustomFabricTypeType customFabricTypeType;
   private final DataTypeType dataTypeType;
   private final EntityTypeType entityTypeType;
   private final FormType formType;
@@ -728,6 +735,7 @@ public class GmsGraphQLEngine {
     this.repositoryType = new RepositoryType(entityClient);
     this.ownershipType = new OwnershipType(entityClient);
     this.structuredPropertyType = new StructuredPropertyType(entityClient);
+    this.customFabricTypeType = new CustomFabricTypeType(entityClient);
     this.dataTypeType = new DataTypeType(entityClient);
     this.entityTypeType = new EntityTypeType(entityClient);
     this.formType = new FormType(entityClient);
@@ -789,6 +797,7 @@ public class GmsGraphQLEngine {
                 dataProductType,
                 ownershipType,
                 structuredPropertyType,
+                customFabricTypeType,
                 dataTypeType,
                 entityTypeType,
                 formType,
@@ -856,6 +865,7 @@ public class GmsGraphQLEngine {
     configureQueryResolvers(builder);
     configureMutationResolvers(builder);
     configureLifecycleResolvers(builder);
+    configureCustomFabricTypeResolvers(builder);
     configureGenericEntityResolvers(builder);
     configureDatasetResolvers(builder);
     configureCorpUserResolvers(builder);
@@ -993,6 +1003,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(DATA_PRODUCT_MARKETPLACE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(LIFECYCLE_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(CUSTOM_FABRIC_TYPE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(GLOSSARY_VERSION_SCHEMA_FILE))
         .addSchema(fileBasedSchema(DATA_PRODUCT_SCHEMA_FILE))
         .addSchema(fileBasedSchema(API_SCHEMA_FILE))
@@ -1481,6 +1492,82 @@ public class GmsGraphQLEngine {
 
   private static String getUrnField(DataFetchingEnvironment env) {
     return env.getArgument(URN_FIELD_NAME);
+  }
+
+  /**
+   * Custom environments: the CustomFabricType entity, its list and CRUD operations, and the
+   * customFabricType field of entities whose env is a custom value.
+   */
+  private void configureCustomFabricTypeResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Query",
+        typeWiring ->
+            typeWiring
+                .dataFetcher("customFabricType", getResolver(customFabricTypeType))
+                .dataFetcher(
+                    "listCustomFabricTypes", new ListCustomFabricTypesResolver(entityClient)));
+    builder.type(
+        "Mutation",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "createCustomFabricType", new CreateCustomFabricTypeResolver(entityClient))
+                .dataFetcher(
+                    "updateCustomFabricType", new UpdateCustomFabricTypeResolver(entityClient))
+                .dataFetcher(
+                    "deleteCustomFabricType", new DeleteCustomFabricTypeResolver(entityClient)));
+    builder.type(
+        "CustomFabricType",
+        typeWiring ->
+            typeWiring
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags)));
+    builder.type(
+        "Dataset",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "customFabricType",
+                customFabricTypeResolver(
+                    env ->
+                        ((com.linkedin.datahub.graphql.generated.Dataset) env.getSource())
+                            .getEnv())));
+    builder.type(
+        "VersionedDataset",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "customFabricType",
+                customFabricTypeResolver(
+                    env ->
+                        ((com.linkedin.datahub.graphql.generated.VersionedDataset) env.getSource())
+                            .getEnv())));
+    builder.type(
+        "MLModel",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "customFabricType",
+                customFabricTypeResolver(
+                    env ->
+                        ((com.linkedin.datahub.graphql.generated.MLModel) env.getSource())
+                            .getEnv())));
+    builder.type(
+        "MLModelGroup",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "customFabricType",
+                customFabricTypeResolver(
+                    env ->
+                        ((com.linkedin.datahub.graphql.generated.MLModelGroup) env.getSource())
+                            .getEnv())));
+  }
+
+  /**
+   * Loads the CustomFabricType of a custom env; null, with no I/O, for a built-in or absent env.
+   */
+  private LoadableTypeResolver<com.linkedin.datahub.graphql.generated.CustomFabricType, String>
+      customFabricTypeResolver(
+          java.util.function.Function<DataFetchingEnvironment, String> envOfSource) {
+    return new LoadableTypeResolver<>(
+        customFabricTypeType, env -> FabricTypeMapper.customFabricTypeUrn(envOfSource.apply(env)));
   }
 
   private void configureLifecycleResolvers(final RuntimeWiring.Builder builder) {

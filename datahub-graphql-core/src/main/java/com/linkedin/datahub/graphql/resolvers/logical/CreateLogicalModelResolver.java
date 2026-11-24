@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.FabricType;
+import com.linkedin.common.FabricTypeNames;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -44,6 +45,21 @@ public class CreateLogicalModelResolver implements DataFetcher<CompletableFuture
 
   private final EntityClient _entityClient;
 
+  /** envName (any value) takes precedence over env (built-in only); the default is PROD. */
+  static String resolveEnv(CreateLogicalModelInput input) {
+    if (input.getEnvName() != null) {
+      return input.getEnvName();
+    }
+    if (input.getEnv() == null) {
+      return FabricType.PROD.name();
+    }
+    if (input.getEnv() == com.linkedin.datahub.graphql.generated.FabricType.OTHER) {
+      throw new IllegalArgumentException(
+          "OTHER is not an environment. Pass a custom environment in envName.");
+    }
+    return input.getEnv().toString();
+  }
+
   @Override
   public CompletableFuture<String> get(DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
@@ -70,10 +86,9 @@ public class CreateLogicalModelResolver implements DataFetcher<CompletableFuture
             final DatasetKey key = new DatasetKey();
             key.setPlatform(platformUrn);
             key.setName(input.getName());
-            key.setOrigin(
-                input.getEnv() != null
-                    ? FabricType.valueOf(input.getEnv().toString())
-                    : FabricType.PROD);
+            // Stored as a string so a registered custom env works; the write is rejected by
+            // FabricTypeValidator if the env is neither built-in nor registered.
+            FabricTypeNames.set(key, "origin", resolveEnv(input));
 
             final Urn datasetUrn = EntityKeyUtils.convertEntityKeyToUrn(key, DATASET_ENTITY_NAME);
             if (_entityClient.exists(context.getOperationContext(), datasetUrn)) {

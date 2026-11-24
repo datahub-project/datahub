@@ -502,6 +502,18 @@ public class AuthorizationUtils {
         context.getOperationContext(), MANAGE, List.of(STRUCTURED_PROPERTY_ENTITY_NAME));
   }
 
+  /**
+   * Whether the actor may perform an operation on one custom environment (customFabricType): with
+   * the entity privilege for that operation, or Manage Environments once the entity privilege map
+   * grants it.
+   */
+  public static boolean canManageCustomFabricType(
+      @Nonnull QueryContext context, @Nonnull ApiOperation operation, @Nonnull Urn urn) {
+    // isAuthorizedEntityUrns, not isAPIAuthorized*: the latter allows everything when REST API
+    // authorization is disabled, and GraphQL must always enforce.
+    return AuthUtil.isAuthorizedEntityUrns(context.getOperationContext(), operation, List.of(urn));
+  }
+
   public static boolean canViewStructuredPropertiesPage(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
         context.getOperationContext(), PoliciesConfig.VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE);

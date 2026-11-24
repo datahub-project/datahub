@@ -9,6 +9,7 @@ import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Embed;
+import com.linkedin.common.FabricTypeNames;
 import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -30,7 +31,6 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
 import com.linkedin.datahub.graphql.generated.EditablePrimaryKeys;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.AssetSettingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
@@ -38,6 +38,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.EmbedMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.FabricTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SiblingsMapper;
@@ -243,7 +244,10 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
   private void mapDatasetKey(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
     final DatasetKey gmsKey = new DatasetKey(dataMap);
     dataset.setName(gmsKey.getName());
-    dataset.setOrigin(FabricType.valueOf(gmsKey.getOrigin().toString()));
+    // getOrigin() reads a custom env as $UNKNOWN, so map the stored value instead.
+    final String env = FabricTypeNames.get(gmsKey, "origin");
+    dataset.setOrigin(FabricTypeMapper.map(env));
+    dataset.setEnv(env);
     dataset.setPlatform(
         DataPlatform.builder()
             .setType(EntityType.DATA_PLATFORM)
@@ -259,6 +263,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
     properties.setDescription(gmsProperties.getDescription());
     dataset.setDescription(gmsProperties.getDescription());
     properties.setOrigin(dataset.getOrigin());
+    properties.setEnv(dataset.getEnv());
     if (gmsProperties.getExternalUrl() != null) {
       properties.setExternalUrl(gmsProperties.getExternalUrl().toString());
     }

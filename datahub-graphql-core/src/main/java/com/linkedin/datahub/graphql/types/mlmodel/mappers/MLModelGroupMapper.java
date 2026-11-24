@@ -7,6 +7,7 @@ import com.linkedin.application.Applications;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.FabricTypeNames;
 import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -20,11 +21,11 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLModelGroupEditableProperties;
 import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.*;
+import com.linkedin.datahub.graphql.types.common.mappers.FabricTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
@@ -136,7 +137,10 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
   private static void mapToMLModelGroupKey(MLModelGroup mlModelGroup, DataMap dataMap) {
     MLModelGroupKey mlModelGroupKey = new MLModelGroupKey(dataMap);
     mlModelGroup.setName(mlModelGroupKey.getName());
-    mlModelGroup.setOrigin(FabricType.valueOf(mlModelGroupKey.getOrigin().toString()));
+    // getOrigin() reads a custom env as $UNKNOWN, so map the stored value instead.
+    final String env = FabricTypeNames.get(mlModelGroupKey, "origin");
+    mlModelGroup.setOrigin(FabricTypeMapper.map(env));
+    mlModelGroup.setEnv(env);
     DataPlatform partialPlatform = new DataPlatform();
     partialPlatform.setUrn(mlModelGroupKey.getPlatform().toString());
     mlModelGroup.setPlatform(partialPlatform);

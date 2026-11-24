@@ -48,6 +48,7 @@ public class Constants {
   public static final String MODULE_SCHEMA_FILE = "module.graphql";
   public static final String PATCH_SCHEMA_FILE = "patch.graphql";
   public static final String LIFECYCLE_SCHEMA_FILE = "lifecycle.graphql";
+  public static final String CUSTOM_FABRIC_TYPE_SCHEMA_FILE = "customFabricType.graphql";
   public static final String DATA_PRODUCT_SCHEMA_FILE = "dataProduct.graphql";
   public static final String API_SCHEMA_FILE = "api.graphql";
   public static final String REPOSITORY_SCHEMA_FILE = "repository.graphql";

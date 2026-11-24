@@ -93,6 +93,7 @@ public class MapperReadsCoveredByAnnotationsTest {
     "metrics.graphql",
     "runs.graphql",
     "lifecycle.graphql",
+    "customFabricType.graphql",
     "dataProduct.graphql",
     "api.graphql",
     "repository.graphql"

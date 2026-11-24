@@ -41,6 +41,12 @@ input CreateLogicalModelInput {
   env: FabricType = PROD
 
   """
+  The environment as a string: a FabricType value or the id of a registered CustomFabricType.
+  Takes precedence over env when set.
+  """
+  envName: String
+
+  """
   Optional data platform URN to create the logical model on (e.g. a custom platform).
   Defaults to urn:li:dataPlatform:logical.
   """

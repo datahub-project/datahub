@@ -73,6 +73,9 @@ public class EntityTypeUrnMapper {
           .put(
               Constants.STRUCTURED_PROPERTY_ENTITY_NAME,
               "urn:li:entityType:datahub.structuredProperty")
+          .put(
+              Constants.CUSTOM_FABRIC_TYPE_ENTITY_NAME,
+              "urn:li:entityType:datahub.customFabricType")
           .put(Constants.FORM_ENTITY_NAME, "urn:li:entityType:datahub.form")
           .put(Constants.DATA_TYPE_ENTITY_NAME, "urn:li:entityType:datahub.dataType")
           .put(Constants.ENTITY_TYPE_ENTITY_NAME, "urn:li:entityType:datahub.entityType")

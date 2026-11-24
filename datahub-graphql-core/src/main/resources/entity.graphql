@@ -1345,6 +1345,11 @@ enum EntityType {
   STRUCTURED_PROPERTY
 
   """
+  A custom environment name, beyond the built-in FabricType values
+  """
+  CUSTOM_FABRIC_TYPE
+
+  """
   "
   A form entity on entities
   """
@@ -1966,6 +1971,18 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   origin: FabricType! @deprecated @aspectMapping(aspects: ["datasetKey"])
 
   """
+  Environment in which the dataset belongs to or where it was generated: a FabricType value or a
+  registered custom environment. Unlike origin, which is OTHER for a custom environment, this is
+  always the actual value.
+  """
+  env: String! @aspectMapping(aspects: ["datasetKey"])
+
+  """
+  The registered custom environment, when env is not a built-in FabricType value
+  """
+  customFabricType: CustomFabricType @aspectMapping(aspects: ["datasetKey"])
+
+  """
   Deprecated, use the properties field instead
   Read only technical description for dataset
   """
@@ -2388,6 +2405,18 @@ type VersionedDataset implements Entity {
   origin: FabricType! @deprecated @aspectMapping(aspects: ["datasetKey"])
 
   """
+  Environment in which the dataset belongs to or where it was generated: a FabricType value or a
+  registered custom environment. Unlike origin, which is OTHER for a custom environment, this is
+  always the actual value.
+  """
+  env: String! @aspectMapping(aspects: ["datasetKey"])
+
+  """
+  The registered custom environment, when env is not a built-in FabricType value
+  """
+  customFabricType: CustomFabricType @aspectMapping(aspects: ["datasetKey"])
+
+  """
   No-op, has to be included due to model
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -2494,6 +2523,13 @@ type DatasetProperties implements EntityProperties {
   Note that this field will soon be deprecated in favor of a more standardized concept of Environment
   """
   origin: FabricType!
+
+  """
+  Environment in which the dataset belongs to or where it was generated: a FabricType value or a
+  registered custom environment. Unlike origin, which is OTHER for a custom environment, this is
+  always the actual value.
+  """
+  env: String!
 
   """
   Read only technical description for dataset
@@ -3266,6 +3302,12 @@ enum FabricType {
   Designates certification fabrics
   """
   CERT
+
+  """
+  A custom environment, registered as a CustomFabricType. Read the env field for the actual
+  value. Not accepted as an input.
+  """
+  OTHER
 }
 
 """
@@ -10799,6 +10841,18 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   origin: FabricType! @aspectMapping(aspects: ["mlModelKey"])
 
   """
+  Environment in which the model belongs to or where it was generated: a FabricType value or a
+  registered custom environment. Unlike origin, which is OTHER for a custom environment, this is
+  always the actual value.
+  """
+  env: String! @aspectMapping(aspects: ["mlModelKey"])
+
+  """
+  The registered custom environment, when env is not a built-in FabricType value
+  """
+  customFabricType: CustomFabricType @aspectMapping(aspects: ["mlModelKey"])
+
+  """
   Human readable description for mlmodel
   """
   description: String @aspectMapping(aspects: ["mlModelProperties"])
@@ -11019,6 +11073,19 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   Fabric type where MLModelGroup belongs to or where it was generated
   """
   origin: FabricType! @aspectMapping(aspects: ["mlModelGroupKey"])
+
+  """
+  Environment in which the model group belongs to or where it was generated: a FabricType value or a
+  registered custom environment. Unlike origin, which is OTHER for a custom environment, this is
+  always the actual value.
+  """
+  env: String! @aspectMapping(aspects: ["mlModelGroupKey"])
+
+  """
+  The registered custom environment, when env is not a built-in FabricType value
+  """
+  customFabricType: CustomFabricType
+    @aspectMapping(aspects: ["mlModelGroupKey"])
 
   """
   Human readable description for MLModelGroup

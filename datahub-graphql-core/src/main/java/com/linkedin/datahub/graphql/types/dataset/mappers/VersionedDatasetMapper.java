@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canV
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.FabricTypeNames;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -17,10 +18,10 @@ import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.generated.VersionedDataset;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.FabricTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -144,7 +145,10 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
   private void mapDatasetKey(@Nonnull VersionedDataset dataset, @Nonnull DataMap dataMap) {
     final DatasetKey gmsKey = new DatasetKey(dataMap);
     dataset.setName(gmsKey.getName());
-    dataset.setOrigin(FabricType.valueOf(gmsKey.getOrigin().toString()));
+    // getOrigin() reads a custom env as $UNKNOWN, so map the stored value instead.
+    final String env = FabricTypeNames.get(gmsKey, "origin");
+    dataset.setOrigin(FabricTypeMapper.map(env));
+    dataset.setEnv(env);
     dataset.setPlatform(
         DataPlatform.builder()
             .setType(EntityType.DATA_PLATFORM)
@@ -159,6 +163,7 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
         new com.linkedin.datahub.graphql.generated.DatasetProperties();
     properties.setDescription(gmsProperties.getDescription());
     properties.setOrigin(dataset.getOrigin());
+    properties.setEnv(dataset.getEnv());
     if (gmsProperties.getExternalUrl() != null) {
       properties.setExternalUrl(gmsProperties.getExternalUrl().toString());
     }

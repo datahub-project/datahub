@@ -68,6 +68,7 @@ public class RealSchemaAspectMappingTest {
     "metrics.graphql",
     "runs.graphql",
     "lifecycle.graphql",
+    "customFabricType.graphql",
     "dataProduct.graphql",
     "api.graphql",
     "repository.graphql"
