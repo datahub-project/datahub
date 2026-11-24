@@ -37,6 +37,7 @@ from datahub.ingestion.source.qlik_sense.qlik_base_api import (
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
 from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     MetadataChangeProposalClass,
@@ -2590,7 +2591,7 @@ def _load(path: str) -> ReloadStatement:
 
 
 @pytest.mark.parametrize(
-    "statements, path",
+    "statements, path, browse",
     [
         pytest.param(
             {
@@ -2603,12 +2604,24 @@ def _load(path: str) -> ReloadStatement:
                 "report-app": [_load("lib://hidden (prod):datafiles/prices.qvd")],
             },
             "lib://[Hidden (prod)]:DataFiles/Prices.QVD",
+            ["Hidden (prod)", "DataFiles"],
             id="stored and loaded",
         ),
         pytest.param(
             {"report-app": [_load("lib://hidden:datafiles/sub/prices.qvd (qvd)")]},
             "lib://hidden:datafiles/sub/prices.qvd",
+            ["hidden", "datafiles", "sub"],
             id="loaded only",
+        ),
+        pytest.param(
+            {
+                "report-app": [_load("lib://hidden:datafiles/prices.qvd")],
+                # The graph doesn't name this app as the writer.
+                "etl-app": [_store("lib://Hidden:DataFiles/Prices.qvd")],
+            },
+            "lib://Hidden:DataFiles/Prices.qvd",
+            ["Hidden", "DataFiles"],
+            id="stored by an app the graph doesn't link",
         ),
         pytest.param(
             {
@@ -2616,10 +2629,11 @@ def _load(path: str) -> ReloadStatement:
                 "report-app": [_load("lib://archive:datafiles/prices.qvd")],
             },
             None,
+            None,
             id="two files of that name",
         ),
-        pytest.param({}, None, id="no file"),
-        pytest.param(RuntimeError("Forbidden"), None, id="unread"),
+        pytest.param({}, None, None, id="no file"),
+        pytest.param(RuntimeError("Forbidden"), None, None, id="unread"),
     ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -2627,6 +2641,7 @@ def test_graph_named_dataset_takes_its_path_from_reload_files(
     mock_api_cls: MagicMock,
     statements: Union[Dict[str, List[ReloadStatement]], Exception],
     path: Optional[str],
+    browse: Optional[List[str]],
 ) -> None:
     upstreams = LineageUpstreams(
         resource_labels={UNLISTED_QVD: "prices.qvd"},
@@ -2634,7 +2649,12 @@ def test_graph_named_dataset_takes_its_path_from_reload_files(
             f"{UNLISTED_QVD}#Prices": [WRITER_TABLE, "qri:app:sense://unread-app#Out"]
         },
     )
-    source = _source(mock_api_cls, DATASETS, items=_reader_and_writer(upstreams))
+    etl_app = _app("etl-app", [])
+    if isinstance(statements, dict) and "etl-app" in statements:
+        etl_app.reload_statements = statements["etl-app"]
+    source = _source(
+        mock_api_cls, DATASETS, items=[*_reader_and_writer(upstreams), etl_app]
+    )
     api = mock_api_cls.return_value
     if isinstance(statements, Exception):
         api.get_reload_statements.side_effect = statements
@@ -2656,6 +2676,19 @@ def test_graph_named_dataset_takes_its_path_from_reload_files(
     assert properties.name == "prices"
     assert properties.qualifiedName == path
     assert properties.customProperties.get("path") == path
+    browse_path = next(
+        (
+            b
+            for wu in workunits
+            if wu.get_urn() == prices
+            and (b := wu.get_aspect_of_type(BrowsePathsV2Class))
+        ),
+        None,
+    )
+    # The space the API key can't see is named, not linked.
+    assert (
+        [e.id for e in browse_path.path] if browse_path is not None else None
+    ) == browse
     # Only the reading app and the writer apps this run ingests are asked.
     assert sorted(c.args[0] for c in api.get_reload_statements.call_args_list) == [
         "report-app",

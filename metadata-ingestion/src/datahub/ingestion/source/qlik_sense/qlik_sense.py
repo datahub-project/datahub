@@ -3530,20 +3530,38 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 key = _path_key(file.path)
                 if key not in paths or (file.stored and not paths[key].stored):
                     paths[key] = file
-        return next(iter(paths.values())).path if len(paths) == 1 else None
+        if len(paths) != 1:
+            return None
+        key, file = next(iter(paths.items()))
+        if not file.stored:
+            # Another app this run read may have stored it, though the graph
+            # no longer says so, and its STORE keeps the path's case.
+            file = next(
+                (
+                    stored
+                    for files in self._reload_files.values()
+                    for stored in files
+                    if stored.stored and _path_key(stored.path) == key
+                ),
+                file,
+            )
+        return file.path
 
     def _gen_graph_named_resources(self) -> Iterable[MetadataWorkUnit]:
         """The datasets and files only apps' upstream graphs name, and the
         tables of the writer apps this run ingests as their upstreams."""
         for urn, label in self._graph_named_resources.items():
+            path = self._graph_named_path(urn, label)
             yield from self._gen_file_entity(
                 urn,
                 label,
                 DatasetSubTypes.QLIK_QVD
                 if label.lower().endswith(QVD_EXTENSION)
                 else DatasetSubTypes.QLIK_DATASET,
-                self._graph_named_path(urn, label),
+                path,
             )
+            if path:
+                yield from self._gen_lib_path_location(urn, path)
         for urn, writer_qris in self._graph_resource_writers.items():
             # Only writer apps this run ingests: another app's table has no URN.
             writer_urns = {
