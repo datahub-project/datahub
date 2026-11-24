@@ -532,6 +532,10 @@ TABLE_CLAUSE_END_KEYWORDS = {
 }
 
 
+# Keywords that end a table name but not the FROM clause it is in.
+JOIN_KEYWORDS = {"on", "inner", "left", "right", "full", "cross", "outer", "natural"}
+
+
 def _table_clause_names(sql: str) -> Set[str]:
     """The lowercased names in the table lists of SQL, after FROM, JOIN and
     INTO, so that a keyword such as ORDER in ORDER BY doesn't count as naming
@@ -540,11 +544,14 @@ def _table_clause_names(sql: str) -> Set[str]:
     run dynamically."""
     names: Set[str] = set()
     in_clause = False
+    # Still in a FROM clause after a join's ON condition, where a comma
+    # starts another table, as in `FROM a JOIN b ON a.id = b.id, orders c`.
+    in_from = False
     # Right after FROM, a comma or a dot, a keyword such as ORDER is a name.
     expects_name = False
     previous = ""
     statement_start = True
-    stack: List[bool] = []
+    stack: List[Tuple[bool, bool]] = []
     for token in SQL_TOKEN_RE.findall(sql):
         if token.startswith(("/*", "--")):
             continue
@@ -553,12 +560,14 @@ def _table_clause_names(sql: str) -> Set[str]:
         if token.startswith("'"):
             names |= _table_clause_names(token.strip("'").replace("''", "'"))
         elif token == "(":
-            stack.append(in_clause)
-            in_clause = False
+            stack.append((in_clause, in_from))
+            in_clause = in_from = False
         elif token == ")":
-            in_clause = stack.pop() if stack else False
+            in_clause, in_from = stack.pop() if stack else (False, False)
         elif token == ";":
-            in_clause = False
+            in_clause = in_from = False
+        elif token == "," and in_from and not in_clause:
+            in_clause = opens_clause = True
         elif token[0] in QUOTE_CHARACTERS:
             if in_clause:
                 names.add(token.strip(QUOTE_CHARACTERS).strip().lower())
@@ -576,8 +585,11 @@ def _table_clause_names(sql: str) -> Set[str]:
                 in_clause = opens_clause = True
             elif word in TABLE_CLAUSE_END_KEYWORDS:
                 in_clause = False
+                in_from = in_from and word in JOIN_KEYWORDS
             elif in_clause:
                 names.add(word)
+        if opens_clause:
+            in_from = True
         expects_name = opens_clause or (in_clause and token in {",", "."})
         previous = token.lower() if is_word else ""
         statement_start = token == ";"
@@ -3646,11 +3658,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[str]:
         """The one table the reload SQL reads, and the load script doesn't,
         that the graph labels of a group of database sources name."""
+        # The SQL may spell a table the script linked in another case.
+        script_urns = {urn.lower() for urn in group.script_urns}
         matches = {
             urn
             for statement in parsed.statements
             for urn in statement.upstream_urns
-            if urn not in group.script_urns
+            if urn.lower() not in script_urns
             and any(
                 _urn_names_table(urn, qri, label) for qri, label in group.labels.items()
             )

@@ -2954,6 +2954,17 @@ def test_reload_sql_join_with_a_table_missing_from_datahub_is_not_reported(
             True,
             id="insert into with order by",
         ),
+        pytest.param(
+            "SELECT * FROM dbo.customers c JOIN dbo.x y ON c.id = y.id, dbo.[order] o",
+            False,
+            id="comma after a join condition",
+        ),
+        pytest.param(
+            "SELECT * FROM dbo.customers c JOIN dbo.x y ON COALESCE(c.id, y.id) = 1 "
+            "WHERE c.kind = 'order'",
+            True,
+            id="comma in a join condition",
+        ),
     ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -3441,6 +3452,17 @@ def test_reload_sql_links_database_sources_the_script_does_not_trace(
             [make_dataset_urn("mssql", "archive.dbo.orders")],
             False,
             id="script traces one, reload SQL reads the other",
+        ),
+        pytest.param(
+            # The script spells the table it traces in another case.
+            [make_dataset_urn("mssql", "shop.dbo.ORDERS")],
+            [
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders"),
+                _sql("Finance:Archive", "SELECT * FROM dbo.orders"),
+            ],
+            [make_dataset_urn("mssql", "archive.dbo.orders")],
+            False,
+            id="script traces one in another case",
         ),
         pytest.param(
             [],
