@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -22,7 +23,6 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
-import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
@@ -42,6 +42,8 @@ import com.linkedin.test.metadata.aspect.batch.TestMCL;
 import io.datahubproject.metadata.context.RetrieverContext;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -51,21 +53,15 @@ public class RoleReferenceDetachSideEffectTest {
   private static final EntityRegistry TEST_REGISTRY = new TestEntityRegistry();
   private static final Urn ROLE_URN = UrnUtils.getUrn("urn:li:role:reader");
   private static final Urn OTHER_ROLE_URN = UrnUtils.getUrn("urn:li:role:writer");
+  private static final Urn ARN_ROLE_URN =
+      UrnUtils.getUrn("urn:li:role:arn:aws:iam::123456789012:role/data/Admin");
   private static final Urn DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
-
-  private static final AspectPluginConfig CONFIG =
-      AspectPluginConfig.builder()
-          .className(RoleReferenceDetachSideEffect.class.getName())
-          .enabled(true)
-          .supportedOperations(List.of("DELETE"))
-          .supportedEntityAspectNames(
-              List.of(
-                  AspectPluginConfig.EntityAspectName.builder()
-                      .entityName(ROLE_ENTITY_NAME)
-                      .aspectName(ROLE_KEY)
-                      .build()))
-          .build();
+  private static final Urn OTHER_DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.other,PROD)");
+  // Fails URN validation when its patch is built.
+  private static final Urn INVALID_DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.bad\u241ftable,PROD)");
 
   private CachingAspectRetriever mockAspectRetriever;
   private SearchRetriever mockSearchRetriever;
@@ -85,27 +81,37 @@ public class RoleReferenceDetachSideEffectTest {
   }
 
   private MCLItem roleKeyMcl(ChangeType changeType) {
+    return roleKeyMcl(ROLE_URN, changeType);
+  }
+
+  private MCLItem roleKeyMcl(Urn roleUrn, ChangeType changeType) {
     MetadataChangeLog mcl = new MetadataChangeLog();
-    mcl.setEntityUrn(ROLE_URN);
+    mcl.setEntityUrn(roleUrn);
     mcl.setEntityType(ROLE_ENTITY_NAME);
     mcl.setAspectName(ROLE_KEY);
     mcl.setChangeType(changeType);
     mcl.setSystemMetadata(new SystemMetadata());
     return TestMCL.builder()
         .changeType(changeType)
-        .urn(ROLE_URN)
+        .urn(roleUrn)
         .entitySpec(TEST_REGISTRY.getEntitySpec(ROLE_ENTITY_NAME))
         .aspectSpec(TEST_REGISTRY.getEntitySpec(ROLE_ENTITY_NAME).getAspectSpec(ROLE_KEY))
-        .recordTemplate(new RoleKey().setId("reader"))
+        .recordTemplate(new RoleKey().setId(roleUrn.getId()))
         .metadataChangeLog(mcl)
         .auditStamp(AuditStampUtils.createDefaultAuditStamp())
         .build();
   }
 
   private List<MCPItem> run(MCLItem item) {
-    RoleReferenceDetachSideEffect test = new RoleReferenceDetachSideEffect();
-    test.setConfig(CONFIG);
-    return test.postApply(OperationFingerprint.EMPTY, List.of(item), retrieverContext).toList();
+    RoleReferenceDetachSideEffect sideEffect = new RoleReferenceDetachSideEffect();
+    sideEffect.setConfig(sideEffect.keyDeleteConfig());
+    return run(sideEffect, item);
+  }
+
+  private List<MCPItem> run(RoleReferenceDetachSideEffect sideEffect, MCLItem item) {
+    return sideEffect
+        .postApply(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+        .toList();
   }
 
   private static Access accessAspect(Urn... roleUrns) {
@@ -116,19 +122,50 @@ public class RoleReferenceDetachSideEffectTest {
     return new Access().setRoles(roles);
   }
 
-  private void searchReturns(Urn... urns) {
+  private static ScrollResult page(String scrollId, Urn... urns) {
     SearchEntityArray hits = new SearchEntityArray();
     for (Urn urn : urns) {
       hits.add(new SearchEntity().setEntity(urn));
     }
     ScrollResult scroll = new ScrollResult();
     scroll.setEntities(hits);
-    when(mockSearchRetriever.scroll(any(), any(), any(), any(), any(), any())).thenReturn(scroll);
+    if (scrollId != null) {
+      scroll.setScrollId(scrollId);
+    }
+    return scroll;
+  }
+
+  private void searchReturns(Urn... urns) {
+    when(mockSearchRetriever.scroll(any(), any(), any(), any(), any(), any()))
+        .thenReturn(page(null, urns));
   }
 
   private void persistedAccess(Access access) {
+    persistedAccess(Map.of(DATASET_URN, access));
+  }
+
+  private void persistedAccess(Map<Urn, Access> accessByUrn) {
     when(mockAspectRetriever.getLatestAspectObjects(any(), any(), any()))
-        .thenReturn(Map.of(DATASET_URN, Map.of(ACCESS_ASPECT_NAME, new Aspect(access.data()))));
+        .thenReturn(
+            accessByUrn.entrySet().stream()
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> Map.of(ACCESS_ASPECT_NAME, new Aspect(e.getValue().data())))));
+  }
+
+  private static Set<Urn> patchedUrns(List<MCPItem> output) {
+    return output.stream().map(MCPItem::getUrn).collect(Collectors.toSet());
+  }
+
+  private Access applied(MCPItem item, Access stored) {
+    PatchItemImpl patch =
+        PatchItemImpl.builder()
+            .build(
+                ((PatchItemImpl) item).getMetadataChangeProposal(),
+                AuditStampUtils.createDefaultAuditStamp(),
+                TEST_REGISTRY);
+    return patch.applyPatch(stored, mockAspectRetriever).getAspect(Access.class);
   }
 
   @Test
@@ -140,17 +177,9 @@ public class RoleReferenceDetachSideEffectTest {
     List<MCPItem> output = run(roleKeyMcl(ChangeType.DELETE));
 
     assertEquals(output.size(), 1);
-    PatchItemImpl patch =
-        PatchItemImpl.builder()
-            .build(
-                ((PatchItemImpl) output.get(0)).getMetadataChangeProposal(),
-                AuditStampUtils.createDefaultAuditStamp(),
-                TEST_REGISTRY);
-    assertEquals(patch.getUrn(), DATASET_URN);
-    assertEquals(patch.getAspectName(), ACCESS_ASPECT_NAME);
-
-    ChangeMCP applied = patch.applyPatch(stored, mockAspectRetriever);
-    assertEquals(applied.getAspect(Access.class), accessAspect(OTHER_ROLE_URN));
+    assertEquals(output.get(0).getUrn(), DATASET_URN);
+    assertEquals(output.get(0).getAspectName(), ACCESS_ASPECT_NAME);
+    assertEquals(applied(output.get(0), stored), accessAspect(OTHER_ROLE_URN));
   }
 
   @Test
@@ -179,7 +208,62 @@ public class RoleReferenceDetachSideEffectTest {
   }
 
   @Test
-  public void testNonDeleteIsIgnored() {
-    assertTrue(run(roleKeyMcl(ChangeType.UPSERT)).isEmpty());
+  public void testNonDeleteIsIgnoredEvenWhenConfigAllowsIt() {
+    RoleReferenceDetachSideEffect sideEffect = new RoleReferenceDetachSideEffect();
+    sideEffect.setConfig(
+        AspectPluginConfig.builder()
+            .className(RoleReferenceDetachSideEffect.class.getName())
+            .enabled(true)
+            .supportedOperations(List.of("UPSERT", "DELETE"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(ROLE_ENTITY_NAME)
+                        .aspectName(ROLE_KEY)
+                        .build()))
+            .build());
+
+    assertTrue(run(sideEffect, roleKeyMcl(ChangeType.UPSERT)).isEmpty());
+    verifyNoInteractions(mockSearchRetriever);
+  }
+
+  @Test
+  public void testRoleUrnWithSlashesIsRemoved() {
+    searchReturns(DATASET_URN);
+    Access stored = accessAspect(ARN_ROLE_URN, OTHER_ROLE_URN);
+    persistedAccess(stored);
+
+    List<MCPItem> output = run(roleKeyMcl(ARN_ROLE_URN, ChangeType.DELETE));
+
+    assertEquals(output.size(), 1);
+    assertEquals(applied(output.get(0), stored), accessAspect(OTHER_ROLE_URN));
+  }
+
+  @Test
+  public void testDetachesReferencesOnEveryPage() {
+    when(mockSearchRetriever.scroll(any(), any(), any(), any(), any(), any()))
+        .thenReturn(page("next", DATASET_URN))
+        .thenReturn(page(null, OTHER_DATASET_URN));
+    persistedAccess(
+        Map.of(DATASET_URN, accessAspect(ROLE_URN), OTHER_DATASET_URN, accessAspect(ROLE_URN)));
+    RoleReferenceDetachSideEffect sideEffect = new RoleReferenceDetachSideEffect();
+    sideEffect.setConfig(sideEffect.keyDeleteConfig());
+    sideEffect.setPageSize(1);
+
+    List<MCPItem> output = run(sideEffect, roleKeyMcl(ChangeType.DELETE));
+
+    assertEquals(patchedUrns(output), Set.of(DATASET_URN, OTHER_DATASET_URN));
+    verify(mockSearchRetriever).scroll(any(), any(), eq("next"), eq(1), any(), any());
+  }
+
+  @Test
+  public void testAssetThatFailsIsSkippedAndOthersArePatched() {
+    searchReturns(INVALID_DATASET_URN, DATASET_URN);
+    persistedAccess(
+        Map.of(INVALID_DATASET_URN, accessAspect(ROLE_URN), DATASET_URN, accessAspect(ROLE_URN)));
+
+    List<MCPItem> output = run(roleKeyMcl(ChangeType.DELETE));
+
+    assertEquals(patchedUrns(output), Set.of(DATASET_URN));
   }
 }

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from typing import List
 
 import pytest
 
@@ -140,10 +141,21 @@ def test_delete_reference(graph_client, test_setup):
     assert references_count == 0
 
 
+def _datasets_with_role(graph_client, role_urn: str) -> List[str]:
+    return list(
+        graph_client.get_urns_by_filter(
+            entity_types=["dataset"],
+            extraFilters=[{"field": "roles", "condition": "EQUAL", "values": [role_urn]}],
+            skip_cache=True,
+        )
+    )
+
+
 @with_test_retry()
-def _assert_role_referenced(graph_client, role_urn: str) -> None:
+def _assert_role_referenced(graph_client, dataset_urn: str, role_urn: str) -> None:
     references_count, _ = graph_client.delete_references_to_urn(role_urn, dry_run=True)
     assert references_count > 0
+    assert _datasets_with_role(graph_client, role_urn) == [dataset_urn]
 
 
 @with_test_retry()
@@ -153,8 +165,7 @@ def _assert_role_detached(
     access = graph_client.get_aspect(dataset_urn, AccessClass)
     assert access is not None
     assert [role.urn for role in access.roles or []] == [kept_role_urn]
-    references_count, _ = graph_client.delete_references_to_urn(role_urn, dry_run=True)
-    assert references_count == 0
+    assert _datasets_with_role(graph_client, role_urn) == []
 
 
 def test_hard_delete_role_detaches_access(graph_client):
@@ -184,7 +195,7 @@ def test_hard_delete_role_detaches_access(graph_client):
             ]
         )
         wait_for_writes_to_sync()
-        _assert_role_referenced(graph_client, role_urn)
+        _assert_role_referenced(graph_client, dataset_urn, role_urn)
 
         graph_client.hard_delete_entity(role_urn)
         wait_for_writes_to_sync()

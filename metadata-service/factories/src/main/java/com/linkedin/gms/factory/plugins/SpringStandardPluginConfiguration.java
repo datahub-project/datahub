@@ -16,6 +16,7 @@ import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.hooks.LifecycleStageTransitionHook;
 import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
+import com.linkedin.metadata.aspect.hooks.ReferenceDetachSideEffect;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
@@ -331,28 +332,10 @@ public class SpringStandardPluginConfiguration {
       havingValue = "true",
       matchIfMissing = true)
   public MCPSideEffect domainReferenceDetachSideEffect(
-      @Value("${metadataChangeProposal.sideEffects.domainReferenceDetach.maxFanoutPerCommit:500}")
-          final int maxFanoutPerCommit) {
-    AspectPluginConfig config =
-        AspectPluginConfig.builder()
-            .enabled(true)
-            .className(DomainReferenceDetachSideEffect.class.getName())
-            .supportedOperations(List.of("DELETE"))
-            .supportedEntityAspectNames(
-                List.of(
-                    AspectPluginConfig.EntityAspectName.builder()
-                        .entityName(Constants.DOMAIN_ENTITY_NAME)
-                        .aspectName(Constants.DOMAIN_KEY_ASPECT_NAME)
-                        .build()))
-            .build();
-
-    log.info(
-        "Initialized {} with maxFanoutPerCommit={}",
-        DomainReferenceDetachSideEffect.class.getName(),
-        maxFanoutPerCommit);
-    return new DomainReferenceDetachSideEffect()
-        .setMaxFanoutPerCommit(Math.max(1, maxFanoutPerCommit))
-        .setConfig(config);
+      @Value("${metadataChangeProposal.sideEffects.domainReferenceDetach.pageSize:500}")
+          final int pageSize,
+      @Nullable MetricUtils metricUtils) {
+    return referenceDetachSideEffect(new DomainReferenceDetachSideEffect(), pageSize, metricUtils);
   }
 
   @Bean
@@ -361,28 +344,18 @@ public class SpringStandardPluginConfiguration {
       havingValue = "true",
       matchIfMissing = true)
   public MCPSideEffect roleReferenceDetachSideEffect(
-      @Value("${metadataChangeProposal.sideEffects.roleReferenceDetach.maxFanoutPerCommit:500}")
-          final int maxFanoutPerCommit) {
-    AspectPluginConfig config =
-        AspectPluginConfig.builder()
-            .enabled(true)
-            .className(RoleReferenceDetachSideEffect.class.getName())
-            .supportedOperations(List.of("DELETE"))
-            .supportedEntityAspectNames(
-                List.of(
-                    AspectPluginConfig.EntityAspectName.builder()
-                        .entityName(Constants.ROLE_ENTITY_NAME)
-                        .aspectName(Constants.ROLE_KEY)
-                        .build()))
-            .build();
+      @Value("${metadataChangeProposal.sideEffects.roleReferenceDetach.pageSize:500}")
+          final int pageSize,
+      @Nullable MetricUtils metricUtils) {
+    return referenceDetachSideEffect(new RoleReferenceDetachSideEffect(), pageSize, metricUtils);
+  }
 
-    log.info(
-        "Initialized {} with maxFanoutPerCommit={}",
-        RoleReferenceDetachSideEffect.class.getName(),
-        maxFanoutPerCommit);
-    return new RoleReferenceDetachSideEffect()
-        .setMaxFanoutPerCommit(Math.max(1, maxFanoutPerCommit))
-        .setConfig(config);
+  private static MCPSideEffect referenceDetachSideEffect(
+      ReferenceDetachSideEffect sideEffect, int pageSize, @Nullable MetricUtils metricUtils) {
+    sideEffect.setPageSize(Math.max(1, pageSize)).setMetricUtils(metricUtils);
+    sideEffect.setConfig(sideEffect.keyDeleteConfig());
+    log.info("Initialized {} with pageSize={}", sideEffect.getClass().getName(), pageSize);
+    return sideEffect;
   }
 
   // Returns null when MeterRegistry/ObjectMapper unavailable

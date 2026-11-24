@@ -19,6 +19,8 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
+import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -50,12 +52,13 @@ import lombok.extern.slf4j.Slf4j;
 @Accessors(chain = true)
 public abstract class ReferenceDetachSideEffect extends MCPSideEffect {
 
-  public static final int DEFAULT_MAX_FANOUT_PER_COMMIT = 500;
+  public static final int DEFAULT_PAGE_SIZE = 500;
   public static final int MAX_PAGE_ATTEMPTS = 3;
 
-  private int maxFanoutPerCommit = DEFAULT_MAX_FANOUT_PER_COMMIT;
+  private int pageSize = DEFAULT_PAGE_SIZE;
 
   @Nonnull private AspectPluginConfig config;
+  @Nullable private MetricUtils metricUtils;
 
   @Nonnull
   protected abstract String deletedEntityName();
@@ -75,6 +78,21 @@ public abstract class ReferenceDetachSideEffect extends MCPSideEffect {
 
   @Nonnull
   protected abstract GenericJsonPatch removalPatch(@Nonnull Urn deletedUrn);
+
+  @Nonnull
+  public AspectPluginConfig keyDeleteConfig() {
+    return AspectPluginConfig.builder()
+        .enabled(true)
+        .className(getClass().getName())
+        .supportedOperations(List.of(ChangeType.DELETE.name()))
+        .supportedEntityAspectNames(
+            List.of(
+                AspectPluginConfig.EntityAspectName.builder()
+                    .entityName(deletedEntityName())
+                    .aspectName(deletedKeyAspectName())
+                    .build()))
+        .build();
+  }
 
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
@@ -118,70 +136,79 @@ public abstract class ReferenceDetachSideEffect extends MCPSideEffect {
     Filter filter =
         FilterUtils.createValuesFilter(searchFieldName(), List.of(deletedUrn.toString()));
     List<MCPItem> patches = new ArrayList<>();
-    String scrollId = null;
-    do {
-      if (patches.size() >= maxFanoutPerCommit) {
-        log.warn(
-            "Detached {} reference(s) to deleted {} {} in this commit; more may remain",
-            patches.size(),
-            deletedEntityName(),
-            deletedUrn);
-        break;
-      }
-      int pageSize = Math.min(maxFanoutPerCommit, maxFanoutPerCommit - patches.size());
-      final String currentScrollId = scrollId;
-      Optional<ScrollResult> scrollResultOpt =
-          withBoundedRetry(
-              "scroll for " + deletedEntityName() + " references to " + deletedUrn,
-              () ->
-                  searchRetriever.scroll(
-                      entities,
-                      filter,
-                      currentScrollId,
-                      pageSize,
-                      List.of(),
-                      SearchRetriever
-                          .RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS_INCLUDE_SOFT_DELETED));
-      if (scrollResultOpt.isEmpty()) {
-        // The key delete already committed; do not fail it. Return patches so far.
-        log.error(
-            "Exhausted retries scrolling for {} references to {};"
-                + " returning {} patch(es) collected so far; more may remain",
-            deletedEntityName(),
-            deletedUrn,
-            patches.size());
-        break;
-      }
-      ScrollResult scrollResult = scrollResultOpt.get();
-
-      if (scrollResult.getEntities() == null || scrollResult.getEntities().isEmpty()) {
-        break;
-      }
-
-      List<Urn> candidates =
-          scrollResult.getEntities().stream()
-              .map(SearchEntity::getEntity)
-              .filter(Objects::nonNull)
-              .collect(Collectors.toList());
-      Map<Urn, Map<String, Aspect>> persisted =
-          latestReferencingAspects(operationContext, candidates, retrieverContext);
-
-      for (Urn entityUrn : candidates) {
-        if (!stillReferences(persisted.get(entityUrn), deletedUrn)) {
-          continue;
+    try (CascadeOperationContext cascade =
+        CascadeOperationContext.begin(
+            metricUtils, deletedEntityName() + "ReferenceDetach", deletedUrn, -1)) {
+      String scrollId = null;
+      do {
+        final String currentScrollId = scrollId;
+        Optional<ScrollResult> scrollResultOpt =
+            withBoundedRetry(
+                "scroll for " + deletedEntityName() + " references to " + deletedUrn,
+                () ->
+                    searchRetriever.scroll(
+                        entities,
+                        filter,
+                        currentScrollId,
+                        pageSize,
+                        List.of(),
+                        SearchRetriever
+                            .RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS_INCLUDE_SOFT_DELETED));
+        if (scrollResultOpt.isEmpty()) {
+          // The key delete already committed; do not fail it. Return patches so far.
+          cascade.recordError("search_scroll_failed");
+          log.error(
+              "Exhausted retries scrolling for {} references to {};"
+                  + " returning {} patch(es) collected so far; more may remain",
+              deletedEntityName(),
+              deletedUrn,
+              patches.size());
+          break;
         }
-        MCPItem patch = buildPatchItem(entityUrn, deletedUrn, mclItem, retrieverContext);
-        if (patch != null) {
-          patches.add(patch);
-        }
-      }
+        ScrollResult scrollResult = scrollResultOpt.get();
 
-      String nextScrollId = scrollResult.getScrollId();
-      if (nextScrollId == null || nextScrollId.equals(scrollId)) {
-        break;
-      }
-      scrollId = nextScrollId;
-    } while (true);
+        if (scrollResult.getEntities() == null || scrollResult.getEntities().isEmpty()) {
+          break;
+        }
+
+        List<Urn> candidates =
+            scrollResult.getEntities().stream()
+                .map(SearchEntity::getEntity)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        Optional<Map<Urn, Map<String, Aspect>>> persisted =
+            latestReferencingAspects(operationContext, candidates, retrieverContext);
+        if (persisted.isEmpty()) {
+          cascade.recordError("aspect_read_failed");
+        } else {
+          for (Urn entityUrn : candidates) {
+            try {
+              if (stillReferences(persisted.get().get(entityUrn), deletedUrn)) {
+                MCPItem patch = buildPatchItem(entityUrn, deletedUrn, mclItem, retrieverContext);
+                if (patch != null) {
+                  patches.add(patch);
+                  cascade.recordEntityProcessed();
+                }
+              }
+            } catch (RuntimeException e) {
+              cascade.recordError("patch_build_failed");
+              log.warn(
+                  "Skipping {} while detaching references to deleted {} {}",
+                  entityUrn,
+                  deletedEntityName(),
+                  deletedUrn,
+                  e);
+            }
+          }
+        }
+
+        String nextScrollId = scrollResult.getScrollId();
+        if (nextScrollId == null || nextScrollId.equals(scrollId)) {
+          break;
+        }
+        scrollId = nextScrollId;
+      } while (true);
+    }
     return patches.stream();
   }
 
@@ -220,30 +247,28 @@ public abstract class ReferenceDetachSideEffect extends MCPSideEffect {
   }
 
   @Nonnull
-  private Map<Urn, Map<String, Aspect>> latestReferencingAspects(
+  private Optional<Map<Urn, Map<String, Aspect>>> latestReferencingAspects(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull List<Urn> entities,
       @Nonnull RetrieverContext retrieverContext) {
     if (entities.isEmpty()) {
-      return Map.of();
+      return Optional.of(Map.of());
     }
     return withBoundedRetry(
-            "read persisted "
-                + referencingAspectName()
-                + " aspects for "
-                + entities.size()
-                + " entit(y/ies)",
-            () -> {
-              Map<Urn, Map<String, Aspect>> existing =
-                  AspectRetriever.getLatestAspectObjectsAcrossEntityTypes(
-                      retrieverContext.getAspectRetriever(),
-                      operationContext,
-                      new HashSet<>(entities),
-                      Set.of(referencingAspectName()));
-              return existing != null ? existing : Map.<Urn, Map<String, Aspect>>of();
-            })
-        // Fail soft: the key delete already committed; skip this page rather than abort it.
-        .orElseGet(Map::of);
+        "read persisted "
+            + referencingAspectName()
+            + " aspects for "
+            + entities.size()
+            + " entit(y/ies)",
+        () -> {
+          Map<Urn, Map<String, Aspect>> existing =
+              AspectRetriever.getLatestAspectObjectsAcrossEntityTypes(
+                  retrieverContext.getAspectRetriever(),
+                  operationContext,
+                  new HashSet<>(entities),
+                  Set.of(referencingAspectName()));
+          return existing != null ? existing : Map.<Urn, Map<String, Aspect>>of();
+        });
   }
 
   private boolean stillReferences(@Nullable Map<String, Aspect> aspects, @Nonnull Urn deletedUrn) {

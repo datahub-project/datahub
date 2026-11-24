@@ -12,7 +12,6 @@ metadata-io/src/main/java/com/linkedin/metadata/aspect/consistency/check/Invalid
 metadata-io/src/main/java/com/linkedin/metadata/aspect/utils/DefaultAspectsUtil.java 1
 metadata-io/src/main/java/com/linkedin/metadata/authorization/DomainWriteAuthorizationUtils.java 1
 metadata-io/src/main/java/com/linkedin/metadata/authorization/EntityAuthorizationUtils.java 1
-metadata-io/src/main/java/com/linkedin/metadata/domains/sideeffects/DomainReferenceDetachSideEffect.java 1
 metadata-io/src/main/java/com/linkedin/metadata/entity/EntityServiceImpl.java 2
 metadata-io/src/main/java/com/linkedin/metadata/entity/EntityUtils.java 1
 metadata-io/src/main/java/com/linkedin/metadata/entity/ebean/EbeanSystemAspect.java 1
