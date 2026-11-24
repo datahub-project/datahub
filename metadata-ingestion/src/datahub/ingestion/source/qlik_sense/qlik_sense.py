@@ -786,6 +786,11 @@ def _refs_of_field_sources(
     return folded if len({ref.column for ref in folded}) == 1 else []
 
 
+class _StorageFile(BaseModel):
+    # None when the file is not linked on storage, as a full read leaves it.
+    urn: Optional[str]
+
+
 class _ResolvedSources(BaseModel):
     urns: List[str] = []
     # Why sources could not be resolved this run.
@@ -888,6 +893,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._script_spellings: Dict[str, Counter[str]] = {}
         self._script_spellings_built_from = -1
         self._linked_unmapped_files: Set[str] = set()
+        # Tables kept apps store into files on storage that was unknown when
+        # their last read recorded them.
+        self._kept_storage_file_stores: Dict[str, List[str]] = {}
         # The tables each app stores into such a file, linked at the end of
         # the run only if some app's lineage graph reads the file, as a STORE
         # in the script may never run.
@@ -1213,10 +1221,35 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self._apps_qvds_unknown[app_id] = UNRESOLVED_STORE
         if previous.field_names:
             self._learn_field_names(previous.field_names)
+        unmapped_stores: Dict[str, UnmappedFileStore] = {}
+        stored_file_urns = list(previous.stored_file_urns)
         for file_urn, store in previous.unmapped_file_stores.items():
-            self._add_unmapped_file(file_urn, store.path)
-            urns = self._unmapped_file_stores[file_urn].setdefault(app_id, [])
-            urns.extend(urn for urn in store.table_urns if urn not in urns)
+            storage_file = self._storage_of_unmapped_store(store)
+            if storage_file is None:
+                unmapped_stores[file_urn] = store
+                self._add_unmapped_file(file_urn, store.path)
+                urns = self._unmapped_file_stores[file_urn].setdefault(app_id, [])
+                urns.extend(urn for urn in store.table_urns if urn not in urns)
+                continue
+            # Its storage is known now, so the file is the storage file a full
+            # read links, not the Qlik dataset named by its connection.
+            if storage_file.urn is not None:
+                tables = self._kept_storage_file_stores.setdefault(storage_file.urn, [])
+                tables.extend(urn for urn in store.table_urns if urn not in tables)
+                if storage_file.urn not in stored_file_urns:
+                    stored_file_urns.append(storage_file.urn)
+        dropped = (
+            set(previous.unmapped_file_stores)
+            - set(unmapped_stores)
+            - set(previous.read_unmapped_file_urns)
+        )
+        previous = previous.model_copy(
+            update={
+                "urns": [urn for urn in previous.urns if urn not in dropped],
+                "unmapped_file_stores": unmapped_stores,
+                "stored_file_urns": sorted(stored_file_urns),
+            }
+        )
         if previous.table_urns_by_qri is not None:
             kept = _own_table_urns(app_id, previous.table_urns_by_qri)
             self._app_table_urns_by_qri.update(kept)
@@ -1234,6 +1267,26 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 guess_entity_type(urn), urn
             )
         return previous
+
+    def _storage_of_unmapped_store(
+        self, store: UnmappedFileStore
+    ) -> Optional[_StorageFile]:
+        """The storage file a kept app's store into a file on a connection of
+        unknown storage now resolves to, or None while that storage is still
+        unknown, as when the data connections could not be listed."""
+        lib_path = LIB_PATH_RE.match(store.path)
+        if lib_path is None:
+            return None
+        # The recorded connection is space-qualified, so no app space applies.
+        storage, detail = self._file_storage(lib_path.group("connection"), "")
+        if storage is None:
+            return None
+        path = lib_path.group("path")
+        # As a full read: a file Qlik catalogues, or when its catalogue can't be
+        # listed, is not linked on storage.
+        if self._catalogued_as_qlik_dataset(storage, path) is not False:
+            return _StorageFile(urn=None)
+        return _StorageFile(urn=self._file_urn(storage, detail, path))
 
     def _keep_unchanged_app(self, app: UnchangedApp) -> None:
         previous = self._keep_previous_read(app.id)
@@ -1296,8 +1349,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 qvds=previous.qvds,
                 data_model_fields=previous.data_model_fields,
                 binary_tables=previous.binary_tables,
-                stored_file_urns=previous.stored_file_urns,
-                unmapped_file_stores=previous.unmapped_file_stores,
+                stored_file_urns=kept.stored_file_urns,
+                unmapped_file_stores=kept.unmapped_file_stores,
                 read_unmapped_file_urns=previous.read_unmapped_file_urns,
                 field_names=previous.field_names,
             ),
@@ -4539,6 +4592,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
     def _gen_unmapped_file_entities(self) -> Iterable[MetadataWorkUnit]:
+        for file_urn, kept_urns in sorted(self._kept_storage_file_stores.items()):
+            yield from self._gen_stored_file_lineage(file_urn, kept_urns)
         # A reader whose last read is kept linked the file then. Its checkpoint
         # is looked up again rather than every app's reads held in memory. A
         # writer's entities hold the file too, so only recorded reads count.

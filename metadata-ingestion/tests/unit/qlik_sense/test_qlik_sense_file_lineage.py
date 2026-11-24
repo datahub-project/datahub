@@ -1296,6 +1296,92 @@ def test_kept_writer_alone_does_not_count_as_a_reader_of_its_file(
     ]
 
 
+ABS_ORDERS_QVD = "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qvd/orders.qvd,PROD)"
+
+
+def _keep_writer_of_unmapped_store(
+    source: QlikSenseSource,
+) -> Tuple[AppCheckpoint, List[MetadataWorkUnit], List[str]]:
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+    previous = AppCheckpoint(
+        urns=[stored, UNMAPPED_ORDERS_QVD],
+        unmapped_file_stores={
+            UNMAPPED_ORDERS_QVD: UnmappedFileStore(
+                path="lib://Sales Space:Lake/qvd/orders.qvd", table_urns=[stored]
+            )
+        },
+    )
+    assert source.stale_entity_removal_handler is not None
+    with (
+        patch.object(source.app_state, "previous", return_value=previous),
+        patch.object(source.app_state, "record") as record,
+        patch.object(
+            source.stale_entity_removal_handler, "add_entity_to_state"
+        ) as add_to_state,
+    ):
+        source._keep_unchanged_app(UnchangedApp(id="app-2", fingerprint="f"))
+        # A fully read app's lineage graph reads the file.
+        source._file_source_resolution(
+            "app-1", _file_qri("adls", "lake", "qvd/orders.qvd")
+        )
+        workunits = list(source._gen_unmapped_file_entities())
+    pinned = [args.args[1] for args in add_to_state.call_args_list]
+    return record.call_args.args[1], workunits, pinned
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_writer_links_a_file_whose_storage_is_mapped_since_on_storage(
+    mock_api_cls: MagicMock,
+) -> None:
+    mock_api_cls.return_value.list_datasets.return_value = []
+    source = _source(
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        {},
+    )
+    source._fingerprint_salt = "salt"
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+
+    recorded, workunits, pinned = _keep_writer_of_unmapped_store(source)
+
+    assert UNMAPPED_ORDERS_QVD not in pinned
+    assert {wu.get_urn() for wu in workunits} == {ABS_ORDERS_QVD}
+    assert all(not wu.is_primary_source for wu in workunits)
+    assert stored in str(workunits[0].metadata)
+    assert not source.reporter.unread_stored_files
+    assert recorded.urns == [stored]
+    assert recorded.unmapped_file_stores == {}
+    # So a later full read can remove the edge once the app stops storing.
+    assert recorded.stored_file_urns == [ABS_ORDERS_QVD]
+
+
+@pytest.mark.parametrize("listing_failed", [False, True])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_writer_of_a_file_still_on_unknown_storage_keeps_it_unmapped(
+    mock_api_cls: MagicMock, listing_failed: bool
+) -> None:
+    mock_api_cls.return_value.list_datasets.return_value = []
+    if listing_failed:
+        mock_api_cls.return_value.unread_items = [
+            UnreadItem(name=UNREAD_DATA_CONNECTIONS, cause="timeout")
+        ]
+    source = _source(
+        {},
+        {}
+        if listing_failed
+        else {
+            CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)
+        },
+    )
+    source._fingerprint_salt = "salt"
+
+    recorded, workunits, pinned = _keep_writer_of_unmapped_store(source)
+
+    assert UNMAPPED_ORDERS_QVD in pinned
+    assert ABS_ORDERS_QVD not in {wu.get_urn() for wu in workunits}
+    assert list(recorded.unmapped_file_stores) == [UNMAPPED_ORDERS_QVD]
+    assert UNMAPPED_ORDERS_QVD in recorded.urns
+
+
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_stored_qvd_on_unknown_storage_is_named_without_its_extension(
     mock_api_cls: MagicMock,
