@@ -89,6 +89,17 @@ null, so no data is lost, but a query that selects the old shape, such as
 `applications { total relationships { entity { urn } } }`, now fails validation. Select
 `applications { application { urn properties { name } } }` instead.
 
+### Hard rollback of an ingestion run after a zero-downtime rollback
+
+This only applies with entity and aspect tolerance on (`UNKNOWN_DATA_TOLERANCE_ENABLED` or
+`UNKNOWN_ENTITY_ASPECT_TOLERANCE_ENABLED`, off by default; see
+[#20280](https://github.com/datahub-project/datahub/pull/20280)). With it off nothing changes.
+
+A hard rollback of an ingestion run keeps an entity the run created when anything other than the run
+wrote one of its aspects, including an aspect only the newer version knows. Before, the check that
+decides whether the run owns the whole entity didn't see aspects the running version doesn't know, so
+the entity was deleted with the other run's row, although the dry run said it would be kept.
+
 ### Semantic search template sends an entity URN to similarity ([#21474](https://github.com/datahub-project/datahub/pull/21474))
 
 System update now writes version 19 of the shipped search templates. `urn:li:searchTemplate:semantic`

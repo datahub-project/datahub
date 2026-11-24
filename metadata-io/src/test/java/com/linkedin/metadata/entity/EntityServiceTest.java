@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
@@ -55,6 +56,7 @@ import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.aspect.EntityAspect;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
@@ -83,6 +85,7 @@ import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
@@ -1404,6 +1407,77 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   }
 
   @Test
+  public void testHardRollbackKeepsEntityWithAnotherRunsAspectOnlyANewerVersionKnows() {
+    // Read after a rollback: a newer version wrote an aspect this registry doesn't know, under
+    // another run. Deleting the entity would delete that row too, so the entity stays.
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackKeepsNewerVersionsRow");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-newer");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    insertRowOnlyANewerVersionKnows(urn, "run-b-newer");
+
+    _entityServiceImpl.rollbackRun(
+        opContext,
+        ImmutableList.of(
+            rollbackRow(urn, keyName, "run-a-newer"), rollbackRow(urn, infoName, "run-a-newer")),
+        "run-a-newer",
+        true);
+
+    assertNotNull(_entityServiceImpl.getLatestAspect(opContext, urn, keyName));
+    assertNotNull(
+        _aspectDao.getAspect(
+            opContext, urn.toString(), ASPECT_ONLY_A_NEWER_VERSION_KNOWS, ASPECT_LATEST_VERSION));
+  }
+
+  @Test
+  public void testHardRollbackDeletesEntityWhenTheAspectOnlyANewerVersionKnowsIsTheRunsOwn() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackDeletesOwnNewerVersionsRow");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-own-newer");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    insertRowOnlyANewerVersionKnows(urn, "run-a-own-newer");
+
+    _entityServiceImpl.rollbackRun(
+        opContext,
+        ImmutableList.of(
+            rollbackRow(urn, keyName, "run-a-own-newer"),
+            rollbackRow(urn, infoName, "run-a-own-newer")),
+        "run-a-own-newer",
+        true);
+
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, keyName));
+    assertNull(
+        _aspectDao.getAspect(
+            opContext, urn.toString(), ASPECT_ONLY_A_NEWER_VERSION_KNOWS, ASPECT_LATEST_VERSION));
+  }
+
+  @Test
+  public void testHardRollbackStrictHandlingDeletesEntityDespiteANewerVersionsRow() {
+    // With unknown data not tolerated, the check sees only the registry's aspects, as before.
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackStrictIgnoresNewerVersionsRow");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-strict");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    insertRowOnlyANewerVersionKnows(urn, "run-b-strict");
+
+    _entityServiceImpl.rollbackRun(
+        opContext,
+        ImmutableList.of(
+            rollbackRow(urn, keyName, "run-a-strict"), rollbackRow(urn, infoName, "run-a-strict")),
+        "run-a-strict",
+        true);
+
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, keyName));
+  }
+
+  @Test
   public void testSoftRollbackMarksEntityRemovedEvenWithAnAspectFromAnotherRun() {
     Urn urn = UrnUtils.getUrn("urn:li:corpuser:softRollbackWithOtherRun");
     String keyName = opContext.getKeyAspectName(urn);
@@ -1423,6 +1497,30 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     Status status = (Status) _entityServiceImpl.getLatestAspect(opContext, urn, statusName);
     assertNotNull(status);
     assertTrue(status.isRemoved());
+  }
+
+  private static final String ASPECT_ONLY_A_NEWER_VERSION_KNOWS = "aspectFromANewerVersion";
+
+  /** A latest row a newer version wrote for an aspect this registry doesn't know. */
+  private void insertRowOnlyANewerVersionKnows(Urn urn, String runId) {
+    // No aspect spec exists for the name, so the row is handed to the store as written; both
+    // stores insert what withVersion returns.
+    SystemAspect row = mock(SystemAspect.class);
+    when(row.withVersion(anyLong()))
+        .thenAnswer(
+            invocation ->
+                EntityAspect.builder()
+                    .urn(urn.toString())
+                    .aspect(ASPECT_ONLY_A_NEWER_VERSION_KNOWS)
+                    .version(invocation.getArgument(0))
+                    .metadata("{}")
+                    .createdBy(TEST_AUDIT_STAMP.getActor().toString())
+                    .createdOn(new Timestamp(TEST_AUDIT_STAMP.getTime()))
+                    .systemMetadata(
+                        RecordUtils.toJsonString(
+                            AspectGenerationUtils.createSystemMetadata(1645792689, runId)))
+                    .build());
+    _aspectDao.insertAspect(opContext, null, row, ASPECT_LATEST_VERSION);
   }
 
   private void ingestForRollback(

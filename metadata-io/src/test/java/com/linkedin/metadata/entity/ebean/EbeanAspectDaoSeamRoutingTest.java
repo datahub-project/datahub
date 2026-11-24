@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -54,6 +55,7 @@ public class EbeanAspectDaoSeamRoutingTest {
   private static final String URN_BATCH_A = "urn:li:corpuser:seamBatchA";
   private static final String URN_BATCH_B = "urn:li:corpuser:seamBatchB";
   private static final String URN_RANGE = "urn:li:corpuser:seamVersionRange";
+  private static final String URN_LATEST_ROWS = "urn:li:corpuser:seamLatestRows";
 
   private Database server;
   private AspectTableResolver tableResolverSpy;
@@ -182,6 +184,33 @@ public class EbeanAspectDaoSeamRoutingTest {
 
     assertEquals(range.getFirst().longValue(), 0L);
     assertEquals(range.getSecond().longValue(), 7L);
+
+    ArgumentCaptor<OperationContext> resolved = ArgumentCaptor.forClass(OperationContext.class);
+    verify(tableResolverSpy).aspectTable(resolved.capture(), eq(EbeanAspectV2.TABLE_NAME));
+    assertSame(resolved.getValue(), rawSqlContext);
+
+    ArgumentCaptor<OperationContext> scoped = ArgumentCaptor.forClass(OperationContext.class);
+    verify(txnFactorySpy).runInScope(scoped.capture(), any());
+    assertSame(scoped.getValue(), rawSqlContext);
+  }
+
+  @Test
+  public void rawSqlLatestRowsOfUrnRoutesCallerContextAndReturnsEveryAspect() {
+    // Every latest row of the urn, including an aspect the registry doesn't know; older versions
+    // and other urns are left out.
+    insertRow(URN_LATEST_ROWS, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION, "status-v0");
+    insertRow(URN_LATEST_ROWS, STATUS_ASPECT_NAME, 3L, "status-v3");
+    insertRow(URN_LATEST_ROWS, "aspectFromANewerVersion", ASPECT_LATEST_VERSION, "newer-v0");
+    insertRow(URN_RANGE, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION, "other-urn");
+
+    List<EntityAspect> rows = testDao.getLatestRowsOfUrn(rawSqlContext, URN_LATEST_ROWS);
+
+    assertEquals(
+        rows.stream()
+            .map(row -> row.getAspect() + "=" + row.getMetadata())
+            .collect(Collectors.toSet()),
+        Set.of(STATUS_ASPECT_NAME + "=status-v0", "aspectFromANewerVersion=newer-v0"));
+    assertTrue(rows.stream().allMatch(row -> URN_LATEST_ROWS.equals(row.getUrn())));
 
     ArgumentCaptor<OperationContext> resolved = ArgumentCaptor.forClass(OperationContext.class);
     verify(tableResolverSpy).aspectTable(resolved.capture(), eq(EbeanAspectV2.TABLE_NAME));

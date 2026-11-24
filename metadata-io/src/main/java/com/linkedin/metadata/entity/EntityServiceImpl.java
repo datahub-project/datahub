@@ -4756,7 +4756,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   /**
    * Whether every latest aspect of the entity, other than its status, was last written by {@code
    * runId}. A write by anyone else, another run or a write with no run id such as a UI edit, means
-   * rolling back the run must not delete the entity. Locks the rows, like {@link #withinCeiling}.
+   * rolling back the run must not delete the entity. Locks the rows of the aspects the registry
+   * knows, like {@link #withinCeiling}; while unknown data is tolerated it also reads, without
+   * locking, the rows a newer version stored for aspects the registry doesn't know.
    */
   private boolean ownedOnlyByRun(
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String runId) {
@@ -4770,12 +4772,27 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     if (!latest.containsKey(opContext.getKeyAspectName(urn))) {
       return false;
     }
-    return latest.entrySet().stream()
-        .filter(row -> !STATUS_ASPECT_NAME.equals(row.getKey()))
+    final boolean registryRowsOwned =
+        latest.entrySet().stream()
+            .filter(row -> !STATUS_ASPECT_NAME.equals(row.getKey()))
+            .allMatch(
+                row ->
+                    row.getValue().getSystemMetadata() != null
+                        && runId.equals(row.getValue().getSystemMetadata().getRunId(GetMode.NULL)));
+    if (!registryRowsOwned || !handling().toleratesUnknownEntityAspect()) {
+      return registryRowsOwned;
+    }
+    // A newer version (read after a rollback) can store aspects this registry doesn't know; the
+    // read above can't see them. Deleting the entity would delete such a row written by another
+    // run too, so it counts like any other aspect.
+    return aspectDao.getLatestRowsOfUrn(opContext, urn.toString()).stream()
+        .filter(row -> !latest.containsKey(row.getAspect()))
+        .filter(row -> !STATUS_ASPECT_NAME.equals(row.getAspect()))
         .allMatch(
             row ->
-                row.getValue().getSystemMetadata() != null
-                    && runId.equals(row.getValue().getSystemMetadata().getRunId(GetMode.NULL)));
+                runId.equals(
+                    SystemMetadataUtils.parseSystemMetadata(row.getSystemMetadata())
+                        .getRunId(GetMode.NULL)));
   }
 
   private static long createdOnMillis(@Nonnull SystemAspect row) {

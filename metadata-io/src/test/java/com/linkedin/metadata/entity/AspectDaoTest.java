@@ -508,6 +508,11 @@ public class AspectDaoTest {
     }
 
     @Override
+    public List<EntityAspect> getLatestRowsOfUrn(OperationContext opContext, String urn) {
+      return List.of();
+    }
+
+    @Override
     public <R> R streamAspectBatches(
         OperationContext opContext,
         RestoreIndicesArgs args,
