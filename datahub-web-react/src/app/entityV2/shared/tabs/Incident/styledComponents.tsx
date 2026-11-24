@@ -1,7 +1,6 @@
 import { Form } from 'antd';
 import styled from 'styled-components';
 
-import { Button } from '@src/alchemy-components';
 import radius from '@src/alchemy-components/theme/foundations/radius';
 import spacing from '@src/alchemy-components/theme/foundations/spacing';
 
@@ -132,10 +131,6 @@ export const CategoryType = styled.div`
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100px;
-`;
-
-export const CreateButton = styled(Button)`
-    height: 40px;
 `;
 
 export const SiblingSelectionDropdownLink = styled.div`
