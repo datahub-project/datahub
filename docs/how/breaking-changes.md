@@ -15,6 +15,20 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Stricter permission checks when deleting from the UI or GraphQL
+
+Delete actions in the UI and GraphQL API now check the type of the item being deleted ([PR #21488](https://github.com/datahub-project/datahub/pull/21488)). For example, **Delete Tag** can only delete tags, and **Delete Domain** can only delete domains. Normal use of these actions does not change.
+
+Three cases now require the **Delete Entity** privilege on the item itself:
+
+- Deleting a query that is not attached to any dataset. Before, any signed-in user could delete it.
+- Updating a query that is not attached to any dataset, or updating one so that it is no longer attached to any.
+- Deleting an assertion that has no definition, for example one left behind by a partial ingestion. Before, any signed-in user could delete it.
+
+If someone sees an "Unauthorized" error when cleaning up these items, give them the **Delete Entity** privilege on those items, or have an admin delete them.
+
+Through the GraphQL API, a query can no longer be created unless it is attached to at least one dataset. The UI always attaches a query to a dataset, so it is not affected.
+
 ### Semantic search template sends an entity URN to similarity ([#21474](https://github.com/datahub-project/datahub/pull/21474))
 
 System update now writes version 19 of the shipped search templates. `urn:li:searchTemplate:semantic`
