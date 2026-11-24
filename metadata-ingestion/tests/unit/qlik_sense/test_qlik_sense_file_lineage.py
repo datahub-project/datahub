@@ -1,6 +1,6 @@
 import json
-from typing import Dict, Iterable, List, Optional, Tuple
-from unittest.mock import MagicMock, patch
+from typing import Dict, Iterable, List, Optional, Set, Tuple
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 import requests_mock as requests_mock_module
@@ -9,12 +9,17 @@ from pydantic import ValidationError
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
-from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
+from datahub.ingestion.source.qlik_sense.app_state import (
+    AppCheckpoint,
+    UnmappedFileStore,
+)
+from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     LineageTable,
     ListedDataset,
+    SchemaField,
+    UnchangedApp,
     UnreadItem,
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import (
@@ -30,10 +35,14 @@ from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     DataConnectionInfo,
     FileLoad,
+    ParsedScript,
     parse_script,
 )
 from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
+    ContainerClass,
     DatasetLineageTypeClass,
+    DatasetPropertiesClass,
     MetadataChangeProposalClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -64,7 +73,9 @@ def _file_qri(scheme: str, connection_part: str, path: str) -> str:
 
 
 def _source(
-    file_connection_to_storage: Dict, connections: Dict[str, DataConnectionInfo]
+    file_connection_to_storage: Dict,
+    connections: Dict[str, DataConnectionInfo],
+    script: str = SCRIPT,
 ) -> QlikSenseSource:
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(
@@ -85,7 +96,7 @@ def _source(
             "createdDate": "2024-01-09T18:05:36.000Z",
             "modifiedDate": "2024-01-09T18:05:36.000Z",
             "spaceId": "space-1",
-            "script": SCRIPT,
+            "script": script,
             # The Engine holds LET variables as the last reload set them.
             "variables": {
                 "vPrefix": "",
@@ -94,7 +105,7 @@ def _source(
         }
     )
     source._file_sources_by_app[app.id] = source._file_source_resolver(
-        app, parse_script(SCRIPT)
+        app, parse_script(script)
     )
     source._app_space_ids[app.id] = app.spaceId
     return source
@@ -334,19 +345,210 @@ def test_file_resolves_through_the_visible_connection(
 def test_file_without_known_storage_is_reported(mock_api_cls: MagicMock) -> None:
     source = _source({}, {})
 
-    assert (
-        source._resolve_file_source(
-            "app-1", _file_qri("adls", "lake", "ref/regions.xlsx")
-        )
-        is None
-    )
+    # A bare name is the app's own space's connection, as Qlik Cloud resolves it.
+    assert source._resolve_file_source(
+        "app-1", _file_qri("adls", "lake", "ref/targets.csv")
+    ) == make_dataset_urn("qlik-sense", "sales space:lake/ref/targets.csv")
     # A file the script does not read is not the connection's to report.
     assert (
         source._resolve_file_source("app-1", _file_qri("adls", "lake", "other.csv"))
         is None
     )
-    source._resolve_file_source("app-1", _file_qri("adls", "lake", "ref/regions.xlsx"))
+    assert source.reporter.unresolved_file_connections == ["Lake"]
+
+
+@pytest.mark.parametrize("space_ingested", [True, False])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_without_known_storage_is_named_by_its_connection(
+    mock_api_cls: MagicMock, space_ingested: bool
+) -> None:
+    source = _source({}, {})
+    if space_ingested:
+        source._allowed_space_ids = {"space-1"}
+    regions = make_dataset_urn("qlik-sense", "sales space:lake/ref/regions.xlsx")
+
+    # Named with its space, the connection is the same in every app, so the
+    # apps that write and read the file join on it.
+    assert (
+        source._resolve_file_source(
+            "app-1", _file_qri("adls", "lake", "ref/regions.xlsx")
+        )
+        == regions
+    )
     assert source.reporter.unresolved_file_connections == [CONNECTION]
+    entities = list(source._gen_unmapped_file_entities())
+    assert {wu.get_urn() for wu in entities} == {regions}
+    properties = next(
+        p for wu in entities if (p := wu.get_aspect_of_type(DatasetPropertiesClass))
+    )
+    assert properties.qualifiedName == "lib://Sales Space:Lake/ref/regions.xlsx"
+    # In its space, under its connection and folders, rather than at the dots
+    # of its URN; a space the run doesn't ingest gets no made-up container.
+    space_urn = source._gen_space_key("space-1").as_urn()
+    browse_path = next(
+        b for wu in entities if (b := wu.get_aspect_of_type(BrowsePathsV2Class))
+    )
+    assert [(e.id, e.urn) for e in browse_path.path] == [
+        (space_urn, space_urn) if space_ingested else ("Sales Space", None),
+        ("Lake", None),
+        ("ref", None),
+    ]
+    containers = [
+        c.container for wu in entities if (c := wu.get_aspect_of_type(ContainerClass))
+    ]
+    assert containers == ([space_urn] if space_ingested else [])
+
+
+@pytest.mark.parametrize(
+    "spaces, expected",
+    [
+        ({"space-1": "SALES SPACE"}, "space-1"),
+        # Not told apart by case, so placed in neither.
+        ({"space-1": "Sales Space", "space-2": "sales space"}, None),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_lib_path_space_is_matched_regardless_of_case(
+    mock_api_cls: MagicMock, spaces: Dict[str, str], expected: Optional[str]
+) -> None:
+    source = _source({}, {})
+    source.qlik_api.spaces = spaces
+    source._allowed_space_ids = set(spaces)
+
+    assert source._ingested_space_id("Sales Space") == expected
+
+
+@pytest.mark.parametrize(
+    "connection, path, space_id",
+    [
+        # A personal space has no name another app could write the path with.
+        ("Lake", "ref/regions.xlsx", Constant.PERSONAL_SPACE_ID),
+        # Holds Qlik's own datasets.
+        ("Sales Space:DataFiles", "rates.qvd", "space-1"),
+        ("DataFiles", "rates.qvd", "space-1"),
+        # Characters a dataset URN can't hold.
+        ("Sales Space:Lake", "ref/a,b.csv", "space-1"),
+        ("Sales Space:Lake", "ref/rates (old).csv", "space-1"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_that_cant_be_named_by_its_connection(
+    mock_api_cls: MagicMock, connection: str, path: str, space_id: str
+) -> None:
+    source = _source({}, {})
+    source.qlik_api.spaces[Constant.PERSONAL_SPACE_ID] = Constant.PERSONAL_SPACE_NAME
+
+    assert source._unmapped_file_urn(connection, path, space_id) is None
+
+
+@pytest.mark.parametrize(
+    "connection",
+    ["Sales Space:Lake", "Lake", "SALES SPACE:lake", "[Sales Space]:[Lake]"],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_on_one_connection_gets_one_urn_however_it_is_spelled(
+    mock_api_cls: MagicMock, connection: str
+) -> None:
+    # A bare name is the app's own space's connection, and Qlik matches
+    # space and connection names regardless of case.
+    assert _source({}, {})._unmapped_file_urn(
+        connection, "/Ref//Regions.xlsx", "space-1"
+    ) == make_dataset_urn("qlik-sense", "sales space:lake/ref/regions.xlsx")
+
+
+@pytest.mark.parametrize(
+    "connection, space, name",
+    [
+        ("[Team: Sales]:[Lake]", "Team: Sales", "Lake"),
+        ("[Team: Sales]:Lake", "Team: Sales", "Lake"),
+        ("Sales Space:[Lake: Raw]", "Sales Space", "Lake: Raw"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_bracketed_name_holding_the_separator_is_one_space_or_connection(
+    mock_api_cls: MagicMock, connection: str, space: str, name: str
+) -> None:
+    source = _source({}, {})
+
+    urn = source._unmapped_file_urn(connection, "ref/regions.xlsx", "space-1")
+
+    qualified = f"[{space}]:{name}" if ":" in space else f"{space}:[{name}]"
+    assert urn == make_dataset_urn(
+        "qlik-sense", f"{qualified.lower()}/ref/regions.xlsx"
+    )
+    assert source._unmapped_files[urn] == f"lib://{qualified}/ref/regions.xlsx"
+    browse_path = next(
+        b
+        for wu in source._gen_lib_path_location(urn, source._unmapped_files[urn])
+        if (b := wu.get_aspect_of_type(BrowsePathsV2Class))
+    )
+    assert [e.id for e in browse_path.path] == [space, name, "ref"]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_display_name_does_not_depend_on_app_order(
+    mock_api_cls: MagicMock,
+) -> None:
+    references = [("sales space:lake", "ref/x.qvd"), ("Lake", "Ref/X.qvd")]
+    names: Set[str] = set()
+    for ordered in (references, references[::-1]):
+        source = _source({}, {})
+        urns = {
+            source._unmapped_file_urn(connection, path, "space-1")
+            for connection, path in ordered
+        }
+        assert len(urns) == 1
+        names.update(source._unmapped_files.values())
+
+    assert names == {"lib://Sales Space:Lake/Ref/X.qvd"}
+
+
+@pytest.mark.parametrize("data_files", ["Other Space:DataFiles", "DataFiles"])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_named_by_its_connection_ignores_data_files_on_the_same_path(
+    mock_api_cls: MagicMock, data_files: str
+) -> None:
+    # DataFiles hold Qlik datasets, never a file on external storage, even
+    # when not listed.
+    script = (
+        "Rates: LOAD * FROM [lib://Sales Space:Lake/ref/rates.csv] (txt);\n"
+        f"Cached: LOAD * FROM [lib://{data_files}/ref/rates.csv] (txt);\n"
+    )
+    source = _source({}, {}, script)
+
+    assert source._resolve_file_source(
+        "app-1", _file_qri("adls", "lake", "ref/rates.csv")
+    ) == make_dataset_urn("qlik-sense", "sales space:lake/ref/rates.csv")
+    assert source.reporter.unresolved_file_connections == [CONNECTION]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_named_by_its_connection_or_on_mapped_storage_is_ambiguous(
+    mock_api_cls: MagicMock,
+) -> None:
+    # Only one branch ran, and either connection could hold the file.
+    script = (
+        "IF vEnv = 'prod' THEN\n"
+        "Rates: LOAD * FROM [lib://Sales Space:Store/ref/rates.csv] (txt);\n"
+        "ELSE\n"
+        "Rates: LOAD * FROM [lib://Sales Space:Lake/ref/rates.csv] (txt);\n"
+        "END IF\n"
+    )
+    source = _source(
+        {
+            "Sales Space:Store": {
+                "storage_uri": "abfss://lake@account.dfs.core.windows.net"
+            }
+        },
+        {},
+        script,
+    )
+
+    assert (
+        source._resolve_file_source("app-1", _file_qri("adls", "lake", "ref/rates.csv"))
+        is None
+    )
+    assert not list(source._gen_unmapped_file_entities())
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -630,6 +832,7 @@ def _graph_app_run(
     script: str = SCRIPT,
     datasets_listed: bool = True,
     tables: Optional[List[Dict]] = None,
+    file_path: str = "landing/orders.csv",
 ) -> Dict[str, str]:
     return _graph_app_writes(
         *_graph_app_source(
@@ -640,6 +843,7 @@ def _graph_app_run(
             script,
             datasets_listed,
             tables,
+            file_path=file_path,
         )
     )
 
@@ -653,6 +857,7 @@ def _graph_app_source(
     datasets_listed: bool = True,
     tables: Optional[List[Dict]] = None,
     data_connections: Optional[Dict[str, DataConnectionInfo]] = None,
+    file_path: str = "landing/orders.csv",
 ) -> Tuple[QlikSenseSource, App]:
     api = mock_api_cls.return_value
     api.unread_items = unread
@@ -689,7 +894,7 @@ def _graph_app_source(
                     qri="qri:app:sense://app-1#Orders",
                     label="Orders",
                     source_qris=[
-                        _file_qri("adls", "unknown", "landing/orders.csv"),
+                        _file_qri("adls", "unknown", file_path),
                         f"{RATES_QRI}#Rates",
                     ],
                 )
@@ -732,6 +937,8 @@ def _graph_app_writes(source: QlikSenseSource, app: App) -> Dict[str, str]:
 
 
 ORDERS = make_dataset_urn("qlik-sense", "app-1.orders")
+# A file the script doesn't load by name.
+UNRESOLVED_FILE = "ref/unread.csv"
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -748,6 +955,11 @@ def test_graph_table_links_to_the_file_its_script_loads(
         f"urn:li:dataset:(urn:li:dataPlatform:abs,lake/landing/orders.csv,PROD),{RATES}"
     )
 
+
+UNMAPPED_ORDERS_CSV = make_dataset_urn(
+    "qlik-sense", "sales space:lake/landing/orders.csv"
+)
+UNMAPPED_ORDERS_QVD = make_dataset_urn("qlik-sense", "sales space:lake/qvd/orders.qvd")
 
 STORE_SCRIPT = """
 Orders:
@@ -771,8 +983,9 @@ def test_stored_qvd_on_mapped_storage_links_the_stored_table(
         script=STORE_SCRIPT,
     )
 
-    stored = {urn: upstreams for urn, upstreams in writes.items() if "abs," in urn}
+    stored = {urn: upstreams for urn, upstreams in writes.items() if "qvd," in urn}
     # Scratch is not a table the app ingests, so its QVD has nothing to link.
+    # Without the storage, the QVD is only linked at the end of the run.
     assert stored == (
         {
             "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qvd/orders.qvd,PROD)": (
@@ -858,22 +1071,347 @@ def _stored_files(writes: Dict[str, str]) -> Dict[str, str]:
     return {urn: upstreams for urn, upstreams in writes.items() if "abs," in urn}
 
 
+def _store_app(tables: List[Dict]) -> App:
+    return App.model_validate(
+        {
+            "id": "app-1",
+            "qTitle": "Sales",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "space-1",
+            "script": STORE_SCRIPT,
+            "tables": tables,
+        }
+    )
+
+
+def _store_lineage(
+    source: QlikSenseSource,
+    app: App,
+    parsed: ParsedScript,
+    table_fields: Dict[str, List[SchemaField]],
+) -> List[MetadataWorkUnit]:
+    source._queue_file_store_lineage(app, parsed, table_fields)
+    return list(source._gen_pending_table_lineage())
+
+
+@pytest.mark.parametrize("reader", ["read", "kept", None])
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
-def test_stored_qvd_on_unknown_storage_reports_the_connection(
+def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
+    mock_api_cls: MagicMock, reader: Optional[str]
+) -> None:
+    source = _source(
+        {},
+        {CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)},
+        script="Orders: LOAD * FROM [lib://Sales Space:Lake/qvd/orders.qvd] (qvd);",
+    )
+    storing_app = _store_app([]).model_copy(update={"id": "app-2"})
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+
+    assert not _store_lineage(
+        source, storing_app, parse_script(STORE_SCRIPT), {stored: []}
+    )
+    # A later app's lineage graph reads the file, so it exists.
+    if reader == "read":
+        assert source._resolve_file_source(
+            "app-1", _file_qri("adls", "lake", "qvd/orders.qvd")
+        )
+    # Or the reader's last read, which linked it, is kept this run.
+    with patch.object(
+        source.app_state,
+        "previous",
+        return_value=AppCheckpoint(
+            urns=[UNMAPPED_ORDERS_QVD], read_unmapped_file_urns=[UNMAPPED_ORDERS_QVD]
+        ),
+    ):
+        if reader == "kept":
+            assert source._keep_previous_read("app-1")
+        workunits = list(source._gen_unmapped_file_entities())
+
+    assert source.reporter.unresolved_file_connections == [CONNECTION]
+    lineage = [
+        wu.metadata
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+    ]
+    if reader:
+        # Named by its connection and path.
+        assert {wu.get_urn() for wu in workunits} == {UNMAPPED_ORDERS_QVD}
+        assert [mcp.entityUrn for mcp in lineage] == [UNMAPPED_ORDERS_QVD]
+        assert stored in str(lineage[0].aspect)
+        # In the storing app's checkpoint too.
+        assert UNMAPPED_ORDERS_QVD in source._app_end_of_run_urns["app-2"]
+        assert not source.reporter.unread_stored_files
+    else:
+        assert not workunits
+        assert "app-2" not in source._app_end_of_run_urns
+        assert list(source.reporter.unread_stored_files) == [
+            "lib://Sales Space:Lake/qvd/orders.qvd"
+        ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_read_app_records_its_stores_into_files_on_unknown_storage(
     mock_api_cls: MagicMock,
 ) -> None:
     source, app = _graph_app_source(
         mock_api_cls,
         {},
         [],
-        script=STORE_SCRIPT,
+        script="STORE Customers INTO [lib://Sales Space:Lake/qvd/customers.qvd] (qvd);",
+        tables=[
+            _model_table(
+                "Customers", "Customers", "qri:db:sqlserver://sales#dbo.Customers"
+            )
+        ],
         data_connections={
             CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)
         },
     )
+    source._fingerprint_salt = "salt"
 
-    assert _stored_files(_graph_app_writes(source, app)) == {}
-    assert source.reporter.unresolved_file_connections == [CONNECTION]
+    with patch.object(source.app_state, "record") as record:
+        list(source._gen_recorded_app_workunit(app))
+
+    file_urn = make_dataset_urn("qlik-sense", "sales space:lake/qvd/customers.qvd")
+    stores = record.call_args.args[1].unmapped_file_stores
+    assert list(stores) == [file_urn]
+    assert stores[file_urn].path == "lib://Sales Space:Lake/qvd/customers.qvd"
+    assert len(stores[file_urn].table_urns) == 1
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_writer_of_a_file_on_unknown_storage_links_it_when_an_app_reads_it(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {},
+        {CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)},
+        script="Orders: LOAD * FROM [lib://Sales Space:Lake/qvd/orders.qvd] (qvd);",
+    )
+    source._fingerprint_salt = "salt"
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+    # Its STORE was recorded on a run where no app read the file.
+    previous = AppCheckpoint(
+        urns=[stored],
+        unmapped_file_stores={
+            UNMAPPED_ORDERS_QVD: UnmappedFileStore(
+                path="lib://Sales Space:Lake/qvd/orders.qvd", table_urns=[stored]
+            )
+        },
+        read_unmapped_file_urns=[
+            make_dataset_urn("qlik-sense", "sales space:lake/ref/rates.csv")
+        ],
+    )
+    with (
+        patch.object(source.app_state, "previous", return_value=previous),
+        patch.object(source.app_state, "record") as record,
+    ):
+        source._keep_unchanged_app(UnchangedApp(id="app-2", fingerprint="f"))
+    assert source._resolve_file_source(
+        "app-1", _file_qri("adls", "lake", "qvd/orders.qvd")
+    )
+
+    workunits = list(source._gen_unmapped_file_entities())
+
+    lineage = [
+        wu.metadata
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+    ]
+    assert [mcp.entityUrn for mcp in lineage] == [UNMAPPED_ORDERS_QVD]
+    assert stored in str(lineage[0].aspect)
+    assert UNMAPPED_ORDERS_QVD in source._app_end_of_run_urns["app-2"]
+    # Carried forward, so a later run that keeps it again still links it.
+    recorded = record.call_args.args[1]
+    assert recorded.unmapped_file_stores == previous.unmapped_file_stores
+    assert recorded.read_unmapped_file_urns == previous.read_unmapped_file_urns
+    # Read by app-1, which records it; the writer did not read it.
+    with patch.object(source.app_state, "add_read_unmapped_files") as add_reads:
+        source._record_end_of_run_urns()
+    assert add_reads.call_args_list == [call("app-1", {UNMAPPED_ORDERS_QVD})]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_writer_alone_does_not_count_as_a_reader_of_its_file(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source({}, {})
+    source._fingerprint_salt = "salt"
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+    # A run that linked the file recorded it among the writer's entities too.
+    previous = AppCheckpoint(
+        urns=[stored, UNMAPPED_ORDERS_QVD],
+        unmapped_file_stores={
+            UNMAPPED_ORDERS_QVD: UnmappedFileStore(
+                path="lib://Sales Space:Lake/qvd/orders.qvd", table_urns=[stored]
+            )
+        },
+    )
+    with (
+        patch.object(source.app_state, "previous", return_value=previous),
+        patch.object(source.app_state, "record"),
+    ):
+        source._keep_unchanged_app(UnchangedApp(id="app-2", fingerprint="f"))
+        workunits = list(source._gen_unmapped_file_entities())
+
+    assert not workunits
+    assert list(source.reporter.unread_stored_files) == [
+        "lib://Sales Space:Lake/qvd/orders.qvd"
+    ]
+
+
+ABS_ORDERS_QVD = "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qvd/orders.qvd,PROD)"
+
+
+def _keep_writer_of_unmapped_store(
+    source: QlikSenseSource,
+) -> Tuple[AppCheckpoint, List[MetadataWorkUnit], List[str]]:
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+    previous = AppCheckpoint(
+        urns=[stored, UNMAPPED_ORDERS_QVD],
+        unmapped_file_stores={
+            UNMAPPED_ORDERS_QVD: UnmappedFileStore(
+                path="lib://Sales Space:Lake/qvd/orders.qvd", table_urns=[stored]
+            )
+        },
+    )
+    assert source.stale_entity_removal_handler is not None
+    with (
+        patch.object(source.app_state, "previous", return_value=previous),
+        patch.object(source.app_state, "record") as record,
+        patch.object(
+            source.stale_entity_removal_handler, "add_entity_to_state"
+        ) as add_to_state,
+    ):
+        source._keep_unchanged_app(UnchangedApp(id="app-2", fingerprint="f"))
+        # A fully read app's lineage graph reads the file.
+        source._resolve_file_source(
+            "app-1", _file_qri("adls", "lake", "qvd/orders.qvd")
+        )
+        workunits = list(source._gen_unmapped_file_entities())
+    pinned = [args.args[1] for args in add_to_state.call_args_list]
+    return record.call_args.args[1], workunits, pinned
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_writer_links_a_file_whose_storage_is_mapped_since_on_storage(
+    mock_api_cls: MagicMock,
+) -> None:
+    mock_api_cls.return_value.list_datasets.return_value = []
+    source = _source(
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        {},
+    )
+    source._fingerprint_salt = "salt"
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+
+    recorded, workunits, pinned = _keep_writer_of_unmapped_store(source)
+
+    assert UNMAPPED_ORDERS_QVD not in pinned
+    assert {wu.get_urn() for wu in workunits} == {ABS_ORDERS_QVD}
+    assert all(not wu.is_primary_source for wu in workunits)
+    assert stored in str(workunits[0].metadata)
+    assert not source.reporter.unread_stored_files
+    assert recorded.urns == [stored]
+    assert recorded.unmapped_file_stores == {}
+    # So a later full read can remove the edge once the app stops storing.
+    assert recorded.stored_file_urns == [ABS_ORDERS_QVD]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_writer_keeps_its_unmapped_store_when_datasets_cannot_be_listed(
+    mock_api_cls: MagicMock,
+) -> None:
+    mock_api_cls.return_value.list_datasets.return_value = None
+    source = _source(
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        {},
+    )
+    source._fingerprint_salt = "salt"
+
+    recorded, workunits, pinned = _keep_writer_of_unmapped_store(source)
+
+    assert UNMAPPED_ORDERS_QVD in pinned
+    assert ABS_ORDERS_QVD not in {wu.get_urn() for wu in workunits}
+    assert list(recorded.unmapped_file_stores) == [UNMAPPED_ORDERS_QVD]
+    assert UNMAPPED_ORDERS_QVD in recorded.urns
+
+
+@pytest.mark.parametrize("listing_failed", [False, True])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_writer_of_a_file_still_on_unknown_storage_keeps_it_unmapped(
+    mock_api_cls: MagicMock, listing_failed: bool
+) -> None:
+    mock_api_cls.return_value.list_datasets.return_value = []
+    if listing_failed:
+        mock_api_cls.return_value.unread_items = [
+            UnreadItem(name=UNREAD_DATA_CONNECTIONS, cause="timeout")
+        ]
+    source = _source(
+        {},
+        {}
+        if listing_failed
+        else {
+            CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)
+        },
+    )
+    source._fingerprint_salt = "salt"
+
+    recorded, workunits, pinned = _keep_writer_of_unmapped_store(source)
+
+    assert UNMAPPED_ORDERS_QVD in pinned
+    assert ABS_ORDERS_QVD not in {wu.get_urn() for wu in workunits}
+    assert list(recorded.unmapped_file_stores) == [UNMAPPED_ORDERS_QVD]
+    assert UNMAPPED_ORDERS_QVD in recorded.urns
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_stored_qvd_on_unknown_storage_is_named_without_its_extension(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {},
+        {CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)},
+        script="Orders: LOAD * FROM [lib://Sales Space:Lake/qvd/Orders.QVD] (qvd);",
+    )
+    _store_lineage(
+        source,
+        _store_app([]).model_copy(update={"id": "app-2"}),
+        parse_script(
+            "STORE Orders INTO [lib://Sales Space:Lake/qvd/Orders.QVD] (qvd);"
+        ),
+        {make_dataset_urn("qlik-sense", "app-2.orders"): []},
+    )
+    assert source._resolve_file_source(
+        "app-1", _file_qri("adls", "lake", "qvd/Orders.QVD")
+    )
+
+    names = [
+        props.name
+        for wu in source._gen_unmapped_file_entities()
+        if (props := wu.get_aspect_of_type(DatasetPropertiesClass))
+    ]
+
+    assert names == ["Orders"]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_stored_qvd_on_data_files_is_skipped(mock_api_cls: MagicMock) -> None:
+    source = _source({}, {})
+
+    assert not _store_lineage(
+        source,
+        _store_app([]),
+        parse_script("STORE Orders INTO [lib://Other Space:DataFiles/x.qvd] (qvd);"),
+        {ORDERS: []},
+    )
+    assert not list(source._gen_unmapped_file_entities())
+    # Not a file connection, so there is no storage to map.
+    assert not source.reporter.unresolved_file_connections
+    assert not source.reporter.unread_stored_files
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -986,15 +1524,23 @@ def test_stores_in_competing_branches_are_not_linked(
 
 
 @pytest.mark.parametrize(
-    "listing_failed, variables_failed, written_whole",
-    [(True, False, False), (False, True, False), (False, False, True)],
+    "listing_failed, variables_failed, file_path, expected",
+    [
+        (True, False, UNRESOLVED_FILE, f"patch:{RATES}"),
+        (False, True, UNRESOLVED_FILE, f"patch:{RATES}"),
+        # The script's own variables still name this file, so every source is
+        # known.
+        (False, True, "landing/orders.csv", f"{UNMAPPED_ORDERS_CSV},{RATES}"),
+        (False, False, UNRESOLVED_FILE, RATES),
+    ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_unresolved_file_keeps_lineage_when_its_inputs_were_not_read(
     mock_api_cls: MagicMock,
     listing_failed: bool,
     variables_failed: bool,
-    written_whole: bool,
+    file_path: str,
+    expected: str,
 ) -> None:
     # Without the connections, or the variables its path is built from, the
     # file may be one the last run linked, so the table's lineage is only
@@ -1006,10 +1552,31 @@ def test_unresolved_file_keeps_lineage_when_its_inputs_were_not_read(
         if listing_failed
         else [],
         variables_read_failed=variables_failed,
+        file_path=file_path,
     )
 
     # The table's resolved source is still added when its file is not.
-    assert writes[ORDERS] == (RATES if written_whole else f"patch:{RATES}")
+    assert writes[ORDERS] == expected
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_is_not_named_by_its_connection_when_connections_were_not_listed(
+    mock_api_cls: MagicMock,
+) -> None:
+    # The connection may be one whose storage the listing would have given,
+    # so the last run's edges stay rather than move to a connection-named file.
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {},
+        [UnreadItem(name=UNREAD_DATA_CONNECTIONS, cause="timeout")],
+        script=STORE_SCRIPT,
+    )
+    writes = _graph_app_writes(source, app)
+
+    assert writes[ORDERS] == f"patch:{RATES}"
+    assert not [urn for urn in writes if "sales space:lake" in urn]
+    # Not reported as named by its connection; the unread listing is reported.
+    assert not source.reporter.unresolved_file_connections
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -1022,6 +1589,7 @@ def test_unresolved_file_of_an_app_with_includes_only_adds(
         {},
         [],
         script="$(Must_Include=lib://Lake/common.qvs);\n" + SCRIPT,
+        file_path=UNRESOLVED_FILE,
     )
 
     assert writes[ORDERS] == f"patch:{RATES}"
@@ -1106,6 +1674,7 @@ def test_unresolved_file_of_an_app_loading_by_wildcard_only_adds(
         {},
         [],
         script=SCRIPT + "Daily:\nLOAD * FROM [lib://Lake/daily/*.csv] (txt);\n",
+        file_path=UNRESOLVED_FILE,
     )
 
     assert writes[ORDERS] == f"patch:{RATES}"
@@ -1116,7 +1685,13 @@ def test_unresolved_file_of_an_app_calling_an_undefined_sub_only_adds(
     mock_api_cls: MagicMock,
 ) -> None:
     # The SUB, such as one from an include, may load the file.
-    writes = _graph_app_run(mock_api_cls, {}, [], script=SCRIPT + "CALL LoadRates;\n")
+    writes = _graph_app_run(
+        mock_api_cls,
+        {},
+        [],
+        script=SCRIPT + "CALL LoadRates;\n",
+        file_path=UNRESOLVED_FILE,
+    )
 
     assert writes[ORDERS] == f"patch:{RATES}"
 
@@ -1170,6 +1745,179 @@ def test_visible_connection_of_another_kind_does_not_block_the_file(
         )
         == "urn:li:dataset:(urn:li:dataPlatform:abs,lake/ref/regions.xlsx,PROD)"
     )
+
+
+@pytest.mark.parametrize(
+    "keys, expected",
+    [
+        pytest.param(["Sales Space:Lake"], "abs", id="one key in another case"),
+        # Two keys told apart only by case, neither spelled as the script does.
+        pytest.param(["Sales Space:Lake", "sales space:lake"], None, id="ambiguous"),
+    ],
+)
+@pytest.mark.parametrize("source_of_storage", ["visible", "mapped"])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_connection_is_found_regardless_of_case(
+    mock_api_cls: MagicMock,
+    keys: List[str],
+    expected: Optional[str],
+    source_of_storage: str,
+) -> None:
+    storage_uri = "abfss://lake@account.dfs.core.windows.net"
+    if source_of_storage == "mapped":
+        source = _source({key: {"storage_uri": storage_uri} for key in keys}, {})
+    else:
+        source = _source(
+            {},
+            {
+                key: DataConnectionInfo(
+                    name="Lake",
+                    file_platform=FilePlatform.ABS,
+                    file_storage=FileStorage(platform="abs", location="lake"),
+                )
+                for key in keys
+            },
+        )
+
+    storage, _ = source._file_storage("SALES SPACE:LAKE", "space-1")
+
+    assert (storage.platform if storage else None) == expected
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_writer_and_reader_spelling_a_file_in_different_case_join(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {},
+        {},
+        script="Orders: LOAD * FROM [lib://sales space:lake/QVD/Orders.qvd] (qvd);",
+    )
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+    _store_lineage(
+        source,
+        _store_app([]).model_copy(update={"id": "app-2"}),
+        parse_script("STORE Orders INTO [lib://Lake/qvd/orders.qvd] (qvd);"),
+        {stored: []},
+    )
+
+    assert (
+        source._resolve_file_source(
+            "app-1", _file_qri("adls", "lake", "QVD/Orders.qvd")
+        )
+        == UNMAPPED_ORDERS_QVD
+    )
+    lineage = [
+        wu.get_urn()
+        for wu in source._gen_unmapped_file_entities()
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+    ]
+    assert lineage == [UNMAPPED_ORDERS_QVD]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_on_a_connector_without_storage_mapping_is_not_reported(
+    mock_api_cls: MagicMock,
+) -> None:
+    # Such as SFTP, which `file_connection_to_storage` can't map.
+    source = _source(
+        {}, {}, script="X: LOAD * FROM [lib://Sales Space:Ftp/x.csv] (txt);"
+    )
+
+    assert source._resolve_file_source(
+        "app-1", _file_qri("sftp", "ftp", "x.csv")
+    ) == make_dataset_urn("qlik-sense", "sales space:ftp/x.csv")
+    assert not source.reporter.unresolved_file_connections
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_store_into_a_visible_connector_without_storage_joins_its_reader(
+    mock_api_cls: MagicMock,
+) -> None:
+    # Such as SFTP: listed, but no storage `file_connection_to_storage` maps.
+    source = _source(
+        {},
+        {"Sales Space:Ftp": DataConnectionInfo(name="Ftp")},
+        script="X: LOAD * FROM [lib://Sales Space:Ftp/qvd/orders.qvd] (qvd);",
+    )
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+    _store_lineage(
+        source,
+        _store_app([]).model_copy(update={"id": "app-2"}),
+        parse_script("STORE Orders INTO [lib://Ftp/qvd/orders.qvd] (qvd);"),
+        {stored: []},
+    )
+    file_urn = make_dataset_urn("qlik-sense", "sales space:ftp/qvd/orders.qvd")
+
+    assert (
+        source._resolve_file_source("app-1", _file_qri("sftp", "ftp", "qvd/orders.qvd"))
+        == file_urn
+    )
+    lineage = [
+        wu.metadata
+        for wu in source._gen_unmapped_file_entities()
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+    ]
+    assert [mcp.entityUrn for mcp in lineage] == [file_urn]
+    assert stored in str(lineage[0].aspect)
+    assert not source.reporter.unresolved_file_connections
+
+
+@pytest.mark.parametrize(
+    "connection, key",
+    [
+        ("[Team: Sales]:Lake", "Team: Sales:Lake"),
+        ("[Team: Sales]:[Lake]", "Team: Sales:Lake"),
+        ("[Lake: Raw]", "Sales Space:Lake: Raw"),
+        ("Sales Space:[Lake: Raw]", "Sales Space:Lake: Raw"),
+    ],
+)
+@pytest.mark.parametrize("source_of_storage", ["visible", "mapped"])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_bracketed_connection_finds_its_storage(
+    mock_api_cls: MagicMock, connection: str, key: str, source_of_storage: str
+) -> None:
+    if source_of_storage == "mapped":
+        source = _source(
+            {key: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}}, {}
+        )
+    else:
+        source = _source(
+            {},
+            {
+                key: DataConnectionInfo(
+                    name=key,
+                    file_platform=FilePlatform.ABS,
+                    file_storage=FileStorage(platform="abs", location="lake"),
+                )
+            },
+        )
+
+    storage, _ = source._file_storage(connection, "space-1")
+
+    assert storage is not None and storage.platform == FilePlatform.ABS
+
+
+@pytest.mark.parametrize(
+    "key, matches",
+    [
+        ("Finance:Sales SQL", True),
+        # A bare key is the connection in any space.
+        ("Sales SQL", True),
+        ("Other:Sales SQL", False),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_mapping_matches_a_qualified_connection(
+    mock_api_cls: MagicMock, key: str, matches: bool
+) -> None:
+    source = _source({}, {})
+
+    entry = source._mapped_connection("Finance:Sales SQL", "space-1", {key: "entry"})
+
+    assert (entry == "entry") is matches
 
 
 def _upstream_ops(workunits: Iterable[MetadataWorkUnit]) -> Dict[str, List[str]]:

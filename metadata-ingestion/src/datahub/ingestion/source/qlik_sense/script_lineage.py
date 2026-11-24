@@ -1999,12 +1999,6 @@ def app_table_identifier(app_id: str, table_name: str) -> str:
     return f"{app_id}.{table_name}".lower()
 
 
-def connection_lookup_names(name: str) -> List[str]:
-    # Qlik Cloud scripts reference connections as `<space>:<connection>`.
-    short_name = name.rsplit(SPACE_SEPARATOR, 1)[-1]
-    return [name] if short_name == name else [name, short_name]
-
-
 def brackets_to_backticks(sql: str) -> str:
     """ODBC drivers accept [name] identifiers and translate them for engines
     such as Databricks that only quote with backticks."""

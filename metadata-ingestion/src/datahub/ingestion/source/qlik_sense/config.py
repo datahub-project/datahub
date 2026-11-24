@@ -163,6 +163,9 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     # known: add them to file_connection_to_storage. Kept whole, since there are
     # only as many as the tenant has connections and each needs mapping.
     unresolved_file_connections: List[str] = field(default_factory=list)
+    # Files on connections of unknown storage that apps store into but no
+    # app's lineage graph reads, so they may not exist and are left out.
+    unread_stored_files: LossyList[str] = field(default_factory=LossyList)
     # Cloud STOREs of a table into different files from competing IF or SWITCH
     # branches, which are not linked.
     qvd_stores_in_competing_branches: LossyList[str] = field(default_factory=LossyList)
@@ -464,7 +467,7 @@ class QlikSourceConfig(
     data_connection_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},
         description="Platform, database, schema and platform instance of the tables "
-        "that load script `SELECT`s read, keyed by data connection name. Set `platform`, "
+        "that load script `SELECT`s read, keyed by data connection name in any case. Set `platform`, "
         "`database` and `default_schema` when they cannot be inferred from the data "
         "connection.",
     )
@@ -482,7 +485,7 @@ class QlikSourceConfig(
         description="Where the files of Azure Storage, Amazon S3 and Google Cloud "
         "Storage data connections are in DataHub, for lineage from the files apps "
         "load and the QVDs they store. Use the data connection name as key, as load "
-        "scripts write it (`<space>:<connection>` or `<connection>`). Set "
+        "scripts write it (`<space>:<connection>` or `<connection>`), in any case. Set "
         "`storage_uri` when the API key's user cannot see the connection, and "
         "always on-prem, and `platform_instance` and `env` to match the source that "
         "ingests the storage. On-prem, QVDs of these connections take the same "

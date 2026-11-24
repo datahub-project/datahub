@@ -4,15 +4,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     PERSONAL_SPACE_DICT,
     App,
+    LineageTable,
     Sheet,
     Space,
 )
+from datahub.ingestion.source.qlik_sense.file_lineage import qri_part_id
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     auto_stale_entity_removal,
@@ -20,6 +23,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
+from datahub.metadata.schema_classes import UpstreamLineageClass
 from tests.test_helpers.state_helpers import mock_datahub_graph  # noqa: F401
 from tests.unit.qlik_sense.qlik_fakes import (
     LOAD_SCRIPT,
@@ -170,7 +174,9 @@ def test_qrs_failure_does_not_soft_delete(
     ]
 
 
-def _cloud_app(read_errors: List[str]) -> App:
+def _cloud_app(
+    read_errors: List[str], script: str, lineage_tables: List[LineageTable]
+) -> App:
     app = App.model_validate(
         {
             "id": "app-1",
@@ -180,6 +186,8 @@ def _cloud_app(read_errors: List[str]) -> App:
             "createdDate": "2024-01-09T18:05:36.000Z",
             "modifiedDate": "2024-01-09T18:05:36.000Z",
             "spaceId": "space-1",
+            "script": script,
+            "lineage_tables": lineage_tables,
         }
     )
     if not read_errors:
@@ -199,7 +207,12 @@ def _cloud_app(read_errors: List[str]) -> App:
 
 
 def _cloud_run(
-    graph: MagicMock, run_id: str, read_errors: List[str]
+    graph: MagicMock,
+    run_id: str,
+    read_errors: List[str],
+    script: str = "",
+    lineage_tables: Optional[List[LineageTable]] = None,
+    file_connection_to_storage: Optional[Dict[str, Dict[str, str]]] = None,
 ) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
     with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI") as api_cls:
         api = api_cls.return_value
@@ -213,7 +226,10 @@ def _cloud_run(
                 }
             )
         ]
-        api.get_items.return_value = [_cloud_app(read_errors)]
+        api.get_items.return_value = [
+            _cloud_app(read_errors, script, lineage_tables or [])
+        ]
+        api.get_data_connections.return_value = {}
         api.unread_items = []
         api.failed_user_lookups = {}
         api.change_check_failures = []
@@ -228,6 +244,7 @@ def _cloud_run(
                 {
                     "tenant_hostname": "tenant.example",
                     "api_key": "secret",
+                    "file_connection_to_storage": file_connection_to_storage or {},
                     "stateful_ingestion": {
                         "enabled": True,
                         "remove_stale_metadata": True,
@@ -259,3 +276,71 @@ def test_cloud_partly_read_app_keeps_last_read(
     assert "Unable to fully read Qlik app" in [
         warning.title for warning in second.reporter.warnings
     ]
+
+
+def test_cloud_partly_read_app_keeps_the_connection_named_file_it_loads(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    script = "Orders:\nLOAD * FROM [lib://Finance:Lake/landing/orders.csv] (txt);\n"
+    file_qri = (
+        f"qri:file:adls://{qri_part_id('lake')}"
+        f"#{qri_part_id('landing/orders.csv')}#{qri_part_id('item')}"
+    )
+    orders = [
+        LineageTable(
+            qri="qri:app:sense://app-1#Orders", label="Orders", source_qris=[file_qri]
+        )
+    ]
+    _, first_wus = _cloud_run(mock_datahub_graph, "run-1", [], script, orders)
+    _, second_wus = _cloud_run(
+        mock_datahub_graph, "run-2", ["Unable to fetch sheets"], script, orders
+    )
+
+    # Only an upstream of the app's table, so its dataset is emitted at the
+    # end of the run rather than with the app.
+    csv = make_dataset_urn("qlik-sense", "finance:lake/landing/orders.csv")
+    assert csv in {wu.get_urn() for wu in first_wus}
+    assert csv not in {wu.get_urn() for wu in second_wus}
+    assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
+
+
+def test_cloud_file_moves_to_its_storage_once_mapped(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    script = "Orders:\nLOAD * FROM [lib://Finance:Lake/landing/orders.csv] (txt);\n"
+    file_qri = (
+        f"qri:file:adls://{qri_part_id('lake')}"
+        f"#{qri_part_id('landing/orders.csv')}#{qri_part_id('item')}"
+    )
+    orders = [
+        LineageTable(
+            qri="qri:app:sense://app-1#Orders", label="Orders", source_qris=[file_qri]
+        )
+    ]
+    _, first_wus = _cloud_run(mock_datahub_graph, "run-1", [], script, orders)
+    _, second_wus = _cloud_run(
+        mock_datahub_graph,
+        "run-2",
+        [],
+        script,
+        orders,
+        # Mapped in a different case from the script's spelling.
+        {"finance:LAKE": {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+    )
+
+    qlik_csv = make_dataset_urn("qlik-sense", "finance:lake/landing/orders.csv")
+    storage_csv = make_dataset_urn("abs", "lake/landing/orders.csv")
+
+    def upstreams(workunits: List[MetadataWorkUnit]) -> List[str]:
+        return [
+            upstream.dataset
+            for wu in workunits
+            if (lineage := wu.get_aspect_of_type(UpstreamLineageClass))
+            for upstream in lineage.upstreams
+        ]
+
+    assert upstreams(first_wus) == [qlik_csv]
+    assert upstreams(second_wus) == [storage_csv]
+    assert qlik_csv in {
+        wu.get_urn() for wu in second_wus if wu.id.startswith("soft-delete-")
+    }
