@@ -35,6 +35,9 @@ class AppCheckpoint(BaseModel):
     qvds: Optional[AppQvds] = None
     # The files on storage the app stores into, on Qlik Cloud.
     stored_file_urns: List[str] = []
+    # Field names of the app's tables, so a renamed load from a kept app still
+    # names its source field. None in older state.
+    field_names: Optional[List[str]] = None
 
 
 class QlikAppCheckpointState(CheckpointStateBase):
@@ -113,6 +116,9 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
     def previous(self, app_id: str) -> Optional[AppCheckpoint]:
         last = self._trusted_last_apps()
         return last.get(app_id) if last is not None else None
+
+    def previous_apps(self) -> Dict[str, AppCheckpoint]:
+        return self._trusted_last_apps() or {}
 
     def keep_unrecorded_apps(self) -> None:
         """Carries the last read of every app this run did not record into its

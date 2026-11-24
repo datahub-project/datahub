@@ -307,6 +307,12 @@ def _schema_field_parent(urn: str) -> Optional[str]:
         return None
 
 
+def _app_field_names(app: App) -> List[str]:
+    names = [field.name for table in app.data_model_tables for field in table.fields]
+    names.extend(field for table in app.lineage_tables for field in table.fields)
+    return list(dict.fromkeys(names))
+
+
 def _qlik_field_id(name: str) -> str:
     """The last part of a field node's QRI in Qlik's lineage graph, which is the
     unpadded base64url SHA-256 of the field name. Not documented by Qlik, so it
@@ -405,6 +411,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # Table QRI -> dataset URN for the tables of apps read or kept this run.
         # Lineage only links to tables in here, as other URNs may never exist.
         self._app_table_urns_by_qri: Dict[str, str] = {}
+        # The table URNs of each app read or kept this run.
+        self._table_urns_by_app: Dict[str, Set[str]] = {}
         # Tables the last run recorded for apps whose tables are known this
         # run, so edges from a table since renamed or dropped are still owned.
         self._previous_app_table_urns: Set[str] = set()
@@ -648,10 +656,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._app_qvds[app_id] = previous.qvds
             if not previous.qvds.writes_complete:
                 self._apps_qvds_unknown[app_id] = UNRESOLVED_STORE
+        if previous.field_names:
+            self._learn_field_names(previous.field_names)
         if previous.table_urns_by_qri is not None:
-            self._app_table_urns_by_qri.update(
-                _own_table_urns(app_id, previous.table_urns_by_qri)
-            )
+            kept = _own_table_urns(app_id, previous.table_urns_by_qri)
+            self._app_table_urns_by_qri.update(kept)
+            self._table_urns_by_app[app_id] = set(kept.values())
         # None was recorded before table URNs were kept in the state.
         if previous.table_urns_by_qri is None or previous.tables_unknown:
             self._apps_tables_unknown.add(app_id)
@@ -681,6 +691,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     graph_tables_unresolved=previous.graph_tables_unresolved,
                     qvds=self._app_qvds.get(app.id),
                     stored_file_urns=previous.stored_file_urns,
+                    field_names=previous.field_names,
                 ),
             )
         self.reporter.apps_skipped_unchanged += 1
@@ -721,6 +732,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 graph_tables_unresolved=previous.graph_tables_unresolved,
                 qvds=previous.qvds,
                 stored_file_urns=previous.stored_file_urns,
+                field_names=previous.field_names,
             ),
         )
         return _PartialRead.KEPT
@@ -761,6 +773,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 graph_tables_unresolved=self._graph_tables_unresolved(app),
                 qvds=self._app_qvds.get(app.id),
                 stored_file_urns=self._app_stored_files.get(app.id, []),
+                field_names=_app_field_names(app),
             ),
         )
 
@@ -1803,7 +1816,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return urns
 
     def _register_app_tables(self, app: App) -> None:
-        self._app_table_urns_by_qri.update(self._app_table_urns(app))
+        table_urns = self._app_table_urns(app)
+        self._app_table_urns_by_qri.update(table_urns)
+        self._table_urns_by_app[app.id] = set(table_urns.values())
         if self._tables_unknown(app):
             self._apps_tables_unknown.add(app.id)
             return
@@ -2130,23 +2145,62 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.file_stores_linked += 1
         previous = self._usable_checkpoint(app.id, [])
         previous_files = previous.stored_file_urns if previous else []
-        # Files the app may still have edges into, so a later run that knows
-        # all its stores can remove them.
-        self._app_stored_files[app.id] = sorted(
-            {*writes, *([] if complete else previous_files)}
-        )
-        owned = {
-            *table_urns,
-            *self._app_table_urns(app).values(),
-            *((previous.table_urns_by_qri or {}).values() if previous else []),
+        currents = {
+            file_urn: self._current_upstreams(file_urn) if complete else None
+            for file_urn in sorted({*writes, *previous_files})
         }
-        for file_urn in sorted({*writes, *previous_files}):
-            current = self._current_upstreams(file_urn) if complete else None
+        # Files the app may still have edges into, so a later run that knows
+        # all its stores and can read their lineage removes them.
+        self._app_stored_files[app.id] = sorted(
+            file_urn
+            for file_urn, current in currents.items()
+            if file_urn in writes or current is None
+        )
+        shared = self._table_urns_of_other_apps(app.id)
+        # A table another app also has, such as a QVD both load, may be what
+        # that app stores into the file, so its edge is never this app's to
+        # remove.
+        owned = (
+            set()
+            if shared is None
+            else {
+                *table_urns,
+                *self._app_table_urns(app).values(),
+                *((previous.table_urns_by_qri or {}).values() if previous else []),
+            }
+            - shared
+        )
+        for file_urn, current in currents.items():
             if file_urn not in writes and current is None:
                 continue
             yield from self._gen_qvd_upstreams(
                 file_urn, writes.get(file_urn, []), current, owned.__contains__
             )
+
+    def _table_urns_of_other_apps(self, app_id: str) -> Optional[Set[str]]:
+        """The tables of the other apps read or kept this run, or recorded by
+        the last run; None when the last run's could not be loaded."""
+        urns = {
+            urn
+            for other, table_urns in self._table_urns_by_app.items()
+            if other != app_id
+            for urn in table_urns
+        }
+        try:
+            last_apps = self.app_state.previous_apps()
+        except Exception as e:
+            self.reporter.warning(
+                title="Unable to load the last checkpoints of Qlik apps",
+                message="Which tables other apps share with the app is unknown, "
+                "so its edges into the files it stores into are only added to.",
+                context=app_id,
+                exc=e,
+            )
+            return None
+        for other, checkpoint in last_apps.items():
+            if other != app_id:
+                urns.update((checkpoint.table_urns_by_qri or {}).values())
+        return urns
 
     def _catalogued_as_qlik_dataset(
         self, storage: FileStorage, path: str
@@ -2655,12 +2709,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             app_table_identifier(app.id, table.name): table.fields
             for table in app.data_model_tables
         }
-        self._learn_field_names(
-            field.name for table in app.data_model_tables for field in table.fields
-        )
-        self._learn_field_names(
-            field for table in app.lineage_tables for field in table.fields
-        )
+        self._learn_field_names(_app_field_names(app))
         if self.config.on_prem is None and not app.tables:
             self.reporter.apps_without_load_model.append(app.id)
         parsed = self._parsed_script(app)
