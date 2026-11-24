@@ -2033,6 +2033,69 @@ def test_moved_store_keeps_the_edge_of_a_table_another_app_shares(
     assert not [op for op in ops.get(DEV_CUSTOMERS, []) if op.startswith("remove")]
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_store_of_an_ambiguous_table_keeps_the_edges_into_its_file(
+    mock_api_cls: MagicMock,
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        script="STORE Customers INTO [lib://Sales Space:Lake/dev/customers.qvd];",
+        tables=[
+            _model_table("Customers", "AllCustomers", CUSTOMERS_QRI),
+            _model_table(
+                "CustomersArchive",
+                "Customers",
+                "qri:db:sqlserver://sales#dbo.CustomersArchive",
+            ),
+        ],
+    )
+    graph = MagicMock()
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=CUSTOMERS, type=DatasetLineageTypeClass.COPY)]
+    )
+    source.ctx.graph = graph
+    previous = AppCheckpoint(urns=[CUSTOMERS], stored_file_urns=[DEV_CUSTOMERS])
+
+    with patch.object(QlikSenseSource, "_usable_checkpoint", return_value=previous):
+        ops = _upstream_ops(_app_and_end_of_run(source, app))
+
+    # The label names two tables, so either may be what the app still stores
+    # into the file.
+    assert DEV_CUSTOMERS not in ops
+    assert source._app_stored_files[app.id] == [DEV_CUSTOMERS]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_untrusted_last_checkpoints_keep_edges_into_stored_files(
+    mock_api_cls: MagicMock,
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        script="STORE Customers INTO [lib://Sales Space:Lake/prod/customers.qvd];",
+        tables=[_model_table("Customers", "Customers", CUSTOMERS_QRI)],
+    )
+    graph = MagicMock()
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=CUSTOMERS, type=DatasetLineageTypeClass.COPY)]
+    )
+    source.ctx.graph = graph
+    previous = AppCheckpoint(urns=[CUSTOMERS], stored_file_urns=[DEV_CUSTOMERS])
+
+    with (
+        patch.object(QlikSenseSource, "_usable_checkpoint", return_value=previous),
+        patch.object(source.app_state, "previous_apps", return_value=None),
+    ):
+        ops = _upstream_ops(_app_and_end_of_run(source, app))
+
+    # Another app the last run recorded may share the table and store it
+    # into the old file.
+    assert not [op for op in ops.get(DEV_CUSTOMERS, []) if op.startswith("remove")]
+
+
 @pytest.mark.parametrize("script", ["denied", "not read"])
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_unread_script_keeps_the_edges_into_files_it_stored_into(
