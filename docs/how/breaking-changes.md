@@ -342,7 +342,7 @@ unpublished documents that have no lifecycle stage. `semanticSearchAcrossEntitie
 it runs the semantic search template. **Action:** none, unless a client filters on
 `showInGlobalContext` and expects documents hidden from global context to stay out.
 
-### Vector search templates need OpenSearch 3.5 or later
+### Vector search templates need OpenSearch 3.5 or later ([#21596](https://github.com/datahub-project/datahub/pull/21596))
 
 On OpenSearch before 3.5, a search that a vector search template serves from the DataHub index now
 fails instead of returning an empty page. This covers a search that names
@@ -359,7 +359,7 @@ affected either. While GMS cannot read the OpenSearch version, these searches ru
 **Action:** to use vector templates, upgrade OpenSearch to 3.5 or later, then restart GMS, which keeps
 the version it has read until it restarts.
 
-### `searchDocuments` through a vector template honors its search flags
+### `searchDocuments` through a vector template honors its search flags ([#21596](https://github.com/datahub-project/datahub/pull/21596))
 
 `searchDocuments` with a vector template named in the `searchTemplate` search flag now applies the
 `minSimilarity` search flag, which it ignored before, and honors `keywordFallbackOnEmbeddingFailure`,
@@ -372,7 +372,7 @@ request, without the named template; the `searchDocuments` result does not say t
 **Action:** if a client retries these searches on a server error, retry on `SERVICE_UNAVAILABLE` and
 `DEADLINE_EXCEEDED` instead, and do not retry a bad request.
 
-### Search template writes reject unknown `retrieval` values
+### Search template writes reject unknown `retrieval` values ([#21596](https://github.com/datahub-project/datahub/pull/21596))
 
 Writing a search template now fails when `retrieval.total`, `retrieval.facets`, `retrieval.page`, or
 `retrieval.authorization` holds a value DataHub does not define, whether the template sets it or
