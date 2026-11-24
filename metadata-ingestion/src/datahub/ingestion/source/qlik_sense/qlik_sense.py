@@ -516,6 +516,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # Every listed dataset, so one in a space the recipe leaves out is not
         # named from the lineage graph instead.
         self._listed_dataset_qris: Set[str] = set()
+        # A listed QVD of a left-out space had no secure QRI to match.
+        self._excluded_datasets_without_qri = False
         # App tables whose lineage waits for field names read later in the run.
         self._pending_table_lineage: List[PendingTableLineage] = []
         # Table QRI -> dataset URN for the tables of apps read or kept this run.
@@ -1953,6 +1955,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._datasets_without_qri = any(
             d.secure_qri is None and _is_qvd(d) for d in allowed
         )
+        self._excluded_datasets_without_qri = any(
+            d.secure_qri is None and _is_qvd(d)
+            for d in datasets
+            if d.space_id not in self._allowed_space_ids
+        )
         return {
             dataset.secure_qri: self._gen_qlik_dataset_urn(
                 self._qlik_dataset_identifier(dataset.space_id, dataset.name)
@@ -2127,7 +2134,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return (urn if urn != dataset_urn else None), True
 
     def _graph_could_name(self, table_qri: str) -> bool:
-        # A dataset listed in a space the recipe leaves out stays out.
+        # A dataset listed in a space the recipe leaves out stays out. When one
+        # has no QRI, any dataset QRI the graph names may be it.
+        if (
+            table_qri.startswith(QLIK_DATASET_QRI_PREFIX)
+            and self._excluded_datasets_without_qri
+        ):
+            return False
         return table_qri.startswith(UPSTREAM_RESOURCE_QRI_PREFIXES) and not any(
             qri in self._listed_dataset_qris
             for qri in (table_qri.rpartition("#")[0], table_qri)
