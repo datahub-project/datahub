@@ -2154,6 +2154,35 @@ def test_old_file_whose_lineage_cant_be_read_stays_in_the_checkpoint(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_old_file_stays_in_the_checkpoint_when_no_edges_are_removed(
+    mock_api_cls: MagicMock,
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        script="Orders:\nLOAD * FROM [lib://Sales Space:Lake/landing/orders.csv] "
+        "(txt);\nSTORE Orders INTO [lib://Sales Space:Lake/prod/orders.qvd];\n",
+    )
+    graph = MagicMock()
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=ORDERS, type=DatasetLineageTypeClass.COPY)]
+    )
+    source.ctx.graph = graph
+    # Part of the run wasn't read, so another app may share the app's tables
+    # and none of its edges are removed.
+    source.qlik_api.unread_items = [MagicMock()]
+    previous = AppCheckpoint(urns=[ORDERS], stored_file_urns=[DEV_ORDERS])
+
+    with patch.object(QlikSenseSource, "_usable_checkpoint", return_value=previous):
+        ops = _upstream_ops(_app_and_end_of_run(source, app))
+
+    assert not any(op.startswith("remove") for op in ops.get(DEV_ORDERS, []))
+    # A later run that may remove edges still knows about the old file.
+    assert source._app_stored_files[app.id] == [DEV_ORDERS, PROD_ORDERS]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_stores_through_two_names_of_one_connection_do_not_compete(
     mock_api_cls: MagicMock,
 ) -> None:
