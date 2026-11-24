@@ -6,6 +6,7 @@ import requests
 from pydantic import SecretStr
 
 from datahub.ingestion.source.grafana.constants import (
+    DASHBOARD_FETCH_ERROR_TITLE,
     DASHBOARD_PARSE_ERROR_TITLE,
     DASHBOARD_SEARCH_ERROR_TITLE,
     FOLDER_FETCH_ERROR_TITLE,
@@ -57,6 +58,11 @@ def test_create_session(mock_session):
 
     # Verify SSL verification was set
     assert mock_session.verify is True
+
+    # Transient errors are retried for both schemes.
+    mounted = {call.args[0]: call.args[1] for call in mock_session.mount.call_args_list}
+    assert set(mounted) == {"http://", "https://"}
+    assert 503 in mounted["https://"].max_retries.status_forcelist
 
 
 def test_get_folders_success(api_client, mock_session):
@@ -361,6 +367,31 @@ def test_get_dashboards_skips_bad_search_hits_and_dashboards(api_client, mock_se
     assert api_client.report.dashboard_search_hits_skipped == 2
     assert api_client.report.dashboards_unparseable == 1
     assert not api_client.report.failures
+
+
+def test_get_dashboards_treats_404_as_deleted(api_client, mock_session):
+    # A dashboard deleted between search and fetch is gone from Grafana, so it
+    # must not count as skipped, which would fail a run with stale removal on.
+    mock_session.get.side_effect = [
+        _json_response([{"uid": "gone"}, {"uid": "ok"}]),
+        _http_error_response(404),
+        _json_response(_dashboard_body("ok")),
+        _json_response([]),
+    ]
+
+    listing = api_client.get_dashboards()
+
+    assert [d.uid for d in listing.dashboards] == ["ok"]
+    assert listing.skipped == 0
+    assert api_client.report.dashboards_deleted_after_search == 1
+    assert not api_client.report.warnings
+
+
+def test_get_dashboard_reports_404(api_client, mock_session):
+    mock_session.get.return_value = _http_error_response(404)
+
+    assert api_client.get_dashboard("x") is None
+    assert log_titles(api_client.report.warnings) == {DASHBOARD_FETCH_ERROR_TITLE}
 
 
 def test_get_dashboard_skips_non_object_body_with_skip_text_panels(

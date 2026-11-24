@@ -1,5 +1,6 @@
 """API client for Grafana metadata extraction"""
 
+import hashlib
 import json
 import logging
 from typing import Dict, Iterator, List, Optional, Sequence, Set, Union
@@ -7,6 +8,8 @@ from typing import Dict, Iterator, List, Optional, Sequence, Set, Union
 import requests
 import urllib3.exceptions
 from pydantic import SecretStr, ValidationError
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.grafana.constants import (
     DASHBOARD_FETCH_ERROR_MESSAGE,
@@ -21,7 +24,11 @@ from datahub.ingestion.source.grafana.constants import (
     FOLDER_PARSE_ERROR_MESSAGE,
     FOLDER_PARSE_ERROR_TITLE,
     FOLDER_UNEXPECTED_RESPONSE_MESSAGE,
+    HTTP_NOT_FOUND,
     HTTP_PERMISSION_STATUS_CODES,
+    HTTP_RETRY_BACKOFF_FACTOR,
+    HTTP_RETRY_MAX_TIMES,
+    HTTP_RETRY_STATUS_CODES,
     REPEATED_PAGE_MESSAGE,
     REPEATED_PAGE_TITLE,
     SEARCH_HIT_SKIPPED_MESSAGE,
@@ -45,6 +52,10 @@ def _is_permission_error(e: requests.exceptions.RequestException) -> bool:
         e.response is not None
         and e.response.status_code in HTTP_PERMISSION_STATUS_CODES
     )
+
+
+class _DashboardNotFoundError(Exception):
+    pass
 
 
 class GrafanaAPIClient:
@@ -76,6 +87,18 @@ class GrafanaAPIClient:
             }
         )
         session.verify = self.verify_ssl
+        # Without retries one transient error skips a dashboard, and with stale
+        # removal on, a skipped dashboard fails the whole run.
+        adapter = HTTPAdapter(
+            max_retries=Retry(
+                total=HTTP_RETRY_MAX_TIMES,
+                status_forcelist=HTTP_RETRY_STATUS_CODES,
+                backoff_factor=HTTP_RETRY_BACKOFF_FACTOR,
+                raise_on_status=False,
+            )
+        )
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
 
         # If SSL verification is disabled, suppress the warnings
         if not self.verify_ssl:
@@ -118,6 +141,20 @@ class GrafanaAPIClient:
     def get_dashboard(self, uid: str) -> Optional[Dashboard]:
         """Fetch a specific dashboard by UID"""
         try:
+            return self._fetch_dashboard(uid)
+        except _DashboardNotFoundError as e:
+            self.report.warning(
+                title=DASHBOARD_FETCH_ERROR_TITLE,
+                message=DASHBOARD_FETCH_ERROR_MESSAGE,
+                context=uid,
+                exc=e,
+            )
+            return None
+
+    def _fetch_dashboard(self, uid: str) -> Optional[Dashboard]:
+        """Return the dashboard, or None if it could not be read. A 404 raises
+        _DashboardNotFoundError so the caller decides what it means."""
+        try:
             response = self.session.get(f"{self.base_url}/api/dashboards/uid/{uid}")
             response.raise_for_status()
             dashboard_data = response.json()
@@ -125,6 +162,8 @@ class GrafanaAPIClient:
                 dashboard_data["_skip_text_panels"] = True
             return Dashboard.model_validate(dashboard_data)
         except requests.exceptions.RequestException as e:
+            if e.response is not None and e.response.status_code == HTTP_NOT_FOUND:
+                raise _DashboardNotFoundError(uid) from e
             self.report.warning(
                 title=DASHBOARD_FETCH_ERROR_TITLE,
                 message=DASHBOARD_FETCH_ERROR_MESSAGE,
@@ -162,7 +201,14 @@ class GrafanaAPIClient:
                 if hit.uid in seen_uids:
                     continue
                 seen_uids.add(hit.uid)
-                dashboard = self.get_dashboard(hit.uid)
+                try:
+                    dashboard = self._fetch_dashboard(hit.uid)
+                except _DashboardNotFoundError:
+                    # Deleted between search and fetch, so it is gone from
+                    # Grafana: not a skip, and stale removal may delete it.
+                    self.report.report_dashboard_deleted_after_search()
+                    logger.info(f"Dashboard {hit.uid} was deleted during ingestion")
+                    continue
                 if dashboard is None:
                     listing.skipped += 1
                 else:
@@ -250,9 +296,13 @@ class GrafanaAPIClient:
 
             # Order-insensitive, so a page returned again in another order
             # also counts as repeated.
-            fingerprint = json.dumps(
-                sorted(json.dumps(item, sort_keys=True, default=str) for item in batch)
-            )
+            fingerprint = hashlib.sha256(
+                json.dumps(
+                    sorted(
+                        json.dumps(item, sort_keys=True, default=str) for item in batch
+                    )
+                ).encode()
+            ).hexdigest()
             if fingerprint in seen_pages:
                 if len(batch) >= self.page_size:
                     self.report.failure(

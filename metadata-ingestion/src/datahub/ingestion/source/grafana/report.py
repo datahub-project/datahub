@@ -33,6 +33,8 @@ class GrafanaSourceReport(StaleEntityRemovalSourceReport):
     # Skipped because Grafana returned them in a shape that could not be read
     dashboards_unparseable: int = 0  # warned
     dashboard_search_hits_skipped: int = 0  # no uid (basic mode: title, url); warned
+    # 404 after /api/search listed them: deleted mid-run, so not counted as skipped
+    dashboards_deleted_after_search: int = 0
 
     # Dashboards not placed in a folder. General-folder dashboards are not counted.
     dashboards_in_filtered_folders: int = 0  # folder excluded by folder_pattern
@@ -59,6 +61,9 @@ class GrafanaSourceReport(StaleEntityRemovalSourceReport):
 
     def report_dashboard_search_hit_skipped(self) -> None:
         self.dashboard_search_hits_skipped += 1
+
+    def report_dashboard_deleted_after_search(self) -> None:
+        self.dashboards_deleted_after_search += 1
 
     # Folder placement reporting methods
     def report_dashboard_in_filtered_folder(self) -> None:
