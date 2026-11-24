@@ -94,18 +94,25 @@ public class SemanticRefreshSideEffect extends MCPSideEffect {
     return patches.stream();
   }
 
+  // An entity type the registry does not know (data from a newer version after a rollback) cannot
+  // hold semantic vectors, so it is treated as not accepted instead of throwing.
+  private boolean gateAccepts(@Nonnull Urn urn, @Nonnull RetrieverContext retrieverContext) {
+    return gate == null
+        || retrieverContext
+            .getAspectRetriever()
+            .getEntityRegistry()
+            .findEntitySpec(urn.getEntityType())
+            .map(gate::isEntityEligible)
+            .orElse(false);
+  }
+
   @Nullable
   private MCPItem markerPatch(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Urn urn,
       @Nonnull List<MCLItem> sources,
       @Nonnull RetrieverContext retrieverContext) {
-    if (gate != null
-        && !gate.isEntityEligible(
-            retrieverContext
-                .getAspectRetriever()
-                .getEntityRegistry()
-                .getEntitySpec(urn.getEntityType()))) {
+    if (!gateAccepts(urn, retrieverContext)) {
       return null;
     }
     Aspect stored =
