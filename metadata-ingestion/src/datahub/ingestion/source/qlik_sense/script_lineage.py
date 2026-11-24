@@ -612,7 +612,7 @@ class _ControlFlowTracker(BaseModel):
                 self.loops[-1].update(varied)
             else:
                 self.state.unknown.difference_update(
-                    name for name in varied if self._assigned_for_the_last_time(name)
+                    name for name in varied if self._takes_app_value(name)
                 )
 
     def _assigned_for_the_last_time(self, name: str) -> bool:
@@ -620,6 +620,15 @@ class _ControlFlowTracker(BaseModel):
 
     def _is_parameter(self, name: str) -> bool:
         return any(name in parameters for parameters in self.parameters)
+
+    def _takes_app_value(self, name: str) -> bool:
+        # After a loop or block that left it unknown, the app's value is the
+        # one its last assignment gave, if the app has it at all.
+        return (
+            self._assigned_for_the_last_time(name)
+            and name in self.app_variable_names
+            and not self._is_parameter(name)
+        )
 
     def _forget_variable(self, name: str) -> None:
         self.state.forget_variable(name)
@@ -667,11 +676,7 @@ class _ControlFlowTracker(BaseModel):
             # branch taken in the app's last reload gave it, which is the app's.
             # Inside an outer branch, that branch may not have run.
             unknown.difference_update(
-                name
-                for name in made_unknown
-                if self._assigned_for_the_last_time(name)
-                and name in self.app_variable_names
-                and not self._is_parameter(name)
+                name for name in made_unknown if self._takes_app_value(name)
             )
         self.state = _BranchState(
             connection=first.connection

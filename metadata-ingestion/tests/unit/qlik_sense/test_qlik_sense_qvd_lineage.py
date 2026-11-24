@@ -1054,6 +1054,16 @@ def test_include_in_one_branch_leaves_known_variables_to_the_app(
     assert bool(parsed.unresolved_qvd_paths) == (path is None)
 
 
+def test_connection_prefix_set_in_a_loop_the_app_lacks_stays_unresolved() -> None:
+    parsed = parse_script(
+        "FOR EACH vEnv IN 'Dev', 'Test'\nSET vPrefix = '$(vEnv)_';\nNEXT vEnv;\n"
+        "Orders: LOAD 1 AS id AUTOGENERATE 1;\n"
+        "STORE Orders INTO [lib://$(vPrefix)QVD Data/orders.qvd] (qvd);",
+    )
+    assert not parsed.qvd_stores
+    assert parsed.has_unresolved_store
+
+
 def test_loop_connection_prefix_is_not_an_unset_prefix() -> None:
     parsed = parse_script(
         "Orders: LOAD 1 AS id AUTOGENERATE 1;\n"

@@ -102,6 +102,12 @@ def test_fallback_values_fill_sql_until_the_script_sets_the_variable() -> None:
             id="sub parameter set in branches that disagree",
         ),
         pytest.param(
+            "SUB LoadTable(vTable)\nFOR EACH vT IN 'a', 'b'\nSET vTable = '$(vT)';\n"
+            "NEXT vT;\nT: SQL SELECT id FROM $(vTable);\n"
+            "END SUB;\nCALL LoadTable('c');",
+            id="sub parameter set in a loop",
+        ),
+        pytest.param(
             "IF vEnv = 'A' THEN\nLET vTable = Lower('SALES_' & vRegion);\n"
             "A: SQL SELECT id FROM $(vTable);\nELSE\n"
             "LET vTable = Lower('HIST_' & vRegion);\n"
@@ -164,6 +170,18 @@ def test_recipe_value_does_not_fill_a_variable_after_branches_that_disagree() ->
         "LIB CONNECT TO 'db';\n"
         "IF vEnv = 'prod' THEN\nSET vTable = 'a';\nELSE\nSET vTable = 'b';\n"
         "END IF;\nT: SQL SELECT id FROM $(vTable);",
+        {},
+    )
+    assert [table.sql.strip() for table in source._parsed_script(app).tables] == [
+        "SELECT id FROM $(vTable)"
+    ]
+
+
+def test_recipe_value_does_not_fill_a_variable_after_a_loop() -> None:
+    source = _source({"vTable": "recipe_table"})
+    app = _app(
+        "LIB CONNECT TO 'db';\nFOR EACH vT IN 'a', 'b'\nSET vTable = '$(vT)';\n"
+        "NEXT vT;\nT: SQL SELECT id FROM $(vTable);",
         {},
     )
     assert [table.sql.strip() for table in source._parsed_script(app).tables] == [
