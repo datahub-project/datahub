@@ -115,6 +115,10 @@ from datahub.ingestion.source.common.subtypes import (
     FlowContainerSubTypes,
     SourceCapabilityModifier,
 )
+from datahub.ingestion.source.data_lake_common.config import (
+    DataLakeLineageProviderConfigBase,
+    PathMode,
+)
 from datahub.ingestion.source.glue_profiling_config import GlueProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -252,6 +256,7 @@ GLUE_NATIVE_CONNECTION_TYPE_MAP: Dict[str, str] = {
 JDBC_PREFIX = "jdbc:"
 DYNAMODB_CONNECTION_TYPE = "dynamodb"
 DYNAMODB_PLATFORM = "dynamodb"
+S3_PLATFORM = "s3"
 DYNAMODB_INPUT_TABLE_NAME = "dynamodb.input.tableName"
 DYNAMODB_OUTPUT_TABLE_NAME = "dynamodb.output.tableName"
 DYNAMODB_TABLE_ARN = "dynamodb.tableArn"
@@ -332,6 +337,7 @@ class GlueSourceConfig(
     DatasetSourceConfigMixin,
     AwsSourceConfig,
     IncrementalPropertiesConfigMixin,
+    DataLakeLineageProviderConfigBase,
 ):
     platform: str = Field(
         default=DEFAULT_PLATFORM,
@@ -484,9 +490,10 @@ class GlueSourceConfig(
         default_factory=dict,
         description=(
             "Optional per-platform config for aligning dataset URNs with separately ingested platforms. "
-            "Keys are DataHub platform names (e.g. 'postgres', 'mysql', 'redshift'). "
+            "Keys are DataHub platform names (e.g. 's3', 'postgres', 'mysql', 'redshift'). "
             "When provided, the platform_instance and env are applied to dataset URNs so they match "
-            "the URNs produced by the platform's own connector. "
+            "the URNs produced by the platform's own connector. The 's3' entry applies to storage "
+            "lineage (`emit_storage_lineage`) and to S3 nodes in Glue job lineage. "
             "Only needed when the target platform's connector uses a platform_instance or a different env."
         ),
     )
@@ -701,6 +708,25 @@ class GlueSourceConfig(
             )
         return self
 
+    @model_validator(mode="after")
+    def warn_datalake_path_specs_usage(self) -> "GlueSourceConfig":
+        # datalake_lineage_config is the shared data-lake model (S3, GCS, ABS), but Glue
+        # only folds S3 table Locations with it, and only for storage lineage.
+        path_specs = self.datalake_lineage_config.path_specs
+        if path_specs and not self.emit_storage_lineage:
+            logger.warning(
+                "datalake_lineage_config.path_specs has no effect "
+                "unless emit_storage_lineage is enabled."
+            )
+        for path_spec in path_specs:
+            if not is_s3_uri(path_spec.include):
+                logger.warning(
+                    f"datalake_lineage_config path spec '{path_spec.include}' is not an S3 "
+                    "URI. Glue storage lineage only resolves S3 table locations, so this "
+                    "spec will never match."
+                )
+        return self
+
 
 def simplify_glue_field_path(field_path: str) -> str:
     if not field_path.startswith(FIELD_PATH_V2_PREFIX) or any(
@@ -733,6 +759,8 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_resource_link_database_tables: int = 0
     num_resource_link_missing_target: int = 0
     num_resource_link_self_referential: int = 0
+    num_storage_lineage_skipped_by_path_spec: int = 0
+    num_storage_lineage_non_s3_location: int = 0
     num_resource_link_schema_from_datahub: int = 0
     num_resource_link_schema_from_glue: int = 0
     num_resource_link_schema_unresolved: int = 0
@@ -1397,15 +1425,13 @@ class GlueSource(StatefulIngestionSourceBase):
         """
         # Apply the target platform's instance/env (if configured) so the parsed upstream URNs match
         # what that platform's own connector emits — same as _make_dataset_urn_for_platform.
-        target_config = self.source_config.target_platform_configs.get(platform)
+        target = self._resolve_target_platform(platform)
         result = create_lineage_sql_parsed_result(
             query=query,
             default_db=database,
             platform=platform,
-            platform_instance=(
-                target_config.platform_instance if target_config else None
-            ),
-            env=target_config.env if target_config and target_config.env else self.env,
+            platform_instance=target.platform_instance,
+            env=target.env,
             default_schema=JDBC_DEFAULT_SCHEMA.get(platform),
             schema_aware=False,
             generate_column_lineage=False,
@@ -1518,6 +1544,56 @@ class GlueSource(StatefulIngestionSourceBase):
 
                     yield s3_uri, extension
 
+    def _resolve_target_platform(self, platform: str) -> ResolvedTarget:
+        """The platform_instance / env from ``target_platform_configs[platform]``, so URNs
+        for that platform match what its own connector emits. Env falls back to the Glue
+        env; the instance is None when the platform has no entry."""
+        target_config = self.source_config.target_platform_configs.get(platform)
+        return ResolvedTarget(
+            platform_instance=(
+                target_config.platform_instance if target_config else None
+            ),
+            env=target_config.env if target_config and target_config.env else self.env,
+        )
+
+    def _make_s3_storage_urn(self, location: str, dataset_urn: str) -> Optional[str]:
+        """The S3 dataset URN for a table's storage ``location``, or None when a path spec
+        excludes it (or nothing matches and ``ignore_non_path_spec_path`` is set).
+
+        The Location is folded to the ``{table}`` boundary through the same path specs the
+        S3 source uses, then stamped with ``target_platform_configs.s3``, so the result is
+        the URN the S3 source emits for that folder.
+        """
+        try:
+            path = self.source_config.datalake_lineage_config.get_path(
+                location, mode=PathMode.DIRECTORY
+            )
+        except Exception as e:
+            # One odd Location must not abort the table (the per-table loop only
+            # catches KeyError) or the rest of the run.
+            self.report.warning(
+                title="Failed to resolve storage location",
+                message="Could not apply datalake_lineage_config.path_specs to the "
+                "table's Location, so no storage lineage was emitted for it.",
+                context=f"{dataset_urn}: {location}",
+                exc=e,
+            )
+            return None
+        if path is None:
+            self.report.num_storage_lineage_skipped_by_path_spec += 1
+            self.report.info(
+                title="Storage lineage skipped by path spec",
+                message="The table's Location was excluded by a path spec, or matched none "
+                "with ignore_non_path_spec_path set, so no storage lineage was emitted.",
+                context=f"{dataset_urn}: {location}",
+                log=False,
+            )
+            return None
+        target = self._resolve_target_platform(S3_PLATFORM)
+        return make_s3_urn_for_lineage(
+            path, target.env, platform_instance=target.platform_instance
+        )
+
     def _make_dataset_urn_for_platform(self, platform: str, dataset_name: str) -> str:
         """Build a dataset URN using target_platform_configs if available.
 
@@ -1525,14 +1601,12 @@ class GlueSource(StatefulIngestionSourceBase):
         platform_instance and env so the URN matches what the platform's own
         connector produces.
         """
-        target_config = self.source_config.target_platform_configs.get(platform)
+        target = self._resolve_target_platform(platform)
         return make_dataset_urn_with_platform_instance(
             platform=platform,
             name=dataset_name,
-            env=target_config.env if target_config and target_config.env else self.env,
-            platform_instance=(
-                target_config.platform_instance if target_config else None
-            ),
+            env=target.env,
+            platform_instance=target.platform_instance,
         )
 
     def _build_jdbc_dataset_name(
@@ -1819,7 +1893,10 @@ class GlueSource(StatefulIngestionSourceBase):
                     )
                     return None
 
-                node_urn = make_s3_urn(s3_uri, self.env)
+                s3_target = self._resolve_target_platform(S3_PLATFORM)
+                node_urn = make_s3_urn(
+                    s3_uri, s3_target.env, platform_instance=s3_target.platform_instance
+                )
 
             # if data object references a named Glue connection (visual editor style)
             elif (node_args.get("connection_options") or {}).get("connectionName"):
@@ -2187,8 +2264,14 @@ class GlueSource(StatefulIngestionSourceBase):
             elif "Location" in dataset_properties.customProperties:
                 location = dataset_properties.customProperties["Location"]
                 if is_s3_uri(location):
-                    table_storage_urn = make_s3_urn_for_lineage(
-                        location, self.source_config.env
+                    table_storage_urn = self._make_s3_storage_urn(location, dataset_urn)
+                else:
+                    self.report.num_storage_lineage_non_s3_location += 1
+                    self.report.info(
+                        title="Storage lineage skipped for non-S3 location",
+                        message="Glue storage lineage only resolves S3 table locations.",
+                        context=f"{dataset_urn}: {location}",
+                        log=False,
                     )
 
             if table_storage_urn:

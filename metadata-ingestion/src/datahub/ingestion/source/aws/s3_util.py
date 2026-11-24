@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Optional
 
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.utilities.urn_encoder import UrnEncoder
 
 S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
@@ -36,7 +37,13 @@ def get_bucket_relative_path(s3_uri: str) -> str:
     return "/".join(strip_s3_prefix(s3_uri).split("/")[1:])
 
 
-def make_s3_urn(s3_uri: str, env: str, remove_extension: bool = True) -> str:
+def make_s3_urn(
+    s3_uri: str,
+    env: str,
+    remove_extension: bool = True,
+    *,
+    platform_instance: Optional[str] = None,
+) -> str:
     s3_name = strip_s3_prefix(s3_uri)
 
     if s3_name.endswith("/"):
@@ -47,13 +54,23 @@ def make_s3_urn(s3_uri: str, env: str, remove_extension: bool = True) -> str:
         extension = extension[1:]  # remove the dot
         s3_name = f"{name}_{extension}"
 
+    if platform_instance is not None:
+        # Same builder the S3 source uses, so the URN matches a dataset it emitted with
+        # this platform_instance.
+        return make_dataset_urn_with_platform_instance(
+            platform="s3", name=s3_name, platform_instance=platform_instance, env=env
+        )
     return f"urn:li:dataset:(urn:li:dataPlatform:s3,{UrnEncoder.encode_string(s3_name)},{env})"
 
 
-def make_s3_urn_for_lineage(s3_uri: str, env: str) -> str:
+def make_s3_urn_for_lineage(
+    s3_uri: str, env: str, *, platform_instance: Optional[str] = None
+) -> str:
     # Ideally this is the implementation for all S3 URNs
     # Don't feel comfortable changing `make_s3_urn` for glue, sagemaker, and athena
-    return make_s3_urn(s3_uri, env, remove_extension=False)
+    return make_s3_urn(
+        s3_uri, env, remove_extension=False, platform_instance=platform_instance
+    )
 
 
 def get_bucket_name(s3_uri: str) -> str:
