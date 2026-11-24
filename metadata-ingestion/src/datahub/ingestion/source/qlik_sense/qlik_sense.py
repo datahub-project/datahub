@@ -354,12 +354,15 @@ def _names_identifier(sql: str, name: str) -> bool:
     return re.search(rf"(?<![\w$#@]){re.escape(name)}(?![\w$#@])", sql) is not None
 
 
-# String literals, quoted identifiers, words and single characters.
+# Comments, string literals, quoted identifiers, words and single characters.
 SQL_TOKEN_RE = re.compile(
-    r"'(?:[^']|'')*'?|\[[^\]]*\]?|\"[^\"]*\"?|`[^`]*`?|[\w$#@]+|\S"
+    r"/\*[\s\S]*?(?:\*/|\Z)|--[^\n]*"
+    r"|'(?:[^']|'')*'?|\[[^\]]*\]?|\"[^\"]*\"?|`[^`]*`?|[\w$#@]+|\S"
 )
 # Keywords after which SQL names the tables it reads or writes.
 TABLE_CLAUSE_KEYWORDS = {"from", "join", "into", "using", "update"}
+# SQL Server allows `INSERT t`, `MERGE t` and `DELETE t` without INTO or FROM.
+DML_STATEMENT_KEYWORDS = {"insert", "merge", "delete"}
 # CROSS APPLY and OUTER APPLY start a table list again.
 APPLY_PREFIX_KEYWORDS = {"cross", "outer"}
 # Keywords that end such a list of tables.
@@ -406,8 +409,11 @@ def _table_clause_names(sql: str) -> Set[str]:
     # Right after FROM, a comma or a dot, a keyword such as ORDER is a name.
     expects_name = False
     previous = ""
+    statement_start = True
     stack: List[bool] = []
     for token in SQL_TOKEN_RE.findall(sql):
+        if token.startswith(("/*", "--")):
+            continue
         is_word = re.match(r"[\w$#@]", token) is not None
         opens_clause = False
         if token.startswith("'"):
@@ -424,7 +430,11 @@ def _table_clause_names(sql: str) -> Set[str]:
                 names.add(token.strip(QUOTE_CHARACTERS).strip().lower())
         elif is_word:
             word = token.lower()
-            if in_clause and expects_name:
+            if (statement_start and word in DML_STATEMENT_KEYWORDS) or (
+                previous in DML_STATEMENT_KEYWORDS and word in {"into", "from"}
+            ):
+                in_clause = opens_clause = True
+            elif in_clause and expects_name:
                 names.add(word)
             elif word in TABLE_CLAUSE_KEYWORDS or (
                 word == "apply" and previous in APPLY_PREFIX_KEYWORDS
@@ -436,6 +446,7 @@ def _table_clause_names(sql: str) -> Set[str]:
                 names.add(word)
         expects_name = opens_clause or (in_clause and token in {",", "."})
         previous = token.lower() if is_word else ""
+        statement_start = token == ";"
     return names
 
 
