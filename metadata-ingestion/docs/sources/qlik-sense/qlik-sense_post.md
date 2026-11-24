@@ -73,10 +73,21 @@ Conditions are not evaluated:
 
 - A connection set inside an `IF` or `SWITCH` block is kept after the block only when every branch sets the same one. A variable keeps the value every branch gives it, otherwise taking the app's value as described above. An `IF` without `ELSE` or a `SWITCH` without `DEFAULT` can run no branch, so the value from before the block must match as well.
 - A `SUB` body is read where the script calls it, with the connection and variables in effect at that `CALL`. A `SUB` that is never called adds no tables. Quoted or numeric arguments of a `CALL` are bound to the `SUB` parameters for that call, and any other argument leaves its parameter unknown.
-- An included script is not read, so after an include the connection is unknown. A `CALL` of a `SUB` the script does not define makes the connection and all variables unknown, as an include does. After either, the table loaded last is unknown too, so a `Concatenate` or `Join` without a table name is skipped until another table is loaded.
+- A `CALL` of a `SUB` the script does not define makes the connection and all variables unknown, as an [included script that is not read](#included-scripts-qlik-cloud) does. After either, the table loaded last is unknown too, so a `Concatenate` or `Join` without a table name is skipped until another table is loaded.
 - A `SELECT` that runs while the connection is unknown is skipped.
 - Nothing after an unconditional `EXIT SCRIPT` is read.
 - Rows added with `Concatenate (Table)` or fields added with `Join (Table)` belong to the named table, and without a table name to the table loaded just before.
+
+##### Included scripts (Qlik Cloud)
+
+A script pulled in with `$(Include=...)` or `$(Must_Include=...)` is read into the app's script where it is included, together with the scripts it includes. It is read when:
+
+- its path is a `lib://` path that the app's variables expand. Those hold the values the app's last reload left, over any `script_variables` in the recipe; an empty value or an `=` expression keeps the recipe's value. A path that uses a variable the script sets more than once, or inside an `IF`, `SWITCH`, loop or `SUB`, or that is a loop variable or `SUB` parameter, is not read.
+- the API key's user has **Can view** in the space that holds the file.
+- it is nested no more than 10 levels deep, and does not include itself directly or through another included script.
+- the app's script with everything it includes stays under 5,000,000 characters.
+
+On-prem, included scripts are not read. An included script that is not read makes the connection and all variables unknown after the include, and the tables, QVDs and files it loads get no lineage from the script. On Qlik Cloud, a file in such an app's lineage graph that its own script does not load is only added to the table's lineage, never removed.
 
 ##### Fields and column-level lineage
 
@@ -275,7 +286,7 @@ Column-level lineage is resolved against the upstream schemas in DataHub at read
 ### Limitations
 
 - On-prem ingestion does not ingest Qlik Cloud datasets. From cloud storage connections it only links QVDs, and only for connections mapped in `file_connection_to_storage`.
-- Scripts pulled in with `$(Include=...)` or `$(Must_Include=...)` are not read, and neither is a `SUB` the script calls but does not define. Tables, QVDs and files they load have no lineage from the script. On Qlik Cloud, a file in such an app's lineage graph that its own script does not load is only added to the table's lineage, never removed.
+- Scripts pulled in with `$(Include=...)` are read only on Qlik Cloud, in the cases listed in [Included scripts](#included-scripts-qlik-cloud), and a `SUB` the script calls but does not define is not read.
 - A table loaded with `RESIDENT` from another script table gets no lineage.
 - On Qlik Cloud, a file loaded through a variable that varies as the script runs, as in a `FOR EACH` loop over `FileList(...)`, is not named from the app's last value, so the table's file lineage is only added to.
 - Database tables in Qlik Cloud's lineage graph are not linked, as Qlik identifies them by an opaque hash; their lineage comes from the load script instead.
@@ -337,6 +348,10 @@ These apps load another app with a mapped `BINARY` statement and also include sc
 #### `unresolved_file_connections` in the report, or "Qlik file connections have no known storage" (Qlik Cloud)
 
 Apps read or store files through these connections, but their storage is not known. Their files are linked only between Qlik apps, by space, connection and path (see [Lineage from files on cloud storage](#lineage-from-files-on-azure-storage-amazon-s3-and-google-cloud-storage-qlik-cloud)). For an Azure Storage, Amazon S3 or Google Cloud Storage connection, add it to `file_connection_to_storage` with its `storage_uri`, or give the API key's user **Can consume data** in the connection's space. Other connectors, such as SFTP, Dropbox or SharePoint, can't be mapped; a file an app's lineage graph places on one of those is not listed here.
+
+#### "Unable to read included Qlik scripts" (Qlik Cloud)
+
+Each entry gives the path of an included file, the app and space that include it, and why it could not be read: an Engine error, an include cycle, nesting more than 10 levels deep, or the size limit. A path without a space, such as `lib://DataFiles/common.qvs`, resolves in the space of the app that includes it. For an access error, give the API key's user **Can view** in the space that holds the file. Until then, what the script loads is missing from lineage, and the app's lineage is only added to.
 
 #### `apps_without_lineage_graph` in the report, or "Qlik Cloud has no lineage graph for app" (Qlik Cloud)
 

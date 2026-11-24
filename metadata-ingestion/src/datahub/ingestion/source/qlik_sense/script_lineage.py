@@ -52,7 +52,21 @@ FROM_TABLE_RE = re.compile(
     re.IGNORECASE,
 )
 QLIK_TABLE_NAME_LENGTH = 32
-INCLUDE_RE = re.compile(r"\$\(\s*(?:Must_)?Include\s*=[^)]*\)", re.IGNORECASE)
+# Parentheses nested up to three deep, such as `$(v$(x))` or `loads (v2).qvs`.
+_BALANCED_PARENS = r"[^()]*"
+for _ in range(3):
+    _BALANCED_PARENS = rf"(?:[^()]|\({_BALANCED_PARENS}\))*"
+# The path may be built from variables, such as lib://$(vPrefix)Common/x.qvs,
+# and runs to the matching parenthesis; with unbalanced ones, to the first.
+INCLUDE_PATH_RE = re.compile(
+    rf"\$\(\s*(?:Must_)?Include\s*=(?P<path>{_BALANCED_PARENS}|[^)]*)\)",
+    re.IGNORECASE,
+)
+# Includes nested deeper than this are left unread.
+_MAX_INCLUDE_DEPTH = 10
+# Includes that would grow the script past this many characters are left
+# unread, as a file included many times at each level grows it exponentially.
+_MAX_INLINED_LENGTH = 5_000_000
 VARIABLE_RE = re.compile(
     r"^(?P<kind>SET|LET)\s+(?P<name>[^\s=]+)\s*=(?P<value>.*)$",
     re.IGNORECASE | re.DOTALL,
@@ -292,6 +306,11 @@ PLATFORM_KEYWORD_RES: Dict[str, "re.Pattern[str]"] = {
     keyword: re.compile(rf"(?<![a-z]){re.escape(keyword)}")
     for keyword in PLATFORM_KEYWORDS
 }
+
+
+class IncludeRead(BaseModel):
+    content: Optional[str] = None
+    error: Optional[str] = None
 
 
 class LoadField(BaseModel):
@@ -554,6 +573,18 @@ def _strip_comments(script: str, expression: bool = False) -> str:
         if closing:
             if char == closing:
                 closing = None
+        elif (
+            not expression
+            and char == "$"
+            and (include := INCLUDE_PATH_RE.match(script, i))
+        ):
+            # Qlik expands an include before reading quotes, so an apostrophe
+            # in its path, as in O'Brien.qvs, opens no quote.
+            kept.extend(include.group(0))
+            i = include.end()
+            # An include is a whole statement and often has no semicolon.
+            statement_start = True
+            continue
         # A REM comment runs to the next semicolon, and an apostrophe in it
         # does not open a quote.
         elif not expression and statement_start and REM_RE.match(script, i):
@@ -609,7 +640,16 @@ def _split_statements(script: str) -> List[str]:
     statements: List[str] = []
     current: List[str] = []
     closing: Optional[str] = None
-    for char in script:
+    i = 0
+    while i < len(script):
+        char = script[i]
+        include = (
+            INCLUDE_PATH_RE.match(script, i) if not closing and char == "$" else None
+        )
+        if include:
+            current.append(include.group(0))
+            i = include.end()
+            continue
         current.append(char)
         if closing:
             if char == closing:
@@ -619,6 +659,7 @@ def _split_statements(script: str) -> List[str]:
         elif char == STATEMENT_SEPARATOR:
             statements.append("".join(current[:-1]).strip())
             current = []
+        i += 1
     statements.append("".join(current).strip())
     return [statement for statement in statements if statement]
 
@@ -857,6 +898,27 @@ def _expand_variables(statement: str, variables: Dict[str, str]) -> str:
         ),
         statement,
     )
+
+
+def merged_variables(
+    recipe: Dict[str, str], app_variables: Dict[str, str]
+) -> Dict[str, str]:
+    """The recipe's `script_variables` with the app's own values, as its last
+    reload left them, on top."""
+    return {**recipe, **app_own_variables(recipe, app_variables)}
+
+
+def app_own_variables(
+    recipe: Dict[str, str], app_variables: Dict[str, str]
+) -> Dict[str, str]:
+    """The app's values that beat the recipe's. An expression definition
+    (`=...`) the connector can't evaluate, or an empty one such as a variable
+    cleared at the end of the script, leaves the recipe's value in place."""
+    return {
+        name: value
+        for name, value in app_variables.items()
+        if not value.lstrip().startswith("=") and (value.strip() or name not in recipe)
+    }
 
 
 def unquoted_values(variables: Dict[str, str]) -> Dict[str, str]:
@@ -1153,7 +1215,7 @@ class _ScriptParser(BaseModel):
                 state.set_variable(param, value)
 
     def _statement(self, statement: str) -> None:
-        statement, includes = INCLUDE_RE.subn("", statement)
+        statement, includes = INCLUDE_PATH_RE.subn("", statement)
         if includes:
             # The included script is not read, so it could have set anything.
             self.has_includes = True
@@ -1556,6 +1618,144 @@ class _ScriptParser(BaseModel):
                 branches=self.flow.branches,
             )
         )
+
+
+def _varying_variables(script: str) -> Set[str]:
+    """Variables the script assigns more than once, or in an IF, SWITCH, loop
+    or SUB, and SUB parameters, so their value where the script reads them need not be the one
+    the app's last reload left."""
+    counts: Counter[str] = Counter()
+    varying: Set[str] = set()
+    depth = 0
+    # An include left in place has no semicolon of its own, so it would hide
+    # the start of the statement after it.
+    text = INCLUDE_PATH_RE.sub(";", _strip_comments(script))
+    for statement in _split_statements(text):
+        while (control := CONTROL_RE.match(statement)) and control.end():
+            if control.group("forloop"):
+                variable = FOR_VARIABLE_RE.match(control.group("forloop"))
+                if variable:
+                    varying.add(variable.group("name"))
+            if control.group("sub"):
+                header = SUB_NAME_RE.match(control.group("sub"))
+                if header:
+                    varying.update(
+                        param.strip()
+                        for param in _split_top_level(header.group("params") or "")
+                        if param.strip()
+                    )
+            if any(
+                control.group(group)
+                for group in ("if", "switch", "sub", "forloop", "doloop")
+            ):
+                depth += 1
+            elif any(
+                control.group(group)
+                for group in ("endif", "endswitch", "endsub", "loopend")
+            ):
+                depth = max(depth - 1, 0)
+            statement = statement[control.end() :]
+        variable = VARIABLE_RE.match(statement)
+        if variable:
+            counts[variable.group("name")] += 1
+            if depth:
+                varying.add(variable.group("name"))
+    return varying | {name for name, count in counts.items() if count > 1}
+
+
+def _path_variables(path: str, variables: Dict[str, str]) -> Set[str]:
+    """The variables a path reads, also through the values of others and
+    through names built from them, such as `vF` in `$(v$(x))` when x is F, at
+    each step of the expansion `_expand_nested_variables` makes."""
+    names: Set[str] = set()
+    for _ in range(_MAX_VARIABLE_DEPTH + 1):
+        names.update(
+            reference.group("name").strip()
+            for reference in VARIABLE_REFERENCE_RE.finditer(path)
+        )
+        expanded = _expand_variables(path, variables)
+        if expanded == path:
+            break
+        path = expanded
+    return names
+
+
+def inline_includes(
+    script: str,
+    app_variables: Dict[str, str],
+    read: Callable[[str], IncludeRead],
+    report_unread: Optional[Callable[[str, str], None]] = None,
+) -> str:
+    """The script with each $(Include) and $(Must_Include) replaced by the
+    script of the file it names, as Qlik splices it in at reload, including
+    the includes of that file. The path is expanded with `app_variables`, the
+    values the app's last reload left merged over the recipe's. An include
+    whose path doesn't expand, reads a variable the script varies, or that
+    `read` can't read, stays, so the script still counts as including scripts
+    that are not read. `report_unread` gets the path and reason of an include
+    left unread as a cycle, too deep, over the size limit, or by a read error.
+    Only the final pass reports, as a pass whose includes vary a path variable
+    is discarded."""
+    variables = unquoted_values(app_variables)
+    varying = _varying_variables(script)
+    used: Set[str] = set()
+    unread: Dict[str, str] = {}
+    remaining = _MAX_INLINED_LENGTH
+
+    def inline(text: str, chain: List[str]) -> str:
+        def replace(match: "re.Match[str]") -> str:
+            nonlocal remaining
+            raw_path = match.group("path").strip()
+            names = _path_variables(raw_path, variables)
+            # Scripts often bracket or quote the path, as in [lib://Conn/x.qvs].
+            path = _unquote(
+                _expand_nested_variables(raw_path, variables).strip()
+            ).strip()
+            if (
+                not LIB_PATH_RE.match(path)
+                or "$(" in path
+                or not names.isdisjoint(varying)
+            ):
+                return match.group(0)
+            if path in chain:
+                unread[path] = "include cycle"
+                return match.group(0)
+            if len(chain) >= _MAX_INCLUDE_DEPTH:
+                unread[path] = f"nested more than {_MAX_INCLUDE_DEPTH} levels deep"
+                return match.group(0)
+            result = read(path)
+            content = result.content
+            if content is None:
+                if result.error is not None:
+                    unread[path] = result.error
+                return match.group(0)
+            if len(content) > remaining:
+                unread[path] = (
+                    f"the script with its includes is over "
+                    f"{_MAX_INLINED_LENGTH} characters"
+                )
+                return match.group(0)
+            remaining -= len(content)
+            used.update(names)
+            return f"\n{inline(content, [*chain, path])}\n"
+
+        # A commented-out include is not run.
+        return INCLUDE_PATH_RE.sub(replace, _strip_comments(text))
+
+    while True:
+        used.clear()
+        unread.clear()
+        remaining = _MAX_INLINED_LENGTH
+        inlined = inline(script, [])
+        # Included scripts can vary a variable too, as can an include in a
+        # loop, so the variables read are checked again on the whole script.
+        newly_varying = (used & _varying_variables(inlined)) - varying
+        if not newly_varying:
+            if report_unread:
+                for path, reason in unread.items():
+                    report_unread(path, reason)
+            return inlined
+        varying |= newly_varying
 
 
 def parse_script(

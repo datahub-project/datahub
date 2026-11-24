@@ -31,6 +31,7 @@ Before running ingestion, make sure the machine that runs it can reach Qlik and 
 | Load scripts, and lineage from them                      | Owner of the app, or **Can manage** or **Can operate** in a managed space |
 | Data connections, for their platform and files' storage  | **Can consume data** in the space that holds the connection               |
 | QVDs and other Qlik datasets an app loads or stores into | Access to the space that holds the dataset                                |
+| Scripts apps include with `$(Include=...)`               | **Can view** in the space that holds the file                             |
 
 #### Qlik Sense Enterprise on Windows
 

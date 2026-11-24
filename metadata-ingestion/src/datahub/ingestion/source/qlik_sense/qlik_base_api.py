@@ -102,6 +102,8 @@ class QlikBaseAPI(ABC):
         self.field_lineage_failures: List[str] = []
         # Apps opened without their data because opening them with it failed.
         self.opened_without_data: List[str] = []
+        # Scripts apps include that could not be read, as path and reason.
+        self.include_read_failures: List[str] = []
         # Set where app reads wait for an Engine that refuses connections.
         self.engine_refusals: Optional[RefusedConnectionBudget] = None
 
