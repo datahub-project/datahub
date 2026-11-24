@@ -1068,8 +1068,9 @@ class PowerBiDashboardSourceConfig(
         "principals can use Fabric APIs', like `workspace_apis` mode; cannot be "
         "combined with `admin_apis_only` or `metadata_api_mode: workspace_apis` "
         "(which always reads the definitions). Unlocks `extract_model_relationships`, "
-        "`extract_report_field_usage`, `extract_dax_reference_lineage` and "
-        "`extract_model_properties` in `admin_scan` mode.",
+        "`extract_report_field_usage`, `extract_dax_reference_lineage`, "
+        "`extract_model_properties` and `extract_composite_model_lineage` in "
+        "`admin_scan` mode.",
     )
     extract_model_relationships: bool = pydantic.Field(
         default=False,
@@ -1096,7 +1097,8 @@ class PowerBiDashboardSourceConfig(
         "the model. "
         "A DAX reference that does not resolve is counted and reported as a "
         "`DAX Reference Not Resolved` warning; DAX is only read from TMDL definitions "
-        "(`metadata_api_mode: workspace_apis`), and without this flag only the "
+        "(`metadata_api_mode: workspace_apis` or `enrich_from_item_definitions`), "
+        "and without this flag only the "
         "table-qualified references of measures and the tables read by calculated "
         "tables are checked. Enabling it makes the connector write `upstreamLineage` "
         "on tables that previously had none (for example a table whose only lineage "
