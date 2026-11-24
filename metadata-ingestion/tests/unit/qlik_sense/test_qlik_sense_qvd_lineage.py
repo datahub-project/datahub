@@ -1632,6 +1632,26 @@ def test_binary_load_keeps_script_lineage_of_a_table_qlik_may_have_renamed(
     assert _urn("model-app.calendar-2024") not in str(aspects[calendar])
 
 
+def test_unread_source_app_keeps_script_lineage_of_a_table_qlik_may_have_renamed() -> (
+    None
+):
+    front = _app(
+        "front-app",
+        FRONT_SCRIPT
+        + "[Calendar-2024]: LOAD day FROM [lib://QVD Data/raw/cal.qvd] (qvd);",
+        {**FRONT_MODEL, "Calendar-2024": ["day"]},
+    )
+    source, aspects = _run([front], on_prem=MAPPED)
+
+    calendar = _urn("front-app.calendar-2024")
+    assert "UpstreamLineageClass" not in aspects[calendar]
+    assert _upstreams(aspects, calendar, "add") == [_urn("//nas/qvd/raw/cal.qvd")]
+    assert not _upstreams(aspects, calendar, "remove")
+    assert any(
+        "model-app" in entry for entry in source.reporter.binary_loads_without_lineage
+    )
+
+
 def test_unmapped_binary_load_reports_a_table_qlik_may_have_renamed() -> None:
     front = _app(
         "front-app",
