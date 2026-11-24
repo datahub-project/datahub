@@ -1707,7 +1707,10 @@ def inline_includes(
             nonlocal remaining
             raw_path = match.group("path").strip()
             names = _path_variables(raw_path, variables)
-            path = _expand_nested_variables(raw_path, variables)
+            # Scripts often bracket or quote the path, as in [lib://Conn/x.qvs].
+            path = _unquote(
+                _expand_nested_variables(raw_path, variables).strip()
+            ).strip()
             if (
                 not LIB_PATH_RE.match(path)
                 or "$(" in path

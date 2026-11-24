@@ -1354,6 +1354,25 @@ def test_kept_writer_links_a_file_whose_storage_is_mapped_since_on_storage(
     assert recorded.stored_file_urns == [ABS_ORDERS_QVD]
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_writer_keeps_its_unmapped_store_when_datasets_cannot_be_listed(
+    mock_api_cls: MagicMock,
+) -> None:
+    mock_api_cls.return_value.list_datasets.return_value = None
+    source = _source(
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        {},
+    )
+    source._fingerprint_salt = "salt"
+
+    recorded, workunits, pinned = _keep_writer_of_unmapped_store(source)
+
+    assert UNMAPPED_ORDERS_QVD in pinned
+    assert ABS_ORDERS_QVD not in {wu.get_urn() for wu in workunits}
+    assert list(recorded.unmapped_file_stores) == [UNMAPPED_ORDERS_QVD]
+    assert UNMAPPED_ORDERS_QVD in recorded.urns
+
+
 @pytest.mark.parametrize("listing_failed", [False, True])
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_kept_writer_of_a_file_still_on_unknown_storage_keeps_it_unmapped(
@@ -1828,6 +1847,39 @@ def test_unread_include_path_with_parentheses_forgets_the_connection() -> None:
         ("Orders", None)
     ]
     assert parsed.has_includes
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "[lib://$(vCommon)DataFiles/loads.qvs]",
+        "'lib://$(vCommon)DataFiles/loads.qvs'",
+        '"lib://Common:DataFiles/loads.qvs"',
+        "$(vQuotedPath)",
+    ],
+)
+def test_bracketed_or_quoted_include_path_is_read(path: str) -> None:
+    read_paths: List[str] = []
+    files = {"lib://Common:DataFiles/loads.qvs": "X: LOAD * FROM [lib://S:Lake/x.csv];"}
+
+    def read(include_path: str) -> IncludeRead:
+        read_paths.append(include_path)
+        return _reader(files)(include_path)
+
+    parsed = parse_script(
+        inline_includes(
+            f"$(Must_Include={path});",
+            {
+                "vCommon": "'Common:'",
+                "vQuotedPath": "[lib://Common:DataFiles/loads.qvs]",
+            },
+            read,
+        )
+    )
+
+    assert [load.expanded for load in parsed.file_loads] == ["lib://S:Lake/x.csv"]
+    assert not parsed.has_includes
+    assert read_paths == ["lib://Common:DataFiles/loads.qvs"]
 
 
 def test_include_outside_a_lib_path_is_not_read() -> None:
