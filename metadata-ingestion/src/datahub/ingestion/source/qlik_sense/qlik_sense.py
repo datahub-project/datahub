@@ -64,6 +64,7 @@ from datahub.ingestion.source.data_lake_common.data_lake_utils import (
 from datahub.ingestion.source.qlik_sense.app_state import (
     AppCheckpoint,
     QlikAppStateHandler,
+    UnmappedFileStore,
 )
 from datahub.ingestion.source.qlik_sense.config import (
     Constant,
@@ -766,6 +767,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self._apps_qvds_unknown[app_id] = UNRESOLVED_STORE
         if previous.field_names:
             self._learn_field_names(previous.field_names)
+        for file_urn, store in previous.unmapped_file_stores.items():
+            self._add_unmapped_file(file_urn, store.path)
+            urns = self._unmapped_file_stores[file_urn].setdefault(app_id, [])
+            urns.extend(urn for urn in store.table_urns if urn not in urns)
         if previous.table_urns_by_qri is not None:
             kept = _own_table_urns(app_id, previous.table_urns_by_qri)
             self._app_table_urns_by_qri.update(kept)
@@ -801,6 +806,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     data_model_fields=self._app_model_fields.get(app.id),
                     binary_tables=previous.binary_tables,
                     stored_file_urns=previous.stored_file_urns,
+                    unmapped_file_stores=previous.unmapped_file_stores,
                     field_names=previous.field_names,
                 ),
             )
@@ -844,6 +850,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 data_model_fields=previous.data_model_fields,
                 binary_tables=previous.binary_tables,
                 stored_file_urns=previous.stored_file_urns,
+                unmapped_file_stores=previous.unmapped_file_stores,
                 field_names=previous.field_names,
             ),
         )
@@ -887,6 +894,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 data_model_fields=self._app_model_fields.get(app.id),
                 binary_tables=app.id in self._apps_with_binary_tables,
                 stored_file_urns=self._app_stored_files.get(app.id, []),
+                unmapped_file_stores={
+                    file_urn: UnmappedFileStore(
+                        path=self._unmapped_files[file_urn], table_urns=stores[app.id]
+                    )
+                    for file_urn, stores in self._unmapped_file_stores.items()
+                    if app.id in stores
+                },
                 field_names=_app_field_names(app),
             ),
         )
@@ -2226,12 +2240,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         ):
             return None
         urn = self._gen_qlik_dataset_urn(qualified.lower())
+        self._add_unmapped_file(urn, f"lib://{qualified}")
+        return urn
+
+    def _add_unmapped_file(self, urn: str, spelling: str) -> None:
         # Apps may spell the file in different case and are read in no fixed
         # order, so one spelling is picked the same way every run.
-        spelling = f"lib://{qualified}"
         known = self._unmapped_files.get(urn)
         self._unmapped_files[urn] = spelling if known is None else min(known, spelling)
-        return urn
 
     def _unmapped_storage_file_urn(
         self, connection: str, path: str, space_id: str, report: bool = True

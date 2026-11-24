@@ -9,12 +9,16 @@ from pydantic import ValidationError
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
+from datahub.ingestion.source.qlik_sense.app_state import (
+    AppCheckpoint,
+    UnmappedFileStore,
+)
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     LineageTable,
     ListedDataset,
+    UnchangedApp,
     UnreadItem,
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import (
@@ -1097,6 +1101,81 @@ def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
         assert list(source.reporter.unread_stored_files) == [
             "lib://Sales Space:Lake/qvd/orders.qvd"
         ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_read_app_records_its_stores_into_files_on_unknown_storage(
+    mock_api_cls: MagicMock,
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {},
+        [],
+        script="STORE Customers INTO [lib://Sales Space:Lake/qvd/customers.qvd] (qvd);",
+        tables=[
+            _model_table(
+                "Customers", "Customers", "qri:db:sqlserver://sales#dbo.Customers"
+            )
+        ],
+        data_connections={
+            CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)
+        },
+    )
+    source._fingerprint_salt = "salt"
+
+    with patch.object(source.app_state, "record") as record:
+        list(source._gen_recorded_app_workunit(app))
+
+    file_urn = make_dataset_urn("qlik-sense", "sales space:lake/qvd/customers.qvd")
+    stores = record.call_args.args[1].unmapped_file_stores
+    assert list(stores) == [file_urn]
+    assert stores[file_urn].path == "lib://Sales Space:Lake/qvd/customers.qvd"
+    assert len(stores[file_urn].table_urns) == 1
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_writer_of_a_file_on_unknown_storage_links_it_when_an_app_reads_it(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {},
+        {CONNECTION: DataConnectionInfo(name="Lake", file_platform=FilePlatform.ABS)},
+        script="Orders: LOAD * FROM [lib://Sales Space:Lake/qvd/orders.qvd] (qvd);",
+    )
+    source._fingerprint_salt = "salt"
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+    # Its STORE was recorded on a run where no app read the file.
+    previous = AppCheckpoint(
+        urns=[stored],
+        unmapped_file_stores={
+            UNMAPPED_ORDERS_QVD: UnmappedFileStore(
+                path="lib://Sales Space:Lake/qvd/orders.qvd", table_urns=[stored]
+            )
+        },
+    )
+    with (
+        patch.object(source.app_state, "previous", return_value=previous),
+        patch.object(source.app_state, "record") as record,
+    ):
+        source._keep_unchanged_app(UnchangedApp(id="app-2", fingerprint="f"))
+    assert source._resolve_file_source(
+        "app-1", _file_qri("adls", "lake", "qvd/orders.qvd")
+    )
+
+    workunits = list(source._gen_unmapped_file_entities())
+
+    lineage = [
+        wu.metadata
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+    ]
+    assert [mcp.entityUrn for mcp in lineage] == [UNMAPPED_ORDERS_QVD]
+    assert stored in str(lineage[0].aspect)
+    assert UNMAPPED_ORDERS_QVD in source._app_end_of_run_urns["app-2"]
+    # Carried forward, so a later run that keeps it again still links it.
+    recorded = record.call_args.args[1]
+    assert recorded.unmapped_file_stores == previous.unmapped_file_stores
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
