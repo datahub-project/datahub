@@ -348,10 +348,8 @@ fragment lineageNodeProperties on EntityWithRelationships {
             description
             externalUrl
         }
-        dataPlatformInstance {
-            platform {
-                ...platformFields
-            }
+        apiPlatform: platform {
+            ...platformFields
         }
     }
     ... on Restricted {

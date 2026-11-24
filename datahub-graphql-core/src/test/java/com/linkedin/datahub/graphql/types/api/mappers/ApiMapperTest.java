@@ -51,6 +51,45 @@ public class ApiMapperTest {
   }
 
   @Test
+  public void testMapPlatformOnlyAspectSetsPlatformAndNoInstance() {
+    final com.linkedin.common.DataPlatformInstance platformOnly =
+        new com.linkedin.common.DataPlatformInstance()
+            .setPlatform(UrnUtils.getUrn("urn:li:dataPlatform:openapi"));
+    final EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(
+        Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(platformOnly.data())));
+
+    final Api result =
+        ApiMapper.map(null, response(UrnUtils.getUrn("urn:li:api:crm.lookup"), aspects));
+
+    assertEquals(result.getPlatform().getUrn(), "urn:li:dataPlatform:openapi");
+    // A shell here would have null non-null fields and fail the whole query.
+    assertNull(result.getDataPlatformInstance());
+  }
+
+  @Test
+  public void testMapPlatformWithInstanceSetsBoth() {
+    final com.linkedin.common.DataPlatformInstance withInstance =
+        new com.linkedin.common.DataPlatformInstance()
+            .setPlatform(UrnUtils.getUrn("urn:li:dataPlatform:openapi"))
+            .setInstance(
+                UrnUtils.getUrn("urn:li:dataPlatformInstance:(urn:li:dataPlatform:openapi,prod)"));
+    final EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(
+        Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(withInstance.data())));
+
+    final Api result =
+        ApiMapper.map(null, response(UrnUtils.getUrn("urn:li:api:crm.lookup"), aspects));
+
+    assertEquals(result.getPlatform().getUrn(), "urn:li:dataPlatform:openapi");
+    assertEquals(
+        result.getDataPlatformInstance().getUrn(),
+        "urn:li:dataPlatformInstance:(urn:li:dataPlatform:openapi,prod)");
+  }
+
+  @Test
   public void testMapApiWithPropertiesAndSignature() {
     Urn apiUrn = UrnUtils.getUrn("urn:li:api:langchain.search");
     Urn requestUrn =

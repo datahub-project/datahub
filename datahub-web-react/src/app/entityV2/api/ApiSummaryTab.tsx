@@ -65,8 +65,7 @@ export const ApiSummaryTab = () => {
     const api = baseEntity?.entity?.__typename === 'Api' ? baseEntity.entity : undefined;
 
     const subType = api?.subTypes?.typeNames?.[0];
-    const platformName =
-        api?.dataPlatformInstance?.platform?.properties?.displayName || api?.dataPlatformInstance?.platform?.name;
+    const platformName = api?.apiPlatform?.properties?.displayName || api?.apiPlatform?.name;
     const externalUrl = api?.properties?.externalUrl;
     const restProps = api?.restProperties;
 

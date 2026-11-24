@@ -142,6 +142,14 @@ public class GmsGraphQLEngineWiringTest {
   }
 
   @Test
+  public void testApiPlatformFieldsAreResolvedByUrn() {
+    // The mapper only carries urns for these; the loaders hydrate the platform and the
+    // instance (whose non-null instanceId the mapper cannot fill).
+    assertFetcher("Api", "platform", LoadableTypeResolver.class);
+    assertFetcher("Api", "dataPlatformInstance", LoadableTypeResolver.class);
+  }
+
+  @Test
   public void testDataHubRoleAspectsIsWired() {
     assertFetcher("DataHubRole", "aspects", WeaklyTypedAspectsResolver.class);
   }

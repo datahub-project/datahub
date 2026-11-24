@@ -31,6 +31,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Api;
 import com.linkedin.datahub.graphql.generated.ApiProperties;
 import com.linkedin.datahub.graphql.generated.ApiSignature;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.HttpMethod;
@@ -126,9 +127,21 @@ public class ApiMapper implements ModelMapper<EntityResponse, Api> {
                 VersionPropertiesMapper.map(context, new VersionProperties(dataMap))));
     mappingHelper.mapToResult(
         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-        (api, dataMap) ->
+        (api, dataMap) -> {
+          final DataPlatformInstance platformInstance = new DataPlatformInstance(dataMap);
+          api.setPlatform(
+              DataPlatform.builder()
+                  .setUrn(platformInstance.getPlatform().toString())
+                  .setType(EntityType.DATA_PLATFORM)
+                  .build());
+          // DataPlatformInstance.urn/type/instanceId are non-null in the schema and a
+          // platform-only aspect has no instance urn, so leave the field unset instead of
+          // mapping a shell that fails every query selecting it.
+          if (platformInstance.hasInstance()) {
             api.setDataPlatformInstance(
-                DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(dataMap))));
+                DataPlatformInstanceAspectMapper.map(context, platformInstance));
+          }
+        });
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(result, Api.class);

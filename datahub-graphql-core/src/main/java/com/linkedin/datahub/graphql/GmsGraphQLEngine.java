@@ -3749,8 +3749,16 @@ public class GmsGraphQLEngine {
                     "relationships",
                     new EntityRelationshipsResultResolver(graphClient, entityService))
                 .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
-                // The mapper returns a stub even when the aspect has no instance; resolve by urn
-                // so a platform-only aspect yields null instead of a non-null violation.
+                .dataFetcher(
+                    "platform",
+                    new LoadableTypeResolver<>(
+                        this.dataPlatformType,
+                        (env) -> {
+                          final com.linkedin.datahub.graphql.generated.Api api = env.getSource();
+                          return api.getPlatform() != null ? api.getPlatform().getUrn() : null;
+                        }))
+                // The mapper only sets the instance stub when the aspect has an instance; this
+                // hydrates its non-null fields (instanceId) and resolves to null when absent.
                 .dataFetcher(
                     "dataPlatformInstance",
                     new LoadableTypeResolver<>(
