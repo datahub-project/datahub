@@ -1042,11 +1042,24 @@ def test_dataset_of_an_excluded_space_without_a_qri_blocks_graph_naming(
 ) -> None:
     upstreams = LineageUpstreams(resource_labels={UNLISTED_QVD: "prices.qvd"})
     datasets = [*DATASETS, ListedDataset(space_id="space-2", name=excluded_name)]
-    _, written, _ = _run(
-        mock_api_cls, datasets, items=_reader_and_writer(), upstreams=upstreams
-    )
+    with patch.object(
+        QlikSenseSource,
+        "_keep_graph_named_urns",
+        autospec=True,
+        side_effect=QlikSenseSource._keep_graph_named_urns,
+    ) as keep:
+        _, written, _ = _run(
+            mock_api_cls, datasets, items=_reader_and_writer(), upstreams=upstreams
+        )
 
-    assert (_urn(UNLISTED_QVD) in written[_urn("report-app.prices")]) is named
+    if named:
+        assert _urn(UNLISTED_QVD) in written[_urn("report-app.prices")]
+        keep.assert_not_called()
+    else:
+        # Not knowing the source, the last run's edges and graph-named
+        # datasets stay rather than being replaced away.
+        assert _urn("report-app.prices") not in written
+        assert [c.args[1] for c in keep.call_args_list] == ["report-app"]
 
 
 @pytest.mark.parametrize(
@@ -2895,6 +2908,20 @@ def test_reload_sql_join_with_a_table_missing_from_datahub_is_not_reported(
             id="join after subquery",
         ),
         pytest.param("EXEC('SELECT * FROM dbo.[order]')", False, id="dynamic SQL"),
+        pytest.param("SELECT * FROM dbo.order", False, id="keyword as a table name"),
+        pytest.param(
+            "SELECT * FROM dbo.customers c, order o", False, id="keyword after a comma"
+        ),
+        pytest.param(
+            "SELECT * FROM dbo.customers c OUTER APPLY dbo.[order] o",
+            False,
+            id="outer apply",
+        ),
+        pytest.param(
+            "SELECT * FROM dbo.customers c CROSS APPLY dbo.[order] o",
+            False,
+            id="cross apply",
+        ),
     ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -2999,6 +3026,19 @@ def test_unread_reload_sql_only_counts_names_in_table_lists(
             id="also named in a string literal of parsed SQL",
         ),
         pytest.param(
+            [
+                _sql("Finance:Sales", "SELECT * FROM dbo.orders"),
+                ReloadStatement(
+                    discriminator="Finance:Archive;",
+                    statement="INSERT INTO dbo.jobs SELECT * FROM dbo.orders",
+                ),
+            ],
+            ORDERS_DB_TABLE,
+            [],
+            True,
+            id="also named by SQL without the SQL prefix",
+        ),
+        pytest.param(
             [_sql("Finance:Sales", "SELECT * FROM dbo.orders")],
             "qri:db:databricks://Hash#Orders",
             [],
@@ -3094,6 +3134,25 @@ def test_unlabelled_database_source_only_adds_to_table_lineage(
     assert _urn("etl-app.orders") not in written
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unread_database_labels_are_not_reported_as_unread_reload_sql(
+    mock_api_cls: MagicMock,
+) -> None:
+    app = _reload_app([_sql("Finance:Sales", "SELECT * FROM dbo.orders")])
+    app.lineage_tables[0].database_source_labels = {}
+    source = _reload_source(mock_api_cls, app)
+    api = mock_api_cls.return_value
+    api.get_database_labels.side_effect = RuntimeError("lineage graph unavailable")
+
+    written, _ = _lineage(source.get_workunits_internal())
+
+    assert _urn("etl-app.orders") not in written
+    assert [f.split(":")[0] for f in source.reporter.database_label_read_failures] == [
+        "etl-app"
+    ]
+    assert not api.reload_statement_read_failures
+
+
 def test_database_sources_are_read_with_the_reload_sql(
     requests_mock: requests_mock_module.Mocker,
 ) -> None:
@@ -3172,6 +3231,15 @@ def test_database_sources_are_read_with_the_reload_sql(
                 )
             ],
             id="SELECT without the SQL prefix",
+        ),
+        pytest.param(
+            [
+                ReloadStatement(
+                    discriminator="Finance:Sales;",
+                    statement="WITH o AS (SELECT * FROM dbo.orders) SELECT * FROM o",
+                )
+            ],
+            id="WITH without the SQL prefix",
         ),
     ],
 )

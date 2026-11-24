@@ -1909,6 +1909,14 @@ def test_tables_the_script_drops_are_known() -> None:
             "$(vT): Replace LOAD id;\nSQL SELECT id FROM db.orders;",
             id="a Replace preceding load labelled with a variable",
         ),
+        pytest.param(
+            "Replace LOAD id;\n$(vT): SQL SELECT id FROM db.orders;",
+            id="a Replace preceding load above a variable-labelled SELECT",
+        ),
+        pytest.param(
+            "Replace LOAD id;\n$(vT): LOAD id FROM [lib://Data/orders.qvd] (qvd);",
+            id="a Replace preceding load above a variable-labelled file load",
+        ),
         pytest.param("DROP TABLES Regions, [$(vT)];", id="a variable DROP"),
         pytest.param("RENAME TABLE Orders TO $(vT);", id="a variable RENAME target"),
         pytest.param(

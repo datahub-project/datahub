@@ -335,9 +335,14 @@ UNRESOLVED_STORE = "a STORE path could not be resolved"
 
 
 # A reload statement that ran SQL: Qlik keeps the `SQL` prefix when the script
-# used one, and a bare `SELECT` is SQL too.
+# used one, and a bare `SELECT` or `WITH` is SQL too.
 RELOAD_SQL_RE = re.compile(
-    r"^\s*(?:SQL\b|(?=SELECT\b))(?P<sql>.*)$", re.IGNORECASE | re.DOTALL
+    r"^\s*(?:SQL\b|(?=(?:SELECT|WITH)\b))(?P<sql>.*)$", re.IGNORECASE | re.DOTALL
+)
+# Other SQL a reload may have run without the prefix, which is never parsed
+# for lineage but may read the tables a label names.
+RELOAD_UNPARSED_SQL_RE = re.compile(
+    r"^\s*(?:EXEC|EXECUTE|INSERT|MERGE|UPDATE|DELETE)\b", re.IGNORECASE
 )
 QUOTE_CHARACTERS = '[]"`'
 # A file an app's last reload stored or loaded, as Qlik records it, such as
@@ -460,6 +465,8 @@ SQL_TOKEN_RE = re.compile(
 )
 # Keywords after which SQL names the tables it reads or writes.
 TABLE_CLAUSE_KEYWORDS = {"from", "join", "into", "using", "update"}
+# CROSS APPLY and OUTER APPLY start a table list again.
+APPLY_PREFIX_KEYWORDS = {"cross", "outer"}
 # Keywords that end such a list of tables.
 TABLE_CLAUSE_END_KEYWORDS = {
     "where",
@@ -501,8 +508,13 @@ def _table_clause_names(sql: str) -> Set[str]:
     run dynamically."""
     names: Set[str] = set()
     in_clause = False
+    # Right after FROM, a comma or a dot, a keyword such as ORDER is a name.
+    expects_name = False
+    previous = ""
     stack: List[bool] = []
     for token in SQL_TOKEN_RE.findall(sql):
+        is_word = re.match(r"[\w$#@]", token) is not None
+        opens_clause = False
         if token.startswith("'"):
             names |= _table_clause_names(token.strip("'").replace("''", "'"))
         elif token == "(":
@@ -515,14 +527,20 @@ def _table_clause_names(sql: str) -> Set[str]:
         elif token[0] in QUOTE_CHARACTERS:
             if in_clause:
                 names.add(token.strip(QUOTE_CHARACTERS).strip().lower())
-        elif re.match(r"[\w$#@]", token):
+        elif is_word:
             word = token.lower()
-            if word in TABLE_CLAUSE_KEYWORDS:
-                in_clause = True
+            if in_clause and expects_name:
+                names.add(word)
+            elif word in TABLE_CLAUSE_KEYWORDS or (
+                word == "apply" and previous in APPLY_PREFIX_KEYWORDS
+            ):
+                in_clause = opens_clause = True
             elif word in TABLE_CLAUSE_END_KEYWORDS:
                 in_clause = False
             elif in_clause:
                 names.add(word)
+        expects_name = opens_clause or (in_clause and token in {",", "."})
+        previous = token.lower() if is_word else ""
     return names
 
 
@@ -2507,9 +2525,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if (
                 urn is None
                 and table_qri.startswith(QLIK_DATASET_QRI_PREFIX)
-                and self._datasets_without_qri
+                and (
+                    self._datasets_without_qri
+                    or (
+                        self._excluded_datasets_without_qri
+                        and not self._is_listed_dataset(table_qri)
+                    )
+                )
             ):
-                # It may be an ingested dataset the listing gave no QRI for, so
+                # It may be a listed dataset the listing gave no QRI for, so
                 # it is not named from the graph either.
                 self._keep_graph_named_sources(own_app_id, table_qri)
                 return None, "a listed Qlik dataset has no QRI to match"
@@ -2534,7 +2558,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             and self._excluded_datasets_without_qri
         ):
             return False
-        return table_qri.startswith(UPSTREAM_RESOURCE_QRI_PREFIXES) and not any(
+        return table_qri.startswith(
+            UPSTREAM_RESOURCE_QRI_PREFIXES
+        ) and not self._is_listed_dataset(table_qri)
+
+    def _is_listed_dataset(self, table_qri: str) -> bool:
+        return any(
             qri in self._listed_dataset_qris
             for qri in (table_qri.rpartition("#")[0], table_qri)
         )
@@ -3290,15 +3319,23 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         unresolved: Set[str] = set()
         for statement in app.reload_statements or []:
             match = RELOAD_SQL_RE.match(statement.statement)
-            if not match:
+            unparsed = match is None and bool(
+                RELOAD_UNPARSED_SQL_RE.match(statement.statement)
+            )
+            if not match and not unparsed:
                 continue
-            sql = drop_condition_variables(match.group("sql").strip())
+            sql = drop_condition_variables(
+                match.group("sql").strip() if match else statement.statement.strip()
+            )
             if is_connector_sql(sql):
                 continue
             if "$(" in sql:
                 parsed.unexpanded_variable = True
                 continue
             if not any(_names_identifier(sql.lower(), name) for name in names):
+                continue
+            if unparsed:
+                parsed.skipped_table_names |= _table_clause_names(sql)
                 continue
             connection_name = statement.discriminator.strip().rstrip(";").strip()
             connection = self._resolve_script_connection(connection_name, app.spaceId)
@@ -3544,9 +3581,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             try:
                 labels = self.qlik_api.get_database_labels(app.qri)
             except Exception as e:
+                # The tables stay unlabelled, so their lineage is only added to.
                 logger.debug(f"Unable to read database labels of app {app.id}: {e}")
-                app.reload_statements_read_failed = True
-                self.qlik_api.reload_statement_read_failures.append(f"{app.id}: {e}")
+                self.reporter.database_label_read_failures.append(f"{app.id}: {e}")
                 return
         for table, qri in unlabelled:
             if qri in labels:
@@ -5536,6 +5573,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "reload names are left out, and the lineage of the apps' tables "
                 "that read databases is only added to this run.",
                 context=_bounded_list(self.qlik_api.reload_statement_read_failures),
+            )
+        if self.reporter.database_label_read_failures:
+            self.reporter.warning(
+                title="Unable to read the labels of Qlik apps' database tables",
+                message="The upstream lineage graph that labels the database "
+                "tables these apps load from could not be read, so lineage of the "
+                "apps' tables that read databases is only added to this run.",
+                context=_bounded_list(list(self.reporter.database_label_read_failures)),
             )
         if self.reporter.ambiguous_reload_sql_sources:
             self.reporter.warning(
