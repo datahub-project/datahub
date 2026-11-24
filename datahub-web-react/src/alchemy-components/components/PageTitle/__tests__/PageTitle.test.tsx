@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
 import { describe, expect, it, vi } from 'vitest';
@@ -11,7 +11,9 @@ function hoverAndGetTooltip(button: HTMLElement) {
     vi.useFakeTimers();
     try {
         fireEvent.mouseEnter(button.parentElement as HTMLElement);
-        vi.advanceTimersByTime(100);
+        act(() => {
+            vi.advanceTimersByTime(100);
+        });
         return screen.queryByRole('tooltip');
     } finally {
         vi.useRealTimers();
