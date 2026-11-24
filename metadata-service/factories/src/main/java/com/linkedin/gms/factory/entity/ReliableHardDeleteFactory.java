@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.entity;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.GraphReferenceOverLimit;
 import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.service.HardDeleteDispatcher;
 import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
@@ -48,7 +49,9 @@ public class ReliableHardDeleteFactory {
       @Qualifier("reliableHardDelete") final ReliableHardDelete reliableHardDelete,
       final ObjectProvider<HardDeleteDispatcher> dispatcher,
       @Value("${hardDelete.graph-reference-cleanup-limit:100}")
-          final int graphReferenceCleanupLimit) {
+          final int graphReferenceCleanupLimit,
+      @Value("${hardDelete.graph-reference-over-limit:SKIP}")
+          final String graphReferenceOverLimit) {
     final HardDeleteDispatcher resolvedDispatcher = dispatcher.getIfAvailable();
     if (resolvedDispatcher != null) {
       log.info(
@@ -67,6 +70,7 @@ public class ReliableHardDeleteFactory {
         timeseriesAspectService,
         reliableHardDelete,
         resolvedDispatcher,
-        graphReferenceCleanupLimit);
+        graphReferenceCleanupLimit,
+        GraphReferenceOverLimit.parse(graphReferenceOverLimit));
   }
 }
