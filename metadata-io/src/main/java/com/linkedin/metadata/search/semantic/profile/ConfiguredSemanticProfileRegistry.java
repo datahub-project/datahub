@@ -49,6 +49,13 @@ public class ConfiguredSemanticProfileRegistry implements SemanticProfileRegistr
    */
   private void requireOneServiceProfile(@Nullable Map<String, String> active) {
     if (active == null || active.isEmpty()) {
+      // Generation protects the service-owned profiles from client writes, and clients learn which
+      // profile that is from active. Without it nothing tells them to skip it.
+      if (generationEnabled) {
+        throw new IllegalArgumentException(
+            "semanticSearch.profiles.generationEnabled requires semanticSearch.profiles.active to"
+                + " name the service profile");
+      }
       return;
     }
     Set<String> ids = new HashSet<>(active.values());

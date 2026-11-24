@@ -243,6 +243,8 @@ A state-only write on an existing key sets `workState` and `stateReason` field b
 
 A model entry with `serviceOwned: true` is protected while `semanticSearch.profiles.generationEnabled` is true. Adding, removing, or changing that profile's vectors, `workState`, `stateReason`, or `policyVersion` then requires an apply write. Changes to `current`, `refreshMarker`, and `dirty` stay open to every authorized writer, so a content edit can record that the vectors are stale. The check runs in an aspect validator, so it covers every API.
 
+The server reports `generationEnabled` and `serviceProfileKey` in the app config. The `datahub-documents` source and the Python SDK document helper read them and skip the profile the server generates, so a current client does not try the write. A CLI or SDK from before this check does not skip, and the validator rejects its writes to that profile, so run a CLI from the same release as the server or later when generation is on.
+
 `SemanticProfileRegistry` answers which profiles are service-owned and which binding each key uses. The default implementation reads the configuration above, and another implementation replaces it when one is present.
 
 ## Search index projection

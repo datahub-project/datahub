@@ -5351,6 +5351,41 @@ class TestRefreshMarkerTokens:
             self.OVERRIDE_KEY: (2_500, 6),
         }
 
+    def test_semantic_text_delete_embeds_the_body_not_the_deleted_override(
+        self, ctx, mock_graph
+    ):
+        """The delete's previous value still holds the removed override. It only decides
+        whether the watched text moved; the embedded text is the body."""
+        entity = {
+            self.URN: {
+                "documentInfo": (
+                    _StoredAspect({"contents": {"text": "body text"}}),
+                    _system_metadata(1_000, "4"),
+                )
+            }
+        }
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            mock_graph_cls.return_value.get_entities.return_value = entity
+            doc = self._process_event(
+                source,
+                {
+                    "entityUrn": self.URN,
+                    "aspectName": "semanticText",
+                    "changeType": "DELETE",
+                    "aspect": None,
+                    "previousAspectValue": {
+                        "com.linkedin.pegasus2avro.mxe.GenericAspect": {
+                            "value": json.dumps({"text": "deleted override text"}),
+                            "contentType": "application/json",
+                        }
+                    },
+                    "previousSystemMetadata": self._mcl_system_metadata(2_500, "5"),
+                },
+            )
+
+        assert doc["text"] == "body text"
+
     def test_semantic_text_delete_without_previous_metadata_carries_no_token(
         self, ctx, mock_graph
     ):
