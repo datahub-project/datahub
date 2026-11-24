@@ -32,6 +32,8 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import EngineError
 from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
+    ContainerClass,
     DatasetPropertiesClass,
     MetadataChangeProposalClass,
     UpstreamLineageClass,
@@ -348,11 +350,14 @@ def test_file_without_known_storage_is_reported(mock_api_cls: MagicMock) -> None
     assert source.reporter.unresolved_file_connections == ["Lake"]
 
 
+@pytest.mark.parametrize("space_ingested", [True, False])
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_file_without_known_storage_is_named_by_its_connection(
-    mock_api_cls: MagicMock,
+    mock_api_cls: MagicMock, space_ingested: bool
 ) -> None:
     source = _source({}, {})
+    if space_ingested:
+        source._allowed_space_ids = {"space-1"}
     regions = make_dataset_urn("qlik-sense", "sales space:lake/ref/regions.xlsx")
 
     # Named with its space, the connection is the same in every app, so the
@@ -370,6 +375,21 @@ def test_file_without_known_storage_is_named_by_its_connection(
         p for wu in entities if (p := wu.get_aspect_of_type(DatasetPropertiesClass))
     )
     assert properties.qualifiedName == "lib://Sales Space:Lake/ref/regions.xlsx"
+    # In its space, under its connection and folders, rather than at the dots
+    # of its URN; a space the run doesn't ingest gets no made-up container.
+    space_urn = source._gen_space_key("space-1").as_urn()
+    browse_path = next(
+        b for wu in entities if (b := wu.get_aspect_of_type(BrowsePathsV2Class))
+    )
+    assert [(e.id, e.urn) for e in browse_path.path] == [
+        (space_urn, space_urn) if space_ingested else ("Sales Space", None),
+        ("Lake", None),
+        ("ref", None),
+    ]
+    containers = [
+        c.container for wu in entities if (c := wu.get_aspect_of_type(ContainerClass))
+    ]
+    assert containers == ([space_urn] if space_ingested else [])
 
 
 @pytest.mark.parametrize(
