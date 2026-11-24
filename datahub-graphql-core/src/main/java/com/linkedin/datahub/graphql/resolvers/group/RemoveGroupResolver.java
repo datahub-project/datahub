@@ -35,12 +35,13 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
       return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
-              // Capture members BEFORE the delete. deleteEntity's key-aspect DELETE MCL leads to
+              // Capture members BEFORE the delete. deleteReferencesThenEntity removes the graph
+              // references first, but only up to graph-reference-cleanup-limit, and not at all
+              // when the limit is 0. The key delete's MCL then leads to
               // graphService.removeNode(urn), which reaps incoming IsMemberOfNativeGroup edges
               // even though each edge is owned by a member's nativeGroupMembership aspect.
-              // Discovering referrers afterwards, as deleteEntityReferences does by scrolling
-              // incoming edges, races that removal and loses, stranding a dangling group URN on
-              // every member.
+              // Discovering referrers afterwards races that removal and loses, stranding a
+              // dangling group URN on every member, so the sweep below works from this list.
               //
               // This capture is its own try/catch, isolated from the delete itself, because a
               // single unparseable URN in the graph index makes getRelatedEntities throw - and
@@ -53,13 +54,11 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
               final var references =
                   _entityClient.deleteReferencesThenEntity(context.getOperationContext(), urn);
 
-              // The entity is already gone. This removes the remaining references.
+              // The graph references are removed and the group is deleted: a failure of either was
+              // thrown above and left the group in place. This removes the references that are not
+              // graph edges, then sweeps the members' links.
               CompletableFuture.runAsync(
                   () -> {
-                    // The cleanup reads graph referrers and removes them, then deletes the group.
-                    // The membership sweep works from the list captured before that, so it loses
-                    // nothing by going second, but it must not run while the group is still here:
-                    // a page loop that fails leaves the group in place.
                     try {
                       references.run();
                     } catch (Exception e) {
@@ -69,9 +68,9 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
                               urn),
                           e);
                     }
-                    // Handed off, or not deleted: the group may still be here, so its members stay.
-                    // The process that deletes it also cleans the members' links once it is gone.
-                    if (references.handedOff() || groupRemains(context, urn)) {
+                    // Handed off: the group is not deleted yet. The process that deletes it also
+                    // cleans the members' links once it is gone.
+                    if (references.handedOff()) {
                       return;
                     }
                     try {
@@ -110,20 +109,6 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
           groupUrn,
           e);
       return List.of();
-    }
-  }
-
-  /** True when the group is still stored, or when that cannot be told. Members stay either way. */
-  private boolean groupRemains(final QueryContext context, final Urn groupUrn) {
-    try {
-      return _entityClient.exists(context.getOperationContext(), groupUrn);
-    } catch (Exception e) {
-      log.error(
-          String.format(
-              "Could not tell whether group %s was deleted; leaving its members in place",
-              groupUrn),
-          e);
-      return true;
     }
   }
 

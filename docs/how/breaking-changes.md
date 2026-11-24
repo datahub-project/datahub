@@ -74,14 +74,21 @@ method no longer compiles, and a class that overrode it has to override the new 
 override is no longer called.
 
 On GMS, this delete now checks that the delete is allowed, removes the relationships other entities
-hold to the deleted one, then deletes it, when there are at most 100 of those relationships. A
-delete that is refused leaves those relationships in place. Deleting the entity first dropped them
-from the graph, so they stayed on the other entities. Set
-`DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`
-(`hardDelete.graph-reference-cleanup-limit`) to raise or lower that limit. Above the limit, or at
-`0`, only the entity is hard-deleted and the other entities keep their pointers to it; references
-that are not graph relationships are still removed. `ReferencesCleanup.choice()` reports which one
-happened.
+hold to the deleted one, then deletes it. A delete that is refused leaves those relationships in
+place. Deleting the entity first dropped them from the graph, so they stayed on the other entities.
+
+Deleting a tag, term, domain, user, group or other entity that more than 100 other entities point
+at is now refused, and nothing is deleted. The error says how many entities point at it. Either
+raise the limit with `DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`
+(`hardDelete.graph-reference-cleanup-limit`, default `100`), or remove the references first with
+`datahub delete references --urn <urn>` and delete again. Set the limit to `0` to turn this
+cleanup off: the entity is deleted alone, as before, and the entities that pointed at it keep
+pointers to something that no longer exists. References that are not graph relationships are
+still removed. `ReferencesCleanup.choice()` reports which path ran.
+
+If a delete fails because the entity was written to while it was being deleted (with
+`featureFlags.reliableHardDelete` on), the relationships to it are already removed and the entity
+is only partly deleted. The error says so. Run the delete again to finish it.
 
 The UI and GraphQL use this for hard deletes of applications, assertions, business attributes,
 data products, domains, forms, glossary terms and nodes, groups, incidents, ownership types, page
@@ -100,12 +107,12 @@ move them to another parent, first. A bulk delete that removes parents and child
 reject some parents on the first pass; run it again, or delete the children first. Rolling back an
 ingestion run is not affected.
 
-Deleting the product in the UI, or with the GraphQL `deleteDataProduct` mutation, removes the
-parent and clears the parent on each child, so the children stay and become top-level products
-([PR #21481](https://github.com/datahub-project/datahub/pull/21481)). That cleanup runs when the
-product has at most 100 incoming relationships
-(`DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`, default 100). Above that limit the children
-are left pointing at the parent, the delete is rejected, and the parent stays.
+Deleting the product in the UI, or with the GraphQL `deleteDataProduct` mutation, is refused in the
+same way while a child still points at it. Once no child does, the delete goes ahead and removes the
+other relationships to the product first ([PR #21481](https://github.com/datahub-project/datahub/pull/21481)).
+That cleanup runs when the product has at most 100 incoming relationships
+(`DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`, default 100). Above that limit the delete is
+refused and the product stays, until the limit is raised or the references are removed first.
 
 ### Rest.li status codes for rejected writes
 

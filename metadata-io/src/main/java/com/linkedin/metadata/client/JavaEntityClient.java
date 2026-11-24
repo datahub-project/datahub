@@ -32,6 +32,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -50,6 +51,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
+import com.linkedin.metadata.service.async.delete.PartialHardDeleteException;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -88,8 +90,13 @@ public class JavaEntityClient implements EntityClient {
   private static final int DEFAULT_RETRY_INTERVAL = 2;
   private static final int DEFAULT_RETRY_COUNT = 3;
 
+  // Failures that repeat on every attempt. A partial hard delete would delete against the same
+  // captured versions, and a validator refusal inside the delete stays refused.
   private static final Set<String> NON_RETRYABLE =
-      Set.of("com.linkedin.data.template.RequiredFieldNotPresentException");
+      Set.of(
+          "com.linkedin.data.template.RequiredFieldNotPresentException",
+          PartialHardDeleteException.class.getCanonicalName(),
+          ValidationException.class.getCanonicalName());
 
   private final Clock _clock = Clock.systemUTC();
   private final EntityService<?> entityService;

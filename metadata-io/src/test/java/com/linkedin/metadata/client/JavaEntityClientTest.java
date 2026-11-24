@@ -25,6 +25,7 @@ import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.entity.DeleteCeiling;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.GraphReferenceLimitExceededException;
 import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackResult;
@@ -41,6 +42,7 @@ import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.HardDeleteDispatcher;
 import com.linkedin.metadata.service.HardDeleteRequest;
 import com.linkedin.metadata.service.RollbackService;
+import com.linkedin.metadata.service.async.delete.PartialHardDeleteException;
 import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
@@ -278,7 +280,7 @@ public class JavaEntityClientTest {
                         ChangeType.DELETE,
                         true,
                         0))));
-    when(_deleteEntityService.deleteReferencesTo(opContext, urn, List.of()))
+    when(_deleteEntityService.deleteReferencesTo(opContext, urn, false, List.of()))
         .thenThrow(new IllegalArgumentException("transient"))
         .thenReturn(null);
 
@@ -293,55 +295,56 @@ public class JavaEntityClientTest {
     inOrder.verify(_deleteEntityService).countGraphReferrers(opContext, urn);
     inOrder.verify(_deleteEntityService).deleteGraphReferences(opContext, urn);
     inOrder.verify(_entityService).deleteUrn(opContext, urn, ceiling);
-    verify(_deleteEntityService, never()).deleteReferencesTo(opContext, urn, List.of());
+    verify(_deleteEntityService, never()).deleteReferencesTo(opContext, urn, false, List.of());
     assertEquals(references.choice(), EntityClient.ReferencesCleanup.Choice.REFERENCES_THEN_ENTITY);
 
     references.run();
 
-    inOrder.verify(_deleteEntityService, times(2)).deleteReferencesTo(opContext, urn, List.of());
+    inOrder
+        .verify(_deleteEntityService, times(2))
+        .deleteReferencesTo(opContext, urn, false, List.of());
     verify(_deleteEntityService, never()).deleteReferencesTo(opContext, urn, false);
   }
 
-  /**
-   * Over the limit, only the entity is deleted and the graph references are left, and the cleanup
-   * still removes the other references.
-   */
+  /** Over the limit the delete is refused once, with nothing removed, and not retried. */
   @Test
-  void testDeleteReferencesThenEntityOverTheLimitReportsEntityOnly() throws Exception {
+  void testDeleteReferencesThenEntityOverTheLimitIsRefusedWithoutRetry() throws Exception {
     Urn urn = UrnUtils.getUrn("urn:li:tag:overLimit");
     DeleteCeiling ceiling = new DeleteCeiling(Map.of("tagKey", 1L), 1L);
     when(_entityService.captureDeleteCeiling(opContext, urn)).thenReturn(Optional.of(ceiling));
-    when(_entityService.deleteUrn(opContext, urn, ceiling))
-        .thenReturn(
-            new RollbackRunResult(
-                List.of(),
-                1,
-                List.of(
-                    new RollbackResult(
-                        urn,
-                        "tag",
-                        "tagKey",
-                        null,
-                        null,
-                        null,
-                        null,
-                        ChangeType.DELETE,
-                        true,
-                        0))));
     when(_deleteEntityService.countGraphReferrers(opContext, urn)).thenReturn(101);
 
-    EntityClient.ReferencesCleanup references =
-        getJavaEntityClient(hardDeleteService(true, null))
-            .deleteReferencesThenEntity(opContext, urn);
+    assertThrows(
+        GraphReferenceLimitExceededException.class,
+        () ->
+            getJavaEntityClient(hardDeleteService(true, null))
+                .deleteReferencesThenEntity(opContext, urn));
 
-    assertEquals(references.choice(), EntityClient.ReferencesCleanup.Choice.ENTITY_ONLY);
-    verify(_entityService).deleteUrn(opContext, urn, ceiling);
+    verify(_deleteEntityService, times(1)).countGraphReferrers(opContext, urn);
+    verify(_entityService, never()).deleteUrn(any(), any(), any(DeleteCeiling.class));
     verify(_deleteEntityService, never()).deleteGraphReferences(any(), any());
-    verify(_deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
+    verify(_deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean(), anyList());
+  }
 
-    references.run();
+  /**
+   * A bounded delete that leaves the entity (written to while it was deleted) is attempted once:
+   * retrying would delete against the same captured versions and fail the same way.
+   */
+  @Test
+  void testDeleteReferencesThenEntityPartialDeleteIsNotRetried() throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:partialDelete");
+    DeleteCeiling ceiling = new DeleteCeiling(Map.of("tagKey", 1L), 1L);
+    when(_entityService.captureDeleteCeiling(opContext, urn)).thenReturn(Optional.of(ceiling));
+    when(_entityService.deleteUrn(opContext, urn, ceiling))
+        .thenReturn(new RollbackRunResult(List.of(), 0, List.of()));
 
-    verify(_deleteEntityService).deleteReferencesTo(opContext, urn, List.of());
+    assertThrows(
+        PartialHardDeleteException.class,
+        () ->
+            getJavaEntityClient(hardDeleteService(true, null))
+                .deleteReferencesThenEntity(opContext, urn));
+
+    verify(_entityService, times(1)).deleteUrn(opContext, urn, ceiling);
   }
 
   /** Taken: nothing runs here, now or when the caller runs the cleanup. */

@@ -144,19 +144,6 @@ public class DeleteEntityService {
   }
 
   /**
-   * {@link #deleteReferencesTo(OperationContext, Urn, boolean)}, not a dry run, with the graph
-   * references taken from {@code graphReferrers} instead of the graph as it is now. An empty list
-   * removes no graph references: the caller already removed them, and the key delete has dropped
-   * the edges, so scrolling again would find none.
-   */
-  public DeleteReferencesResponse deleteReferencesTo(
-      @Nonnull OperationContext opContext,
-      final Urn urn,
-      @Nonnull final List<RelatedEntities> graphReferrers) {
-    return deleteReferencesTo(opContext, urn, false, graphReferrers);
-  }
-
-  /**
    * Removes the graph references other entities hold to {@code urn}, one page at a time. The page
    * is discarded once its references are removed, so the referrers are not held as one list. The
    * entity itself is left in place; a caller deletes it after this returns, while the edges are
@@ -165,7 +152,8 @@ public class DeleteEntityService {
   public void deleteGraphReferences(@Nonnull OperationContext opContext, @Nonnull final Urn urn) {
     try (CascadeOperationContext cascade =
         CascadeOperationContext.begin(_metricUtils, "deleteGraphReferences", urn, -1)) {
-      RelatedEntitiesScrollResult scrollResult = scrollGraphReferrers(opContext, urn, null);
+      RelatedEntitiesScrollResult scrollResult =
+          scrollGraphReferrers(opContext, urn, null, BATCH_SIZE);
       int totalProcessed = 0;
       while (true) {
         if (!scrollResult.getEntities().isEmpty()) {
@@ -184,7 +172,7 @@ public class DeleteEntityService {
         if (nextScrollId == null) {
           break;
         }
-        scrollResult = scrollGraphReferrers(opContext, urn, nextScrollId);
+        scrollResult = scrollGraphReferrers(opContext, urn, nextScrollId, BATCH_SIZE);
       }
       log.info(
           "Graph reference cleanup complete for {}: {} references processed", urn, totalProcessed);
@@ -201,12 +189,6 @@ public class DeleteEntityService {
     final RelatedEntitiesScrollResult page = scrollGraphReferrers(opContext, urn, null, 1);
     _graphService.closeRelatedEntitiesScroll(opContext, page.getScrollId());
     return page.getNumResults();
-  }
-
-  /** A page of the entities holding a graph reference to {@code urn}. */
-  private RelatedEntitiesScrollResult scrollGraphReferrers(
-      @Nonnull OperationContext opContext, final Urn urn, @Nullable final String scrollId) {
-    return scrollGraphReferrers(opContext, urn, scrollId, BATCH_SIZE);
   }
 
   /** A page of at most {@code count} entities holding a graph reference to {@code urn}. */
@@ -232,9 +214,14 @@ public class DeleteEntityService {
   }
 
   /**
+   * {@link #deleteReferencesTo(OperationContext, Urn, boolean)} with the graph references taken
+   * from {@code graphReferrers} instead of the graph as it is now. An empty list removes no graph
+   * references: the caller already removed them, and the key delete has dropped the edges, so
+   * scrolling again would find none.
+   *
    * @param graphReferrers the graph references to remove; null reads them from the graph
    */
-  private DeleteReferencesResponse deleteReferencesTo(
+  public DeleteReferencesResponse deleteReferencesTo(
       @Nonnull OperationContext opContext,
       final Urn urn,
       final boolean dryRun,
@@ -265,7 +252,7 @@ public class DeleteEntityService {
                   .scrollId(null)
                   .entities(graphReferrers)
                   .build()
-              : scrollGraphReferrers(opContext, urn, null);
+              : scrollGraphReferrers(opContext, urn, null, BATCH_SIZE);
 
       final List<RelatedAspect> relatedAspects =
           scrollResult.getEntities().stream()
@@ -305,7 +292,7 @@ public class DeleteEntityService {
           break;
         }
 
-        scrollResult = scrollGraphReferrers(opContext, urn, nextScrollId);
+        scrollResult = scrollGraphReferrers(opContext, urn, nextScrollId, BATCH_SIZE);
       } while (true);
       log.info("Reference cleanup complete for {}: {} references processed", urn, totalProcessed);
     }

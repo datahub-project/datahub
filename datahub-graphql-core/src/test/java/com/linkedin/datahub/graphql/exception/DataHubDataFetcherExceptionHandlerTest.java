@@ -8,7 +8,9 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.metadata.entity.GraphReferenceLimitExceededException;
 import com.linkedin.metadata.graph.LineageTimeoutException;
+import com.linkedin.metadata.service.async.delete.PartialHardDeleteException;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
@@ -188,6 +190,38 @@ public class DataHubDataFetcherExceptionHandlerTest {
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
     assertEquals(error.getMessage(), "Nested state error");
     assertEquals(error.getErrorCode(), 500);
+  }
+
+  @Test
+  public void testHandleWrappedGraphReferenceLimitRefusalIsBadRequest()
+      throws ExecutionException, InterruptedException {
+    GraphReferenceLimitExceededException refusal =
+        new GraphReferenceLimitExceededException(UrnUtils.getUrn("urn:li:tag:t"), 101, 100);
+    RuntimeException wrapper =
+        new RuntimeException("Failed to perform delete against tag with urn urn:li:tag:t", refusal);
+    Mockito.when(mockParameters.getException()).thenReturn(wrapper);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), refusal.getMessage());
+    assertEquals(error.getErrorCode(), 400);
+  }
+
+  @Test
+  public void testHandleWrappedPartialHardDeleteIsConflict()
+      throws ExecutionException, InterruptedException {
+    PartialHardDeleteException partial =
+        new PartialHardDeleteException(UrnUtils.getUrn("urn:li:tag:t"));
+    RuntimeException wrapper =
+        new RuntimeException("Failed to perform delete against tag with urn urn:li:tag:t", partial);
+    Mockito.when(mockParameters.getException()).thenReturn(wrapper);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), partial.getMessage());
+    assertEquals(error.getErrorCode(), 409);
   }
 
   @Test

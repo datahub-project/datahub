@@ -507,11 +507,12 @@ public interface EntityClient {
    * the entity first drops its graph edges, so those references are removed before it. This default
    * has no graph scroll: it deletes the entity before returning and throws that failure here, and
    * the cleanup it returns only removes references. An implementation that counts incoming graph
-   * edges removes them, then deletes the entity, before returning, unless the count is over its
-   * limit, in which case it hard-deletes the entity only. {@link ReferencesCleanup#choice()}
-   * reports which one happened and is known when this returns. A failure of the count, the graph
-   * pages or the entity delete is thrown here and leaves the entity in place. {@link
-   * ReferencesCleanup#run()} only removes the references that are not graph edges.
+   * edges removes them, then deletes the entity, before returning. When the count is over its limit
+   * it refuses the delete with an {@link IllegalArgumentException} and removes nothing; a limit of
+   * 0 turns the graph cleanup off and hard-deletes the entity only. {@link
+   * ReferencesCleanup#choice()} reports which path ran and is known when this returns. A failure of
+   * the count, the graph pages or the entity delete is thrown here and leaves the entity in place.
+   * {@link ReferencesCleanup#run()} only removes the references that are not graph edges.
    */
   @Nonnull
   default ReferencesCleanup deleteReferencesThenEntity(
@@ -540,8 +541,9 @@ public interface EntityClient {
        */
       REFERENCES_THEN_ENTITY,
       /**
-       * The referrer count was over the limit: only the entity was hard-deleted. {@link #run()}
-       * still cleans the references that are not graph edges.
+       * Graph reference cleanup is turned off (limit 0): only the entity was hard-deleted, and its
+       * referrers were left. {@link #run()} still cleans the references that are not graph edges. A
+       * delete over a limit above 0 is refused instead.
        */
       ENTITY_ONLY,
       /** The delete was handed to another process, which also cleans the references. */

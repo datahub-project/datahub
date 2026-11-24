@@ -195,7 +195,7 @@ Key behaviors:
 - Permissions remain scoped to each Data Product's own Domain; **Manage Data Products** privilege is not inherited from the parent.
 - A product cannot be moved under one of its own descendants.
 - Soft-deleting a product that has child Data Products fails, and so does a hard delete through OpenAPI, Rest.li, or `datahub delete`, while a child still points at it. Delete the children or move them to another parent first. Rolling back an ingestion run is not blocked.
-- Deleting the product in the UI, or with the GraphQL `deleteDataProduct` mutation, removes the parent and clears each child's parent, so the children remain as top-level products. This runs when the product has at most 100 incoming relationships (`DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`, default 100). Above that limit the delete is rejected and the parent stays; raise the limit to delete a larger product.
+- Deleting the product in the UI, or with the GraphQL `deleteDataProduct` mutation, is refused in the same way while a child still points at it. Once no child does, the delete removes the other relationships to the product first. This runs when the product has at most 100 incoming relationships (`DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`, default 100). Above that limit the delete is refused and the product stays; raise the limit, or remove the references first with `datahub delete references --urn <urn>`.
 
 <p align="center">
   <img width="70%" alt="Move dialog for re-parenting a Data Product in the hierarchy" src="https://raw.githubusercontent.com/datahub-project/static-assets/3ca67aad505de1157a5c5a14ef527dd2d88a1cd1/imgs/data_products/dataproducts-hierarchy-move.png"/>

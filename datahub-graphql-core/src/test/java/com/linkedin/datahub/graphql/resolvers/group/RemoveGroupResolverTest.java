@@ -92,21 +92,6 @@ public class RemoveGroupResolverTest {
   }
 
   @Test
-  public void testSkipsMembershipCleanupWhenTheGroupRemains() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
-    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
-    when(_entityClient.exists(any(), eq(GROUP_URN))).thenReturn(true);
-
-    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
-
-    // The cleanup did not delete the group (the page loop failed, or the delete was partial), so
-    // its members keep the membership they had.
-    verify(_references, timeout(10000)).run();
-    verify(_groupService, after(1000).never())
-        .removeStaleNativeGroupMembership(any(), any(), any());
-  }
-
-  @Test
   public void testSkipsMembershipCleanupWhenTheDeleteWasHandedOff() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
