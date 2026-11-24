@@ -642,9 +642,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             fingerprint
         ):
             return False
-        if self.config.on_prem is not None and previous.qvds is None:
-            # Recorded before QVD lineage, so the QVDs it writes are only
-            # known by reading it again.
+        if self.config.on_prem is not None and (
+            previous.qvds is None or previous.binary_tables is None
+        ):
+            # Recorded before QVD or BINARY lineage, which are only known by
+            # reading it again.
             return False
         # Checkpoints are committed even when the sink failed, so only trust one
         # whose metadata actually reached DataHub and was not deleted since.
@@ -3506,7 +3508,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     f"table Qlik renamed, and app {link.source_app_id}'s data "
                     "model is not known"
                 )
-                continue
+                # The script's own edges stay, only added to if it may be the file's.
+                if source_model is None:
+                    yield from self._patch_binary_upstreams(
+                        link, None, link.script_fields
+                    )
+                    continue
+                if not link.upstream_urns and not link.script_fields:
+                    continue
             source_urn = self._binary_link_source(link, unread)
             if source_urn is None and source_model is not None and not in_source_model:
                 if link.additive:
