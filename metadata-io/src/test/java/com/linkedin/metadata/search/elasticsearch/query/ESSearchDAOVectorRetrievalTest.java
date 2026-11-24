@@ -1167,6 +1167,51 @@ public class ESSearchDAOVectorRetrievalTest {
   }
 
   @Test
+  public void testAKeywordRerankRootThatFindsNothingHandsTheSearchToItsVectorNext()
+      throws Exception {
+    store(vector(r -> {}));
+    SearchTemplateProperties root = keyword();
+    root.setApiVersion(2);
+    root.setRetrieval(new SearchTemplateRetrieval().setCombine("keywordRerank"));
+    root.setKnn("{ \"others\": \"keepKeywordPlaces\" }");
+    root.setLadder(onMissNext(VECTOR_URN));
+    harness.store(KEYWORD_URN, root);
+    SearchResponse empty = keywordResponse(0);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(empty);
+    knnReturns(hits(0.9, 0.8));
+    HybridSearchResultReranker reranker = mock(HybridSearchResultReranker.class);
+    when(reranker.vectorEntityNames(any(OperationContext.class), any()))
+        .thenReturn(Set.of("document"));
+    when(reranker.providerSucceededSince(anyLong())).thenReturn(true);
+    when(reranker.modelEmbeddingKey()).thenReturn(MODEL_KEY);
+    SearchTemplateCoordinator coordinator =
+        coordinator(SearchTemplateGates.of(registry(cosine()), semanticSearch, true));
+
+    SearchResult page =
+        cached(dao(reranker, embedding()))
+            .search(
+                pinned(context(DOCUMENT, f -> {}, coordinator), KEYWORD_URN),
+                DOCUMENT,
+                "quarterly revenue",
+                null,
+                null,
+                0,
+                10,
+                List.of());
+
+    // The root misses its minHits of 1, so the vector rung serves its own page, total, and
+    // explain, and nothing reranks that page
+    assertEquals(urns(page), List.of("urn:li:document:d0", "urn:li:document:d1"));
+    assertEquals(page.getNumEntities().intValue(), 2);
+    assertEquals(
+        page.getMetadata().getVectorRetrieval().getOutcome(), SearchTemplateVectorRetrieval.SERVED);
+    verify(client, times(1)).searchKnn(any(), any());
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
+  }
+
+  @Test
   public void testALegacyKnnWithoutAVectorRungKeepsTheBatchedRerank() throws Exception {
     SearchTemplateProperties root = keyword();
     root.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
