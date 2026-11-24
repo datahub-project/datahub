@@ -309,6 +309,18 @@ def _reload_files(statements: List[ReloadStatement]) -> List[_ReloadFile]:
     return files
 
 
+def _named_space(connection: str) -> Optional[str]:
+    """The space a `<space>:<connection>` name, or the connection part of a
+    `lib://` path, names."""
+    space, qualified, _ = connection.rpartition(SPACE_SEPARATOR)
+    return space.strip().strip("[]") or None if qualified else None
+
+
+def _path_space(path: str) -> Optional[str]:
+    match = LIB_PATH_RE.match(path)
+    return _named_space(match.group("connection")) if match else None
+
+
 def _path_key(path: str) -> str:
     # Qlik records loads in lowercase, and brackets around a space name with
     # spaces are optional.
@@ -535,6 +547,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._reload_files: Dict[str, List[_ReloadFile]] = {}
         # Apps whose last reload's statements could not be read.
         self._reload_files_unread: Set[str] = set()
+        # Spaces the API key can't see that lineage goes through, by lowercased
+        # name, with the name as written and what lineage needs from them.
+        self._unseen_spaces: Dict[str, Tuple[str, Set[str]]] = {}
         # The apps whose upstream graph names each graph-named dataset.
         self._graph_resource_readers: Dict[str, Set[str]] = {}
         self._allowed_space_ids: Set[str] = set()
@@ -1783,6 +1798,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.unresolved_data_connections.append(
                     f"{app.id}: {connection_name}"
                 )
+                self._note_unseen_space(
+                    _named_space(script_table.connection or ""), "data connections"
+                )
                 continue
             result = self._parse_script_table(app.id, script_table, connection)
             if result is None:
@@ -2576,6 +2594,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 unresolved = f"{app.id}: {redact_connection(connection_name)}"
                 if unresolved not in self.reporter.unresolved_data_connections:
                     self.reporter.unresolved_data_connections.append(unresolved)
+                self._note_unseen_space(
+                    _named_space(connection_name), "data connections"
+                )
                 continue
             result = self._parse_script_sql(sql, connection)
             if (
@@ -3406,6 +3427,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 yield from self._gen_lib_path_location(urn, path)
 
+    def _note_unseen_space(self, space: Optional[str], need: str) -> None:
+        """Records a space a script or Qlik names, when the API key can't see
+        it, as one the run needs access to for complete lineage."""
+        if not space or self.config.on_prem is not None:
+            return
+        if space.lower() in {name.lower() for name in self.qlik_api.spaces.values()}:
+            return
+        _, needs = self._unseen_spaces.setdefault(space.lower(), (space, set()))
+        needs.add(need)
+
     def _ingested_space_id(self, name: str) -> Optional[str]:
         ids = [
             space_id
@@ -3535,6 +3566,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     paths[key] = file
         all_read = not (apps & self._reload_files_unread)
         if len(paths) != 1:
+            for file in paths.values():
+                self._note_unseen_space(_path_space(file.path), "datasets")
             return None, all_read
         key, file = next(iter(paths.items()))
         if not file.stored:
@@ -3577,6 +3610,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self._leave_out_unplaced(urn, label, all_read)
                 continue
             emitted.add(urn)
+            self._note_unseen_space(_path_space(path), "datasets")
             yield from self._gen_file_entity(
                 urn,
                 label,
@@ -3608,7 +3642,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "for them, such as a file name read through two connections, so "
                 "they are not ingested, and the tables reading them link to their "
                 "URN alone. Map their storage in `file_connection_to_storage`, or "
-                "give the API key's user access to their space.",
+                "give the API key's user access to the spaces listed under "
+                '"Qlik spaces the API key can\'t see".',
                 context=_bounded_list(
                     sorted(self.reporter.graph_named_datasets_without_path)
                 ),
@@ -4423,6 +4458,28 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 message="Column lineage of these tables is only added to this run, "
                 "and their table lineage is still read.",
                 context=_bounded_list(self.qlik_api.field_lineage_failures),
+            )
+        for failure in self.qlik_api.include_read_failures:
+            self._note_unseen_space(
+                _path_space(failure.partition(": ")[0]), "included scripts"
+            )
+        if self._unseen_spaces:
+            self.reporter.warning(
+                title="Qlik spaces the API key can't see",
+                message="Lineage goes through these spaces, which the API key's "
+                "user can't see, so it is incomplete: included scripts in them "
+                "are not read, their data connections don't resolve, and their "
+                "datasets are named only from Qlik's lineage graph or left out. "
+                "Give the user Can view in each space for its scripts and "
+                "datasets, and Can consume data for its data connections, or map "
+                "the connections in `data_connection_to_platform_instance` and "
+                "`file_connection_to_storage`.",
+                context=_bounded_list(
+                    sorted(
+                        f"{name}: {', '.join(sorted(needs))}"
+                        for name, needs in self._unseen_spaces.values()
+                    )
+                ),
             )
         if self.qlik_api.include_read_failures:
             self.reporter.warning(

@@ -2665,6 +2665,7 @@ def test_graph_named_dataset_takes_its_path_from_reload_files(
         mock_api_cls, DATASETS, items=[*_reader_and_writer(upstreams), etl_app]
     )
     api = mock_api_cls.return_value
+    api.spaces = {"space-1": "Finance"}
     if isinstance(statements, Exception):
         api.get_reload_statements.side_effect = statements
     else:
@@ -2706,6 +2707,9 @@ def test_graph_named_dataset_takes_its_path_from_reload_files(
         )
     else:
         assert properties is not None and browse_path is not None
+        assert browse is not None
+        # The dataset's space is one the key can't see.
+        assert _unseen_spaces(source) == [f"{browse[0]}: datasets"]
         assert properties.name == "prices"
         assert properties.qualifiedName == path
         assert properties.customProperties.get("path") == path
@@ -2719,3 +2723,36 @@ def test_graph_named_dataset_takes_its_path_from_reload_files(
     assert bool(source.reporter.apps_without_reload_paths) is isinstance(
         statements, Exception
     )
+
+
+def _unseen_spaces(source: QlikSenseSource) -> List[str]:
+    return [
+        entry
+        for warning in source.reporter.warnings
+        if warning.title == "Qlik spaces the API key can't see"
+        for entry in warning.context or []
+    ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_spaces_the_key_cant_see_are_named(mock_api_cls: MagicMock) -> None:
+    app = _reload_app(
+        [
+            _sql("Hidden Space:Db", "SELECT * FROM dbo.orders"),
+            # A connection in a space the key sees is not about access.
+            _sql("Finance:Unknown", "SELECT * FROM dbo.orders"),
+        ]
+    )
+    source = _reload_source(mock_api_cls, app)
+    api = mock_api_cls.return_value
+    api.spaces = {"space-1": "Finance"}
+    api.include_read_failures = [
+        "lib://[Shared Scripts]:DataFiles/setup.qvs: Access denied",
+        "lib://finance:DataFiles/vars.qvs: no script text returned",
+    ]
+
+    list(source.get_workunits_internal())
+
+    assert _unseen_spaces(source) == [
+        "Hidden Space: data connections, Shared Scripts: included scripts"
+    ]

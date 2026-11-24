@@ -344,6 +344,10 @@ Apps read or store files through these connections, but their storage is not kno
 
 The upstream lineage graph of these apps could not be read, so sources only the graph names, such as QVDs in spaces the API key's user can't see, are left out of their tables' lineage, and the tables' lineage is only added to this run. Datasets the last run named from the graph are kept. The graph is read again on the next run.
 
+#### "Qlik spaces the API key can't see" (Qlik Cloud)
+
+Lineage goes through these spaces, which the API key's user can't see, so it is incomplete. Each space is listed with what lineage needs from it: included scripts the apps include from it, which are not read; its data connections, which don't resolve to a database; or its datasets, which are named only from Qlik's lineage graph or left out. The spaces are those named in the scripts' `lib://<space>:...` paths and `<space>:<connection>` names, and in the paths Qlik recorded for the apps' last reloads. Give the user **Can view** in each space for its scripts and datasets, and **Can consume data** for its data connections. Alternatively, map the connections in `data_connection_to_platform_instance` and `file_connection_to_storage`.
+
 #### "Unable to read the SQL of Qlik apps' last reload" (Qlik Cloud)
 
 The statements of these apps' last reload could not be read, so database tables that only that SQL names are left out of their tables' lineage, and the lineage of the apps' tables that read databases is only added to this run. The statements are read again on the next run.
