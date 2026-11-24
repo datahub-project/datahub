@@ -3,9 +3,12 @@ package io.datahubproject.openapi.util;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.expectThrows;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,6 +20,7 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.AspectType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -28,6 +32,8 @@ import io.datahubproject.openapi.generated.MetadataChangeProposal;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.client.HttpClientErrorException;
 import org.testng.annotations.Test;
 
 public class MappingUtilTest {
@@ -76,6 +82,32 @@ public class MappingUtilTest {
             false);
 
     assertEquals(result, Pair.of(urn.toString(), false));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testIngestProposalRejectsUnsupportedChangeType() {
+    EntityService<ChangeItemImpl> entityService = mock(EntityService.class);
+    com.linkedin.mxe.MetadataChangeProposal proposal =
+        new com.linkedin.mxe.MetadataChangeProposal()
+            .setEntityType(Constants.DATASET_ENTITY_NAME)
+            .setEntityUrn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,table,PROD)"))
+            .setChangeType(com.linkedin.events.metadata.ChangeType.DELETE)
+            .setAspectName(Constants.STATUS_ASPECT_NAME);
+
+    HttpClientErrorException exception =
+        expectThrows(
+            HttpClientErrorException.class,
+            () ->
+                MappingUtil.ingestProposal(
+                    TestOperationContexts.systemContextNoSearchAuthorization(),
+                    proposal,
+                    ACTOR,
+                    entityService,
+                    false));
+
+    assertEquals(exception.getStatusCode(), HttpStatus.BAD_REQUEST);
+    verify(entityService, never()).ingestProposal(any(), any(AspectsBatch.class), anyBoolean());
   }
 
   @Test
