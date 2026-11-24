@@ -160,7 +160,7 @@
     "welcome.getStarted": "始める",
     "welcome.githubRepoDescription": "データとAIスタックのためのメタデータプラットフォーム",
     "welcome.githubStargazers": "DataHubにスターを付けた{{stars}}人の開発者に加わりましょう",
-    "welcome.githubStargazersNoCount": "DataHubにスターを付けた開発者に加わりましょう",
+    "welcome.githubStargazersNoCount": "GitHubでDataHubにスターを付けてみませんか？",
     "welcome.loadingVideo": "動画を読み込み中...",
     "welcome.modalTitle": "DataHubへようこそ",
     "welcome.slideDocsDescription": "発見しやすさを高めながら、手作業の時間を大幅に削減できます",

@@ -21,7 +21,7 @@
     "createGlossary.title": "{{entityName}}を作成",
     "delete.cantDeleteChild": "子Entityを持つ{{entityName}}は削除できません。",
     "delete.cantDeleteSubDomain": "サブDomainを持つ{{entityName}}は削除できません。",
-    "delete.cantDeleteWithChildDataProducts": "子Data Productを持つData Productは削除できません。",
+    "delete.cantDeleteWithChildDataProducts": "子のData Productがあるため、削除できません。",
     "delete.confirmContent": "この{{entityName}}を削除してもよろしいですか?",
     "delete.confirmTitle": "{{entityName}}を削除",
     "delete.error": "削除に失敗しました: \n {{errorMessage}}",

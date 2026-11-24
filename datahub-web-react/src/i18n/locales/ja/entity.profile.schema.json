@@ -192,6 +192,6 @@
     "fieldLogical.logicalParentTitle": "論理上の親",
     "fieldLogical.physicalChildrenInfo": "このLogical Model Columnの物理的な実装です。このColumnのメタデータへの変更は、これらの子Columnに自動的に反映されます。",
     "fieldLogical.physicalChildrenTitle": "物理的な子",
-    "fieldLogical.viewAllPhysicalChildren": "すべてのPhysical Childrenを表示",
+    "fieldLogical.viewAllPhysicalChildren": "物理的な子をすべて表示",
     "historySidebar.categoryLifecycle": "ライフサイクルステージ"
 }
