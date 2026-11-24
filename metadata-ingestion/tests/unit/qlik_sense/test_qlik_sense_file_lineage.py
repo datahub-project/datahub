@@ -1294,26 +1294,13 @@ def test_stored_qvd_on_unknown_storage_is_named_without_its_extension(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
-@pytest.mark.parametrize(
-    "folder, connections",
-    [
-        pytest.param(
-            "Sales Space:Some Folder",
-            {"Sales Space:Some Folder": DataConnectionInfo(name="Some Folder")},
-            id="a visible folder connection",
-        ),
-        pytest.param("Other Space:DataFiles", {}, id="an unlisted DataFiles"),
-    ],
-)
-def test_stored_qvd_on_a_connection_without_file_storage_is_skipped(
-    mock_api_cls: MagicMock, folder: str, connections: Dict[str, DataConnectionInfo]
-) -> None:
-    source = _source({}, connections)
+def test_stored_qvd_on_data_files_is_skipped(mock_api_cls: MagicMock) -> None:
+    source = _source({}, {})
 
     assert not _store_lineage(
         source,
         _store_app([]),
-        parse_script(f"STORE Orders INTO [lib://{folder}/x.qvd] (qvd);"),
+        parse_script("STORE Orders INTO [lib://Other Space:DataFiles/x.qvd] (qvd);"),
         {ORDERS: []},
     )
     assert not list(source._gen_unmapped_file_entities())
@@ -1737,6 +1724,95 @@ def test_file_on_a_connector_without_storage_mapping_is_not_reported(
         "app-1", _file_qri("sftp", "ftp", "x.csv")
     ) == make_dataset_urn("qlik-sense", "sales space:ftp/x.csv")
     assert not source.reporter.unresolved_file_connections
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_store_into_a_visible_connector_without_storage_joins_its_reader(
+    mock_api_cls: MagicMock,
+) -> None:
+    # Such as SFTP: listed, but no storage `file_connection_to_storage` maps.
+    source = _source(
+        {},
+        {"Sales Space:Ftp": DataConnectionInfo(name="Ftp")},
+        script="X: LOAD * FROM [lib://Sales Space:Ftp/qvd/orders.qvd] (qvd);",
+    )
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+    _store_lineage(
+        source,
+        _store_app([]).model_copy(update={"id": "app-2"}),
+        parse_script("STORE Orders INTO [lib://Ftp/qvd/orders.qvd] (qvd);"),
+        {stored: []},
+    )
+    file_urn = make_dataset_urn("qlik-sense", "sales space:ftp/qvd/orders.qvd")
+
+    assert (
+        source._resolve_file_source("app-1", _file_qri("sftp", "ftp", "qvd/orders.qvd"))
+        == file_urn
+    )
+    lineage = [
+        wu.metadata
+        for wu in source._gen_unmapped_file_entities()
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+    ]
+    assert [mcp.entityUrn for mcp in lineage] == [file_urn]
+    assert stored in str(lineage[0].aspect)
+    assert not source.reporter.unresolved_file_connections
+
+
+@pytest.mark.parametrize(
+    "connection, key",
+    [
+        ("[Team: Sales]:Lake", "Team: Sales:Lake"),
+        ("[Team: Sales]:[Lake]", "Team: Sales:Lake"),
+        ("[Lake: Raw]", "Sales Space:Lake: Raw"),
+        ("Sales Space:[Lake: Raw]", "Sales Space:Lake: Raw"),
+    ],
+)
+@pytest.mark.parametrize("source_of_storage", ["visible", "mapped"])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_bracketed_connection_finds_its_storage(
+    mock_api_cls: MagicMock, connection: str, key: str, source_of_storage: str
+) -> None:
+    if source_of_storage == "mapped":
+        source = _source(
+            {key: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}}, {}
+        )
+    else:
+        source = _source(
+            {},
+            {
+                key: DataConnectionInfo(
+                    name=key,
+                    file_platform=FilePlatform.ABS,
+                    file_storage=FileStorage(platform="abs", location="lake"),
+                )
+            },
+        )
+
+    storage, _ = source._file_storage(connection, "space-1")
+
+    assert storage is not None and storage.platform == FilePlatform.ABS
+
+
+@pytest.mark.parametrize(
+    "key, matches",
+    [
+        ("Finance:Sales SQL", True),
+        # A bare key is the connection in any space.
+        ("Sales SQL", True),
+        ("Other:Sales SQL", False),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_mapping_matches_a_qualified_connection(
+    mock_api_cls: MagicMock, key: str, matches: bool
+) -> None:
+    source = _source({}, {})
+
+    entry = source._mapped_connection("Finance:Sales SQL", "space-1", {key: "entry"})
+
+    assert (entry == "entry") is matches
 
 
 def _upstream_ops(workunits: Iterable[MetadataWorkUnit]) -> Dict[str, List[str]]:
