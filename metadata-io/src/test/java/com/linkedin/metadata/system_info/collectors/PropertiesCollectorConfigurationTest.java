@@ -331,6 +331,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cache.primary.maxSize",
           "cache.primary.ttlSeconds",
           "cache.search.lineage.lightningThreshold",
+          "cache.search.lineage.partialTtlSeconds",
           "cache.search.lineage.ttlSeconds",
           // Authentication mode flags (not credentials)
           "opensearchUseAwsIamAuth",

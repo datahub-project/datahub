@@ -87,7 +87,7 @@ public class GraphQueryBaseDAOImpactTimeoutTest {
       }
       rel.setType("DownstreamOf");
       rel.setDegree(numHops);
-      return new LineageSliceFetchResult(List.of(rel), false);
+      return new LineageSliceFetchResult(List.of(rel), null);
     }
   }
 
