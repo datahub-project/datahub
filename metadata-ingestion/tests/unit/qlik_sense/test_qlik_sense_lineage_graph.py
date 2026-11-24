@@ -3726,6 +3726,22 @@ def test_graph_named_dataset_path_takes_the_spelling_of_the_scripts(
             ["hidden", "datafiles", "sub"],
             id="the label's folders start at the connection",
         ),
+        pytest.param(
+            # Qlik drops the brackets around a space name holding a colon.
+            {"report-app": [_load("lib://team: sales:datafiles/prices.qvd")]},
+            None,
+            None,
+            id="space and connection can't be told apart",
+        ),
+        pytest.param(
+            {
+                "writer-app": [_store("lib://[Team: Sales]:DataFiles/Prices.QVD")],
+                "report-app": [_load("lib://team: sales:datafiles/prices.qvd")],
+            },
+            "lib://[Team: Sales]:DataFiles/Prices.QVD",
+            ["Team: Sales", "DataFiles"],
+            id="a store tells space and connection apart",
+        ),
         pytest.param({}, None, None, id="no file"),
         pytest.param(RuntimeError("Forbidden"), None, None, id="unread"),
         pytest.param(
@@ -3923,6 +3939,9 @@ def test_spaces_the_key_cant_see_are_named(mock_api_cls: MagicMock) -> None:
             _sql("Hidden Space:Db", "SELECT * FROM dbo.orders"),
             # A connection in a space the key sees is not about access.
             _sql("Finance:Unknown", "SELECT * FROM dbo.orders"),
+            _sql("Finance:[My:Db]", "SELECT * FROM dbo.orders"),
+            # Either `Team` or `Team: Sales` may be the space.
+            _sql("Team: Sales:Db", "SELECT * FROM dbo.orders"),
         ]
     )
     source = _reload_source(mock_api_cls, app)

@@ -398,11 +398,23 @@ def _reload_files(statements: List[ReloadStatement]) -> _ReloadFiles:
     return result
 
 
+def _is_ambiguous_connection(connection: str) -> bool:
+    # Qlik load records drop the brackets around a name holding the separator,
+    # so `team: sales:lake` may be space `team: sales` or connection `sales:lake`.
+    return re.sub(r"\[[^\]]*\]", "", connection).count(SPACE_SEPARATOR) > 1
+
+
 def _named_space(connection: str) -> Optional[str]:
     """The space a `<space>:<connection>` name, or the connection part of a
     `lib://` path, names."""
-    space, qualified, _ = connection.rpartition(SPACE_SEPARATOR)
-    return space.strip().strip("[]") or None if qualified else None
+    if _is_ambiguous_connection(connection):
+        return None
+    return _lib_connection(connection).space or None
+
+
+def _is_ambiguous_lib_path(path: str) -> bool:
+    match = LIB_PATH_RE.match(path)
+    return match is not None and _is_ambiguous_connection(match.group("connection"))
 
 
 def _path_space(path: str) -> Optional[str]:
@@ -420,18 +432,26 @@ def _lib_path_segments(path: str) -> Optional[List[str]]:
     """The space, connection, folders and file of a `lib://` path. The space
     is empty when the path doesn't name one."""
     match = LIB_PATH_RE.match(path)
-    if not match or "$(" in path:
+    if not match or "$(" in path or _is_ambiguous_connection(match.group("connection")):
         return None
-    space, _, connection = match.group("connection").rpartition(SPACE_SEPARATOR)
+    connection = _lib_connection(match.group("connection"))
     return [
-        space,
-        connection,
-        *(part for part in re.split(r"[/\\]", match.group("path")) if part),
-    ]
+        # Optional brackets are kept as the script spelled them.
+        f"[{name}]" if name and f"[{name}]" in match.group("connection") else name
+        for name in (connection.space, connection.name)
+    ] + _lib_path_parts(match.group("path"))
+
+
+def _lib_path_parts(path: str) -> List[str]:
+    return [part for part in re.split(r"[/\\]", path) if part]
 
 
 def _lib_path(segments: List[str]) -> str:
     space, connection, *rest = segments
+    space, connection = (
+        name if name.startswith("[") else _lib_name(name)
+        for name in (space, connection)
+    )
     qualified = f"{space}{SPACE_SEPARATOR}{connection}" if space else connection
     return "/".join([f"lib://{qualified}", *rest])
 
@@ -4375,10 +4395,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         spell it. Qlik ignores case in these paths and records loads in
         lowercase, so the same space, connection or folder would otherwise be
         named in several spellings."""
-        segments = _lib_path_segments(path)
+        spellings = self._lib_path_spellings()
+        segments = _lib_path_segments(path) or self._voted_segments(path, spellings)
         if segments is None:
             return path
-        spellings = self._lib_path_spellings()
         spelled = []
         for i, segment in enumerate(segments):
             votes = spellings.get(_path_key("/".join(segments[: i + 1])))
@@ -4387,6 +4407,26 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 min(votes, key=lambda name: (-votes[name], name)) if votes else segment
             )
         return _lib_path(spelled)
+
+    @staticmethod
+    def _voted_segments(
+        path: str, spellings: Dict[str, Counter[str]]
+    ) -> Optional[List[str]]:
+        """The segments of a path whose space and connection can't be told
+        apart, when exactly one way of splitting them is spelled elsewhere."""
+        match = LIB_PATH_RE.match(path)
+        if not match or "$(" in path:
+            return None
+        connection = match.group("connection")
+        splits = [
+            [connection[:i].strip(), connection[i + 1 :].strip()]
+            for i, char in enumerate(connection)
+            if char == SPACE_SEPARATOR
+        ]
+        known = [split for split in splits if _path_key("/".join(split)) in spellings]
+        if len(known) != 1:
+            return None
+        return [*known[0], *_lib_path_parts(match.group("path"))]
 
     def _lib_path_spellings(self) -> Dict[str, Counter[str]]:
         paths = [
@@ -4422,6 +4462,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         it. Without a browse path, DataHub splits the URN at its dots."""
         match = LIB_PATH_RE.match(self._script_spelling(path))
         if not match:
+            return
+        if _is_ambiguous_connection(match.group("connection")):
+            # Placed under no guessed space; the URN and path stay as recorded.
             return
         lib_connection = _lib_connection(match.group("connection"))
         space, connection = lib_connection.space, lib_connection.name
@@ -4621,8 +4664,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if path is None:
                 self._leave_out_unplaced(urn, label, all_read)
                 continue
-            emitted.add(urn)
             path = self._script_spelling(path)
+            if _is_ambiguous_lib_path(path):
+                # Its space can't be told from its connection.
+                self._leave_out_unplaced(urn, label, all_read)
+                continue
+            emitted.add(urn)
             self._note_unseen_space(_path_space(path), "datasets")
             yield from self._gen_file_entity(
                 urn,
