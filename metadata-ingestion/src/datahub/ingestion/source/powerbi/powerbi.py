@@ -446,12 +446,15 @@ class Mapper:
         """Semantic-model relationships whose `from` side is this table."""
         if not self.__config.extract_model_relationships or table.dataset is None:
             return []
-        tables_by_name = {t.name: t for t in table.dataset.tables}
+        # TMDL names are case-insensitive, and under enrich_from_item_definitions
+        # the relationships come from the definition while the tables and
+        # columns keep the admin scan's spelling.
+        tables_by_name = {t.name.casefold(): t for t in table.dataset.tables}
         constraints: List[ForeignKeyConstraintClass] = []
         for relationship in table.dataset.relationships:
-            if relationship.from_table != table.name:
+            if relationship.from_table.casefold() != table.name.casefold():
                 continue
-            to_table = tables_by_name.get(relationship.to_table)
+            to_table = tables_by_name.get(relationship.to_table.casefold())
             if to_table is None:
                 self._skip_relationship(
                     relationship, table, f"unknown table {relationship.to_table}"
@@ -459,16 +462,16 @@ class Mapper:
                 continue
             # A key to a field the schema does not expose would be a dangling
             # schemaField URN; renamed columns are the common cause.
-            if not any(c.name == relationship.from_column for c in table.columns or []):
+            from_column = _column_names(table).get(relationship.from_column.casefold())
+            if from_column is None:
                 self._skip_relationship(
                     relationship,
                     table,
                     f"unknown column {relationship.from_table}.{relationship.from_column}",
                 )
                 continue
-            if not any(
-                c.name == relationship.to_column for c in to_table.columns or []
-            ):
+            to_column = _column_names(to_table).get(relationship.to_column.casefold())
+            if to_column is None:
                 self._skip_relationship(
                     relationship,
                     table,
@@ -487,12 +490,8 @@ class Mapper:
             constraints.append(
                 ForeignKeyConstraintClass(
                     name=name,
-                    sourceFields=[
-                        builder.make_schema_field_urn(ds_urn, relationship.from_column)
-                    ],
-                    foreignFields=[
-                        builder.make_schema_field_urn(to_urn, relationship.to_column)
-                    ],
+                    sourceFields=[builder.make_schema_field_urn(ds_urn, from_column)],
+                    foreignFields=[builder.make_schema_field_urn(to_urn, to_column)],
                     foreignDataset=to_urn,
                 )
             )

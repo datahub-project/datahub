@@ -683,6 +683,34 @@ def test_relationships_become_foreign_keys_with_datahub_field_semantics() -> Non
     assert not policies_schema.foreignKeys
 
 
+def test_relationships_match_tables_and_columns_case_insensitively() -> None:
+    # Under enrich_from_item_definitions the relationship comes from the TMDL
+    # while the tables and columns keep the admin scan's spelling.
+    mapper = _mapper(_config(extract_model_relationships=True))
+    policies = Table(
+        name="Policies", full_name="Model.Policies", columns=[_column("PolicyId")]
+    )
+    claims = Table(
+        name="Claims", full_name="Model.Claims", columns=[_column("PolicyId")]
+    )
+    _dataset(
+        [policies, claims],
+        relationships=[
+            Relationship("r1", "CLAIMS", "policyid", "policies", "POLICYID")
+        ],
+    )
+    claims_urn = _urn(mapper, claims)
+    schema = mapper.extract_dataset_schema(claims, claims_urn)[0].aspect
+    assert isinstance(schema, SchemaMetadataClass)
+    assert schema.foreignKeys is not None
+    fk = schema.foreignKeys[0]
+    # Field URNs use the schema's own column names, so they resolve.
+    assert fk.sourceFields == [f"urn:li:schemaField:({claims_urn},PolicyId)"]
+    assert fk.foreignFields == [
+        f"urn:li:schemaField:({_urn(mapper, policies)},PolicyId)"
+    ]
+
+
 def test_refresh_operation_only_for_completed_refresh_with_parseable_time() -> None:
     mapper = _mapper(_config(extract_refresh_history=True))
     table = Table(name="T", full_name="Model.T")
