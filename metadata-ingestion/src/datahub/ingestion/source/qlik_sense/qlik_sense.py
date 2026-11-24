@@ -189,6 +189,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     ChangeAuditStampsClass,
     ChartInfoClass,
     ContainerPropertiesClass,
@@ -3399,6 +3401,50 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # relative path has no known root to start the folders from.
             if CANONICAL_ABSOLUTE_PATH_RE.match(path):
                 yield from containers.create_container_hierarchy(path.lstrip("/"), urn)
+            else:
+                yield from self._gen_lib_path_location(urn, path)
+
+    def _ingested_space_id(self, name: str) -> Optional[str]:
+        ids = [
+            space_id
+            for space_id, space_name in self.qlik_api.spaces.items()
+            if space_id in self._allowed_space_ids and space_name == name
+        ]
+        return ids[0] if len(ids) == 1 else None
+
+    def _gen_lib_path_location(self, urn: str, path: str) -> Iterable[MetadataWorkUnit]:
+        """Places a file named by its `lib://<space>:<connection>/<path>` in its
+        space, under its connection and folders, as Qlik shows it. A space the
+        run doesn't ingest is named, not linked, so no container is made up for
+        it. Without a browse path, DataHub splits the URN at its dots."""
+        match = LIB_PATH_RE.match(path)
+        if not match:
+            return
+        space, qualified, connection = match.group("connection").rpartition(
+            SPACE_SEPARATOR
+        )
+        if not qualified:
+            return
+        space = space.strip("[]")
+        folders = [
+            part for part in re.split(r"[/\\]", match.group("path"))[:-1] if part
+        ]
+        space_id = self._ingested_space_id(space)
+        if space_id is not None:
+            space_key = self._gen_space_key(space_id)
+            yield from add_entity_to_container(
+                container_key=space_key, entity_type="dataset", entity_urn=urn
+            )
+            space_urn = space_key.as_urn()
+            entries = [BrowsePathEntryClass(id=space_urn, urn=space_urn)]
+        else:
+            entries = [BrowsePathEntryClass(id=space)]
+        entries.extend(
+            BrowsePathEntryClass(id=part) for part in [connection.strip("[]"), *folders]
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=urn, aspect=BrowsePathsV2Class(path=entries)
+        ).as_workunit()
 
     def _gen_file_entity(
         self,
