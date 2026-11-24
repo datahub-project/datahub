@@ -342,6 +342,23 @@ unpublished documents that have no lifecycle stage. `semanticSearchAcrossEntitie
 it runs the semantic search template. **Action:** none, unless a client filters on
 `showInGlobalContext` and expects documents hidden from global context to stay out.
 
+### Vector search templates need OpenSearch 3.5 or later
+
+On OpenSearch before 3.5, a search that a vector search template serves from the DataHub index now
+fails instead of returning an empty page. This covers a search that names
+`urn:li:searchTemplate:semantic` or `urn:li:searchTemplate:similarity` in the `searchTemplate` search
+flag, an entity URN that `semantic` sends to `similarity`, and a custom template whose ladder reaches a
+vector rung. Before 3.5 the OpenSearch k-NN plugin can apply these searches' filter to the wrong
+documents, so they found nothing. The search fails with a server error, GMS logs a warning once, and
+the `search.template.vectorRetrieval` metric counts it as `unavailable`. It fails whatever the
+template's `onFailure` says, and the `keywordFallbackOnEmbeddingFailure` search flag does not turn it
+into keyword results. Keyword search is not affected, including the rerank of the shipped `fulltext`
+template (`keywordRerank`), and neither is semantic search (`semanticSearchAcrossEntities`), which
+already stays on its own kNN search before 3.5. A template that an external vector store serves is not
+affected either. While GMS cannot read the OpenSearch version, these searches run as before.
+**Action:** to use vector templates, upgrade OpenSearch to 3.5 or later, then restart GMS, which keeps
+the version it has read until it restarts.
+
 ### Search template writes reject unknown `retrieval` values
 
 Writing a search template now fails when `retrieval.total`, `retrieval.facets`, `retrieval.page`, or

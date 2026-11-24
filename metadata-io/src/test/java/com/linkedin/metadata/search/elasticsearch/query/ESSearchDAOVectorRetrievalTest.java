@@ -945,6 +945,45 @@ public class ESSearchDAOVectorRetrievalTest {
     assertNoFallback();
   }
 
+  @DataProvider
+  public Object[][] vectorRungEngines() {
+    return new Object[][] {
+      {SearchClientShim.SearchEngineType.OPENSEARCH_2, "2.19.3", false},
+      {SearchClientShim.SearchEngineType.OPENSEARCH_3, "3.5.0", true},
+      // A version GMS cannot read leaves the rung to run, as it did before the check
+      {SearchClientShim.SearchEngineType.OPENSEARCH_3, "unknown", true}
+    };
+  }
+
+  /**
+   * Before 3.5 the k-NN plugin applies the rung's kNN pre-filter, which names {@code _entityType},
+   * in the chunk scope, where it can match nothing. There a vector rung on the DataHub index fails
+   * closed as unavailable before it embeds the query, even with {@code onFailure: next}.
+   */
+  @Test(dataProvider = "vectorRungEngines")
+  public void testAVectorRungOnTheDataHubIndexNeedsOpenSearch35(
+      SearchClientShim.SearchEngineType engine, String version, boolean served) throws Exception {
+    when(client.getEngineType()).thenReturn(engine);
+    when(client.getEngineVersion()).thenReturn(version);
+    harness.store(KEYWORD_URN, keyword());
+    SearchTemplateProperties next = vector(r -> r.setOnFailure("next"));
+    next.setLadder(nextOnMiss());
+    store(next);
+    knnReturns(hits(0.9, 0.8));
+
+    if (served) {
+      assertEquals(
+          urns(search(DOCUMENT, null, 0, 10)), List.of("urn:li:document:d0", "urn:li:document:d1"));
+      assertVectorOutcome(SearchTemplateVectorRetrieval.SERVED);
+    } else {
+      assertThrows(SearchTemplateFailClosedException.class, () -> search(DOCUMENT, null, 0, 10));
+      assertVectorOutcome(SearchTemplateVectorRetrieval.UNAVAILABLE);
+      verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+      verify(client, never()).searchKnn(any(), any());
+    }
+    assertNoFallback();
+  }
+
   @Test
   public void testHybridReadNeitherReranksNorReslicesAVectorPage() throws Exception {
     store(vector(r -> {}));
