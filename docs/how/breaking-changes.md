@@ -359,6 +359,19 @@ affected either. While GMS cannot read the OpenSearch version, these searches ru
 **Action:** to use vector templates, upgrade OpenSearch to 3.5 or later, then restart GMS, which keeps
 the version it has read until it restarts.
 
+### `searchDocuments` through a vector template honors its search flags
+
+`searchDocuments` with a vector template named in the `searchTemplate` search flag now applies the
+`minSimilarity` search flag, which it ignored before, and honors `keywordFallbackOnEmbeddingFailure`,
+as `searchAcrossEntities` does. A query that cannot be embedded now fails with the reason, as
+`DEADLINE_EXCEEDED` (`timeout`), `SERVICE_UNAVAILABLE` (`rejected`, `reserveExhausted`, or
+`budgetExhausted`), or a server error (`failed`), instead of a generic server error, and a similarity
+search whose query names an entity it cannot use fails as a bad request (`BAD_REQUEST`). With
+`keywordFallbackOnEmbeddingFailure` set, such a query gets the keyword search results for the same
+request, without the named template; the `searchDocuments` result does not say that it fell back.
+**Action:** if a client retries these searches on a server error, retry on `SERVICE_UNAVAILABLE` and
+`DEADLINE_EXCEEDED` instead, and do not retry a bad request.
+
 ### Search template writes reject unknown `retrieval` values
 
 Writing a search template now fails when `retrieval.total`, `retrieval.facets`, `retrieval.page`, or
