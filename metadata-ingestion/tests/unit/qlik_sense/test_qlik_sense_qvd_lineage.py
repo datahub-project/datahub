@@ -1496,6 +1496,10 @@ def test_binary_load_mapped_to_an_app_keeps_a_table_the_script_loads_into(
             id="a DROP of a variable",
         ),
         pytest.param(
+            FRONT_SCRIPT + "DROP TABLE Orders;\nRENAME TABLE Calendar TO $(vTable);",
+            id="a rename to a variable that may name a dropped table",
+        ),
+        pytest.param(
             "Binary [lib://Apps/Sales Model.qvf];\n"
             "LIB CONNECT TO 'db';\n"
             "Replace Concatenate SQL SELECT id, amount FROM db.orders;",
@@ -1857,6 +1861,7 @@ def test_tables_the_script_drops_are_known() -> None:
             id="a Replace preceding load labelled with a variable",
         ),
         pytest.param("DROP TABLES Regions, [$(vT)];", id="a variable DROP"),
+        pytest.param("RENAME TABLE Orders TO $(vT);", id="a variable RENAME target"),
         pytest.param(
             "Binary [lib://Apps/Sales Model.qvf];\n"
             "Replace Concatenate SQL SELECT id FROM db.orders;",
