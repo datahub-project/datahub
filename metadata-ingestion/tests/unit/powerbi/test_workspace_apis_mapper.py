@@ -1026,6 +1026,16 @@ def test_model_properties_on_schema_fields_and_table_properties() -> None:
             "Secret Path": "x",
             "DbPass": "p",
             "ConnectionString": "c",
+            "PAT": "t",
+            "GitHubPAT": "t",
+            "my_pat": "t",
+            "JwtValue": "t",
+            "Bearer": "t",
+            "FilePath": "f",
+            "SourceFolderPath": "f",
+            "Pattern": "f",
+            "PATH": "f",
+            "Server": "f",
             "Retries": 3,  # type: ignore[dict-item]
             "Long": "x" * 2000,
         },
@@ -1081,6 +1091,11 @@ def test_model_properties_on_schema_fields_and_table_properties() -> None:
     assert properties["parameter.Secret Path"] == "***"
     assert properties["parameter.DbPass"] == "***"
     assert properties["parameter.ConnectionString"] == "***"
+    for name in ("PAT", "GitHubPAT", "my_pat", "JwtValue", "Bearer"):
+        assert properties[f"parameter.{name}"] == "***"
+    # `pat` only counts as a whole word, so path-like names keep their value.
+    for name in ("FilePath", "SourceFolderPath", "Pattern", "PATH", "Server"):
+        assert properties[f"parameter.{name}"] == "f"
     # Values are stringified and cut so they cannot break the aspect.
     assert properties["parameter.Retries"] == "3"
     assert properties["parameter.Long"] == "x" * 1000

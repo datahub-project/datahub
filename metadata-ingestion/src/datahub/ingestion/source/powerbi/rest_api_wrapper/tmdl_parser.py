@@ -583,7 +583,7 @@ def parse_roles(text: str) -> List[ParsedRole]:
     return roles
 
 
-def _is_role_part(path: str) -> bool:
+def is_role_part(path: str) -> bool:
     return path.startswith(TMDL_ROLES_PREFIX) and path.endswith(TMDL_SUFFIX)
 
 
@@ -602,7 +602,7 @@ def parse_semantic_model(parts: List[DefinitionPart]) -> ParsedModel:
                     model.tables.append(table)
                     if unparsed:
                         model.incomplete_parts.append(part.path)
-            elif _is_role_part(part.path):
+            elif is_role_part(part.path):
                 roles = parse_roles(part.text)
                 if not roles:
                     model.failed_roles.append(part.path)
@@ -617,7 +617,7 @@ def parse_semantic_model(parts: List[DefinitionPart]) -> ParsedModel:
             # A malformed part must not take the whole model down; the caller
             # reports failed_parts and still gets the tables that parsed.
             logger.debug("Failed to parse TMDL part %s: %s", part.path, e)
-            if _is_role_part(part.path):
+            if is_role_part(part.path):
                 model.failed_roles.append(part.path)
             else:
                 model.failed_parts.append(part.path)

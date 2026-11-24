@@ -52,6 +52,7 @@ from datahub.ingestion.source.powerbi.config import (
     PARAMETER_VALUE_MAX_LENGTH,
     POWERBI_TYPE_TO_DATA_PLATFORM_PAIR,
     SECRET_PARAMETER_MARKERS,
+    SECRET_PARAMETER_WORD,
     Constant,
     PowerBiAppUrlPattern,
     PowerBiDashboardSourceConfig,
@@ -143,7 +144,21 @@ logger = logging.getLogger(__name__)
 
 def _is_secret_parameter(name: str) -> bool:
     lowered = name.lower()
-    return any(marker in lowered for marker in SECRET_PARAMETER_MARKERS)
+    if any(marker in lowered for marker in SECRET_PARAMETER_MARKERS):
+        return True
+    # `pat` (personal access token) would also mask FilePath and Pattern as a
+    # substring, so it only counts as a whole word of the name.
+    return SECRET_PARAMETER_WORD in _name_words(name)
+
+
+def _name_words(name: str) -> List[str]:
+    """Lower-cased words of a parameter name split on case changes and
+    non-alphanumerics: `GitHubPAT` -> git, hub, pat; `my_pat` -> my, pat."""
+    spaced = "".join(
+        f" {ch}" if ch.isupper() and index and name[index - 1].islower() else ch
+        for index, ch in enumerate(name)
+    )
+    return "".join(ch if ch.isalnum() else " " for ch in spaced).lower().split()
 
 
 class _ModelReferenceResolver:
