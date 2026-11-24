@@ -1541,7 +1541,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _parsed_script(self, app: App) -> ParsedScript:
         return (
-            parse_script(app.script, self._app_variables(app))
+            parse_script(
+                app.script,
+                self._app_variables(app),
+                self._app_own_variables(app).keys(),
+            )
             if app.script
             else ParsedScript()
         )
@@ -1859,18 +1863,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _app_variables(self, app: App) -> Dict[str, str]:
         # The app's own values, as its last reload left them, beat the recipe's.
+        return {**self.config.script_variables, **self._app_own_variables(app)}
+
+    def _app_own_variables(self, app: App) -> Dict[str, str]:
         # An expression definition (`=...`) the connector can't evaluate, or
         # an empty one such as a variable cleared at the end of the script,
         # leaves the recipe's value in place.
         recipe = self.config.script_variables
         return {
-            **recipe,
-            **{
-                name: value
-                for name, value in app.variables.items()
-                if not value.lstrip().startswith("=")
-                and (value.strip() or name not in recipe)
-            },
+            name: value
+            for name, value in app.variables.items()
+            if not value.lstrip().startswith("=")
+            and (value.strip() or name not in recipe)
         }
 
     def _file_source_resolver(
@@ -3351,6 +3355,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "they were read without it: their tables have no field types, and "
                 "the next run reads them again.",
                 context=_bounded_list(self.qlik_api.opened_without_data),
+            )
+        refusals = self.qlik_api.engine_refusals
+        if refusals is not None and refusals.longest_streak_seconds > 0:
+            self.reporter.info(
+                title="Qlik Engine refused connections",
+                message="App reads waited for the Engine to accept connections, "
+                "as it does while its service restarts, which slows the run.",
+                context=f"Longest run of refusals: "
+                f"{refusals.longest_streak_seconds:.0f}s",
             )
         if self.qlik_api.field_lineage_failures:
             self.reporter.warning(

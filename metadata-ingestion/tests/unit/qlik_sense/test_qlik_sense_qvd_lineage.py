@@ -264,6 +264,7 @@ def _run(
         api.lineage_read_failures = []
         api.field_lineage_failures = []
         api.opened_without_data = []
+        api.engine_refusals = None
         api.get_user_name.return_value = None
         api.get_data_connections.return_value = (
             {} if connections_unread else CONNECTIONS
@@ -1208,6 +1209,68 @@ def test_store_through_a_connection_prefix_set_in_branches_resolves() -> None:
         QvdReference(connection="Dev_QVD Data", path="orders.qvd")
     ]
     assert not parsed.has_unresolved_store
+
+
+def test_connection_prefix_set_in_branches_the_app_lacks_stays_unresolved() -> None:
+    # Expanding the prefix to nothing would name the wrong folder connection.
+    parsed = parse_script(
+        "IF DocumentPath() LIKE '*Dev*' THEN\nSET vPrefix = 'Dev_';\nELSE\n"
+        "SET vPrefix = 'Test_';\nEND IF;\n"
+        "Orders: LOAD 1 AS id AUTOGENERATE 1;\n"
+        "STORE Orders INTO [lib://$(vPrefix)QVD Data/orders.qvd] (qvd);",
+    )
+    assert not parsed.qvd_stores
+    assert parsed.has_unresolved_store
+
+
+@pytest.mark.parametrize(
+    "app_variables, path",
+    [
+        pytest.param({"vTable": "Orders"}, "Orders.qvd", id="app has it"),
+        pytest.param({}, None, id="app lacks it"),
+    ],
+)
+def test_if_without_else_setting_an_unset_variable(
+    app_variables: Dict[str, str], path: Optional[str]
+) -> None:
+    parsed = parse_script(
+        "IF vEnv = 'A' THEN\nSET vTable = 'Orders';\nEND IF;\n"
+        "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+        app_variables=app_variables,
+    )
+    assert [load.file.path for load in parsed.qvd_loads] == ([path] if path else [])
+    assert bool(parsed.unresolved_qvd_paths) == (path is None)
+
+
+@pytest.mark.parametrize(
+    "app_variables, path",
+    [
+        pytest.param({"vTable": "Customers"}, "Customers.qvd", id="app has it"),
+        pytest.param({}, None, id="app lacks it"),
+    ],
+)
+def test_include_in_one_branch_leaves_known_variables_to_the_app(
+    app_variables: Dict[str, str], path: Optional[str]
+) -> None:
+    # As after an include outside a block: the included script may set it.
+    parsed = parse_script(
+        "SET vTable = 'Orders';\nIF vEnv = 'A' THEN\n"
+        "$(Include=lib://Scripts/common.qvs);\nEND IF;\n"
+        "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+        app_variables=app_variables,
+    )
+    assert [load.file.path for load in parsed.qvd_loads] == ([path] if path else [])
+    assert bool(parsed.unresolved_qvd_paths) == (path is None)
+
+
+def test_connection_prefix_set_in_a_loop_the_app_lacks_stays_unresolved() -> None:
+    parsed = parse_script(
+        "FOR EACH vEnv IN 'Dev', 'Test'\nSET vPrefix = '$(vEnv)_';\nNEXT vEnv;\n"
+        "Orders: LOAD 1 AS id AUTOGENERATE 1;\n"
+        "STORE Orders INTO [lib://$(vPrefix)QVD Data/orders.qvd] (qvd);",
+    )
+    assert not parsed.qvd_stores
+    assert parsed.has_unresolved_store
 
 
 def test_loop_connection_prefix_is_not_an_unset_prefix() -> None:
