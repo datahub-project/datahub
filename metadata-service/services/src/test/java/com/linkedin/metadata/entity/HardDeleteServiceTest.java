@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -24,6 +25,7 @@ import static org.testng.Assert.expectThrows;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.run.DeleteEntityResponse;
@@ -35,9 +37,13 @@ import com.linkedin.metadata.service.HardDeleteRequest;
 import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.opentelemetry.api.OpenTelemetry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -413,6 +419,56 @@ public class HardDeleteServiceTest {
     verifyNoDelete();
   }
 
+  /**
+   * A skip reads a sample of the referrers for its warning, after the count and before the key
+   * delete drops the edges. A delete that cleans, or one that is refused, reads none.
+   */
+  @Test
+  public void deleteReferencesThenEntityReadsTheReferrerSampleOnlyWhenSkipping() {
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(LIMIT + 1);
+    when(deleteEntityService.sampleGraphReferrers(
+            opContext, URN, HardDeleteService.SKIPPED_REFERRERS_LOGGED))
+        .thenReturn(List.of(new RelatedEntity("OwnedBy", "urn:li:corpuser:a")));
+
+    service(true, null).deleteReferencesThenEntity(opContext, URN, Supplier::get);
+
+    final InOrder inOrder = inOrder(entityService, deleteEntityService);
+    inOrder.verify(deleteEntityService).countGraphReferrers(opContext, URN);
+    inOrder
+        .verify(deleteEntityService)
+        .sampleGraphReferrers(opContext, URN, HardDeleteService.SKIPPED_REFERRERS_LOGGED);
+    inOrder.verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
+  }
+
+  @Test
+  public void deleteReferencesThenEntityReadsNoReferrerSampleWhenItCleansOrRefuses() {
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(LIMIT);
+    service(true, null).deleteReferencesThenEntity(opContext, URN, Supplier::get);
+
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(LIMIT + 1);
+    expectThrows(
+        GraphReferenceLimitExceededException.class,
+        () ->
+            service(true, null, LIMIT, GraphReferenceOverLimit.REFUSE)
+                .deleteReferencesThenEntity(opContext, URN, Supplier::get));
+
+    verify(deleteEntityService, never()).sampleGraphReferrers(any(), any(), anyInt());
+  }
+
+  /** The sample is only a diagnostic: failing to read it does not fail the delete. */
+  @Test
+  public void deleteReferencesThenEntityStillDeletesWhenTheReferrerSampleFails() {
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(LIMIT + 1);
+    when(deleteEntityService.sampleGraphReferrers(any(), eq(URN), anyInt()))
+        .thenThrow(new IllegalStateException("graph read failed"));
+
+    final HardDeleteService.ReferenceCleanup references =
+        service(true, null).deleteReferencesThenEntity(opContext, URN, Supplier::get);
+
+    verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
+    assertEquals(references.choice(), HardDeleteService.ReferenceCleanup.Choice.ENTITY_ONLY);
+  }
+
   /** Exactly the limit still cleans. */
   @Test
   public void deleteReferencesThenEntityAtTheLimitCleansThenDeletes() {
@@ -428,8 +484,8 @@ public class HardDeleteServiceTest {
   }
 
   /**
-   * One more than the limit: the delete is refused before anything is removed, and the refusal is
-   * never handed to the runner for the cleanup and delete step.
+   * One more than the limit, when refusing: the delete is refused before anything is removed, and
+   * the refusal is never handed to the runner for the cleanup and delete step.
    */
   @Test
   public void deleteReferencesThenEntityOverTheLimitIsRefusedBeforeAnythingIsRemoved() {
@@ -439,7 +495,7 @@ public class HardDeleteServiceTest {
     expectThrows(
         GraphReferenceLimitExceededException.class,
         () ->
-            service(true, null)
+            service(true, null, LIMIT, GraphReferenceOverLimit.REFUSE)
                 .deleteReferencesThenEntity(
                     opContext,
                     URN,
@@ -455,18 +511,119 @@ public class HardDeleteServiceTest {
     verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean(), anyList());
   }
 
-  /** A limit of 0 never removes graph references, and does not count them. */
+  /**
+   * Over the limit, when skipping: the entity is deleted without the graph references, the count
+   * ran first, and the cleanup still removes the references that are not graph edges.
+   */
   @Test
-  public void deleteReferencesThenEntityWithAZeroLimitDeletesTheEntityOnly() {
-    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(1000);
+  public void deleteReferencesThenEntityOverTheLimitSkipsTheGraphReferences() {
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(LIMIT + 1);
+    final List<String> steps = new ArrayList<>();
 
     final HardDeleteService.ReferenceCleanup references =
-        service(true, null, 0).deleteReferencesThenEntity(opContext, URN, Supplier::get);
+        service(true, null)
+            .deleteReferencesThenEntity(
+                opContext,
+                URN,
+                step -> {
+                  steps.add("step");
+                  return step.get();
+                });
+
+    assertEquals(steps.size(), 2, "the count, then the delete");
+    assertEquals(references.choice(), HardDeleteService.ReferenceCleanup.Choice.ENTITY_ONLY);
+    final InOrder inOrder = inOrder(entityService, deleteEntityService);
+    inOrder.verify(entityService).validateKeyDelete(opContext, URN);
+    inOrder.verify(deleteEntityService).countGraphReferrers(opContext, URN);
+    inOrder.verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
+    verify(deleteEntityService, never()).deleteGraphReferences(any(), any());
+
+    references.run();
+
+    verify(deleteEntityService).deleteReferencesTo(opContext, URN, false, List.of());
+  }
+
+  /** The skip is counted once the entity is deleted. */
+  @Test
+  public void deleteReferencesThenEntityOverTheLimitCountsTheSkip() {
+    when(deleteEntityService.countGraphReferrers(any(), eq(URN))).thenReturn(LIMIT + 1);
+    final SimpleMeterRegistry registry = new SimpleMeterRegistry();
+
+    service(true, null).deleteReferencesThenEntity(contextWith(registry), URN, Supplier::get);
+
+    assertEquals(skipped(registry), 1.0);
+  }
+
+  /** A delete that fails is not counted as a skip, and nothing else is removed. */
+  @Test
+  public void deleteReferencesThenEntityOverTheLimitDoesNotCountAFailedDelete() {
+    when(deleteEntityService.countGraphReferrers(any(), eq(URN))).thenReturn(LIMIT + 1);
+    when(entityService.deleteUrn(any(), eq(URN), any(DeleteCeiling.class)))
+        .thenThrow(new IllegalStateException("delete failed"));
+    final SimpleMeterRegistry registry = new SimpleMeterRegistry();
+
+    expectThrows(
+        IllegalStateException.class,
+        () ->
+            service(true, null)
+                .deleteReferencesThenEntity(contextWith(registry), URN, Supplier::get));
+
+    assertEquals(skipped(registry), 0.0);
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean(), anyList());
+  }
+
+  /** A delete at the limit removes the graph references, so nothing was skipped. */
+  @Test
+  public void deleteReferencesThenEntityAtTheLimitRecordsNoSkip() {
+    when(deleteEntityService.countGraphReferrers(any(), eq(URN))).thenReturn(LIMIT);
+    final SimpleMeterRegistry registry = new SimpleMeterRegistry();
+
+    service(true, null).deleteReferencesThenEntity(contextWith(registry), URN, Supplier::get);
+
+    assertEquals(skipped(registry), 0.0);
+  }
+
+  /** Every referrer is over a limit of 0: skipping then never removes graph references. */
+  @Test
+  public void deleteReferencesThenEntityWithAZeroLimitSkipsAnyReferrer() {
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(1);
+
+    final HardDeleteService.ReferenceCleanup references =
+        service(true, null, 0, GraphReferenceOverLimit.SKIP)
+            .deleteReferencesThenEntity(opContext, URN, Supplier::get);
 
     verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
-    verify(deleteEntityService, never()).countGraphReferrers(any(), any());
     verify(deleteEntityService, never()).deleteGraphReferences(any(), any());
     assertEquals(references.choice(), HardDeleteService.ReferenceCleanup.Choice.ENTITY_ONLY);
+  }
+
+  /** With nothing pointing at the entity a limit of 0 is not exceeded. */
+  @Test
+  public void deleteReferencesThenEntityWithAZeroLimitAndNoReferrersCleansThenDeletes() {
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(0);
+
+    final HardDeleteService.ReferenceCleanup references =
+        service(true, null, 0, GraphReferenceOverLimit.SKIP)
+            .deleteReferencesThenEntity(opContext, URN, Supplier::get);
+
+    verify(deleteEntityService).deleteGraphReferences(opContext, URN);
+    verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
+    assertEquals(
+        references.choice(), HardDeleteService.ReferenceCleanup.Choice.REFERENCES_THEN_ENTITY);
+  }
+
+  /** When refusing, a limit of 0 refuses any entity that has a referrer. */
+  @Test
+  public void deleteReferencesThenEntityWithAZeroLimitRefusesAnyReferrerWhenRefusing() {
+    when(deleteEntityService.countGraphReferrers(opContext, URN)).thenReturn(1);
+
+    expectThrows(
+        GraphReferenceLimitExceededException.class,
+        () ->
+            service(true, null, 0, GraphReferenceOverLimit.REFUSE)
+                .deleteReferencesThenEntity(opContext, URN, Supplier::get));
+
+    verifyNoDelete();
   }
 
   /** A failed count leaves the entity, and does not remove references. */
@@ -496,7 +653,8 @@ public class HardDeleteServiceTest {
                 timeseriesAspectService,
                 new ReliableHardDelete(entityService, true),
                 null,
-                -1));
+                -1,
+                GraphReferenceOverLimit.SKIP));
   }
 
   // ---- deleteEntityAndTimeseries(op, urn, aspects, start, end)
@@ -868,20 +1026,39 @@ public class HardDeleteServiceTest {
 
   private HardDeleteService service(
       final boolean reliableHardDelete, final HardDeleteDispatcher hardDeleteDispatcher) {
-    return service(reliableHardDelete, hardDeleteDispatcher, LIMIT);
+    return service(reliableHardDelete, hardDeleteDispatcher, LIMIT, GraphReferenceOverLimit.SKIP);
   }
 
   private HardDeleteService service(
       final boolean reliableHardDelete,
       final HardDeleteDispatcher hardDeleteDispatcher,
-      final int graphReferenceCleanupLimit) {
+      final int graphReferenceCleanupLimit,
+      final GraphReferenceOverLimit overLimit) {
     return new HardDeleteService(
         entityService,
         deleteEntityService,
         timeseriesAspectService,
         new ReliableHardDelete(entityService, reliableHardDelete),
         hardDeleteDispatcher,
-        graphReferenceCleanupLimit);
+        graphReferenceCleanupLimit,
+        overLimit);
+  }
+
+  private static OperationContext contextWith(final SimpleMeterRegistry registry) {
+    final MetricUtils metricUtils = MetricUtils.builder().registry(registry).build();
+    return TestOperationContexts.systemContextTraceNoSearchAuthorization(
+        null,
+        () ->
+            SystemTelemetryContext.builder()
+                .metricUtils(metricUtils)
+                .tracer(OpenTelemetry.noop().getTracer("test"))
+                .build());
+  }
+
+  private static double skipped(final SimpleMeterRegistry registry) {
+    return registry
+        .counter(HardDeleteService.GRAPH_REFERENCES_SKIPPED_METRIC, "reason", "over_limit")
+        .count();
   }
 
   private void stubTimeseriesCount(final String aspect, final long count) {

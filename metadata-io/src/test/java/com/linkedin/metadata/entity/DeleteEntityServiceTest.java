@@ -27,6 +27,7 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
@@ -1533,6 +1534,48 @@ public class DeleteEntityServiceTest {
             .tag("operation_type", "deleteReferencesTo")
             .counter(),
         "cascade entities_processed counter should be emitted");
+  }
+
+  /** The sample is one page of the requested size, read for its entities, and then closed. */
+  @Test
+  public void testSampleGraphReferrersReadsOnePageAndClosesTheScroll() {
+    GraphService mockGraphService = Mockito.mock(GraphService.class);
+    DeleteEntityService service =
+        new DeleteEntityService(
+            Mockito.mock(EntityService.class),
+            mockGraphService,
+            Mockito.mock(EntitySearchService.class),
+            null,
+            null);
+    final Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
+    final List<RelatedEntities> page =
+        List.of(
+            incomingRelation("OwnedBy", "urn:li:corpuser:a", urn.toString()),
+            incomingRelation("TaggedWith", "urn:li:dataset:b", urn.toString()));
+
+    Mockito.when(
+            mockGraphService.scrollRelatedEntities(
+                any(OperationContext.class),
+                nullable(Set.class),
+                eq(newFilter("urn", urn.toString())),
+                nullable(Set.class),
+                eq(EMPTY_FILTER),
+                eq(ImmutableSet.of()),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(10),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(scrollGraphResult(2, "scroll-1", page));
+
+    final List<RelatedEntity> sample = service.sampleGraphReferrers(opContext, urn, 10);
+
+    assertEquals(
+        sample.stream().map(RelatedEntity::getUrn).toList(),
+        List.of("urn:li:corpuser:a", "urn:li:dataset:b"));
+    Mockito.verify(mockGraphService).closeRelatedEntitiesScroll(opContext, "scroll-1");
   }
 
   /** The count is the scroll total, and the page that produced it is closed. */

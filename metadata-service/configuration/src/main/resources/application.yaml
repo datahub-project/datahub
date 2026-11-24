@@ -435,14 +435,19 @@ datahub:
 # In-process hard delete.
 hardDelete:
   # Most incoming graph edges an entity-and-references delete removes before deleting the entity,
-  # when the delete runs in this process. Above this the delete is refused and nothing is removed:
-  # deleting the entity alone would leave those referrers pointing at nothing. The error says to
-  # raise this limit or to remove the references first (datahub delete references --urn <urn>).
-  # References that are not graph edges are cleaned as part of a delete that goes ahead.
-  # 0 turns graph reference cleanup off: the entity is deleted alone and its referrers are left
-  # dangling. A value above the 1000-entry page size reads more than one page of referrers, and
-  # Neo4j pages by offset, so a referrer removed between pages can make it skip another one.
+  # when the delete runs in this process. Removing more than this in one request can time out, so
+  # above it graph-reference-over-limit decides what the delete does. Every edge is over a limit of
+  # 0. References that are not graph edges are cleaned as part of any delete that goes ahead.
+  # A value above the 1000-entry page size reads more than one page of referrers, and Neo4j pages
+  # by offset, so a referrer removed between pages can make it skip another one.
   graph-reference-cleanup-limit: ${DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT:100}
+  # What a delete that runs in this process does above the limit, SKIP or REFUSE, in any letter case.
+  # SKIP deletes the entity without removing the graph references to it, logs a warning and counts
+  # datahub.hard_delete.graph_references_skipped. The key delete drops the graph edges, so the
+  # entities that held them keep the entity's URN in their aspects, and `datahub delete references`
+  # finds none of them until restore-indices rebuilds their edges. REFUSE removes nothing and
+  # fails the delete with a 400.
+  graph-reference-over-limit: ${DATAHUB_HARD_DELETE_GRAPH_REFERENCE_OVER_LIMIT:SKIP}
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
