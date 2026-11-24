@@ -33,6 +33,9 @@ class AppCheckpoint(BaseModel):
     graph_tables_unresolved: bool = False
     # The QVDs the app writes and reads, on-prem. None in older state.
     qvds: Optional[AppQvds] = None
+    # Field names of the app's tables, so a renamed load from a kept app still
+    # names its source field. None in older state.
+    field_names: Optional[List[str]] = None
 
 
 class QlikAppCheckpointState(CheckpointStateBase):
