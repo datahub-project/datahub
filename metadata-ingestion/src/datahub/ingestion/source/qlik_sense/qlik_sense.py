@@ -1126,7 +1126,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[_StorageFile]:
         """The storage file a kept app's store into a file on a connection of
         unknown storage now resolves to, or None while that storage is still
-        unknown, as when the data connections could not be listed."""
+        unknown, as when the data connections or Qlik datasets could not be
+        listed."""
         lib_path = LIB_PATH_RE.match(store.path)
         if lib_path is None:
             return None
@@ -1135,9 +1136,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if storage is None:
             return None
         path = lib_path.group("path")
-        # As a full read: a file Qlik catalogues, or when its catalogue can't be
-        # listed, is not linked on storage.
-        if self._catalogued_as_qlik_dataset(storage, path) is not False:
+        catalogued = self._catalogued_as_qlik_dataset(storage, path)
+        # A full read keeps last run's edges when the datasets can't be listed.
+        if catalogued is None:
+            return None
+        # A file Qlik catalogues is not linked on storage.
+        if catalogued:
             return _StorageFile(urn=None)
         return _StorageFile(urn=self._file_urn(storage, detail, path))
 
