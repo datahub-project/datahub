@@ -7,6 +7,7 @@ import logging
 import posixpath
 import re
 from collections import Counter, defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from functools import partial
 from typing import (
@@ -109,6 +110,7 @@ from datahub.ingestion.source.qlik_sense.file_lineage import (
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     UNREAD_DATA_CONNECTIONS,
+    UNREAD_SPACES,
     QlikBaseAPI,
 )
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
@@ -286,8 +288,7 @@ QUOTE_CHARACTERS = '[]"`'
 # A file an app's last reload stored or loaded, as Qlik records it, such as
 # `STORE - lib://<space>:DataFiles/orders.qvd;` or `{lib://... (txt)};`.
 RELOAD_FILE_RE = re.compile(
-    r"^\{?(?P<store>STORE - )?(?P<path>lib://.+?)(?:\s+\([^()]*\))?\}?;?$",
-    re.IGNORECASE,
+    r"^\{?(?P<store>STORE - )?(?P<path>lib://[^{}]+?)\}?;?$", re.IGNORECASE
 )
 
 
@@ -296,17 +297,45 @@ class _ReloadFile(BaseModel):
     stored: bool
 
 
-def _reload_files(statements: List[ReloadStatement]) -> List[_ReloadFile]:
+class _GraphNamedApps(BaseModel):
+    apps: Set[str]
+    # Whether an app keeps the dataset from its last read, as its upstream
+    # graph could not be read.
+    graph_unread: bool
+
+
+class _ReloadFiles(BaseModel):
     files: List[_ReloadFile] = []
+    # Statements that name a `lib://` path in a form RELOAD_FILE_RE doesn't know.
+    unrecognised: List[str] = []
+
+
+def _without_file_format(path: str) -> str:
+    """The path without a trailing file format, such as `(qvd)` or
+    `(ooxml, filters(Remove(Row, Pos(Top, 1))))`."""
+    depth = 0
+    for i in range(len(path) - 1, -1, -1) if path.endswith(")") else []:
+        depth += {")": 1, "(": -1}.get(path[i], 0)
+        if depth == 0:
+            return path[:i].rstrip() if path[:i].endswith(" ") else path
+    return path
+
+
+def _reload_files(statements: List[ReloadStatement]) -> _ReloadFiles:
+    result = _ReloadFiles()
     for statement in statements:
-        match = RELOAD_FILE_RE.match(statement.discriminator.strip())
+        discriminator = statement.discriminator.strip()
+        match = RELOAD_FILE_RE.match(discriminator)
         if match:
             file = _ReloadFile(
-                path=match.group("path"), stored=bool(match.group("store"))
+                path=_without_file_format(match.group("path").strip()),
+                stored=bool(match.group("store")),
             )
-            if file not in files:
-                files.append(file)
-    return files
+            if file not in result.files:
+                result.files.append(file)
+        elif "lib://" in discriminator.lower():
+            result.unrecognised.append(discriminator)
+    return result
 
 
 def _named_space(connection: str) -> Optional[str]:
@@ -347,9 +376,14 @@ def _lib_path(segments: List[str]) -> str:
     return "/".join([f"lib://{qualified}", *rest])
 
 
-def _file_stem(name: str) -> str:
-    base = re.split(r"[/\\]", name)[-1].lower()
-    return base[: -len(QVD_EXTENSION)] if base.endswith(QVD_EXTENSION) else base
+def _path_has_label(path: str, label: str) -> bool:
+    """Whether the path ends with Qlik's label for the file, which holds its
+    folders under the connection."""
+    return (
+        _path_key(path)
+        .replace("\\", "/")
+        .endswith("/" + _path_key(label).replace("\\", "/").strip("/"))
+    )
 
 
 def _label_parts(label: str) -> List[str]:
@@ -590,9 +624,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._reload_files: Dict[str, List[_ReloadFile]] = {}
         # Apps whose last reload's statements could not be read.
         self._reload_files_unread: Set[str] = set()
+        self._reload_path_failures: List[str] = []
         # Spaces the API key can't see that lineage goes through, by lowercased
         # name, with the name as written and what lineage needs from them.
         self._unseen_spaces: Dict[str, Tuple[str, Set[str]]] = {}
+        self._listed_space_names: Optional[Set[str]] = None
         # The apps whose upstream graph names each graph-named dataset.
         self._graph_resource_readers: Dict[str, Set[str]] = {}
         self._allowed_space_ids: Set[str] = set()
@@ -2781,7 +2817,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self, app: App, script_tables: Dict[str, ScriptTableLineage]
     ) -> Iterable[MetadataWorkUnit]:
         if app.reload_statements is not None:
-            self._reload_files[app.id] = _reload_files(app.reload_statements)
+            self._record_reload_files(app.id, app.reload_statements)
         reload_tables = self._reload_sql_tables(app, script_tables)
         for table in app.lineage_tables:
             script_table = script_tables.get(table.qri)
@@ -3522,7 +3558,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         it, as one the run needs access to for complete lineage."""
         if not space or self.config.on_prem is not None:
             return
-        if space.lower() in {name.lower() for name in self.qlik_api.spaces.values()}:
+        if self._listed_space_names is None:
+            # Without the listing, every space would look unseen.
+            if any(item.name == UNREAD_SPACES for item in self.qlik_api.unread_items):
+                return
+            self._listed_space_names = {
+                name.lower() for name in self.qlik_api.spaces.values()
+            }
+        if space.lower() in self._listed_space_names:
             return
         _, needs = self._unseen_spaces.setdefault(space.lower(), (space, set()))
         needs.add(need)
@@ -3674,65 +3717,88 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             DatasetSubTypes.QLIK_DATASET,
         )
 
-    def _files_of(self, app_id: str) -> List[_ReloadFile]:
-        if app_id not in self._reload_files:
+    def _record_reload_files(
+        self, app_id: str, statements: List[ReloadStatement]
+    ) -> None:
+        reload_files = _reload_files(statements)
+        for discriminator in reload_files.unrecognised:
+            self.reporter.unrecognised_reload_files.append(f"{app_id}: {discriminator}")
+        self._reload_files[app_id] = reload_files.files
+
+    def _read_reload_files(self, app_ids: Set[str]) -> None:
+        """Reads the files of the apps' last reload that were not read with the
+        apps, in parallel, as the run would otherwise wait on each in turn."""
+        unread = sorted(app_ids - self._reload_files.keys())
+        if not unread:
+            return
+        with ThreadPoolExecutor(
+            max_workers=self.config.resolved_max_workers()
+        ) as executor:
+            futures = {
+                app_id: executor.submit(self.qlik_api.get_reload_statements, app_id)
+                for app_id in unread
+            }
+        for app_id, future in futures.items():
             try:
-                statements = self.qlik_api.get_reload_statements(app_id)
+                statements = future.result()
             except Exception as e:
                 logger.debug(f"Unable to read reload statements of app {app_id}: {e}")
                 self.reporter.apps_without_reload_paths.append(f"{app_id}: {e}")
+                self._reload_path_failures.append(f"{app_id}: {e}")
                 self._reload_files_unread.add(app_id)
                 statements = []
-            self._reload_files[app_id] = _reload_files(statements)
-        return self._reload_files[app_id]
+            self._record_reload_files(app_id, statements)
 
-    def _graph_named_path(self, urn: str, label: str) -> Tuple[Optional[str], bool]:
+    def _graph_named_apps(self, urn: str) -> _GraphNamedApps:
+        """The apps whose last reload may give the path of a dataset only the
+        upstream graph names: those that load it, the writer apps this run
+        ingests, and those that keep it from their last read as their graph
+        could not be read."""
+        keeping = {
+            app_id
+            for app_id in self._apps_upstream_graph_unread
+            if urn in self._app_end_of_run_urns.get(app_id, ())
+        }
+        return _GraphNamedApps(
+            apps=set(self._graph_resource_readers.get(urn, set()))
+            | keeping
+            | {
+                app_id
+                for qri in self._graph_resource_writers.get(urn, set())
+                if qri in self._app_table_urns_by_qri
+                and (app_id := _qlik_app_id(qri)) is not None
+            },
+            graph_unread=bool(keeping),
+        )
+
+    def _graph_named_path(
+        self, label: str, apps: _GraphNamedApps
+    ) -> Tuple[Optional[str], bool]:
         """The `lib://` path of a dataset only the upstream graph names, such as
         `lib://<space>:DataFiles/orders.qvd` for a QVD in a space the API key
-        can't see, from the last reload of the apps that load it and of the
-        writer apps this run ingests, and whether every one of those reloads
-        was read. Qlik's label is only a name, so a path is given only when
-        exactly one file those apps read or stored has that name."""
-        apps = set(self._graph_resource_readers.get(urn, set())) | {
-            app_id
-            for qri in self._graph_resource_writers.get(urn, set())
-            if qri in self._app_table_urns_by_qri
-            and (app_id := _qlik_app_id(qri)) is not None
-        }
-        stem = _file_stem(label)
-        paths: Dict[str, _ReloadFile] = {}
-        for app_id in sorted(apps):
-            for file in self._files_of(app_id):
-                if _file_stem(file.path) != stem:
-                    continue
-                key = _path_key(file.path)
-                if key not in paths or (file.stored and not paths[key].stored):
-                    paths[key] = file
-        all_read = not (apps & self._reload_files_unread)
+        can't see, and whether the apps that may give it were all read. Qlik's
+        label is only a name, so a path is given only when every one of those
+        reloads was read and exactly one file they read or stored ends with it."""
+        # By key, as the same file is recorded in several spellings.
+        paths: Dict[str, str] = {}
+        for app_id in sorted(apps.apps):
+            for file in self._reload_files.get(app_id, []):
+                if _path_has_label(file.path, label):
+                    paths.setdefault(_path_key(file.path), file.path)
+        reloads_unread = bool(apps.apps & self._reload_files_unread)
+        if len(paths) == 1 and not reloads_unread:
+            return next(iter(paths.values())), True
         if len(paths) != 1:
-            for file in paths.values():
-                self._note_unseen_space(_path_space(file.path), "datasets")
-            return None, all_read
-        key, file = next(iter(paths.items()))
-        if not file.stored:
-            # Another app this run read may have stored it, though the graph
-            # no longer says so, and its STORE keeps the path's case.
-            file = next(
-                (
-                    stored
-                    for files in self._reload_files.values()
-                    for stored in files
-                    if stored.stored and _path_key(stored.path) == key
-                ),
-                file,
-            )
-        return file.path, all_read
+            for path in paths.values():
+                self._note_unseen_space(_path_space(path), "datasets")
+        # An unread reload may hold another file with the label.
+        return None, not apps.graph_unread and not reloads_unread
 
     def _leave_out_unplaced(self, urn: str, label: str, all_read: bool) -> None:
         """A dataset the graph names but whose path is not certain is not
         emitted, so the tables reading it link to its URN alone. Datasets an
         earlier run emitted are then soft-deleted, unless a reload that may give
-        the path could not be read this run."""
+        the path, or the graph of an app that keeps it, could not be read."""
         if not all_read:
             if self.stale_entity_removal_handler is not None:
                 self.stale_entity_removal_handler.add_entity_to_state(
@@ -3743,13 +3809,26 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         for urns in self._app_end_of_run_urns.values():
             urns.discard(urn)
 
-    def _gen_graph_named_resources(self) -> Iterable[MetadataWorkUnit]:
+    def _read_graph_named_reloads(self) -> Dict[str, _GraphNamedApps]:
+        """The apps that may give the path of each dataset only the upstream
+        graphs name, with their last reload read."""
+        apps_by_urn = {
+            urn: self._graph_named_apps(urn) for urn in self._graph_named_resources
+        }
+        self._read_reload_files(
+            {app_id for apps in apps_by_urn.values() for app_id in apps.apps}
+        )
+        return apps_by_urn
+
+    def _gen_graph_named_resources(
+        self, apps_by_urn: Dict[str, _GraphNamedApps]
+    ) -> Iterable[MetadataWorkUnit]:
         """The datasets and files only apps' upstream graphs name whose path is
         certain, and the tables of the writer apps this run ingests as their
         upstreams."""
         emitted: Set[str] = set()
         for urn, label in self._graph_named_resources.items():
-            path, all_read = self._graph_named_path(urn, label)
+            path, all_read = self._graph_named_path(label, apps_by_urn[urn])
             if path is None:
                 self._leave_out_unplaced(urn, label, all_read)
                 continue
@@ -3788,12 +3867,29 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "reloads of the apps that read or store them give no single path "
                 "for them, such as a file name read through two connections, so "
                 "they are not ingested, and the tables reading them link to their "
-                "URN alone. Map their storage in `file_connection_to_storage`, or "
-                "give the API key's user access to the spaces listed under "
-                '"Qlik spaces the API key can\'t see".',
+                "URN alone. Give the API key's user access to the spaces listed "
+                'under "Qlik spaces the API key can\'t see", or, for files on '
+                "cloud storage, map their connection in `file_connection_to_storage`.",
                 context=_bounded_list(
                     sorted(self.reporter.graph_named_datasets_without_path)
                 ),
+            )
+        if self._reload_path_failures:
+            self.reporter.warning(
+                title="Unable to read the file paths of Qlik apps' last reload",
+                message="The files these apps read or stored in their last reload "
+                "could not be read, so datasets only Qlik's lineage graph names "
+                "for them get no path this run and are kept as the last run left "
+                "them. They are read again on the next run.",
+                context=_bounded_list(self._reload_path_failures),
+            )
+        if self.reporter.unrecognised_reload_files:
+            self.reporter.info(
+                title="Unrecognised file statements in Qlik apps' last reload",
+                message="These statements of the apps' last reload name a "
+                "`lib://` path in a form the connector doesn't read, so the file "
+                "gives no path to datasets only Qlik's lineage graph names.",
+                context=_bounded_list(list(self.reporter.unrecognised_reload_files)),
             )
 
     def _record_model_fields(self, app: App) -> None:
@@ -4587,8 +4683,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         yield from self._gen_stored_table_types()
         yield from self._gen_qvd_lineage()
         yield from self._gen_binary_lineage()
+        # Before any file is placed, so the spellings hold every STORE.
+        graph_named_apps = self._read_graph_named_reloads()
         yield from self._gen_unmapped_file_entities()
-        yield from self._gen_graph_named_resources()
+        yield from self._gen_graph_named_resources(graph_named_apps)
         self._record_end_of_run_urns()
         if self.qlik_api.opened_without_data:
             self.reporter.warning(

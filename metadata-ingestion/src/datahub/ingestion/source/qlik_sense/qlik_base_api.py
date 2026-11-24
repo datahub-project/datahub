@@ -44,6 +44,7 @@ IsUnchanged = Callable[[str, str], bool]
 
 # The unread item a failed data connection listing records.
 UNREAD_DATA_CONNECTIONS = "data connections"
+UNREAD_SPACES = "spaces"
 
 
 def log_read_error(message: str) -> None:

@@ -32,6 +32,7 @@ from datahub.ingestion.source.qlik_sense.file_lineage import qri_part_id
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     UNREAD_DATA_CONNECTIONS,
+    UNREAD_SPACES,
     ReadErrors,
 )
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
@@ -2726,14 +2727,38 @@ def _load(path: str) -> ReloadStatement:
             None,
             id="two files of that name",
         ),
+        pytest.param(
+            {
+                "report-app": [
+                    _load("lib://hidden:datafiles/archive/prices.qvd"),
+                    _load(
+                        "lib://hidden:datafiles/sub/prices.qvd "
+                        "(ooxml, embedded labels, filters(Remove(Row, Pos(Top, 1))))"
+                    ),
+                ]
+            },
+            "lib://hidden:datafiles/sub/prices.qvd",
+            ["hidden", "datafiles", "sub"],
+            id="the label's folders decide between files of that name",
+        ),
         pytest.param({}, None, None, id="no file"),
         pytest.param(RuntimeError("Forbidden"), None, None, id="unread"),
+        pytest.param(
+            {
+                "report-app": [_load("lib://hidden:datafiles/prices.qvd")],
+                # May hold another file of that name.
+                "writer-app": RuntimeError("Forbidden"),
+            },
+            None,
+            None,
+            id="one file, but a reload unread",
+        ),
     ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_graph_named_dataset_takes_its_path_from_reload_files(
     mock_api_cls: MagicMock,
-    statements: Union[Dict[str, List[ReloadStatement]], Exception],
+    statements: Union[Dict[str, Union[List[ReloadStatement], Exception]], Exception],
     path: Optional[str],
     browse: Optional[List[str]],
 ) -> None:
@@ -2746,19 +2771,30 @@ def test_graph_named_dataset_takes_its_path_from_reload_files(
         },
     )
     etl_app = _app("etl-app", [])
-    if isinstance(statements, dict) and "etl-app" in statements:
-        etl_app.reload_statements = statements["etl-app"]
+    if isinstance(statements, dict):
+        etl_statements = statements.get("etl-app")
+        if isinstance(etl_statements, list):
+            etl_app.reload_statements = etl_statements
     source = _source(
         mock_api_cls, DATASETS, items=[*_reader_and_writer(upstreams), etl_app]
     )
     api = mock_api_cls.return_value
     api.spaces = {"space-1": "Finance"}
-    if isinstance(statements, Exception):
-        api.get_reload_statements.side_effect = statements
-    else:
-        api.get_reload_statements.side_effect = lambda app_id: statements.get(
-            app_id, []
+    unread = isinstance(statements, Exception) or any(
+        isinstance(app_statements, Exception) for app_statements in statements.values()
+    )
+
+    def get_reload_statements(app_id: str) -> List[ReloadStatement]:
+        app_statements = (
+            statements
+            if isinstance(statements, Exception)
+            else statements.get(app_id, [])
         )
+        if isinstance(app_statements, Exception):
+            raise app_statements
+        return app_statements
+
+    api.get_reload_statements.side_effect = get_reload_statements
 
     workunits = list(source.get_workunits_internal())
     written, added = _lineage(workunits)
@@ -2789,9 +2825,7 @@ def test_graph_named_dataset_takes_its_path_from_reload_files(
         # Without a certain path, nothing makes the dataset exist.
         assert properties is None and browse_path is None
         assert prices not in added
-        assert bool(source.reporter.graph_named_datasets_without_path) is not (
-            isinstance(statements, Exception)
-        )
+        assert bool(source.reporter.graph_named_datasets_without_path) is not unread
     else:
         assert properties is not None and browse_path is not None
         assert browse is not None
@@ -2807,8 +2841,68 @@ def test_graph_named_dataset_takes_its_path_from_reload_files(
         "report-app",
         "writer-app",
     ]
-    assert bool(source.reporter.apps_without_reload_paths) is isinstance(
-        statements, Exception
+    assert bool(source.reporter.apps_without_reload_paths) is unread
+    assert (
+        any(
+            w.title == "Unable to read the file paths of Qlik apps' last reload"
+            for w in source.reporter.warnings
+        )
+        is unread
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_reloads_are_read_before_files_are_placed(mock_api_cls: MagicMock) -> None:
+    # A writer app's STOREs vote on how the space, connection and folders of
+    # every file are spelled, so they must be read before any file is placed.
+    upstreams = LineageUpstreams(
+        resource_labels={UNLISTED_QVD: "prices.qvd"},
+        stored_from={f"{UNLISTED_QVD}#Prices": [WRITER_TABLE]},
+    )
+    source = _source(mock_api_cls, DATASETS, items=[*_reader_and_writer(upstreams)])
+    read_before_placing: List[str] = []
+
+    def unmapped_files(self: QlikSenseSource) -> Iterable[MetadataWorkUnit]:
+        read_before_placing.extend(sorted(self._reload_files))
+        return []
+
+    with patch.object(QlikSenseSource, "_gen_unmapped_file_entities", unmapped_files):
+        list(source.get_workunits_internal())
+
+    assert read_before_placing == ["report-app", "writer-app"]
+
+
+@pytest.mark.parametrize(
+    "discriminator",
+    [
+        # A file of that name in another folder than the label's.
+        "{lib://hidden:datafiles/archive/prices.qvd};",
+        "{lib://hidden:datafiles/sub/prices.qvd} unknown form;",
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_graph_named_dataset_without_a_file_at_the_label_has_no_path(
+    mock_api_cls: MagicMock, discriminator: str
+) -> None:
+    upstreams = LineageUpstreams(resource_labels={UNLISTED_QVD: "Sub/Prices.qvd"})
+    source = _source(mock_api_cls, DATASETS, items=[*_reader_and_writer(upstreams)])
+    mock_api_cls.return_value.get_reload_statements.side_effect = lambda app_id: (
+        [ReloadStatement(discriminator=discriminator)] if app_id == "report-app" else []
+    )
+
+    workunits = list(source.get_workunits_internal())
+
+    assert not [
+        wu
+        for wu in workunits
+        if wu.get_urn() == _urn(UNLISTED_QVD)
+        and wu.get_aspect_of_type(DatasetPropertiesClass)
+    ]
+    assert source.reporter.graph_named_datasets_without_path
+    # A path in a form the connector doesn't read is reported, not dropped
+    # without notice.
+    assert bool(source.reporter.unrecognised_reload_files) is (
+        "unknown form" in discriminator
     )
 
 
@@ -2897,3 +2991,20 @@ def test_spaces_the_key_cant_see_are_named(mock_api_cls: MagicMock) -> None:
     assert _unseen_spaces(source) == [
         "Hidden Space: data connections, Shared Scripts: included scripts"
     ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_no_unseen_spaces_when_the_spaces_could_not_be_listed(
+    mock_api_cls: MagicMock,
+) -> None:
+    app = _reload_app([_sql("Hidden Space:Db", "SELECT * FROM dbo.orders")])
+    source = _reload_source(mock_api_cls, app)
+    api = mock_api_cls.return_value
+    api.spaces = {}
+    api.unread_items = [UnreadItem(name=UNREAD_SPACES, cause="timed out")]
+    api.include_read_failures = ["lib://[Shared Scripts]:DataFiles/setup.qvs: denied"]
+
+    list(source.get_workunits_internal())
+
+    # Every space would look unseen without the listing.
+    assert _unseen_spaces(source) == []

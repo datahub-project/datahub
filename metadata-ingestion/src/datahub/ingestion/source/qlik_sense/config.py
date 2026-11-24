@@ -153,6 +153,8 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     # Datasets Qlik's lineage graph names but no reload gives one path for,
     # which are not ingested.
     graph_named_datasets_without_path: LossyList[str] = field(default_factory=LossyList)
+    # Reload statements naming a `lib://` path in a form the connector doesn't read.
+    unrecognised_reload_files: LossyList[str] = field(default_factory=LossyList)
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
     qvds_found: int = 0
     # QVD paths a load script names that resolve to no single file, such as a
