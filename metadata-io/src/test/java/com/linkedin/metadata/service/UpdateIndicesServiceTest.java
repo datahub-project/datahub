@@ -68,6 +68,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -869,6 +870,35 @@ public class UpdateIndicesServiceTest {
     expectThrows(
         ValidationException.class,
         () -> updateIndicesService.handleChangeEvents(operationContext, List.of(unstrippable)));
+  }
+
+  @Test
+  public void testHandleChangeEvents_CountsReferencesLeftOutOfTheIndex() throws Exception {
+    // An owner of an entity type only a newer version registered is removed before indexing; the
+    // event is counted once, as reads and kept references are.
+    com.linkedin.metadata.utils.metrics.MetricUtils metrics =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+    OperationContext context = org.mockito.Mockito.spy(operationContext);
+    when(context.getMetricUtils()).thenReturn(java.util.Optional.of(metrics));
+    Ownership withNewerOwner =
+        new Ownership()
+            .setOwners(
+                new OwnerArray(
+                    new Owner()
+                        .setOwner(UrnUtils.getUrn("urn:li:corpuser:alice"))
+                        .setType(OwnershipType.TECHNICAL_OWNER),
+                    new Owner()
+                        .setOwner(UrnUtils.getUrn("urn:li:entityFromNewerBuild:bot"))
+                        .setType(OwnershipType.TECHNICAL_OWNER)));
+
+    updateIndicesService.handleChangeEvents(
+        context,
+        List.of(
+            datasetAspectEvent("left.out", OWNERSHIP_ASPECT_NAME, withNewerOwner),
+            datasetPropertiesEvent("left.out.known")));
+
+    verify(metrics, times(1))
+        .increment(UpdateIndicesService.class, UnknownDataGuard.SKIPPED_METRIC, 1);
   }
 
   @Test

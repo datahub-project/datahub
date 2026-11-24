@@ -252,6 +252,7 @@ public class UpdateIndicesService implements SearchIndicesService {
             .map(event -> buildValidMCLItem(opContext, event, unvalidatedPrevious))
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
+    mclItems.forEach(item -> countReferencesLeftOut(opContext, item));
     List<MCLItem> sideEffects =
         AspectsBatch.applyMCLSideEffects(mclItems, opContext.getRetrieverContext())
             .collect(Collectors.toList());
@@ -269,6 +270,21 @@ public class UpdateIndicesService implements SearchIndicesService {
           opContext, event.getMetadataChangeLog(), grouped.unvalidatedPrevious().get(event));
     } else {
       updateGraphIndicesService.handleChangeEvent(opContext, event.getMetadataChangeLog());
+    }
+  }
+
+  /**
+   * Counts in {@link UnknownDataGuard#SKIPPED_METRIC} an item indexed without its references to
+   * entity types this registry doesn't know (written by a newer version). Building the item already
+   * logged them.
+   */
+  private static void countReferencesLeftOut(
+      @Nonnull final OperationContext opContext, @Nonnull final MCLItem item) {
+    if (item instanceof MCLItemImpl mclItem && mclItem.getReferencesLeftOut() > 0) {
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              m -> m.increment(UpdateIndicesService.class, UnknownDataGuard.SKIPPED_METRIC, 1));
     }
   }
 
