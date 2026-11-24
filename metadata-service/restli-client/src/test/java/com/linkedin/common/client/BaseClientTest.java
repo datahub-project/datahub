@@ -218,6 +218,27 @@ public class BaseClientTest {
   }
 
   @Test
+  public void testBatchIngestProposalsTreatsPartialSuccessAsWritten()
+      throws RemoteInvocationException {
+    // GMS writes the valid proposals of a mixed batch and names the skipped ones after "success".
+    List<MetadataChangeProposal> mcps = createTestMCPs(2);
+    when(mockRestliClient.sendRequest(any(ActionRequest.class))).thenReturn(mockFuture);
+    when(mockFuture.getResponse()).thenReturn(mockResponse);
+    when(mockResponse.getEntity()).thenReturn("success; skipped 1 invalid proposal(s): ...");
+    testClient =
+        new RestliEntityClient(
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ExponentialBackoff(1))
+                .retryCount(0)
+                .batchIngestSize(10)
+                .build(),
+            mockMetricUtils);
+
+    assertEquals(testClient.batchIngestProposals(opContext, mcps, false).size(), 2);
+  }
+
+  @Test
   public void testBatchIngestProposalsMultipleBatches()
       throws RemoteInvocationException, InterruptedException {
     // Create test MCPs - 15 total

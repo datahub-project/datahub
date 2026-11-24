@@ -24,7 +24,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.DeleteEntityService;
@@ -886,12 +885,13 @@ public class JavaEntityClient implements EntityClient {
     final AuditStamp auditStamp = sessionAuditStamp(opContext);
 
     List<String> updatedUrns = new ArrayList<>();
+    List<AspectsBatchImpl> rejectedOnly = new ArrayList<>();
     Iterators.partition(
             metadataChangeProposals.iterator(),
             Math.max(1, entityClientConfig.getBatchIngestSize()))
         .forEachRemaining(
             batch -> {
-              AspectsBatch aspectsBatch =
+              AspectsBatchImpl aspectsBatch =
                   AspectsBatchImpl.builder()
                       .mcps(
                           batch,
@@ -900,6 +900,10 @@ public class JavaEntityClient implements EntityClient {
                           opContext.getValidationContext().isAlternateValidation(),
                           opContext.isSystemAuth())
                       .build(opContext);
+              if (aspectsBatch.getItems().isEmpty()) {
+                rejectedOnly.add(aspectsBatch);
+                return;
+              }
 
               List<IngestResult> results =
                   entityService.ingestProposal(opContext, aspectsBatch, async);
@@ -936,6 +940,14 @@ public class JavaEntityClient implements EntityClient {
                           })
                       .collect(Collectors.toList()));
             });
+    // Callers (GraphQL mutations, the MCE consumer) would otherwise report a write that did not
+    // happen. When only some proposals are rejected, the others are kept, as each rejection is
+    // logged by the batch builder.
+    if (updatedUrns.isEmpty()) {
+      for (AspectsBatchImpl rejected : rejectedOnly) {
+        rejected.throwIfAllRejected();
+      }
+    }
     return updatedUrns;
   }
 

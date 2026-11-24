@@ -603,4 +603,48 @@ public class JavaEntityClientTest {
         stamp.getImpersonator().toString(),
         opContext.getSessionAuthentication().getActor().toUrnStr());
   }
+
+  private static MetadataChangeProposal invalidOriginDatasetStatus() {
+    return new MetadataChangeProposal()
+        .setEntityUrn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,CLIENTZ)"))
+        .setAspectName("status")
+        .setEntityType("dataset")
+        .setChangeType(ChangeType.UPSERT)
+        .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)));
+  }
+
+  @Test
+  void ingestProposalFailsWhenTheProposalIsRejected() {
+    // GraphQL resolvers and the single-record MCE consumer call this; a dropped write must surface.
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> getJavaEntityClient().ingestProposal(opContext, invalidOriginDatasetStatus(), false));
+    verify(_entityService, never())
+        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
+  }
+
+  @Test
+  void batchIngestProposalsKeepsValidProposalsWhenOnlySomeAreRejected() throws Exception {
+    // More than one batchIngestSize group, the first made only of rejected proposals.
+    MetadataChangeProposal valid = containerStatus("valid");
+    List<MetadataChangeProposal> proposals =
+        List.of(
+            invalidOriginDatasetStatus(),
+            invalidOriginDatasetStatus(),
+            invalidOriginDatasetStatus(),
+            invalidOriginDatasetStatus(),
+            invalidOriginDatasetStatus(),
+            valid);
+    ArgumentCaptor<AspectsBatch> written = ArgumentCaptor.forClass(AspectsBatch.class);
+    when(_entityService.ingestProposal(any(OperationContext.class), written.capture(), eq(false)))
+        .thenReturn(List.of());
+
+    getJavaEntityClient().batchIngestProposals(opContext, proposals, false);
+
+    assertEquals(
+        written.getValue().getMCPItems().stream()
+            .map(item -> item.getMetadataChangeProposal())
+            .toList(),
+        List.of(valid));
+  }
 }

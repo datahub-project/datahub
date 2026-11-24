@@ -1066,8 +1066,8 @@ public class EntityServiceImplTest {
 
     try {
       entityServiceSpy.ingestTimeseriesProposal(opContext, mockBatch, true);
-      fail("Should throw UnsupportedOperationException for non-UPSERT change types");
-    } catch (UnsupportedOperationException e) {
+      fail("Should throw IllegalArgumentException for non-UPSERT change types");
+    } catch (IllegalArgumentException e) {
       // Expected
     }
   }

@@ -1155,7 +1155,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
                             String result =
                                 sendClientRequest(requestBuilder, opContext).getEntity();
 
-                            if (RESTLI_SUCCESS.equals(result)) {
+                            // A batch where only some proposals were rejected is written
+                            // without them and answers "success; skipped ...".
+                            if (result != null && result.startsWith(RESTLI_SUCCESS)) {
+                              if (!RESTLI_SUCCESS.equals(result)) {
+                                log.warn("batchIngestProposals: {}", result);
+                              }
                               return batch.stream()
                                   .map(
                                       mcp -> {

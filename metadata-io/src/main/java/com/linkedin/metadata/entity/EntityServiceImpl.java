@@ -2563,7 +2563,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                         && item.getChangeType() != ChangeType.UPSERT)
             .collect(Collectors.toList());
     if (!unsupported.isEmpty()) {
-      throw new UnsupportedOperationException(
+      throw new IllegalArgumentException(
           "ChangeType not supported: "
               + unsupported.stream().map(BatchItem::getChangeType).collect(Collectors.toSet()));
     }
@@ -2774,7 +2774,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           !MCPItem.isValidChangeType(item.getChangeType(), item.getAspectSpec()))
                   .collect(Collectors.toList());
           if (!unsupported.isEmpty()) {
-            throw new UnsupportedOperationException(
+            throw new IllegalArgumentException(
                 "ChangeType not supported: "
                     + unsupported.stream()
                         .map(item -> item.getChangeType())

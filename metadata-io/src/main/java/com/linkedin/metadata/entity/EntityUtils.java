@@ -98,7 +98,9 @@ public class EntityUtils {
         opContext,
         AspectsBatchImpl.builder()
             .mcps(changes, getAuditStamp(actor), opContext.getRetrieverContext())
-            .build(opContext),
+            .build(opContext)
+            // A mutation must not report a write that did not happen.
+            .throwIfAllRejected(),
         async);
   }
 
