@@ -74,6 +74,12 @@ def mock_graphql_response() -> Dict[str, Any]:
                                 "packageName": "test_project",
                                 "meta": {},
                                 "tags": [],
+                                "parents": [
+                                    {
+                                        "uniqueId": "model.test_project.test_model",
+                                        "resourceType": "model",
+                                    }
+                                ],
                                 "entities": [
                                     {
                                         "name": "id",
@@ -306,6 +312,7 @@ class TestAutoDiscoveryEndToEnd:
         ]
 
         for sm in semantic_models:
+            assert sm.upstream_nodes == ["model.test_project.test_model"]
             assert len(sm.columns) > 0
             column_types = {c.data_type for c in sm.columns}
             assert (

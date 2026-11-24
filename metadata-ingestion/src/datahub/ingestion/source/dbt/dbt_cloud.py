@@ -386,8 +386,9 @@ _DBT_DISCOVERY_CONTRACT_PAGE_SIZE = 500
 _DBT_DISCOVERY_SEMANTIC_MODEL_PAGE_SIZE = 100
 # JobNode has no semanticModels field. Semantic models live on the
 # environment's logical definition: environment.definition.semanticModels.
-# SemanticModelDefinitionNode has no dependsOn, and entities and dimensions
-# have no expr; typeParams is a scalar there. Verified against dbt Cloud.
+# SemanticModelDefinitionNode has no dependsOn; its upstream models are on
+# `parents`. Entities and dimensions have no expr; typeParams is a scalar
+# there. Verified against dbt Cloud.
 _DBT_DISCOVERY_SEMANTIC_MODELS_QUERY = """
 query DatahubDiscoverySemanticModels(
   $environmentId: BigInt!,
@@ -406,6 +407,10 @@ query DatahubDiscoverySemanticModels(
             packageName
             meta
             tags
+            parents {
+              uniqueId
+              resourceType
+            }
             entities {
               name
               type
@@ -856,9 +861,13 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         name = node.get("name")
         if not name:
             return None
-        depends_on = node.get("dependsOn") or []
-        if isinstance(depends_on, dict):
-            depends_on = depends_on.get("nodes") or []
+        depends_on = [
+            parent["uniqueId"]
+            for parent in node.get("parents") or []
+            if isinstance(parent, dict)
+            and isinstance(parent.get("uniqueId"), str)
+            and parent["uniqueId"]
+        ]
         unique_id = node.get("uniqueId")
         if not unique_id:
             package_name = node.get("packageName") or "unknown"
