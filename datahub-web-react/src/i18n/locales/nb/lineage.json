@@ -72,6 +72,7 @@
     "levelFilter.directTooltip": "Vis direkte relaterte dataressurser",
     "levelFilter.indirect": "indirekte",
     "levelFilter.indirectTooltip": "Vis indirekte relaterte dataressurser",
+    "loadError": "Kunne ikke laste lineage. Prøv igjen.",
     "manageLineage.changeToHome": "Bytt til Home",
     "manageLineage.dashboardNoDownstream": "Dashboard-entiteter har ingen nedstrøms lineage",
     "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",
