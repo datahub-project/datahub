@@ -7,10 +7,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 from google.cloud.bigquery.table import Row
 
+from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigQuerySchemaApi,
     _parse_taxonomy_id,
+)
+from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
+    BigQuerySchemaGenerator,
+)
+from datahub.utilities.urns.field_paths import (
+    get_simple_field_path_from_v2_field_path,
 )
 
 # ---------------------------------------------------------------------------
@@ -33,7 +40,7 @@ def _make_column_row(
     ordinal_position: int = 1,
     field_path: str = "my_col",
     is_nullable: str = "YES",
-    data_type: str = "STRING",
+    data_type: Optional[str] = "STRING",
     comment: Optional[str] = None,
     is_hidden: str = "NO",
     is_partitioning_column: str = "NO",
@@ -409,3 +416,93 @@ def test_get_columns_for_dataset_cache_reused_across_datasets(
 
     # Only one list_policy_tags call despite two datasets
     assert dc_client.list_policy_tags.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "data_type, tagged_path",
+    [
+        ("STRING", "profile"),
+        ("ARRAY<STRING>", "profile"),
+        ("STRUCT<email STRING, public_id INT64>", "profile.email"),
+        ("ARRAY<STRUCT<email STRING, public_id INT64>>", "profile.email"),
+        ("STRUCT<email ARRAY<STRING>, public_id INT64>", "profile.email"),
+        (
+            "STRUCT<contact STRUCT<email STRING, public_id INT64>>",
+            "profile.contact.email",
+        ),
+    ],
+)
+@pytest.mark.parametrize("comment", [None, "Sensitive contact information"])
+@patch.object(BigQuerySchemaApi, "get_query_result")
+def test_gen_schema_fields_preserves_policy_tags(
+    query_mock: MagicMock,
+    data_type: str,
+    tagged_path: str,
+    comment: Optional[str],
+) -> None:
+    policy_tag = _make_policy_tag(
+        "projects/p/locations/us/taxonomies/t1/policyTags/tag1", "PII - Email"
+    )
+    dc_client = MagicMock()
+    dc_client.list_policy_tags.return_value = [policy_tag]
+    root = _make_column_row(
+        column_name="profile",
+        field_path="profile",
+        data_type=data_type,
+        policy_tags=[policy_tag.name] if tagged_path == "profile" else [],
+        comment=comment if tagged_path == "profile" else None,
+    )
+    rows = [root]
+    if tagged_path != "profile":
+        # INFORMATION_SCHEMA supplies the type on the top-level row only.
+        rows.append(
+            _make_column_row(
+                column_name="profile",
+                field_path=tagged_path.upper(),
+                data_type=None,
+                policy_tags=[policy_tag.name],
+                comment=comment,
+            )
+        )
+    rows.append(
+        _make_column_row(column_name="email", field_path="email", ordinal_position=2)
+    )
+    query_mock.return_value = rows
+
+    api = _make_schema_api(datacatalog_client=dc_client)
+    report = BigQueryV2Report()
+    columns = api.get_columns_for_dataset(
+        project_id="p",
+        dataset_name="ds",
+        column_limit=1000,
+        report=report,
+        extract_policy_tags_from_catalog=True,
+    )
+    assert columns is not None
+    generator = BigQuerySchemaGenerator(
+        config=BigQueryV2Config(extract_policy_tags_from_catalog=True),
+        report=report,
+        bigquery_data_dictionary=api,
+        domain_registry=None,
+        sql_parser_schema_resolver=MagicMock(),
+        profiler=MagicMock(),
+        identifiers=MagicMock(),
+        filters=MagicMock(),
+        shard_matcher=MagicMock(),
+    )
+    fields = generator.gen_schema_fields(columns["my_table"], constraints=[])
+    fields_by_path = {
+        get_simple_field_path_from_v2_field_path(field.fieldPath).lower(): field
+        for field in fields
+    }
+
+    # A nested leaf's tag must not label its parent, siblings or same-named columns.
+    assert {
+        path: [tag.tag for tag in field.globalTags.tags]
+        for path, field in fields_by_path.items()
+        if field.globalTags and field.globalTags.tags
+    } == {tagged_path: ["urn:li:tag:PII - Email"]}
+    assert fields_by_path[tagged_path].description == comment
+    dc_client.list_policy_tags.assert_called_once_with(
+        parent="projects/p/locations/us/taxonomies/t1"
+    )
