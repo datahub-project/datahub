@@ -1,4 +1,4 @@
-import { Icon, Pill, Tooltip } from '@components';
+import { Icon, Pill, Popover } from '@components';
 import { ArrowsLeftRight } from '@phosphor-icons/react/dist/csr/ArrowsLeftRight';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -8,7 +8,7 @@ import SyncedOrSharedTooltip from '@app/entityV2/shared/containers/profile/sideb
 import { LabelText } from '@app/entityV2/shared/containers/profile/sidebar/shared/styledComponents';
 import { ActionType, getRelativeTimeStatus } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
-import { toLocalDateString, toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
+import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 
 import { DataPlatform, Maybe } from '@types';
 
@@ -55,33 +55,34 @@ const SyncedOrShared = ({ labelText, time, platformName, platform, type }: Props
     const pillColor = getRelativeTimeStatus(time);
 
     return (
-        <DetailsContainer>
-            <DetailRow>
-                <Tooltip showArrow={false} title={<SyncedOrSharedTooltip type={type} />} placement="bottomLeft">
+        <Popover
+            showArrow={false}
+            placement="bottomLeft"
+            content={<SyncedOrSharedTooltip type={type} time={time} platformName={platformName} platform={platform} />}
+        >
+            <DetailsContainer tabIndex={0} aria-label={t('sidebar.syncedOrShared.moreInfoAriaLabel')}>
+                <DetailRow>
                     <SyncIcon>
                         <Icon icon={ArrowsLeftRight} size="lg" color="inherit" />
                     </SyncIcon>
-                </Tooltip>
-
-                <SyncedSharedText>{labelText}</SyncedSharedText>
-                <Tooltip showArrow={false} title={toLocalDateString(time)}>
-                    <span>
-                        <Pill label={toRelativeTimeString(time) || ''} variant="filled" color={pillColor} size="sm" />
-                    </span>
-                </Tooltip>
-                {!!platform && (
-                    <Trans
-                        t={t}
-                        i18nKey="sidebar.syncedOrShared.fromPlatform"
-                        values={{ platformName }}
-                        components={{
-                            icon: <PlatformIcon platform={platform} size={16} />,
-                            text: <LabelText />,
-                        }}
-                    />
-                )}
-            </DetailRow>
-        </DetailsContainer>
+                    <SyncedSharedText>{labelText}</SyncedSharedText>
+                </DetailRow>
+                <DetailRow>
+                    <Pill label={toRelativeTimeString(time) || ''} variant="filled" color={pillColor} size="sm" />
+                    {!!platform && (
+                        <Trans
+                            t={t}
+                            i18nKey="sidebar.syncedOrShared.fromPlatform"
+                            values={{ platformName }}
+                            components={{
+                                icon: <PlatformIcon platform={platform} size={16} />,
+                                text: <LabelText />,
+                            }}
+                        />
+                    )}
+                </DetailRow>
+            </DetailsContainer>
+        </Popover>
     );
 };
 
