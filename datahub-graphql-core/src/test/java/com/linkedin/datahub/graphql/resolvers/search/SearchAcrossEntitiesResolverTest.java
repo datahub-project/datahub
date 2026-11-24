@@ -16,12 +16,15 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchFlags;
+import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.generated.SearchSortInput;
 import com.linkedin.datahub.graphql.generated.SortCriterion;
 import com.linkedin.datahub.graphql.generated.SortOrder;
@@ -33,10 +36,13 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.QueryEmbeddingException;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.r2.RemoteInvocationException;
@@ -45,6 +51,7 @@ import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -729,6 +736,144 @@ public class SearchAcrossEntitiesResolverTest {
         List.of(false, true, true));
   }
 
+  @Test
+  public static void testHoldsASimilarityAnchorToTheDocumentDefaults() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setNumEntities(0)
+                .setFrom(0)
+                .setPageSize(0)
+                .setMetadata(new SearchResultMetadata()));
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
+    SearchFlags hiddenStages = new SearchFlags();
+    hiddenStages.setIncludeHiddenLifecycleStages(true);
+
+    for (SearchAcrossEntitiesInput input :
+        ImmutableList.of(
+            new SearchAcrossEntitiesInput(
+                ImmutableList.of(EntityType.DOCUMENT), "q", 0, 10, null, null, null, null, null),
+            new SearchAcrossEntitiesInput(
+                ImmutableList.of(EntityType.DATASET), "q", 0, 10, null, null, null, null, null),
+            new SearchAcrossEntitiesInput(
+                ImmutableList.of(EntityType.DOCUMENT),
+                "q",
+                0,
+                10,
+                null,
+                null,
+                null,
+                hiddenStages,
+                null))) {
+      DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+      QueryContext mockContext = getMockAllowContext();
+      Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+      Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+      resolver.get(mockEnv).get();
+    }
+
+    // A search of datasets adds no defaults to its filter, but it can still name a document as its
+    // anchor, so the anchor is held to them. Only includeHiddenLifecycleStages lifts them.
+    ArgumentCaptor<OperationContext> contexts = ArgumentCaptor.forClass(OperationContext.class);
+    Mockito.verify(mockClient, Mockito.times(3))
+        .searchAcrossEntities(
+            contexts.capture(), any(), any(), any(), anyInt(), anyInt(), any(), any());
+    Assert.assertEquals(
+        contexts.getAllValues().stream()
+            .map(context -> context.getSearchContext().getAnchorFilter())
+            .collect(Collectors.toList()),
+        Arrays.asList(buildDocumentDefaultFilter(), buildDocumentDefaultFilter(), null));
+  }
+
+  @Test
+  public static void testAViewFilterOnPlacementLiftsThePlacementClauseInItsBranch()
+      throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setNumEntities(0)
+                .setFrom(0)
+                .setPageSize(0)
+                .setMetadata(new SearchResultMetadata()));
+    // The view matches documents hidden from global context, or documents in a domain
+    DataHubViewInfo view = new DataHubViewInfo();
+    view.setName("test");
+    view.setType(DataHubViewType.GLOBAL);
+    view.setCreated(new AuditStamp().setTime(0L).setActor(TEST_USER_URN));
+    view.setLastModified(new AuditStamp().setTime(0L).setActor(TEST_USER_URN));
+    view.setDefinition(
+        new DataHubViewDefinition()
+            .setEntityTypes(new StringArray(ImmutableList.of(Constants.DOCUMENT_ENTITY_NAME)))
+            .setFilter(
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        buildCriterion(
+                                            "showInGlobalContext", Condition.EQUAL, "false"))),
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        buildCriterion(
+                                            "domains",
+                                            Condition.EQUAL,
+                                            "urn:li:domain:sales")))))));
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, initMockViewService(TEST_VIEW_URN, view));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(
+            new SearchAcrossEntitiesInput(
+                ImmutableList.of(EntityType.DOCUMENT),
+                "q",
+                0,
+                10,
+                null,
+                null,
+                TEST_VIEW_URN.toString(),
+                null,
+                null));
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<Filter> filter = ArgumentCaptor.forClass(Filter.class);
+    Mockito.verify(mockClient)
+        .searchAcrossEntities(
+            any(), any(), any(), filter.capture(), anyInt(), anyInt(), any(), any());
+    // Each view branch joined with the published clause and the legacy clause. Only the two
+    // that carry the view's placement criterion lose the placement default.
+    List<ConjunctiveCriterion> branches = filter.getValue().getOr();
+    Assert.assertEquals(branches.size(), 4);
+    int lifted = 0;
+    for (ConjunctiveCriterion branch : branches) {
+      boolean viewNamesPlacement = hasPlacementCriterion(branch, false);
+      Assert.assertEquals(hasPlacementCriterion(branch, true), !viewNamesPlacement, branch + "");
+      lifted += viewNamesPlacement ? 1 : 0;
+    }
+    Assert.assertEquals(lifted, 2);
+  }
+
+  private static boolean hasPlacementCriterion(ConjunctiveCriterion branch, boolean negated) {
+    return branch.getAnd().stream()
+        .anyMatch(
+            criterion ->
+                "showInGlobalContext".equals(criterion.getField())
+                    && criterion.isNegated() == negated);
+  }
+
   private static ViewService initMockViewService(Urn viewUrn, DataHubViewInfo viewInfo) {
     ViewService service = Mockito.mock(ViewService.class);
     Mockito.when(service.getViewInfo(any(), Mockito.eq(viewUrn))).thenReturn(viewInfo);
@@ -888,4 +1033,201 @@ public class SearchAcrossEntitiesResolverTest {
   }
 
   private SearchAcrossEntitiesResolverTest() {}
+
+  @Test
+  public static void testANamedTemplateThatCannotEmbedTheQueryFailsWithItsReason()
+      throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
+    SearchAcrossEntitiesInput input = namedTemplateSearch("urn:li:searchTemplate:semantic");
+
+    // As on semantic search: a timeout is an exceeded deadline, and a throttle is a transient
+    // unavailability, each naming the reason
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenThrow(embeddingFailure(QueryEmbeddingException.TIMEOUT))
+        .thenThrow(embeddingFailure(QueryEmbeddingException.REJECTED));
+    DataHubGraphQLException timedOut = typedError(resolver, input);
+    Assert.assertEquals(timedOut.errorCode(), DataHubGraphQLErrorCode.DEADLINE_EXCEEDED);
+    Assert.assertTrue(timedOut.getMessage().contains(QueryEmbeddingException.TIMEOUT));
+    DataHubGraphQLException throttled = typedError(resolver, input);
+    Assert.assertEquals(throttled.errorCode(), DataHubGraphQLErrorCode.SERVICE_UNAVAILABLE);
+    Assert.assertTrue(throttled.getMessage().contains(QueryEmbeddingException.REJECTED));
+    // Without the flag nothing else runs
+    Mockito.verify(mockClient, Mockito.times(2))
+        .searchAcrossEntities(any(), any(), any(), any(), anyInt(), anyInt(), any(), any());
+  }
+
+  @Test
+  public static void testTheKeywordFallbackRunsTheSameSearchWithoutTheNamedTemplate()
+      throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenThrow(embeddingFailure(QueryEmbeddingException.REJECTED))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(
+                    new SearchEntityArray(
+                        new SearchEntity().setEntity(UrnUtils.getUrn("urn:li:document:revenue"))))
+                .setNumEntities(1)
+                .setFrom(0)
+                .setPageSize(10)
+                .setMetadata(new SearchResultMetadata()));
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
+    SearchAcrossEntitiesInput input = namedTemplateSearch("urn:li:searchTemplate:semantic");
+    input.getSearchFlags().setKeywordFallbackOnEmbeddingFailure(true);
+
+    SearchResults result = resolver.get(environment(input)).get();
+
+    Assert.assertEquals(result.getKeywordFallback(), QueryEmbeddingException.REJECTED);
+    Assert.assertEquals(result.getTotal(), 1);
+    ArgumentCaptor<OperationContext> contexts = ArgumentCaptor.forClass(OperationContext.class);
+    ArgumentCaptor<String> queries = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<Filter> filters = ArgumentCaptor.forClass(Filter.class);
+    Mockito.verify(mockClient, Mockito.times(2))
+        .searchAcrossEntities(
+            contexts.capture(),
+            any(),
+            queries.capture(),
+            filters.capture(),
+            eq(0),
+            eq(10),
+            any(),
+            any());
+    Assert.assertTrue(
+        contexts.getAllValues().get(0).getSearchContext().getSearchFlags().hasSearchTemplate());
+    Assert.assertFalse(
+        contexts.getAllValues().get(1).getSearchContext().getSearchFlags().hasSearchTemplate());
+    Assert.assertEquals(queries.getAllValues().get(1), queries.getAllValues().get(0));
+    Assert.assertEquals(filters.getAllValues().get(1), filters.getAllValues().get(0));
+  }
+
+  @Test
+  public static void testWithNoTemplateNamedTheEmbeddingErrorStandsAtOnce() throws Exception {
+    // A slot or route selected the vector rung, so dropping a template would run it again
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenThrow(embeddingFailure(QueryEmbeddingException.REJECTED));
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
+    SearchFlags flags = new SearchFlags();
+    flags.setKeywordFallbackOnEmbeddingFailure(true);
+    SearchAcrossEntitiesInput input =
+        new SearchAcrossEntitiesInput(
+            ImmutableList.of(EntityType.DOCUMENT),
+            "quarterly revenue",
+            0,
+            10,
+            null,
+            null,
+            null,
+            flags,
+            null);
+
+    Assert.assertEquals(
+        typedError(resolver, input).errorCode(), DataHubGraphQLErrorCode.SERVICE_UNAVAILABLE);
+    Mockito.verify(mockClient, Mockito.times(1))
+        .searchAcrossEntities(any(), any(), any(), any(), anyInt(), anyInt(), any(), any());
+  }
+
+  @Test
+  public static void testAFallbackThatRunsAVectorRungAgainKeepsTheEmbeddingError()
+      throws Exception {
+    // The named template is dropped, and a slot or route selects a vector rung for the rest
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenThrow(embeddingFailure(QueryEmbeddingException.REJECTED))
+        .thenThrow(embeddingFailure(QueryEmbeddingException.TIMEOUT));
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
+    SearchAcrossEntitiesInput input = namedTemplateSearch("urn:li:searchTemplate:semantic");
+    input.getSearchFlags().setKeywordFallbackOnEmbeddingFailure(true);
+
+    DataHubGraphQLException error = typedError(resolver, input);
+
+    Assert.assertEquals(error.errorCode(), DataHubGraphQLErrorCode.SERVICE_UNAVAILABLE);
+    Assert.assertTrue(error.getMessage().contains(QueryEmbeddingException.REJECTED));
+    Mockito.verify(mockClient, Mockito.times(2))
+        .searchAcrossEntities(any(), any(), any(), any(), anyInt(), anyInt(), any(), any());
+  }
+
+  @Test
+  public static void testSimilarityNeverFallsBackAndAnUnusableAnchorIsABadRequest()
+      throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenThrow(
+            new SearchTemplateNoAnchorException(
+                "Search template urn:li:searchTemplate:similarity finds similar entities, and"
+                    + " urn:li:document:revenue has no stored vectors for document"))
+        .thenThrow(
+            new SearchTemplateFailClosedException(
+                "Search template urn:li:searchTemplate:similarity could not read the anchor"));
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
+    SearchAcrossEntitiesInput input = namedTemplateSearch("urn:li:searchTemplate:similarity");
+    input.getSearchFlags().setKeywordFallbackOnEmbeddingFailure(true);
+
+    // An anchor the request cannot use is the caller's error, as on semantic search
+    Assert.assertEquals(
+        typedError(resolver, input).errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
+    // Similarity embeds nothing, so the flag does not apply and another failure is not retyped
+    CompletionException failure =
+        Assert.expectThrows(
+            CompletionException.class, () -> resolver.get(environment(input)).join());
+    Assert.assertFalse(failure.getCause() instanceof DataHubGraphQLException, failure.toString());
+    Mockito.verify(mockClient, Mockito.times(2))
+        .searchAcrossEntities(any(), any(), any(), any(), anyInt(), anyInt(), any(), any());
+  }
+
+  /** A keyword search that names {@code template} in the searchTemplate flag. */
+  private static SearchAcrossEntitiesInput namedTemplateSearch(String template) {
+    SearchFlags flags = new SearchFlags();
+    flags.setSearchTemplate(template);
+    return new SearchAcrossEntitiesInput(
+        ImmutableList.of(EntityType.DOCUMENT),
+        "quarterly revenue",
+        0,
+        10,
+        null,
+        null,
+        null,
+        flags,
+        null);
+  }
+
+  /** How a vector rung that could not embed the query fails the search below the resolver. */
+  private static RuntimeException embeddingFailure(String reason) {
+    return new SearchTemplateFailClosedException(
+        "Search template urn:li:searchTemplate:semantic failed to retrieve by vector",
+        new QueryEmbeddingException(reason, null));
+  }
+
+  private static DataFetchingEnvironment environment(SearchAcrossEntitiesInput input) {
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    return mockEnv;
+  }
+
+  private static DataHubGraphQLException typedError(
+      SearchAcrossEntitiesResolver resolver, SearchAcrossEntitiesInput input) {
+    CompletionException failure =
+        Assert.expectThrows(
+            CompletionException.class, () -> resolver.get(environment(input)).join());
+    Assert.assertTrue(failure.getCause() instanceof DataHubGraphQLException, failure.toString());
+    return (DataHubGraphQLException) failure.getCause();
+  }
 }

@@ -355,6 +355,9 @@ class QlikTable(_QlikBaseModel):
     spaceId: str
     datasetSchema: List[SchemaField] = Field(alias="fields")
     tableQri: Optional[str] = None
+    # The table's node in the app's Qlik Cloud lineage graph, by which other
+    # apps' graphs name it, such as for a BINARY load.
+    graphQri: Optional[str] = None
     selectStatement: Optional[str] = None
     databaseName: Optional[str] = None
     schemaName: Optional[str] = None
@@ -387,6 +390,9 @@ class App(Item):
     lineage_tables: List[LineageTable] = []
     # Qlik Cloud answered 404 for the app's lineage graph.
     lineage_graph_missing: bool = False
+    # Labels of the app's lineage graph table nodes that matched no data model
+    # table with a URN, so other apps' loads of them can't be resolved.
+    unmatched_graph_tables: List[str] = []
     # The tables of the app's data model as the last reload left them, read on
     # Qlik Cloud for apps whose tables come from the lineage graph or script.
     data_model_tables: List[DataModelTable] = []

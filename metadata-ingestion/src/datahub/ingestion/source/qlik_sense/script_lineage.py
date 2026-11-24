@@ -550,6 +550,8 @@ class _Block(BaseModel):
     has_default: bool = False
     # Statements between SWITCH and its first CASE run in no branch.
     in_case: bool = False
+    # How often each variable had been assigned when the block opened.
+    assignments_before: Counter[str] = Field(default_factory=Counter)
 
 
 class _ControlFlowTracker(BaseModel):
@@ -566,8 +568,14 @@ class _ControlFlowTracker(BaseModel):
     # How often the script assigns each variable, as it runs, and in all. The
     # app keeps a variable's value from its last assignment, which is also
     # its value before the first, as variables persist between reloads.
-    assignments: Counter = Field(default_factory=Counter)
-    total_assignments: Counter = Field(default_factory=Counter)
+    assignments: Counter[str] = Field(default_factory=Counter)
+    total_assignments: Counter[str] = Field(default_factory=Counter)
+    # Variables the app itself holds a value for. The recipe's values are only
+    # for variables neither the app nor the visible script has.
+    app_variable_names: Set[str] = set()
+    # The parameters of each SUB being run, innermost last. They are local to
+    # the call, so the app's global variable of that name is not their value.
+    parameters: List[Set[str]] = []
 
     def apply_control(self, control: "re.Match[str]") -> None:
         if control.group("if") or control.group("switch"):
@@ -575,6 +583,7 @@ class _ControlFlowTracker(BaseModel):
                 _Block(
                     before=self.state.model_copy(deep=True),
                     in_case=bool(control.group("if")),
+                    assignments_before=Counter(self.assignments),
                 )
             )
         elif self.blocks and (
@@ -603,11 +612,23 @@ class _ControlFlowTracker(BaseModel):
                 self.loops[-1].update(varied)
             else:
                 self.state.unknown.difference_update(
-                    name for name in varied if self._assigned_for_the_last_time(name)
+                    name for name in varied if self._takes_app_value(name)
                 )
 
     def _assigned_for_the_last_time(self, name: str) -> bool:
         return self.assignments[name] >= self.total_assignments[name]
+
+    def _is_parameter(self, name: str) -> bool:
+        return any(name in parameters for parameters in self.parameters)
+
+    def _takes_app_value(self, name: str) -> bool:
+        # After a loop or block that left it unknown, the app's value is the
+        # one its last assignment gave, if the app has it at all.
+        return (
+            self._assigned_for_the_last_time(name)
+            and name in self.app_variable_names
+            and not self._is_parameter(name)
+        )
 
     def _forget_variable(self, name: str) -> None:
         self.state.forget_variable(name)
@@ -637,19 +658,35 @@ class _ControlFlowTracker(BaseModel):
             if all(other.variables.get(name) == value for other in rest)
         }
         set_anywhere = {name for outcome in outcomes for name in outcome.variables}
+        unknown = set().union(*(outcome.unknown for outcome in outcomes)) | (
+            set_anywhere - variables.keys()
+        )
+        # A variable already unknown before the block but assigned in it is
+        # one the block decides too.
+        made_unknown = (unknown - block.before.unknown) | {
+            name
+            for name in unknown
+            if self.assignments[name] > block.assignments_before[name]
+        }
         if self.loops:
             # Like a variable set in the loop, it holds the app's value after.
-            self.loops[-1].update(set_anywhere - variables.keys())
+            self.loops[-1].update(made_unknown)
+        elif not self.blocks:
+            # Once its last assignment has run, a variable holds the value the
+            # branch taken in the app's last reload gave it, which is the app's.
+            # Inside an outer branch, that branch may not have run.
+            unknown.difference_update(
+                name for name in made_unknown if self._takes_app_value(name)
+            )
         self.state = _BranchState(
             connection=first.connection
             if all(other.connection == first.connection for other in rest)
             else None,
             variables=variables,
-            unknown=set().union(*(outcome.unknown for outcome in outcomes))
-            | (set_anywhere - variables.keys()),
+            unknown=unknown,
         )
 
-    def record_variable(self, statement: str, in_sub: bool = False) -> bool:
+    def record_variable(self, statement: str) -> bool:
         match = VARIABLE_RE.match(statement)
         if not match:
             return False
@@ -668,13 +705,13 @@ class _ControlFlowTracker(BaseModel):
             self.state.set_variable(match.group("name"), value)
         elif (
             self.loops
-            or in_sub
             or self.blocks
+            or self._is_parameter(name)
             or not self._assigned_for_the_last_time(name)
         ):
-            # Run more than once, in a branch that may not have run, or set
-            # again later, so the value the app's last reload left need not be
-            # this one.
+            # Run more than once, in a branch that may not have run, local to a
+            # SUB call, or set again later, so the value the app's last reload
+            # left need not be this one.
             self._forget_variable(name)
         else:
             # LET evaluates an expression the parser can't, so the value the
@@ -962,7 +999,9 @@ class _ScriptParser(BaseModel):
             else:
                 state.set_variable(param, value)
         self.calling.append(name.lower())
+        self.flow.parameters.append(set(sub.params))
         self.run(sub.body)
+        self.flow.parameters.pop()
         self.calling.pop()
         state = self.flow.state
         for param, (value, unknown) in saved.items():
@@ -991,7 +1030,7 @@ class _ScriptParser(BaseModel):
         if EXIT_SCRIPT_RE.match(statement) and not self.flow.blocks:
             self.exited = True
             return
-        if self.flow.record_variable(statement, in_sub=bool(self.calling)):
+        if self.flow.record_variable(statement):
             self._clear_pending()
             return
         call = CALL_RE.match(statement)
@@ -1224,8 +1263,12 @@ class _ScriptParser(BaseModel):
 
 
 def parse_script(
-    script: str, app_variables: Optional[Dict[str, str]] = None
+    script: str,
+    app_variables: Optional[Dict[str, str]] = None,
+    app_variable_names: Optional[AbstractSet[str]] = None,
 ) -> ParsedScript:
+    """`app_variables` may include recipe values; `app_variable_names` are the
+    ones the app itself holds, all of `app_variables` when not given."""
     parsed = _script_pieces(script)
     # A first pass counts the assignments the script runs, leaving out
     # comments, SUBs it never calls and anything after EXIT SCRIPT.
@@ -1233,6 +1276,9 @@ def parse_script(
     first.run(parsed.pieces)
     parser = _ScriptParser(subs=parsed.subs, app_variables=app_variables or {})
     parser.flow.total_assignments = first.flow.assignments
+    parser.flow.app_variable_names = set(
+        (app_variables or {}) if app_variable_names is None else app_variable_names
+    )
     parser.run(parsed.pieces)
     return ParsedScript(
         tables=parser.tables,

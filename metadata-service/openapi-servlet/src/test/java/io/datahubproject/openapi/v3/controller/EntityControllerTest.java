@@ -134,6 +134,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.http.HttpStatus;
@@ -2859,6 +2860,34 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         + "      }\n"
         + "    }\n"
         + "]";
+  }
+
+  @Test
+  public void testCreateAspectSkippedByIfEntityExistsReturnsNoContent() throws Exception {
+    reset(authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+    reset(mockEntityService);
+    when(mockEntityService.ingestProposal(
+            any(OperationContext.class), any(AspectsBatch.class), eq(false)))
+        .thenReturn(List.of());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/v3/entity/dataset/urn:li:dataset:(urn:li:dataPlatform:testPlatform,missing,PROD)/status")
+                .content(
+                    "{\"value\":{\"removed\":false},\"headers\":{\"If-Entity-Exists\":\"true\"}}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .param("async", "false")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isNoContent());
+
+    ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
+    verify(mockEntityService)
+        .ingestProposal(any(OperationContext.class), batchCaptor.capture(), eq(false));
+    assertEquals(
+        batchCaptor.getValue().getMCPItems().get(0).getHeader("If-Entity-Exists"),
+        Optional.of("true"));
   }
 
   private void stubIngestProposalReturningUrn(Urn urn) {

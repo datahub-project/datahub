@@ -10,7 +10,8 @@ import com.linkedin.common.Urn
  * low-level tools needed to apply it.
  */
 @Aspect = {
-  "name": "agentSkillInfo"
+  "name": "agentSkillInfo",
+  "schemaVersion": 2
 }
 record AgentSkillInfo {
   /**
@@ -55,7 +56,17 @@ record AgentSkillInfo {
   /**
    * Markdown body of the skill's SKILL.md file, excluding YAML frontmatter.
    * This is the execution guidance loaded when the skill is activated.
+   * Search V3 copies the full text into the shared field other. It is not its own
+   * default query field. The type is RICH_TEXT so a body over 32 KB is not cut.
    */
+  @Searchable = {
+    "fieldType": "RICH_TEXT",
+    "queryByDefault": false,
+    "v3": {
+      "queryByDefault": false,
+      "copyToOther": true
+    }
+  }
   instructions: optional string
 
   /**
@@ -76,7 +87,10 @@ record AgentSkillInfo {
     "/*": {
       "fieldName": "requiredTools",
       "fieldType": "URN",
-      "queryByDefault": false
+      "queryByDefault": false,
+      "v3": {
+        "copyToOther": true
+      }
     }
   }
   requiredTools: optional array[Urn]
