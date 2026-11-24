@@ -1163,13 +1163,20 @@ def test_app_kept_from_older_state_leaves_dataset_lineage(
 
 
 @pytest.mark.parametrize(
-    "had_tables, checkpoint_failed, read_complete",
-    [(True, False, False), (False, False, True), (False, True, False)],
+    "had_tables, graph_tables_unresolved, checkpoint_failed, read_complete",
+    [
+        (True, False, False, False),
+        (False, False, False, True),
+        (False, False, True, False),
+        # Its last read saw graph tables it couldn't match, so it had tables.
+        (False, True, False, False),
+    ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_missing_lineage_graph(
     mock_api_cls: MagicMock,
     had_tables: bool,
+    graph_tables_unresolved: bool,
     checkpoint_failed: bool,
     read_complete: bool,
 ) -> None:
@@ -1183,6 +1190,7 @@ def test_missing_lineage_graph(
         table_urns_by_qri={f"{ETL_APP}#Curve": _urn("etl-app.curve")}
         if had_tables
         else {},
+        graph_tables_unresolved=graph_tables_unresolved,
     )
     if checkpoint_failed:
         # Without the last read, the app's tables may still exist.
@@ -1196,6 +1204,8 @@ def test_missing_lineage_graph(
     # tables are gone, as Qlik also answers 404 before it recomputes lineage.
     assert app.read_complete is read_complete
     assert app.tables_read_failed is not read_complete
+    # Not read completely means a read error, so the last read is kept.
+    assert bool(app.read_errors) is not read_complete
     assert list(source.reporter.apps_without_lineage_graph) == (
         ["etl-app"] if read_complete else []
     )
