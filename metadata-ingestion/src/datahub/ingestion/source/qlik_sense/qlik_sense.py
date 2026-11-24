@@ -459,11 +459,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # names them, added to those apps' checkpoints so a later run that
         # keeps an app keeps them too.
         self._app_end_of_run_urns: DefaultDict[str, Set[str]] = defaultdict(set)
-        # Upstream graphs of the apps read this run, and the resources only
-        # they name, by URN, with their labels and the app tables storing into
-        # them.
-        self._lineage_upstreams: Dict[str, LineageUpstreams] = {}
-        self._apps_upstream_graph_unread: Set[str] = set()
+        # Upstream graphs of the apps read this run, fetched when a source only
+        # they can name is met, None when the read failed, and the resources
+        # only they name, by URN, with their labels and the app tables storing
+        # into them.
+        self._app_qris: Dict[str, str] = {}
+        self._lineage_upstreams: Dict[str, Optional[LineageUpstreams]] = {}
+        self._upstream_graph_read_failures: List[str] = []
+        # Apps whose last graph-named datasets are kept, as this run could not
+        # tell whether they are still sources.
+        self._apps_graph_named_kept: Set[str] = set()
         self._graph_named_resources: Dict[str, str] = {}
         self._graph_resource_writers: Dict[str, Set[str]] = {}
         self._allowed_space_ids: Set[str] = set()
@@ -1893,10 +1898,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _register_app_tables(self, app: App) -> None:
         self._app_table_urns_by_qri.update(self._app_table_urns(app))
-        self._lineage_upstreams[app.id] = app.lineage_upstreams
-        if app.lineage_upstreams_read_failed:
-            self._apps_upstream_graph_unread.add(app.id)
-            self._keep_graph_named_urns(app.id)
+        self._app_qris[app.id] = app.qri
         if self._tables_unknown(app):
             self._apps_tables_unknown.add(app.id)
             return
@@ -1940,7 +1942,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return resolved
 
     def _resolve_source(
-        self, table_qri: str, dataset_urn: str, own_app_id: Optional[str]
+        self,
+        table_qri: str,
+        dataset_urn: str,
+        own_app_id: Optional[str],
+        name_from_graph: bool = True,
     ) -> Tuple[Optional[str], bool]:
         """The URN of a source table node, if this run ingests it, and whether
         every source could be told this run. An unknown source may still have
@@ -1964,6 +1970,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 if datasets
                 else None
             )
+            graph_app_id = own_app_id if name_from_graph else None
             on_known_storage = False
             if urn is None and own_app_id is not None and FILE_QRI_RE.match(table_qri):
                 # Files on a storage connection resolve from the load script,
@@ -1976,44 +1983,57 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     # so the last run's edge to it must stay. Without the
                     # listing, it may be a listed file the graph can't name,
                     # and without the connections, one on known storage.
-                    if (
-                        datasets is None
-                        or on_known_storage
-                        or self._data_connections_unread()
-                    ):
+                    if on_known_storage:
                         return None, False
-                    return self._graph_named_source(own_app_id, table_qri), False
+                    if datasets is None or self._data_connections_unread():
+                        self._keep_graph_named_sources(own_app_id, table_qri)
+                        return None, False
+                    return self._graph_named_source(graph_app_id, table_qri), False
             if urn is None and datasets is None:
+                self._keep_graph_named_sources(own_app_id, table_qri)
                 return None, False
             if (
                 urn is None
                 and table_qri.startswith(QLIK_DATASET_QRI_PREFIX)
                 and self._datasets_without_qri
             ):
-                # It may be an ingested dataset the listing gave no QRI for.
+                # It may be an ingested dataset the listing gave no QRI for, so
+                # it is not named from the graph either.
+                self._keep_graph_named_sources(own_app_id, table_qri)
                 return None, False
             # A file on known storage that could not be told which is left out
             # rather than named apart from its storage dataset.
-            if urn is None and own_app_id is not None and not on_known_storage:
-                urn = self._graph_named_source(own_app_id, table_qri)
-                if urn is None and self._upstream_graph_unread(own_app_id):
+            if urn is None and graph_app_id is not None and not on_known_storage:
+                urn = self._graph_named_source(graph_app_id, table_qri)
+                if (
+                    urn is None
+                    and self._graph_could_name(table_qri)
+                    and self._upstream_graph_unread(graph_app_id)
+                ):
                     # The upstream graph that may name it could not be read.
                     return None, False
         return (urn if urn != dataset_urn else None), True
 
-    def _graph_named_source(self, app_id: str, table_qri: str) -> Optional[str]:
+    def _graph_could_name(self, table_qri: str) -> bool:
+        # A dataset listed in a space the recipe leaves out stays out.
+        return table_qri.startswith(UPSTREAM_RESOURCE_QRI_PREFIXES) and not any(
+            qri in self._listed_dataset_qris
+            for qri in (table_qri.rpartition("#")[0], table_qri)
+        )
+
+    def _graph_named_source(
+        self, app_id: Optional[str], table_qri: str
+    ) -> Optional[str]:
         """A dataset or file only the app's upstream graph names, such as a QVD
         in a space the API key can't see, under a URN from its QRI. Its writer
         apps' tables become its upstreams at the end of the run."""
-        upstreams = self._lineage_upstreams.get(app_id)
-        if upstreams is None or not table_qri.startswith(
-            UPSTREAM_RESOURCE_QRI_PREFIXES
-        ):
+        if app_id is None or not self._graph_could_name(table_qri):
+            return None
+        upstreams = self._app_lineage_upstreams(app_id)
+        if upstreams is None:
             return None
         # The graph may name the resource itself rather than one of its tables.
         candidates = (table_qri.rpartition("#")[0], table_qri)
-        if any(qri in self._listed_dataset_qris for qri in candidates):
-            return None
         resource_qri = next(
             (qri for qri in candidates if qri in upstreams.resource_labels), None
         )
@@ -2033,11 +2053,37 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 writers.update(writer_qris)
         return urn
 
+    def _app_lineage_upstreams(self, app_id: str) -> Optional[LineageUpstreams]:
+        """The app's upstream graph, read when a source only it can name is
+        first met, or None when it could not be read."""
+        if app_id not in self._lineage_upstreams:
+            try:
+                upstreams: Optional[LineageUpstreams] = (
+                    self.qlik_api.get_lineage_upstreams(self._app_qris[app_id])
+                )
+            except Exception as e:
+                logger.debug(f"Unable to read upstream lineage of app {app_id}: {e}")
+                upstreams = None
+                self._upstream_graph_read_failures.append(f"{app_id}: {e}")
+                self._keep_graph_named_urns(app_id)
+            self._lineage_upstreams[app_id] = upstreams
+        return self._lineage_upstreams[app_id]
+
+    def _keep_graph_named_sources(self, app_id: Optional[str], table_qri: str) -> None:
+        """Keeps the datasets the app's last read named from its upstream graph
+        when this run can't tell whether a source it may name is one of them."""
+        if app_id is not None and table_qri.startswith(UPSTREAM_RESOURCE_QRI_PREFIXES):
+            self._keep_graph_named_urns(app_id)
+
     def _keep_graph_named_urns(self, app_id: str) -> None:
         """Keeps the datasets the app's last read named from its upstream
-        graph, as this run could not read the graph to name them again."""
-        if self.stale_entity_removal_handler is None:
+        graph, as this run could not name them again."""
+        if (
+            self.stale_entity_removal_handler is None
+            or app_id in self._apps_graph_named_kept
+        ):
             return
+        self._apps_graph_named_kept.add(app_id)
         failures: List[str] = []
         previous = self._usable_checkpoint(app_id, failures)
         for failure in failures:
@@ -2064,7 +2110,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
     def _upstream_graph_unread(self, app_id: str) -> bool:
-        return app_id in self._apps_upstream_graph_unread
+        return (
+            app_id in self._lineage_upstreams
+            and self._lineage_upstreams[app_id] is None
+        )
 
     def _file_inputs_incomplete(self, app_id: str) -> bool:
         if app_id in self._apps_with_includes:
@@ -2319,9 +2368,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             and (storage := file_storage_of_uri(detail.storage_uri))
         }
 
-    def _resolve_file_source(self, app_id: str, file_qri: str) -> Optional[str]:
-        return self._file_source_resolution(app_id, file_qri).urn
-
     def _file_source_resolution(
         self, app_id: str, file_qri: str
     ) -> _FileSourceResolution:
@@ -2413,6 +2459,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         dataset_urn: str,
         field_source_qris: Dict[str, List[str]],
         own_app_id: Optional[str],
+        table_source_qris: Collection[str] = (),
     ) -> List[FineGrainedLineage]:
         """Column lineage from the field level of Qlik's lineage graph. A source
         field is named only when its id is the hash of a field name the run
@@ -2421,12 +2468,25 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # An unnamed source field would otherwise keep the table's lineage
             # from being written whole, for column lineage that isn't emitted.
             return []
+        # A resource only named from the graph at field level would have no
+        # edge to the table, so it is only named when a table source.
+        table_sources = {
+            *table_source_qris,
+            *(qri.rpartition("#")[0] for qri in table_source_qris),
+        }
         lineages = []
         for field, source_qris in field_source_qris.items():
             upstreams: List[str] = []
             for field_qri in source_qris:
                 table_qri, _, field_id = field_qri.rpartition("#")
-                urn, _ = self._resolve_source(table_qri, dataset_urn, own_app_id)
+                urn, _ = self._resolve_source(
+                    table_qri,
+                    dataset_urn,
+                    own_app_id,
+                    name_from_graph=bool(
+                        {table_qri, table_qri.rpartition("#")[0]} & table_sources
+                    ),
+                )
                 name = (
                     field
                     if _qlik_field_id(field) == field_id
@@ -2536,7 +2596,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self._pending_table_lineage.append(pending)
                 continue
             graph_fields = self._graph_column_lineage(
-                dataset_urn, table.field_source_qris, own_app_id=app.id
+                dataset_urn,
+                table.field_source_qris,
+                own_app_id=app.id,
+                table_source_qris=table.source_qris,
             )
             if dataset_urn in self._unnamed_field_lineage:
                 # A source field is named by an item read later in the run, such
@@ -2572,6 +2635,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 pending.dataset_urn,
                 pending.field_source_qris,
                 own_app_id=pending.app_id,
+                table_source_qris=pending.source_qris,
             )
             yield from self._gen_table_lineage(pending, graph_fields)
         self._pending_table_lineage = []
@@ -4148,14 +4212,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 message="Lineage from the apps that store these datasets is skipped.",
                 context=_bounded_list(self.qlik_api.lineage_read_failures),
             )
-        if self.qlik_api.upstream_graph_read_failures:
+        if self._upstream_graph_read_failures:
             self.reporter.warning(
                 title="Unable to read Qlik upstream lineage graph",
                 message="Sources of these apps that only Qlik's lineage graph "
                 "names, such as datasets in spaces the API key can't see, are "
                 "left out, and the apps' lineage is only added to this run. "
                 "Datasets the last run named from the graph are kept.",
-                context=_bounded_list(self.qlik_api.upstream_graph_read_failures),
+                context=_bounded_list(self._upstream_graph_read_failures),
             )
         change_check_failures = [
             *self.qlik_api.change_check_failures,

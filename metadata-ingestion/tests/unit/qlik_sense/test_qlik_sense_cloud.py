@@ -318,7 +318,6 @@ def test_denied_load_script_is_a_warning(mock_api_cls: MagicMock) -> None:
     mock_api_cls.return_value.field_lineage_failures = []
     mock_api_cls.return_value.opened_without_data = []
     mock_api_cls.return_value.include_read_failures = []
-    mock_api_cls.return_value.upstream_graph_read_failures = []
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(CLOUD_CONFIG),
         PipelineContext(run_id="test-cloud"),

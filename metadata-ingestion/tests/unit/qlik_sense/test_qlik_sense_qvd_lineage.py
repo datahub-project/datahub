@@ -280,7 +280,6 @@ def _run(
         api.field_lineage_failures = []
         api.opened_without_data = []
         api.include_read_failures = []
-        api.upstream_graph_read_failures = []
         api.get_user_name.return_value = None
         api.get_data_connections.return_value = (
             {} if connections_unread else CONNECTIONS

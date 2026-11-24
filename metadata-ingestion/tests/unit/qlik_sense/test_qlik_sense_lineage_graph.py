@@ -210,6 +210,8 @@ def _source(
     script_read_failed: bool = False,
     items: Optional[List[Union[App, QlikDataset]]] = None,
     config: Optional[Dict[str, Any]] = None,
+    upstreams: Optional[LineageUpstreams] = None,
+    upstream_graph_error: Optional[Exception] = None,
 ) -> QlikSenseSource:
     space = MagicMock(id="space-1")
     space.name = "Finance"
@@ -223,7 +225,8 @@ def _source(
     api.field_lineage_failures = []
     api.opened_without_data = []
     api.include_read_failures = []
-    api.upstream_graph_read_failures = []
+    api.get_lineage_upstreams.return_value = upstreams or LineageUpstreams()
+    api.get_lineage_upstreams.side_effect = upstream_graph_error
     api.get_user_name.return_value = None
     api.list_datasets.return_value = datasets
     api.get_items.return_value = [
@@ -271,9 +274,18 @@ def _run(
     graph: Optional[MagicMock] = None,
     script_read_failed: bool = False,
     items: Optional[List[Union[App, QlikDataset]]] = None,
+    upstreams: Optional[LineageUpstreams] = None,
+    upstream_graph_error: Optional[Exception] = None,
 ) -> Tuple[QlikSenseSource, Dict[str, List[str]], Dict[str, List[str]]]:
     source = _source(
-        mock_api_cls, datasets, keep_unread_items, graph, script_read_failed, items
+        mock_api_cls,
+        datasets,
+        keep_unread_items,
+        graph,
+        script_read_failed,
+        items,
+        upstreams=upstreams,
+        upstream_graph_error=upstream_graph_error,
     )
     written, added = _lineage(source.get_workunits_internal())
     return source, written, added
@@ -635,11 +647,11 @@ def test_app_table_lineage_is_only_added_to_when_a_qvd_has_no_qri(
 
 UNLISTED_QVD = "qri:qdf:space://Unlisted#PricesQvd"
 WRITER_TABLE = "qri:app:sense://writer-app#Out"
+GRAPH_FILE = "qri:file:adls://Conn#Path"
+DB_TABLE = "qri:db:mssql://Hash#Orders"
 
 
 def _reader_and_writer(
-    upstreams: LineageUpstreams,
-    read_failed: bool = False,
     source_qris: Optional[List[str]] = None,
 ) -> List[Union[App, QlikDataset]]:
     reader = _app(
@@ -653,8 +665,6 @@ def _reader_and_writer(
             )
         ],
     )
-    reader.lineage_upstreams = upstreams
-    reader.lineage_upstreams_read_failed = read_failed
     # Read after the app that loads what it stores.
     return [reader, _app("writer-app", [LineageTable(qri=WRITER_TABLE, label="Out")])]
 
@@ -672,7 +682,9 @@ def test_unlisted_dataset_is_named_from_the_upstream_graph(
             ]
         },
     )
-    source = _source(mock_api_cls, DATASETS, items=_reader_and_writer(upstreams))
+    source = _source(
+        mock_api_cls, DATASETS, items=_reader_and_writer(), upstreams=upstreams
+    )
     workunits = list(source.get_workunits_internal())
     written, added = _lineage(workunits)
 
@@ -725,11 +737,11 @@ def test_graph_named_source_gets_every_writer_of_its_resource(
             f"{UNLISTED_QVD}2#Prices": [f"{WRITER_TABLE}2"],
         },
     )
-    items = _reader_and_writer(upstreams, source_qris=source_qris)
+    items = _reader_and_writer(source_qris=source_qris)
     writer = items[1]
     assert isinstance(writer, App)
     writer.lineage_tables.append(LineageTable(qri=f"{WRITER_TABLE}2", label="Out2"))
-    _, written, added = _run(mock_api_cls, DATASETS, items=items)
+    _, written, added = _run(mock_api_cls, DATASETS, items=items, upstreams=upstreams)
 
     # The one listed in a space the recipe leaves out is still not named.
     assert written[_urn("report-app.prices")] == [_urn(UNLISTED_QVD)]
@@ -740,16 +752,19 @@ def test_graph_named_source_gets_every_writer_of_its_resource(
 def test_renamed_field_of_a_graph_named_source_still_replaces_lineage(
     mock_api_cls: MagicMock,
 ) -> None:
-    items = _reader_and_writer(
-        LineageUpstreams(resource_labels={UNLISTED_QVD: "prices.qvd"})
-    )
+    items = _reader_and_writer()
     reader = items[0]
     assert isinstance(reader, App)
     # Loaded under a new name from a field the run never reads.
     reader.lineage_tables[0].field_source_qris = {
         "Px": [f"{UNLISTED_QVD}#Prices#unread-field-id"]
     }
-    _, written, _ = _run(mock_api_cls, DATASETS, items=items)
+    _, written, _ = _run(
+        mock_api_cls,
+        DATASETS,
+        items=items,
+        upstreams=LineageUpstreams(resource_labels={UNLISTED_QVD: "prices.qvd"}),
+    )
 
     assert written[_urn("report-app.prices")] == [_urn(UNLISTED_QVD)]
 
@@ -758,14 +773,101 @@ def test_renamed_field_of_a_graph_named_source_still_replaces_lineage(
 def test_unread_upstream_graph_only_adds_to_table_lineage(
     mock_api_cls: MagicMock,
 ) -> None:
-    _, written, added = _run(
+    source, written, added = _run(
         mock_api_cls,
         DATASETS,
-        items=_reader_and_writer(LineageUpstreams(), read_failed=True),
+        items=_reader_and_writer(),
+        upstream_graph_error=ValueError("no graph"),
     )
 
     assert _urn("report-app.prices") not in written
     assert _urn(UNLISTED_QVD) not in added
+    assert "Unable to read Qlik upstream lineage graph" in [
+        w.title for w in source.reporter.warnings
+    ]
+    assert not source.reporter.failures
+
+
+@pytest.mark.parametrize(
+    "source_qris",
+    [
+        # Qlik identifies database tables by an opaque hash.
+        pytest.param([DB_TABLE], id="database node"),
+        pytest.param([f"{HIDDEN_QVD}#Curve"], id="QVD in an excluded space"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unread_upstream_graph_leaves_sources_it_cannot_name_complete(
+    mock_api_cls: MagicMock, source_qris: List[str]
+) -> None:
+    items = _reader_and_writer()
+    reader = items[0]
+    assert isinstance(reader, App)
+    # Its other table loads an unlisted QVD, so the graph read is attempted.
+    reader.lineage_tables.append(
+        LineageTable(qri=f"{REPORT_APP}#Ord", label="Orders", source_qris=source_qris)
+    )
+    _, written, _ = _run(
+        mock_api_cls,
+        DATASETS,
+        items=items,
+        upstream_graph_error=ValueError("no graph"),
+    )
+
+    assert _urn("report-app.prices") not in written
+    assert written[_urn("report-app.orders")] == []
+
+
+@pytest.mark.parametrize(
+    "source_qris, reads",
+    [
+        pytest.param([f"{SOURCE_QVD}#Curve", DB_TABLE], 0, id="listed or opaque"),
+        pytest.param([f"{HIDDEN_QVD}#Curve"], 0, id="listed in an excluded space"),
+        pytest.param(
+            [f"{UNLISTED_QVD}#Prices", f"{UNLISTED_QVD}2#Prices"], 1, id="unlisted"
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_upstream_graph_is_read_once_and_only_for_sources_it_may_name(
+    mock_api_cls: MagicMock, source_qris: List[str], reads: int
+) -> None:
+    _run(mock_api_cls, DATASETS, items=_reader_and_writer(source_qris=source_qris))
+
+    assert mock_api_cls.return_value.get_lineage_upstreams.call_count == reads
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_source_only_at_field_level_is_not_named_from_the_graph(
+    mock_api_cls: MagicMock,
+) -> None:
+    items = _reader_and_writer(source_qris=[f"{SOURCE_QVD}#Curve"])
+    reader = items[0]
+    assert isinstance(reader, App)
+    reader.lineage_tables[0].field_source_qris = {
+        "Price": [_field_qri(f"{UNLISTED_QVD}#Prices", "Price")]
+    }
+    workunits = list(
+        _source(
+            mock_api_cls,
+            DATASETS,
+            items=items,
+            upstreams=LineageUpstreams(
+                resource_labels={UNLISTED_QVD: "prices.qvd"},
+                stored_from={f"{UNLISTED_QVD}#Prices": [WRITER_TABLE]},
+            ),
+        ).get_workunits_internal()
+    )
+
+    # It would get its writers' edges but none to the table that reads it.
+    assert not _workunits_of(workunits, _urn(UNLISTED_QVD))
+    lineage = next(
+        lineage
+        for wu in _workunits_of(workunits, _urn("report-app.prices"))
+        if (lineage := wu.get_aspect_of_type(UpstreamLineageClass))
+    )
+    assert [u.dataset for u in lineage.upstreams] == [_urn("space-1.src.qvd")]
+    assert not lineage.fineGrainedLineages
 
 
 def test_upstream_graph_is_read(requests_mock: requests_mock_module.Mocker) -> None:
@@ -796,6 +898,12 @@ def test_upstream_graph_is_read(requests_mock: requests_mock_module.Mocker) -> N
                         "relation": "store",
                     },
                     {
+                        "source": f"{WRITER_TABLE}2",
+                        "target": f"{UNLISTED_QVD}#Prices",
+                        "relation": "STORE",
+                    },
+                    {"source": f"{WRITER_TABLE}3", "target": f"{UNLISTED_QVD}#Prices"},
+                    {
                         "source": f"{UNLISTED_QVD}#Prices",
                         "target": f"{REPORT_APP}#Tbl",
                         "relation": "load",
@@ -807,111 +915,8 @@ def test_upstream_graph_is_read(requests_mock: requests_mock_module.Mocker) -> N
 
     assert api.get_lineage_upstreams(REPORT_APP) == LineageUpstreams(
         resource_labels={UNLISTED_QVD: "prices.qvd", REPORT_APP: "Report"},
-        stored_from={f"{UNLISTED_QVD}#Prices": [WRITER_TABLE]},
+        stored_from={f"{UNLISTED_QVD}#Prices": [WRITER_TABLE, f"{WRITER_TABLE}2"]},
     )
-
-
-GRAPH_FILE = "qri:file:adls://Conn#Path"
-DB_TABLE = "qri:db:mssql://Hash#Orders"
-
-
-def _read_report_app(
-    requests_mock: requests_mock_module.Mocker,
-    source_qri: str,
-    field_source_qri: str,
-    upstream_response: Dict[str, Any],
-) -> Tuple[QlikAPI, App]:
-    """Reads an app without a data model through its lineage graph, with the
-    Engine faked and Qlik Cloud's REST API mocked."""
-    requests_mock.get(f"{BASE_URL}/api-keys", json={})
-    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
-    node = f"{BASE_URL}/lineage-graphs/nodes/{quote(REPORT_APP, safe='')}"
-    table = f"{REPORT_APP}#Tbl"
-    requests_mock.get(
-        f"{node}/actions/expand?level=TABLE",
-        json={
-            "graph": {
-                "nodes": {table: {"label": "Prices"}},
-                "edges": [{"source": source_qri, "target": table}],
-            }
-        },
-    )
-    requests_mock.get(
-        f"{node}/actions/expand?level=FIELD",
-        json={
-            "graph": {
-                "nodes": {f"{table}#Fp": {"label": "Price"}},
-                "edges": [{"source": field_source_qri, "target": f"{table}#Fp"}],
-            }
-        },
-    )
-    requests_mock.get(node, **upstream_response)
-    app = _app("report-app", [])
-    app.qri = REPORT_APP
-    with (
-        patch("datahub.ingestion.source.qlik_sense.qlik_api.App") as app_cls,
-        patch(
-            "datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection"
-        ) as websocket_cls,
-        patch.object(api, "_get_app_sheets", return_value=[]),
-        patch.object(api, "_get_app_used_tables", return_value=[]),
-    ):
-        app_cls.model_validate.return_value = app
-        engine = websocket_cls.for_cloud.return_value
-        engine.get_script.return_value = ""
-        engine.get_data_model_tables.return_value = []
-        api._get_app("report-app")
-    return api, app
-
-
-@pytest.mark.parametrize(
-    "source_qri, field_source_qri, read",
-    [
-        pytest.param(f"{UNLISTED_QVD}#Prices", f"{DB_TABLE}#Fp", True, id="table"),
-        pytest.param(DB_TABLE, f"{GRAPH_FILE}#Tbl#Fp", True, id="field only"),
-        pytest.param(DB_TABLE, f"{DB_TABLE}#Fp", False, id="neither"),
-    ],
-)
-def test_upstream_graph_is_read_only_for_dataset_or_file_sources(
-    requests_mock: requests_mock_module.Mocker,
-    source_qri: str,
-    field_source_qri: str,
-    read: bool,
-) -> None:
-    _, app = _read_report_app(
-        requests_mock,
-        source_qri,
-        field_source_qri,
-        {"json": {"graph": {"nodes": {UNLISTED_QVD: {"label": "prices.qvd"}}}}},
-    )
-
-    assert (
-        any("level=resource" in r.url.lower() for r in requests_mock.request_history)
-        is read
-    )
-    assert bool(app.lineage_upstreams.resource_labels) is read
-
-
-@pytest.mark.parametrize(
-    "response",
-    [
-        {"status_code": 403},
-        {"status_code": 500},
-        {"json": {"nodes": {}}},
-    ],
-)
-def test_failed_upstream_graph_read_leaves_the_app_complete(
-    requests_mock: requests_mock_module.Mocker, response: Dict[str, Any]
-) -> None:
-    api, app = _read_report_app(
-        requests_mock, f"{UNLISTED_QVD}#Prices", f"{UNLISTED_QVD}#Prices#Fp", response
-    )
-
-    assert not app.tables_read_failed
-    assert not app.read_errors
-    assert app.lineage_upstreams_read_failed
-    assert [f.split(":")[0] for f in api.upstream_graph_read_failures] == ["report-app"]
-    assert not api.lineage_read_failures
 
 
 def _file_reader(script: str, file_qri: str, variables_read_failed: bool) -> App:
@@ -921,10 +926,11 @@ def _file_reader(script: str, file_qri: str, variables_read_failed: bool) -> App
     )
     reader.script = script
     reader.variables_read_failed = variables_read_failed
-    reader.lineage_upstreams = LineageUpstreams(
-        resource_labels={file_qri.rpartition("#")[0]: "prices.csv"}
-    )
     return reader
+
+
+def _file_upstreams(file_qri: str) -> LineageUpstreams:
+    return LineageUpstreams(resource_labels={file_qri.rpartition("#")[0]: "prices.csv"})
 
 
 def _workunits_of(
@@ -967,6 +973,7 @@ def test_file_the_script_may_load_is_named_from_the_graph_only_when_listed(
         DATASETS if listed else None,
         keep_unread_items=True,
         items=[reader],
+        upstreams=_file_upstreams(file_qri),
     )
     written, added = _lineage(source.get_workunits_internal())
 
@@ -1017,6 +1024,7 @@ def test_unresolved_file_is_named_from_the_graph_only_off_known_storage(
         DATASETS,
         items=[reader],
         config={"file_connection_to_storage": file_connection_to_storage},
+        upstreams=_file_upstreams(file_qri),
     )
     workunits = list(source.get_workunits_internal())
     written, added = _lineage(workunits)

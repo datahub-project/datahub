@@ -9,7 +9,6 @@ from urllib3.util.retry import Retry
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     PERSONAL_SPACE_DICT,
-    UPSTREAM_RESOURCE_QRI_PREFIXES,
     App,
     Item,
     LineageGraph,
@@ -473,31 +472,6 @@ class QlikAPI(QlikBaseAPI):
         self._include_contents[key] = content
         return content
 
-    def _read_lineage_upstreams(self, app: App) -> None:
-        # Field-level sources are named from the graph as well.
-        source_qris = [
-            qri
-            for table in app.lineage_tables
-            for qri in [
-                *table.source_qris,
-                *(q for qris in table.field_source_qris.values() for q in qris),
-            ]
-        ]
-        if not any(
-            qri.startswith(UPSTREAM_RESOURCE_QRI_PREFIXES) for qri in source_qris
-        ):
-            return
-        try:
-            app.lineage_upstreams = self.get_lineage_upstreams(app.qri)
-        except Exception as e:
-            # Only names sources the run can't list, so the rest of the app is
-            # complete.
-            log_read_error(
-                f"Unable to fetch upstream lineage of app {app.id}. Exception: {e}"
-            )
-            app.lineage_upstreams_read_failed = True
-            self.upstream_graph_read_failures.append(f"{app.id}: {e}")
-
     def _get_app(self, app_id: str, script_app: bool = False) -> App:
         errors = ReadErrors()
         websocket_connection = self._open_engine(app_id)
@@ -529,7 +503,6 @@ class QlikAPI(QlikBaseAPI):
                     errors.record(
                         f"Unable to fetch table lineage of app {app_id}. Exception: {e}"
                     )
-                self._read_lineage_upstreams(app)
             app.lineage_graph_missing |= errors.lineage_graph_missing
             app.graph_tables_unmatched = errors.graph_tables_unmatched
             app.tables_read_failed = len(errors.messages) > read_errors

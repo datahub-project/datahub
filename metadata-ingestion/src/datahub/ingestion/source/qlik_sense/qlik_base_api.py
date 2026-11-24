@@ -22,6 +22,7 @@ from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfi
 from datahub.ingestion.source.qlik_sense.data_classes import (
     DataModelTable,
     Item,
+    LineageUpstreams,
     ListedDataset,
     Sheet,
     Space,
@@ -95,8 +96,6 @@ class QlikBaseAPI(ABC):
         self.change_check_failures: List[str] = []
         # Datasets whose lineage graph could not be read.
         self.lineage_read_failures: List[str] = []
-        # Apps whose upstream lineage graph could not be read.
-        self.upstream_graph_read_failures: List[str] = []
         self.field_lineage_failures: List[str] = []
         # Apps opened without their data because opening them with it failed.
         self.opened_without_data: List[str] = []
@@ -127,6 +126,10 @@ class QlikBaseAPI(ABC):
         """Datasets of every space, or None when they could not be listed."""
         # Enterprise on Windows has no Qlik datasets.
         return []
+
+    def get_lineage_upstreams(self, qri: str) -> LineageUpstreams:
+        # Enterprise on Windows has no lineage graph.
+        return LineageUpstreams()
 
     @abstractmethod
     def _list_items(self, space_id: str) -> Iterable[Dict]:
