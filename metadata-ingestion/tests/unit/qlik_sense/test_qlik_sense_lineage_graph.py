@@ -4120,14 +4120,20 @@ def test_spaces_the_key_cant_see_are_named(mock_api_cls: MagicMock) -> None:
     api = mock_api_cls.return_value
     api.spaces = {"space-1": "Finance"}
     api.include_read_failures = [
-        "lib://[Shared Scripts]:DataFiles/setup.qvs: Access denied",
-        "lib://finance:DataFiles/vars.qvs: no script text returned",
+        "lib://[Shared Scripts]:DataFiles/setup.qvs (app etl-app in space "
+        "Finance): Access denied",
+        "lib://finance:DataFiles/vars.qvs (app etl-app in space Finance): "
+        "no script text returned",
+        # The space's name holds the `: ` that also ends the entry's path.
+        "lib://[Team: Ops]:DataFiles/env.qvs (app etl-app in space Finance): "
+        "Access denied",
     ]
 
     list(source.get_workunits_internal())
 
     assert _unseen_spaces(source) == [
-        "Hidden Space: data connections, Shared Scripts: included scripts"
+        "Hidden Space: data connections, Shared Scripts: included scripts, "
+        "Team: Ops: included scripts"
     ]
 
 

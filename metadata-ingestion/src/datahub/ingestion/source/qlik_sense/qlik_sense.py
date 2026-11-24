@@ -5907,9 +5907,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 context=_bounded_list(self.qlik_api.field_lineage_failures),
             )
         for failure in self.qlik_api.include_read_failures:
-            self._note_unseen_space(
-                _path_space(failure.partition(": ")[0]), "included scripts"
-            )
+            # Entries are `<path> (app <id> in space <name>): <reason>`, and a
+            # bracketed space name in the path may hold `: ` itself.
+            path = failure.partition(" (app ")[0]
+            self._note_unseen_space(_path_space(path), "included scripts")
         if self._unseen_spaces:
             self.reporter.warning(
                 title="Qlik spaces the API key can't see",
