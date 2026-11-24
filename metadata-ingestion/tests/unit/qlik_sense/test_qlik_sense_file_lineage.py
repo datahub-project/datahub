@@ -1,6 +1,6 @@
 import json
 from typing import Dict, Iterable, List, Optional, Set, Tuple
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 import requests_mock as requests_mock_module
@@ -454,6 +454,35 @@ def test_file_on_one_connection_gets_one_urn_however_it_is_spelled(
     assert _source({}, {})._unmapped_file_urn(
         connection, "/Ref//Regions.xlsx", "space-1"
     ) == make_dataset_urn("qlik-sense", "sales space:lake/ref/regions.xlsx")
+
+
+@pytest.mark.parametrize(
+    "connection, space, name",
+    [
+        ("[Team: Sales]:[Lake]", "Team: Sales", "Lake"),
+        ("[Team: Sales]:Lake", "Team: Sales", "Lake"),
+        ("Sales Space:[Lake: Raw]", "Sales Space", "Lake: Raw"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_bracketed_name_holding_the_separator_is_one_space_or_connection(
+    mock_api_cls: MagicMock, connection: str, space: str, name: str
+) -> None:
+    source = _source({}, {})
+
+    urn = source._unmapped_file_urn(connection, "ref/regions.xlsx", "space-1")
+
+    qualified = f"[{space}]:{name}" if ":" in space else f"{space}:[{name}]"
+    assert urn == make_dataset_urn(
+        "qlik-sense", f"{qualified.lower()}/ref/regions.xlsx"
+    )
+    assert source._unmapped_files[urn] == f"lib://{qualified}/ref/regions.xlsx"
+    browse_path = next(
+        b
+        for wu in source._gen_lib_path_location(urn, source._unmapped_files[urn])
+        if (b := wu.get_aspect_of_type(BrowsePathsV2Class))
+    )
+    assert [e.id for e in browse_path.path] == [space, name, "ref"]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -1091,7 +1120,9 @@ def test_stored_qvd_on_unknown_storage_is_linked_only_when_an_app_reads_it(
     with patch.object(
         source.app_state,
         "previous",
-        return_value=AppCheckpoint(urns=[UNMAPPED_ORDERS_QVD]),
+        return_value=AppCheckpoint(
+            urns=[UNMAPPED_ORDERS_QVD], read_unmapped_file_urns=[UNMAPPED_ORDERS_QVD]
+        ),
     ):
         if reader == "kept":
             assert source._keep_previous_read("app-1")
@@ -1169,6 +1200,9 @@ def test_kept_writer_of_a_file_on_unknown_storage_links_it_when_an_app_reads_it(
                 path="lib://Sales Space:Lake/qvd/orders.qvd", table_urns=[stored]
             )
         },
+        read_unmapped_file_urns=[
+            make_dataset_urn("qlik-sense", "sales space:lake/ref/rates.csv")
+        ],
     )
     with (
         patch.object(source.app_state, "previous", return_value=previous),
@@ -1193,6 +1227,40 @@ def test_kept_writer_of_a_file_on_unknown_storage_links_it_when_an_app_reads_it(
     # Carried forward, so a later run that keeps it again still links it.
     recorded = record.call_args.args[1]
     assert recorded.unmapped_file_stores == previous.unmapped_file_stores
+    assert recorded.read_unmapped_file_urns == previous.read_unmapped_file_urns
+    # Read by app-1, which records it; the writer did not read it.
+    with patch.object(source.app_state, "add_read_unmapped_files") as add_reads:
+        source._record_end_of_run_urns()
+    assert add_reads.call_args_list == [call("app-1", {UNMAPPED_ORDERS_QVD})]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_writer_alone_does_not_count_as_a_reader_of_its_file(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source({}, {})
+    source._fingerprint_salt = "salt"
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+    # A run that linked the file recorded it among the writer's entities too.
+    previous = AppCheckpoint(
+        urns=[stored, UNMAPPED_ORDERS_QVD],
+        unmapped_file_stores={
+            UNMAPPED_ORDERS_QVD: UnmappedFileStore(
+                path="lib://Sales Space:Lake/qvd/orders.qvd", table_urns=[stored]
+            )
+        },
+    )
+    with (
+        patch.object(source.app_state, "previous", return_value=previous),
+        patch.object(source.app_state, "record"),
+    ):
+        source._keep_unchanged_app(UnchangedApp(id="app-2", fingerprint="f"))
+        workunits = list(source._gen_unmapped_file_entities())
+
+    assert not workunits
+    assert list(source.reporter.unread_stored_files) == [
+        "lib://Sales Space:Lake/qvd/orders.qvd"
+    ]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")

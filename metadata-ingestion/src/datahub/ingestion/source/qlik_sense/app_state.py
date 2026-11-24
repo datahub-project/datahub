@@ -52,6 +52,9 @@ class AppCheckpoint(BaseModel):
     # unknown storage, so a run that keeps the app still links them when
     # another app reads the file.
     unmapped_file_stores: Dict[str, UnmappedFileStore] = {}
+    # Files on a connection of unknown storage that the app's lineage reads,
+    # so a run that keeps the app still counts it as their reader.
+    read_unmapped_file_urns: List[str] = []
     # Field names of the app's tables, so a renamed load from a kept app still
     # names its source field. None in older state.
     field_names: Optional[List[str]] = None
@@ -182,6 +185,16 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
         if checkpoint is not None:
             known = set(checkpoint.urns)
             checkpoint.urns.extend(urn for urn in sorted(urns) if urn not in known)
+
+    def add_read_unmapped_files(self, app_id: str, urns: Iterable[str]) -> None:
+        if not self.is_checkpointing_enabled():
+            return
+        current = self.state_provider.get_current_checkpoint(self.job_id)
+        checkpoint = current.state.apps.get(app_id) if current is not None else None
+        if checkpoint is not None:
+            checkpoint.read_unmapped_file_urns = sorted(
+                set(checkpoint.read_unmapped_file_urns).union(urns)
+            )
 
     def record(self, app_id: str, checkpoint: AppCheckpoint) -> None:
         if not self.is_checkpointing_enabled():

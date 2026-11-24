@@ -241,9 +241,41 @@ QVD_EXTENSION = ".qvd"
 DATA_FILES_CONNECTION = "datafiles"
 
 
+class _LibConnection(BaseModel):
+    # "" when the `lib://` connection is not qualified by a space.
+    space: str
+    name: str
+
+
+def _lib_connection(connection: str) -> _LibConnection:
+    """Splits a `lib://` connection into its space and name. Qlik brackets a
+    name that holds the separator, as in `[Team: Sales]:Lake`."""
+    connection = connection.strip()
+    end = connection.find("]") if connection.startswith("[") else -1
+    if end > 0:
+        rest = connection[end + 1 :].strip()
+        if not rest:
+            return _LibConnection(space="", name=connection[1:end])
+        if rest.startswith(SPACE_SEPARATOR):
+            return _LibConnection(
+                space=connection[1:end],
+                name=rest[len(SPACE_SEPARATOR) :].strip().strip("[]"),
+            )
+    space, qualified, name = connection.partition(SPACE_SEPARATOR)
+    if not qualified:
+        return _LibConnection(space="", name=space.strip("[]"))
+    return _LibConnection(
+        space=space.strip().strip("[]"), name=name.strip().strip("[]")
+    )
+
+
+def _lib_name(name: str) -> str:
+    # Bracketed only when it must be, so other names keep their URNs.
+    return f"[{name}]" if SPACE_SEPARATOR in name else name
+
+
 def _is_data_files(connection: str) -> bool:
-    space, qualified, name = connection.strip().partition(":")
-    return (name if qualified else space).strip("[]").lower() == DATA_FILES_CONNECTION
+    return _lib_connection(connection).name.lower() == DATA_FILES_CONNECTION
 
 
 def _get_ignoring_case(
@@ -502,6 +534,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # names them, added to those apps' checkpoints so a later run that
         # keeps an app keeps them too.
         self._app_end_of_run_urns: DefaultDict[str, Set[str]] = defaultdict(set)
+        # Unmapped files each app's lineage read this run.
+        self._app_read_unmapped_files: DefaultDict[str, Set[str]] = defaultdict(set)
         self._allowed_space_ids: Set[str] = set()
         self._reported_no_graph = False
         # Datasets with a column edge whose source field could not be named.
@@ -827,6 +861,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     binary_tables=previous.binary_tables,
                     stored_file_urns=previous.stored_file_urns,
                     unmapped_file_stores=previous.unmapped_file_stores,
+                    read_unmapped_file_urns=previous.read_unmapped_file_urns,
                     field_names=previous.field_names,
                 ),
             )
@@ -871,6 +906,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 binary_tables=previous.binary_tables,
                 stored_file_urns=previous.stored_file_urns,
                 unmapped_file_stores=previous.unmapped_file_stores,
+                read_unmapped_file_urns=previous.read_unmapped_file_urns,
                 field_names=previous.field_names,
             ),
         )
@@ -2242,16 +2278,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         """A Qlik dataset for a file on a connection whose storage is unknown,
         named by the connection and path, so the apps that write and read it
         still join. DataFiles hold Qlik's own datasets."""
-        space, qualified_name, name = connection.strip().partition(SPACE_SEPARATOR)
-        if not qualified_name:
+        lib_connection = _lib_connection(connection)
+        space, name = lib_connection.space, lib_connection.name
+        if not space:
             # Qlik Cloud resolves a bare name in the app's own space only. A
             # personal space has no name another app could write the path with.
-            name, space = space, ""
             if self.config.on_prem is None and space_id != Constant.PERSONAL_SPACE_ID:
-                space = self.qlik_api.spaces.get(space_id, "")
-        space, name = space.strip().strip("[]"), name.strip().strip("[]")
+                space = self.qlik_api.spaces.get(space_id, "").strip().strip("[]")
         path = normalized_file_path(path)
-        qualified = f"{space}{SPACE_SEPARATOR}{name}/{path}"
+        qualified = f"{_lib_name(space)}{SPACE_SEPARATOR}{_lib_name(name)}/{path}"
         if (
             not (space and name and path)
             or _is_data_files(connection)
@@ -2634,10 +2669,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _link_unmapped_file(self, app_id: str, urn: str) -> None:
         self._linked_unmapped_files.add(urn)
         self._app_end_of_run_urns[app_id].add(urn)
+        self._app_read_unmapped_files[app_id].add(urn)
 
     def _record_end_of_run_urns(self) -> None:
         for app_id, urns in self._app_end_of_run_urns.items():
             self.app_state.add_urns(app_id, urns)
+        for app_id, urns in self._app_read_unmapped_files.items():
+            self.app_state.add_read_unmapped_files(app_id, urns)
 
     def _learn_field_names(self, names: Iterable[str]) -> None:
         for name in names:
@@ -3465,12 +3503,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         match = LIB_PATH_RE.match(path)
         if not match:
             return
-        space, qualified, connection = match.group("connection").rpartition(
-            SPACE_SEPARATOR
-        )
-        if not qualified:
+        lib_connection = _lib_connection(match.group("connection"))
+        space, connection = lib_connection.space, lib_connection.name
+        if not space:
             return
-        space = space.strip("[]")
         folders = [
             part for part in re.split(r"[/\\]", match.group("path"))[:-1] if part
         ]
@@ -3484,22 +3520,22 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             entries = [BrowsePathEntryClass(id=space_urn, urn=space_urn)]
         else:
             entries = [BrowsePathEntryClass(id=space)]
-        entries.extend(
-            BrowsePathEntryClass(id=part) for part in [connection.strip("[]"), *folders]
-        )
+        entries.extend(BrowsePathEntryClass(id=part) for part in [connection, *folders])
         yield MetadataChangeProposalWrapper(
             entityUrn=urn, aspect=BrowsePathsV2Class(path=entries)
         ).as_workunit()
 
     def _gen_unmapped_file_entities(self) -> Iterable[MetadataWorkUnit]:
-        # A reader whose last read is kept linked the file then. Only a kept
-        # app's entities can hold such a file, as they come from its checkpoint,
-        # which is looked up again rather than every app's URNs held in memory.
+        # A reader whose last read is kept linked the file then. Its checkpoint
+        # is looked up again rather than every app's reads held in memory. A
+        # writer's entities hold the file too, so only recorded reads count.
         unread = set(self._unmapped_file_stores) - self._linked_unmapped_files
         for app_id in sorted(self._kept_app_ids) if unread else []:
             previous = self.app_state.previous(app_id)
             if previous is not None:
-                self._linked_unmapped_files.update(unread.intersection(previous.urns))
+                self._linked_unmapped_files.update(
+                    unread.intersection(previous.read_unmapped_file_urns)
+                )
         for file_urn, stores in sorted(self._unmapped_file_stores.items()):
             if file_urn not in self._linked_unmapped_files:
                 self.reporter.unread_stored_files.append(self._unmapped_files[file_urn])
