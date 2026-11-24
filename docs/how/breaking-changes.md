@@ -205,6 +205,15 @@ rejected write that shares a batch with accepted ones is still dropped without a
 ingestion report; it shows only in the DataHub server log. A follow-up SDK change will report these.
 Upgrade and bootstrap jobs are not affected.
 
+### More UI edits show an error when a write is rejected
+
+The UI and GraphQL edits that the previous entry lists as not covered yet now also show an error when
+DataHub cannot accept the write, for example for an entity whose urn is not valid. Previously the
+edit appeared to succeed but nothing was saved. This covers descriptions, names, links, related
+terms, moving a glossary term, glossary node, domain or data product, display properties, embeds and
+user settings. The `patchEntity` mutation already reported such a write as failed; its error now
+gives the reason.
+
 ### Rest.li status codes for rejected writes
 
 When a validator rejects a Rest.li request that was previously answered with HTTP 500, such as

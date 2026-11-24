@@ -11,7 +11,6 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
 import com.datahub.authentication.Authentication;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -99,12 +98,7 @@ public class MoveDomainResolverTest {
     setupTests(mockEnv, mockService, mockClient);
 
     assertTrue(resolver.get(mockEnv).get());
-    Mockito.verify(mockService, Mockito.times(1))
-        .ingestProposal(
-            any(),
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(AuditStamp.class),
-            Mockito.eq(false));
+    verifySingleIngestProposal(mockService, 1);
   }
 
   @Test

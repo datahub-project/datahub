@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.businessattribute;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
+import static com.linkedin.datahub.graphql.TestUtils.verifyNoIngestProposal;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -10,7 +11,6 @@ import static org.testng.Assert.expectThrows;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.businessattribute.BusinessAttributeInfo;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -19,6 +19,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateNameResolver;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
@@ -103,8 +104,11 @@ public class UpdateNameResolverTest {
     Mockito.verify(mockService, Mockito.times(1))
         .ingestProposal(
             any(OperationContext.class),
-            Mockito.argThat(new CreateBusinessAttributeProposalMatcher(proposal)),
-            Mockito.any(AuditStamp.class),
+            Mockito.<AspectsBatch>argThat(
+                batch ->
+                    batch.getMCPItems().size() == 1
+                        && new CreateBusinessAttributeProposalMatcher(proposal)
+                            .matches(batch.getMCPItems().get(0).getMetadataChangeProposal())),
             Mockito.eq(false));
   }
 
@@ -150,6 +154,7 @@ public class UpdateNameResolverTest {
                 "\"test-business-attribute\" already exists as Business Attribute. Please pick a unique name."));
     Mockito.verify(mockClient, Mockito.times(0))
         .ingestProposal(any(OperationContext.class), Mockito.any(MetadataChangeProposal.class));
+    verifyNoIngestProposal(mockService);
   }
 
   private void setupAllowContext() {

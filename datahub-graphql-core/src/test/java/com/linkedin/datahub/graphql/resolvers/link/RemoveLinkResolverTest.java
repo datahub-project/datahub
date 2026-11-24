@@ -17,7 +17,8 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 public class RemoveLinkResolverTest {
-  private static final String ASSET_URN = "urn:li:dataset:(test1,test2,test3)";
+  private static final String ASSET_URN =
+      "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,PROD)";
 
   private static DataFetchingEnvironment initMockEnv(RemoveLinkInput input) {
     DataFetchingEnvironment mockEnv = LinkTestUtils.initMockEnv();

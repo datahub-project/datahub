@@ -19,6 +19,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -66,8 +67,8 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
                 buildMetadataChangeProposalWithUrn(
                     actor, CORP_USER_SETTINGS_ASPECT_NAME, newSettings);
 
-            _entityService.ingestProposal(
-                context.getOperationContext(), proposal, EntityUtils.getAuditStamp(actor), false);
+            EntityUtils.ingestChangeProposals(
+                context.getOperationContext(), List.of(proposal), _entityService, actor, false);
 
             return true;
           } catch (Exception e) {

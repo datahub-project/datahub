@@ -23,6 +23,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -42,7 +43,8 @@ public class MutationUtils {
       EntityService entityService) {
     final MetadataChangeProposal proposal =
         buildMetadataChangeProposalWithUrn(urn, aspectName, aspect);
-    entityService.ingestProposal(opContext, proposal, EntityUtils.getAuditStamp(actor), false);
+    // Fails when the proposal is rejected (e.g. an invalid urn), instead of reporting success.
+    EntityUtils.ingestChangeProposals(opContext, List.of(proposal), entityService, actor, false);
   }
 
   /**

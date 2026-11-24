@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.testng.Assert.assertThrows;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -14,6 +15,7 @@ import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -47,5 +49,24 @@ public class UpdateUserSettingResolverTest {
             Urn.createFromString(TEST_USER_URN), CORP_USER_SETTINGS_ASPECT_NAME, newSettings);
 
     verifySingleIngestProposal(mockService, 1, proposal);
+  }
+
+  @Test
+  public void testWriteCorpUserSettingsFailsWhenProposalRejected() throws Exception {
+    // An actor urn whose parts do not match the corpuser key cannot be written; the mutation must
+    // not report success for it.
+    EntityService<?> mockService = getMockEntityService();
+    UpdateUserSettingResolver resolver = new UpdateUserSettingResolver(mockService);
+
+    QueryContext mockContext = getMockAllowContext("urn:li:corpuser:(test,extra)");
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    UpdateUserSettingInput input = new UpdateUserSettingInput();
+    input.setName(UserSetting.SHOW_SIMPLIFIED_HOMEPAGE);
+    input.setValue(true);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    verifyNoIngestProposal(mockService);
   }
 }

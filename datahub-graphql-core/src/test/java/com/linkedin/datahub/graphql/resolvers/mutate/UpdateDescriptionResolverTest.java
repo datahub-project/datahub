@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DescriptionUpdateInput;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
@@ -95,8 +96,7 @@ public class UpdateDescriptionResolverTest {
 
     assertThrows(Exception.class, () -> resolver.get(mockEnv).get());
 
-    Mockito.verify(mockEntityService, Mockito.never())
-        .ingestProposal(any(), any(), any(), eq(false));
+    verifyNoIngestProposal(mockEntityService);
   }
 
   @Test
@@ -117,8 +117,7 @@ public class UpdateDescriptionResolverTest {
 
     assertThrows(Exception.class, () -> resolver.get(mockEnv).get());
 
-    Mockito.verify(mockEntityService, Mockito.never())
-        .ingestProposal(any(), any(), any(), eq(false));
+    verifyNoIngestProposal(mockEntityService);
   }
 
   @Test
@@ -153,20 +152,7 @@ public class UpdateDescriptionResolverTest {
     assertTrue(result);
 
     // Verify that ingestProposal was called with the DOCUMENTATION_ASPECT_NAME
-    Mockito.verify(mockEntityService, Mockito.times(1))
-        .ingestProposal(
-            any(),
-            Mockito.argThat(
-                proposal -> {
-                  if (proposal instanceof MetadataChangeProposal) {
-                    MetadataChangeProposal mcp = (MetadataChangeProposal) proposal;
-                    return mcp.getAspectName().equals(DOCUMENTATION_ASPECT_NAME)
-                        && mcp.getEntityUrn().toString().equals(TEST_DOCUMENT_URN);
-                  }
-                  return false;
-                }),
-            any(),
-            eq(false));
+    verifyDocumentationProposal();
   }
 
   @Test
@@ -187,8 +173,7 @@ public class UpdateDescriptionResolverTest {
 
     assertThrows(Exception.class, () -> resolver.get(mockEnv).get());
 
-    Mockito.verify(mockEntityService, Mockito.never())
-        .ingestProposal(any(), any(), any(), eq(false));
+    verifyNoIngestProposal(mockEntityService);
   }
 
   @Test
@@ -209,8 +194,7 @@ public class UpdateDescriptionResolverTest {
 
     assertThrows(Exception.class, () -> resolver.get(mockEnv).get());
 
-    Mockito.verify(mockEntityService, Mockito.never())
-        .ingestProposal(any(), any(), any(), eq(false));
+    verifyNoIngestProposal(mockEntityService);
   }
 
   @Test
@@ -261,24 +245,7 @@ public class UpdateDescriptionResolverTest {
     assertTrue(result);
 
     // Verify that ingestProposal was called and the MCP contains both propagated doc and new UI doc
-    Mockito.verify(mockEntityService, Mockito.times(1))
-        .ingestProposal(
-            any(),
-            Mockito.argThat(
-                proposal -> {
-                  if (proposal instanceof MetadataChangeProposal) {
-                    MetadataChangeProposal mcp = (MetadataChangeProposal) proposal;
-                    if (!mcp.getAspectName().equals(DOCUMENTATION_ASPECT_NAME)) {
-                      return false;
-                    }
-                    // The proposal should contain documentation with multiple entries
-                    // (propagated preserved + new UI doc)
-                    return mcp.getEntityUrn().toString().equals(TEST_DOCUMENT_URN);
-                  }
-                  return false;
-                }),
-            any(),
-            eq(false));
+    verifyDocumentationProposal();
   }
 
   @Test
@@ -325,20 +292,7 @@ public class UpdateDescriptionResolverTest {
     assertTrue(result);
 
     // Verify that ingestProposal was called
-    Mockito.verify(mockEntityService, Mockito.times(1))
-        .ingestProposal(
-            any(),
-            Mockito.argThat(
-                proposal -> {
-                  if (proposal instanceof MetadataChangeProposal) {
-                    MetadataChangeProposal mcp = (MetadataChangeProposal) proposal;
-                    return mcp.getAspectName().equals(DOCUMENTATION_ASPECT_NAME)
-                        && mcp.getEntityUrn().toString().equals(TEST_DOCUMENT_URN);
-                  }
-                  return false;
-                }),
-            any(),
-            eq(false));
+    verifyDocumentationProposal();
   }
 
   @Test
@@ -396,20 +350,7 @@ public class UpdateDescriptionResolverTest {
     assertTrue(result);
 
     // Verify that ingestProposal was called
-    Mockito.verify(mockEntityService, Mockito.times(1))
-        .ingestProposal(
-            any(),
-            Mockito.argThat(
-                proposal -> {
-                  if (proposal instanceof MetadataChangeProposal) {
-                    MetadataChangeProposal mcp = (MetadataChangeProposal) proposal;
-                    return mcp.getAspectName().equals(DOCUMENTATION_ASPECT_NAME)
-                        && mcp.getEntityUrn().toString().equals(TEST_DOCUMENT_URN);
-                  }
-                  return false;
-                }),
-            any(),
-            eq(false));
+    verifyDocumentationProposal();
   }
 
   @Test
@@ -438,5 +379,23 @@ public class UpdateDescriptionResolverTest {
         1,
         MutationUtils.buildMetadataChangeProposalWithUrn(
             urn, API_PROPERTIES_ASPECT_NAME, expected));
+  }
+
+  /** One documentation write for the test document, and nothing else. */
+  private void verifyDocumentationProposal() {
+    Mockito.verify(mockEntityService, Mockito.times(1))
+        .ingestProposal(
+            any(),
+            Mockito.<AspectsBatch>argThat(
+                batch -> {
+                  if (batch.getMCPItems().size() != 1) {
+                    return false;
+                  }
+                  MetadataChangeProposal mcp =
+                      batch.getMCPItems().get(0).getMetadataChangeProposal();
+                  return mcp.getAspectName().equals(DOCUMENTATION_ASPECT_NAME)
+                      && mcp.getEntityUrn().toString().equals(TEST_DOCUMENT_URN);
+                }),
+            eq(false));
   }
 }

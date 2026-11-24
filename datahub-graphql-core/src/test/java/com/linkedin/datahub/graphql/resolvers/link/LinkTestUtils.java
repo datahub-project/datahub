@@ -15,6 +15,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -45,7 +46,7 @@ public class LinkTestUtils {
     link.setSettings(settings);
 
     AuditStamp createStamp = new AuditStamp();
-    createStamp.setActor(new Urn("urn:corpuser:test"));
+    createStamp.setActor(Urn.createFromString("urn:li:corpuser:test"));
     createStamp.setTime(Clock.systemUTC().millis());
     link.setCreateStamp(createStamp);
 
@@ -111,20 +112,22 @@ public class LinkTestUtils {
 
   static void verifyIngestInstitutionalMemory(
       EntityService<?> mockService, int numberOfInvocations, InstitutionalMemory expectedAspect) {
-    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
-        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    ArgumentCaptor<AspectsBatchImpl> batchCaptor = ArgumentCaptor.forClass(AspectsBatchImpl.class);
 
     Mockito.verify(mockService, Mockito.times(numberOfInvocations))
-        .ingestProposal(any(), proposalCaptor.capture(), any(AuditStamp.class), Mockito.eq(false));
+        .ingestProposal(any(), batchCaptor.capture(), Mockito.eq(false));
 
     if (numberOfInvocations > 0) {
+      Assert.assertEquals(batchCaptor.getValue().getMCPItems().size(), 1);
+      MetadataChangeProposal proposal =
+          batchCaptor.getValue().getMCPItems().get(0).getMetadataChangeProposal();
       // check has time
-      Assert.assertTrue(proposalCaptor.getValue().getSystemMetadata().getLastObserved() > 0L);
+      Assert.assertTrue(proposal.getSystemMetadata().getLastObserved() > 0L);
 
       InstitutionalMemory actualAspect =
           GenericRecordUtils.deserializeAspect(
-              proposalCaptor.getValue().getAspect().getValue(),
-              proposalCaptor.getValue().getAspect().getContentType(),
+              proposal.getAspect().getValue(),
+              proposal.getAspect().getContentType(),
               InstitutionalMemory.class);
 
       Assert.assertEquals(actualAspect.getElements().size(), expectedAspect.getElements().size());
