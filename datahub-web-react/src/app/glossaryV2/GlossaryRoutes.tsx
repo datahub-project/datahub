@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import { Redirect, Route, Switch } from 'react-router-dom';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -6,7 +6,7 @@ import { GlossaryEntityContext } from '@app/entityV2/shared/GlossaryEntityContex
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import GlossarySidebar from '@app/glossaryV2/GlossarySidebar';
 import { shouldShowGlossary } from '@app/identity/user/UserUtils';
-import { RouteSuspense } from '@app/sharedV2/RouteSuspense';
+import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
 import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import {
     HierarchicalBrowseContentWrapper,
@@ -55,7 +55,7 @@ export default function GlossaryRoutes() {
             <HierarchicalBrowseContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <GlossarySidebar />
                 <HierarchicalBrowseMainContent>
-                    <RouteSuspense>
+                    <Suspense fallback={<SuspenseBlock />}>
                         <Switch>
                             {entityRegistry.getGlossaryEntities().map((entity) => (
                                 <Route
@@ -69,7 +69,7 @@ export default function GlossaryRoutes() {
                                 render={() => (showGlossary ? <BusinessGlossaryPage /> : <Redirect to="/" />)}
                             />
                         </Switch>
-                    </RouteSuspense>
+                    </Suspense>
                 </HierarchicalBrowseMainContent>
             </HierarchicalBrowseContentWrapper>
         </GlossaryEntityContext.Provider>
