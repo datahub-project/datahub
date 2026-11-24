@@ -158,6 +158,9 @@
     "users.ssoTitle": "Single Sign-On (SSO) konfigurálása",
     "welcome.docsLink": "DataHub dokumentáció",
     "welcome.getStarted": "Kezdés",
+    "welcome.githubRepoDescription": "A metaadat-platform az adat- és AI-rendszereihez",
+    "welcome.githubStargazers": "Csatlakozzon a DataHubot csillaggal jelölő {{stars}} fejlesztőhöz",
+    "welcome.githubStargazersNoCount": "Csatlakozzon a DataHubot csillaggal jelölő fejlesztőkhöz",
     "welcome.loadingVideo": "Videó betöltése...",
     "welcome.modalTitle": "Üdvözöljük a DataHubban",
     "welcome.slideDocsDescription": "Órákat spórolhat meg a kézi munkából, miközben javítja a felfedezhetőséget",
@@ -168,6 +171,8 @@
     "welcome.slideImpactTitle": "Kezelje magabiztosan a kompatibilitástörő változásokat",
     "welcome.slideLineageDescription": "Nézze meg a teljes történetet arról, hogyan jöttek létre és alakultak át az adatai",
     "welcome.slideLineageTitle": "Értse meg adatai eredetét",
+    "welcome.slideGithubDescription": "Ha a DataHub hasznos a csapata számára, egy csillag a GitHubon abban is segít, hogy más adatcsapatok is megtalálják.",
+    "welcome.slideGithubTitle": "Tetszik, amit lát?",
     "welcome.slideReadyDescription": "Fedezze fel átfogó dokumentációnkat, vagy vágjon bele azonnal, és kezdje el felfedezni az adatait",
     "welcome.slideReadyTitle": "Készen áll a kezdésre?"
 }

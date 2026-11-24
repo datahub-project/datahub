@@ -8,6 +8,8 @@ include:
   - docker-compose.actions.yml
   # Frontend
   - docker-compose.frontend.yml
+  # datahub-ai-service: MCP, served through the frontend at /mcp
+  - docker-compose.ai.yml
   # Remaining components: i.e. gms, system-update, consumers
   - docker-compose.gms.yml
   # Optional: Ollama local embedding server (quickstart-ai / debug-ai profiles)

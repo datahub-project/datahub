@@ -51,7 +51,7 @@ public class PageTemplateServiceTest {
   public void setup() throws Exception {
     mockEntityClient = mock(EntityClient.class);
     references = mock(EntityClient.ReferencesCleanup.class);
-    when(mockEntityClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
+    when(mockEntityClient.deleteReferencesThenEntity(any(), any())).thenReturn(references);
     service = new PageTemplateService(mockEntityClient);
     mockOpContext = mock(OperationContext.class);
     key = new DataHubPageTemplateKey().setId("test-id");
@@ -340,7 +340,7 @@ public class PageTemplateServiceTest {
       spyService.deletePageTemplate(mockOpContext, templateUrn);
 
       // Assert
-      verify(mockEntityClient, times(1)).deleteEntityThenReferences(mockOpContext, templateUrn);
+      verify(mockEntityClient, times(1)).deleteReferencesThenEntity(mockOpContext, templateUrn);
     }
   }
 
@@ -359,7 +359,7 @@ public class PageTemplateServiceTest {
         .thenReturn(new Actor(ActorType.USER, "test-user"));
 
     RuntimeException deleteFailure = new RuntimeException("Test exception");
-    doThrow(deleteFailure).when(mockEntityClient).deleteEntityThenReferences(any(), any());
+    doThrow(deleteFailure).when(mockEntityClient).deleteReferencesThenEntity(any(), any());
 
     // Act & Assert
     RuntimeException thrown =
@@ -508,7 +508,7 @@ public class PageTemplateServiceTest {
       spyService.deletePageTemplate(mockOpContext, templateUrn);
 
       // Assert
-      verify(mockEntityClient, times(1)).deleteEntityThenReferences(mockOpContext, templateUrn);
+      verify(mockEntityClient, times(1)).deleteReferencesThenEntity(mockOpContext, templateUrn);
     }
   }
 

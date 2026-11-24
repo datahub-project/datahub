@@ -222,11 +222,11 @@ public class IncidentServiceTest {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final EntityClient.ReferencesCleanup references =
         Mockito.mock(EntityClient.ReferencesCleanup.class);
-    when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
+    when(mockClient.deleteReferencesThenEntity(any(), any())).thenReturn(references);
     final IncidentService service = new IncidentService(mockClient);
     service.deleteIncident(mockOperationContext(), TEST_INCIDENT_URN);
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntityThenReferences(any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN));
+        .deleteReferencesThenEntity(any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN));
     Mockito.verify(references, Mockito.times(1)).run();
   }
 

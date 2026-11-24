@@ -7,21 +7,26 @@ import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.qlik_sense.app_state import (
     AppCheckpoint,
+    QlikAppCheckpointState,
     QlikAppStateHandler,
 )
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import App
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
+from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
+    DatasetLineageTypeClass,
     MetadataChangeProposalClass,
     StatusClass,
+    UpstreamClass,
     UpstreamLineageClass,
     _Aspect,
 )
@@ -79,6 +84,7 @@ class _Qlik:
         self.failing_streams: Set[str] = set()
         self.scripts: Dict[str, str] = {}
         self.extra_connections: List[Dict[str, object]] = []
+        self.connections_fail = False
 
     def qrs_get(
         self, url: str, params: Optional[Dict[str, str]] = None, **_: object
@@ -107,6 +113,8 @@ class _Qlik:
                 return FakeResponse({}, status_code=503)
             return FakeResponse(self.objects)
         if url.endswith("/dataconnection/full"):
+            if self.connections_fail:
+                return FakeResponse({}, status_code=503)
             return FakeResponse([self.data_connection, *self.extra_connections])
         raise AssertionError(url)
 
@@ -873,12 +881,14 @@ def _qvd_qlik() -> _Qlik:
     return qlik
 
 
-def _qvd_lineage_ops(workunits: List[MetadataWorkUnit]) -> List[Tuple[str, str]]:
+def _qvd_lineage_ops(
+    workunits: List[MetadataWorkUnit], qvd_urn: str = CLEAN_QVD
+) -> List[Tuple[str, str]]:
     """The (op, upstream dataset) of each table edge patched onto the QVD."""
     ops = []
     for wu in workunits:
         if (
-            wu.get_urn() == CLEAN_QVD
+            wu.get_urn() == qvd_urn
             and isinstance(wu.metadata, MetadataChangeProposalClass)
             and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
             and wu.metadata.aspect is not None
@@ -912,6 +922,61 @@ def test_kept_unchanged_app_still_writes_its_qvd(
 
     assert second.reporter.apps_skipped_unchanged == 1
     assert _qvd_upstreams(second_wus) == [writer]
+
+
+def test_edge_into_a_storage_qvd_the_app_no_longer_writes_is_removed(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    storage_qvd = (
+        "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qlik/clean/orders.qvd,PROD)"
+    )
+    writer = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    mapping = {
+        "file_connection_to_storage": {
+            "Lake": {"storage_uri": "abfss://lake@account.dfs.core.windows.net/qlik"}
+        }
+    }
+    qlik = _qvd_qlik()
+    qlik.scripts["app-1"] = STORING_SCRIPT.replace(
+        "lib://QVD Data/clean", "lib://Lake/clean"
+    )
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1", **mapping)
+    datahub.write(first_wus)
+    assert _qvd_lineage_ops(first_wus, storage_qvd) == [("add", writer)]
+    # The patch as DataHub applied it.
+    datahub.aspects[(storage_qvd, UpstreamLineageClass.ASPECT_NAME)] = (
+        UpstreamLineageClass(
+            upstreams=[UpstreamClass(dataset=writer, type=DatasetLineageTypeClass.COPY)]
+        )
+    )
+
+    # No app touches the file any more, and storage files are never soft-deleted.
+    qlik.scripts["app-1"] = (
+        "Orders: LOAD id FROM [lib://QVD Data/raw/orders.qvd] (qvd);"
+    )
+    qlik.app = {**qlik.app, "modifiedDate": "2024-02-01T09:00:00.000Z"}
+    _, second_wus = _run(mock_datahub_graph, qlik, "run-2", **mapping)
+
+    assert _qvd_lineage_ops(second_wus, storage_qvd) == [("remove", writer)]
+
+
+def test_app_read_while_data_connections_were_unread_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _qvd_qlik()
+    qlik.connections_fail = True
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    opens = qlik.engine_opens
+
+    # Its lib:// QVDs were unresolved, so it is not kept as unchanged even
+    # though the connections still can't be listed.
+    second, _ = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert second.reporter.apps_skipped_unchanged == 0
+    assert qlik.engine_opens == opens + 2
 
 
 def test_app_checkpoint_from_before_qvd_lineage_is_read_again(
@@ -984,3 +1049,48 @@ def test_onprem_qvd_lineage_golden(
         output_path=output_path,
         golden_path=pathlib.Path(__file__).parent / "golden_onprem_qvd_lineage.json",
     )
+
+
+@pytest.mark.parametrize(
+    "app_run, stale_run, known",
+    [
+        pytest.param(None, None, True, id="first run"),
+        pytest.param("run-1", "run-1", True, id="trusted"),
+        pytest.param("run-1", "run-2", False, id="app checkpoint from an older run"),
+        pytest.param(None, "run-1", False, id="app checkpoint not saved"),
+        pytest.param("run-1", None, False, id="no stale entity removal state"),
+    ],
+)
+def test_previous_apps_are_unknown_when_checkpoints_are_untrusted(
+    app_run: Optional[str], stale_run: Optional[str], known: bool
+) -> None:
+    stale_job_id = JobId("stale")
+    apps = {"app-2": AppCheckpoint(urns=["urn:li:container:app-2"])}
+    provider = MagicMock()
+    provider.is_stateful_ingestion_configured.return_value = True
+    handler = QlikAppStateHandler(
+        provider, MagicMock(), "pipeline", "run-3", stale_job_id
+    )
+    last = {
+        handler.job_id: Checkpoint(
+            job_name=handler.job_id,
+            pipeline_name="pipeline",
+            run_id=app_run,
+            state=QlikAppCheckpointState(apps=apps),
+        )
+        if app_run
+        else None,
+        stale_job_id: Checkpoint(
+            job_name=stale_job_id,
+            pipeline_name="pipeline",
+            run_id=stale_run,
+            state=GenericCheckpointState(),
+        )
+        if stale_run
+        else None,
+    }
+    provider.get_last_checkpoint.side_effect = lambda job_id, _: last[job_id]
+
+    # Unknown apps, rather than none, keep another app's shared-table edges.
+    expected = (apps if app_run else {}) if known else None
+    assert handler.previous_apps() == expected

@@ -13,6 +13,7 @@ import com.google.common.collect.Lists;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.IntegerArray;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.entity.Aspect;
@@ -22,6 +23,7 @@ import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageGraphFilters;
+import com.linkedin.metadata.graph.LineagePartialReason;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.query.FreshnessStats;
@@ -218,16 +220,22 @@ public class LineageSearchService {
                   : null);
       CachedEntityLineageResult cachedLineageResult = null;
 
+      EntityLineageResult lineageResult = null;
       if (enableCache(finalOpContext.getSearchContext().getSearchFlags())) {
         try {
           cachedLineageResult = cache.get(cacheKey, CachedEntityLineageResult.class);
         } catch (Exception e) {
           log.warn("Failed to load cacheKey {}", cacheKey, e);
         }
+        if (cachedLineageResult != null) {
+          lineageResult = cachedLineageResult.getEntityLineageResult();
+          if (isExpiredPartial(lineageResult, cachedLineageResult.getTimestamp())) {
+            cachedLineageResult = null;
+          }
+        }
         cascade.tag(TAG_CACHE, cachedLineageResult == null ? CACHE_MISS : CACHE_HIT);
       }
 
-      EntityLineageResult lineageResult;
       FreshnessStats freshnessStats = new FreshnessStats().setCached(Boolean.FALSE);
       if (cachedLineageResult == null) {
         long walkStart = System.nanoTime();
@@ -243,7 +251,6 @@ public class LineageSearchService {
           }
         }
       } else {
-        lineageResult = cachedLineageResult.getEntityLineageResult();
         freshnessStats.setCached(Boolean.TRUE);
         LongMap systemFreshness = new LongMap();
         systemFreshness.put("LineageGraphCache", cachedLineageResult.getTimestamp());
@@ -265,7 +272,9 @@ public class LineageSearchService {
                   EntityLineageResult result =
                       getLineageResult(opContext, sourceUrn, direction, finalMaxHops);
                   if (enableCache(finalOpContext.getSearchContext().getSearchFlags())) {
-                    cache.put(cacheKey, result);
+                    cache.put(
+                        cacheKey,
+                        new CachedEntityLineageResult(result, System.currentTimeMillis()));
                   }
                   log.debug("Refilled Cached lineage entry for: {}.", sourceUrn);
                 } else {
@@ -1116,11 +1125,17 @@ public class LineageSearchService {
                   ? opContext.getSearchContext().getLineageFlags().getEntitiesExploredPerHopLimit()
                   : null);
       CachedEntityLineageResult cachedLineageResult = null;
+      EntityLineageResult lineageResult = null;
       if (enableCache(opContext.getSearchContext().getSearchFlags())) {
         cachedLineageResult = cache.get(cacheKey, CachedEntityLineageResult.class);
+        if (cachedLineageResult != null) {
+          lineageResult = cachedLineageResult.getEntityLineageResult();
+          if (isExpiredPartial(lineageResult, cachedLineageResult.getTimestamp())) {
+            cachedLineageResult = null;
+          }
+        }
         cascade.tag(TAG_CACHE, cachedLineageResult == null ? CACHE_MISS : CACHE_HIT);
       }
-      EntityLineageResult lineageResult;
       if (cachedLineageResult == null) {
         long walkStart = System.nanoTime();
         lineageResult = getLineageResult(opContext, sourceUrn, direction, maxHops);
@@ -1130,7 +1145,6 @@ public class LineageSearchService {
               cacheKey, new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
         }
       } else {
-        lineageResult = cachedLineageResult.getEntityLineageResult();
         if (System.currentTimeMillis() - cachedLineageResult.getTimestamp()
             > appConfig.getCache().getSearch().getLineage().getTTLMillis()) {
           log.warn("Cached lineage entry for: {} is older than one day.", sourceUrn);
@@ -1348,6 +1362,19 @@ public class LineageSearchService {
   /** Returns true if the cache should be used or skipped when fetching search results */
   private boolean enableCache(@Nullable final SearchFlags searchFlags) {
     return cacheEnabled && (searchFlags == null || !searchFlags.isSkipCache());
+  }
+
+  /**
+   * Partial results from walks that ran out of time or lost a slice under load are served from the
+   * cache only for the shorter partial TTL and then walked again. A walk truncated at the
+   * maxRelations limit returns the same truncation every time, so it keeps the full TTL. A partial
+   * result with no recorded reason is treated as transient.
+   */
+  private boolean isExpiredPartial(@Nonnull EntityLineageResult result, long cachedAtMillis) {
+    return Boolean.TRUE.equals(result.isPartial())
+        && result.getPartialReason(GetMode.NULL) != LineagePartialReason.MAX_RELATIONS
+        && System.currentTimeMillis() - cachedAtMillis
+            >= appConfig.getCache().getSearch().getLineage().getPartialTTLMillis();
   }
 
   private static boolean isLineageVisualization(@Nullable LineageFlags lineageFlags) {

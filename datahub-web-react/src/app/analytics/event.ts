@@ -1115,7 +1115,7 @@ export interface WelcomeToDataHubModalClickViewDocumentationEvent extends BaseEv
 
 export interface GithubStarClickEvent extends BaseEvent {
     type: EventType.GithubStarClickEvent;
-    source: 'welcomeModal';
+    sourceType: 'welcomeModal' | 'resourcesMenu';
 }
 
 export interface ProductTourButtonClickEvent extends BaseEvent {

@@ -143,6 +143,8 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     script_tables_with_lineage: int = 0
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
     qvds_found: int = 0
+    # QVDs on connections in file_connection_to_storage, linked as storage files.
+    storage_qvds_resolved: int = 0
     # QVD paths a load script names that resolve to no single file, such as a
     # wildcard, a variable, a relative path or an unknown data connection.
     unresolved_qvd_paths: LossyList[str] = field(default_factory=LossyList)
@@ -157,6 +159,11 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     # known: add them to file_connection_to_storage. Kept whole, since there are
     # only as many as the tenant has connections and each needs mapping.
     unresolved_file_connections: List[str] = field(default_factory=list)
+    # Cloud STOREs of a table into different files from competing IF or SWITCH
+    # branches, which are not linked.
+    qvd_stores_in_competing_branches: LossyList[str] = field(default_factory=LossyList)
+    # Cloud STOREs linked as an edge from an app table into a file on storage.
+    file_stores_linked: int = 0
     apps_read: int = 0
     apps_skipped_unchanged: int = 0
     # Apps read again because checking whether they changed failed.
@@ -214,8 +221,9 @@ class FileStorageDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
 class QlikOnPremConfig(ConfigModel):
     server: str = Field(
         min_length=1,
-        description="Qlik Sense Enterprise hostname. Must match the certificate name. "
-        "Repository Service and Engine ports are reached on this host.",
+        description="Qlik Sense Enterprise central node hostname or IP address. "
+        "Repository Service and Engine ports are reached on this host. When it is "
+        "not the name on the server certificate, set `server_cert_hostname`.",
     )
     client_cert: str = Field(
         min_length=1,
@@ -279,9 +287,10 @@ class QlikOnPremConfig(ConfigModel):
         "objects (sheets, stories, master items), its reload time, the data connections, this "
         "recipe and the connector version are all unchanged since the last run, and DataHub "
         "still holds that run's metadata for it. Its entities are kept, not soft-deleted. "
-        "Requires stateful ingestion. Set `stateful_ingestion.ignore_old_state` for one run "
-        "to force a full read, for example after ingesting upstream schemas that column-level "
-        "lineage should resolve against.",
+        "Requires stateful ingestion. Turn it off for one run to read every app again, "
+        "for example after ingesting upstream schemas that column-level lineage should "
+        "resolve against; `stateful_ingestion.ignore_old_state` also does that but skips "
+        "stale metadata removal for that run.",
     )
 
     read_data_model: bool = Field(
@@ -293,8 +302,9 @@ class QlikOnPremConfig(ConfigModel):
         "data, which is much faster, and table fields come only from the load "
         "script. Opening an app with its data loads it into Engine memory until "
         "the app cache time set in the QMC has passed since its last session, "
-        "reads one app at a time unless `max_workers` is set, and fails for apps "
-        "whose section access denies the service user their data.",
+        "and reads one app at a time unless `max_workers` is set. An app whose data "
+        "can't be loaded, such as when section access denies it to the service "
+        "user, is read without its data and reported.",
     )
     qvd_folder_aliases: Dict[str, str] = Field(
         default={},
@@ -373,8 +383,8 @@ class QlikSourceConfig(
     # Qlik space identifier
     space_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter Qlik spaces in ingestion."
-        "Mention 'personal_space' if entities of personal space need to ingest",
+        description="Regex patterns to filter Qlik spaces in ingestion, or streams "
+        "on-prem. On Qlik Cloud, allow 'personal_space' to ingest personal spaces.",
     )
     ingest_owner: Optional[bool] = Field(
         default=True,
@@ -407,9 +417,10 @@ class QlikSourceConfig(
     # Qlik app dataset upstream tables from data connection to platform instance mapping
     data_connection_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},
-        description="A mapping of the Qlik app dataset upstream tables from data connection to platform instance."
-        "Use 'data_connection_name' as key. Set `platform`, `database` and `default_schema` when they "
-        "cannot be inferred from the data connection.",
+        description="Platform, database, schema and platform instance of the tables "
+        "that load script `SELECT`s read, keyed by data connection name. Set `platform`, "
+        "`database` and `default_schema` when they cannot be inferred from the data "
+        "connection.",
     )
     script_variables: Dict[str, str] = Field(
         default={},
@@ -422,12 +433,14 @@ class QlikSourceConfig(
     )
     file_connection_to_storage: Dict[str, FileStorageDetail] = Field(
         default={},
-        description="Qlik Cloud only. Where the files of Azure Storage, Amazon S3 "
-        "and Google Cloud Storage data connections are in DataHub, for lineage from "
-        "the files apps load. Use the data connection name as key, as load scripts "
-        "write it (`<space>:<connection>` or `<connection>`). Set `storage_uri` "
-        "when the API key's user cannot see the connection, and `platform_instance` "
-        "and `env` to match the source that ingests the storage.",
+        description="Where the files of Azure Storage, Amazon S3 and Google Cloud "
+        "Storage data connections are in DataHub, for lineage from the files apps "
+        "load and the QVDs they store. Use the data connection name as key, as load "
+        "scripts write it (`<space>:<connection>` or `<connection>`). Set "
+        "`storage_uri` when the API key's user cannot see the connection, and "
+        "always on-prem, and `platform_instance` and `env` to match the source that "
+        "ingests the storage. On-prem, QVDs of these connections take the same "
+        "dataset as Qlik Cloud gives the file, so lineage joins across both.",
     )
 
     @field_validator("script_variables")
@@ -449,6 +462,17 @@ class QlikSourceConfig(
             if self.tenant_hostname or self.api_key is not None:
                 raise ValueError(
                     "Set either the on_prem block or tenant_hostname and api_key, not both"
+                )
+            # On-prem, only folder connections are read for where files are.
+            missing = [
+                name
+                for name, detail in self.file_connection_to_storage.items()
+                if not detail.storage_uri
+            ]
+            if missing:
+                raise ValueError(
+                    "On-prem, file_connection_to_storage entries need a storage_uri: "
+                    + ", ".join(missing)
                 )
             return self
         if not self.tenant_hostname or self.api_key is None:
