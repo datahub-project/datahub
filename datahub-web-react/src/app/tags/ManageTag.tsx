@@ -7,7 +7,11 @@ import { ModalButton } from '@components/components/Modal/Modal';
 
 import OwnersSection from '@app/domainV2/OwnersSection';
 import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
-import { useBatchAddOwnersMutation, useSetTagColorMutation } from '@src/graphql/mutations.generated';
+import {
+    useBatchAddOwnersMutation,
+    useBatchRemoveOwnersMutation,
+    useSetTagColorMutation,
+} from '@src/graphql/mutations.generated';
 import { useGetTagQuery, useUpdateTagMutation } from '@src/graphql/tag.generated';
 
 const FormSection = styled.div`
@@ -35,6 +39,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
 
     const [setTagColorMutation] = useSetTagColorMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
+    const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
     const [updateTagMutation] = useUpdateTagMutation();
 
     const [colorValue, setColorValue] = useState(defaultTagColor);
@@ -75,12 +80,24 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
         [selectedOwnerUrns, originalOwnerUrns],
     );
 
+    const removedOwnerUrns = useMemo(
+        () => originalOwnerUrns.filter((urn) => !selectedOwnerUrns.includes(urn)),
+        [selectedOwnerUrns, originalOwnerUrns],
+    );
+
+    const ownersChanged = useMemo(
+        () =>
+            selectedOwnerUrns.length !== originalOwnerUrns.length ||
+            selectedOwnerUrns.some((urn) => !originalOwnerUrns.includes(urn)),
+        [selectedOwnerUrns, originalOwnerUrns],
+    );
+
     const hasChanges = () => {
         return (
             tagName !== originalTagName ||
             colorValue !== originalColor ||
             description !== originalDescription ||
-            newOwnerUrns.length > 0
+            ownersChanged
         );
     };
 
@@ -123,6 +140,19 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
                         input: { owners: ownerInputs, resources: [{ resourceUrn: tagUrn }] },
                     },
                 });
+                changesMade = true;
+            }
+            if (removedOwnerUrns.length > 0) {
+                console.log('removedOwnerUrns', removedOwnerUrns);
+                await batchRemoveOwnersMutation({
+                    variables: {
+                        input: {
+                            ownerUrns: removedOwnerUrns,
+                            resources: [{ resourceUrn: tagUrn }],
+                        },
+                    },
+                });
+
                 changesMade = true;
             }
 

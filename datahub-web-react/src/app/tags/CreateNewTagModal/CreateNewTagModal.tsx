@@ -1,7 +1,7 @@
-import { Modal, toast } from '@components';
+import { Input, Modal, toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { ModalButton } from '@components/components/Modal/Modal';
 
@@ -17,6 +17,15 @@ import {
 } from '@graphql/mutations.generated';
 import { useCreateTagMutation } from '@graphql/tag.generated';
 import { ResourceRefInput } from '@types';
+
+const AdvancedSection = styled.details`
+    margin-bottom: 24px;
+
+    summary {
+        cursor: pointer;
+        margin-bottom: 16px;
+    }
+`;
 
 type CreateNewTagModalProps = {
     open: boolean;
@@ -40,6 +49,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
     const theme = useTheme();
     const defaultTagColor = theme.colors.textBrand;
     const [tagName, setTagName] = useState(initialTagName ?? '');
+    const [tagId, setTagId] = useState('');
     const [tagDescription, setTagDescription] = useState('');
     const [tagColor, setTagColor] = useState(defaultTagColor);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
@@ -50,11 +60,14 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
     const [batchAddTagsMutation] = useBatchAddTagsMutation();
 
+    const idValidationError = /[\s,():]/.test(tagId) ? t('tags.idInvalid') : undefined;
+
     const onOk = async () => {
-        if (!tagName) {
+        if (!tagName.trim()) {
             toast.error(t('tags.nameRequiredError'));
             return;
         }
+        if (idValidationError || isLoading) return;
 
         setIsLoading(true);
 
@@ -62,7 +75,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
             const createTagResult = await createTagMutation({
                 variables: {
                     input: {
-                        id: tagName.trim(),
+                        id: tagId || undefined,
                         name: tagName.trim(),
                         description: tagDescription,
                     },
@@ -114,6 +127,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
             toast.success(t('tags.createSuccess', { name: tagName }));
             onClose();
             setTagName('');
+            setTagId('');
             setTagDescription('');
             setTagColor(defaultTagColor);
             setSelectedOwnerUrns([]);
@@ -143,7 +157,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
             color: 'primary',
             variant: 'filled',
             onClick: onOk,
-            disabled: !tagName || isLoading,
+            disabled: !tagName.trim() || !!idValidationError || isLoading,
             isLoading,
             buttonDataTestId: 'create-tag-modal-create-button',
         },
@@ -168,6 +182,18 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
                 setTagColor={setTagColor}
             />
             <OwnersSection selectedOwnerUrns={selectedOwnerUrns} setSelectedOwnerUrns={setSelectedOwnerUrns} />
+            <AdvancedSection>
+                <summary>{t('tags.advanced')}</summary>
+                <Input
+                    label={t('tags.idLabel')}
+                    helperText={t('tags.idHelp')}
+                    placeholder={t('tags.idPlaceholder')}
+                    value={tagId}
+                    setValue={setTagId}
+                    error={idValidationError}
+                    data-testid="tag-id-field"
+                />
+            </AdvancedSection>
         </Modal>
     );
 };
