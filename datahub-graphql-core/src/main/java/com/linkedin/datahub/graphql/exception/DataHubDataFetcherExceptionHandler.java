@@ -6,6 +6,7 @@ import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.search.QueryEmbeddingException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
+import com.linkedin.metadata.service.async.delete.PartialHardDeleteException;
 import graphql.PublicApi;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
@@ -30,12 +31,13 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
    * SearchTemplateNoAnchorException} → {@link DataHubGraphQLException} → metadata-io's {@code
    * ValidationException} → {@link ValidationException} → {@link IllegalArgumentException} → {@link
    * DatabaseTransactionConflictException} → {@link LineageTimeoutException} → {@link
-   * IllegalStateException} → {@link ActorAccessException} → {@link RuntimeException} → fallback.
-   * Conflict must stay above {@code RuntimeException} because {@code
-   * DatabaseTransactionConflictException} extends {@code RetryLimitReached} (a RuntimeException).
-   * {@code LineageTimeoutException} stays above {@code RuntimeException} so a graph-query deadline
-   * maps to DEADLINE_EXCEEDED, not SERVER_ERROR. {@code ActorAccessException} stays above {@code
-   * RuntimeException} so a privilege denial maps to UNAUTHORIZED, not SERVER_ERROR.
+   * PartialHardDeleteException} → {@link IllegalStateException} → {@link ActorAccessException} →
+   * {@link RuntimeException} → fallback. Conflict must stay above {@code RuntimeException} because
+   * {@code DatabaseTransactionConflictException} extends {@code RetryLimitReached} (a
+   * RuntimeException). {@code LineageTimeoutException} stays above {@code RuntimeException} so a
+   * graph-query deadline maps to DEADLINE_EXCEEDED, not SERVER_ERROR. {@code ActorAccessException}
+   * stays above {@code RuntimeException} so a privilege denial maps to UNAUTHORIZED, not
+   * SERVER_ERROR.
    */
   @Override
   public CompletableFuture<DataFetcherExceptionHandlerResult> handleException(
@@ -163,6 +165,18 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       return completedResult(
           extractErrorMessage(lineageTimeoutException),
           DataHubGraphQLErrorCode.DEADLINE_EXCEEDED,
+          path,
+          sourceLocation);
+    }
+
+    // Above IllegalStateException, which it extends: the message tells the caller to delete again.
+    PartialHardDeleteException partialHardDelete =
+        findFirstThrowableCauseOfClass(exception, PartialHardDeleteException.class);
+    if (partialHardDelete != null) {
+      log.warn("Failed to execute", partialHardDelete);
+      return completedResult(
+          extractErrorMessage(partialHardDelete),
+          DataHubGraphQLErrorCode.CONFLICT,
           path,
           sourceLocation);
     }

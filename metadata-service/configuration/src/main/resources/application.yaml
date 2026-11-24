@@ -432,6 +432,18 @@ datahub:
       # Drain-lock lease; must exceed a drain's worst-case duration, else ticks double-drain (safe, wasteful).
       drainLockLeaseMs: ${RETENTION_BUFFER_DRAIN_LOCK_LEASE_MS:60000}
 
+# In-process hard delete.
+hardDelete:
+  # Most incoming graph edges an entity-and-references delete removes before deleting the entity,
+  # when the delete runs in this process. Above this the delete is refused and nothing is removed:
+  # deleting the entity alone would leave those referrers pointing at nothing. The error says to
+  # raise this limit or to remove the references first (datahub delete references --urn <urn>).
+  # References that are not graph edges are cleaned as part of a delete that goes ahead.
+  # 0 turns graph reference cleanup off: the entity is deleted alone and its referrers are left
+  # dangling. A value above the 1000-entry page size reads more than one page of referrers, and
+  # Neo4j pages by offset, so a referrer removed between pages can make it skip another one.
+  graph-reference-cleanup-limit: ${DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT:100}
+
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
   # Writes of one reference removal during a hard delete (graph phase, search-phase formInfo/forms

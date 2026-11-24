@@ -50,10 +50,10 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
 
           try {
             final var references =
-                _entityClient.deleteEntityThenReferences(
+                _entityClient.deleteReferencesThenEntity(
                     context.getOperationContext(), assertionUrn);
 
-            // Asynchronously Delete all references to the entity (to return quickly)
+            // The entity is already gone. This removes the remaining references.
             CompletableFuture.runAsync(
                 () -> {
                   try {

@@ -38,8 +38,9 @@ public class DeleteBusinessAttributeResolver implements DataFetcher<CompletableF
         () -> {
           try {
             final var references =
-                _entityClient.deleteEntityThenReferences(
+                _entityClient.deleteReferencesThenEntity(
                     context.getOperationContext(), businessAttributeUrn);
+            // The entity is already gone. This removes the remaining references.
             CompletableFuture.runAsync(
                 () -> {
                   try {

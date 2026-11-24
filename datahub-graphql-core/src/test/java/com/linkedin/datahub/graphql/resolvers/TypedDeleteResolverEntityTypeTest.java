@@ -163,7 +163,7 @@ public class TypedDeleteResolverEntityTypeTest {
   private static void verifyEntityClientNotDeleted(EntityClient client) {
     try {
       Mockito.verify(client, Mockito.never()).deleteEntity(any(), any());
-      Mockito.verify(client, Mockito.never()).deleteEntityThenReferences(any(), any());
+      Mockito.verify(client, Mockito.never()).deleteReferencesThenEntity(any(), any());
     } catch (Exception e) {
       throw new AssertionError(e);
     }

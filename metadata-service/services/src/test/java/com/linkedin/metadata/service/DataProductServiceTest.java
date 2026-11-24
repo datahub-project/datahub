@@ -386,13 +386,13 @@ public class DataProductServiceTest {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final GraphClient mockGraphClient = mock(GraphClient.class);
     final DataProductService service = new DataProductService(mockClient, mockGraphClient);
-    when(mockClient.deleteEntityThenReferences(any(OperationContext.class), any(Urn.class)))
+    when(mockClient.deleteReferencesThenEntity(any(OperationContext.class), any(Urn.class)))
         .thenReturn(mock(EntityClient.ReferencesCleanup.class));
 
     service.deleteDataProduct(opContext, TEST_DATA_PRODUCT_URN);
 
     verify(mockClient, times(1))
-        .deleteEntityThenReferences(any(OperationContext.class), eq(TEST_DATA_PRODUCT_URN));
+        .deleteReferencesThenEntity(any(OperationContext.class), eq(TEST_DATA_PRODUCT_URN));
   }
 
   @Test
@@ -400,7 +400,7 @@ public class DataProductServiceTest {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final GraphClient mockGraphClient = mock(GraphClient.class);
     final DataProductService service = new DataProductService(mockClient, mockGraphClient);
-    when(mockClient.deleteEntityThenReferences(any(OperationContext.class), any(Urn.class)))
+    when(mockClient.deleteReferencesThenEntity(any(OperationContext.class), any(Urn.class)))
         .thenThrow(new RuntimeException("delete failed"));
 
     assertThrows(

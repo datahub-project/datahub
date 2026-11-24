@@ -42,11 +42,11 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
               }
 
               final var references =
-                  _entityClient.deleteEntityThenReferences(context.getOperationContext(), urn);
+                  _entityClient.deleteReferencesThenEntity(context.getOperationContext(), urn);
               log.info(
                   String.format("I've successfully deleted the entity %s with urn", domainUrn));
 
-              // Asynchronously Delete all references to the entity (to return quickly)
+              // The entity is already gone. This removes the remaining references.
               CompletableFuture.runAsync(
                   () -> {
                     try {

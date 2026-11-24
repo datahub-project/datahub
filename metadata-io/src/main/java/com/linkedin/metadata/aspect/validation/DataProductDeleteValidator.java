@@ -44,6 +44,7 @@ import lombok.experimental.Accessors;
 public class DataProductDeleteValidator extends AspectPayloadValidator {
 
   static final String PARENT_DATA_PRODUCT_FIELD = "parentDataProduct";
+  private static final int CHILD_SEARCH_PAGE_SIZE = 10;
 
   @Nonnull private AspectPluginConfig config;
 
@@ -91,29 +92,40 @@ public class DataProductDeleteValidator extends AspectPayloadValidator {
       @Nonnull RetrieverContext retrieverContext,
       @Nonnull ValidationExceptionCollection exceptions) {
     final Urn parent = item.getUrn();
-    // Search leaves out soft-deleted children, so they do not block their parent. If the parent
-    // is later hard-deleted, reference cleanup clears their pointer. Two hits are enough to
-    // discount a legacy product stored as its own parent and still see a real child.
-    ScrollResult result =
-        retrieverContext
-            .getSearchRetriever()
-            .scroll(
-                List.of(DATA_PRODUCT_ENTITY_NAME),
-                FilterUtils.createValuesFilter(
-                    PARENT_DATA_PRODUCT_FIELD, List.of(parent.toString())),
-                null,
-                2,
-                new ArrayList<>(),
-                SearchRetriever.RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS);
-    if (result == null || result.getEntities() == null) {
-      return;
-    }
-    boolean hasChildren =
-        result.getEntities().stream()
-            .map(SearchEntity::getEntity)
-            .anyMatch(child -> !child.equals(parent));
-    if (!hasChildren) {
-      return;
+    // Search leaves out soft-deleted children, so they do not block their parent. Search can also
+    // still list a child whose pointer reference cleanup already cleared, so each hit is confirmed
+    // against its own aspect. Search does not rank live pointers first, so a page of stale hits
+    // is not the end of the scroll.
+    String scrollId = null;
+    while (true) {
+      ScrollResult result =
+          retrieverContext
+              .getSearchRetriever()
+              .scroll(
+                  List.of(DATA_PRODUCT_ENTITY_NAME),
+                  FilterUtils.createValuesFilter(
+                      PARENT_DATA_PRODUCT_FIELD, List.of(parent.toString())),
+                  scrollId,
+                  CHILD_SEARCH_PAGE_SIZE,
+                  new ArrayList<>(),
+                  SearchRetriever.RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS);
+      if (result == null || result.getEntities() == null || result.getEntities().isEmpty()) {
+        return;
+      }
+      boolean hasChildren =
+          result.getEntities().stream()
+              .map(SearchEntity::getEntity)
+              .filter(child -> !child.equals(parent))
+              .anyMatch(child -> pointsAtParent(child, parent, operationContext, retrieverContext));
+      if (hasChildren) {
+        break;
+      }
+      // A scroll that repeats its id would otherwise walk the same page forever.
+      String nextScrollId = result.getScrollId();
+      if (nextScrollId == null || nextScrollId.equals(scrollId)) {
+        return;
+      }
+      scrollId = nextScrollId;
     }
     // The UI shows this after "Failed to delete:", so it reads as a sentence.
     exceptions.addException(
@@ -122,6 +134,27 @@ public class DataProductDeleteValidator extends AspectPayloadValidator {
             String.format(
                 "%s has child Data Products. Delete them or move them to another parent first.",
                 displayName(parent, operationContext, retrieverContext))));
+  }
+
+  /**
+   * True when the child's own properties still name {@code parent}. Search lags behind writes, so a
+   * hit alone is not proof: reference cleanup removes the pointer in the graph and the aspect
+   * before the key delete, while the search document may still show the old parent.
+   */
+  private static boolean pointsAtParent(
+      @Nonnull Urn child,
+      @Nonnull Urn parent,
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull RetrieverContext retrieverContext) {
+    Aspect aspect =
+        retrieverContext
+            .getAspectRetriever()
+            .getLatestAspectObject(operationContext, child, DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
+    if (aspect == null) {
+      return false;
+    }
+    DataProductProperties properties = new DataProductProperties(aspect.data());
+    return properties.hasParentDataProduct() && parent.equals(properties.getParentDataProduct());
   }
 
   private static String displayName(

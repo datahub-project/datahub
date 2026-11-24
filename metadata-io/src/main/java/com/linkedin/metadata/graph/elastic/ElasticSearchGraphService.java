@@ -443,6 +443,34 @@ public class ElasticSearchGraphService implements GraphService, MigratableIndexe
   }
 
   /**
+   * {@inheritDoc} The point-in-time stays open until its keep-alive when a caller reads one page
+   * and stops, so a count closes it here. A close that fails is logged: the keep-alive still
+   * expires it, and the count that opened it has already been read.
+   */
+  @Override
+  public void closeRelatedEntitiesScroll(
+      @Nonnull final OperationContext opContext, @Nullable final String scrollId) {
+    if (scrollId == null) {
+      return;
+    }
+    final String pitId;
+    try {
+      pitId = SearchAfterWrapper.fromScrollId(scrollId).getPitId();
+    } catch (RuntimeException e) {
+      log.warn("Could not read graph scroll to close its point-in-time", e);
+      return;
+    }
+    if (pitId == null) {
+      return;
+    }
+    try {
+      graphReadDAO.cleanupPointInTime(opContext, pitId);
+    } catch (RuntimeException e) {
+      log.warn("Could not close the graph point-in-time opened to count referrers", e);
+    }
+  }
+
+  /**
    * Returns list of edge documents for the given graph node and relationship tuples. Non-directed
    *
    * @param opContext operation context

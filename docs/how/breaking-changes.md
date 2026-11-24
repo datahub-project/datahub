@@ -137,6 +137,37 @@ are ignored; the rerank uses the default embedding profile for each entity type.
 with only `field` keeps today's behavior. To keep the earlier document rerank, remove `model` from
 the section.
 
+### Hard delete removes graph references before the entity
+
+`EntityClient.deleteEntityThenReferences` is renamed to `deleteReferencesThenEntity`
+([PR #21481](https://github.com/datahub-project/datahub/pull/21481)). Java code that calls the old
+method no longer compiles, and a class that overrode it has to override the new method. The old
+override is no longer called.
+
+On GMS, this delete now checks that the delete is allowed, removes the relationships other entities
+hold to the deleted one, then deletes it. A delete that is refused leaves those relationships in
+place. Deleting the entity first dropped them from the graph, so they stayed on the other entities.
+
+Deleting a tag, term, domain, user, group or other entity that more than 100 other entities point
+at is now refused, and nothing is deleted. The error says how many entities point at it. Either
+raise the limit with `DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`
+(`hardDelete.graph-reference-cleanup-limit`, default `100`), or remove the references first with
+`datahub delete references --urn <urn>` and delete again. Set the limit to `0` to turn this
+cleanup off: the entity is deleted alone, as before, and the entities that pointed at it keep
+pointers to something that no longer exists. References that are not graph relationships are
+still removed. `ReferencesCleanup.choice()` reports which path ran.
+
+If a delete fails because the entity was written to while it was being deleted (with
+`featureFlags.reliableHardDelete` on), the relationships to it are already removed and the entity
+is only partly deleted. The error says so. Run the delete again to finish it.
+
+The UI and GraphQL use this for hard deletes of applications, assertions, business attributes,
+data products, domains, forms, glossary terms and nodes, groups, incidents, ownership types, page
+modules, page templates, structured properties, tags, users, and views. OpenAPI, Rest.li, and
+`datahub delete` still hard-delete the entity without clearing those relationships first. The Java
+client's default does the same, and a remote client uses that default: it deletes the entity, then
+hands back the reference cleanup for the caller to run.
+
 ### Deleting a Data Product that has children
 
 A Data Product that has child Data Products can no longer be deleted, either hard or soft. Previously

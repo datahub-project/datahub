@@ -37,9 +37,9 @@ public class DeleteTagResolver implements DataFetcher<CompletableFuture<Boolean>
                   || AuthorizationUtils.canDeleteEntity(UrnUtils.getUrn(tagUrn), context))) {
             try {
               final var references =
-                  _entityClient.deleteEntityThenReferences(context.getOperationContext(), urn);
+                  _entityClient.deleteReferencesThenEntity(context.getOperationContext(), urn);
 
-              // Asynchronously Delete all references to the entity (to return quickly)
+              // The entity is already gone. This removes the remaining references.
               CompletableFuture.runAsync(
                   () -> {
                     try {

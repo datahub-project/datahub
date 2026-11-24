@@ -58,6 +58,7 @@ public class DeleteApplicationResolver implements DataFetcher<CompletableFuture<
             final var references =
                 applicationService.deleteApplicationThenReferences(
                     context.getOperationContext(), applicationUrn);
+            // The entity is already gone. This removes the remaining references.
             CompletableFuture.runAsync(
                 () -> {
                   try {

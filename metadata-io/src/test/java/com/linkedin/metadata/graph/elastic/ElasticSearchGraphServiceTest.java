@@ -29,6 +29,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
@@ -512,5 +513,26 @@ public class ElasticSearchGraphServiceTest {
         "Partial flag should be false when LineageResponse has partial=false");
     assertEquals(result.getTotal(), 1);
     assertEquals(result.getRelationships().size(), 1);
+  }
+
+  @Test
+  public void testCloseRelatedEntitiesScrollClosesThePointInTime() {
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    String scrollId = new SearchAfterWrapper(new Object[] {"a"}, "pit-1", 0L).toScrollId();
+
+    test.closeRelatedEntitiesScroll(opContext, scrollId);
+
+    verify(mockReadDAO).cleanupPointInTime(opContext, "pit-1");
+  }
+
+  @Test
+  public void testCloseRelatedEntitiesScrollWithoutAPointInTimeDoesNothing() {
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    String scrollId = new SearchAfterWrapper(new Object[] {"a"}, null, 0L).toScrollId();
+
+    test.closeRelatedEntitiesScroll(opContext, scrollId);
+    test.closeRelatedEntitiesScroll(opContext, null);
+
+    verify(mockReadDAO, never()).cleanupPointInTime(any(), any());
   }
 }
