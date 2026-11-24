@@ -12,8 +12,8 @@ import com.linkedin.datahub.graphql.generated.LinkSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpsertLinkInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpsertLinkResolver;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
@@ -22,7 +22,8 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 public class UpsertLinkResolverTest {
-  private static final String ASSET_URN = "urn:li:dataset:(test1,test2,test3)";
+  private static final String ASSET_URN =
+      "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,PROD)";
 
   private static DataFetchingEnvironment initMockEnv(UpsertLinkInput input) {
     DataFetchingEnvironment mockEnv = LinkTestUtils.initMockEnv();
@@ -197,10 +198,7 @@ public class UpsertLinkResolverTest {
     EntityService<?> mockService = LinkTestUtils.initMockEntityService(true, originalAspect);
     Mockito.when(
             mockService.ingestProposal(
-                any(OperationContext.class),
-                any(MetadataChangeProposal.class),
-                any(AuditStamp.class),
-                any(boolean.class)))
+                any(OperationContext.class), any(AspectsBatch.class), any(boolean.class)))
         .thenThrow(new RuntimeException("test"));
     EntityClient mockClient = LinkTestUtils.initMockClient();
     DataFetchingEnvironment mockEnv =

@@ -24,7 +24,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.entity.EntityService;
@@ -60,6 +59,9 @@ public class UpdateParentNodeResolverTest {
       new UpdateParentNodeInput(PARENT_NODE_URN, NODE_URN);
   private static final UpdateParentNodeInput INVALID_INPUT =
       new UpdateParentNodeInput(CONTAINER_URN, TERM_URN);
+  // Required on glossary records, so every stored term or node has them.
+  private static final String DEFINITION = "test definition";
+  private static final String TERM_SOURCE = "INTERNAL";
   private static final CorpuserUrn TEST_ACTOR_URN = new CorpuserUrn("test");
 
   private MetadataChangeProposal setupTests(
@@ -76,10 +78,16 @@ public class UpdateParentNodeResolverTest {
                 eq(Urn.createFromString(TERM_URN)),
                 eq(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
                 eq(0L)))
-        .thenReturn(new GlossaryTermInfo().setName(name));
+        .thenReturn(
+            new GlossaryTermInfo()
+                .setName(name)
+                .setDefinition(DEFINITION)
+                .setTermSource(TERM_SOURCE));
 
     GlossaryTermInfo info = new GlossaryTermInfo();
+    info.setTermSource(TERM_SOURCE);
     info.setName(name);
+    info.setDefinition(DEFINITION);
     info.setParentNode(GlossaryNodeUrn.createFromString(PARENT_NODE_URN));
     return MutationUtils.buildMetadataChangeProposalWithUrn(
         Urn.createFromString(TERM_URN), GLOSSARY_TERM_INFO_ASPECT_NAME, info);
@@ -132,10 +140,11 @@ public class UpdateParentNodeResolverTest {
                 eq(Urn.createFromString(NODE_URN)),
                 eq(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME),
                 eq(0L)))
-        .thenReturn(new GlossaryNodeInfo().setName(name));
+        .thenReturn(new GlossaryNodeInfo().setName(name).setDefinition(DEFINITION));
 
     GlossaryNodeInfo info = new GlossaryNodeInfo();
     info.setName(name);
+    info.setDefinition(DEFINITION);
     info.setParentNode(GlossaryNodeUrn.createFromString(PARENT_NODE_URN));
     final MetadataChangeProposal proposal =
         MutationUtils.buildMetadataChangeProposalWithUrn(
@@ -261,10 +270,11 @@ public class UpdateParentNodeResolverTest {
                 eq(Urn.createFromString(NODE_URN)),
                 eq(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME),
                 eq(0L)))
-        .thenReturn(new GlossaryNodeInfo().setName(name));
+        .thenReturn(new GlossaryNodeInfo().setName(name).setDefinition(DEFINITION));
 
     GlossaryNodeInfo info = new GlossaryNodeInfo();
     info.setName(name);
+    info.setDefinition(DEFINITION);
     info.setParentNode(GlossaryNodeUrn.createFromString(PARENT_NODE_URN));
     final MetadataChangeProposal proposal =
         MutationUtils.buildMetadataChangeProposalWithUrn(
@@ -302,7 +312,7 @@ public class UpdateParentNodeResolverTest {
                     .graphRetriever(GraphRetriever.EMPTY)
                     .searchRetriever(SearchRetriever.EMPTY)
                     .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
-                    .aspectRetriever(mock(AspectRetriever.class))
+                    .aspectRetriever(baseContext.getAspectRetriever())
                     .build())
             .build(baseContext.getSessionAuthentication(), false);
     when(mockContext.getOperationContext()).thenReturn(opContext);

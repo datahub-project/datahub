@@ -88,13 +88,20 @@ public class EntityUtils {
     return auditStamp;
   }
 
-  public static void ingestChangeProposals(
+  /**
+   * Writes the proposals and fails when every one of them was rejected (for example an invalid
+   * urn), instead of reporting a write that did not happen.
+   *
+   * @return the entity service's results, one per written aspect
+   */
+  @Nonnull
+  public static List<IngestResult> ingestChangeProposals(
       @Nonnull OperationContext opContext,
       @Nonnull List<MetadataChangeProposal> changes,
       @Nonnull EntityService<?> entityService,
       @Nonnull Urn actor,
       @Nonnull Boolean async) {
-    entityService.ingestProposal(
+    return entityService.ingestProposal(
         opContext,
         AspectsBatchImpl.builder()
             .mcps(changes, getAuditStamp(actor), opContext.getRetrieverContext())

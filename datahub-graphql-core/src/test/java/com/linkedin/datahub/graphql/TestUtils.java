@@ -386,21 +386,24 @@ public class TestUtils {
       EntityService<?> mockService,
       int numberOfInvocations,
       MetadataChangeProposal expectedProposal) {
-    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
-        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    ArgumentCaptor<AspectsBatchImpl> batchCaptor = ArgumentCaptor.forClass(AspectsBatchImpl.class);
 
     Mockito.verify(mockService, Mockito.times(numberOfInvocations))
-        .ingestProposal(any(), proposalCaptor.capture(), any(AuditStamp.class), Mockito.eq(false));
+        .ingestProposal(any(), batchCaptor.capture(), Mockito.eq(false));
+    MetadataChangeProposal proposal =
+        batchCaptor.getValue().getMCPItems().get(0).getMetadataChangeProposal();
 
-    // check has time
-    Assert.assertTrue(proposalCaptor.getValue().getSystemMetadata().getLastObserved() > 0L);
+    // check has time, and the write time the batch build stamps from the audit stamp
+    Assert.assertTrue(proposal.getSystemMetadata().getLastObserved() > 0L);
+    Assert.assertTrue(proposal.getSystemMetadata().getAspectModified().getTime() > 0L);
 
     // check without time
-    proposalCaptor.getValue().getSystemMetadata().setLastObserved(0L);
-    proposalCaptor.getValue().getSystemMetadata().removeSchemaVersion();
+    proposal.getSystemMetadata().setLastObserved(0L);
+    proposal.getSystemMetadata().removeAspectModified();
+    proposal.getSystemMetadata().removeSchemaVersion();
     expectedProposal.getSystemMetadata().setLastObserved(0L);
     expectedProposal.getSystemMetadata().removeSchemaVersion();
-    Assert.assertEquals(proposalCaptor.getValue(), expectedProposal);
+    Assert.assertEquals(proposal, expectedProposal);
   }
 
   public static void verifyIngestProposal(EntityService<?> mockService, int numberOfInvocations) {
@@ -412,12 +415,17 @@ public class TestUtils {
       EntityService<?> mockService, int numberOfInvocations) {
     Mockito.verify(mockService, Mockito.times(numberOfInvocations))
         .ingestProposal(
-            any(), any(MetadataChangeProposal.class), any(AuditStamp.class), Mockito.eq(false));
+            any(),
+            Mockito.<AspectsBatchImpl>argThat(batch -> batch.getMCPItems().size() == 1),
+            Mockito.eq(false));
   }
 
   public static void verifyNoIngestProposal(EntityService<?> mockService) {
     Mockito.verify(mockService, Mockito.times(0))
         .ingestProposal(any(), any(AspectsBatchImpl.class), Mockito.anyBoolean());
+    Mockito.verify(mockService, Mockito.times(0))
+        .ingestProposal(
+            any(), any(MetadataChangeProposal.class), any(AuditStamp.class), Mockito.anyBoolean());
   }
 
   public static void verifyIngestProposal(

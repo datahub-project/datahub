@@ -113,6 +113,27 @@ public class UpdateEmbedResolverTest {
   }
 
   @Test
+  public void testGetFailureProposalRejected() throws Exception {
+    // A dataset whose environment is not a FabricType value cannot be written; the mutation must
+    // not report success for it.
+    final String invalidUrn =
+        "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,NOT_A_FABRIC_TYPE)";
+    EntityService<?> mockService = getMockEntityService();
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(invalidUrn)), eq(true)))
+        .thenReturn(true);
+    UpdateEmbedResolver resolver = new UpdateEmbedResolver(mockService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(new UpdateEmbedInput(invalidUrn, TEST_RENDER_URL));
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    verifyNoIngestProposal(mockService);
+  }
+
+  @Test
   public void testGetFailureEntityDoesNotExist() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
