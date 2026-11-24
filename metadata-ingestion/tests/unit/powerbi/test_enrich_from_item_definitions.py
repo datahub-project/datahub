@@ -527,6 +527,37 @@ def _renamed_api() -> PowerBiAPI:
     )
 
 
+def test_overlay_matches_tables_and_fields_case_insensitively() -> None:
+    # TMDL and DAX names are case-insensitive: a casing-only difference from
+    # the scan is the same table and field, not a scan-only/definition-only pair.
+    recased = (
+        TABLE_TMDL.replace("table Policies", "table POLICIES")
+        .replace("column State", "column STATE")
+        .replace("measure 'Total Premium'", "measure 'TOTAL PREMIUM'")
+    )
+    api = _api(
+        definition=_definition(
+            [DefinitionPart("definition/tables/Policies.tmdl", recased)]
+        )
+    )
+    workspace = _workspace()
+
+    api.fill_metadata_from_scan_result([workspace])
+
+    policies = _model(workspace).tables[0]
+    # The scan keeps its own names.
+    assert policies.name == "Policies"
+    columns = {c.name: c for c in policies.columns or []}
+    assert columns["State"].source_column == "STATE_CODE"
+    measure = (policies.measures or [])[0]
+    assert measure.name == "Total Premium"
+    assert [(r.table, r.field) for r in measure.references] == [("Policies", "Premium")]
+    assert api.reporter.scan_tables_not_in_definition == 1  # Claims only
+    assert api.reporter.definition_tables_not_in_scan == 0
+    assert api.reporter.scan_fields_not_in_definition == 1  # Premium only
+    assert api.reporter.definition_fields_not_in_scan == 0
+
+
 def test_scan_column_renamed_in_definition_is_kept_and_reported() -> None:
     api = _renamed_api()
     workspace = _workspace()

@@ -1754,10 +1754,10 @@ class PowerBiAPI:
         self, parsed_model: ParsedModel, dataset: PowerBIDataset, context: str
     ) -> None:
         """The scan is the source of truth for the table set: tables are
-        matched by name, never added or removed; both differences are
-        counted and reported."""
-        parsed_by_name = {table.name: table for table in parsed_model.tables}
-        scan_by_name = {table.name: table for table in dataset.tables}
+        matched by name (case-insensitively, as TMDL and DAX names are),
+        never added or removed; both differences are counted and reported."""
+        parsed_by_name = {table.name.casefold(): table for table in parsed_model.tables}
+        scan_by_name = {table.name.casefold(): table for table in dataset.tables}
         analysis_services = analysis_services_targets(
             {
                 name: shared.expression
@@ -1768,7 +1768,9 @@ class PowerBiAPI:
             parsed_table = parsed_by_name.get(name)
             if parsed_table is not None:
                 self._overlay_table(table, parsed_table, analysis_services, context)
-        scan_only = sorted(set(scan_by_name) - set(parsed_by_name))
+        scan_only = sorted(
+            scan_by_name[key].name for key in set(scan_by_name) - set(parsed_by_name)
+        )
         if scan_only:
             self.reporter.scan_tables_not_in_definition += len(scan_only)
             self.reporter.warning(
@@ -1776,7 +1778,9 @@ class PowerBiAPI:
                 message="Some scanned tables are not in the semantic-model definition; they keep their scan metadata without enrichment.",
                 context=f"{context}, tables={scan_only}",
             )
-        definition_only = sorted(set(parsed_by_name) - set(scan_by_name))
+        definition_only = sorted(
+            parsed_by_name[key].name for key in set(parsed_by_name) - set(scan_by_name)
+        )
         if definition_only:
             self.reporter.definition_tables_not_in_scan += len(definition_only)
             self.reporter.warning(
@@ -1817,25 +1821,41 @@ class PowerBiAPI:
         # is the only source for them (extract_composite_model_lineage).
         table.remote_model = partition.remote_model
         table.remote_table_name = partition.remote_table_name
-        columns_by_name = {column.name: column for column in table.columns or []}
-        measures_by_name = {measure.name: measure for measure in table.measures or []}
+        columns_by_name = {
+            column.name.casefold(): column for column in table.columns or []
+        }
+        measures_by_name = {
+            measure.name.casefold(): measure for measure in table.measures or []
+        }
         matched: Set[str] = set()
         for parsed_column in parsed_table.columns:
-            column = columns_by_name.get(parsed_column.name)
+            column = columns_by_name.get(parsed_column.name.casefold())
             if column is not None:
-                matched.add(parsed_column.name)
+                matched.add(parsed_column.name.casefold())
                 self._overlay_column(column, parsed_column)
         for parsed_measure in parsed_table.measures:
-            measure = measures_by_name.get(parsed_measure.name)
+            measure = measures_by_name.get(parsed_measure.name.casefold())
             if measure is not None:
-                matched.add(parsed_measure.name)
+                matched.add(parsed_measure.name.casefold())
                 self._overlay_measure(measure, parsed_measure)
-        definition_names = {column.name for column in parsed_table.columns} | {
-            measure.name for measure in parsed_table.measures
+        scan_names = {key: column.name for key, column in columns_by_name.items()}
+        scan_names.update(
+            {key: measure.name for key, measure in measures_by_name.items()}
+        )
+        definition_names = {
+            name.casefold(): name
+            for name in [
+                *(column.name for column in parsed_table.columns),
+                *(measure.name for measure in parsed_table.measures),
+            ]
         }
         self._report_field_mismatches(
-            scan_only=sorted((set(columns_by_name) | set(measures_by_name)) - matched),
-            definition_only=sorted(definition_names - matched),
+            scan_only=sorted(
+                name for key, name in scan_names.items() if key not in matched
+            ),
+            definition_only=sorted(
+                name for key, name in definition_names.items() if key not in matched
+            ),
             context=f"{context}, table={table.name}",
         )
 
