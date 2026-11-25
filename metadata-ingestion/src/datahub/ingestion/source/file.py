@@ -87,7 +87,7 @@ class FileSourceConfig(StatefulIngestionConfigBase):
     read_mode: FileReadMode = FileReadMode.AUTO
     aspect: Optional[str] = Field(
         default=None,
-        description="Set to an aspect to only read this aspect for ingestion.",
+        description="Set to an aspect to only read this aspect for ingestion. Also applies to the aspects of MetadataChangeEvents in the file.",
     )
     count_all_before_starting: bool = Field(
         default=True,
@@ -271,7 +271,16 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
                             "Rewrite the file as MCPs.",
                             context=f.path,
                         )
-                    for mcp in mcps_from_mce(obj):
+                    try:
+                        mcps = list(mcps_from_mce(obj))
+                    except Exception as e:
+                        self.report.failure(
+                            message="Failed to convert MetadataChangeEvent to MCPs",
+                            context=id,
+                            exc=e,
+                        )
+                        continue
+                    for mcp in mcps:
                         if (
                             self.config.aspect is None
                             or mcp.aspectName == self.config.aspect

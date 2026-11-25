@@ -859,7 +859,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._emit_mce(mce, self._default_emit_mode)
 
     def _emit_mce(self, mce: MetadataChangeEvent, emit_mode: EmitMode) -> None:
-        """Sends the MCE's aspects in one batch so GMS stamps them as one change; oversized MCEs are split across requests."""
+        """Sends the MCE's aspects in one batch, which GMS stamps as one change unless an oversized MCE is split across requests."""
         # Deferred to break the cycle mcp_builder -> ingestion.api.workunit -> ingestion.api.common -> graph.client -> rest_emitter.
         from datahub.emitter.mcp_builder import mcps_from_mce
 
