@@ -49,7 +49,10 @@ buildscript {
   // CVE-2026-77420 (HISTORY_IGNORE ReDoS): fixed in 4.3.1+ / 3.30.15+
   ext.jlineVersion = '4.3.1'
   // CVE-2026-45292 (W3C Baggage unbounded memory): fixed in opentelemetry-api / trace-propagators 1.62.0+
-  ext.openTelemetryVersion = '1.62.0'
+  // CVE-2026-118259: fixed in opentelemetry-api 1.67.0+
+  ext.openTelemetryVersion = '1.67.0'
+  // org.apache.kerby (transitive): CVE-2026-57914 in kerby-asn1, fixed in 2.1.2. Align the whole group.
+  ext.kerbyVersion = '2.1.2'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.4'
@@ -345,7 +348,7 @@ project.ext.externalDependency = [
     'jsonPatch': 'jakarta.json:jakarta.json-api:2.1.3',
     'jsonPathImpl': 'org.eclipse.parsson:parsson:1.1.6',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
-    'jsonSmart': 'net.minidev:json-smart:2.5.2',
+    'jsonSmart': 'net.minidev:json-smart:2.6.1', // CVE-2026-113602
     'json': 'org.json:json:20260814',
     'jsonSchemaValidator': 'com.github.java-json-tools:json-schema-validator:2.2.14',
     'jjwtApi': "io.jsonwebtoken:jjwt-api:$jjwtVersion",
@@ -425,7 +428,7 @@ project.ext.externalDependency = [
     'pac4j': 'org.pac4j:pac4j-oidc:6.5.8',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:13.0.3-PLAY3.0",
     // CVE-2026-54291: channel-binding auth downgrade fixed in 42.7.12+
-    'postgresql': 'org.postgresql:postgresql:42.7.12',
+    'postgresql': 'org.postgresql:postgresql:42.7.15', // CVE-2026-107314, CVE-2026-107315
     'protobuf': 'com.google.protobuf:protobuf-java:4.36.2',
     'grpcProtobuf': "io.grpc:grpc-protobuf:$grpcVersion",
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
@@ -434,7 +437,8 @@ project.ext.externalDependency = [
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
     'servletApi': 'jakarta.servlet:jakarta.servlet-api:6.1.0',
     // CVE-2026-23903 / CVE-2026-23901: fixed in Shiro 2.1.0+; CVE-2026-49268 (DefaultLdapRealm LDAP DN injection): 2.2.1+
-    'shiroCore': 'org.apache.shiro:shiro-core:2.2.1',
+    // CVE-2026-56130, CVE-2026-58301, CVE-2026-74762, CVE-2026-129320: fixed in Shiro 3.0.2
+    'shiroCore': 'org.apache.shiro:shiro-core:3.0.2',
     'snakeYaml': 'org.yaml:snakeyaml:2.0',
     'sparkSql' : 'org.apache.spark:spark-sql_2.12:3.5.0',
     'sparkHive' : 'org.apache.spark:spark-hive_2.12:3.5.0',
@@ -786,6 +790,10 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force 'org.apache.thrift:libthrift:0.24.0' // CVE-2026-48586 (TZlibTransport zip-bomb DoS); transitive via jena-arq
     // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
     resolutionStrategy.eachDependency { details ->
+      if (details.requested.group == 'org.apache.kerby') {
+        details.useVersion(rootProject.ext.kerbyVersion)
+        details.because("CVE-2026-57914 (kerby-asn1); keep all kerby/kerb-* modules on ${rootProject.ext.kerbyVersion}")
+      }
       if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {
         details.useTarget(rootProject.ext.externalDependency.lz4Java)
         details.because("CVE-2025-12183, CVE-2026-59949, CVE-2026-106451; align org.lz4:lz4-java to at.yawk fork (${rootProject.ext.lz4JavaVersion})")
@@ -845,6 +853,12 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
           && details.requested.name != 'opentelemetry-api-incubator') {
         details.useVersion(rootProject.ext.openTelemetryVersion)
         details.because("OpenTelemetry aligned to ${rootProject.ext.openTelemetryVersion} for CVE-2026-45292")
+      }
+      // opentelemetry-api-incubator ships on the matching -alpha line. The SDK calls into it, so it must
+      // move with openTelemetryVersion or the SDK hits classes removed from opentelemetry-api.
+      if (details.requested.group == 'io.opentelemetry' && details.requested.name == 'opentelemetry-api-incubator') {
+        details.useVersion("${rootProject.ext.openTelemetryVersion}-alpha")
+        details.because("opentelemetry-api-incubator aligned to ${rootProject.ext.openTelemetryVersion}-alpha to match the SDK")
       }
       if (details.requested.group == 'org.apache.parquet') {
         details.useVersion(rootProject.ext.parquetVersion)
