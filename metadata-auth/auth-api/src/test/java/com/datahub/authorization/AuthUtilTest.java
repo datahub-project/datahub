@@ -544,6 +544,89 @@ public class AuthUtilTest {
         "PATCH on an existing entity requires EDIT_ENTITY");
   }
 
+  /**
+   * Where an entity type's create privileges do not include its edit privileges, a PATCH that
+   * creates the entity needs the create privilege, as an UPSERT does. An existing entity still
+   * accepts the edit privilege.
+   */
+  @Test
+  public void testPatchOnMissingEntityUsesTheTypeCreatePrivileges() {
+    Authentication editOnly =
+        new Authentication(new Actor(ActorType.USER, "editOnlyTypedPatch"), "");
+    Authentication userEditor =
+        new Authentication(new Actor(ActorType.USER, "userEditorPatch"), "");
+    Urn ingestionSource = UrnUtils.getUrn("urn:li:dataHubIngestionSource:patched");
+    Urn structuredProperty = UrnUtils.getUrn("urn:li:structuredProperty:patched");
+    Urn user = UrnUtils.getUrn("urn:li:corpuser:patched");
+    Authorizer mockAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                editOnly.getActor().toUrnStr(),
+                Map.of("EDIT_ENTITY", Set.of(ingestionSource, structuredProperty)),
+                userEditor.getActor().toUrnStr(),
+                Map.of("UPDATE_USERS_AND_GROUPS", Set.of(user))));
+
+    for (Urn urn : List.of(ingestionSource, structuredProperty)) {
+      Pair<ChangeType, Urn> patch = Pair.of(ChangeType.PATCH, urn);
+      assertEquals(
+          AuthUtil.isAPIAuthorizedUrns(
+              TestAuthSession.from(editOnly, mockAuthorizer),
+              ENTITY,
+              List.of(patch),
+              Map.of(urn, false)),
+          Map.of(patch, 403),
+          "Edit Entity does not create " + urn.getEntityType());
+      assertEquals(
+          AuthUtil.isAPIAuthorizedUrns(
+              TestAuthSession.from(editOnly, mockAuthorizer),
+              ENTITY,
+              List.of(patch),
+              Map.of(urn, true)),
+          Map.of(patch, 200),
+          "Edit Entity still edits an existing " + urn.getEntityType());
+    }
+
+    Pair<ChangeType, Urn> userPatch = Pair.of(ChangeType.PATCH, user);
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(userEditor, mockAuthorizer),
+            ENTITY,
+            List.of(userPatch),
+            Map.of(user, false)),
+        Map.of(userPatch, 403),
+        "Update Users & Groups does not create a user");
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(userEditor, mockAuthorizer),
+            ENTITY,
+            List.of(userPatch),
+            Map.of(user, true)),
+        Map.of(userPatch, 200),
+        "Update Users & Groups still edits an existing user");
+  }
+
+  /** A schema field that is not stored as an entity is still a column of an existing dataset. */
+  @Test
+  public void testPatchOnSchemaFieldIsAlwaysAnEdit() {
+    Authentication createOnly =
+        new Authentication(new Actor(ActorType.USER, "createOnlyFieldPatch"), "");
+    Urn field =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD),col_a)");
+    Authorizer mockAuthorizer =
+        mockAuthorizer(
+            Map.of(createOnly.getActor().toUrnStr(), Map.of("CREATE_ENTITY", Set.of(field))));
+    Pair<ChangeType, Urn> patch = Pair.of(ChangeType.PATCH, field);
+
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(createOnly, mockAuthorizer),
+            ENTITY,
+            List.of(patch),
+            Map.of(field, false)),
+        Map.of(patch, 403));
+  }
+
   @Test
   public void testExistenceAwareMissingMapKeyFallsBackToHistoricalMapping() {
     Authentication createOnly =

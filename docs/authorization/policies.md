@@ -203,7 +203,9 @@ Entity and `domains` PATCH](#domain-scoped-edit-entity-and-domains-patch).
 
 `ChangeType.PATCH` is authorized like an UPSERT: on an existing entity it requires **Edit Entity**
 (`EDIT_ENTITY`); on an entity that does not exist yet it creates the entity, so **Create Entity** (or
-Edit Entity) is enough. Domain-scoped writers that PATCH the `domains` aspect are authorized as
+Edit Entity) is enough. Entity types with their own create privilege, such as ingestion sources and
+structured properties, need that privilege instead. A PATCH on a schema field always requires Edit
+Entity. Domain-scoped writers that PATCH the `domains` aspect are authorized as
 follows:
 
 | Before `domains` | After (resolved patch) | Policy match                                                                             |

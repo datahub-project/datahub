@@ -129,7 +129,8 @@ public class AuthUtil {
    * UPSERT/UPDATE/RESTATE against a non-existent entity use the CREATE privilege path ({@code
    * CREATE_ENTITY}), and CREATE_ENTITY against an existing entity uses the UPDATE privilege path
    * ({@code EDIT_ENTITY}) so create-only callers cannot overwrite. PATCH follows UPSERT: CREATE for
-   * a missing entity, UPDATE for an existing one, as {@link #resolveEntityWriteOperation} does.
+   * a missing entity, UPDATE for an existing one, as {@link #resolveEntityWriteOperation} does. A
+   * PATCH on a schema field is always UPDATE.
    */
   public static List<Pair<MetadataChangeProposal, Integer>> isAPIAuthorized(
       @Nonnull final AuthorizationSession session,
@@ -212,7 +213,13 @@ public class AuthUtil {
                 case RESTATE:
                 case PATCH:
                   {
-                    final ApiOperation apiOperation = existenceKnown && !exists ? CREATE : UPDATE;
+                    // A schema field is usually not stored as its own entity, so "missing" does
+                    // not mean the column is new. A PATCH to it stays an edit.
+                    final boolean patchOnSchemaField =
+                        changeTypePair.getFirst() == ChangeType.PATCH
+                            && SCHEMA_FIELD_ENTITY_NAME.equals(urn.getEntityType());
+                    final ApiOperation apiOperation =
+                        existenceKnown && !exists && !patchOnSchemaField ? CREATE : UPDATE;
                     if (!isAPIAuthorized(
                         session,
                         lookupAPIPrivilege(apiGroup, apiOperation, urn.getEntityType()),

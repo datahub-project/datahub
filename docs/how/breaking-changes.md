@@ -399,9 +399,18 @@ To turn the check off, set `metadataChangeProposal.validation.dataProductPropert
 
 ### A PATCH on a missing entity is authorized as a create ([#21600](https://github.com/datahub-project/datahub/pull/21600))
 
-A PATCH that targets an entity that does not exist yet is now authorized like an UPSERT: it needs **Create Entity** or **Edit Entity**. Before, it always needed Edit Entity. A PATCH on an existing entity still needs Edit Entity, so create-only principals still can't change existing entities.
+A PATCH that targets an entity that does not exist yet is now authorized like an UPSERT: it needs the privilege to create that entity. Before, it always needed the privilege to edit it. A PATCH on an existing entity still needs the edit privilege, so create-only principals still can't change existing entities. A PATCH on a schema field always needs the edit privilege, because a column usually isn't stored as its own entity.
 
-**Action:** none for entity writes: no caller loses access, and principals with only Create Entity can now create an entity with a PATCH, as they already could with an UPSERT. Where an API's create privilege differs from its edit privilege, a PATCH that creates the item now needs the create privilege, as an UPSERT already does.
+For most entity types, creating needs **Create Entity** or **Edit Entity**, so principals with only Create Entity can now create an entity with a PATCH, as they already could with an UPSERT. A few types have their own create privilege that the edit privilege doesn't include. For these, a PATCH that creates the item now needs the create privilege:
+
+| Entity              | Can still edit an existing one | Now needed to create one with a PATCH                                        |
+| ------------------- | ------------------------------ | ---------------------------------------------------------------------------- |
+| Ingestion source    | Edit Entity                    | Manage Ingestion                                                             |
+| Structured property | Edit Entity                    | Manage Structured Properties                                                 |
+| User                | Update Users & Groups          | Create Users & Groups, Manage Users & Groups, Create Users or Update Users   |
+| Group               | Update Users & Groups          | Create Users & Groups, Manage Users & Groups, Create Groups or Update Groups |
+
+**Action:** if a service account creates any of these with a PATCH, grant it the create privilege listed above. An UPSERT of the same item already needed it.
 
 <!--
 
