@@ -143,6 +143,8 @@ class ExploreFetchResult(NamedTuple):
     start_time: datetime.datetime
     end_time: datetime.datetime
     looker_explore: Optional[LookerExplore]
+    # None when the read failed or no link is wanted; empty without a DataHub connection.
+    existing_git_link_urls: Optional[Set[str]] = None
 
 
 @dataclass
@@ -927,7 +929,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     and result.looker_explore
                 ):
                     yield from self._make_explore_git_link(
-                        result.looker_explore, str(result.dataset.urn)
+                        result.looker_explore,
+                        str(result.dataset.urn),
+                        result.existing_git_link_urls,
                     )
             self.reporter.report_upstream_latency(result.start_time, result.end_time)
             logger.debug(
@@ -965,33 +969,55 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     )
                 )
 
+        existing_git_link_urls = None
+        if (
+            self.source_config.extract_explore_git_links
+            and explore_dataset_entity is not None
+            and looker_explore is not None
+            and not self._git_link_read_failed
+            and self._git_link_path(looker_explore) is not None
+        ):
+            # Read here, on the worker thread, so the GMS round trip runs in parallel
+            # with other Explore fetches instead of on the thread that drains them.
+            existing_git_link_urls = self._existing_git_link_urls(
+                str(explore_dataset_entity.urn)
+            )
+
         return ExploreFetchResult(
             dataset=explore_dataset_entity,
             explore_id=f"{model}:{explore}",
             start_time=start_time,
             end_time=datetime.datetime.now(),
             looker_explore=looker_explore,
+            existing_git_link_urls=existing_git_link_urls,
         )
 
-    def _make_explore_git_link(
-        self, explore: LookerExplore, explore_urn: str
-    ) -> List[MetadataWorkUnit]:
+    @staticmethod
+    def _git_link_path(explore: LookerExplore) -> Optional[str]:
         path = explore.lookml_file_path
-        if self._git_link_read_failed or not path or not explore.project_name:
-            return []
+        if not path or not explore.project_name:
+            return None
         # shortcut: explores defined in an imported project get no link, since their
         # repo is the imported project's; resolve that project if users ask for it.
         if extract_project_from_imported_file_path(path) is not None:
+            return None
+        return path
+
+    def _make_explore_git_link(
+        self,
+        explore: LookerExplore,
+        explore_urn: str,
+        existing_urls: Optional[Set[str]],
+    ) -> List[MetadataWorkUnit]:
+        # Every link with the label is managed here. Empty without a DataHub
+        # connection: add only, stale links stay.
+        path = self._git_link_path(explore)
+        if path is None or existing_urls is None or explore.project_name is None:
             return []
         git_ref = self._get_project_git_ref(explore.project_name)
         if git_ref is None:
             return []
         url = git_ref.get_url_for_file_path(quote(path, safe="/"))
-        # Every link with the label is managed here. Empty without a DataHub
-        # connection: add only, stale links stay.
-        existing_urls = self._existing_git_link_urls(explore_urn)
-        if existing_urls is None:
-            return []
         patch = HasInstitutionalMemoryPatch(explore_urn)
         for stale_url in sorted(existing_urls - {url}):
             patch.remove_institutional_memory_by_url_and_label(

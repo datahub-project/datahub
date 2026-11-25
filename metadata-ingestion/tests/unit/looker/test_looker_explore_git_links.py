@@ -1,4 +1,5 @@
 import json
+import threading
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from unittest import mock
 
@@ -374,6 +375,27 @@ def test_access_denied_on_one_explore_skips_only_that_explore(
     titles = [w.title for w in source.reporter.warnings]
     assert "Could not read an Explore's existing links" in titles
     assert "Failed to read existing Explore links" not in titles
+
+
+def test_link_read_runs_on_worker_threads(
+    looker_source_factory: SourceFactory,
+) -> None:
+    source = with_graph(
+        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True)
+    )
+    graph = source.ctx.graph
+    assert isinstance(graph, mock.MagicMock)
+    read_threads = []
+
+    def get_aspect(urn: str, aspect_type: Any) -> None:
+        read_threads.append(threading.current_thread())
+        return None
+
+    graph.get_aspect.side_effect = get_aspect
+
+    assert len(link_patches(source)) == 2
+    assert read_threads
+    assert threading.main_thread() not in read_threads
 
 
 def test_no_datahub_connection_adds_only_and_notes_it_once(
