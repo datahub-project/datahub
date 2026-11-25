@@ -1,7 +1,16 @@
 import dataclasses
 import json
 import warnings
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 from datahub.emitter.aspect import ASPECT_MAP, JSON_CONTENT_TYPE
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
@@ -12,6 +21,7 @@ from datahub.metadata.schema_classes import (
     DictWrapper,
     GenericAspectClass,
     KafkaAuditHeaderClass,
+    MetadataChangeEventClass,
     MetadataChangeLogClass,
     MetadataChangeProposalClass,
     SystemMetadataClass,
@@ -273,4 +283,16 @@ class MetadataChangeProposalWrapper:
             mcp=self,
             treat_errors_as_warnings=treat_errors_as_warnings,
             is_primary_source=is_primary_source,
+        )
+
+
+def mcps_from_mce(
+    mce: MetadataChangeEventClass,
+) -> Iterable[MetadataChangeProposalWrapper]:
+    for aspect in mce.proposedSnapshot.aspects:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=mce.proposedSnapshot.urn,
+            auditHeader=mce.auditHeader,
+            aspect=aspect,
+            systemMetadata=mce.systemMetadata,
         )

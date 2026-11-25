@@ -13,7 +13,10 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp import (
+    MetadataChangeProposalWrapper,
+    mcps_from_mce as mcps_from_mce,
+)
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -30,7 +33,6 @@ from datahub.metadata.schema_classes import (
     DomainsClass,
     EmbedClass,
     GlobalTagsClass,
-    MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -545,18 +547,6 @@ def gen_data_product(
     if structured_properties:
         yield from add_structured_properties_to_entity_wu(
             entity_urn=data_product_urn, structured_properties=structured_properties
-        )
-
-
-def mcps_from_mce(
-    mce: MetadataChangeEventClass,
-) -> Iterable[MetadataChangeProposalWrapper]:
-    for aspect in mce.proposedSnapshot.aspects:
-        yield MetadataChangeProposalWrapper(
-            entityUrn=mce.proposedSnapshot.urn,
-            auditHeader=mce.auditHeader,
-            aspect=aspect,
-            systemMetadata=mce.systemMetadata,
         )
 
 

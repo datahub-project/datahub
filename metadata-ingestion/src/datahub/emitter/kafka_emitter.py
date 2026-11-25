@@ -23,7 +23,7 @@ from datahub.emitter.generic_emitter import (
     Emitter,
     warn_mce_deprecated,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp import MetadataChangeProposalWrapper, mcps_from_mce
 from datahub.errors import DataHubDeprecationWarning
 from datahub.ingestion.api.closeable import Closeable
 from datahub.metadata.schema_classes import (
@@ -310,9 +310,6 @@ class DatahubKafkaEmitter(Closeable, Emitter):
 
         ``callback`` never fires after the raise, but may already have fired with an earlier aspect's error.
         """
-        # Deferred: mcp_builder pulls in ingestion sources, which pgqueue must not import.
-        from datahub.emitter.mcp_builder import mcps_from_mce
-
         warn_mce_deprecated()
         # The MCP topic is consumed by every GMS that consumes the MCE topic.
         mcps = list(mcps_from_mce(mce))

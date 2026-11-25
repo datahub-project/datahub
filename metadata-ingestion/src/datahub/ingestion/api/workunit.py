@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Iterable, Optional, Type, TypeVar, Union, overload
 
 from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE, TIMESERIES_ASPECT_MAP
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp import MetadataChangeProposalWrapper, mcps_from_mce
 from datahub.ingestion.api.common import WorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -162,8 +162,6 @@ class MetadataWorkUnit(WorkUnit):
         return None
 
     def decompose_mce_into_mcps(self) -> Iterable["MetadataWorkUnit"]:
-        from datahub.emitter.mcp_builder import mcps_from_mce
-
         assert isinstance(self.metadata, MetadataChangeEvent)
 
         yield from [

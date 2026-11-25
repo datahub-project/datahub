@@ -16,6 +16,7 @@ from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.sink.datahub_rest import (
     DatahubRestSink,
     DatahubRestSinkConfig,
+    DataHubRestSinkReport,
     RestSinkMode,
 )
 
@@ -503,3 +504,27 @@ def test_emit_wrapper_sends_mce_as_one_mcp_batch():
     assert all(isinstance(m, MetadataChangeProposalWrapper) for m in emitted)
     assert [m.aspect for m in emitted] == [status, properties]
     assert mock_emitter.emit_mcps.call_args.kwargs["emit_mode"] == EmitMode.SYNC_PRIMARY
+
+
+@pytest.mark.parametrize("batch", [False, True])
+def test_sink_warns_on_mce_without_aspects(batch: bool) -> None:
+    mce = models.MetadataChangeEventClass(
+        proposedSnapshot=models.DatasetSnapshotClass(
+            urn="urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+            aspects=[],
+        )
+    )
+    mock_emitter = MagicMock()
+    sink = DatahubRestSink.__new__(DatahubRestSink)
+    sink._emitter_thread_local = threading.local()
+    sink._emitter_thread_local.emitter = mock_emitter
+    sink.report = DataHubRestSinkReport()
+    sink._gms_emit_mode = EmitMode.ASYNC
+
+    if batch:
+        sink._emit_batch_wrapper([(mce,)])
+        assert mock_emitter.emit_mcps.call_args.args[0] == []
+    else:
+        sink._emit_wrapper(mce, emit_mode=EmitMode.SYNC_PRIMARY)
+        mock_emitter.emit_mcps.assert_not_called()
+    assert len(sink.report.warnings) == 1
