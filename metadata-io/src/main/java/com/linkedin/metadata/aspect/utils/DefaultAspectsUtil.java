@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -66,6 +67,35 @@ public class DefaultAspectsUtil {
       @Nonnull final AspectsBatch inputBatch,
       @Nonnull EntityService<?> entityService,
       boolean enableBrowseV2) {
+    final Set<Urn> urnsWithExistingKeyAspects =
+        entityService.exists(
+            opContext,
+            inputBatch.getMCPItems().stream()
+                .filter(
+                    item ->
+                        SUPPORTED_TYPES.contains(item.getChangeType())
+                            || requiresExistingEntity(item))
+                .map(BatchItem::getUrn)
+                .collect(Collectors.toSet()),
+            true,
+            true);
+    final Predicate<BatchItem> kept =
+        item ->
+            !(item instanceof MCPItem mcpItem
+                && requiresExistingEntity(mcpItem)
+                && !urnsWithExistingKeyAspects.contains(mcpItem.getUrn()));
+    if (log.isDebugEnabled()) {
+      inputBatch.getMCPItems().stream()
+          .filter(kept.negate())
+          .forEach(
+              item ->
+                  log.debug(
+                      "Dropping {} write to {}: entity does not exist and {} is set",
+                      item.getAspectName(),
+                      item.getUrn(),
+                      Constants.IF_ENTITY_EXISTS_HEADER_NAME));
+    }
+
     /*
      * 1. When deadlock occurs within the transaction the default entity key may need to be removed. This cannot happen
      *    if the batch is fixed with a key aspect prior to the transaction.
@@ -79,11 +109,16 @@ public class DefaultAspectsUtil {
     List<BatchItem> result =
         inputBatch.getItems().stream()
             .filter(DefaultAspectsUtil::keyAspectExcludeFilter)
+            .filter(kept)
             .collect(Collectors.toCollection(LinkedList::new));
     // Key aspect restored if needed
     List<MCPItem> additionalChanges =
         DefaultAspectsUtil.getAdditionalChanges(
-            opContext, inputBatch.getMCPItems(), entityService, enableBrowseV2);
+            opContext,
+            inputBatch.getMCPItems().stream().filter(kept).toList(),
+            urnsWithExistingKeyAspects,
+            entityService,
+            enableBrowseV2);
 
     // `result` was already validated upstream as part of original inputBatch;
     // Only additionalChanges needs validation here
@@ -102,9 +137,77 @@ public class DefaultAspectsUtil {
         .buildWithoutValidation();
   }
 
+  /**
+   * Timeseries writes create their entity before the rest of the batch is applied, so guarded
+   * writes to the same entity are checked here, against the entity as it was before the batch.
+   */
+  public static AspectsBatch withoutGuardedWritesToEntitiesCreatedByTimeseries(
+      @Nonnull OperationContext opContext,
+      @Nonnull AspectsBatch batch,
+      @Nonnull EntityService<?> entityService) {
+    final Set<Urn> timeseriesUrns =
+        batch.getMCPItems().stream()
+            .filter(DefaultAspectsUtil::isTimeseries)
+            .map(BatchItem::getUrn)
+            .collect(Collectors.toSet());
+    final Set<Urn> guardedUrns =
+        batch.getMCPItems().stream()
+            .filter(item -> !isTimeseries(item) && requiresExistingEntity(item))
+            .map(BatchItem::getUrn)
+            .filter(timeseriesUrns::contains)
+            .collect(Collectors.toSet());
+    if (guardedUrns.isEmpty()) {
+      return batch;
+    }
+    // forUpdate routes the read to the primary, so replica lag can't drop a write.
+    final Set<Urn> existingUrns = entityService.exists(opContext, guardedUrns, true, true);
+    return AspectsBatchImpl.builder()
+        .retrieverContext(batch.getRetrieverContext())
+        .items(
+            batch.getItems().stream()
+                .filter(
+                    item ->
+                        !(item instanceof MCPItem mcpItem
+                            && !isTimeseries(mcpItem)
+                            && requiresExistingEntity(mcpItem)
+                            && guardedUrns.contains(mcpItem.getUrn())
+                            && !existingUrns.contains(mcpItem.getUrn())))
+                .toList())
+        .buildWithoutValidation();
+  }
+
+  private static boolean isTimeseries(@Nonnull MCPItem item) {
+    return item.getAspectSpec() != null && item.getAspectSpec().isTimeseries();
+  }
+
+  private static boolean requiresExistingEntity(@Nonnull MCPItem item) {
+    return item.getHeader(Constants.IF_ENTITY_EXISTS_HEADER_NAME)
+        .map(Boolean::parseBoolean)
+        .orElse(false);
+  }
+
   public static List<MCPItem> getAdditionalChanges(
       @Nonnull OperationContext opContext,
       @Nonnull Collection<MCPItem> batch,
+      @Nonnull EntityService<?> entityService,
+      boolean browsePathV2) {
+    final Set<Urn> urns =
+        batch.stream()
+            .filter(item -> SUPPORTED_TYPES.contains(item.getChangeType()))
+            .map(BatchItem::getUrn)
+            .collect(Collectors.toSet());
+    return getAdditionalChanges(
+        opContext,
+        batch,
+        entityService.exists(opContext, urns, true, true),
+        entityService,
+        browsePathV2);
+  }
+
+  private static List<MCPItem> getAdditionalChanges(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<MCPItem> batch,
+      @Nonnull Set<Urn> urnsWithExistingKeyAspects,
       @Nonnull EntityService<?> entityService,
       boolean browsePathV2) {
 
@@ -112,9 +215,6 @@ public class DefaultAspectsUtil {
         batch.stream()
             .filter(item -> SUPPORTED_TYPES.contains(item.getChangeType()))
             .collect(Collectors.groupingBy(BatchItem::getUrn));
-
-    Set<Urn> urnsWithExistingKeyAspects =
-        entityService.exists(opContext, itemsByUrn.keySet(), true, true);
 
     // create default aspects when key aspect is missing
     return itemsByUrn.entrySet().stream()

@@ -72,6 +72,7 @@
     "levelFilter.directTooltip": "Visa direkt relaterade datatillgångar",
     "levelFilter.indirect": "indirekt",
     "levelFilter.indirectTooltip": "Visa indirekt relaterade datatillgångar",
+    "loadError": "Det gick inte att läsa in lineage. Försök igen.",
     "manageLineage.changeToHome": "Byt till hem",
     "manageLineage.dashboardNoDownstream": "Dashboard-entiteter har ingen downstream-lineage",
     "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",

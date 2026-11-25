@@ -54,8 +54,9 @@ public final class SearchTemplateVectorRetrieval {
   public static final String FAILED = "failed";
 
   /**
-   * This process cannot run a vector rung: semantic read is off, or a rung that embeds its query
-   * has no embedding provider. Similarity embeds nothing.
+   * This process cannot run a vector rung: semantic read is off, a rung that embeds its query has
+   * no embedding provider, or the DataHub index serving the rung runs OpenSearch before 3.5.
+   * Similarity embeds nothing.
    */
   public static final String UNAVAILABLE = "unavailable";
 

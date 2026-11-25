@@ -798,6 +798,32 @@ module.exports = {
               id: "docs/features/feature-guides/custom-home-page",
             },
             {
+              label: "Grouping Lineage by Lens",
+              type: "category",
+              className: "saasOnly",
+              link: {
+                type: "doc",
+                id: "docs/features/feature-guides/lineage-group-by/overview",
+              },
+              items: [
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/lineage-group-by/using-group-by",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/lineage-group-by/filtering-grouped-lineage",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/lineage-group-by/custom-lenses",
+                  className: "saasOnly",
+                },
+              ],
+            },
+            {
               label: "Service Catalog",
               type: "doc",
               id: "docs/features/feature-guides/service-catalog",

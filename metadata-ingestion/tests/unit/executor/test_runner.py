@@ -488,7 +488,7 @@ class TestLogHolder:
     def test_echo_goes_through_stdlib_logging(self, caplog):
         """Echoed lines are stdlib log records, so masking filters on logging
         handlers apply to them."""
-        with caplog.at_level(logging.DEBUG, logger="datahub.executor.execution.runner"):
+        with caplog.at_level(logging.INFO, logger="datahub.executor.execution.runner"):
             log_holder = LogHolder(echo_to_stdout_prefix="[TEST] ")
             log_holder.append("Test message\n")
 

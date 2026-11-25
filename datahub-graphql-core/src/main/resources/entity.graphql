@@ -1034,6 +1034,7 @@ type Mutation {
   deleteOwnershipType(
     "Urn of the Custom Ownership Type to remove."
     urn: String!
+    "Remove references to this ownership type before deleting it. Defaults to true when omitted."
     deleteReferences: Boolean
   ): Boolean
 
@@ -14026,9 +14027,10 @@ input CreateDataProductInput {
   properties: CreateDataProductPropertiesInput!
 
   """
-  The primary key of the Domain
+  The urn of the Domain to create the Data Product in. Optional: when omitted, the
+  Data Product is created without a Domain.
   """
-  domainUrn: String!
+  domainUrn: String
   """
   An optional id for the new data product
   """

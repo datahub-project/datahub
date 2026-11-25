@@ -86,6 +86,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateB
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateKeywordRerank;
@@ -778,9 +779,9 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
   @Test
   public void testTheDocumentDefaultsDecideWhichDocumentsCanAnchorSimilarity() throws IOException {
     if (!engineCanServeTheSemanticTemplate()) {
-      // Before 3.5, OpenSearch applies the kNN entity type filter at chunk scope, where it
-      // matches nothing
-      throw new SkipException("Similarity finds no neighbors on OpenSearch before 3.5");
+      // Before 3.5, OpenSearch applies the kNN entity type filter at chunk scope, where it can
+      // match nothing, so a rung that serves neighbors fails closed instead
+      throw new SkipException("Similarity fails closed on OpenSearch before 3.5");
     }
     Filter viewer = documentDefaults(false);
     Filter manager = documentDefaults(true);
@@ -805,23 +806,33 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
   /**
    * Document search's visibility rule names the lifecycle stage, so it takes the place of the
    * hidden-stage clause for the anchor as it does for the results: with in review hidden from
-   * search, the owner's document in review still anchors document search. The document defaults
-   * admit no document in a stage other than published, so, hidden or not, they still refuse it.
+   * search, the owner's document in review still anchors document search. On OpenSearch before 3.5
+   * that anchor passes too, and the rung then fails closed as unavailable, not as noAnchor, instead
+   * of searching for neighbors. The document defaults admit no document in a stage other than
+   * published, so, hidden or not, they still refuse it.
    */
   @Test
-  public void testAnOwnersDocumentInAHiddenStageAnchorsDocumentSearch() {
+  public void testAnOwnersDocumentInAHiddenStageAnchorsDocumentSearch() throws IOException {
     LifecycleStageTypeService stages = mock(LifecycleStageTypeService.class);
     when(stages.getHiddenStageUrns(anySet())).thenReturn(Set.of(IN_REVIEW.toString()));
     LifecycleStageTypeService previous = ESUtils.getLifecycleStageTypeService();
     ESUtils.setLifecycleStageTypeService(stages);
     try {
-      SearchResult owned =
-          similar(
-              IN_REVIEW_DOCUMENT,
-              DocumentSearchFilterUtils.buildCombinedFilter(
-                  List.of(), List.of(OWNER.toString()), true, false));
-      assertTrue(urns(owned).contains(FORECAST_SEMANTIC_MATCH), urns(owned).toString());
-      assertFalse(urns(owned).contains(UNPUBLISHED_DOCUMENT), urns(owned).toString());
+      Filter ownerRule =
+          DocumentSearchFilterUtils.buildCombinedFilter(
+              List.of(), List.of(OWNER.toString()), true, false);
+      if (engineCanServeTheSemanticTemplate()) {
+        SearchResult owned = similar(IN_REVIEW_DOCUMENT, ownerRule);
+        assertTrue(urns(owned).contains(FORECAST_SEMANTIC_MATCH), urns(owned).toString());
+        assertFalse(urns(owned).contains(UNPUBLISHED_DOCUMENT), urns(owned).toString());
+      } else {
+        SearchTemplateFailClosedException unavailable =
+            expectThrows(
+                SearchTemplateFailClosedException.class,
+                () -> similar(IN_REVIEW_DOCUMENT, ownerRule));
+        assertFalse(unavailable instanceof SearchTemplateNoAnchorException, unavailable.toString());
+        assertTrue(unavailable.getMessage().contains("OpenSearch 3.5"), unavailable.toString());
+      }
 
       // Another viewer's rule does not admit the owner's document in review
       expectThrows(

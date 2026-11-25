@@ -104,7 +104,11 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
-          gradle: false
+          # Gradle runs only in "Build images (fork — no depot cache)"; keep this
+          # condition in sync with that step. Without the Gradle cache it downloads
+          # the full dependency graph from Maven Central, which returns 429s on
+          # shared GitHub-hosted runner IPs.
+          gradle: ${{ !inputs.pull_from_registry && inputs.depot_build_id == '' && inputs.image_version_env == '' }}
           node: true
 
       # Path 1: Pull images from depot cache (docker-unified non fork trigger).

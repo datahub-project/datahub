@@ -204,6 +204,34 @@ public class EntityPrivilegesResolverTest {
   }
 
   @Test
+  public void testColumnPropertiesDoNotGrantEntityProperties() throws Exception {
+    final Dataset dataset = new Dataset();
+    dataset.setUrn(datasetUrn);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv =
+        setUpTestWithContext(dataset, contextGrantingOnly("EDIT_DATASET_COL_PROPERTIES"));
+
+    EntityPrivileges result = new EntityPrivilegesResolver(mockClient).get(mockEnv).get();
+
+    assertTrue(result.getCanEditSchemaFieldProperties());
+    assertFalse(result.getCanEditProperties());
+  }
+
+  @Test
+  public void testEntityPropertiesDoNotGrantColumnProperties() throws Exception {
+    final Dataset dataset = new Dataset();
+    dataset.setUrn(datasetUrn);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv =
+        setUpTestWithContext(dataset, contextGrantingOnly("EDIT_ENTITY_PROPERTIES"));
+
+    EntityPrivileges result = new EntityPrivilegesResolver(mockClient).get(mockEnv).get();
+
+    assertFalse(result.getCanEditSchemaFieldProperties());
+    assertTrue(result.getCanEditProperties());
+  }
+
+  @Test
   public void testGetChartSuccessWithPermissions() throws Exception {
     final Chart chart = new Chart();
     chart.setUrn(chartUrn);
