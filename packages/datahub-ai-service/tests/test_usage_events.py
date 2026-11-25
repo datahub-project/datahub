@@ -14,7 +14,7 @@ from datahub_ai_service.config import AiServiceConfig
 from datahub_ai_service.mcp.auth import Caller
 from datahub_ai_service.mcp.auth_mode import GmsAuth
 from datahub_ai_service.metrics import ServiceMetrics
-from datahub_ai_service.usage_events import UsageEventSender
+from datahub_ai_service.usage_events import UsageEventSender, usage_event
 from datahub_core_mcp_tools.telemetry import ToolCall
 
 Posted = tuple[dict[str, Any], Optional[str]]
@@ -97,6 +97,41 @@ async def test_write_tools_and_failures(gms: FakeGms) -> None:
     assert event["actorUrn"] == "urn:li:corpuser:bob"
     # No tool arguments.
     assert "private_table" not in str(event)
+
+
+@pytest.mark.parametrize(
+    ("tags", "read_only", "group"),
+    [
+        ({"mutation"}, False, "write"),
+        # The ingestion group's writes carry no MUTATION tag, only their hint.
+        ({"ingestion"}, False, "write"),
+        ({"ingestion"}, True, "read"),
+        ({"search"}, True, "read"),
+    ],
+)
+def test_the_tool_group_comes_from_the_tag_or_the_read_only_hint(
+    tags: set[str], read_only: bool, group: str
+) -> None:
+    call = ToolCall(
+        tool="t",
+        source="client",
+        type="request",
+        method="tools/call",
+        client_name=None,
+        client_version=None,
+        http_user_agent=None,
+        duration_seconds=0.1,
+        result_length=1,
+        error_type=None,
+        result_is_error=False,
+        cancelled=False,
+        tags=frozenset(tags),
+        read_only=read_only,
+    )
+
+    event = usage_event(call, "urn:li:corpuser:alice", timestamp_ms=1)
+
+    assert event["toolGroup"] == group
 
 
 async def test_concurrent_callers_are_each_recorded_as_themselves(

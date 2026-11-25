@@ -275,6 +275,7 @@ pywin32==312 ; sys_platform == 'win32'
 pyyaml==6.0.3
     # via
     #   acryl-datahub
+    #   datahub-core-mcp-tools
     #   fastmcp-slim
     #   jsonschema-path
 referencing==0.37.0

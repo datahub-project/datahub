@@ -8,13 +8,18 @@ stdin/stdout. It calls DataHub as one user, with ``DATAHUB_GMS_URL`` and
 token is needed when DataHub's authentication is off).
 
 The same environment switches as the service choose the tools
-(``TOOLS_IS_MUTATION_ENABLED``, ``SEMANTIC_SEARCH_ENABLED`` and the per-tool
-flags), and tools the connected DataHub is too old for are hidden. Each tool
-call sends anonymous product telemetry with ``deployment: "stdio"``
+(``TOOLS_IS_MUTATION_ENABLED``, ``INGESTION_TOOLS_ENABLED``,
+``SEMANTIC_SEARCH_ENABLED`` and the per-tool flags), and tools the connected DataHub is too old for are hidden. With no
+settings page, ``DATAHUB_MCP_TOOL_GROUPS`` (comma-separated group ids, e.g.
+``read_metadata,write_metadata``) chooses the tool groups; unset, every group,
+``ingestion`` included, as on DataHub Core's own server (the tools are
+registered as DataHub Core's, ``is_oss=True``). Each tool call sends anonymous
+product telemetry with ``deployment: "stdio"``
 (``DATAHUB_TELEMETRY_ENABLED=false`` turns it off); there are no usage events
 and no MCP settings.
 """
 
+import os
 import sys
 from typing import Any, Callable, Collection, Optional
 
@@ -33,9 +38,11 @@ from .mcp_instructions import InstructionSize, build_instructions
 from .mcp_server import register_tools
 from .telemetry import Ping, TelemetryMiddleware, ping_server_start, sdk_ping
 from .tool_context import ToolContext
+from .tool_groups import TOOL_GROUPS
 from .version_filter import VersionFilterMiddleware
 
 DEPLOYMENT = "stdio"
+TOOL_GROUPS_ENV_VAR = "DATAHUB_MCP_TOOL_GROUPS"
 
 
 class _ClientMiddleware(Middleware):
@@ -96,8 +103,8 @@ def build_stdio_server(
 
     Args:
         client: The DataHub client every tool call uses.
-        groups: Register only these tool groups (see tool_groups); every group
-            by default.
+        groups: Register only these tool groups (see tool_groups); by default,
+            every group.
         server_info: The connected GMS; read from its /config (cached) by default.
         telemetry_ping: Sends product telemetry; the SDK's by default.
     """
@@ -122,6 +129,18 @@ def build_stdio_server(
     return mcp
 
 
+def groups_from_env() -> Optional[list[str]]:
+    """The tool groups ``DATAHUB_MCP_TOOL_GROUPS`` names; None when it is unset."""
+    raw = os.environ.get(TOOL_GROUPS_ENV_VAR)
+    if raw is None or not raw.strip():
+        return None
+    groups = [group.strip() for group in raw.split(",") if group.strip()]
+    unknown = sorted(set(groups) - {group.id for group in TOOL_GROUPS})
+    if unknown:
+        logger.warning(f"{TOOL_GROUPS_ENV_VAR} names unknown tool groups: {unknown}")
+    return groups
+
+
 def main() -> None:
     """``datahub-mcp-stdio``: serve DataHub's tools over stdin/stdout."""
     if any(arg in ("-V", "--version") for arg in sys.argv[1:]):
@@ -138,7 +157,7 @@ def main() -> None:
     def server_info() -> GmsServerInfo:
         return cache.get(gms_url)
 
-    mcp = build_stdio_server(client, server_info=server_info)
+    mcp = build_stdio_server(client, groups=groups_from_env(), server_info=server_info)
     ping_server_start(deployment=DEPLOYMENT, server_info=server_info)
     mcp.run(transport="stdio", show_banner=False)
 

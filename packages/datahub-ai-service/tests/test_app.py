@@ -185,6 +185,16 @@ async def test_legacy_and_modern_clients(gms: FakeGms, protocol: str) -> None:
         "remove_structured_properties",
         "save_document",
         "update_document",
+        "list_connector_types",
+        "get_recipe_schema",
+        "validate_recipe",
+        "list_ingestion_sources",
+        "create_ingestion_source",
+        "update_ingestion_source",
+        "run_ingestion",
+        "list_ingestion_runs",
+        "list_ingestion_run_entities",
+        "rollback_ingestion_run",
     ]
     assert result.data["data"]["corpUser"]["urn"] == "urn:li:corpuser:bob"
 

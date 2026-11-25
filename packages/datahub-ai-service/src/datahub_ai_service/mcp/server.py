@@ -11,13 +11,14 @@ from datahub_core_mcp_tools.mcp_server import (
     register_tools,
 )
 from datahub_core_mcp_tools.telemetry import ToolCall
+from datahub_core_mcp_tools.tool_groups import TOOL_GROUPS
 from datahub_core_mcp_tools.version_filter import VersionFilterMiddleware
 
 from .._version import __version__
 from ..metrics import ServiceMetrics
 from .caller import CallerClientMiddleware
 from .client_factory import CallerClientFactory
-from .policy import McpPolicyMiddleware
+from .policy import IS_OSS, McpPolicyMiddleware
 from .telemetry import ToolCallObserver, ToolCallTelemetryMiddleware
 
 
@@ -32,7 +33,11 @@ def build_mcp_server(
     metrics: Optional[ServiceMetrics] = None,
 ) -> FastMCP:
     mcp = FastMCP[None](name="datahub", version=__version__)
-    served = register_tools(mcp, is_oss=True)
+    # Every group, whatever the deployment's default: McpPolicyMiddleware
+    # serves each request the groups its settings select.
+    served = register_tools(
+        mcp, is_oss=IS_OSS, groups=[group.id for group in TOOL_GROUPS]
+    )
     # The default; McpPolicyMiddleware serves each request the settings' own.
     mcp.instructions = build_instructions(InstructionSize.LARGE, served)
     # Served statelessly, so there is no session to announce list changes on.

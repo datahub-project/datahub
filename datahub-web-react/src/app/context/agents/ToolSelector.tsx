@@ -137,7 +137,7 @@ interface ToolSelectorProps {
     excludeAgentUrn?: string;
     // Help text shown under the tool list only (not under the Agents tab).
     toolsHelpText?: string;
-    // When true, also offer the opt-in groups only MCP servers attach (MCP_SERVER_ONLY_GROUP_IDS).
+    // When true, also offer the groups only MCP servers attach (MCP_SERVER_ONLY_GROUP_IDS).
     showMcpServerOnlyGroups?: boolean;
 }
 
@@ -158,17 +158,18 @@ export const ToolSelector: React.FC<ToolSelectorProps> = ({
     } = useAvailableAgentToolsState();
     const { items: allAgents } = useAvailableAgentsState();
 
+    const offeredTools = useMemo(
+        () =>
+            showMcpServerOnlyGroups
+                ? fetchedTools
+                : fetchedTools.filter((tool) => !tool.groups.some((id) => MCP_SERVER_ONLY_GROUP_IDS.has(id))),
+        [fetchedTools, showMcpServerOnlyGroups],
+    );
     // Opt-in groups are held out of the main list, whose "all tools" selection
     // means the default server's tools and never includes them. They get their own
     // section below, and only appear when the catalog has tools in them.
-    const allTools = useMemo(() => fetchedTools.filter((tool) => !isOptInTool(tool)), [fetchedTools]);
-    const optInGroups = useMemo(
-        () =>
-            toolGroupOptions(fetchedTools.filter(isOptInTool)).filter(
-                (group) => showMcpServerOnlyGroups || !MCP_SERVER_ONLY_GROUP_IDS.has(group.id),
-            ),
-        [fetchedTools, showMcpServerOnlyGroups],
-    );
+    const allTools = useMemo(() => offeredTools.filter((tool) => !isOptInTool(tool)), [offeredTools]);
+    const optInGroups = useMemo(() => toolGroupOptions(offeredTools.filter(isOptInTool)), [offeredTools]);
     const groups = useAvailableToolGroups(allTools);
     const agents = allAgents.filter((a) => a.urn !== excludeAgentUrn);
     // The Agents tab appears only when the catalog lists agents to expose.

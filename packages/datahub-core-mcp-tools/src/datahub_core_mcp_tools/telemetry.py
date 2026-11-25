@@ -68,6 +68,9 @@ class ToolCall:
     tags: Optional[frozenset[str]] = None
     """The registered tool's tags; None when no tool has that name."""
 
+    read_only: Optional[bool] = None
+    """The registered tool's readOnlyHint; None when it has none."""
+
 
 def _client_string(value: object) -> Optional[str]:
     if not isinstance(value, str) or not value:
@@ -123,15 +126,14 @@ def _text_length(result: Any) -> Optional[int]:
     )
 
 
-async def _tool_tags(context: MiddlewareContext[Any]) -> Optional[frozenset[str]]:
+async def _tool(context: MiddlewareContext[Any]) -> Any:
     name = getattr(context.message, "name", None)
     if not name or context.fastmcp_context is None:
         return None
     try:
-        tool = await context.fastmcp_context.fastmcp.get_tool(name)
+        return await context.fastmcp_context.fastmcp.get_tool(name)
     except Exception:
         return None
-    return frozenset(tool.tags or ()) if tool is not None else None
 
 
 class ToolCallRecorder(Middleware):
@@ -151,7 +153,9 @@ class ToolCallRecorder(Middleware):
         if not self._sinks:
             return await call_next(context)
 
-        tags = await _tool_tags(context)
+        tool = await _tool(context)
+        tags = frozenset(tool.tags or ()) if tool is not None else None
+        read_only = getattr(getattr(tool, "annotations", None), "read_only_hint", None)
         started = time.perf_counter()
         result: Any = None
         error_type: Optional[str] = None
@@ -173,6 +177,7 @@ class ToolCallRecorder(Middleware):
                 error_type=error_type,
                 cancelled=cancelled,
                 tags=tags,
+                read_only=read_only,
             )
 
     def _record(
@@ -184,6 +189,7 @@ class ToolCallRecorder(Middleware):
         error_type: Optional[str],
         cancelled: bool,
         tags: Optional[frozenset[str]],
+        read_only: Optional[bool],
     ) -> None:
         try:
             name, version = client_info(context)
@@ -202,6 +208,7 @@ class ToolCallRecorder(Middleware):
                 or getattr(result, "is_error", False) is True,
                 cancelled=cancelled,
                 tags=tags,
+                read_only=read_only,
             )
         except Exception:
             logger.exception("Could not describe a tool call for telemetry")

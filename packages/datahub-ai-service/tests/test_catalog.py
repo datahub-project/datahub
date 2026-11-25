@@ -55,9 +55,16 @@ async def test_catalog_lists_selectable_tools_without_a_token(gms: FakeGms) -> N
     assert tools["search"]["description"]
     assert tools["add_tags"]["category"] == "mutation"
     assert tools["add_tags"]["groups"] == ["write_metadata"]
+    # Listed although not selected, so the group can be turned on again.
+    assert tools["validate_recipe"]["groups"] == ["ingestion"]
+    assert tools["validate_recipe"]["category"] == "read_only"
+    assert tools["update_ingestion_source"]["groups"] == ["ingestion"]
+    assert tools["update_ingestion_source"]["category"] == "mutation"
     # A system tool is always served, so it isn't offered for selection.
     assert "get_me" not in tools
     assert "agents" not in response.json()
+    # DataHub Core has no opt-in groups: "all tools" includes ingestion.
+    assert response.json()["optInGroups"] == []
     assert gms.settings_calls == 0
 
 

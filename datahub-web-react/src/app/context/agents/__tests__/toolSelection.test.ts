@@ -11,9 +11,16 @@ import {
 
 import { ToolRefType } from '@types';
 
-const SEARCH: ToolDefinition = { toolId: 'search', label: 'Search', description: '', groups: ['read_metadata'] };
-const TAGS: ToolDefinition = { toolId: 'add_tags', label: 'Add Tags', description: '', groups: ['write_metadata'] };
-const EVALS: ToolDefinition = { toolId: 'list_evals', label: 'List Evals', description: '', groups: ['evals'] };
+const tool = (toolId: string, label: string, groupId: string, optIn = false): ToolDefinition => ({
+    toolId,
+    label,
+    description: '',
+    groups: [groupId],
+    optIn,
+});
+const SEARCH = tool('search', 'Search', 'read_metadata');
+const TAGS = tool('add_tags', 'Add Tags', 'write_metadata');
+const EVALS = tool('list_evals', 'List Evals', 'evals', true);
 const TOOLS = [SEARCH, TAGS];
 const GROUPS = toolGroupOptions(TOOLS);
 const MATERIALIZED = materializeSelection(GROUPS, []);
@@ -35,6 +42,11 @@ describe('isToolSelectionEnabled', () => {
 });
 
 describe('setAllToolsSelection', () => {
+    it('keeps an opt-in group on when including every tool', () => {
+        const next = setAllToolsSelection([group('read_metadata'), group('evals')], TOOLS, MATERIALIZED, false);
+        expect(next).toEqual([...MATERIALIZED, group('evals')]);
+    });
+
     it('excludes every tool but keeps agent refs', () => {
         const next = setAllToolsSelection([agent('urn:li:aiAgent:a')], TOOLS, MATERIALIZED, true);
         expect(next).toEqual([

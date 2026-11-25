@@ -4,6 +4,11 @@
 tool switches, such as TOOLS_IS_MUTATION_ENABLED) that the connected GMS can
 run, whatever the settings select, so a deselected tool can be selected again.
 System tools (get_me) are always served, so they aren't offered.
+``optInGroups`` names the groups an empty ("all tools") selection leaves out,
+so the settings page shows them as opt-in: none on DataHub Core, where the
+``ingestion`` group is served by default like any other. (DataHub Cloud's own
+catalog leaves the field out, and the page then treats ``evals`` and
+``ingestion`` as opt-in.)
 
 It needs no credential, like /health: it holds only the tools' published
 names, descriptions and groups, never settings, metadata or anything about a
@@ -22,11 +27,17 @@ from starlette.responses import JSONResponse
 
 from datahub_core_mcp_tools.gms_server_info import GmsServerInfo
 from datahub_core_mcp_tools.mcp_server import ToolType
-from datahub_core_mcp_tools.tool_groups import SYSTEM_TOOL_IDS, groups_for_tags
+from datahub_core_mcp_tools.tool_groups import (
+    SYSTEM_TOOL_IDS,
+    groups_for_tags,
+    opt_in_group_ids,
+)
 from datahub_core_mcp_tools.version_filter import (
     filter_tools_by_version,
     tool_version_requirement,
 )
+
+from .mcp.policy import IS_OSS
 
 CATALOG_PATH = "/catalog/tools"
 
@@ -39,13 +50,21 @@ def _version(version: Optional[Version]) -> Optional[str]:
     return ".".join(str(part) for part in (version if version[3] else version[:3]))
 
 
+def _category(tool: Tool) -> str:
+    """Read-only or mutation. The readOnlyHint decides: an ingestion tool writes
+    without the MUTATION tag, which would put it in the write group too."""
+    read_only = getattr(tool.annotations, "read_only_hint", None)
+    if read_only is None:
+        read_only = ToolType.MUTATION.value not in (tool.tags or set())
+    return "read_only" if read_only else "mutation"
+
+
 def catalog_entry(tool: Tool) -> dict[str, object]:
-    tags = tool.tags or set()
     entry: dict[str, object] = {
         "toolId": tool.name,
         "description": tool.description or "",
-        "category": "mutation" if ToolType.MUTATION.value in tags else "read_only",
-        "groups": groups_for_tags(tags),
+        "category": _category(tool),
+        "groups": groups_for_tags(tool.tags or set()),
     }
     requirement = tool_version_requirement(tool)
     if requirement is not None:
@@ -70,7 +89,8 @@ def build_catalog(
     return {
         "tools": [
             catalog_entry(tool) for tool in tools if tool.name not in SYSTEM_TOOL_IDS
-        ]
+        ],
+        "optInGroups": opt_in_group_ids(is_oss=IS_OSS),
     }
 
 

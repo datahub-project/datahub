@@ -48,6 +48,22 @@ from .tools.glossary_versioning import (
     is_entity_versioning_enabled,
 )
 from .tools.grep_entities import grep_entities
+from .tools.ingestion_recipes import (
+    get_recipe_schema,
+    list_connector_types,
+    validate_recipe,
+)
+from .tools.ingestion_runs import (
+    list_ingestion_run_entities,
+    list_ingestion_runs,
+    rollback_ingestion_run,
+    run_ingestion,
+)
+from .tools.ingestion_sources import (
+    create_ingestion_source,
+    list_ingestion_sources,
+    update_ingestion_source,
+)
 from .tools.lineage import get_lineage, get_lineage_paths_between
 from .tools.owners import add_owners, remove_owners
 from .tools.save_document import is_save_document_enabled, save_document
@@ -74,6 +90,9 @@ class ToolType(Enum):
     # Read-only tools outside the search surface. Like SEARCH, they belong to the
     # read group, so they are selected by default rather than left ungrouped.
     READ_ONLY = "read_only"
+    # The ingestion group, reads and writes alike: groups stay disjoint, so a
+    # write here carries readOnlyHint false rather than MUTATION.
+    INGESTION = "ingestion"
 
 
 def _tool_fn_label(fn: Callable) -> str:
@@ -179,26 +198,35 @@ def register_tools(
         is_oss: Whether the tools talk to DataHub Core (True) or DataHub Cloud
             (False). Some tools describe themselves differently on each.
         groups: Register only these tool groups (see tool_groups), plus the
-            system tools every server serves. None registers every group.
+            system tools every server serves. None registers every group on
+            DataHub Core; on DataHub Cloud, every group except the opt-in ones
+            (``ingestion``), which are registered only when named.
         schema_field_matcher: How the schema tools rank columns against names
             and keywords on this server; substring matching by default.
 
     Returns:
         The names of the tools registered.
 
-    TOOLS_IS_MUTATION_ENABLED=false registers no tool that changes metadata.
-    Writes are on by default: each one still runs with the caller's own
-    privileges, so it can do only what that caller could do in the UI.
+    TOOLS_IS_MUTATION_ENABLED=false registers no tool that changes metadata,
+    including the ingestion group's writes. Writes are on by default: each one
+    still runs with the caller's own privileges, so it can do only what that
+    caller could do in the UI. INGESTION_TOOLS_ENABLED=false registers no
+    ingestion tool, whatever ``groups`` names.
     """
     # tool_groups builds on ToolType from this module.
-    from .tool_groups import SYSTEM_TOOL_IDS, groups_for_tags
+    from .tool_groups import SYSTEM_TOOL_IDS, default_group_ids, groups_for_tags
 
     mutations_enabled = get_boolean_env_variable(
         "TOOLS_IS_MUTATION_ENABLED", default=True
     )
+    ingestion_enabled = get_boolean_env_variable(
+        "INGESTION_TOOLS_ENABLED", default=True
+    )
+    wanted_groups = set(default_group_ids(is_oss=is_oss) if groups is None else groups)
     logger.info(
         f"Registering DataHub MCP tools (is_oss={is_oss}, groups={groups}, "
-        f"mutations={'on' if mutations_enabled else 'off'})"
+        f"mutations={'on' if mutations_enabled else 'off'}, "
+        f"ingestion={'on' if ingestion_enabled else 'off'})"
     )
     registered: list[str] = []
 
@@ -210,10 +238,15 @@ def register_tools(
         description: Optional[str] = None,
         slow: bool = False,
     ) -> None:
-        if tool_type is ToolType.MUTATION and not mutations_enabled:
+        writes = tool_type is ToolType.MUTATION or (
+            tool_type is ToolType.INGESTION and not tool_annotations(fn).read_only_hint
+        )
+        if writes and not mutations_enabled:
             return
-        if groups is not None and name not in SYSTEM_TOOL_IDS:
-            if not set(groups_for_tags({tool_type.value})) & set(groups):
+        if tool_type is ToolType.INGESTION and not ingestion_enabled:
+            return
+        if name not in SYSTEM_TOOL_IDS:
+            if not set(groups_for_tags({tool_type.value})) & wanted_groups:
                 return
         register_tool(
             mcp_instance,
@@ -317,4 +350,21 @@ def register_tools(
             "Glossary term versioning tools not registered "
             "(ENTITY_VERSIONING_ENABLED is not set or false)"
         )
+    # The ingestion group: by default on Core; on Cloud only when `groups`
+    # names it.
+    add("list_connector_types", list_connector_types, ToolType.INGESTION)
+    add("get_recipe_schema", get_recipe_schema, ToolType.INGESTION)
+    add("validate_recipe", validate_recipe, ToolType.INGESTION)
+    add("list_ingestion_sources", list_ingestion_sources, ToolType.INGESTION)
+    add("create_ingestion_source", create_ingestion_source, ToolType.INGESTION)
+    add("update_ingestion_source", update_ingestion_source, ToolType.INGESTION)
+    # A connection test waits on the executor for up to five minutes.
+    add("run_ingestion", run_ingestion, ToolType.INGESTION, slow=True)
+    add("list_ingestion_runs", list_ingestion_runs, ToolType.INGESTION)
+    add(
+        "list_ingestion_run_entities",
+        list_ingestion_run_entities,
+        ToolType.INGESTION,
+    )
+    add("rollback_ingestion_run", rollback_ingestion_run, ToolType.INGESTION)
     return registered

@@ -387,6 +387,7 @@ Requirements:
 - **(MCP / migrating from `mcp-server-datahub`)** DataHub's MCP tools now ship with DataHub (see Other Notable Changes) and differ from the standalone `mcp-server-datahub` in ways an agent or script may notice:
 
   - Write tools are **on by default** (they were off). Each write still runs with the caller's own privileges.
+  - New **Ingestion** tools are on by default too: they write and check recipes, and create, run and roll back ingestion sources (managing sources needs the **Manage Metadata Ingestion** privilege).
   - `get_entities` returns a fixed, allowlisted set of fields: the entity's identity always, anything else only when named in `fields`. What it withheld is listed in `omittedFields`.
   - `search_documents` requires `query`.
   - `get_lineage_paths_between` reports "no path found" as `pathCount: 0` with `metadata.noPath`, whose `searchComplete` says whether the search was exhaustive.
@@ -394,7 +395,7 @@ Requirements:
   - `enhanced_search` is removed; use `search`.
   - `SAVE_DOCUMENT_RESTRICT_UPDATES` now defaults to `false`: `update_document` may edit any document the caller can edit in DataHub, not only those in the shared folder.
 
-  **Action:** set `TOOLS_IS_MUTATION_ENABLED=false` (or deselect the **Write metadata** tools on the MCP settings page) to keep agents read-only, and `SAVE_DOCUMENT_RESTRICT_UPDATES=true` to keep document edits inside the shared folder. Update agents or prompts that depended on the old `get_entities` output, called `search_documents` without `query`, or called `enhanced_search`. See [Migrating from `mcp-server-datahub`](../features/feature-guides/mcp.md#migrating-from-mcp-server-datahub).
+  **Action:** set `TOOLS_IS_MUTATION_ENABLED=false` (or deselect the **Write metadata** tools and the **Ingestion** group's write tools on the MCP settings page) to keep agents read-only, `INGESTION_TOOLS_ENABLED=false` to remove the ingestion tools, and `SAVE_DOCUMENT_RESTRICT_UPDATES=true` to keep document edits inside the shared folder. Update agents or prompts that depended on the old `get_entities` output, called `search_documents` without `query`, or called `enhanced_search`. See [Migrating from `mcp-server-datahub`](../features/feature-guides/mcp.md#migrating-from-mcp-server-datahub).
 
 - [#21311](https://github.com/datahub-project/datahub/pull/21311) **(Ingestion / Azure AD)** Users disabled in Azure AD are now ingested as suspended and can't sign in to DataHub. User country now comes from `usageLocation` instead of the mobile phone number. An `azure_ad_response_to_username_attr` that isn't a Graph user property now fails the run. **Action:** before upgrading, check that no one who still needs DataHub access is disabled in Azure AD.
 

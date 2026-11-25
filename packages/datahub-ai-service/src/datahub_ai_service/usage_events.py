@@ -57,7 +57,9 @@ def usage_event(call: ToolCall, actor_urn: str, *, timestamp_ms: int) -> dict[st
         "timestamp": timestamp_ms,
         "toolServer": "datahub",
         "toolName": call.tool,
-        "toolGroup": "write" if ToolType.MUTATION.value in tags else "read",
+        "toolGroup": "write"
+        if ToolType.MUTATION.value in tags or call.read_only is False
+        else "read",
         "durationMs": round(call.duration_seconds * 1000),
         "isError": call.result_is_error or call.cancelled,
     }

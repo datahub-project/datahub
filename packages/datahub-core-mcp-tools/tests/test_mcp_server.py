@@ -19,6 +19,19 @@ from datahub_core_mcp_tools.mcp_server import (
     register_tools,
 )
 
+INGESTION_TOOLS = {
+    "list_connector_types",
+    "get_recipe_schema",
+    "validate_recipe",
+    "list_ingestion_sources",
+    "create_ingestion_source",
+    "update_ingestion_source",
+    "run_ingestion",
+    "list_ingestion_runs",
+    "list_ingestion_run_entities",
+    "rollback_ingestion_run",
+}
+
 
 async def _tools(mcp: FastMCP) -> dict[str, Any]:
     async with Client(mcp) as client:
@@ -60,6 +73,7 @@ async def test_registration_is_per_instance() -> None:
         "remove_structured_properties",
         "save_document",
         "update_document",
+        *INGESTION_TOOLS,
     }
     assert await _tools(untouched) == {}
 
@@ -69,8 +83,11 @@ async def test_registering_twice_on_separate_instances_is_independent() -> None:
     register_tools(first, is_oss=True)
     register_tools(second, is_oss=False)
 
+    assert INGESTION_TOOLS <= set(await _tools(first))
+
+    # Only Core's default server serves the ingestion group.
     assert (
-        set(await _tools(first))
+        set(await _tools(first)) - INGESTION_TOOLS
         == set(await _tools(second))
         == {
             "get_me",

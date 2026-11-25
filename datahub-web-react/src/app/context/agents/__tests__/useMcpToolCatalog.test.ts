@@ -58,4 +58,13 @@ describe('useMcpToolCatalog', () => {
         await waitFor(() => expect(result.current.catalog?.tools).toHaveLength(1));
         expect(result.current.failed).toBe(false);
     });
+
+    it("keeps the catalog's opt-in groups, even an empty list", async () => {
+        fetchMock.mockReturnValue(jsonResponse({ ...CATALOG, optInGroups: [] }));
+
+        const { result } = renderHook(() => useMcpToolCatalog());
+
+        await waitFor(() => expect(result.current.catalog).toBeDefined());
+        expect(result.current.catalog?.optInGroups).toEqual([]);
+    });
 });

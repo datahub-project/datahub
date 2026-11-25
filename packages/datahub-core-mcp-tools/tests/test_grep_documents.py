@@ -97,6 +97,21 @@ class FakeBackend:
     def structured_property(self, urn: str) -> dict | None:
         return None
 
+    def ingestion_source(self, urn: str) -> dict | None:
+        return None
+
+    def ingestion_sources(self, variables: dict) -> list:
+        return []
+
+    def ingestion_executions(self, urn: str, start: int, count: int) -> dict | None:
+        return None
+
+    def execution_request(self, urn: str, *, report: bool = True) -> dict | None:
+        return None
+
+    def ingestion_run_rows(self, run_id: str, start: int, count: int) -> list:
+        return []
+
     def description_sources(self, urn: str) -> dict | None:
         return None
 
