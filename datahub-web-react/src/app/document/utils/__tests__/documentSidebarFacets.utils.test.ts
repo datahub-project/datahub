@@ -2,6 +2,7 @@ import {
     ensureSelectedAuthorOptions,
     ensureSelectedOptions,
     filterOutAiAgentAuthors,
+    getMissingSelectedValues,
     isAiAgentUrn,
     isDataPlatformEntity,
     mapFacetToAuthorOptions,
@@ -139,6 +140,26 @@ describe('documentSidebarFacets.utils', () => {
             expect(ensureSelectedAuthorOptions([], ['urn:li:corpuser:jane'])[0].creator.urn).toBe(
                 'urn:li:corpuser:jane',
             );
+        });
+
+        it('names selected values missing from aggregations when they were resolved separately', () => {
+            const domain = { urn: 'urn:li:domain:finance', type: EntityType.Domain };
+            const resolved = new Map([
+                [domain.urn, { value: domain.urn, label: 'Finance', entity: domain }],
+                ['urn:li:corpuser:jane', { value: 'urn:li:corpuser:jane', label: 'Jane Doe' }],
+            ]);
+
+            expect(ensureSelectedOptions([{ value: 'a', label: 'A' }], ['a', domain.urn], resolved)).toEqual([
+                { value: 'a', label: 'A' },
+                { value: domain.urn, label: 'Finance', entity: domain },
+            ]);
+            const [author] = ensureSelectedAuthorOptions([], ['urn:li:corpuser:jane'], resolved);
+            expect(author.label).toBe('Jane Doe');
+            expect(author.creator.displayName).toBe('Jane Doe');
+        });
+
+        it('lists the selected values missing from aggregations', () => {
+            expect(getMissingSelectedValues([{ value: 'a', label: 'A' }], ['a', 'b', 'c'])).toEqual(['b', 'c']);
         });
     });
 });

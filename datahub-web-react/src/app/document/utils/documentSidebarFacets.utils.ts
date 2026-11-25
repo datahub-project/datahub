@@ -93,26 +93,46 @@ export function mapFacetToAuthorOptions(
     return options;
 }
 
-/** Keep selected values in the dropdown even when their agg count is 0 (search parity). */
-export function ensureSelectedOptions(options: FacetSelectOption[], selected: string[]): FacetSelectOption[] {
+/** Selected values that the facet no longer returns (e.g. after a search narrowed the results). */
+export function getMissingSelectedValues(options: FacetSelectOption[], selected: string[]): string[] {
     const present = new Set(options.map((o) => o.value));
-    const missing = selected.filter((value) => !present.has(value)).map((value) => ({ value, label: value }));
+    return selected.filter((value) => !present.has(value));
+}
+
+/**
+ * Keep selected values in the dropdown even when their agg count is 0 (search parity). `resolved` holds options for
+ * values the facet no longer returns, so they keep their names; without one the raw value (a urn) is the label.
+ */
+export function ensureSelectedOptions(
+    options: FacetSelectOption[],
+    selected: string[],
+    resolved?: Map<string, FacetSelectOption>,
+): FacetSelectOption[] {
+    const missing = getMissingSelectedValues(options, selected).map(
+        (value) => resolved?.get(value) ?? { value, label: value },
+    );
     return missing.length === 0 ? options : [...options, ...missing];
 }
 
-export function ensureSelectedAuthorOptions(options: AuthorFacetOption[], selected: string[]): AuthorFacetOption[] {
-    const present = new Set(options.map((o) => o.value));
-    const missing = selected
-        .filter((value) => !present.has(value))
-        .map((value) => ({
+export function ensureSelectedAuthorOptions(
+    options: AuthorFacetOption[],
+    selected: string[],
+    resolved?: Map<string, FacetSelectOption>,
+): AuthorFacetOption[] {
+    const missing = getMissingSelectedValues(options, selected).map((value) => {
+        const resolvedOption = resolved?.get(value);
+        const displayName = resolvedOption?.label ?? value;
+        return {
             value,
-            label: value,
+            label: displayName,
+            entity: resolvedOption?.entity,
             creator: {
                 urn: value,
                 type: EntityType.CorpUser,
-                displayName: value,
+                displayName,
                 pictureLink: null,
             },
-        }));
+        };
+    });
     return missing.length === 0 ? options : [...options, ...missing];
 }

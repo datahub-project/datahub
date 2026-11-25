@@ -14,6 +14,7 @@ import {
 } from '@app/entityV2/shared/tabs/Incident/utils';
 import { EntityType } from '@src/types.generated';
 import dayjs from '@utils/dayjs';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 describe('Utility Functions', () => {
     test('getFilteredTransformedIncidentData should filter and transform incident data', () => {
@@ -86,8 +87,34 @@ describe('Utility Functions', () => {
     });
 
     test('getAssigneeNamesWithAvatarUrl should return names with default image URLs', () => {
-        const assignees = [{ properties: { displayName: 'John Doe' } }];
-        expect(getAssigneeNamesWithAvatarUrl(assignees)).toEqual([{ name: 'John Doe', imageUrl: '' }]);
+        const assignees = [
+            { urn: 'urn:li:corpuser:jdoe', type: EntityType.CorpUser, properties: { displayName: 'John Doe' } },
+        ];
+        expect(getAssigneeNamesWithAvatarUrl(assignees, getTestEntityRegistry())).toEqual([
+            { urn: 'urn:li:corpuser:jdoe', type: EntityType.CorpUser, name: 'John Doe', imageUrl: '' },
+        ]);
+    });
+
+    test('getAssigneeNamesWithAvatarUrl should name group assignees and keep their type', () => {
+        const assignees = [
+            {
+                urn: 'urn:li:corpGroup:owners',
+                type: EntityType.CorpGroup,
+                name: 'owners',
+                properties: null,
+                info: { displayName: 'Owners' },
+            },
+            { urn: 'urn:li:corpGroup:no-display-name', type: EntityType.CorpGroup, name: 'no-display-name' },
+        ];
+        expect(getAssigneeNamesWithAvatarUrl(assignees, getTestEntityRegistry())).toEqual([
+            { urn: 'urn:li:corpGroup:owners', type: EntityType.CorpGroup, name: 'Owners', imageUrl: '' },
+            {
+                urn: 'urn:li:corpGroup:no-display-name',
+                type: EntityType.CorpGroup,
+                name: 'no-display-name',
+                imageUrl: '',
+            },
+        ]);
     });
 
     test('getLinkedAssetsData should return linked asset URNs', () => {

@@ -75,7 +75,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
         if (resolvedAssigneeEntities?.entities?.length) {
             const options = resolvedAssigneeEntities.entities.map((entity: any) => ({
                 value: entity?.urn,
-                label: entity.properties?.displayName,
+                label: entityRegistry.getDisplayName(entity.type, entity),
                 entity,
             }));
             setSelectedAssigneeOptions(options);

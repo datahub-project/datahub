@@ -1,4 +1,4 @@
-import { SimpleSelect } from '@components';
+import { Pill, SimpleSelect } from '@components';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -8,6 +8,8 @@ import { SelectOption } from '@components/components/Select/types';
 import { FORBIDDEN_URN_CHARS_REGEX } from '@app/entityV2/shared/utils';
 import useDebouncedCallback from '@app/sharedV2/hooks/useDebouncedCallback';
 import { useGetRecommendations } from '@app/sharedV2/recommendation';
+import { useGetEntities } from '@app/sharedV2/useGetEntities';
+import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
 import { Entity, EntityType, Tag } from '@types';
@@ -24,6 +26,7 @@ const isValidTagName = (name: string): boolean => name.length > 0 && !FORBIDDEN_
 
 interface TagSelectOption extends SelectOption {
     color?: string | null;
+    isLoading?: boolean;
 }
 
 type Props = {
@@ -75,6 +78,7 @@ export default function TagSelect({
     defaultEntities,
 }: Props) {
     const { t } = useTranslation('shared.tags');
+    const { t: tcf } = useTranslation('common.feedback');
     const [searchText, setSearchText] = useState('');
     const [entityCache, setEntityCache] = useState<Record<string, Entity>>(() =>
         Object.fromEntries((defaultEntities || []).map((entity) => [entity.urn, entity])),
@@ -222,6 +226,25 @@ export default function TagSelect({
         ];
     }, [currentEntities, allowCreateTag, searchText, existingUrns, selectedUrns.length, t]);
 
+    // Pre-selected tags that are neither cached nor passed in (e.g. a saved policy being edited) have to be looked
+    // up: tag urns usually embed a readable name, but not always (e.g. GUID-keyed tags).
+    const unresolvedSelectedUrns = useMemo(
+        () => selectedUrns.filter((urn) => !entityCache[urn]),
+        [selectedUrns, entityCache],
+    );
+    const { entities: resolvedSelectedEntities, loading: resolvingSelected } = useGetEntities(
+        unresolvedSelectedUrns,
+        undefined,
+        { skipLineage: true, skipSiblingsSearch: true },
+    );
+    useEffect(() => {
+        if (!resolvedSelectedEntities.length) return;
+        setEntityCache((prev) => ({
+            ...prev,
+            ...Object.fromEntries(resolvedSelectedEntities.map((entity) => [entity.urn, entity])),
+        }));
+    }, [resolvedSelectedEntities]);
+
     // Build combined options including selected items from cache
     const combinedOptions = useMemo<TagSelectOption[]>(() => {
         const map = new Map<string, TagSelectOption>();
@@ -244,14 +267,16 @@ export default function TagSelect({
                     color: entity.properties?.colorHex,
                     ...entityCache[urn],
                 });
+            } else if (resolvingSelected) {
+                map.set(urn, { value: urn, label: tcf('loading'), isLoading: true });
             } else {
-                // Tag urns embed the tag name: urn:li:tag:<name>
+                // Not found (e.g. deleted): fall back to the name part of the urn, urn:li:tag:<name>
                 map.set(urn, { value: urn, label: urn.replace('urn:li:tag:', '') });
             }
         });
 
         return Array.from(map.values());
-    }, [options, selectedUrns, entityCache]);
+    }, [options, selectedUrns, entityCache, resolvingSelected, tcf]);
 
     // Handle selection with create tag interception
     const handleUpdate = useCallback(
@@ -282,6 +307,17 @@ export default function TagSelect({
 
     const isLoading = searchLoading || recommendationsLoading;
 
+    // A selected tag that is still being looked up gets a loading pill instead of the caller's renderer.
+    const wrappedRenderSelectedValue = useCallback(
+        (option: SelectOption) =>
+            (option as TagSelectOption).isLoading ? (
+                <Pill label={option.label} size="sm" customIconRenderer={() => <StyledSpinner $height={12} />} />
+            ) : (
+                renderSelectedValue(option)
+            ),
+        [renderSelectedValue],
+    );
+
     return (
         <SimpleSelect
             isMultiSelect
@@ -292,7 +328,7 @@ export default function TagSelect({
             options={options}
             combinedSelectedAndSearchOptions={combinedOptions}
             renderCustomOptionText={wrappedRenderOption}
-            renderCustomSelectedValue={renderSelectedValue}
+            renderCustomSelectedValue={wrappedRenderSelectedValue}
             selectLabelProps={{ variant: 'custom' }}
             filterResultsByQuery={filterResultsByQuery}
             isLoading={isLoading}

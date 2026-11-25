@@ -1,5 +1,6 @@
 import Fuse from 'fuse.js';
 
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import {
     INCIDENT_PRIORITY,
     INCIDENT_PRIORITY_NAME_MAP,
@@ -446,11 +447,13 @@ export const getAssigneeWithURN = (assignees) => {
     return assignees?.map((assignee) => assignee.urn);
 };
 
-export const getAssigneeNamesWithAvatarUrl = (assignees) => {
+export const getAssigneeNamesWithAvatarUrl = (assignees, entityRegistry: EntityRegistry) => {
     return assignees?.map((assignee) => {
         return {
             urn: assignee.urn,
-            name: assignee.properties?.displayName || assignee.username,
+            type: assignee.type,
+            // Assignees can be users or groups (OwnerType)
+            name: entityRegistry.getDisplayName(assignee.type, assignee),
             imageUrl: '',
         };
     });

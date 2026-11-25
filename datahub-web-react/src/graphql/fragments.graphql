@@ -1628,6 +1628,38 @@ fragment entityDisplayNameFields on Entity {
             name
         }
     }
+    ... on Role {
+        properties {
+            name
+        }
+    }
+    ... on BusinessAttribute {
+        properties {
+            name
+        }
+    }
+    ... on Metric {
+        id
+        info {
+            name
+        }
+    }
+    ... on SemanticModel {
+        id
+        info {
+            name
+        }
+    }
+    ... on MLModel {
+        properties {
+            propertiesName: name
+        }
+    }
+    ... on MLModelGroup {
+        properties {
+            propertiesName: name
+        }
+    }
     ... on DataPlatformInstance {
         instanceId
     }

@@ -223,11 +223,23 @@ fragment entityPreview on Entity {
         platform {
             ...platformFields
         }
+        properties {
+            propertiesName: name
+        }
     }
     ... on MLModelGroup {
         origin
         platform {
             ...platformFields
+        }
+        properties {
+            propertiesName: name
+        }
+    }
+    ... on StructuredPropertyEntity {
+        definition {
+            displayName
+            qualifiedName
         }
     }
     ... on Tag {
