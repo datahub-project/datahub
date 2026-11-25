@@ -1,5 +1,4 @@
 import logging
-import posixpath
 import re
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -17,7 +16,7 @@ from typing import (
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_entity_to_container, gen_containers
+from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -41,9 +40,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
-)
-from datahub.ingestion.source.data_lake_common.data_lake_utils import (
-    ContainerWUCreator,
 )
 from datahub.ingestion.source.qlik_sense.app_state import (
     AppCheckpoint,
@@ -78,12 +74,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import FileSourceResolver
 from datahub.ingestion.source.qlik_sense.lib_path import (
-    _is_ambiguous_connection,
     _is_ambiguous_lib_path,
-    _lib_connection,
-    _lib_path,
-    _lib_path_parts,
-    _lib_path_segments,
     _named_space,
     _path_has_label,
     _path_key,
@@ -92,11 +83,7 @@ from datahub.ingestion.source.qlik_sense.lib_path import (
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import QlikBaseAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
-from datahub.ingestion.source.qlik_sense.qvd_lineage import (
-    CANONICAL_ABSOLUTE_PATH_RE,
-    AppQvds,
-    canonical_path,
-)
+from datahub.ingestion.source.qlik_sense.qvd_lineage import AppQvds, canonical_path
 from datahub.ingestion.source.qlik_sense.reload_sql import (
     _merged_lineage,
     _reload_files,
@@ -105,7 +92,6 @@ from datahub.ingestion.source.qlik_sense.reload_sql import (
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     BACKTICK_QUOTED_PLATFORMS,
     LIB_PATH_RE,
-    SPACE_SEPARATOR,
     VARIABLE_REFERENCE_RE,
     DataConnectionInfo,
     ParsedScript,
@@ -124,7 +110,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     redact_connection,
     select_list_size,
 )
-from datahub.ingestion.source.qlik_sense.source.store_lineage import StoreLineageMixin
+from datahub.ingestion.source.qlik_sense.source.file_entities import FileEntitiesMixin
 from datahub.ingestion.source.qlik_sense.source_models import (
     PendingStoredFile,
     PendingTableLineage,
@@ -157,9 +143,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    SubTypes,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     DatasetProperties,
@@ -168,10 +151,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageUpstreamType,
     Upstream,
     UpstreamLineage,
-)
-from datahub.metadata.schema_classes import (
-    BrowsePathEntryClass,
-    BrowsePathsV2Class,
 )
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
@@ -203,7 +182,7 @@ logger = logging.getLogger(__name__)
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-class QlikSenseSource(StoreLineageMixin, StatefulIngestionSourceBase, TestableSource):
+class QlikSenseSource(FileEntitiesMixin, StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
     - Qlik Sense Spaces (Cloud) or Streams (Enterprise on Windows) and Apps as Container.
@@ -1280,203 +1259,6 @@ class QlikSenseSource(StoreLineageMixin, StatefulIngestionSourceBase, TestableSo
                 self._deferred_fingerprints[app.id] = fingerprint_wu
             else:
                 yield fingerprint_wu
-
-    def _gen_file_entities(
-        self, paths: Dict[str, str], subtype: DatasetSubTypes
-    ) -> Iterable[MetadataWorkUnit]:
-        # Emitted by every app that touches the file, so it stays while any of
-        # them does; a QVD's schema and lineage come from all of them at the end.
-        # The folders too: each app's checkpoint only keeps what it emitted,
-        # so they are deduplicated per app, not per run.
-        containers = ContainerWUCreator(
-            self.platform, self.config.platform_instance, self.config.env
-        )
-        for urn, path in paths.items():
-            yield from self._gen_file_entity(
-                urn, posixpath.basename(path), subtype, path
-            )
-            # In Folder containers from the server and share (or drive) down,
-            # as the data lake sources place files; without a container the
-            # browse path would be cut at the dots of the server name. A
-            # relative path has no known root to start the folders from.
-            if CANONICAL_ABSOLUTE_PATH_RE.match(path):
-                yield from containers.create_container_hierarchy(path.lstrip("/"), urn)
-            else:
-                yield from self._gen_lib_path_location(urn, path)
-
-    def _ingested_space_id(self, name: str) -> Optional[str]:
-        # Qlik resolves `lib://` space names regardless of case, so a space is
-        # matched that way, and only when no other space shares the name.
-        ids = [
-            space_id
-            for space_id, space_name in self.qlik_api.spaces.items()
-            if space_name.lower() == name.lower()
-        ]
-        if len(ids) != 1 or ids[0] not in self._allowed_space_ids:
-            return None
-        return ids[0]
-
-    def _script_spelling(self, path: str) -> str:
-        """A `lib://` path spelled as the load scripts and stores the run read
-        spell it. Qlik ignores case in these paths and records loads in
-        lowercase, so the same space, connection or folder would otherwise be
-        named in several spellings."""
-        spellings = self._lib_path_spellings()
-        segments = _lib_path_segments(path) or self._voted_segments(path, spellings)
-        if segments is None:
-            return path
-        spelled = []
-        for i, segment in enumerate(segments):
-            votes = spellings.get(_path_key("/".join(segments[: i + 1])))
-            # The most used spelling, and the same one every run on a tie.
-            spelled.append(
-                min(votes, key=lambda name: (-votes[name], name)) if votes else segment
-            )
-        return _lib_path(spelled)
-
-    @staticmethod
-    def _voted_segments(
-        path: str, spellings: Dict[str, Counter[str]]
-    ) -> Optional[List[str]]:
-        """The segments of a path whose space and connection can't be told
-        apart, when exactly one way of splitting them is spelled elsewhere."""
-        match = LIB_PATH_RE.match(path)
-        if not match or "$(" in path:
-            return None
-        connection = match.group("connection")
-        splits = [
-            [connection[:i].strip(), connection[i + 1 :].strip()]
-            for i, char in enumerate(connection)
-            if char == SPACE_SEPARATOR
-        ]
-        known = [split for split in splits if _path_key("/".join(split)) in spellings]
-        if len(known) != 1:
-            return None
-        return [*known[0], *_lib_path_parts(match.group("path"))]
-
-    def _lib_path_spellings(self) -> Dict[str, Counter[str]]:
-        paths = [
-            *self._unmapped_files.values(),
-            *(
-                f"lib://{reference.connection}/{reference.path}"
-                for resolver in self._file_sources_by_app.values()
-                for reference in resolver.references()
-            ),
-            *(
-                file.path
-                for files in self._reload_files.values()
-                for file in files
-                if file.stored
-            ),
-        ]
-        # Reload records are read through the end of the run, and a recorded
-        # spelling can be replaced, so the spellings are built again when the
-        # paths change.
-        if paths != self._script_spellings_built_from:
-            spellings: Dict[str, Counter[str]] = defaultdict(Counter)
-            for path in paths:
-                segments = _lib_path_segments(path) or []
-                for i, segment in enumerate(segments):
-                    spellings[_path_key("/".join(segments[: i + 1]))][segment] += 1
-            self._script_spellings = spellings
-            self._script_spellings_built_from = paths
-        return self._script_spellings
-
-    def _gen_lib_path_location(self, urn: str, path: str) -> Iterable[MetadataWorkUnit]:
-        """Places a file named by its `lib://<space>:<connection>/<path>` in its
-        space, under its connection and folders, as Qlik shows it. A space the
-        run doesn't ingest is named, not linked, so no container is made up for
-        it. Without a browse path, DataHub splits the URN at its dots."""
-        match = LIB_PATH_RE.match(self._script_spelling(path))
-        if not match:
-            return
-        if _is_ambiguous_connection(match.group("connection")):
-            # Placed under no guessed space; the URN and path stay as recorded.
-            return
-        lib_connection = _lib_connection(match.group("connection"))
-        space, connection = lib_connection.space, lib_connection.name
-        if not space:
-            return
-        folders = [
-            part for part in re.split(r"[/\\]", match.group("path"))[:-1] if part
-        ]
-        space_id = self._ingested_space_id(space)
-        if space_id is not None:
-            space_key = self._gen_space_key(space_id)
-            yield from add_entity_to_container(
-                container_key=space_key, entity_type="dataset", entity_urn=urn
-            )
-            space_urn = space_key.as_urn()
-            entries = [BrowsePathEntryClass(id=space_urn, urn=space_urn)]
-        else:
-            entries = [BrowsePathEntryClass(id=space)]
-        entries.extend(BrowsePathEntryClass(id=part) for part in [connection, *folders])
-        yield MetadataChangeProposalWrapper(
-            entityUrn=urn, aspect=BrowsePathsV2Class(path=entries)
-        ).as_workunit()
-
-    def _gen_file_entity(
-        self,
-        urn: str,
-        name: str,
-        subtype: DatasetSubTypes,
-        path: Optional[str] = None,
-    ) -> Iterable[MetadataWorkUnit]:
-        yield self._gen_entity_status_aspect(urn)
-        yield MetadataChangeProposalWrapper(
-            entityUrn=urn,
-            aspect=DatasetProperties(
-                name=name[: -len(QVD_EXTENSION)]
-                if name.lower().endswith(QVD_EXTENSION)
-                else name,
-                qualifiedName=path,
-                customProperties={
-                    Constant.TYPE: subtype,
-                    **({"path": path} if path else {}),
-                },
-            ),
-        ).as_workunit()
-        dpi_aspect = self._gen_dataplatform_instance_aspect(urn)
-        if dpi_aspect:
-            yield dpi_aspect
-        yield MetadataChangeProposalWrapper(
-            entityUrn=urn,
-            aspect=SubTypes(typeNames=[subtype]),
-        ).as_workunit()
-
-    def _gen_unmapped_file_entities(self) -> Iterable[MetadataWorkUnit]:
-        for file_urn, kept_urns in sorted(self._kept_storage_file_stores.items()):
-            yield from self._gen_stored_file_lineage(file_urn, kept_urns)
-        # A reader whose last read is kept linked the file then. Its checkpoint
-        # is looked up again rather than every app's reads held in memory. A
-        # writer's entities hold the file too, so only recorded reads count.
-        unread = set(self._unmapped_file_stores) - self._linked_unmapped_files
-        for app_id in sorted(self._kept_app_ids) if unread else []:
-            previous = self.app_state.previous(app_id)
-            if previous is not None:
-                self._linked_unmapped_files.update(
-                    unread.intersection(previous.read_unmapped_file_urns)
-                )
-        for file_urn, stores in sorted(self._unmapped_file_stores.items()):
-            if file_urn not in self._linked_unmapped_files:
-                self.reporter.unread_stored_files.append(self._unmapped_files[file_urn])
-                continue
-            table_urns: List[str] = []
-            for app_id, urns in stores.items():
-                self._app_end_of_run_urns[app_id].add(file_urn)
-                table_urns.extend(urn for urn in urns if urn not in table_urns)
-            yield from self._gen_stored_file_lineage(file_urn, table_urns)
-        paths = {urn: self._unmapped_files[urn] for urn in self._linked_unmapped_files}
-        qvds = {
-            urn: path
-            for urn, path in paths.items()
-            if path.lower().endswith(QVD_EXTENSION)
-        }
-        yield from self._gen_file_entities(qvds, DatasetSubTypes.QLIK_QVD)
-        yield from self._gen_file_entities(
-            {urn: path for urn, path in paths.items() if urn not in qvds},
-            DatasetSubTypes.QLIK_DATASET,
-        )
 
     def _record_reload_files(
         self, app_id: str, statements: List[ReloadStatement]
