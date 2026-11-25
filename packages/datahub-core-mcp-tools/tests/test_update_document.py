@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 from datahub.configuration.common import GraphError, OperationalError
-from datahub.metadata.schema_classes import DocumentSettingsClass
+from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk.document import Document
 from fastmcp import Client, FastMCP
@@ -81,13 +81,6 @@ def catalog(monkeypatch: pytest.MonkeyPatch) -> Iterator[Catalog]:
         yield catalog
 
 
-def _kept_in_place(doc: Document) -> None:
-    assert str(doc.urn) == DOC
-    assert doc.parent_document == TEAM_FOLDER
-    assert doc.show_in_global_context is False
-    assert [str(o.owner) for o in doc.owners or []] == ["urn:li:corpuser:alice"]
-
-
 def test_anchored_edits_go_through_gms_content_write(catalog: Catalog) -> None:
     result = update_document(
         urn=DOC,
@@ -117,6 +110,8 @@ def test_anchored_edits_go_through_gms_content_write(catalog: Catalog) -> None:
         ({"old_str": "missing", "new_str": "x"}, "not found"),
         ({"old_str": "ARR", "new_str": "x"}, "matches 3 places"),
         ({"new_str": "x"}, "no old_str"),
+        # Without new_str the edit would delete the anchored text.
+        ({"old_str": "ARR is"}, "no new_str"),
     ],
 )
 def test_an_edit_that_does_not_anchor_writes_nothing(
@@ -151,23 +146,73 @@ def test_append_content(catalog: Catalog) -> None:
     assert catalog.written_body() == BODY + "\n## FAQ"
 
 
-def test_update_properties_leaves_the_body(catalog: Catalog) -> None:
+def test_update_properties_writes_only_the_fields_it_changes(
+    catalog: Catalog,
+) -> None:
     result = update_document(
         urn=DOC,
         command="update_properties",
-        properties={"title": "ARR", "topics": ["finance"], "status": "PUBLISHED"},
+        properties={
+            "title": "ARR",
+            "topics": ["finance", " finance "],
+            "related_documents": [OTHER_FOLDER],
+            "status": "PUBLISHED",
+        },
     )
 
-    [doc] = catalog.upserts
-    assert (doc.title, doc.text, doc.status) == ("ARR", BODY, "PUBLISHED")
-    assert [str(t.tag) for t in doc.tags or []] == ["urn:li:tag:finance"]
-    assert doc.related_assets == [ASSET]
-    _kept_in_place(doc)
-    assert result["changed"] == ["title", "topics", "status=PUBLISHED"]
-    settings = doc._get_aspect(DocumentSettingsClass)
-    assert settings is not None and settings.lastModified is not None
-    assert settings.lastModified.actor == AUTHOR_URN
-    assert catalog.writes == []
+    # Field-scoped writes only: an upsert of the document as read would write
+    # back its body, parent and links, reverting a concurrent edit of them.
+    assert catalog.upserts == []
+    assert [(w["operation_name"], w["variables"]["input"]) for w in catalog.writes] == [
+        ("updateDocumentContents", {"urn": DOC, "title": "ARR"}),
+        (
+            "updateDocumentRelatedEntities",
+            {"urn": DOC, "relatedDocuments": [OTHER_FOLDER]},
+        ),
+        ("updateDocumentStatus", {"urn": DOC, "state": "PUBLISHED"}),
+    ]
+    [mcp] = [c.args[0] for c in catalog.client._graph.emit_mcp.call_args_list]
+    assert mcp.entityUrn == DOC
+    assert mcp.aspect == GlobalTagsClass(
+        tags=[TagAssociationClass(tag="urn:li:tag:finance")]
+    )
+    assert result["changed"] == [
+        "title",
+        "topics",
+        "related_documents",
+        "status=PUBLISHED",
+    ]
+
+
+def test_an_empty_topics_list_removes_the_topics(catalog: Catalog) -> None:
+    update_document(urn=DOC, command="update_properties", properties={"topics": []})
+
+    [mcp] = [c.args[0] for c in catalog.client._graph.emit_mcp.call_args_list]
+    assert mcp.aspect == GlobalTagsClass(tags=[])
+    assert catalog.writes == [] and catalog.upserts == []
+
+
+def test_a_properties_update_that_fails_partway_says_what_was_applied(
+    catalog: Catalog,
+) -> None:
+    def graphql(**kwargs: object) -> dict:
+        if kwargs["operation_name"] == "updateDocumentStatus":
+            raise GraphError([{"message": "Unauthorized to perform this action."}])
+        catalog.writes.append(kwargs)
+        return {str(kwargs["operation_name"]): True}
+
+    catalog.client._graph.execute_graphql.side_effect = graphql
+
+    with pytest.raises(ToolError) as raised:
+        update_document(
+            urn=DOC,
+            command="update_properties",
+            properties={"title": "ARR", "status": "PUBLISHED"},
+        )
+
+    assert "Do not retry" in str(raised.value)
+    assert "Already applied before this failure: title." in str(raised.value)
+    assert [w["operation_name"] for w in catalog.writes] == ["updateDocumentContents"]
 
 
 def test_move_goes_through_movedocument_and_writes_nothing_else(
@@ -213,6 +258,17 @@ def test_a_refused_move_changes_nothing(catalog: Catalog) -> None:
             {"command": "update_properties", "properties": {"status": "DRAFT"}},
             "PUBLISHED",
         ),
+        (
+            {"command": "update_properties", "properties": {"title": " "}},
+            "title cannot be empty",
+        ),
+        (
+            {
+                "command": "update_properties",
+                "properties": {"title": "ARR", "related_assets": ["orders"]},
+            },
+            "must be a DataHub URN",
+        ),
     ],
 )
 def test_arguments_that_do_not_fit_the_command_write_nothing(
@@ -242,22 +298,19 @@ def test_a_failed_read_changes_nothing(catalog: Catalog) -> None:
     assert catalog.upserts == [] and catalog.writes == []
 
 
-def test_a_refused_properties_update_is_written_once_in_its_own_folder(
-    catalog: Catalog,
-) -> None:
+def test_a_refused_topics_update_is_reported_as_refused(catalog: Catalog) -> None:
     response = requests.Response()
     response.status_code = 403
     error = OperationalError("Unable to emit", {"message": "Unauthorized"})
     error.__cause__ = requests.HTTPError(response=response)
-    catalog.client.entities.upsert.side_effect = error
+    catalog.client._graph.emit_mcp.side_effect = error
 
-    with pytest.raises(ToolError, match="rejected updating .*: Unauthorized"):
+    with pytest.raises(ToolError, match="rejected .*updating the topics.*Unauthorized"):
         update_document(
-            urn=DOC, command="update_properties", properties={"title": "ARR"}
+            urn=DOC, command="update_properties", properties={"topics": ["finance"]}
         )
 
-    [doc] = catalog.upserts
-    _kept_in_place(doc)
+    assert catalog.upserts == [] and catalog.writes == []
 
 
 def _content_write_fails(catalog: Catalog, error: Exception) -> None:

@@ -10,9 +10,9 @@ entire document for each edit. update_document takes a ``command``:
 - ``move``: put the document (and what is nested under it) under another document
 """
 
-from typing import Dict, FrozenSet, List, Literal, Optional, Tuple, cast
+from typing import Callable, Dict, FrozenSet, List, Literal, Optional, Tuple, cast
 
-from datahub.errors import SdkUsageError
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata import schema_classes as models
 from datahub.sdk.document import Document
 from fastmcp.exceptions import ToolError
@@ -34,14 +34,12 @@ from .save_document import (
     CONFIGURATION_EDIT_ERROR,
     DOCUMENT_PREFIX,
     ROOT_PARENT_URN,
-    drop_certification,
-    get_author,
     gms_error_reason,
     in_shared_folder,
     is_configuration_document,
     require_document_urn,
+    require_urns,
     restrict_updates_to_shared_folder,
-    stamp_settings,
     write_document,
 )
 
@@ -176,10 +174,16 @@ def _apply_content_edits(text: str, edits: List[ContentEdit]) -> str:
     result = text
     for index, edit in enumerate(edits):
         old_str = edit.get("old_str", "")
-        new_str = edit.get("new_str", "")
+        new_str = edit.get("new_str")
         replace_all = bool(edit.get("replace_all_matches", False))
         if not old_str:
             raise ToolError(f"{TOOL}: edit #{index} has no old_str to anchor it.")
+        # A missing new_str would delete old_str; deleting takes new_str="".
+        if new_str is None:
+            raise ToolError(
+                f"{TOOL}: edit #{index} has no new_str. Pass the replacement text, "
+                'or new_str="" to delete old_str.'
+            )
         matches = result.count(old_str)
         if matches == 0:
             raise ToolError(
@@ -200,37 +204,111 @@ def _apply_content_edits(text: str, edits: List[ContentEdit]) -> str:
     return result
 
 
-def _apply_properties(
-    doc: Document, properties: DocumentProperties, actor: str
-) -> List[str]:
-    changed: List[str] = []
-    if properties.get("title") is not None:
-        doc.set_title(properties["title"])
-        changed.append("title")
-    if properties.get("topics") is not None:
-        doc.set_tags(
-            [f"urn:li:tag:{t.strip()}" for t in properties["topics"] if t.strip()]
+# One write of update_properties: the fields it changes (for the result) and
+# the write itself.
+_PropertyWrite = Tuple[List[str], Callable[[], None]]
+
+
+def _property_writes(urn: str, properties: DocumentProperties) -> List[_PropertyWrite]:
+    """The writes ``properties`` needs, checked before any of them runs.
+
+    Each goes through a field-scoped write: GMS's document mutations rewrite
+    documentInfo from its stored value, and topics are their own aspect. An
+    upsert of the document as read would write back its body, parent and links
+    too, reverting a concurrent edit of them.
+    """
+    hint = f"Check {urn} with get_entities; the same properties can be set again."
+    writes: List[_PropertyWrite] = []
+
+    def mutation(fields: List[str], operation: str, values: Dict[str, object]) -> None:
+        writes.append(
+            (
+                fields,
+                lambda: _document_mutation(
+                    operation,
+                    {"input": {"urn": urn, **values}},
+                    failure=f"could not update the {', '.join(fields)} of '{urn}'",
+                    unknown_outcome_hint=hint,
+                ),
+            )
         )
-        changed.append("topics")
-    if properties.get("related_documents") is not None:
-        doc.set_related_documents(properties["related_documents"])
-        changed.append("related_documents")
-    if properties.get("related_assets") is not None:
-        doc.set_related_assets(properties["related_assets"])
-        changed.append("related_assets")
+
+    title = properties.get("title")
+    if title is not None:
+        if not title.strip():
+            raise ToolError(f"{TOOL}: properties.title cannot be empty.")
+        mutation(["title"], "updateDocumentContents", {"title": title})
+
+    topics = properties.get("topics")
+    if topics is not None:
+        tag_urns = dict.fromkeys(f"urn:li:tag:{t.strip()}" for t in topics if t.strip())
+        tags = models.GlobalTagsClass(
+            tags=[models.TagAssociationClass(tag=tag) for tag in tag_urns]
+        )
+        writes.append(
+            (
+                ["topics"],
+                lambda: write_document(
+                    lambda: graphql_helpers.get_datahub_client()._graph.emit_mcp(
+                        MetadataChangeProposalWrapper(entityUrn=urn, aspect=tags)
+                    ),
+                    what=f"{TOOL}: updating the topics of '{urn}'",
+                    unknown_outcome_hint=hint,
+                ),
+            )
+        )
+
+    related_fields: List[str] = []
+    related: Dict[str, object] = {}
+    related_documents = require_urns(
+        properties.get("related_documents"),
+        tool=TOOL,
+        param="properties.related_documents",
+        prefix=DOCUMENT_PREFIX,
+    )
+    if related_documents is not None:
+        if urn in related_documents:
+            raise ToolError(f"{TOOL}: a document cannot be related to itself.")
+        related["relatedDocuments"] = related_documents
+        related_fields.append("related_documents")
+    related_assets = require_urns(
+        properties.get("related_assets"), tool=TOOL, param="properties.related_assets"
+    )
+    if related_assets is not None:
+        related["relatedAssets"] = related_assets
+        related_fields.append("related_assets")
+    if related:
+        mutation(related_fields, "updateDocumentRelatedEntities", related)
+
     status = properties.get("status")
     if status is not None:
         if status not in ("PUBLISHED", "UNPUBLISHED"):
             raise ToolError(
                 f"{TOOL}: status must be 'PUBLISHED' or 'UNPUBLISHED', got {status!r}."
             )
-        doc.set_status(status)
-        # SDKs that stamp the lifecycle stage on a status change may not take an
-        # actor: attribute the change to the caller when a stamp was written.
-        lifecycle = doc._get_aspect(models.StatusClass)
-        if lifecycle is not None and lifecycle.lifecycleLastUpdated:
-            lifecycle.lifecycleLastUpdated.actor = actor
-        changed.append(f"status={status}")
+        mutation([f"status={status}"], "updateDocumentStatus", {"state": status})
+    return writes
+
+
+def _update_properties(urn: str, properties: DocumentProperties) -> List[str]:
+    """Run the writes ``properties`` needs; return what changed."""
+    writes = _property_writes(urn, properties)
+    if not writes:
+        raise ToolError(
+            f"{TOOL}: properties has no recognized field. Supported: title, "
+            "topics, related_documents, related_assets, status."
+        )
+    changed: List[str] = []
+    for fields, write in writes:
+        try:
+            write()
+        except ToolError as e:
+            if not changed:
+                raise
+            raise ToolError(
+                f"{e} Already applied before this failure: {', '.join(changed)}."
+            ) from e
+        changed.extend(fields)
     return changed
 
 
@@ -459,28 +537,8 @@ def update_document(
             "message": f"Updated document via {command}: {change}",
         }
 
-    # Read before any edit, so every audit stamp written below names the caller.
-    actor = (get_author() or {}).get("urn") or "urn:li:corpuser:datahub"
     assert properties is not None
-    try:
-        changed = _apply_properties(doc, properties, actor)
-    except SdkUsageError as e:
-        raise ToolError(f"{TOOL}: {e}") from e
-    if not changed:
-        raise ToolError(
-            f"{TOOL}: properties has no recognized field. Supported: title, "
-            "topics, related_documents, related_assets, status."
-        )
-
-    stamp_settings(doc, actor)
-    drop_certification(doc)
-    write_document(
-        lambda: client.entities.upsert(doc),
-        what=f"updating {document_urn}",
-        unknown_outcome_hint=(
-            f"Check {document_urn} with get_entities before calling {TOOL} again."
-        ),
-    )
+    changed = _update_properties(document_urn, properties)
     logger.info(f"update_document({command}) {document_urn}: {changed}")
     return {
         "success": True,

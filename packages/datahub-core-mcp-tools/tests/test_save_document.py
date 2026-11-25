@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
-from datahub.configuration.common import OperationalError
+from datahub.configuration.common import GraphError, OperationalError
 from datahub.metadata import schema_classes as models
 from datahub.sdk.document import Document
 from fastmcp import Client, FastMCP
@@ -244,7 +244,7 @@ def test_a_new_document_under_a_deleted_parent_is_refused(env: None) -> None:
         ({"content": ""}, "`content` cannot be empty"),
         ({"parent_urn": "urn:li:document:gone"}, "does not exist"),
         ({"parent_urn": "team-runbooks"}, "must be a document URN"),
-        ({"urn": EXISTING, "parent_urn": TEAM_FOLDER}, "only be set when creating"),
+        ({"urn": EXISTING, "parent_urn": ROOT_PARENT_URN}, "only be set when creating"),
         ({"urn": "team-doc"}, "must be a document URN"),
         ({"related_documents": [ASSET]}, "must be a document URN"),
         ({"related_assets": ["orders"]}, "must be a DataHub URN"),
@@ -273,6 +273,78 @@ def test_a_create_without_a_reply_says_how_to_retry_without_a_duplicate(
     [doc] = catalog.upserts
     assert "may or may not have been applied" in str(raised.value)
     assert f"urn={str(doc.urn)!r}" in str(raised.value)
+
+
+def test_a_create_under_a_parent_is_retried_under_that_parent(env: None) -> None:
+    catalog = Catalog(
+        {TEAM_FOLDER: _existing_document(id="team-runbooks", parent_document=None)},
+        None,
+    )
+    catalog.client.entities.upsert.side_effect = requests.ConnectionError("reset")
+    with with_datahub_client(catalog.client):
+        with pytest.raises(ToolError) as raised:
+            save_document(
+                document_type="Note", title="A", content="a", parent_urn=TEAM_FOLDER
+            )
+        [doc] = catalog.upserts
+        new_urn = str(doc.urn)
+        assert f"urn={new_urn!r} and parent_urn={TEAM_FOLDER!r}" in str(raised.value)
+
+        # The first write never landed: the retry creates it under the same parent,
+        # not in the shared folder.
+        catalog.client.entities.upsert.side_effect = None
+        result = save_document(
+            urn=new_urn,
+            document_type="Note",
+            title="A",
+            content="a",
+            parent_urn=TEAM_FOLDER,
+        )
+
+    assert result["message"] == "Successfully created document: A"
+    assert catalog.upserts[-1].parent_document == TEAM_FOLDER
+
+
+def test_a_retry_whose_create_landed_updates_it_in_place(catalog: Catalog) -> None:
+    result = save_document(
+        urn=EXISTING,
+        document_type="Note",
+        title="T",
+        content="C",
+        parent_urn=TEAM_FOLDER,
+    )
+
+    [doc] = catalog.upserts
+    assert result["message"] == "Successfully updated document: T"
+    assert doc.parent_document == TEAM_FOLDER
+
+
+@pytest.mark.parametrize(
+    ("error", "outcome"),
+    [
+        # GMS's answer recorded only on the error, with no HTTP error chained.
+        (
+            OperationalError("Unable to emit", {"message": "Bad", "status": 422}),
+            "rejected",
+        ),
+        (GraphError([{"message": "Unauthorized to perform this action."}]), "rejected"),
+        (
+            OperationalError("Unable to emit", {"message": "Connection reset"}),
+            "may or may not have been applied",
+        ),
+        (
+            OperationalError("Unable to emit", {"message": "Down", "status": 503}),
+            "may or may not have been applied",
+        ),
+    ],
+)
+def test_a_refusal_is_told_apart_from_no_reply(
+    catalog: Catalog, error: Exception, outcome: str
+) -> None:
+    catalog.client.entities.upsert.side_effect = error
+
+    with pytest.raises(ToolError, match=outcome):
+        save_document(urn=EXISTING, document_type="Note", title="T", content="C")
 
 
 # ---------------------------------------------------------------------------
@@ -330,6 +402,40 @@ def test_an_update_moves_a_stored_semantic_text_to_the_new_body(env: None) -> No
     [doc] = catalog.upserts
     semantic = doc._get_aspect(models.SemanticTextClass)
     assert semantic is not None and semantic.text == "New"
+
+
+def test_an_update_does_not_send_back_the_old_bodys_embeddings(env: None) -> None:
+    stored = _existing_document()
+    stored._set_aspect(models.SemanticContentClass(embeddings={}))
+    catalog = Catalog({EXISTING: stored}, None)
+    with with_datahub_client(catalog.client):
+        save_document(urn=EXISTING, document_type="Note", title="T", content="New")
+
+    [doc] = catalog.upserts
+    assert doc._get_aspect(models.SemanticContentClass) is None
+
+
+def test_a_folder_is_not_saved_over(env: None) -> None:
+    folder = _existing_document(subtype="Folder")
+    catalog = Catalog({EXISTING: folder}, None)
+    with with_datahub_client(catalog.client):
+        with pytest.raises(ToolError, match="is a folder"):
+            save_document(urn=EXISTING, document_type="Note", title="T", content="C")
+
+    # Saving it as a Note would drop it, and what is under it, from the sidebar.
+    assert catalog.upserts == []
+
+
+def test_an_empty_topics_list_removes_the_topics(env: None) -> None:
+    catalog = Catalog({EXISTING: _existing_document(tags=["urn:li:tag:old"])}, None)
+    with with_datahub_client(catalog.client):
+        save_document(
+            urn=EXISTING, document_type="Note", title="T", content="C", topics=[]
+        )
+
+    [doc] = catalog.upserts
+    tags = doc._get_aspect(models.GlobalTagsClass)
+    assert tags is not None and tags.tags == []
 
 
 def test_an_update_replaces_the_lists_it_is_given(catalog: Catalog) -> None:
@@ -428,6 +534,18 @@ def test_restricted_updates_stay_in_the_shared_folder(
 
     save_document(urn=inside, document_type="Note", title="T", content="C")
     assert [str(d.urn) for d in catalog.upserts] == [inside]
+
+    # A new document is created only inside the shared folder too: outside it,
+    # the guardrail would refuse every later update or move of it.
+    catalog.documents[TEAM_FOLDER] = _existing_document(
+        id="team-runbooks", parent_document=None
+    )
+    with pytest.raises(ToolError, match="only be created within the shared"):
+        save_document(
+            document_type="Note", title="T", content="C", parent_urn=TEAM_FOLDER
+        )
+    save_document(document_type="Note", title="T", content="C", parent_urn=inside)
+    assert catalog.upserts[-1].parent_document == inside
 
 
 def test_a_locked_field_is_refused_before_approval_and_by_the_tool(

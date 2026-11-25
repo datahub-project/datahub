@@ -19,7 +19,7 @@ from datetime import datetime
 from typing import Callable, Dict, FrozenSet, List, Literal, Optional, cast
 
 from datahub.cli.env_utils import get_boolean_env_variable
-from datahub.configuration.common import GraphError
+from datahub.configuration.common import GraphError, OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
 from datahub.metadata import schema_classes as models
@@ -45,6 +45,7 @@ DOCUMENT_PREFIX = "urn:li:document:"
 # change without a migration.
 ROOT_PARENT_DOC_ID = "__system_shared_documents"
 ROOT_PARENT_URN = f"{DOCUMENT_PREFIX}{ROOT_PARENT_DOC_ID}"
+FOLDER_SUBTYPE = "Folder"
 
 DocumentType = Literal[
     "Insight",
@@ -177,13 +178,32 @@ def write_document(
     try:
         action()
     except Exception as e:
-        status = graphql_helpers.http_status(e)
-        if status is not None and status < 500:
+        status = _gms_status(e)
+        # Any other GraphError carries GMS's errors: GMS answered, and refused.
+        refused = (
+            status < 500
+            if status is not None
+            else isinstance(e, GraphError) and not isinstance(e, OperationalError)
+        )
+        if refused:
             raise ToolError(f"DataHub rejected {what}: {gms_error_reason(e)}") from e
         raise ToolError(
             f"{what} got no reply from DataHub ({status or type(e).__name__}), so it "
             f"may or may not have been applied. {unknown_outcome_hint}"
         ) from e
+
+
+def _gms_status(error: Exception) -> Optional[int]:
+    """The HTTP status GMS answered ``error`` with; None when no answer arrived.
+
+    The emitter records it in ``OperationalError.info`` as well as on the chained
+    HTTP error. An ``OperationalError`` with neither wraps a connection error.
+    """
+    status = graphql_helpers.http_status(error)
+    if status is None and isinstance(error, OperationalError):
+        info_status = error.info.get("status")
+        status = info_status if isinstance(info_status, int) else None
+    return status
 
 
 def drop_certification(doc: Document) -> None:
@@ -246,7 +266,8 @@ def in_shared_folder(urn: str) -> Optional[str]:
     try:
         info = _document_info(urn)
         if info is None:
-            # Not stored yet: save_document creates it in the shared folder.
+            # Not stored yet: save_document creates it in the shared folder, or
+            # under a parent_urn that is checked on its own.
             return None
         visited: set[str] = set()
         parent = _parent_of(info)
@@ -266,6 +287,11 @@ def in_shared_folder(urn: str) -> Optional[str]:
         f"Document '{urn}' is not in the shared documents folder. Only documents in "
         "this folder can be updated."
     )
+
+
+def is_folder(doc: Document) -> bool:
+    subtypes = doc._get_aspect(models.SubTypesClass)
+    return subtypes is not None and FOLDER_SUBTYPE in subtypes.typeNames
 
 
 def is_configuration_document(urn: str, existing: Optional[Document] = None) -> bool:
@@ -322,7 +348,7 @@ def _ensure_folder(
         id=doc_id,
         title=title,
         text=description,
-        subtype="Folder",
+        subtype=FOLDER_SUBTYPE,
         parent_document=parent_urn,
         show_in_global_context=True,
     )
@@ -369,6 +395,25 @@ def _fields_saved(
     return always | frozenset(f for f, value in optional.items() if value is not None)
 
 
+def _require_live_parent(parent_urn: str, *, tool: str) -> None:
+    """Refuse a missing or soft-deleted parent for a new document.
+
+    Either would hide the new document from the sidebar; GMS's createDocument
+    refuses both. Unlike the shared folder, the caller's parent is not restored:
+    undeleting it would not bring back the subtree its deletion removed.
+    """
+    parent_aspects = get_read_backend().aspects(parent_urn)
+    if parent_aspects is None:
+        raise ToolError(f"{tool}: parent document '{parent_urn}' does not exist.")
+    parent_status = parent_aspects.get("status")
+    if isinstance(parent_status, dict) and parent_status.get("removed") is True:
+        raise ToolError(
+            f"{tool}: parent document '{parent_urn}' is deleted, so a document "
+            "under it would be hidden. Pick another parent_urn (find one with "
+            "search_documents) or leave it out to use the shared folder."
+        )
+
+
 def _validate_save_document(args: Dict[str, object]) -> Optional[str]:
     """Pre-approval check: refuse a locked update before a human approves it."""
     urn = args.get("urn")
@@ -384,7 +429,7 @@ def _validate_save_document(args: Dict[str, object]) -> Optional[str]:
     )
 
 
-def _require_urns(
+def require_urns(
     values: Optional[List[str]], *, tool: str, param: str, prefix: str = ""
 ) -> Optional[List[str]]:
     if values is None:
@@ -459,7 +504,8 @@ def save_document(
     - If `urn` IS provided: Updates the EXISTING document with that URN in place. The title,
       content and type are replaced. Owners, status, visibility and the parent are kept, as
       are topics and related links you do not pass. (A `urn` that does not exist yet is
-      created in the shared folder.)
+      created under `parent_urn`, or in the shared folder.) Folders cannot be updated
+      with this tool.
 
     REQUIRED PARAMETERS:
 
@@ -487,6 +533,7 @@ def save_document(
     topics: List of topic tags for categorization and discovery.
         - These become tags in DataHub that users can click to find related documents
         - Example: ["data-quality", "customer-data", "Q4-2024"]
+        - On an update, the list replaces the topics; an empty list removes them
 
     related_documents: URNs of related documents.
         - Example: ["urn:li:document:shared-3f2a..."]
@@ -497,7 +544,9 @@ def save_document(
 
     parent_urn: URN of an existing document to create this document under.
         - Example: "urn:li:document:team-runbooks"
-        - Only for new documents; defaults to the shared folder
+        - Only for new documents; defaults to the shared folder. With `urn`, it must
+          be the document's current parent (as when retrying a create). To move a
+          document, use update_document with command="move".
 
     Returns:
         Dictionary with:
@@ -533,47 +582,41 @@ def save_document(
         raise ToolError(f"{tool}: `title` cannot be empty.")
     if not content or not content.strip():
         raise ToolError(f"{tool}: `content` cannot be empty.")
-    related_documents = _require_urns(
+    related_documents = require_urns(
         related_documents, tool=tool, param="related_documents", prefix=DOCUMENT_PREFIX
     )
-    related_assets = _require_urns(related_assets, tool=tool, param="related_assets")
+    related_assets = require_urns(related_assets, tool=tool, param="related_assets")
+    # An empty list replaces the topics with none, as the other lists do.
     tag_urns = (
-        [f"urn:li:tag:{t.strip()}" for t in topics if t.strip()] if topics else None
+        [f"urn:li:tag:{t.strip()}" for t in topics if t.strip()]
+        if topics is not None
+        else None
     )
 
     backend = get_read_backend()
     client = graphql_helpers.get_datahub_client()
     document_urn = require_document_urn(urn, tool=tool, param="urn") if urn else None
     if parent_urn is not None:
-        # GMS checks moves for loops (a document under its own descendant) only in
-        # moveDocument, so an existing document is never re-parented here.
-        if document_urn is not None:
-            raise ToolError(
-                f"{tool}: `parent_urn` can only be set when creating a document."
-            )
         parent_urn = require_document_urn(parent_urn, tool=tool, param="parent_urn")
-        # A missing or soft-deleted parent would hide the new document from the
-        # sidebar; GMS's createDocument refuses both. Unlike the shared folder, the
-        # caller's parent is not restored: undeleting it would not bring back the
-        # subtree its deletion removed.
-        parent_aspects = backend.aspects(parent_urn)
-        if parent_aspects is None:
-            raise ToolError(f"{tool}: parent document '{parent_urn}' does not exist.")
-        parent_status = parent_aspects.get("status")
-        if isinstance(parent_status, dict) and parent_status.get("removed") is True:
-            raise ToolError(
-                f"{tool}: parent document '{parent_urn}' is deleted, so a document "
-                "under it would be hidden. Pick another parent_urn (find one with "
-                "search_documents) or leave it out to use the shared folder."
-            )
 
-    if document_urn is not None:
-        if is_configuration_document(document_urn):
-            raise ToolError(CONFIGURATION_EDIT_ERROR)
-        if restrict_updates_to_shared_folder():
+    if document_urn is not None and is_configuration_document(document_urn):
+        raise ToolError(CONFIGURATION_EDIT_ERROR)
+    if restrict_updates_to_shared_folder():
+        if document_urn is not None:
             refusal = in_shared_folder(document_urn)
             if refusal is not None:
                 raise ToolError(refusal)
+        # A new document outside the shared folder could not be updated or moved
+        # afterwards under this guardrail.
+        if (
+            parent_urn is not None
+            and parent_urn != ROOT_PARENT_URN
+            and in_shared_folder(parent_urn) is not None
+        ):
+            raise ToolError(
+                f"Cannot create a document under '{parent_urn}': documents can only "
+                "be created within the shared documents folder."
+            )
     author = get_author()
     author_urn = (author or {}).get("urn")
 
@@ -597,6 +640,21 @@ def save_document(
         if fetched is not None and not isinstance(fetched, Document):
             raise ToolError(f"{tool}: '{document_urn}' is not a document.")
         existing = fetched
+
+    if parent_urn is not None:
+        if existing is not None:
+            # GMS checks moves for loops (a document under its own descendant) only
+            # in moveDocument, so an existing document is never re-parented here.
+            # Its own parent is accepted, so retrying a create that did land is an
+            # update in place.
+            if existing.parent_document != parent_urn:
+                raise ToolError(
+                    f"{tool}: `parent_urn` can only be set when creating a document "
+                    f"(or to its current parent); '{document_urn}' already exists. "
+                    "Move it with update_document(command='move')."
+                )
+        else:
+            _require_live_parent(parent_urn, tool=tool)
 
     try:
         doc, document_urn, action, hint = _prepare(
@@ -654,6 +712,14 @@ def _prepare(
         assert document_urn is not None
         if is_configuration_document(document_urn, existing):
             raise ToolError(CONFIGURATION_EDIT_ERROR)
+        if is_folder(existing):
+            # Its subtype would become document_type, and the sidebar would lose
+            # the folder and everything under it.
+            raise ToolError(
+                f"save_document: '{document_urn}' is a folder, and saving it as a "
+                f"{document_type} would turn it into a plain document. Rename it or "
+                "edit its description with update_document instead."
+            )
         ensure_document_editable(
             existing, _fields_saved(topics, related_documents, related_assets)
         )
@@ -666,6 +732,10 @@ def _prepare(
         # Without one, readers already fall back to the body.
         if doc._get_aspect(models.SemanticTextClass) is not None:
             doc._set_aspect(models.SemanticTextClass(text=content))
+        # semanticContent holds the embedding vectors, which GMS applies to the
+        # search index as written: re-sending them would index the old body again.
+        # GMS's content write leaves them for the embedding pipeline to replace.
+        cast(Dict[str, object], doc._aspects).pop("semanticContent", None)
         doc.set_subtype(document_type)
         if tag_urns is not None:
             doc.set_tags(tag_urns)
@@ -681,6 +751,10 @@ def _prepare(
         return doc, document_urn, "updated", hint
 
     new_urn = document_urn or f"{DOCUMENT_PREFIX}shared-{uuid.uuid4()}"
+    # A retry without parent_urn would create the document in the shared folder.
+    retry_args = f"urn={new_urn!r}" + (
+        f" and parent_urn={parent_urn!r}" if parent_urn is not None else ""
+    )
     if parent_urn is None:
         parent_urn = _shared_parent(client, author)
     doc = Document.create_document(
@@ -698,6 +772,6 @@ def _prepare(
     )
     hint = (
         f"Check whether {new_urn} exists with get_entities; to retry, pass "
-        f"urn={new_urn!r} so a second document is not created."
+        f"{retry_args} so a second document is not created."
     )
     return doc, new_urn, "created", hint
