@@ -33,6 +33,26 @@ public final class FabricTypeNames {
 
   private FabricTypeNames() {}
 
+  /** What a name is, decided from the name alone. */
+  public enum Kind {
+    BUILT_IN,
+    /** Shaped like a custom environment id; whether it is registered is not known from the name. */
+    CUSTOM,
+    MALFORMED
+  }
+
+  /**
+   * The one place that classifies an environment name without I/O. Callers that accept or reject a
+   * name by its shape use this rather than combining {@link #isBuiltIn} and {@link #isWellFormed}.
+   */
+  @Nonnull
+  public static Kind kind(@Nullable String name) {
+    if (isBuiltIn(name)) {
+      return Kind.BUILT_IN;
+    }
+    return isWellFormed(name) ? Kind.CUSTOM : Kind.MALFORMED;
+  }
+
   public static boolean isBuiltIn(@Nullable String name) {
     return name != null && BUILT_IN.contains(name);
   }
@@ -92,7 +112,7 @@ public final class FabricTypeNames {
       return;
     }
     Object value = context.dataElement().getValue();
-    if (!(value instanceof String) || !isWellFormed((String) value)) {
+    if (!(value instanceof String) || kind((String) value) == Kind.MALFORMED) {
       context.addResult(
           new Message(
               context.dataElement().path(),

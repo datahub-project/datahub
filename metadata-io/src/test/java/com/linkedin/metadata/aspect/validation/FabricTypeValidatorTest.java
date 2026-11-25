@@ -558,7 +558,7 @@ public class FabricTypeValidatorTest {
     if (deprecation != null) {
       aspects.add(deprecation);
     }
-    types.put(FabricTypeValidator.urn(id), aspects);
+    types.put(FabricTypeLookup.urn(id), aspects);
   }
 
   private List<AspectValidationException> validate(

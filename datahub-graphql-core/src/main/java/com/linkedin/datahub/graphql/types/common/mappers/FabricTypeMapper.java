@@ -26,7 +26,7 @@ public final class FabricTypeMapper {
    */
   @Nullable
   public static String customFabricTypeUrn(@Nullable String env) {
-    if (env == null || FabricTypeNames.isBuiltIn(env) || !FabricTypeNames.isWellFormed(env)) {
+    if (FabricTypeNames.kind(env) != FabricTypeNames.Kind.CUSTOM) {
       return null;
     }
     return "urn:li:" + com.linkedin.metadata.Constants.CUSTOM_FABRIC_TYPE_ENTITY_NAME + ":" + env;

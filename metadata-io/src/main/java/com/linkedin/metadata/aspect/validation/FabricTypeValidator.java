@@ -1,22 +1,14 @@
 package com.linkedin.metadata.aspect.validation;
 
-import static com.linkedin.metadata.Constants.CUSTOM_FABRIC_TYPE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CUSTOM_FABRIC_TYPE_KEY_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DEPRECATION_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
-
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.FabricTypeNames;
-import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -282,29 +274,12 @@ public class FabricTypeValidator extends AspectPayloadValidator {
       return exceptions.streamAllExceptions();
     }
 
-    List<Use> registeredUses = new ArrayList<>();
-    for (Use use : customUses) {
-      if (FabricTypeNames.isWellFormed(use.value)) {
-        registeredUses.add(use);
-      } else {
-        exceptions.addException(
-            AspectValidationException.forItem(
-                use.item,
-                String.format(
-                    "Environment \"%s\"%s is not valid: custom environments use uppercase"
-                        + " letters, digits and underscores, starting with a letter.",
-                    use.value, use.where())));
-      }
-    }
-
-    if (!registeredUses.isEmpty()) {
-      Map<String, CustomType> types =
-          lookUp(
-              operationContext,
-              registeredUses.stream().map(use -> use.value).collect(Collectors.toSet()),
-              retrieverContext);
-      registeredUses.forEach(use -> check(use, types.get(use.value), exceptions));
-    }
+    Map<String, FabricTypeLookup.Resolution> resolved =
+        FabricTypeLookup.resolve(
+            operationContext,
+            customUses.stream().map(use -> use.value).collect(Collectors.toSet()),
+            retrieverContext);
+    customUses.forEach(use -> check(use, resolved.get(use.value), exceptions));
     return exceptions.streamAllExceptions();
   }
 
@@ -380,97 +355,53 @@ public class FabricTypeValidator extends AspectPayloadValidator {
 
   private static void check(
       @Nonnull Use use,
-      @Nullable CustomType type,
+      @Nonnull FabricTypeLookup.Resolution resolution,
       @Nonnull ValidationExceptionCollection exceptions) {
     String message = null;
-    if (type == null) {
-      message =
-          String.format(
-              "Environment \"%s\"%s is not registered. Create %s first.",
-              use.value, use.where(), urn(use.value));
-    } else if (type.status != null && type.status.isRemoved()) {
-      message = String.format("Environment \"%s\"%s is deleted.", use.value, use.where());
-    } else if (use.referencedUrn == null
-        && type.deprecation != null
-        && type.deprecation.isDeprecated()) {
-      // A reference points at an entity that may already exist in the deprecated environment, so
-      // only an entity's own environment counts as a new use of it.
-      StringBuilder builder =
-          new StringBuilder(
-              String.format(
-                  "Environment \"%s\" is deprecated and can't be newly used.", use.value));
-      if (type.deprecation.getNote() != null && !type.deprecation.getNote().isBlank()) {
-        builder.append(' ').append(type.deprecation.getNote().trim());
-      }
-      if (type.deprecation.hasReplacement()) {
-        builder.append(" Use ").append(type.deprecation.getReplacement()).append(" instead.");
-      }
-      message = builder.toString();
+    switch (resolution.getState()) {
+      case MALFORMED:
+        message =
+            String.format(
+                "Environment \"%s\"%s is not valid: custom environments use uppercase"
+                    + " letters, digits and underscores, starting with a letter.",
+                use.value, use.where());
+        break;
+      case UNREGISTERED:
+        message =
+            String.format(
+                "Environment \"%s\"%s is not registered. Create %s first.",
+                use.value, use.where(), FabricTypeLookup.urn(use.value));
+        break;
+      case DELETED:
+        message = String.format("Environment \"%s\"%s is deleted.", use.value, use.where());
+        break;
+      case REGISTERED:
+        // A reference points at an entity that may already exist in the deprecated environment, so
+        // only an entity's own environment counts as a new use of it.
+        if (use.referencedUrn == null && resolution.getDeprecation() != null) {
+          message = deprecatedMessage(use.value, resolution.getDeprecation());
+        }
+        break;
+      default:
+        break;
     }
     if (message != null) {
       exceptions.addException(AspectValidationException.forItem(use.item, message));
     }
   }
 
-  /**
-   * Reads the types through the caching retriever, then re-reads the missing ones uncached, so a
-   * cached "missing" never rejects a type created since.
-   */
   @Nonnull
-  private static Map<String, CustomType> lookUp(
-      @Nonnull OperationFingerprint operationContext,
-      @Nonnull Set<String> values,
-      @Nonnull RetrieverContext retrieverContext) {
-    AspectRetriever uncached = retrieverContext.getAspectRetriever();
-    AspectRetriever caching =
-        retrieverContext instanceof io.datahubproject.metadata.context.RetrieverContext
-            ? ((io.datahubproject.metadata.context.RetrieverContext) retrieverContext)
-                .getCachingAspectRetriever()
-            : uncached;
-
-    Map<String, CustomType> types = fetch(operationContext, values, caching);
-    Set<String> missing =
-        values.stream().filter(value -> !types.containsKey(value)).collect(Collectors.toSet());
-    if (!missing.isEmpty() && caching != uncached) {
-      types.putAll(fetch(operationContext, missing, uncached));
+  private static String deprecatedMessage(@Nonnull String value, @Nonnull Deprecation deprecation) {
+    StringBuilder builder =
+        new StringBuilder(
+            String.format("Environment \"%s\" is deprecated and can't be newly used.", value));
+    if (deprecation.getNote() != null && !deprecation.getNote().isBlank()) {
+      builder.append(' ').append(deprecation.getNote().trim());
     }
-    return types;
-  }
-
-  @Nonnull
-  private static Map<String, CustomType> fetch(
-      @Nonnull OperationFingerprint operationContext,
-      @Nonnull Set<String> values,
-      @Nonnull AspectRetriever retriever) {
-    Map<Urn, String> valuesByUrn =
-        values.stream().collect(Collectors.toMap(FabricTypeValidator::urn, value -> value));
-    Map<Urn, Map<String, Aspect>> aspects =
-        retriever.getLatestAspectObjects(
-            operationContext,
-            valuesByUrn.keySet(),
-            Set.of(
-                CUSTOM_FABRIC_TYPE_KEY_ASPECT_NAME, STATUS_ASPECT_NAME, DEPRECATION_ASPECT_NAME));
-
-    Map<String, CustomType> types = new HashMap<>();
-    aspects.forEach(
-        (urn, byName) -> {
-          if (byName == null || !byName.containsKey(CUSTOM_FABRIC_TYPE_KEY_ASPECT_NAME)) {
-            return;
-          }
-          Aspect status = byName.get(STATUS_ASPECT_NAME);
-          Aspect deprecation = byName.get(DEPRECATION_ASPECT_NAME);
-          types.put(
-              valuesByUrn.get(urn),
-              new CustomType(
-                  status == null ? null : new Status(status.data()),
-                  deprecation == null ? null : new Deprecation(deprecation.data())));
-        });
-    return types;
-  }
-
-  @Nonnull
-  static Urn urn(@Nonnull String value) {
-    return UrnUtils.getUrn("urn:li:" + CUSTOM_FABRIC_TYPE_ENTITY_NAME + ":" + value);
+    if (deprecation.hasReplacement()) {
+      builder.append(" Use ").append(deprecation.getReplacement()).append(" instead.");
+    }
+    return builder.toString();
   }
 
   /** A proposed item that may make a new use, and where: in its own aspect, in its URN, or both. */
@@ -501,16 +432,6 @@ public class FabricTypeValidator extends AspectPayloadValidator {
 
     private String where() {
       return referencedUrn == null ? "" : " (in referenced " + referencedUrn + ")";
-    }
-  }
-
-  private static final class CustomType {
-    @Nullable private final Status status;
-    @Nullable private final Deprecation deprecation;
-
-    private CustomType(@Nullable Status status, @Nullable Deprecation deprecation) {
-      this.status = status;
-      this.deprecation = deprecation;
     }
   }
 }

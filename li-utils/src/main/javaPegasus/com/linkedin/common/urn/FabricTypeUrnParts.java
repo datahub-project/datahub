@@ -13,11 +13,7 @@ final class FabricTypeUrnParts {
 
   /** Rejects a value that is neither a FabricType symbol nor shaped like one. */
   static String checkEnv(String env) {
-    // Built-in envs are the common case, so they pass without the regex.
-    if (FabricTypeNames.isBuiltIn(env)) {
-      return env;
-    }
-    if (!FabricTypeNames.isWellFormed(env)) {
+    if (FabricTypeNames.kind(env) == FabricTypeNames.Kind.MALFORMED) {
       throw new IllegalArgumentException(
           "Invalid environment \""
               + env
