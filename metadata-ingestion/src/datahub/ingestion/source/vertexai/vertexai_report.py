@@ -23,6 +23,9 @@ class VertexAISourceReport(StaleEntityRemovalSourceReport):
     pipeline_nested_steps_written: int = 0
     pipeline_loop_passes: int = 0
     pipeline_task_runs_skipped_not_started: int = 0
+    backing_jobs_linked: int = 0
+    backing_jobs_skipped_run_not_read: int = 0
+    backing_jobs_skipped_task_not_found: int = 0
     pipeline_lineage_patches_sent: int = 0
     pipeline_lineage_links_sent: int = 0
     # Every lost read by project, in full: warnings and failures keep only samples.
@@ -59,6 +62,18 @@ class VertexAISourceReport(StaleEntityRemovalSourceReport):
     def report_pipeline_task_runs_skipped_not_started(self, count: int) -> None:
         with _COUNTER_LOCK:
             self.pipeline_task_runs_skipped_not_started += count
+
+    def report_backing_job_linked(self) -> None:
+        with _COUNTER_LOCK:
+            self.backing_jobs_linked += 1
+
+    def report_backing_job_skipped_run_not_read(self) -> None:
+        with _COUNTER_LOCK:
+            self.backing_jobs_skipped_run_not_read += 1
+
+    def report_backing_job_skipped_task_not_found(self) -> None:
+        with _COUNTER_LOCK:
+            self.backing_jobs_skipped_task_not_found += 1
 
     def report_pipeline_lineage_sent(self, patches: int, links: int) -> None:
         with _COUNTER_LOCK:

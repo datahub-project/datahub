@@ -42,6 +42,12 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     LINEAGE_FLUSH_PENDING_LINKS,
     LINEAGE_MAX_LINKS_PER_PATCH,
     ORDER_BY_UPDATE_TIME_DESC,
+    PIPELINE_BILLING_LABEL,
+    TASK_RUN_FAILED_JOB_RECORDS,
+    TASK_RUN_FAILED_JOBS,
+    TASK_RUN_JOB_SEPARATOR,
+    TASK_RUN_MAIN_JOB,
+    TASK_RUN_MAIN_JOB_RECORD,
     UNMATCHED_DETAILS,
     UNMATCHED_DETAILS_TITLE,
     UNMATCHED_SAMPLE_SIZE,
@@ -195,7 +201,39 @@ class VertexAIPipelineExtractor:
         self.rate_limiter = rate_limiter
         self._emitted_pipeline_urns: Set[str] = set()
         self._emitted_task_urns: Set[str] = set()
+        # Billing id of a run whose task details were read -> task id -> task run
+        # URN. The training extractor's job records are joined to it once both
+        # have been read.
+        self.backing_job_parents: Dict[str, Dict[str, str]] = {}
         self._lineage_patch_numbers = itertools.count()
+
+    def clear_backing_job_parents(self) -> None:
+        self.backing_job_parents.clear()
+
+    def _job_properties(self, detail: PipelineTaskDetail) -> Dict[str, str]:
+        # A cache hit's detail copies the earlier run's jobs, which that run owns.
+        if is_cache_hit(detail):
+            return {}
+        container = detail.executor_detail.container_detail
+        properties: Dict[str, str] = {}
+        if container.main_job:
+            properties[TASK_RUN_MAIN_JOB] = container.main_job
+            properties[TASK_RUN_MAIN_JOB_RECORD] = self._job_record_urn(
+                container.main_job
+            )
+        if container.failed_main_jobs:
+            properties[TASK_RUN_FAILED_JOBS] = TASK_RUN_JOB_SEPARATOR.join(
+                container.failed_main_jobs
+            )
+            properties[TASK_RUN_FAILED_JOB_RECORDS] = TASK_RUN_JOB_SEPARATOR.join(
+                self._job_record_urn(name) for name in container.failed_main_jobs
+            )
+        return properties
+
+    def _job_record_urn(self, job_resource_name: str) -> str:
+        return self.urn_builder.make_training_job_urn(
+            job_resource_name.rsplit("/", 1)[-1]
+        )
 
     @staticmethod
     def _pipeline_spec(pipeline: PipelineJob) -> Mapping[str, object]:
@@ -404,12 +442,21 @@ class VertexAIPipelineExtractor:
             else:
                 logger.debug(f"Skipping DataJob (already emitted): {task.path}")
 
+        billing_id = (pipeline_meta.labels or {}).get(PIPELINE_BILLING_LABEL)
+        # Held even when no task qualifies, so a job of this run counts as task
+        # not found rather than run not read.
+        run_parents = (
+            self.backing_job_parents.setdefault(billing_id, {})
+            if billing_id and self.config.links_pipeline_backed_jobs and not lookup_lost
+            else None
+        )
         for task_run in pipeline_meta.task_runs:
             yield from self._gen_pipeline_task_run_instance(
                 task_run,
                 pipeline_meta,
                 tasks_by_path,
                 has_pipeline_run_record=run_created is not None,
+                run_parents=run_parents,
             )
 
         # A run whose details were lost must not write the links the spec implies.
@@ -581,6 +628,7 @@ class VertexAIPipelineExtractor:
         pipeline: PipelineMetadata,
         tasks_by_path: Mapping[str, PipelineTaskMetadata],
         has_pipeline_run_record: bool,
+        run_parents: Optional[Dict[str, str]],
     ) -> Iterable[MetadataWorkUnit]:
         run = task_run.run
         detail = run.detail
@@ -599,6 +647,7 @@ class VertexAIPipelineExtractor:
             parent_instance = self._pipeline_run_urn(pipeline.name)
         else:
             parent_instance = None
+        job_properties = self._job_properties(detail)
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dpi_urn,
@@ -610,9 +659,12 @@ class VertexAIPipelineExtractor:
                     or builder.UNKNOWN_USER,
                 ),
                 externalUrl=self.url_builder.make_pipeline_url(pipeline.name),
-                customProperties={},
+                customProperties=job_properties,
             ),
         ).as_workunit()
+
+        if run_parents is not None and job_properties:
+            run_parents[str(detail.task_id)] = dpi_urn
 
         yield from self._yield_common_aspects(
             entity_urn=dpi_urn,

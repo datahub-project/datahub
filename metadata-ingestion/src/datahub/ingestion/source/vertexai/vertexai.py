@@ -42,6 +42,10 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 )
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
+    BACKING_JOBS_NOT_LINKED,
+    BACKING_JOBS_NOT_LINKED_TITLE,
+    BACKING_JOBS_SKIPPED,
+    BACKING_JOBS_SKIPPED_TITLE,
     GLOBAL_LOCATION,
     LOCATIONS_SKIPPED,
     LOCATIONS_SKIPPED_TITLE,
@@ -56,6 +60,7 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     SKIPPED_MULTI_REGIONS,
     SKIPPED_NEWER_REGIONS,
     SKIPPED_UNSUPPORTED,
+    UNMATCHED_SAMPLE_SIZE,
     DetailCalls,
     ExternalURLs,
     MLMetadataDefaults,
@@ -645,7 +650,9 @@ class VertexAISource(StatefulIngestionSourceBase):
             )
         else:
             self._ledger.report_lost_reads(
-                project_id, listed=bool(self.config.project_ids)
+                project_id,
+                listed=bool(self.config.project_ids),
+                job_records=self.config.links_pipeline_backed_jobs,
             )
         self._ledger.record_lost_reads(project_id)
 
@@ -745,6 +752,11 @@ class VertexAISource(StatefulIngestionSourceBase):
             else:
                 for args in phase1_args:
                     yield from self._read_phase1_resource(*args)
+            if self.config.links_pipeline_backed_jobs:
+                # Before the model step, which reads the edges the job records track.
+                yield from self._join_backing_jobs(project_id, region)
+            # The map must not outlive its project and region, joined or not.
+            self.pipeline_extractor.clear_backing_job_parents()
             self._keep_lost_phase1(project_id, region)
 
             # Phase 2: Models must come AFTER Phase 1 (reads model_usage_tracker).
@@ -850,6 +862,65 @@ class VertexAISource(StatefulIngestionSourceBase):
             self._ledger.record_read(project_id, region, resource_type, error=e)
         else:
             self._ledger.record_read(project_id, region, resource_type)
+
+    def _join_backing_jobs(
+        self, project_id: str, region: str
+    ) -> Iterable[MetadataWorkUnit]:
+        # No exception may escape, as in _read_phase1_resource. A success records no
+        # read: it would clear an error the training job read itself recorded.
+        run_not_read: List[str] = []
+        task_not_found: List[str] = []
+        try:
+            for workunit in auto_workunit(
+                self.training_extractor.gen_backing_job_records(
+                    self.pipeline_extractor.backing_job_parents,
+                    run_not_read=run_not_read,
+                    task_not_found=task_not_found,
+                )
+            ):
+                self._ledger.record_wrote_output(
+                    project_id, region, ResourceReads.TRAINING_JOBS
+                )
+                yield workunit
+        except Exception as e:
+            # Never replace the error the listing recorded: it may be the
+            # project-wide one that stops the other regions.
+            if ResourceReads.TRAINING_JOBS not in self._ledger.lost_phase1_kinds(
+                project_id, region
+            ):
+                self._ledger.record_read(
+                    project_id, region, ResourceReads.TRAINING_JOBS, error=e
+                )
+            else:
+                self.report.warning(
+                    title=BACKING_JOBS_NOT_LINKED_TITLE,
+                    message=BACKING_JOBS_NOT_LINKED,
+                    context=f"project={project_id}, region={region}",
+                    exc=e,
+                )
+        else:
+            # Unless the whole project failed, a lost pipeline list is reported with a
+            # note that jobs of unread runs get no record, so those are left out here.
+            if ResourceReads.PIPELINES in self._ledger.lost_phase1_kinds(
+                project_id, region
+            ):
+                counts = f"task_not_found={len(task_not_found)}"
+                skipped = task_not_found
+            else:
+                counts = (
+                    f"run_not_read={len(run_not_read)}, "
+                    f"task_not_found={len(task_not_found)}"
+                )
+                skipped = task_not_found + run_not_read
+            if skipped:
+                self.report.warning(
+                    title=BACKING_JOBS_SKIPPED_TITLE,
+                    message=BACKING_JOBS_SKIPPED,
+                    context=(
+                        f"project={project_id}, region={region}, {counts}, "
+                        f"sample={skipped[:UNMATCHED_SAMPLE_SIZE]}"
+                    ),
+                )
 
     def _fetch_phase1_resource(self, resource_type: str) -> Iterable[MetadataWorkUnit]:
         """Fetch a single Phase 1 resource type (training jobs, experiments, or pipelines).

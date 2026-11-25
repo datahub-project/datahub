@@ -27,7 +27,7 @@ For improved organization in the DataHub UI:
 
 - Model versions are organized under their respective model group folders
 - Pipeline tasks sit in their pipeline's folder, and nested tasks show under their container steps in Browse
-- Pipeline runs and task runs have no folder. Pipeline runs show on the Runs tab of their pipeline, and task runs on the Runs tab of their own task
+- Pipeline runs, task runs and job records have no folder, except jobs ingested as Training Jobs before this release, which keep theirs. Pipeline runs show on the Runs tab of their pipeline, and task runs on the Runs tab of their own task
 
 ### Prerequisites
 

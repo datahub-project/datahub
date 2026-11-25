@@ -54,6 +54,7 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     LOCATIONS_SKIPPED,
     LOCATIONS_SKIPPED_TITLE,
     PIPELINE_LINKS_ELSEWHERE,
+    PIPELINE_LIST_LOST_JOBS,
     PLATFORM,
     REGION_DISCOVERY_FAILED,
     REGION_UNCHECKED,
@@ -72,6 +73,7 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     DetailCalls,
     ResourceCategory,
     ResourceKinds,
+    ResourceReads,
 )
 from datahub.ingestion.source.vertexai.vertexai_ml_metadata_helper import (
     MLMetadataHelper,
@@ -3501,7 +3503,7 @@ def test_temporary_pipeline_loss_warns_that_models_elsewhere_may_lose_links() ->
     ledger.record_read("proj-one", REGION, "pipelines", error=_throttled())
     ledger.record_read("proj-one", REGION, "training_jobs", error=_throttled())
 
-    ledger.report_lost_reads("proj-one", listed=True)
+    ledger.report_lost_reads("proj-one", listed=True, job_records=True)
     # A whole project lost, discovered or listed, and a project-wide error on the
     # pipeline list, which holds the region's models back without a stop.
     whole_loss_reports = []
@@ -3515,7 +3517,7 @@ def test_temporary_pipeline_loss_warns_that_models_elsewhere_may_lose_links() ->
     disabled_ledger.record_read(
         "proj-one", REGION, "pipelines", error=_service_disabled()
     )
-    disabled_ledger.report_lost_reads("proj-one", listed=True)
+    disabled_ledger.report_lost_reads("proj-one", listed=True, job_records=True)
 
     (lookup,) = _links_elsewhere_contexts(lookup_source.report)
     assert "resource=pipeline_lookup" in lookup
@@ -3542,11 +3544,30 @@ def test_lost_list_read_title_names_an_unexpected_error(
     ledger = ReadLedger(report=report, stopped=StoppedScopes())
     ledger.record_read("proj-one", REGION, "training_jobs", error=error)
 
-    ledger.report_lost_reads("proj-one", listed=False)
+    ledger.report_lost_reads("proj-one", listed=False, job_records=True)
 
     assert [(w.title, w.message == UNEXPECTED_ERROR) for w in report.warnings] == [
         (title, title == UNEXPECTED_ERROR_TITLE)
     ]
+
+
+@pytest.mark.parametrize(
+    "error", [_iam_denied(), _throttled()], ids=["refused", "temporary"]
+)
+def test_lost_pipeline_list_says_held_jobs_get_no_record(error: Exception) -> None:
+    report = VertexAISourceReport()
+    ledger = ReadLedger(report=report, stopped=StoppedScopes())
+    for kind in (ResourceReads.PIPELINES, ResourceReads.TRAINING_JOBS):
+        ledger.record_read("proj-one", REGION, kind, error=error)
+
+    ledger.report_lost_reads("proj-one", listed=True, job_records=True)
+
+    (entry,) = [
+        e
+        for e in [*report.failures, *report.warnings]
+        if e.message.endswith(PIPELINE_LIST_LOST_JOBS)
+    ]
+    assert [f"resource={ResourceReads.PIPELINES}" in c for c in entry.context] == [True]
 
 
 @pytest.mark.parametrize("lasting_first", [True, False])

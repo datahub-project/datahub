@@ -14,6 +14,7 @@ ALL_FIXTURES = [
     "refused_run",
     "cache_first_run",
     "cache_hit_run",
+    "custom_jobs",
 ]
 
 

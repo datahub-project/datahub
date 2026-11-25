@@ -2696,7 +2696,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/1000000000000000030",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.1000000000000000030"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/nested-pipe-20261104161316?project=my-project",
             "name": "check-champion",
             "created": {
@@ -2820,7 +2823,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/1000000000000000033",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.1000000000000000033"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/nested-pipe-20261104161316?project=my-project",
             "name": "model-upload",
             "created": {
@@ -2965,7 +2971,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/1000000000000000037",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.1000000000000000037"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/nested-pipe-20261104161316?project=my-project",
             "name": "train",
             "created": {
@@ -3087,7 +3096,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/1000000000000000040",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.1000000000000000040"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/nested-pipe-20261104161316?project=my-project",
             "name": "announce",
             "created": {
@@ -3577,7 +3589,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/1000000000000000043",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.1000000000000000043"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/nested-pipe-20261104161316?project=my-project",
             "name": "sdk-upload",
             "created": {
@@ -3821,7 +3836,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/1000000000000000046",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.1000000000000000046"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/nested-pipe-20261104161316?project=my-project",
             "name": "train",
             "created": {
@@ -5012,7 +5030,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/1000000000000000052",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.1000000000000000052"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/loop-pipe-20261103171359?project=my-project",
             "name": "check-registry-model",
             "created": {
@@ -5136,7 +5157,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/1000000000000000058",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.1000000000000000058"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/loop-pipe-20261103171359?project=my-project",
             "name": "evaluate",
             "created": {
@@ -5424,7 +5448,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/1000000000000000059",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.1000000000000000059"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/loop-pipe-20261103171359?project=my-project",
             "name": "train",
             "created": {
@@ -5567,7 +5594,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/1000000000000000061",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.1000000000000000061"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/loop-pipe-20261103171359?project=my-project",
             "name": "evaluate",
             "created": {
@@ -5929,7 +5959,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/2000000000000000006",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.2000000000000000006"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/loop-pipe-20261103170000?project=my-project",
             "name": "check-registry-model",
             "created": {
@@ -6026,7 +6059,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/2000000000000000009",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.2000000000000000009"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/loop-pipe-20261103170000?project=my-project",
             "name": "train",
             "created": {
@@ -7089,7 +7125,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/1000000000000000017",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.1000000000000000017"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/demo-failure-20261123155239?project=my-project",
             "name": "emit",
             "created": {
@@ -7211,7 +7250,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/1000000000000000019",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.1000000000000000019"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/demo-failure-20261123155239?project=my-project",
             "name": "boom",
             "created": {
@@ -7927,7 +7969,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/1000000000000000024",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.1000000000000000024"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/demo-cancel-20261123155241?project=my-project",
             "name": "sleeper",
             "created": {
@@ -8742,7 +8787,10 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/1000000000000000004",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.1000000000000000004"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/demo-cache-20261123155235?project=my-project",
             "name": "emit",
             "created": {
@@ -8864,7 +8912,12 @@
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "main_job": "projects/123456789012/locations/us-central1/customJobs/1000000000000000006",
+                "main_job_record": "urn:li:dataProcessInstance:my-project.job.1000000000000000006",
+                "failed_jobs": "projects/123456789012/locations/us-central1/customJobs/1000000000000000007",
+                "failed_job_records": "urn:li:dataProcessInstance:my-project.job.1000000000000000007"
+            },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-central1/runs/demo-cache-20261123155235?project=my-project",
             "name": "flaky",
             "created": {
@@ -9653,6 +9706,796 @@
     },
     "systemMetadata": {
         "lastObserved": 1795509913184,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000006",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "jobType": "CustomJob",
+                "pipeline_task_run": "urn:li:dataProcessInstance:my-project.pipeline_task_run.demo-cache-20261123155235_flaky"
+            },
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/training/training-pipelines?trainingPipelineId=1000000000000000006?project=my-project",
+            "name": "caip_pipelines_1000000000000000001_1000000000000000005",
+            "created": {
+                "time": 1795429749386,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460422,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000006",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/training/training-pipelines?trainingPipelineId=1000000000000000006?project=my-project",
+            "id": "1000000000000000006"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460422,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000006",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Training Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460422,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000006",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460422,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000006",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentInstance": "urn:li:dataProcessInstance:my-project.pipeline_task_run.demo-cache-20261123155235_flaky",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460422,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000006",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1795429749386,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "vertexai"
+            },
+            "durationMillis": 138614
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795520779310,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000007",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "jobType": "CustomJob",
+                "pipeline_task_run": "urn:li:dataProcessInstance:my-project.pipeline_task_run.demo-cache-20261123155235_flaky"
+            },
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/training/training-pipelines?trainingPipelineId=1000000000000000007?project=my-project",
+            "name": "caip_pipelines_1000000000000000001_1000000000000000005",
+            "created": {
+                "time": 1795429494581,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460423,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000007",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/training/training-pipelines?trainingPipelineId=1000000000000000007?project=my-project",
+            "id": "1000000000000000007"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460423,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000007",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Training Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460423,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000007",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460423,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000007",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentInstance": "urn:li:dataProcessInstance:my-project.pipeline_task_run.demo-cache-20261123155235_flaky",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460423,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000007",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1795429494581,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResultType": "vertexai"
+            },
+            "durationMillis": 247419
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795520779311,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000019",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "jobType": "CustomJob",
+                "pipeline_task_run": "urn:li:dataProcessInstance:my-project.pipeline_task_run.demo-failure-20261123155239_boom"
+            },
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/training/training-pipelines?trainingPipelineId=1000000000000000019?project=my-project",
+            "name": "caip_pipelines_1000000000000000012_1000000000000000018",
+            "created": {
+                "time": 1795429506459,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460423,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000019",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/training/training-pipelines?trainingPipelineId=1000000000000000019?project=my-project",
+            "id": "1000000000000000019"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460424,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000019",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Training Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460424,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000019",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460424,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000019",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentInstance": "urn:li:dataProcessInstance:my-project.pipeline_task_run.demo-failure-20261123155239_boom",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460424,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000019",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1795429506459,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResultType": "vertexai"
+            },
+            "durationMillis": 128541
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795520779312,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000024",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "jobType": "CustomJob",
+                "pipeline_task_run": "urn:li:dataProcessInstance:my-project.pipeline_task_run.demo-cancel-20261123155241_sleeper"
+            },
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/training/training-pipelines?trainingPipelineId=1000000000000000024?project=my-project",
+            "name": "caip_pipelines_1000000000000000020_1000000000000000023",
+            "created": {
+                "time": 1795429365846,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460424,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000024",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/training/training-pipelines?trainingPipelineId=1000000000000000024?project=my-project",
+            "id": "1000000000000000024"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460424,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000024",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Training Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460424,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000024",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460424,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000024",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentInstance": "urn:li:dataProcessInstance:my-project.pipeline_task_run.demo-cancel-20261123155241_sleeper",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460424,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000017",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "jobType": "CustomJob",
+                "pipeline_task_run": "urn:li:dataProcessInstance:my-project.pipeline_task_run.demo-failure-20261123155239_emit"
+            },
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/training/training-pipelines?trainingPipelineId=1000000000000000017?project=my-project",
+            "name": "caip_pipelines_1000000000000000012_1000000000000000016",
+            "created": {
+                "time": 1795429362902,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460425,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000017",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/training/training-pipelines?trainingPipelineId=1000000000000000017?project=my-project",
+            "id": "1000000000000000017"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460425,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000017",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Training Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460425,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000017",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460425,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000017",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentInstance": "urn:li:dataProcessInstance:my-project.pipeline_task_run.demo-failure-20261123155239_emit",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460425,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000017",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1795429362902,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "vertexai"
+            },
+            "durationMillis": 132098
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795520779313,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000004",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "jobType": "CustomJob",
+                "pipeline_task_run": "urn:li:dataProcessInstance:my-project.pipeline_task_run.demo-cache-20261123155235_emit"
+            },
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/training/training-pipelines?trainingPipelineId=1000000000000000004?project=my-project",
+            "name": "caip_pipelines_1000000000000000001_-1000000000000000003",
+            "created": {
+                "time": 1795429361094,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460426,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000004",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/training/training-pipelines?trainingPipelineId=1000000000000000004?project=my-project",
+            "id": "1000000000000000004"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460426,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000004",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Training Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460426,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000004",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460426,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000004",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentInstance": "urn:li:dataProcessInstance:my-project.pipeline_task_run.demo-cache-20261123155235_emit",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460426,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000004",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1795429361094,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "vertexai"
+            },
+            "durationMillis": 119906
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795520779314,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000004",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460426,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000006",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460426,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000007",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460426,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000017",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460426,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000019",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460426,
+        "runId": "vertexai-pipeline-tasks-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-project.job.1000000000000000024",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1795487460427,
         "runId": "vertexai-pipeline-tasks-test",
         "lastRunId": "no-run-id-provided"
     }

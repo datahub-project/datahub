@@ -13,6 +13,20 @@ PROGRESS_LOG_INTERVAL = 100
 # Example: "my-pipeline-20241107083959" -> extract "my-pipeline"
 KUBEFLOW_TIMESTAMP_SUFFIX_PATTERN = re.compile(r"-\d{14}$")
 
+# Label Vertex puts on a pipeline run and on every CustomJob it starts for that run.
+PIPELINE_BILLING_LABEL = "vertex-ai-pipelines-run-billing-id"
+# Display name of such a CustomJob: the run's billing id, then the task id (can be negative).
+PIPELINE_BACKING_JOB_NAME = re.compile(r"^caip_pipelines_(-?\d+)_(-?\d+)$")
+
+# Custom properties of a task run, naming the jobs that ran it (resource names and record URNs).
+TASK_RUN_MAIN_JOB = "main_job"
+TASK_RUN_MAIN_JOB_RECORD = "main_job_record"
+TASK_RUN_FAILED_JOBS = "failed_jobs"
+TASK_RUN_FAILED_JOB_RECORDS = "failed_job_records"
+TASK_RUN_JOB_SEPARATOR = ","
+# Custom property of a job record, naming the task run it belongs to.
+JOB_PIPELINE_TASK_RUN = "pipeline_task_run"
+
 # Field names for object attributes
 UPDATE_TIME_FIELD = "update_time"
 CREATE_TIME_FIELD = "create_time"
@@ -123,6 +137,11 @@ UNEXPECTED_ERROR_TITLE = "Unexpected error while reading Vertex AI"
 UNEXPECTED_ERROR = "This looks like an error in the connector, not one from Google Cloud. Earlier entities are kept, because the error says nothing about what Vertex AI holds. Report it to DataHub with this entry and the ingestion log run with debug logging."
 UNEXPECTED_DETAIL_ERROR = "This looks like an error in the connector, not one from Google Cloud, so this detail was skipped. What depends on it is written without it, or kept as it was when it cannot be written without it. Report it to DataHub with this entry and the ingestion log run with debug logging."
 EVALUATIONS_KEPT_PROJECT_WIDE = "Earlier model evaluations in this project are kept until this model's evaluation list can be read, and evaluations deleted from other models are removed once it reads again. Evaluation names carry only the evaluation id, so they cannot be tied to one model."
+PIPELINE_LIST_LOST_JOBS = "Pipeline-backed custom jobs of pipeline runs that were not read get no job record in this run; their job records from earlier runs are kept."
+BACKING_JOBS_SKIPPED_TITLE = "Pipeline-backed jobs skipped"
+BACKING_JOBS_SKIPPED = "Pipeline-backed custom jobs were skipped because their pipeline runs were not read in this ingestion (the run was deleted, was not updated since the last ingestion, or could not be read), or because their run was read but has no task run for them. These jobs get no job record in this run."
+BACKING_JOBS_NOT_LINKED_TITLE = "Pipeline-backed jobs not linked"
+BACKING_JOBS_NOT_LINKED = "Linking pipeline-backed custom jobs to their task runs failed in a region whose training job listing had already failed, so the jobs held from that listing get no job record in this run."
 # The count is in pipeline_task_details_without_step; the context keeps only a sample.
 UNMATCHED_DETAILS_TITLE = "Pipeline task details match no step"
 UNMATCHED_DETAILS = "Some task details of a pipeline run match no step of its pipeline spec, so they get no task run."

@@ -20,6 +20,18 @@ The connector captures comprehensive lineage relationships including cross-platf
 
 Artifacts that Vertex AI writes under a run's own folder have a new path on every run, so a task gains a link for each run.
 
+**Pipeline-backed jobs**
+
+With `include_pipelines: true`, a custom job that a pipeline task ran is written as a job record under the task run that ran it, and it is not in the Training Jobs folder. Jobs ingested by earlier versions of the connector stay in that folder; the connector does not remove them, and stale entity removal does not either. With `include_pipelines: false`, it stays a Training Job in that folder.
+
+A custom job counts as run by a pipeline task only when it carries the label `vertex-ai-pipelines-run-billing-id` and its display name is `caip_pipelines_<billing id>_<task id>` with that same billing id. Any other custom job, labelled or not, is written as a Training Job.
+
+- A task run always names its jobs, by resource name and by job record URN. A job record exists only under the conditions below. Otherwise the named record does not exist.
+- Job records exist only for jobs within `max_training_jobs_per_type`.
+- Job records exist only when CustomJobs are listed: `include_training_jobs: true` and a `training_job_type_pattern` that allows `CustomJob`.
+- A task run that was served from the cache names no job. Its job record belongs to the earlier run.
+- A backing job whose pipeline run was not read in this ingestion, or whose run's task details could not be read, is skipped and counted in the report. When that region's pipeline list was read without errors, these skipped jobs also raise one warning per region in the ingestion report, "Pipeline-backed jobs skipped", with their count and a sample of job names. A job whose run was read but whose task is not in it is skipped and counted under its own reason. It raises the same warning even when the region's pipeline list had errors, and its name comes first in the sample.
+
 **Cross-Platform Lineage** (external data sources):
 
 The connector links Vertex AI resources to external datasets when referenced in job configurations or ML Metadata artifacts. Supported platforms:
