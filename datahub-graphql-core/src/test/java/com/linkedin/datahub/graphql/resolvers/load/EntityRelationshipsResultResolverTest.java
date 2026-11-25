@@ -18,6 +18,9 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.datahub.authorization.EntityFieldType;
+import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.FieldResolver;
 import com.datahub.authorization.SessionActorIdentity;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
@@ -48,6 +51,7 @@ import io.datahubproject.metadata.context.RetrieverContext;
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -491,6 +495,7 @@ public class EntityRelationshipsResultResolverTest {
     when(mockEnv.getSource()).thenReturn(domainSource);
 
     EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    stubParentAncestorWalk(entityGraphCache, "domain");
     EntityGraphBinding binding =
         EntityGraphBinding.builder().graphId("domain").source(GraphSnapshotSource.SEARCH).build();
     when(entityGraphCache.bindingForPolicyField("DOMAIN")).thenReturn(Optional.of(binding));
@@ -556,6 +561,7 @@ public class EntityRelationshipsResultResolverTest {
     when(mockEnv.getSource()).thenReturn(glossarySource);
 
     EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    stubParentAncestorWalk(entityGraphCache, "glossary");
     EntityGraphBinding binding =
         EntityGraphBinding.builder().graphId("glossary").source(GraphSnapshotSource.GRAPH).build();
     when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.GLOSSARY))
@@ -623,6 +629,7 @@ public class EntityRelationshipsResultResolverTest {
     when(mockEnv.getSource()).thenReturn(glossarySource);
 
     EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    stubParentAncestorWalk(entityGraphCache, "glossary");
     EntityGraphBinding binding =
         EntityGraphBinding.builder().graphId("glossary").source(GraphSnapshotSource.GRAPH).build();
     when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.GLOSSARY))
@@ -1205,6 +1212,111 @@ public class EntityRelationshipsResultResolverTest {
 
     when(_entityService.exists(any(), anySet(), eq(false))).thenAnswer(inv -> inv.getArgument(1));
     return entityGraphCache;
+  }
+
+  @Test
+  public void testGlossaryChildListingResolvesParentAncestorsOnceForAllChildren()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn grandparent = Urn.createFromString("urn:li:glossaryNode:grandparent");
+    Urn parentNode = Urn.createFromString("urn:li:glossaryNode:parent");
+    Urn termA = Urn.createFromString("urn:li:glossaryTerm:a");
+    Urn termB = Urn.createFromString("urn:li:glossaryTerm:b");
+
+    GlossaryNode glossarySource = new GlossaryNode();
+    glossarySource.setUrn(parentNode.toString());
+    when(mockEnv.getSource()).thenReturn(glossarySource);
+
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder().graphId("glossary").source(GraphSnapshotSource.GRAPH).build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.GLOSSARY))
+        .thenReturn(Optional.of(binding));
+    when(entityGraphCache.expand(
+            eq("glossary"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of(parentNode.toString())),
+            anyInt(),
+            eq(1),
+            eq(ReadMode.CACHED)))
+        .thenReturn(
+            GraphReadResult.fromVertices(
+                Set.of(parentNode.toString(), termA.toString(), termB.toString())));
+    when(entityGraphCache.expand(
+            eq("glossary"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(TraversalDirection.FORWARD),
+            anySet(),
+            anyInt(),
+            anyInt(),
+            any()))
+        .thenReturn(
+            GraphReadResult.fromVertices(Set.of(parentNode.toString(), grandparent.toString())));
+
+    QueryContext queryContext = getMockAllowContext();
+    OperationContext baseContext = queryContext.getOperationContext();
+    OperationContext opContext =
+        baseContext.toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .entityGraphCache(entityGraphCache)
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .build())
+            .build(baseContext.getSessionAuthentication(), false);
+    when(queryContext.getOperationContext()).thenReturn(opContext);
+    when(mockEnv.getContext()).thenReturn(queryContext);
+
+    RelationshipsInput glossaryInput = new RelationshipsInput();
+    glossaryInput.setTypes(List.of("IsPartOf"));
+    glossaryInput.setDirection(RelationshipDirection.INCOMING);
+    glossaryInput.setIncludeSoftDelete(false);
+    glossaryInput.setStart(0);
+    glossaryInput.setCount(1);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(glossaryInput);
+    when(_entityService.exists(any(), anySet(), eq(false))).thenAnswer(inv -> inv.getArgument(1));
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal(), 2);
+    // One ancestor walk for the parent, however many children are checked.
+    verify(entityGraphCache, times(1))
+        .expand(
+            eq("glossary"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(TraversalDirection.FORWARD),
+            anySet(),
+            anyInt(),
+            anyInt(),
+            any());
+    Map<EntitySpec, Map<EntityFieldType, FieldResolver>> overrides =
+        opContext.getAuthorizationContext().getSessionResourceFieldOverrides();
+    for (Urn term : List.of(termA, termB)) {
+      Set<String> glossaryValues =
+          overrides
+              .get(new EntitySpec(term.getEntityType(), term.toString()))
+              .get(EntityFieldType.GLOSSARY)
+              .getFieldValuesFuture()
+              .join()
+              .getValues();
+      assertEquals(
+          glossaryValues, Set.of(term.toString(), parentNode.toString(), grandparent.toString()));
+    }
+  }
+
+  /** The child listing resolves the parent's ancestors once; return just the parent. */
+  private static void stubParentAncestorWalk(EntityGraphCache entityGraphCache, String graphId) {
+    when(entityGraphCache.expand(
+            eq(graphId),
+            any(),
+            eq(TraversalDirection.FORWARD),
+            anySet(),
+            anyInt(),
+            anyInt(),
+            any()))
+        .thenAnswer(inv -> GraphReadResult.fromVertices(inv.getArgument(3)));
   }
 
   private com.linkedin.datahub.graphql.generated.EntityRelationship resultRelationship(

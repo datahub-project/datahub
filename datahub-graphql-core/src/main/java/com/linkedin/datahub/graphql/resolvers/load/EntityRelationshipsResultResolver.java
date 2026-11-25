@@ -12,6 +12,9 @@ import static com.linkedin.metadata.Constants.IS_MEMBER_OF_GROUP_RELATIONSHIP_NA
 import static com.linkedin.metadata.Constants.IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME;
 import static com.linkedin.metadata.Constants.IS_PART_OF_RELATIONSHIP_NAME;
 
+import com.datahub.authorization.EntityFieldType;
+import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.FieldResolver;
 import com.datahub.authorization.SessionActorIdentity;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
@@ -37,6 +40,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.ActorContext;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -48,12 +52,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * GraphQL Resolver responsible for fetching relationships between entities in the DataHub graph.
  * All GraphQL "relationships" fields are wired to this resolver (see GmsGraphQLEngine and
  * DocumentResolvers), so cycle detection here covers every recursive relationship resolution path.
  */
+@Slf4j
 public class EntityRelationshipsResultResolver
     implements DataFetcher<CompletableFuture<EntityRelationshipsResult>> {
 
@@ -552,7 +558,8 @@ public class EntityRelationshipsResultResolver
         count,
         relationshipDirection,
         includeSoftDelete,
-        HierarchyBindings.domainSpec(context.getOperationContext()));
+        HierarchyBindings.domainSpec(context.getOperationContext()),
+        EntityFieldType.DOMAIN);
   }
 
   private EntityRelationshipsResult mapGlossaryChildRelationships(
@@ -570,7 +577,8 @@ public class EntityRelationshipsResultResolver
         count,
         relationshipDirection,
         includeSoftDelete,
-        HierarchyBindings.glossarySpec(context.getOperationContext()));
+        HierarchyBindings.glossarySpec(context.getOperationContext()),
+        EntityFieldType.GLOSSARY);
   }
 
   private EntityRelationshipsResult mapDirectChildRelationships(
@@ -581,10 +589,12 @@ public class EntityRelationshipsResultResolver
       @Nonnull
           final com.linkedin.datahub.graphql.generated.RelationshipDirection relationshipDirection,
       final boolean includeSoftDelete,
-      @Nonnull com.linkedin.metadata.graph.cache.client.HierarchyReadSpec spec) {
+      @Nonnull com.linkedin.metadata.graph.cache.client.HierarchyReadSpec spec,
+      @Nonnull final EntityFieldType hierarchyField) {
+    final Urn parentUrn = UrnUtils.getUrn(urn);
     Set<Urn> childUrns =
         BoundHierarchyAccess.directChildUrns(
-            context.getOperationContext(), spec, UrnUtils.getUrn(urn), includeSoftDelete);
+            context.getOperationContext(), spec, parentUrn, includeSoftDelete);
 
     Set<Urn> existentChildUrns;
     if (!includeSoftDelete && _entityService != null) {
@@ -593,9 +603,13 @@ public class EntityRelationshipsResultResolver
       existentChildUrns = null;
     }
 
-    List<Urn> viewable =
+    List<Urn> candidates =
         childUrns.stream()
             .filter(childUrn -> existentChildUrns == null || existentChildUrns.contains(childUrn))
+            .collect(Collectors.toList());
+    seedChildHierarchyField(context, spec, hierarchyField, parentUrn, candidates);
+    List<Urn> viewable =
+        candidates.stream()
             .filter(childUrn -> canView(context.getOperationContext(), childUrn))
             .collect(Collectors.toList());
 
@@ -625,6 +639,46 @@ public class EntityRelationshipsResultResolver
                             .setType(IS_PART_OF_RELATIONSHIP_NAME)))
             .collect(Collectors.toList()));
     return result;
+  }
+
+  /**
+   * Seeds each child's hierarchy field (GLOSSARY or DOMAIN) as the child plus its parent's
+   * ancestors, so the per-child {@code canView} checks below reuse one ancestor walk instead of
+   * walking the hierarchy once per child. The value is what the field resolver would compute: a
+   * child's ancestors are its parent and the parent's ancestors. Without this, listing a group with
+   * thousands of children under a policy scoped to that group costs thousands of walks per request.
+   * An override already present for a child is left alone.
+   */
+  private static void seedChildHierarchyField(
+      @Nonnull final QueryContext context,
+      @Nonnull final com.linkedin.metadata.graph.cache.client.HierarchyReadSpec spec,
+      @Nonnull final EntityFieldType hierarchyField,
+      @Nonnull final Urn parentUrn,
+      @Nonnull final List<Urn> children) {
+    if (children.isEmpty()) {
+      return;
+    }
+    final OperationContext opContext = context.getOperationContext();
+    final long startNanos = System.nanoTime();
+    final Set<String> parentChain =
+        BoundHierarchyAccess.expandAncestors(opContext, spec, Set.of(parentUrn)).stream()
+            .map(Urn::toString)
+            .collect(Collectors.toSet());
+    final Map<EntitySpec, Map<EntityFieldType, FieldResolver>> overrides =
+        opContext.getAuthorizationContext().getSessionResourceFieldOverrides();
+    for (Urn child : children) {
+      final Set<String> values = new HashSet<>(parentChain);
+      values.add(child.toString());
+      overrides.putIfAbsent(
+          new EntitySpec(child.getEntityType(), child.toString()),
+          Map.of(hierarchyField, FieldResolver.getResolverFromValues(values)));
+    }
+    log.debug(
+        "Seeded {} for {} children of {} from one ancestor walk ({} ms)",
+        hierarchyField,
+        children.size(),
+        parentUrn,
+        (System.nanoTime() - startNanos) / 1_000_000);
   }
 
   private static EntityRelationshipsResult emptyEntityRelationshipsResult() {
