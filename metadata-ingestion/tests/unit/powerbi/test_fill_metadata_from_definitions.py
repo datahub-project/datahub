@@ -1060,6 +1060,8 @@ def test_report_and_page_filters_are_applied_and_bad_filters_only_warn() -> None
         config=_config(extract_report_field_usage=True),
     )
     page = Page(id="r1.p1", displayName="Overview", name="p1", order=0)
+    # A REST page the definition does not describe.
+    unmatched = Page(id="r1.p2", displayName="Appendix", name="p2", order=1)
     report = Report(
         id="r1",
         name="Loss Report",
@@ -1069,7 +1071,7 @@ def test_report_and_page_filters_are_applied_and_bad_filters_only_warn() -> None
         description="",
         dataset_id=MODEL_A,
         dataset=None,
-        pages=[page],
+        pages=[page, unmatched],
         users=[],
         tags=[],
     )
@@ -1089,6 +1091,11 @@ def test_report_and_page_filters_are_applied_and_bad_filters_only_warn() -> None
         PageFieldReference("Claims", "Status", "column"),
     ]
     assert page.visual_count == 1
+    # Report-level filters apply to every page, matched or not.
+    assert unmatched.field_references == [
+        PageFieldReference("Claims", "Status", "column")
+    ]
+    assert api.reporter.report_pages_unmatched == 1
     assert api.reporter.report_filters_parsed == 2
     assert api.reporter.report_filters_failed == 1
     assert [w.title for w in api.reporter.warnings] == ["Report Filter Not Parsed"]

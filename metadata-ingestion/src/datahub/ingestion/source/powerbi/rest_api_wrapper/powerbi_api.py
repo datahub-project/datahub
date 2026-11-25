@@ -79,6 +79,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.report_definition_parser import (
     ParsedPage,
+    filter_fields,
     parse_rdl_dataset_binding,
     parse_report_definition,
 )
@@ -1456,6 +1457,8 @@ class PowerBiAPI:
                     page.name,
                     report.id,
                 )
+                # Report-level filters apply to every page, matched or not.
+                page.field_references = filter_fields(parsed.filters)
                 continue
             page.visual_count = len(parsed_page.visuals)
             page.visual_types = parsed_page.visual_types
