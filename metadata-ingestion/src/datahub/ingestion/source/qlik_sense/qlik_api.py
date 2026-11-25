@@ -638,10 +638,7 @@ class QlikAPI(QlikBaseAPI):
                     # Unlabelled script tables are named from the data model,
                     # so without it they may not match their graph tables.
                     app.tables_read_failed = True
-            app.read_errors = errors.messages
-            app.sheets_complete = not errors.sheets_unread
-            app.read_fallbacks = errors.fallbacks
-            return app
+            return self._finish_read(app, errors)
         finally:
             self._close_engine(websocket_connection, app_id)
 

@@ -20,6 +20,7 @@ import requests
 
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
+    App,
     DataModelTable,
     Item,
     LineageUpstreams,
@@ -223,6 +224,13 @@ class QlikBaseAPI(ABC):
     ) -> DataConnectionInfo:
         descriptor = ";".join(str(connection.get(key) or "") for key in descriptor_keys)
         return infer_data_connection(name, descriptor)
+
+    @staticmethod
+    def _finish_read(app: App, errors: ReadErrors) -> App:
+        app.read_errors = errors.messages
+        app.sheets_complete = not errors.sheets_unread
+        app.read_fallbacks = errors.fallbacks
+        return app
 
     @staticmethod
     def _close_engine(websocket_connection: WebsocketConnection, app_id: str) -> None:

@@ -393,10 +393,7 @@ class QlikOnPremAPI(QlikBaseAPI):
             errors.sheets_unread = True
         finally:
             self._close_engine(websocket_connection, app.id)
-        app.read_errors = errors.messages
-        app.sheets_complete = not errors.sheets_unread
-        app.read_fallbacks = errors.fallbacks
-        return app
+        return self._finish_read(app, errors)
 
     @staticmethod
     def _open_doc(
