@@ -1,6 +1,7 @@
 from typing import no_type_check
 from unittest.mock import MagicMock
 
+import pytest
 from sqlalchemy import types
 from sqlalchemy.engine.default import DefaultDialect
 from sqlalchemy_bigquery import STRUCT
@@ -159,3 +160,34 @@ def test_primitive_lookup_prefers_most_specific_registered_type() -> None:
     # Subclasses of registered types resolve through their parent.
     assert field_path(types.DOUBLE()) == "[version=2.0].[type=float].c"
     assert field_path(types.Text()) == "[version=2.0].[type=string].c"
+
+
+@pytest.mark.parametrize(
+    "dimensions, expected_path, expected_native",
+    [
+        (
+            2,
+            "[version=2.0].[type=struct].[type=array].[type=array].[type=int].test",
+            "array<array<INTEGER>>",
+        ),
+        (
+            3,
+            "[version=2.0].[type=struct].[type=array].[type=array].[type=array]"
+            ".[type=int].test",
+            "array<array<array<INTEGER>>>",
+        ),
+    ],
+)
+def test_multidimensional_array_emits_one_array_level_per_dimension(
+    dimensions: int, expected_path: str, expected_native: str
+) -> None:
+    inspector = MagicMock()
+    inspector.dialect = DefaultDialect()
+    fields = get_schema_fields_for_sqlalchemy_column(
+        column_name="test",
+        column_type=types.ARRAY(types.INTEGER(), dimensions=dimensions),
+        inspector=inspector,
+    )
+    assert [f.fieldPath for f in fields] == [expected_path]
+    assert fields[0].nativeDataType == expected_native
+    assert fields[0].type.type == ArrayTypeClass(nestedType=["array"])
