@@ -26,6 +26,7 @@ from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from loguru import logger
 
 from ._version import __version__
+from .client_retries import use_no_replay_retries
 from .gms_server_info import GmsServerInfo, GmsServerInfoCache
 from .graphql_helpers import with_datahub_client
 from .mcp_instructions import InstructionSize, build_instructions
@@ -66,6 +67,19 @@ class _ClientMiddleware(Middleware):
 
 def _gms_url(client: DataHubClient) -> str:
     return client._graph.config.server
+
+
+def client_from_env() -> DataHubClient:
+    """The local user's DataHub client, from the environment or ~/.datahubenv.
+
+    It retries only requests GMS never ran, so a write tool never applies twice.
+    """
+    client = DataHubClient.from_env(
+        client_mode=ClientMode.SDK,
+        datahub_component=f"datahub-mcp-stdio/{__version__}",
+    )
+    use_no_replay_retries(client)
+    return client
 
 
 def build_stdio_server(
@@ -117,10 +131,7 @@ def main() -> None:
     # the server's log, where per-call debug lines are noise.
     logger.remove()
     logger.add(sys.stderr, level="INFO")
-    client = DataHubClient.from_env(
-        client_mode=ClientMode.SDK,
-        datahub_component=f"datahub-mcp-stdio/{__version__}",
-    )
+    client = client_from_env()
     gms_url = _gms_url(client)
     cache = GmsServerInfoCache()
 

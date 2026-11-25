@@ -8,11 +8,13 @@ from pathlib import Path
 from typing import Any, Iterator, Optional
 
 import pytest
+from datahub.configuration.common import OperationalError
+from datahub.ingestion.graph.client import get_default_graph
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 
 from datahub_core_mcp_tools.gms_server_info import GmsServerInfo
-from datahub_core_mcp_tools.stdio import build_stdio_server
+from datahub_core_mcp_tools.stdio import build_stdio_server, client_from_env
 
 _CONFIG = {
     "versions": {"acryldata/datahub": {"version": "v1.8.0"}},
@@ -34,10 +36,12 @@ _ME = {
 
 
 class _Gms(http.server.BaseHTTPRequestHandler):
-    """Answers /config and every GraphQL query with ``me`` for one token."""
+    """Answers /config and every GraphQL query with ``me`` for one token, or
+    each GraphQL query with ``post_statuses`` in turn while any are left."""
 
     token = "alice-token"
     authorizations: list[Optional[str]] = []
+    post_statuses: list[int] = []
 
     def _send(self, status: int, body: Any) -> None:
         payload = json.dumps(body).encode()
@@ -57,7 +61,14 @@ class _Gms(http.server.BaseHTTPRequestHandler):
         self.rfile.read(int(self.headers.get("content-length", 0)))
         authorization = self.headers.get("authorization")
         type(self).authorizations.append(authorization)
-        if authorization != f"Bearer {self.token}":
+        if type(self).post_statuses:
+            status = type(self).post_statuses.pop(0)
+            self.send_response(status)
+            if status == 429:
+                self.send_header("retry-after", "0")
+            self.send_header("content-length", "0")
+            self.end_headers()
+        elif authorization != f"Bearer {self.token}":
             self._send(401, {"error": "unauthorized"})
         else:
             self._send(200, _ME)
@@ -68,7 +79,7 @@ class _Gms(http.server.BaseHTTPRequestHandler):
 
 @pytest.fixture
 def gms() -> Iterator[str]:
-    _Gms.authorizations = []
+    _Gms.authorizations, _Gms.post_statuses = [], []
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Gms)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -96,6 +107,47 @@ async def test_stdio_round_trip(gms: str, tmp_path: Path) -> None:
     assert "add_tags" not in tools
     assert result.data["data"]["corpUser"]["urn"] == "urn:li:corpuser:alice"
     assert "Bearer alice-token" in _Gms.authorizations
+
+
+@pytest.mark.parametrize(
+    ("statuses", "posts", "succeeds"),
+    [
+        # GMS may have run it: a 5xx is never replayed, so a mutation runs once.
+        ([500], 1, False),
+        ([503], 1, False),
+        # GMS refused it before running it: safe to send again.
+        ([429, 429], 3, True),
+    ],
+)
+def test_the_local_client_never_replays_a_request_gms_may_have_run(
+    gms: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    statuses: list[int],
+    posts: int,
+    succeeds: bool,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("DATAHUB_GMS_URL", gms)
+    monkeypatch.setenv("DATAHUB_GMS_TOKEN", "alice-token")
+    monkeypatch.setenv("DATAHUB_TELEMETRY_ENABLED", "false")
+    # The SDK keeps one default graph per process; each case needs its own GMS.
+    get_default_graph.cache_clear()
+    client = client_from_env()
+    _Gms.post_statuses = statuses
+
+    try:
+        if succeeds:
+            assert client._graph.execute_graphql(
+                "query getMe { me { corpUser { urn } } }"
+            )
+        else:
+            with pytest.raises(OperationalError):
+                client._graph.execute_graphql("query getMe { me { corpUser { urn } } }")
+    finally:
+        client._graph.close()
+        get_default_graph.cache_clear()
+    assert len(_Gms.authorizations) == posts
 
 
 class _FakeGraph:

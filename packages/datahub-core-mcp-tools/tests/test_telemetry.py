@@ -7,6 +7,7 @@ import pytest
 from datahub.telemetry import telemetry
 from fastmcp import Client, FastMCP
 from fastmcp.exceptions import ToolError
+from fastmcp.utilities.tests import asgi_server
 
 from datahub_core_mcp_tools.gms_server_info import GmsServerInfo
 from datahub_core_mcp_tools.telemetry import (
@@ -77,6 +78,49 @@ async def test_tool_call_event(mode: str) -> None:
     assert props["duration_seconds"] >= 0
     assert "tool_call_error" not in props
     assert "hello" not in str(props)
+
+
+async def test_stateless_http_calls_name_their_client() -> None:
+    events: list[Event] = []
+    mcp = _server(_recording_middleware(events))
+
+    async with asgi_server(mcp, stateless_http=True) as server:
+        # A 2026-era client, which names itself in each request's _meta.
+        async with server.client(
+            mode="auto", client_info=mt.Implementation(name="my-agent", version="2.1")
+        ) as client:
+            await client.call_tool("echo", {"text": "hello"})
+        # A request with no session to carry the handshake: only its _meta
+        # names the client.
+        async with server.http_client() as http:
+            response = await http.post(
+                server.url,
+                headers={
+                    "accept": "application/json, text/event-stream",
+                    "mcp-protocol-version": "2025-06-18",
+                },
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "echo",
+                        "arguments": {"text": "hello"},
+                        "_meta": {
+                            "io.modelcontextprotocol/clientInfo": {
+                                "name": "raw-agent",
+                                "version": "0.9",
+                            }
+                        },
+                    },
+                },
+            )
+            assert response.status_code == 200
+
+    assert [(p["client_name"], p["client_version"]) for _, p in events] == [
+        ("my-agent", "2.1"),
+        ("raw-agent", "0.9"),
+    ]
 
 
 async def test_failed_call_reports_the_error_class_only() -> None:
