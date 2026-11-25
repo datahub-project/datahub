@@ -4177,6 +4177,53 @@ def test_kept_reader_of_a_graph_named_dataset_counts_toward_its_path(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_reader_of_a_left_out_graph_named_dataset_is_recorded(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(mock_api_cls, DATASETS)
+    prices = _urn(UNLISTED_QVD)
+    source._graph_named_resources = {prices: "prices.qvd"}
+    source._app_end_of_run_urns["kept-app"].add(prices)
+    source._app_read_graph_named["kept-app"].add(prices)
+    source.app_state = MagicMock()
+
+    # Two files at the label leave the dataset out of every app's URNs.
+    source._leave_out_unplaced(prices, "prices.qvd", all_read=True)
+    source._record_end_of_run_urns()
+
+    source.app_state.add_read_graph_named.assert_called_once_with("kept-app", {prices})
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_reader_of_a_left_out_graph_named_dataset_counts_toward_its_path(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(mock_api_cls, DATASETS)
+    prices = _urn(UNLISTED_QVD)
+    source._graph_named_resources = {prices: "prices.qvd"}
+    source._graph_resource_readers = {prices: {"report-app"}}
+    source._kept_app_ids = {"kept-app"}
+    source.app_state = MagicMock()
+    # The last run left the dataset out, so only the recorded read holds it.
+    source.app_state.previous.return_value = AppCheckpoint(
+        urns=[], read_graph_named_urns=[prices]
+    )
+    statements = {
+        "report-app": [_load("lib://hidden:datafiles/prices.qvd")],
+        "kept-app": [_load("lib://archive:datafiles/prices.qvd")],
+    }
+    mock_api_cls.return_value.get_reload_statements.side_effect = lambda app_id: (
+        statements[app_id]
+    )
+
+    apps_by_urn = source._read_graph_named_reloads()
+
+    assert apps_by_urn[prices].apps == {"report-app", "kept-app"}
+    path, _ = source._graph_named_path("prices.qvd", apps_by_urn[prices])
+    assert path is None
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_lib_path_spellings_follow_a_replaced_spelling(
     mock_api_cls: MagicMock,
 ) -> None:

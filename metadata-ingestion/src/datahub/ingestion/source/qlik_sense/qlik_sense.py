@@ -965,6 +965,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._app_end_of_run_urns: DefaultDict[str, Set[str]] = defaultdict(set)
         # Unmapped files each app's lineage read this run.
         self._app_read_unmapped_files: DefaultDict[str, Set[str]] = defaultdict(set)
+        self._app_read_graph_named: DefaultDict[str, Set[str]] = defaultdict(set)
         # Upstream graphs of the apps read this run, fetched when a source only
         # they can name is met, None when the read failed, and the resources
         # only they name, by URN, with their labels and the app tables storing
@@ -1368,6 +1369,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     stored_file_urns=previous.stored_file_urns,
                     unmapped_file_stores=previous.unmapped_file_stores,
                     read_unmapped_file_urns=previous.read_unmapped_file_urns,
+                    read_graph_named_urns=previous.read_graph_named_urns,
                     field_names=previous.field_names,
                 ),
             )
@@ -1413,6 +1415,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 stored_file_urns=kept.stored_file_urns,
                 unmapped_file_stores=kept.unmapped_file_stores,
                 read_unmapped_file_urns=previous.read_unmapped_file_urns,
+                read_graph_named_urns=previous.read_graph_named_urns,
                 field_names=previous.field_names,
             ),
         )
@@ -2743,6 +2746,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._graph_named_resources[urn] = label
         self._graph_resource_readers.setdefault(urn, set()).add(app_id)
         self._app_end_of_run_urns[app_id].add(urn)
+        self._app_read_graph_named[app_id].add(urn)
         # The dataset is the whole resource, so a store into any of its tables
         # is an upstream, as for listed datasets.
         writers = self._graph_resource_writers.setdefault(urn, set())
@@ -3372,6 +3376,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.app_state.add_urns(app_id, urns)
         for app_id, urns in self._app_read_unmapped_files.items():
             self.app_state.add_read_unmapped_files(app_id, urns)
+        for app_id, urns in self._app_read_graph_named.items():
+            self.app_state.add_read_graph_named(app_id, urns)
 
     def _learn_field_names(self, names: Iterable[str]) -> None:
         for name in names:
@@ -4815,14 +4821,20 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _read_graph_named_reloads(self) -> Dict[str, _GraphNamedApps]:
         """The apps that may give the path of each dataset only the upstream
         graphs name, with their last reload read."""
+        graph_named = set(self._graph_named_resources)
+        if not graph_named:
+            return {}
         # A kept app still loads what its last read did, so its reload counts
         # toward whether a path is certain. Its checkpoint is looked up here
-        # rather than every app's entities held for the run.
-        graph_named = set(self._graph_named_resources)
+        # rather than every app's entities held for the run. A dataset left out
+        # last run is in no app's `urns`, so its recorded reads count too.
         kept_readers: Dict[str, Set[str]] = defaultdict(set)
         for app_id in self._kept_app_ids:
             previous = self.app_state.previous(app_id)
-            for urn in graph_named.intersection(previous.urns if previous else ()):
+            if previous is None:
+                continue
+            read = {*previous.urns, *previous.read_graph_named_urns}
+            for urn in graph_named.intersection(read):
                 kept_readers[urn].add(app_id)
         apps_by_urn = {
             urn: self._graph_named_apps(urn, kept_readers.get(urn, set()))
