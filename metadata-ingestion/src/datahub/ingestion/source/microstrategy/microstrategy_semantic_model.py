@@ -645,12 +645,16 @@ class MicroStrategySemanticModelMapper:
             # not take the structural semantic-model entities (the model and
             # its logical datasets, already built by the caller) down with
             # it, so this degrades to "no metrics" rather than propagating.
+            # It is reported as a failure, not a warning: stateful ingestion
+            # skips stale-entity removal only on a source failure, and would
+            # otherwise soft-delete every metric the previous run emitted.
             self.report.report_semantic_model_metric_search_api_failure()
-            self.report.warning(
+            self.report.failure(
                 title="MicroStrategy Metric Search Unavailable",
                 message=(
                     "Skipping metric emission for the semantic model; project "
-                    "metrics could not be enumerated."
+                    "metrics could not be enumerated. Stale-entity removal is "
+                    "skipped for this run so previously ingested metrics are kept."
                 ),
                 context=f"project_id={project_id}",
                 exc=error,

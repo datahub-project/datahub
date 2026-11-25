@@ -1346,6 +1346,42 @@ def test_semantic_model_runs_after_the_project_caches_are_released() -> None:
     assert source.report.cache_project_resets == 1
 
 
+@pytest.mark.parametrize(
+    "model_tables, expect_failure",
+    [
+        # The fetch failed: reported as a failure so stateful ingestion skips
+        # stale-entity removal instead of soft-deleting the previous run's
+        # semantic model, logical datasets and metrics.
+        (None, True),
+        # A project with no logical tables is not an error.
+        ([], False),
+    ],
+)
+def test_semantic_model_unavailable_fails_only_when_the_fetch_failed(
+    model_tables: Optional[List[Dict[str, object]]], expect_failure: bool
+) -> None:
+    source = _source({"emit_semantic_model_entities": True})
+
+    class FakeLineageContext:
+        def model_tables_retrying_failure(
+            self,
+        ) -> Optional[List[Dict[str, object]]]:
+            return model_tables
+
+        warehouse_context = None
+
+    workunits = list(
+        source._process_project_semantic_model(
+            _PROJECT,
+            FakeLineageContext(),  # type: ignore[arg-type]
+        )
+    )
+
+    assert workunits == []
+    assert bool(source.report.failures) is expect_failure
+    assert bool(source.report.warnings) is not expect_failure
+
+
 def _assert_semantic_model_called_only_when_enabled(enabled: bool) -> None:
     project = Project.model_validate({"id": "project-1", "name": "Project 1"})
     source = _source(

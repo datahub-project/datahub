@@ -767,6 +767,12 @@ def test_metric_search_failure_preserves_model_and_dataset_entities() -> None:
     assert model_urn in aspects
     assert dataset_urn in aspects
     assert mapper.report.semantic_model_metric_search_api_failures == 1
+    # A failure, not a warning: stateful ingestion skips stale-entity
+    # removal only on a source failure, and otherwise soft-deletes every
+    # metric the previous run emitted.
+    assert [failure.title for failure in mapper.report.failures] == [
+        "MicroStrategy Metric Search Unavailable"
+    ]
 
 
 def test_metrics_are_emitted_as_they_are_fetched(
