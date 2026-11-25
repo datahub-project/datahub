@@ -1,8 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.settings.mcp;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.metadata.Constants.DATAHUB_VIEW_ENTITY_NAME;
 
+import com.linkedin.agent.AIAgentToolRef;
+import com.linkedin.agent.AIAgentToolRefArray;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -15,6 +16,7 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.McpServerConfigInput;
 import com.linkedin.datahub.graphql.generated.UpdateMcpSettingsInput;
 import com.linkedin.datahub.graphql.types.agent.AgentToolRefMapper;
+import com.linkedin.metadata.aspect.validation.McpSettingsValidator;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.McpInstructionSize;
@@ -24,11 +26,10 @@ import com.linkedin.settings.global.McpSettings;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -37,19 +38,11 @@ import javax.annotation.Nullable;
  *
  * <p>Scoped servers are upserted by slug; servers not in the input are left unchanged. Creating a
  * scoped server whose slug is not already stored requires the createMcpServersEnabled feature flag.
- * Requires the 'Manage Platform Settings' privilege.
+ * Requires the 'Manage Platform Settings' privilege. The slug and View rules are enforced for every
+ * write path by {@link McpSettingsValidator}; they are checked here too so a bad input fails with a
+ * clear message before anything is written.
  */
 public class UpdateMcpSettingsResolver implements DataFetcher<CompletableFuture<Boolean>> {
-
-  /**
-   * Slugs reserved by the platform and not allowed for scoped MCP servers. "default",
-   * "datahub-default", and "datahub" denote the default server (exposed at /mcp with no slug);
-   * "mcp" would collide with the mount path itself.
-   */
-  private static final Set<String> RESERVED_MCP_SLUGS =
-      Set.of("default", "datahub-default", "datahub", "mcp");
-
-  private static final Pattern SLUG_PATTERN = Pattern.compile("[a-z0-9][a-z0-9-]*");
 
   private final SettingsService _settingsService;
   private final FeatureFlags _featureFlags;
@@ -159,41 +152,28 @@ public class UpdateMcpSettingsResolver implements DataFetcher<CompletableFuture<
 
   @Nonnull
   private static String validateSlug(@Nullable final String slug) {
-    if (slug == null || slug.trim().isEmpty()) {
-      throw new IllegalArgumentException(
-          "MCP server config requires a non-empty slug (slug is required for scoped servers)");
-    }
-    if (!SLUG_PATTERN.matcher(slug).matches()) {
-      throw new IllegalArgumentException(
-          "MCP server slug must match [a-z0-9][a-z0-9-]* (got: '" + slug + "')");
-    }
-    if (RESERVED_MCP_SLUGS.contains(slug)) {
-      throw new IllegalArgumentException(
-          "MCP server slug '"
-              + slug
-              + "' is reserved; choose a different slug (reserved: "
-              + RESERVED_MCP_SLUGS
-              + ")");
+    final String error = McpSettingsValidator.slugError(slug);
+    if (error != null) {
+      throw new IllegalArgumentException(error);
     }
     return slug;
   }
 
   /**
    * Whether a default-override input is equivalent to "no override": not explicitly disabled, and
-   * no custom instructions, tool restriction, scoping View, description, non-default instruction
-   * size, or stored skills. {@code name} is ignored: it is cosmetic and unused at serve time.
+   * no name, custom instructions, tool restriction, scoping View, description, non-default
+   * instruction size, or stored value this API keeps but cannot set.
    */
   private static boolean isEffectivelyEmptyOverride(
       @Nonnull final McpServerConfigInput input, @Nullable final McpServerConfig existing) {
     if (input.getEnabled() != null && !input.getEnabled()) {
       return false;
     }
-    // Skills cannot be set through this API but are kept on update, so an override holding them
-    // still matters.
-    if (existing != null && existing.hasSkills() && !existing.getSkills().isEmpty()) {
+    if (existing != null && holdsValuesThisApiCannotSet(existing)) {
       return false;
     }
-    return isBlank(input.getCustomInstructions())
+    return isBlank(input.getName())
+        && isBlank(input.getCustomInstructions())
         && (input.getTools() == null || input.getTools().isEmpty())
         && isBlank(input.getViewUrn())
         && isBlank(input.getDescription())
@@ -202,11 +182,25 @@ public class UpdateMcpSettingsResolver implements DataFetcher<CompletableFuture<
                 == com.linkedin.datahub.graphql.generated.McpInstructionSize.LARGE);
   }
 
+  /**
+   * Skills, a domain scope, and tool refs of a type the GraphQL enum lacks are kept on update (see
+   * {@link #toServerConfig}), so an override holding them still matters.
+   */
+  private static boolean holdsValuesThisApiCannotSet(@Nonnull final McpServerConfig existing) {
+    return (existing.hasSkills() && !existing.getSkills().isEmpty())
+        || existing.hasDomainUrn()
+        || !AgentToolRefMapper.unrepresentable(existing.getTools()).isEmpty();
+  }
+
   private static boolean isBlank(@Nullable final String s) {
     return s == null || s.trim().isEmpty();
   }
 
-  /** Builds the stored config from the input, replacing the existing one but keeping its skills. */
+  /**
+   * Builds the stored config from the input. Every field the input carries is replaced (a missing
+   * optional value clears it); fields it does not carry, such as skills and domainUrn, are kept
+   * from the existing config.
+   */
   @Nonnull
   private static McpServerConfig toServerConfig(
       @Nonnull final McpServerConfigInput input,
@@ -215,33 +209,55 @@ public class UpdateMcpSettingsResolver implements DataFetcher<CompletableFuture<
       final long now) {
     // The slug is set by the caller: scoped servers have one, the default server's overrides do
     // not.
-    final McpServerConfig config = new McpServerConfig();
+    final McpServerConfig config = existing != null ? copy(existing) : new McpServerConfig();
     config.setName(input.getName());
     config.setEnabled(input.getEnabled() != null ? input.getEnabled() : true);
-    if (input.getDescription() != null) {
-      config.setDescription(input.getDescription());
-    }
-    if (input.getCustomInstructions() != null) {
-      config.setCustomInstructions(input.getCustomInstructions());
-    }
-    if (input.getInstructionSize() != null) {
-      config.setInstructionSize(McpInstructionSize.valueOf(input.getInstructionSize().name()));
-    }
-    if (input.getTools() != null) {
-      config.setTools(AgentToolRefMapper.toGms(input.getTools()));
-    }
-    if (!isBlank(input.getViewUrn())) {
-      config.setViewUrn(parseViewUrn(input.getViewUrn().trim()));
-    }
-    // Skills are not exposed by this API yet; keep whatever is stored.
-    if (existing != null && existing.hasSkills()) {
-      config.setSkills(existing.getSkills());
-    }
+    config.setDescription(input.getDescription(), SetMode.REMOVE_IF_NULL);
+    config.setCustomInstructions(input.getCustomInstructions(), SetMode.REMOVE_IF_NULL);
+    config.setInstructionSize(
+        input.getInstructionSize() != null
+            ? McpInstructionSize.valueOf(input.getInstructionSize().name())
+            : null,
+        SetMode.REMOVE_IF_NULL);
+    config.setTools(
+        mergeTools(input, existing != null ? existing.getTools() : null), SetMode.REMOVE_IF_NULL);
+    config.setViewUrn(
+        isBlank(input.getViewUrn()) ? null : parseViewUrn(input.getViewUrn().trim()),
+        SetMode.REMOVE_IF_NULL);
 
     final AuditStamp stamp = new AuditStamp().setTime(now).setActor(actor);
     config.setCreated(existing != null && existing.hasCreated() ? existing.getCreated() : stamp);
     config.setLastModified(stamp);
     return config;
+  }
+
+  @Nonnull
+  private static McpServerConfig copy(@Nonnull final McpServerConfig config) {
+    try {
+      return config.copy();
+    } catch (CloneNotSupportedException e) {
+      throw new IllegalStateException("Failed to copy MCP server config", e);
+    }
+  }
+
+  /**
+   * The input's tool refs plus the stored refs whose type GraphQL cannot represent (e.g. PLUGIN, or
+   * a type from a newer schema). Those are left out of reads, so a client saving what it loaded
+   * cannot see them; keeping them stops a load-and-save from dropping or retyping them.
+   */
+  @Nullable
+  private static AIAgentToolRefArray mergeTools(
+      @Nonnull final McpServerConfigInput input, @Nullable final AIAgentToolRefArray stored) {
+    final List<AIAgentToolRef> kept = AgentToolRefMapper.unrepresentable(stored);
+    if (input.getTools() == null && kept.isEmpty()) {
+      return null;
+    }
+    final AIAgentToolRefArray tools =
+        input.getTools() != null
+            ? AgentToolRefMapper.toGms(input.getTools())
+            : new AIAgentToolRefArray();
+    tools.addAll(kept);
+    return tools;
   }
 
   /**
@@ -257,11 +273,9 @@ public class UpdateMcpSettingsResolver implements DataFetcher<CompletableFuture<
       throw new IllegalArgumentException(
           "MCP server viewUrn is not a valid URN: '" + viewUrn + "'");
     }
-    if (!DATAHUB_VIEW_ENTITY_NAME.equals(urn.getEntityType())) {
-      throw new IllegalArgumentException(
-          "MCP server viewUrn must be a dataHubView URN (got entity type '"
-              + urn.getEntityType()
-              + "')");
+    final String error = McpSettingsValidator.viewUrnError(urn);
+    if (error != null) {
+      throw new IllegalArgumentException(error);
     }
     return urn;
   }

@@ -4,9 +4,12 @@ import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
+import com.linkedin.agent.AIAgentToolRef;
+import com.linkedin.agent.AIAgentToolRefArray;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
@@ -22,7 +25,9 @@ import com.linkedin.settings.global.McpServerConfig;
 import com.linkedin.settings.global.McpServerConfigArray;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
@@ -169,13 +174,105 @@ public class UpdateMcpSettingsResolverTest {
                     storedServer("unused").setCustomInstructions("Answer in French.")));
     final UpdateMcpSettingsInput input = new UpdateMcpSettingsInput();
     final McpServerConfigInput overrides = new McpServerConfigInput();
-    overrides.setName("Default");
+    overrides.setName("");
     overrides.setCustomInstructions(" ");
     input.setDefaultMcpServerOverrides(overrides);
 
     assertTrue(update(settingsService, flags(false), getMockAllowContext(), input).get());
 
     assertFalse(captureWrite(settingsService).getMcpSettings().hasDefaultMcpServerOverrides());
+  }
+
+  @Test
+  public void testDefaultServerOverrideWithOnlyANameIsKept() throws Exception {
+    final SettingsService settingsService = settingsService(null);
+    final UpdateMcpSettingsInput input = new UpdateMcpSettingsInput();
+    final McpServerConfigInput overrides = new McpServerConfigInput();
+    overrides.setName("Company MCP");
+    // The edit modal always sends an instruction size.
+    overrides.setInstructionSize(McpInstructionSize.LARGE);
+    input.setDefaultMcpServerOverrides(overrides);
+
+    assertTrue(update(settingsService, flags(false), getMockAllowContext(), input).get());
+
+    final McpServerConfig stored =
+        captureWrite(settingsService).getMcpSettings().getDefaultMcpServerOverrides();
+    assertEquals(stored.getName(), "Company MCP");
+  }
+
+  @Test
+  public void testUpdateKeepsDomainScope() throws Exception {
+    final com.linkedin.common.urn.Urn domainUrn = UrnUtils.getUrn("urn:li:domain:finance");
+    final SettingsService settingsService =
+        settingsService(
+            new com.linkedin.settings.global.McpSettings()
+                .setServers(
+                    new McpServerConfigArray(
+                        storedServer("finance")
+                            .setDomainUrn(domainUrn)
+                            .setDescription("Old description")))
+                .setDefaultMcpServerOverrides(storedServer("unused").setDomainUrn(domainUrn)));
+    final UpdateMcpSettingsInput input = new UpdateMcpSettingsInput();
+    input.setServers(List.of(serverInput("finance")));
+    // Otherwise blank, so only the stored domain scope keeps this override.
+    final McpServerConfigInput overrides = new McpServerConfigInput();
+    overrides.setName("");
+    input.setDefaultMcpServerOverrides(overrides);
+
+    assertTrue(update(settingsService, flags(false), getMockAllowContext(), input).get());
+
+    final com.linkedin.settings.global.McpSettings written =
+        captureWrite(settingsService).getMcpSettings();
+    final McpServerConfig server = written.getServers().get(0);
+    assertEquals(server.getDomainUrn(), domainUrn);
+    // A field the input carries is still replaced: leaving it out clears it.
+    assertFalse(server.hasDescription());
+    assertEquals(written.getDefaultMcpServerOverrides().getDomainUrn(), domainUrn);
+  }
+
+  @Test
+  public void testLoadAndSaveKeepsToolRefsGraphqlCannotShow() throws Exception {
+    final AIAgentToolRef plugin =
+        new AIAgentToolRef()
+            .setRefType(com.linkedin.agent.ToolRefType.PLUGIN)
+            .setToolId("github")
+            .setEnabled(true);
+    final AIAgentToolRef future =
+        new AIAgentToolRef(
+            new DataMap(Map.of("refType", "FUTURE_TYPE", "toolId", "future", "enabled", true)));
+    final AIAgentToolRef group =
+        new AIAgentToolRef()
+            .setRefType(com.linkedin.agent.ToolRefType.GROUP)
+            .setToolId("read_metadata")
+            .setEnabled(true);
+    final McpServerConfig stored =
+        storedServer("finance").setTools(new AIAgentToolRefArray(group, plugin, future));
+    final SettingsService settingsService =
+        settingsService(
+            new com.linkedin.settings.global.McpSettings()
+                .setServers(new McpServerConfigArray(stored)));
+
+    // Save exactly what a client loaded, as the settings page does.
+    final com.linkedin.datahub.graphql.generated.McpServerConfig loaded =
+        McpSettingsMapper.mapMcpServerConfig(stored);
+    assertEquals(loaded.getTools().size(), 1);
+    final McpServerConfigInput server = serverInput("finance");
+    server.setTools(
+        loaded.getTools().stream()
+            .map(t -> toolRef(t.getRefType(), t.getToolId(), t.getEnabled()))
+            .collect(Collectors.toList()));
+    final UpdateMcpSettingsInput input = new UpdateMcpSettingsInput();
+    input.setServers(List.of(server));
+
+    assertTrue(update(settingsService, flags(false), getMockAllowContext(), input).get());
+
+    final AIAgentToolRefArray written =
+        captureWrite(settingsService).getMcpSettings().getServers().get(0).getTools();
+    assertEquals(written.size(), 3);
+    assertEquals(written.get(0).getRefType(), com.linkedin.agent.ToolRefType.GROUP);
+    assertEquals(written.get(1).getRefType(), com.linkedin.agent.ToolRefType.PLUGIN);
+    assertEquals(written.get(1).getToolId(), "github");
+    assertEquals(written.get(2).data().get("refType"), "FUTURE_TYPE");
   }
 
   private static void assertRejected(
