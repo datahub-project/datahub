@@ -7,6 +7,7 @@ from sentry_sdk.envelope import Envelope
 from sentry_sdk.transport import Transport
 
 from datahub.masking.secret_registry import SecretRegistry
+from datahub.telemetry import telemetry
 from datahub.telemetry.telemetry import _init_sentry, _mask_sentry_event
 
 SECRET = "s3cr3t-test-value"
@@ -40,14 +41,21 @@ def _connect(url: str, message: str) -> None:
     raise ConnectionError(message)
 
 
-def _send_failed_connection(message: str = "unable to connect") -> bytes:
+def _send_failed_connection(
+    monkeypatch: pytest.MonkeyPatch, message: str = "unable to connect"
+) -> bytes:
     """Capture an error through the telemetry Sentry setup; return what was sent."""
     transport = _CapturingTransport()
-    _init_sentry(
-        dsn="https://key@example.invalid/1",
-        transport=transport,
-        default_integrations=False,
+    real_init = sentry_sdk.init
+    monkeypatch.setattr(telemetry, "SENTRY_DSN", "https://key@example.invalid/1")
+    monkeypatch.setattr(
+        sentry_sdk,
+        "init",
+        lambda **options: real_init(
+            **options, transport=transport, default_integrations=False
+        ),
     )
+    _init_sentry()
     try:
         with sentry_sdk.isolation_scope():
             sentry_sdk.add_breadcrumb(message=f"connecting with {SECRET}")
@@ -63,11 +71,11 @@ def _send_failed_connection(message: str = "unable to connect") -> bytes:
 
 
 def test_sentry_event_masks_registered_secrets_and_drops_locals(
-    registry: SecretRegistry,
+    registry: SecretRegistry, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     registry.register_secret("DB_PASSWORD", SECRET)
 
-    sent = _send_failed_connection()
+    sent = _send_failed_connection(monkeypatch)
 
     assert b"unable to connect" in sent
     assert b"connecting with ***REDACTED:DB_PASSWORD***" in sent
@@ -77,11 +85,13 @@ def test_sentry_event_masks_registered_secrets_and_drops_locals(
 
 
 def test_sentry_event_masks_a_secret_at_the_length_limit(
-    registry: SecretRegistry,
+    registry: SecretRegistry, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     registry.register_secret("DB_PASSWORD", SECRET)
 
-    sent = _send_failed_connection("x" * (DEFAULT_MAX_VALUE_LENGTH - 6) + SECRET)
+    sent = _send_failed_connection(
+        monkeypatch, "x" * (DEFAULT_MAX_VALUE_LENGTH - 6) + SECRET
+    )
 
     assert b"xxxxx" in sent
     assert SECRET[:3].encode() not in sent

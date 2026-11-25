@@ -125,20 +125,19 @@ def _mask_sentry_event(event: "Event", hint: "Hint") -> Optional["Event"]:
     return SecretMaskingFilter(registry).mask_structure(event)
 
 
-def _init_sentry(**overrides: Any) -> None:
+def _init_sentry() -> None:
     # sentry_sdk is imported only when Sentry is enabled.
     import sentry_sdk
     from sentry_sdk.scope import add_global_event_processor
 
     add_global_event_processor(_mask_sentry_event)
-    options: Dict[str, Any] = {
-        "dsn": SENTRY_DSN,
-        "environment": SENTRY_ENVIRONMENT,
-        "release": __version__,
-        "include_local_variables": False,
-        "before_send": _mask_sentry_event,
-    }
-    sentry_sdk.init(**{**options, **overrides})
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=SENTRY_ENVIRONMENT,
+        release=__version__,
+        include_local_variables=False,
+        before_send=_mask_sentry_event,
+    )
 
 
 def _default_global_properties() -> Dict[str, Any]:
