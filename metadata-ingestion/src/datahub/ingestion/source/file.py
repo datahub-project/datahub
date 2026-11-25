@@ -257,8 +257,9 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
                     else:
                         yield MetadataWorkUnit(id, mcp_raw=obj)
                 elif not obj.proposedSnapshot.aspects:
-                    self.report.failure(
-                        message="MetadataChangeEvent has no aspects", context=id
+                    self.report.warning(
+                        message="Skipped a MetadataChangeEvent with no aspects",
+                        context=id,
                     )
                 else:
                     if not warned_mce:
@@ -275,7 +276,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
                             self.config.aspect is None
                             or mcp.aspectName == self.config.aspect
                         ):
-                            yield MetadataWorkUnit(id, mcp=mcp)
+                            yield MetadataWorkUnit(f"{id}-{mcp.aspectName}", mcp=mcp)
             self.report.total_num_files += 1
             self.report.append_total_bytes_on_disk(f.size)
 

@@ -22,5 +22,8 @@ def check_mce_file(filepath: str) -> str:
         raise Exception(
             f"Failed to process file due to {mce_source.get_report().failures}"
         )
-    else:
-        return f"{mce_source.get_report().events_produced} MCPs found - all valid"
+    report = mce_source.get_report()
+    summary = f"{report.events_produced} MCPs found - all valid"
+    for warning in report.warnings:
+        summary += f"\nWarning: {warning.message}: {warning.context}"
+    return summary

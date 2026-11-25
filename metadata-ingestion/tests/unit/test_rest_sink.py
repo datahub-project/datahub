@@ -481,7 +481,7 @@ def test_rest_sink_config_accepts_client_config_dump():
     assert cfg.server == "http://localhost:8080"
 
 
-def test_emit_wrapper_sends_mce_as_one_mcp_per_aspect():
+def test_emit_wrapper_sends_mce_as_one_mcp_batch():
     from unittest.mock import PropertyMock, patch
 
     status = models.StatusClass(removed=False)
@@ -503,9 +503,8 @@ def test_emit_wrapper_sends_mce_as_one_mcp_per_aspect():
         sink = DatahubRestSink.__new__(DatahubRestSink)
         sink._emit_wrapper(mce, emit_mode=EmitMode.SYNC_PRIMARY)
 
-    emitted = [c.args[0] for c in mock_emitter.emit.call_args_list]
+    mock_emitter.emit_mcps.assert_called_once()
+    emitted = mock_emitter.emit_mcps.call_args.args[0]
     assert all(isinstance(m, MetadataChangeProposalWrapper) for m in emitted)
     assert [m.aspect for m in emitted] == [status, properties]
-    assert {c.kwargs["emit_mode"] for c in mock_emitter.emit.call_args_list} == {
-        EmitMode.SYNC_PRIMARY
-    }
+    assert mock_emitter.emit_mcps.call_args.kwargs["emit_mode"] == EmitMode.SYNC_PRIMARY
