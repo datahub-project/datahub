@@ -199,6 +199,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     stores_in_competing_branches,
     unquoted_values,
 )
+from datahub.ingestion.source.qlik_sense.source.base import QlikSourceBase
 from datahub.ingestion.source.qlik_sense.source_models import (
     PendingStoredFile,
     PendingTableLineage,
@@ -314,7 +315,7 @@ logger = logging.getLogger(__name__)
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
+class QlikSenseSource(QlikSourceBase, StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
     - Qlik Sense Spaces (Cloud) or Streams (Enterprise on Windows) and Apps as Container.
@@ -1522,7 +1523,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         connections = self._get_data_connections()
         lib_connection = _lib_connection(connection)
         space_name = self.qlik_api.spaces.get(space_id)
-        if self.config.on_prem is None and space_name and not lib_connection.space:
+        if self._on_cloud and space_name and not lib_connection.space:
             # Qlik Cloud looks a bare name up in the app's own space only. A
             # same-named connection elsewhere may point at another database
             # when the app's own one is not visible to the API key.
@@ -1546,7 +1547,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
         )
         space_name = self.qlik_api.spaces.get(space_id)
-        if self.config.on_prem is None and space_name and not lib_connection.space:
+        if self._on_cloud and space_name and not lib_connection.space:
             names.insert(0, f"{space_name}{SPACE_SEPARATOR}{lib_connection.name}")
         return next(
             (
@@ -2299,7 +2300,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 # says, but a variable nothing sets can come from it.
                 if "$(" in load.expanded:
                     settable.append(load.expanded)
-        if unnamed and self.config.on_prem is None:
+        if unnamed and self._on_cloud:
             # On-prem apps have no lineage graph files to match.
             self._apps_file_paths_unknown.add(app.id)
             self.reporter.warning(
@@ -2362,7 +2363,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if not space:
             # Qlik Cloud resolves a bare name in the app's own space only. A
             # personal space has no name another app could write the path with.
-            if self.config.on_prem is None and space_id != Constant.PERSONAL_SPACE_ID:
+            if self._on_cloud and space_id != Constant.PERSONAL_SPACE_ID:
                 space = self.qlik_api.spaces.get(space_id, "").strip().strip("[]")
         path = normalized_file_path(path)
         qualified = f"{_lib_name(space)}{SPACE_SEPARATOR}{_lib_name(name)}/{path}"
@@ -3524,7 +3525,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             for table in app.data_model_tables
         }
         self._learn_field_names(_app_field_names(app))
-        if self.config.on_prem is None and not app.tables:
+        if self._on_cloud and not app.tables:
             self.reporter.apps_without_load_model.append(app.id)
         parsed = self._parsed_script(app)
         self._file_sources_by_app[app.id] = self._file_source_resolver(app, parsed)
