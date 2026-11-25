@@ -12,11 +12,24 @@ Guarantees:
   registered, output is replaced with a fixed marker, never leaked
 """
 
+import builtins
 import logging
 import re
 import sys
 import traceback
-from typing import Any, Callable, Dict, Iterator, List, Optional, Set, TextIO
+import weakref
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    TextIO,
+    Tuple,
+    Type,
+    cast,
+)
 
 from datahub.masking.constants import (
     CIRCUIT_OPEN_MESSAGE,
@@ -36,18 +49,71 @@ _FORMATTER = logging.Formatter()
 
 
 class MaskedException(Exception):
-    """Stands in for a logged exception that cannot be shown as is."""
+    """Stands in for a logged exception that cannot be shown as is.
+
+    Stand-ins are instances of subclasses named after the original's class,
+    with the masked message and notes, the original's traceback, and
+    stand-ins for its cause, context and group members.
+    """
+
+
+_STAND_IN_TYPES: "weakref.WeakKeyDictionary[type, Type[MaskedException]]" = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def _stand_in_type(exc_type: type) -> Type[MaskedException]:
+    """Return the MaskedException subclass named after exc_type, created once;
+    an ExceptionGroup as well when exc_type is an exception group."""
+    stand_in_type = _STAND_IN_TYPES.get(exc_type)
+    if stand_in_type is None:
+        bases: Tuple[type, ...] = (MaskedException,)
+        if sys.version_info >= (3, 11) and issubclass(
+            exc_type, builtins.BaseExceptionGroup
+        ):
+            bases = (MaskedException, builtins.ExceptionGroup)
+        stand_in_type = cast(
+            Type[MaskedException],
+            type(
+                exc_type.__name__,
+                bases,
+                {
+                    "__module__": exc_type.__module__,
+                    "__qualname__": exc_type.__qualname__,
+                },
+            ),
+        )
+        _STAND_IN_TYPES[exc_type] = stand_in_type
+    return stand_in_type
+
+
+def _group_members(exc: BaseException) -> Tuple[BaseException, ...]:
+    if sys.version_info >= (3, 11) and isinstance(exc, builtins.BaseExceptionGroup):
+        return exc.exceptions
+    return ()
+
+
+def _linked_exceptions(exc: BaseException) -> List[BaseException]:
+    """Return exc and the exceptions linked to it by cause, context or group
+    membership, each once."""
+    found: Dict[int, BaseException] = {}
+    pending: List[BaseException] = [exc]
+    while pending:
+        current = pending.pop()
+        if id(current) in found:
+            continue
+        found[id(current)] = current
+        members = getattr(current, "exceptions", None)
+        if not isinstance(members, (list, tuple)):
+            members = ()
+        linked = (current.__cause__, current.__context__, *members)
+        pending.extend(e for e in linked if isinstance(e, BaseException))
+    return list(found.values())
 
 
 def _linked_exception_texts(exc: BaseException) -> Iterator[str]:
     """Yield what formatters and Sentry print for exc and its linked exceptions."""
-    seen: Set[int] = set()
-    pending: List[BaseException] = [exc]
-    while pending:
-        current = pending.pop()
-        if id(current) in seen:
-            continue
-        seen.add(id(current))
+    for current in _linked_exceptions(exc):
         for render in (
             lambda e: "".join(traceback.format_exception_only(type(e), e)),
             repr,
@@ -55,11 +121,6 @@ def _linked_exception_texts(exc: BaseException) -> Iterator[str]:
             lambda e: getattr(e, "detail", ""),
         ):
             yield str(render(current))
-        members = getattr(current, "exceptions", None)
-        if not isinstance(members, (list, tuple)):
-            members = ()
-        linked = (current.__cause__, current.__context__, *members)
-        pending.extend(e for e in linked if isinstance(e, BaseException))
 
 
 class SecretMaskingFilter(logging.Filter):
@@ -194,10 +255,53 @@ class SecretMaskingFilter(logging.Filter):
             )
             return (MASKING_ERROR_MESSAGE,)
 
+    def _stand_in(
+        self, exc: BaseException, stand_ins: Dict[int, MaskedException]
+    ) -> MaskedException:
+        """Return a stand-in for exc with its masked message and notes, its
+        traceback, and the stand-ins of its group members from stand_ins."""
+        stand_in_type = _stand_in_type(type(exc))
+        if sys.version_info >= (3, 11) and isinstance(exc, builtins.BaseExceptionGroup):
+            members = [stand_ins[id(member)] for member in exc.exceptions]
+            stand_in = stand_in_type(self.mask_text(exc.message), members)
+        else:
+            stand_in = stand_in_type(self.mask_text(str(exc)))
+        notes = getattr(exc, "__notes__", None)
+        if notes is not None:
+            if not isinstance(notes, (list, tuple)):
+                notes = [notes]
+            stand_in.__notes__ = [self.mask_text(str(note)) for note in notes]
+        return stand_in.with_traceback(exc.__traceback__)
+
+    def _stand_in_chain(self, exc: BaseException) -> MaskedException:
+        """Return the stand-in for exc, linked to stand-ins for its cause,
+        context and group members as the originals are linked."""
+        originals = _linked_exceptions(exc)
+        stand_ins: Dict[int, MaskedException] = {}
+        while len(stand_ins) < len(originals):
+            ready = [
+                original
+                for original in originals
+                if id(original) not in stand_ins
+                and all(id(m) in stand_ins for m in _group_members(original))
+            ]
+            if not ready:
+                raise ValueError("cannot order exception group members")
+            for original in ready:
+                stand_ins[id(original)] = self._stand_in(original, stand_ins)
+        for original in originals:
+            stand_in = stand_ins[id(original)]
+            if original.__cause__ is not None:
+                stand_in.__cause__ = stand_ins[id(original.__cause__)]
+            if original.__context__ is not None:
+                stand_in.__context__ = stand_ins[id(original.__context__)]
+            stand_in.__suppress_context__ = original.__suppress_context__
+        return stand_ins[id(exc)]
+
     def _mask_exception(self, record: logging.LogRecord) -> None:
         """Set an unset exc_text to the masked traceback, and replace an exception
-        whose own texts hold a secret with a MaskedException without traceback.
-        Never modifies the caller's exception."""
+        whose own texts hold a secret with its MaskedException stand-in, which
+        keeps the traceback and the chain. Never modifies the caller's exception."""
         try:
             _, exc_value, tb = record.exc_info or (None, None, None)
             if exc_value is None:
@@ -208,11 +312,8 @@ class SecretMaskingFilter(logging.Filter):
             texts = _linked_exception_texts(exc_value)
             if all(self.mask_text(text) == text for text in texts):
                 return
-            summary = "".join(
-                traceback.format_exception_only(type(exc_value), exc_value)
-            )
-            stand_in = MaskedException(self.mask_text(summary.rstrip("\n")))
-            record.exc_info = (MaskedException, stand_in, None)
+            stand_in = self._stand_in_chain(exc_value)
+            record.exc_info = (type(stand_in), stand_in, stand_in.__traceback__)
         except Exception as e:
             logger.error(
                 "CRITICAL: Secret masking failed in exception; output withheld. "

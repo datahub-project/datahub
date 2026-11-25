@@ -285,6 +285,13 @@ def _raise_chained(cause: BaseException, *, explicit: bool = True) -> NoReturn:
         raise QueryError("query failed", "SELECT 1")  # noqa: B904
 
 
+def _raise_from_none(context: BaseException) -> NoReturn:
+    try:
+        raise context
+    except BaseException:
+        raise QueryError(f"login failed for {SECRET}", "SELECT 1") from None
+
+
 def _raise_context_cycle() -> NoReturn:
     error, retry = ValueError("query failed"), ValueError(f"retry with {SECRET}")
     error.__context__, retry.__context__ = retry, error
@@ -297,9 +304,9 @@ def _raise_group() -> NoReturn:
     raise builtins.ExceptionGroup("batch failed", members)
 
 
-def _raise_with_tuple_notes() -> NoReturn:
+def _raise_with_notes(notes: object) -> NoReturn:
     error = ValueError("query failed")
-    error.__notes__ = ("retrying", f"with {SECRET}")  # type: ignore[assignment]
+    error.__notes__ = notes  # type: ignore[assignment]
     raise error
 
 
@@ -431,11 +438,14 @@ class TestExceptionMasking:
     @pytest.mark.parametrize(
         "raise_it",
         [
-            pytest.param(lambda: _raise(QueryError(SECRET, "SELECT 1")), id="message"),
+            pytest.param(lambda: _raise(QueryError(SECRET, SECRET)), id="message"),
             pytest.param(lambda: _raise_from(ConnectionError(SECRET)), id="cause"),
             pytest.param(
                 lambda: _raise_chained(ConnectionError(SECRET), explicit=False),
                 id="context",
+            ),
+            pytest.param(
+                lambda: _raise_from_none(ConnectionError("reset")), id="from_none"
             ),
             pytest.param(_raise_context_cycle, id="context_cycle"),
             pytest.param(lambda: _raise(ConnectError(SECRET)), id="attribute_str"),
@@ -447,16 +457,20 @@ class TestExceptionMasking:
             pytest.param(
                 lambda: _raise(DetailError("failed", SECRET)), id="detail_attr"
             ),
-            pytest.param(lambda: _raise(UnprintableError(SECRET)), id="str_raises"),
             pytest.param(
                 _raise_group,
                 id="group_member_note",
                 marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="3.11+"),
             ),
             pytest.param(
-                _raise_with_tuple_notes,
+                lambda: _raise_with_notes(("retrying", f"with {SECRET}")),
                 id="notes_tuple",
                 marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="3.11+"),
+            ),
+            pytest.param(
+                lambda: _raise_with_notes(f"with {SECRET}"),
+                id="notes_str",
+                marks=pytest.mark.skipif(sys.version_info < (3, 12), reason="3.12+"),
             ),
         ],
     )
@@ -472,8 +486,30 @@ class TestExceptionMasking:
         assert record.exc_info is not None
         for exception in exceptions_from_error_tuple(record.exc_info):
             assert SECRET not in f"{exception['type']} {exception['value']}"
-        assert record.exc_info[2] is None
-        assert record.exc_text and type(exc_info[1]).__name__ in record.exc_text
+        original, stand_in = exc_info[1], record.exc_info[1]
+        assert isinstance(stand_in, MaskedException)
+        assert record.exc_info[0] is type(stand_in)
+        assert type(stand_in).__name__ == type(original).__name__
+        assert record.exc_info[2] is exc_info[2]
+        assert (stand_in.__cause__ is None) == (original.__cause__ is None)
+        assert (stand_in.__context__ is None) == (original.__context__ is None)
+        assert stand_in.__suppress_context__ == original.__suppress_context__
+        assert set(vars(stand_in)) <= {"__notes__"}
+        assert "Traceback (most recent call last)" in outputs[1]
+        assert record.exc_text and type(original).__name__ in record.exc_text
+
+    @pytest.mark.skipif(sys.version_info < (3, 11), reason="3.11+")
+    def test_replaced_group_keeps_its_members(self, registry, masking_filter):
+        registry.register_secret("DB_PASSWORD", SECRET)
+
+        record, outputs = _log(masking_filter, _exc_info(_raise_group))
+
+        assert record.exc_info is not None
+        assert isinstance(record.exc_info[1], builtins.ExceptionGroup)
+        assert "ExceptionGroup: batch failed (20 sub-exceptions)" in outputs[1]
+        assert "| ValueError: item 0" in outputs[1]
+        values = [e["value"] for e in exceptions_from_error_tuple(record.exc_info)]
+        assert "item 17\nwhile connecting with ***REDACTED:DB_PASSWORD***" in values
 
     def test_replaced_exception_keeps_masked_chain_and_callers_object(
         self, registry, masking_filter
@@ -493,11 +529,28 @@ class TestExceptionMasking:
         record, outputs = _log(masking_filter, exc_info)
 
         assert state() == before
-        assert record.exc_info is not None and record.exc_info[0] is MaskedException
+        assert record.exc_info is not None
+        stand_in = record.exc_info[1]
+        assert stand_in is not None
+        assert stand_in.__traceback__ is error.__traceback__
+        assert stand_in.__cause__ is not None
+        assert stand_in.__cause__.__traceback__ is cause.__traceback__
         assert record.exc_text is not None
         assert "ConnectionError: ***REDACTED:DB_PASSWORD***" in record.exc_text
         assert "QueryError: query failed" in record.exc_text
         assert record.exc_text in outputs[0]
+        assert outputs[1] == f"{record.exc_text}\n"
+        sentry = exceptions_from_error_tuple(record.exc_info)
+        assert [(e["type"], e["value"]) for e in sentry] == [
+            ("ConnectionError", "***REDACTED:DB_PASSWORD***"),
+            ("QueryError", "query failed"),
+        ]
+        assert [e["stacktrace"] for e in sentry] == [
+            e["stacktrace"] for e in exceptions_from_error_tuple(exc_info)
+        ]
+        again, _ = _log(masking_filter, exc_info)
+        assert again.exc_info is not None
+        assert type(again.exc_info[1]) is type(stand_in)
 
     def test_filtering_a_replaced_record_again_changes_nothing(
         self, registry, masking_filter
@@ -562,6 +615,13 @@ class TestExceptionMasking:
         self, registry, masking_filter, diagnostics, capsys
     ):
         registry.register_secret("DB_PASSWORD", SECRET)
+        unprintable = _exc_info(lambda: _raise(UnprintableError(SECRET)))
+        record, outputs = _log(masking_filter, unprintable)
+        assert record.exc_info is not None
+        assert record.exc_info[0] is MaskedException
+        assert str(record.exc_info[1]) == MASKING_ERROR_MESSAGE
+        assert record.exc_info[2] is None
+        assert not any(SECRET in output for output in outputs)
         try:
             _raise(QueryError(f"login failed for {SECRET}", "SELECT 1"))
         except QueryError as error:
