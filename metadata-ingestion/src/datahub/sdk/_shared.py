@@ -47,7 +47,7 @@ from datahub.metadata.urns import (
     VersionSetUrn,
 )
 from datahub.sdk._utils import DEFAULT_ACTOR_URN, add_list_unique, remove_list_unique
-from datahub.sdk.entity import Entity
+from datahub.sdk.entity import Entity, ExtraAspectsType
 from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
@@ -260,6 +260,27 @@ class HasPlatformInstance(Entity):
                 platform=platform.urn(),
                 instance=instance.urn() if instance else None,
             )
+        )
+
+    def _set_platform_instance_then_extra_aspects(
+        self,
+        platform: Union[str, DataPlatformUrn],
+        instance: Union[None, str, DataPlatformInstanceUrn],
+        extra_aspects: ExtraAspectsType,
+    ) -> None:
+        """Set dataPlatformInstance before any other aspect, extra aspects included.
+
+        as_mcps() emits aspects in the order they were set, so the entity is created
+        with its instance stored and policies scoped by platform instance apply to
+        its later writes. The given instance wins over an extra dataPlatformInstance.
+        """
+        self._set_platform_instance(platform, instance)
+        self._set_extra_aspects(
+            [
+                aspect
+                for aspect in extra_aspects or []
+                if not isinstance(aspect, models.DataPlatformInstanceClass)
+            ]
         )
 
     @property

@@ -19,6 +19,9 @@ from datahub.ingestion.workunit_processors.auto_materialize_referenced_tags_term
 from datahub.ingestion.workunit_processors.auto_patch_last_modified import (
     AutoPatchLastModifiedProcessor,
 )
+from datahub.ingestion.workunit_processors.auto_platform_instance_first import (
+    AutoPlatformInstanceFirstProcessor,
+)
 from datahub.ingestion.workunit_processors.auto_resolve_lineage_urns import (
     AutoResolveLineageUrnsProcessor,
 )
@@ -52,6 +55,7 @@ __all__ = [
     "AutoLowercaseUrnsProcessor",
     "AutoMaterializeReferencedTagsTermsProcessor",
     "AutoPatchLastModifiedProcessor",
+    "AutoPlatformInstanceFirstProcessor",
     "AutoResolveLineageUrnsProcessor",
     "AutoStaleEntityRemovalProcessor",
     "AutoStatusAspectProcessor",

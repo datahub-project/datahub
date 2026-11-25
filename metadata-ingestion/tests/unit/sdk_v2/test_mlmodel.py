@@ -8,6 +8,8 @@ import pytest
 
 from datahub.errors import ItemNotFoundError
 from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
+    GlobalTagsClass,
     MLHyperParamClass,
     MLMetricClass,
 )
@@ -250,3 +252,21 @@ def test_client_get_mlmodel() -> None:
     mock_entities.get.side_effect = ItemNotFoundError(error_message)
     with pytest.raises(ItemNotFoundError, match=re.escape(error_message)):
         mock_client.entities.get(model_urn)
+
+
+def test_mlmodel_emits_data_platform_instance_before_extra_aspects() -> None:
+    entity = MLModel(
+        id="m",
+        platform="mlflow",
+        platform_instance="inst",
+        extra_aspects=[
+            GlobalTagsClass(tags=[]),
+            DataPlatformInstanceClass(platform="urn:li:dataPlatform:mlflow"),
+        ],
+    )
+
+    names = [mcp.aspectName for mcp in entity.as_mcps()]
+    assert names[0] == "dataPlatformInstance"
+    assert names.count("dataPlatformInstance") == 1
+    # The argument wins over an extra dataPlatformInstance.
+    assert entity.platform_instance is not None
