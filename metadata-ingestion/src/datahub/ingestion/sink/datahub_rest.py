@@ -51,6 +51,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+from datahub.utilities.deprecation import called_from_datahub, warn_deprecated
 from datahub.utilities.partition_executor import (
     BatchPartitionExecutor,
     PartitionExecutor,
@@ -62,6 +63,13 @@ if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
+
+_MCE_SINK_DEPRECATION_MESSAGE = (
+    "Writing a MetadataChangeEvent to the datahub-rest sink "
+    "(DatahubRestSink.write_record_async or emit_async) "
+    "is deprecated and will be removed in a future release. "
+    "Use MetadataChangeProposalWrapper instead."
+)
 
 _DEFAULT_REST_SINK_MAX_THREADS = get_rest_sink_default_max_threads()
 
@@ -459,6 +467,11 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         ],
         write_callback: WriteCallback,
     ) -> None:
+        if (
+            isinstance(record_envelope.record, MetadataChangeEvent)
+            and not called_from_datahub()
+        ):
+            warn_deprecated(_MCE_SINK_DEPRECATION_MESSAGE)
         # Because the default is async mode and most sources are slower than the sink, this
         # should only have a high value if the sink is actually a bottleneck.
         with self.report.main_thread_blocking_timer:
@@ -502,6 +515,8 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
         ],
     ) -> None:
+        if isinstance(item, MetadataChangeEvent) and not called_from_datahub():
+            warn_deprecated(_MCE_SINK_DEPRECATION_MESSAGE)
         return self.write_record_async(
             RecordEnvelope(item, metadata={}), NoopWriteCallback()
         )

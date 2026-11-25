@@ -8,6 +8,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Iterable,
     List,
     Optional,
     Sequence,
@@ -18,8 +19,10 @@ from typing import (
 )
 
 import pytest
+from typing_extensions import deprecated
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.errors import DataHubDeprecationWarning
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.metadata.urns import Urn
@@ -27,9 +30,28 @@ from datahub.testing.compare_metadata_json import (
     assert_metadata_files_equal,
     load_json_file,
 )
+from datahub.utilities.deprecation import (
+    called_from_datahub,
+    log_deprecation_once,
+    warn_deprecated,
+)
 
 logger = logging.getLogger(__name__)
 
+_ASSERT_MCE_ENTITY_URN_DEPRECATION_MESSAGE = (
+    "assert_mce_entity_urn is deprecated and will be removed in a future release. "
+    "Use assert_mcp_entity_urn instead."
+)
+_CHECK_GOLDENS_STREAM_MCE_DEPRECATION_MESSAGE = (
+    "Passing MetadataChangeEvents to check_goldens_stream is deprecated and will be removed "
+    "in a future release. Use MetadataChangeProposalWrapper instead."
+)
+_ASSERT_ENTITY_MCE_ASPECT_DEPRECATION_MESSAGE = (
+    "assert_entity_mce_aspect is deprecated and will be removed in a future release. "
+    "Use assert_entity_mcp_aspect instead."
+)
+
+# Deprecated (no runtime warning), no replacement: it matches MCE paths only.
 IGNORE_PATH_TIMESTAMPS = [
     # Ignore timestamps from the ETL pipeline. A couple examples:
     r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['created'\]\['time'\]",
@@ -39,6 +61,7 @@ IGNORE_PATH_TIMESTAMPS = [
 ]
 
 
+# Deprecated (no runtime warning), no replacement: it is only used for MCE snapshots.
 class MCEConstants:
     PROPOSED_SNAPSHOT = "proposedSnapshot"
     DATASET_SNAPSHOT_CLASS = (
@@ -104,11 +127,19 @@ def check_golden_file(
 
 
 def check_goldens_stream(
-    outputs: List,
+    outputs: Iterable,
     golden_path: Union[str, os.PathLike],
     ignore_paths: Sequence[str] = (),
     ignore_order: bool = True,
 ) -> None:
+    outputs = list(outputs)
+    # write_metadata_file stays silent here because datahub is its caller, so warn for it.
+    if not called_from_datahub() and any(
+        isinstance(record, MetadataChangeEventClass)
+        or (isinstance(record, dict) and "proposedSnapshot" in record)
+        for record in outputs
+    ):
+        warn_deprecated(_CHECK_GOLDENS_STREAM_MCE_DEPRECATION_MESSAGE)
     with tempfile.NamedTemporaryFile() as f:
         write_metadata_file(pathlib.Path(f.name), outputs)
 
@@ -236,10 +267,14 @@ def _get_mcp_urn_path_spec() -> List[str]:
     return [MCPConstants.ENTITY_URN]
 
 
+@deprecated(
+    _ASSERT_MCE_ENTITY_URN_DEPRECATION_MESSAGE, category=DataHubDeprecationWarning
+)
 def assert_mce_entity_urn(
     filter: str, entity_type: str, regex_pattern: str, file: str
 ) -> int:
     """Assert that all mce entity urns must match the regex pattern passed in. Return the number of events matched"""
+    log_deprecation_once(_ASSERT_MCE_ENTITY_URN_DEPRECATION_MESSAGE)
 
     test_output = load_json_file(file)
     if isinstance(test_output, list):
@@ -324,10 +359,13 @@ def assert_for_each_entity(
     return len(success)
 
 
+@deprecated(
+    _ASSERT_ENTITY_MCE_ASPECT_DEPRECATION_MESSAGE, category=DataHubDeprecationWarning
+)
 def assert_entity_mce_aspect(
     entity_urn: str, aspect: Any, aspect_type: Type, file: str
 ) -> int:
-    # TODO: Replace with read_metadata_file()
+    log_deprecation_once(_ASSERT_ENTITY_MCE_ASPECT_DEPRECATION_MESSAGE)
     test_output = load_json_file(file)
     entity_type = Urn.from_string(entity_urn).entity_type
     assert isinstance(test_output, list)

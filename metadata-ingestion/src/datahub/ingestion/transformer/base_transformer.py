@@ -1,6 +1,18 @@
 import logging
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
+
+from typing_extensions import deprecated
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.aspect import ASPECT_MAP
@@ -12,9 +24,19 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
 )
+from datahub.utilities.deprecation import called_from_datahub, warn_deprecated
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 log = logging.getLogger(__name__)
+
+_MCE_TRANSFORM_DEPRECATION_MESSAGE = (
+    "Passing a MetadataChangeEvent to a transformer's transform() is deprecated and will be "
+    "removed in a future release. Use MetadataChangeProposalWrapper instead."
+)
+_LEGACY_MCE_TRANSFORMER_DEPRECATION_MESSAGE = (
+    "LegacyMCETransformer is deprecated and will be removed in a future release. "
+    "Use SingleAspectTransformer or MultipleAspectTransformer instead."
+)
 
 
 def _update_work_unit_id(
@@ -34,12 +56,30 @@ class HandleEndOfStreamTransformer:
         return []
 
 
+# category=None: typing_extensions<4.9 breaks instantiating subclasses of a decorated mixin,
+# so the runtime warning is raised by __init_subclass__ instead.
+@deprecated(_LEGACY_MCE_TRANSFORMER_DEPRECATION_MESSAGE, category=None)
 class LegacyMCETransformer(
     Transformer, HandleEndOfStreamTransformer, metaclass=ABCMeta
 ):
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        warn_deprecated(_LEGACY_MCE_TRANSFORMER_DEPRECATION_MESSAGE)
+
     @abstractmethod
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
         pass
+
+
+def _warn_on_mce_input(
+    record_envelopes: Iterable[RecordEnvelope],
+) -> Iterator[RecordEnvelope]:
+    warned = False
+    for envelope in record_envelopes:
+        if not warned and isinstance(envelope.record, MetadataChangeEventClass):
+            warned = True
+            warn_deprecated(_MCE_TRANSFORM_DEPRECATION_MESSAGE)
+        yield envelope
 
 
 class SingleAspectTransformer(HandleEndOfStreamTransformer, metaclass=ABCMeta):
@@ -112,7 +152,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
     Architecture:
         BaseTransformer uses a mixin pattern where concrete transformers must inherit from
         both BaseTransformer and one of the allowed mixins:
-        - LegacyMCETransformer: For full MCE transformation
+        - LegacyMCETransformer: For full MCE transformation (deprecated)
         - SingleAspectTransformer: For transforming a single aspect type
         - MultipleAspectTransformer: For transforming one aspect into multiple aspects
 
@@ -213,9 +253,9 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             # If we find a type corresponding to the aspect name we look for it in the mce
             # It's possible that the aspect is supported by the entity but not in the MCE
             # snapshot union. In those cases, we just want to record the urn as seen.
-            supports_aspect = builder.can_add_aspect(mce, aspect_type)
+            supports_aspect = builder._can_add_aspect(mce, aspect_type)
             if supports_aspect:
-                old_aspect = builder.get_aspect_if_available(
+                old_aspect = builder._get_aspect_if_available(
                     mce,
                     aspect_type,
                 )
@@ -231,7 +271,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                     )
 
                     # If transformed_aspect is None, this will remove the aspect.
-                    builder.set_aspect(
+                    builder._set_aspect(
                         mce,
                         aspect_type=aspect_type,
                         aspect=transformed_aspect,
@@ -241,8 +281,8 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                     self._mark_processed(mce.proposedSnapshot.urn)
         elif isinstance(self, MultipleAspectTransformer):
             input_aspect_type = ASPECT_MAP.get(self.aspect_name())
-            if input_aspect_type and builder.can_add_aspect(mce, input_aspect_type):
-                old_aspect = builder.get_aspect_if_available(mce, input_aspect_type)
+            if input_aspect_type and builder._can_add_aspect(mce, input_aspect_type):
+                old_aspect = builder._get_aspect_if_available(mce, input_aspect_type)
                 if old_aspect is not None:
                     for output_aspect_name, output_aspect in self.transform_aspects(
                         entity_urn=mce.proposedSnapshot.urn,
@@ -250,10 +290,10 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                         aspect=old_aspect,
                     ):
                         output_aspect_type = ASPECT_MAP.get(output_aspect_name)
-                        if output_aspect_type and builder.can_add_aspect(
+                        if output_aspect_type and builder._can_add_aspect(
                             mce, output_aspect_type
                         ):
-                            builder.set_aspect(
+                            builder._set_aspect(
                                 mce,
                                 aspect_type=output_aspect_type,
                                 aspect=output_aspect,
@@ -562,6 +602,16 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             )
 
     def transform(
+        self, record_envelopes: Iterable[RecordEnvelope]
+    ) -> Iterable[RecordEnvelope]:
+        # Decided at call time: inside the generator the "caller" would be whichever frame
+        # iterates it. The pipeline calls this from datahub, so recipe MCEs stay silent
+        # (already reported where they entered the pipeline).
+        if not called_from_datahub():
+            record_envelopes = _warn_on_mce_input(record_envelopes)
+        return self._transform_envelopes(record_envelopes)
+
+    def _transform_envelopes(
         self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
         for envelope in record_envelopes:

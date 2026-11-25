@@ -582,7 +582,8 @@ continue to expose current values; use the history API for earlier values.
 ### Atomic and conditional writes
 
 Each standalone `write()` is atomic across all aspects in its MCP or MCE and their
-edge updates. `with lite.transaction():` groups multiple writes into one commit.
+edge updates. MCE support in `write()` is deprecated and will be removed in a future release;
+write MCPs. `with lite.transaction():` groups multiple writes into one commit.
 Reads inside the block see its writes. Any failed write, including an invalid
 write argument, or failed database statement (including reads) makes the block
 rollback-only: even if the caller catches the error, later writes are rejected and

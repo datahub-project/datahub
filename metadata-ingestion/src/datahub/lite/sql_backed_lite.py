@@ -23,6 +23,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.lite.lite_local import (
+    _MCE_WRITE_DEPRECATION_MESSAGE,
     AspectVersion,
     AutoComplete,
     Browseable,
@@ -47,6 +48,7 @@ from datahub.metadata.schema_classes import (
     TagPropertiesClass,
     _Aspect,
 )
+from datahub.utilities.deprecation import called_from_datahub, warn_deprecated
 from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
@@ -215,6 +217,8 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
         *,
         if_version_match: Optional[int] = None,
     ) -> Dict[str, int]:
+        if isinstance(record, MetadataChangeEventClass) and not called_from_datahub():
+            warn_deprecated(_MCE_WRITE_DEPRECATION_MESSAGE)
         # Invalid standalone calls need no write lock, but any failed write in an
         # existing transaction must still prevent a partial batch from committing.
         with self._record_transaction_errors():

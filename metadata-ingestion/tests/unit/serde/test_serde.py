@@ -86,9 +86,8 @@ def test_file_source_converts_mces_to_mcps(
     )
     expected = [
         mcp
-        for mce in read_metadata_file(mce_file)
-        if isinstance(mce, MetadataChangeEventClass)
-        for mcp in mcps_from_mce(mce)
+        for obj in json.loads(mce_file.read_text())
+        for mcp in mcps_from_mce(MetadataChangeEventClass.from_obj(obj))
     ]
 
     workunits = list(source.get_workunits_internal())

@@ -2,9 +2,12 @@ import logging
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional, Set, cast
 
+from typing_extensions import deprecated
+
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.errors import DataHubDeprecationWarning
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DataFlowInfoClass,
@@ -20,9 +23,15 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     TagAssociationClass,
 )
+from datahub.utilities.deprecation import log_deprecation_once
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 
 logger = logging.getLogger(__name__)
+
+_GENERATE_MCE_DEPRECATION_MESSAGE = (
+    "DataFlow.generate_mce is deprecated and will be removed in a future release. "
+    "Use DataFlow.generate_mcp instead."
+)
 
 
 @dataclass
@@ -122,7 +131,9 @@ class DataFlow:
             )
         return env
 
+    @deprecated(_GENERATE_MCE_DEPRECATION_MESSAGE, category=DataHubDeprecationWarning)
     def generate_mce(self) -> MetadataChangeEventClass:
+        log_deprecation_once(_GENERATE_MCE_DEPRECATION_MESSAGE)
         env = self._get_env()
         flow_mce = MetadataChangeEventClass(
             proposedSnapshot=DataFlowSnapshotClass(

@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Sequence, Union, cast
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer
 from confluent_kafka.serialization import MessageField, SerializationContext
+from typing_extensions import deprecated
 
 from datahub.emitter.kafka_emitter import MCE_KEY, MCP_KEY
 from datahub.ingestion.api.closeable import Closeable
@@ -29,8 +30,16 @@ from datahub.pgqueue.repository import (
     PgQueueReceivedMessage,
     PgQueueRepository,
 )
+from datahub.utilities.deprecation import warn_deprecated
 
 logger = logging.getLogger(__name__)
+
+# One message for both ways of reading MCEs (poll_mce_messages and the "mce" payload kind).
+_MCE_PAYLOAD_DEPRECATION_MESSAGE = (
+    'Reading MetadataChangeEvents from pgQueue (poll_mce_messages or the "mce" payload '
+    "kind) is deprecated and will be removed in a future release. "
+    'Use the "mcp" payload kind and poll_mcp_messages instead.'
+)
 
 
 @dataclass(frozen=True)
@@ -228,6 +237,7 @@ class DatahubPgQueueConsumer(Closeable):
         if kind == "mcp":
             return MetadataChangeProposal.from_obj(deserialized, tuples=True)
         if kind == "mce":
+            warn_deprecated(_MCE_PAYLOAD_DEPRECATION_MESSAGE)
             return MetadataChangeEvent.from_obj(deserialized, tuples=True)
         if kind == "mcl":
             return MetadataChangeLogClass.from_obj(deserialized, tuples=True)
@@ -254,12 +264,18 @@ def poll_mcp_messages(
     )
 
 
+# category=None marks it for type checkers only: reading an MCE already warns in _deserialize,
+# so the body warns only for a poll that read none, giving one warning per call.
+@deprecated(_MCE_PAYLOAD_DEPRECATION_MESSAGE, category=None)
 def poll_mce_messages(
     consumer: DatahubPgQueueConsumer,
     *,
     max_messages: int = 100,
     partition_ids: Optional[Sequence[int]] = None,
 ) -> List[PgQueueConsumedRecord]:
-    return consumer.poll_route_key(
+    records = consumer.poll_route_key(
         MCE_KEY, max_messages=max_messages, partition_ids=partition_ids
     )
+    if not any(isinstance(r.record, MetadataChangeEvent) for r in records):
+        warn_deprecated(_MCE_PAYLOAD_DEPRECATION_MESSAGE)
+    return records

@@ -31,6 +31,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass as MetadataChangeProposal,
 )
 from datahub.metadata.schemas import getMetadataChangeProposalSchema
+from datahub.utilities.deprecation import find_stack_level
 
 logger = logging.getLogger(__name__)
 
@@ -211,7 +212,9 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             return self.emit_mcp_async(item, callback or _error_reporting_callback)
         else:
             warnings.warn(
-                MCE_DEPRECATION_MESSAGE, DataHubDeprecationWarning, stacklevel=2
+                MCE_DEPRECATION_MESSAGE,
+                DataHubDeprecationWarning,
+                stacklevel=find_stack_level(),
             )
             return self._emit_mce(item, callback or _error_reporting_callback)
 

@@ -30,6 +30,7 @@ from sqlalchemy.exc import NoSuchTableError, ProgrammingError
 from sqlalchemy.pool import Pool, QueuePool
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
+from typing_extensions import deprecated
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
@@ -118,6 +119,7 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.telemetry import telemetry
+from datahub.utilities.deprecation import warn_deprecated
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sqlalchemy_type_converter import (
     get_native_data_type_for_sqlalchemy_type,
@@ -135,8 +137,19 @@ if TYPE_CHECKING:
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+_SQL_WORKUNIT_DEPRECATION_MESSAGE = (
+    "SqlWorkUnit is deprecated and will be removed in a future release. "
+    "Use MetadataWorkUnit instead."
+)
+
+
+# category=None marks it for type checkers only; __init__ warns through warn_deprecated so the
+# warning points at the caller and is logged once.
+@deprecated(_SQL_WORKUNIT_DEPRECATION_MESSAGE, category=None)
 class SqlWorkUnit(MetadataWorkUnit):
-    pass
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        warn_deprecated(_SQL_WORKUNIT_DEPRECATION_MESSAGE)
+        super().__init__(*args, **kwargs)
 
 
 _field_type_mapping: Dict[Type[TypeEngine], Type] = {

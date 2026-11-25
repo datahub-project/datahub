@@ -106,6 +106,7 @@ from datahub.specific.aspect_helpers.structured_properties import (
     HasStructuredPropertiesPatch,
 )
 from datahub.telemetry.telemetry import telemetry_instance
+from datahub.utilities.deprecation import called_from_datahub, warn_deprecated
 from datahub.utilities.server_state_disk_cache import ServerStateDiskCache
 from datahub.utilities.urns.structured_properties_urn import (
     make_structured_property_urn,
@@ -132,6 +133,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING_SERVER_ID = "missing"
 _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
+
+_EMIT_ALL_MCE_DEPRECATION_MESSAGE = (
+    "Passing a MetadataChangeEvent to DataHubGraph.emit_all is deprecated and will be removed "
+    "in a future release. Use MetadataChangeProposalWrapper instead."
+)
 # Largest finite 32-bit float; AssertionResult.actualAggValue is stored as one.
 _FLOAT32_MAX = 3.4028234663852886e38
 # Largest value of the GraphQL Long scalar (a Java long).
@@ -478,6 +484,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         # The context manager also ensures that we raise an error if a failure occurs.
         with self.make_rest_sink(run_id=run_id) as sink:
             for item in items:
+                if isinstance(item, MetadataChangeEvent) and not called_from_datahub():
+                    warn_deprecated(_EMIT_ALL_MCE_DEPRECATION_MESSAGE)
                 sink.emit_async(item)
 
     def get_aspect(

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Iterable
 
-from datahub.emitter.mce_builder import set_aspect
+from datahub.emitter.mce_builder import _set_aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.incremental_ownership_helper import (
     convert_ownership_to_patch,
@@ -41,7 +41,7 @@ class AutoIncrementalOwnershipProcessor(
             if isinstance(wu.metadata, MetadataChangeEventClass):
                 if urn.startswith("urn:li:dataset:"):
                     ownership_aspect = wu.get_aspect_of_type(OwnershipClass)
-                    set_aspect(wu.metadata, None, OwnershipClass)
+                    _set_aspect(wu.metadata, None, OwnershipClass)
                     if len(wu.metadata.proposedSnapshot.aspects) > 0:
                         yield wu
 

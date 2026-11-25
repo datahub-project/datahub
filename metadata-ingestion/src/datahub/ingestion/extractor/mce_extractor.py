@@ -2,6 +2,7 @@ import logging
 from typing import Iterable, Union
 
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.source import Extractor, WorkUnit
@@ -25,6 +26,12 @@ def _try_reformat_with_black(code: str) -> str:
 
 class WorkUnitRecordExtractorConfig(ConfigModel):
     unpack_mces_into_mcps: bool = False
+
+    _unpack_mces_into_mcps_deprecated = pydantic_field_deprecated(
+        "unpack_mces_into_mcps",
+        message="unpack_mces_into_mcps is deprecated and will be removed in a future "
+        "release. Use MetadataChangeProposalWrapper work units in your source instead.",
+    )
 
 
 class WorkUnitRecordExtractor(

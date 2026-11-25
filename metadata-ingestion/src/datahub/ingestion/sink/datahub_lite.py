@@ -10,8 +10,16 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+from datahub.utilities.deprecation import called_from_datahub, warn_deprecated
 
 logger = logging.getLogger(__name__)
+
+_MCE_SINK_DEPRECATION_MESSAGE = (
+    "Writing a MetadataChangeEvent to the datahub-lite sink "
+    "(DataHubLiteSink.write_record_async) "
+    "is deprecated and will be removed in a future release. "
+    "Use MetadataChangeProposalWrapper instead."
+)
 
 
 class DataHubLiteSinkConfig(LiteLocalConfig):
@@ -34,6 +42,11 @@ class DataHubLiteSink(Sink[DataHubLiteSinkConfig, SinkReport]):
         ],
         write_callback: WriteCallback,
     ) -> None:
+        if (
+            isinstance(record_envelope.record, MetadataChangeEvent)
+            and not called_from_datahub()
+        ):
+            warn_deprecated(_MCE_SINK_DEPRECATION_MESSAGE)
         record = record_envelope.record
         if not isinstance(record, (MetadataChangeEvent, MetadataChangeProposalWrapper)):
             self.report.report_warning(f"datahub-local does not support {type(record)}")
