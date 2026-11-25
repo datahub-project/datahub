@@ -51,11 +51,31 @@ def test_parse_release_ref_invalid_exits(ref):
     assert exc.value.code == 1
 
 
+def test_release_version_takes_line_from_branch_and_patch_from_input():
+    assert vi.release_version("releases/v2.5.0", "0") == "2.5.0"
+    assert vi.release_version("releases/v2.5.0", "1") == "2.5.1"
+    assert vi.release_version("releases/v2.5.0", "12") == "2.5.12"
+
+
+@pytest.mark.parametrize("patch_version", ["", "-1", "01", "1.0", "abc", " 1", "1 "])
+def test_release_version_invalid_patch_exits(patch_version):
+    with pytest.raises(SystemExit) as exc:
+        vi.release_version("releases/v2.5.0", patch_version)
+    assert exc.value.code == 1
+
+
+@pytest.mark.parametrize("ref", ["releases/v2.5.1", "releases/v0.13.3"])
+def test_release_version_rejects_branch_not_named_for_line_base(ref):
+    with pytest.raises(SystemExit) as exc:
+        vi.release_version(ref, "0")
+    assert exc.value.code == 1
+
+
 def test_emit_parsed_ref_writes_github_output(tmp_path, monkeypatch, capsys):
     output_file = tmp_path / "gh_output"
     monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
 
-    vi.emit_parsed_ref("releases/v2.0.1")
+    vi.emit_parsed_ref("releases/v2.0.0", "1")
 
     assert output_file.read_text() == "version=2.0.1\n"
     # Human-readable confirmation is echoed for the workflow log.
@@ -66,7 +86,7 @@ def test_emit_parsed_ref_invalid_exits_without_output(tmp_path, monkeypatch):
     monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / "gh_output"))
 
     with pytest.raises(SystemExit):
-        vi.emit_parsed_ref(DEFAULT_BRANCH)
+        vi.emit_parsed_ref(DEFAULT_BRANCH, "0")
 
     assert not (tmp_path / "gh_output").exists()
 
