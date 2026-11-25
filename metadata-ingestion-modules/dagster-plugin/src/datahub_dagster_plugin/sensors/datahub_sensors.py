@@ -80,6 +80,30 @@ class Lineage(NamedTuple):
     downstreams: List[str]
 
 
+def _mapped_instance_datasets(
+    job_datasets: Sequence[DatasetUrn],
+    step_datasets: Dict[str, Set[DatasetUrn]],
+    step_key: str,
+    node_handle: str,
+) -> Set[DatasetUrn]:
+    """Datasets for one mapped instance: the DataJob's lineage minus what only
+    its sibling instances recorded.
+
+    Starting from the DataJob keeps lineage that isn't per step, such as
+    upstream ops' outputs and static datahub.inputs/datahub.outputs metadata.
+    """
+    own = step_datasets.get(step_key, set())
+    siblings: Set[DatasetUrn] = set().union(
+        *(
+            urns
+            for key, urns in step_datasets.items()
+            if key not in (step_key, node_handle)
+            and step_key_to_node_handle(key) == node_handle
+        )
+    )
+    return set(job_datasets) - (siblings - own)
+
+
 def make_datahub_sensor(
     config: DatahubDagsterSourceConfig,
     name: Optional[str] = None,
@@ -827,15 +851,18 @@ class DatahubSensors:
                 inlets: Optional[Set[DatasetUrn]] = None
                 outlets: Optional[Set[DatasetUrn]] = None
                 if step_stats.step_key != node_handle:
-                    # A mapped instance gets the datasets recorded for its own
-                    # step key plus any keyed by the bare node handle, rather
-                    # than the DataJob's union over all instances.
-                    inlets = step_dataset_inputs.get(
-                        step_stats.step_key, set()
-                    ) | step_dataset_inputs.get(node_handle, set())
-                    outlets = step_dataset_outputs.get(
-                        step_stats.step_key, set()
-                    ) | step_dataset_outputs.get(node_handle, set())
+                    inlets = _mapped_instance_datasets(
+                        datajob.inlets,
+                        step_dataset_inputs,
+                        step_stats.step_key,
+                        node_handle,
+                    )
+                    outlets = _mapped_instance_datasets(
+                        datajob.outlets,
+                        step_dataset_outputs,
+                        step_stats.step_key,
+                        node_handle,
+                    )
                 dagster_generator.emit_op_run(
                     graph=self.graph,
                     datajob=datajob,

@@ -42,6 +42,7 @@ from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobInputOutputClass,
+    DataProcessInstanceInputClass,
     DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
     StatusClass,
@@ -780,7 +781,11 @@ def test_mapped_op_in_graph_gets_per_instance_lineage(
         for i in range(2):
             yield DynamicOutput(i, mapping_key=f"item_{i}")
 
-    @op
+    static_input = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.static_input,PROD)"
+    )
+
+    @op(ins={"x": In(metadata={"datahub.inputs": [static_input]})})
     def process_item(x):
         return x
 
@@ -846,6 +851,18 @@ def test_mapped_op_in_graph_gets_per_instance_lineage(
     assert dpi_outputs == {
         "batch.process_item[item_0]": {str(table_0)},
         "batch.process_item[item_1]": {str(table_1)},
+    }
+
+    # Static datahub.inputs metadata belongs to every instance, not one step key.
+    dpi_inputs = {
+        dpi_names[str(mcp.entityUrn)].rsplit("/", 1)[-1]: set(mcp.aspect.inputs)
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataProcessInstanceInputClass)
+        and "process_item[" in dpi_names.get(str(mcp.entityUrn), "")
+    }
+    assert dpi_inputs == {
+        "batch.process_item[item_0]": {static_input},
+        "batch.process_item[item_1]": {static_input},
     }
 
     # The DataJob template is re-emitted with the first instance only.
