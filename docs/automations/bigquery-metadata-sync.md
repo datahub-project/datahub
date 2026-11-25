@@ -98,6 +98,26 @@ Ensure your service account has the following permissions:
 
    3. **Finally, click 'Save and Run' to start the automation**
 
+## Limiting the Sync to Some Projects and Datasets
+
+By default, the automation syncs every BigQuery table in DataHub that its service account can reach. To limit it, add these settings to the `bigquery` block of the automation's recipe:
+
+| Setting              | What it does                                                                                    | Default    |
+| -------------------- | ----------------------------------------------------------------------------------------------- | ---------- |
+| `project_ids`        | Sync only tables in these projects, matched exactly. When set, `project_id_pattern` is ignored. | Empty: all |
+| `project_id_pattern` | `allow` and `deny` lists of regular expressions matched against the project ID.                 | Allow all  |
+| `dataset_pattern`    | `allow` and `deny` lists of regular expressions matched against `<project_id>.<dataset>`.       | Allow all  |
+
+Patterns are matched from the start of the string and ignore case, and a `deny` match wins over `allow`. Because `dataset_pattern` sees the project ID too, use `.*\.analytics$` (not `analytics`) to match a dataset named `analytics` in any project. Tables outside these settings are skipped, both for live changes and during Initialize.
+
+The form doesn't show these settings. Set them with the [`upsertActionPipeline` GraphQL mutation](../features/feature-guides/logical-models/centralized-management.md#getting-started), which takes the whole recipe as JSON. If the automation uses a saved connection, put them next to `connection_urn`; a setting that the saved connection also has takes the connection's value.
+
+:::caution
+
+Saving the automation from the form rebuilds its recipe from the form's fields and removes these settings. If you edit the automation in the form, set them again afterwards.
+
+:::
+
 ## 3. Propagating for Existing Assets (Optional)
 
 To ensure that all existing table Tags and Column Glossary Terms are propagated to BigQuery, you can back-fill historical data for existing assets. Note that the initial back-filling process may take some time, depending on the number of BigQuery assets you have.
