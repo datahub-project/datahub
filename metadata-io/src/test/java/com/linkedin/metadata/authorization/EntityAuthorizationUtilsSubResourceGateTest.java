@@ -3,7 +3,9 @@ package com.linkedin.metadata.authorization;
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.WILDCARD_URN;
 import static org.mockito.ArgumentMatchers.any;
@@ -40,9 +42,10 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /**
- * The ingest gate for aspects whose validator checks sub-resources (structured properties, tags)
- * picks create, update or delete from the change type the same way the validators do. Uses the real
- * {@link AuthUtil}; only the policy decision is faked.
+ * The ingest gate picks create, update or delete from the change type and whether the entity
+ * exists. For aspects whose validator checks sub-resources (structured properties, tags) it does so
+ * the same way the validators do. Uses the real {@link AuthUtil}; only the policy decision is
+ * faked.
  */
 public class EntityAuthorizationUtilsSubResourceGateTest {
 
@@ -53,6 +56,11 @@ public class EntityAuthorizationUtilsSubResourceGateTest {
   private static final Urn PROP_A = UrnUtils.getUrn("urn:li:structuredProperty:prop_a");
 
   private static final Urn TAG_A = UrnUtils.getUrn("urn:li:tag:tag_a");
+  private static final Urn SCHEMA_FIELD =
+      UrnUtils.getUrn(
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,PROD),col_a)");
+  private static final Urn INGESTION_SOURCE =
+      UrnUtils.getUrn("urn:li:dataHubIngestionSource:my-source");
 
   private static final String EDIT_ENTITY = PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType();
   private static final String EDIT_ENTITY_TAGS =
@@ -252,6 +260,66 @@ public class EntityAuthorizationUtilsSubResourceGateTest {
         EDIT_ENTITY_PROPERTIES,
         Set.of(PROP_A),
         HttpStatus.SC_FORBIDDEN
+      },
+      // A PATCH on a missing entity creates it, so Create Entity is enough, as for UPSERT.
+      {
+        DATASET,
+        false,
+        ChangeType.PATCH,
+        STATUS_ASPECT_NAME,
+        CREATE_ENTITY,
+        Set.of(),
+        HttpStatus.SC_OK
+      },
+      {
+        DATASET,
+        true,
+        ChangeType.PATCH,
+        STATUS_ASPECT_NAME,
+        CREATE_ENTITY,
+        Set.of(),
+        HttpStatus.SC_FORBIDDEN
+      },
+      {
+        DATASET, true, ChangeType.PATCH, STATUS_ASPECT_NAME, EDIT_ENTITY, Set.of(), HttpStatus.SC_OK
+      },
+      // A schema field is usually not stored as an entity; a PATCH to one stays an edit.
+      {
+        SCHEMA_FIELD,
+        false,
+        ChangeType.PATCH,
+        STATUS_ASPECT_NAME,
+        CREATE_ENTITY,
+        Set.of(),
+        HttpStatus.SC_FORBIDDEN
+      },
+      {
+        SCHEMA_FIELD,
+        false,
+        ChangeType.PATCH,
+        STATUS_ASPECT_NAME,
+        EDIT_ENTITY,
+        Set.of(),
+        HttpStatus.SC_OK
+      },
+      // An ingestion source has its own create privilege, which Edit Entity is not part of.
+      {
+        INGESTION_SOURCE,
+        false,
+        ChangeType.PATCH,
+        INGESTION_INFO_ASPECT_NAME,
+        EDIT_ENTITY,
+        Set.of(),
+        HttpStatus.SC_FORBIDDEN
+      },
+      {
+        INGESTION_SOURCE,
+        true,
+        ChangeType.PATCH,
+        INGESTION_INFO_ASPECT_NAME,
+        EDIT_ENTITY,
+        Set.of(),
+        HttpStatus.SC_OK
       },
     };
   }

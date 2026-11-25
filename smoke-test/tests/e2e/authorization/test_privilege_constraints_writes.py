@@ -9,7 +9,9 @@ A denied write is 403. Each scenario uses a user holding only the privilege name
 
   - Manage Documents: Rest.li create and UPSERT, tag PATCH, OpenAPI v3 PATCH on documents
   - Manage Users & Groups: OpenAPI v3 upsert on a group, Rest.li tag PATCH on a user
-  - Create Entity: new dataset with structured properties and tags (OpenAPI v3 and Rest.li)
+  - Create Entity: new dataset with structured properties and tags (OpenAPI v3 and Rest.li); a
+    status PATCH, as ingestion sends at the end of a run, creates a new dataset but is denied on an
+    existing one (Rest.li and OpenAPI v3)
   - Delete Entity: OpenAPI v3 DELETE of the structuredProperties aspect
   - Form assignee (no privileges): GraphQL submitFormPrompt stores the prompted property and marks
     that prompt complete. A user who is not assigned, or an answer for a property the prompt does
@@ -34,6 +36,7 @@ import tenacity
 
 from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
@@ -51,6 +54,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     PolicyMatchCriterionClass,
     PolicyMatchFilterClass,
+    StatusClass,
     StructuredPropertiesClass,
     StructuredPropertyDefinitionClass,
     StructuredPropertyValueAssignmentClass,
@@ -635,6 +639,35 @@ def test_create_entity_new_dataset_with_properties_and_tags(setup, transport):
         _create, f"{transport} create of a new dataset with Create Entity only"
     )
     assert _stored_props(setup["graph"], created_urns[-1])[PROP_A] == ["new"]
+
+
+@pytest.mark.parametrize("transport", ["restli", "openapi"])
+def test_create_entity_status_patch_creates_but_does_not_edit(setup, transport):
+    def _patch_status(urn: str) -> None:
+        if transport == "restli":
+            patch = MetadataPatchProposal(urn)
+            patch._add_patch("status", "add", path=("removed",), value=False)
+            _restli(setup, CREATOR, list(patch.build()))
+        else:
+            _openapi(
+                setup,
+                CREATOR,
+                "PATCH",
+                f"entity/dataset/{quote(urn, safe='')}/status",
+                {"patch": [{"op": "add", "path": "/removed", "value": False}]},
+            )
+
+    new_dataset = _new_dataset(f"status_patch_{transport}")
+    setup["created"].append(new_dataset)
+    _eventually_allowed(
+        lambda: _patch_status(new_dataset),
+        f"{transport} status PATCH on a new dataset with Create Entity only",
+    )
+    status = setup["graph"].get_aspect(new_dataset, StatusClass)
+    assert status is not None and status.removed is False
+
+    with pytest.raises(WriteDenied, match="403"):
+        _patch_status(DATASET_EXISTING)
 
 
 # --- Delete Entity ---
