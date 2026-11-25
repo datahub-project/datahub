@@ -21,13 +21,14 @@ DataHub is part of a rich ecosystem of tools and integrations.
 
 ## Community Plugins & Integrations
 
-| Project                                                                                         | Description                                      | Maintainer |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------ | ---------- |
-| **[datahub-tools](https://github.com/makenotion/datahub-tools)**                                | Python tools for GraphQL endpoint interaction    | Notion     |
-| **[dbt-impact-action](https://github.com/acryldata/dbt-impact-action)**                         | GitHub Action for dbt change impact analysis     | Acryl Data |
-| **[business-glossary-sync-action](https://github.com/acryldata/business-glossary-sync-action)** | Sync business glossary via GitHub PRs            | Acryl Data |
-| **[mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub)**                       | Model Context Protocol server for AI integration | Acryl Data |
-| **[meta-world](https://github.com/acryldata/meta-world)**                                       | Recipes, custom sources, and transformations     | Community  |
+| Project                                                                                         | Description                                   | Maintainer |
+| ----------------------------------------------------------------------------------------------- | --------------------------------------------- | ---------- |
+| **[datahub-tools](https://github.com/makenotion/datahub-tools)**                                | Python tools for GraphQL endpoint interaction | Notion     |
+| **[dbt-impact-action](https://github.com/acryldata/dbt-impact-action)**                         | GitHub Action for dbt change impact analysis  | Acryl Data |
+| **[business-glossary-sync-action](https://github.com/acryldata/business-glossary-sync-action)** | Sync business glossary via GitHub PRs         | Acryl Data |
+| **[meta-world](https://github.com/acryldata/meta-world)**                                       | Recipes, custom sources, and transformations  | Community  |
+
+DataHub's MCP server is built into DataHub: see the [MCP Server guide](features/feature-guides/mcp.md). The standalone [mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub) is deprecated.
 
 ## Integrations by Category
 

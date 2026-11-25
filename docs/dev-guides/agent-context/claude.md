@@ -51,14 +51,14 @@ claude mcp add --transport http \
 
 ### DataHub Core
 
-Install [`uv`](https://github.com/astral-sh/uv) (`curl -LsSf https://astral.sh/uv/install.sh | sh`), then:
+DataHub Core v1.9.0+ serves MCP at `/mcp` on the same address as the UI. Replace `<your-datahub-url>` with that address (for example `http://localhost:9002` on a quickstart):
 
 ```bash
-claude mcp add datahub \
-  -e DATAHUB_GMS_URL="<your-datahub-url>" \
-  -e DATAHUB_GMS_TOKEN="<your-datahub-token>" \
-  -- uvx mcp-server-datahub@latest
+claude mcp add --transport http datahub <your-datahub-url>/mcp \
+  --header "Authorization: Bearer <your-datahub-token>"
 ```
+
+Leave out the `--header` line when Metadata Service Authentication is off, as on a quickstart. To run the tools locally over stdio instead, see [Run Locally over stdio](../../features/feature-guides/mcp.md#run-locally-over-stdio).
 
 ### Verify
 
@@ -107,23 +107,29 @@ Open **Claude Desktop → Settings → Developer → Edit Config** and update `c
 
 ### DataHub Core
 
-1. Run `which uvx` to find the full path to `uvx`.
-2. Open **Claude Desktop → Settings → Developer → Edit Config** and update `claude_desktop_config.json`:
+Claude Desktop's custom connectors are called from Anthropic's cloud and can't reach a private DataHub, so connect through the [`mcp-remote`](https://github.com/geelen/mcp-remote) bridge, which runs on your machine (it needs Node.js). Open **Claude Desktop → Settings → Developer → Edit Config** and update `claude_desktop_config.json`:
 
-```js
+```json
 {
   "mcpServers": {
     "datahub": {
-      "command": "<full-path-to-uvx>",  // e.g. /Users/you/.local/bin/uvx
-      "args": ["mcp-server-datahub@latest"],
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "<your-datahub-url>/mcp",
+        "--header",
+        "Authorization:${AUTH_HEADER}"
+      ],
       "env": {
-        "DATAHUB_GMS_URL": "<your-datahub-url>",
-        "DATAHUB_GMS_TOKEN": "<your-datahub-token>"
+        "AUTH_HEADER": "Bearer <your-datahub-token>"
       }
     }
   }
 }
 ```
+
+Without a token (Metadata Service Authentication off), keep only `"args": ["-y", "mcp-remote", "<your-datahub-url>/mcp"]`. See [Connect a Client](../../features/feature-guides/mcp.md#connect-a-client) for details.
 
 ### Verify
 
@@ -131,4 +137,4 @@ Restart Claude Desktop. The DataHub tools should appear in the tools menu (hamme
 
 ## Troubleshooting
 
-For general troubleshooting (authentication errors, empty results, `uvx` not found), see the [MCP server guide](../../features/feature-guides/mcp.md#troubleshooting).
+For general troubleshooting (authentication errors, empty results, missing tools), see the [MCP server guide](../../features/feature-guides/mcp.md#troubleshooting).
