@@ -18,10 +18,10 @@ from datahub.configuration.common import (
     TraceValidationError,
 )
 from datahub.emitter import rest_emitter
+from datahub.emitter.generic_emitter import MCE_DEPRECATION_MESSAGE, warn_mce_deprecated
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.response_helper import TraceData
 from datahub.emitter.rest_emitter import (
-    _MCE_DEPRECATION_MESSAGE,
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     INGEST_MAX_PAYLOAD_BYTES,
     DataHubRestEmitter,
@@ -30,7 +30,6 @@ from datahub.emitter.rest_emitter import (
     RequestsSessionConfig,
     RestSinkEndpoint,
     _KeepAliveHTTPAdapter,
-    _warn_mce_deprecated,
     logger,
     preserve_unicode_escapes,
 )
@@ -3090,7 +3089,7 @@ _MCE_URN = "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"
 
 @pytest.fixture
 def mce_emitter() -> DataHubRestEmitter:
-    _warn_mce_deprecated.cache_clear()
+    warn_mce_deprecated.cache_clear()
     return DataHubRestEmitter(
         MOCK_GMS_ENDPOINT, openapi_ingestion=False, default_emit_mode=EmitMode.ASYNC
     )
@@ -3216,4 +3215,4 @@ def test_mce_deprecation_logged_once_per_process(
         mce_emitter.emit(mce)
         mce_emitter.emit(mce)
 
-    assert caplog.text.count(_MCE_DEPRECATION_MESSAGE) == 1
+    assert caplog.text.count(MCE_DEPRECATION_MESSAGE) == 1

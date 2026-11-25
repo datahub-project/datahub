@@ -146,7 +146,8 @@ def test_file_source_skips_mce_without_aspects(tmp_path: pathlib.Path) -> None:
 
     assert list(source.get_workunits_internal()) == []
     assert not source.report.failures
-    assert len(source.report.warnings) == 1
+    # The record, not the file: the per-file deprecation warning would name the file.
+    assert [list(w.context) for w in source.report.warnings] == [[f"{json_path}:0"]]
     assert "no aspects" in check_mce_file(str(json_path))
 
 

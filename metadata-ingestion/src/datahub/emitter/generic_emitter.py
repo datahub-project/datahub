@@ -1,3 +1,5 @@
+import functools
+import logging
 from typing import Callable, Optional, Union
 
 from typing_extensions import Protocol
@@ -7,6 +9,20 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+
+logger = logging.getLogger(__name__)
+
+MCE_DEPRECATION_MESSAGE = (
+    "Emitting MetadataChangeEvents is deprecated and will be removed in a "
+    "future release. They are converted to MCPs; emit "
+    "MetadataChangeProposalWrapper instead."
+)
+
+
+# Shared by every emitter and cached so it prints once per process; the Airflow hook builds a new emitter per call.
+@functools.lru_cache(maxsize=None)
+def warn_mce_deprecated() -> None:
+    logger.warning(MCE_DEPRECATION_MESSAGE)
 
 
 class Emitter(Protocol):
