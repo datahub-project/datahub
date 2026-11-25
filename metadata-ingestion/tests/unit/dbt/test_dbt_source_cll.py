@@ -566,3 +566,67 @@ def test_bigquery_cll_downstream_column_follows_catalog_over_graph() -> None:
     downstream = {c.downstream_col for c in model.upstream_cll}
     assert downstream == {"id", "columnNameFirst"}
     assert downstream <= emitted_fields
+
+def test_snowflake_cll_downstream_column_follows_catalog_over_lowercase_graph() -> None:
+    """Snowflake catalogs report unquoted identifiers uppercased, while the graph
+    schema from the Snowflake connector is lowercased. With lowercasing disabled the
+    emitted schema keeps catalog casing, so the CLL must follow it too."""
+    upstream_dbt_name = "source.mypackage.mydb.stg_utm_campaigns"
+    model_dbt_name = "model.mypackage.my_model"
+
+    def _columns() -> List[DBTColumn]:
+        return [
+            DBTColumn(
+                name=name, comment="", description="", index=i, data_type="VARCHAR"
+            )
+            for i, name in enumerate(["ID", "COLUMNNAMEFIRST"])
+        ]
+
+    upstream = _make_upstream_node(upstream_dbt_name)
+    upstream.dbt_adapter = "snowflake"
+    upstream.columns = _columns()
+    model = _make_model_node(model_dbt_name, upstream_dbt_name)
+    model.dbt_adapter = "snowflake"
+    model.columns = _columns()
+    model.compiled_code = (
+        "SELECT id, columnNameFirst FROM myproject.internal_staging.stg_utm_campaigns"
+    )
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    ctx.graph = mock.MagicMock()
+    ctx.graph.get_aspect.return_value = SchemaMetadataClass(
+        schemaName="my_model",
+        platform="urn:li:dataPlatform:snowflake",
+        version=0,
+        hash="",
+        platformSchema=None,  # type: ignore[arg-type]
+        fields=[
+            SchemaFieldClass(
+                fieldPath=name,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="VARCHAR",
+            )
+            for name in ["id", "columnnamefirst"]
+        ],
+    )
+    source = DBTCoreSource(
+        DBTCoreConfig(
+            manifest_path="temp/",
+            catalog_path="temp/",
+            target_platform="snowflake",
+            enable_meta_mapping=False,
+            convert_column_urns_to_lowercase=False,
+        ),
+        ctx,
+    )
+    source._infer_schemas_and_update_cll(
+        {upstream_dbt_name: upstream, model_dbt_name: model}
+    )
+
+    emitted_fields = {
+        f.fieldPath
+        for f in source.get_schema_metadata(source.report, model, "snowflake").fields
+    }
+    downstream = {c.downstream_col for c in model.upstream_cll}
+    assert downstream == {"ID", "COLUMNNAMEFIRST"}
+    assert downstream <= emitted_fields
