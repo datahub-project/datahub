@@ -189,6 +189,7 @@ def test_search_metrics_uses_metric_object_type(monkeypatch: MonkeyPatch) -> Non
         path: str,
         project_id: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> Dict[str, Any]:
         nonlocal captured_params
         captured_params = params
@@ -1103,3 +1104,43 @@ def test_model_tables_timeout_has_a_floor_above_the_default(
     client.list_model_tables("project-1")
 
     assert timeouts == [expected]
+
+
+@pytest.mark.parametrize(
+    ("configured", "expected"),
+    [(30, 120), (300, 300)],
+)
+def test_metric_search_timeout_has_a_floor_above_the_default(
+    monkeypatch: MonkeyPatch, configured: int, expected: int
+) -> None:
+    # A metric search page over a project with tens of thousands of metrics
+    # missed every 30-second attempt, which dropped all of its metrics.
+    client, _ = _make_client({"timeout_seconds": configured})
+    timeouts: list[Optional[int]] = []
+
+    def fake_get_json(path: str, **kwargs: Any) -> Dict[str, Any]:
+        timeouts.append(kwargs.get("timeout_seconds"))
+        return {"result": [], "totalItems": 0}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    assert list(client.search_metrics("project-1")) == []
+    assert timeouts == [expected]
+
+
+def test_other_searches_keep_the_configured_timeout(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, _ = _make_client({"timeout_seconds": 30})
+    timeouts: list[Optional[int]] = []
+
+    def fake_get_json(path: str, **kwargs: Any) -> Dict[str, Any]:
+        timeouts.append(kwargs.get("timeout_seconds"))
+        return {"result": [], "totalItems": 0}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    list(client.search_dashboards("project-1"))
+    list(client.search_reports("project-1"))
+
+    assert timeouts == [None, None]

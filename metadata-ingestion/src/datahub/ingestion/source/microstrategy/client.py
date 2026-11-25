@@ -72,6 +72,11 @@ _MAX_RETRY_DELAY_SECONDS = 60
 # hangs on that one call, so it gets a longer floor than timeout_seconds.
 _MODEL_TABLES_MIN_TIMEOUT_SECONDS = 120
 
+# A metric search page over a project with tens of thousands of metrics has
+# been seen to miss every 30-second attempt. Losing it drops every metric in
+# the project from the run, so it gets the same longer floor.
+_METRIC_SEARCH_MIN_TIMEOUT_SECONDS = 120
+
 
 class MicroStrategyAPIError(RuntimeError):
     """An API call failed. `status_code` and `url` are set when the failure
@@ -284,7 +289,12 @@ class MicroStrategyClient:
     def search_metrics(self, project_id: str) -> Iterable[MicroStrategyObject]:
         """Project-wide metric catalog, independent of any specific report/cube."""
         yield from self._search_typed_objects(
-            project_id, MSTR_OBJECT_TYPE_METRIC, "metric search"
+            project_id,
+            MSTR_OBJECT_TYPE_METRIC,
+            "metric search",
+            timeout_seconds=max(
+                self.config.timeout_seconds, _METRIC_SEARCH_MIN_TIMEOUT_SECONDS
+            ),
         )
 
     def get_report_object(
@@ -332,10 +342,12 @@ class MicroStrategyClient:
         project_id: str,
         object_type: int,
         context: str,
+        timeout_seconds: Optional[int] = None,
     ) -> Iterable[MicroStrategyObject]:
         for item in self._metadata_search(
             project_id=project_id,
             type_filter=str(object_type),
+            timeout_seconds=timeout_seconds,
         ):
             parsed = self._parse_model(
                 MicroStrategyObject, item, f"{context} project_id={project_id}"
@@ -775,6 +787,7 @@ class MicroStrategyClient:
         project_id: str,
         type_filter: Optional[str] = None,
         name: Optional[str] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> Iterable[Dict[str, object]]:
         offset = 0
         total: Optional[int] = None
@@ -791,10 +804,15 @@ class MicroStrategyClient:
             if name:
                 payload["name"] = name
 
+            # Only a search with its own floor overrides timeout_seconds.
+            timeout_override: Dict[str, Any] = (
+                {"timeout_seconds": timeout_seconds} if timeout_seconds else {}
+            )
             result = self._get_json(
                 MSTR_API_SEARCHES,
                 project_id=project_id,
                 params=payload,
+                **timeout_override,
             )
             items = self._extract_search_results(result)
             if total is None:

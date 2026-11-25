@@ -560,6 +560,21 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # stack on top of everything the dashboards left in memory.
         self._reset_project_caches()
         model_tables = lineage_context.model_tables_retrying_failure()
+        if model_tables is None:
+            # The fetch failed (None), as opposed to a project with no logical
+            # tables ([]). Report a failure so stateful ingestion skips
+            # stale-entity removal instead of soft-deleting the semantic model,
+            # its datasets and its metrics from the previous run.
+            self.report.failure(
+                title="MicroStrategy Semantic Model Unavailable",
+                message=(
+                    "Skipping semantic-model emission for this project because "
+                    "the model tables API could not be read. Stale-entity "
+                    "removal is skipped for this run."
+                ),
+                context=f"project_id={project.id}",
+            )
+            return
         if not model_tables:
             self.report.warning(
                 title="MicroStrategy Semantic Model Unavailable",
