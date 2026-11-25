@@ -115,18 +115,19 @@ public class FabricTypeValidator extends AspectPayloadValidator {
    * for a URN) is read, one batched read per aspect name, to tell a new use from a kept one. That
    * read bypasses the client cache on purpose: the cache's TTLs are per aspect for all callers, and
    * a stale copy here would reject a write that keeps its stored value. The same checks as {@link
-   * #validatePreCommitAspects} then run. With custom types off every new use is refused, so
-   * pre-commit decides alone and no read is made. PATCH has no record before it is applied, so it
-   * is only checked in pre-commit, which remains the authoritative check.
+   * #validatePreCommitAspects} then run. PATCH has no record before it is applied, so it is only
+   * checked in pre-commit, which remains the authoritative check.
+   *
+   * <p>This runs with custom types off too, where every new use is refused. An async write is
+   * acknowledged once it is proposed and only checked in the consumer's pre-commit, so deferring
+   * here would accept a URN with an unknown env that the URN parser used to reject. A built-in env
+   * still needs no read.
    */
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
-    if (!customTypesEnabled.getAsBoolean()) {
-      return Stream.empty();
-    }
     List<Candidate> candidates = new ArrayList<>();
     for (BatchItem item : mcpItems) {
       if (item.getRecordTemplate() == null) {

@@ -420,17 +420,20 @@ public class FabricTypeValidatorTest {
     assertEquals(reads, Set.of(Set.of("datasetKey"), Set.of("dataFlowInfo")));
   }
 
-  /** With custom types off, the request-time check defers to pre-commit and reads nothing. */
+  /**
+   * With custom types off, a new custom use is refused at request time, so an async write is not
+   * acknowledged and queued for a consumer to reject later.
+   */
   @Test
-  public void proposalDefersToPreCommitWhenCustomTypesAreOff() {
+  public void proposalRefusesNewCustomUseWhenCustomTypesAreOff() {
     enabled.set(false);
     CachingAspectRetriever retriever = mock(CachingAspectRetriever.class);
 
-    assertTrue(
+    assertEquals(
         validateProposed(
                 retriever, List.of(proposed(DATA_FLOW, "dataFlowInfo", dataFlowInfo("PORD"))))
-            .isEmpty());
-    verifyNoInteractions(retriever);
+            .size(),
+        1);
   }
 
   @Test
