@@ -13,6 +13,7 @@ import {
     EntityProfile,
     LineageTab,
     PropertiesTab,
+    SidebarApplicationSection,
     SidebarDomainSection,
     SidebarEntityHeader,
     SidebarGlossaryTermsSection,
@@ -89,6 +90,9 @@ export class MetricEntity implements Entity<Metric> {
         },
         {
             component: SidebarDomainSection,
+        },
+        {
+            component: SidebarApplicationSection,
         },
         {
             component: SidebarStructuredProperties,
@@ -202,6 +206,7 @@ export class MetricEntity implements Entity<Metric> {
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.APPLICATIONS,
             EntityCapabilityType.LINEAGE,
         ]);
     };
