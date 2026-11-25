@@ -34,3 +34,20 @@ DATAHUB_LINEAGE_READ_FAILED_TITLE: Final[str] = (
     "Unable to read Qlik dataset lineage from DataHub"
 )
 APP_PARTLY_READ_TITLE: Final[str] = "Unable to fully read Qlik app"
+
+APPS_READ_WITHOUT_DATA_TITLE: Final[str] = "Qlik apps read without their data"
+ENGINE_REFUSED_CONNECTIONS_TITLE: Final[str] = "Qlik Engine refused connections"
+COLUMN_LINEAGE_READ_FAILED_TITLE: Final[str] = "Unable to read Qlik column lineage"
+UNSEEN_SPACES_TITLE: Final[str] = "Qlik spaces the API key can't see"
+INCLUDE_READ_FAILED_TITLE: Final[str] = "Unable to read included Qlik scripts"
+UNRESOLVED_FILE_CONNECTIONS_TITLE: Final[str] = (
+    "Qlik file connections have no known storage"
+)
+DATASET_LINEAGE_READ_FAILED_TITLE: Final[str] = "Unable to read Qlik dataset lineage"
+UPSTREAM_GRAPH_READ_FAILED_TITLE: Final[str] = (
+    "Unable to read Qlik upstream lineage graph"
+)
+CHANGE_CHECK_FAILED_TITLE: Final[str] = "Unable to check whether Qlik apps changed"
+OWNER_LOOKUP_FAILED_TITLE: Final[str] = "Unable to look up Qlik owners"
+QLIK_READ_FAILED_TITLE: Final[str] = "Unable to read from Qlik"
+CHECKPOINT_TOO_LARGE_TITLE: Final[str] = "Qlik app checkpoint is too large to save"
