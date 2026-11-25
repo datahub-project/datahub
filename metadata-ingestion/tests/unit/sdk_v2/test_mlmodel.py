@@ -8,6 +8,8 @@ import pytest
 
 from datahub.errors import ItemNotFoundError
 from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
+    GlobalTagsClass,
     MLHyperParamClass,
     MLMetricClass,
 )
@@ -252,10 +254,19 @@ def test_client_get_mlmodel() -> None:
         mock_client.entities.get(model_urn)
 
 
-def test_mlmodel_status_follows_platform_instance() -> None:
-    with_instance = MLModel(id="m", platform="mlflow", platform_instance="inst")
-    names = [mcp.aspectName for mcp in with_instance.as_mcps()]
-    assert names[names.index("dataPlatformInstance") + 1] == "status"
+def test_mlmodel_emits_data_platform_instance_before_extra_aspects() -> None:
+    entity = MLModel(
+        id="m",
+        platform="mlflow",
+        platform_instance="inst",
+        extra_aspects=[
+            GlobalTagsClass(tags=[]),
+            DataPlatformInstanceClass(platform="urn:li:dataPlatform:mlflow"),
+        ],
+    )
 
-    without_instance = MLModel(id="m", platform="mlflow")
-    assert "status" not in [mcp.aspectName for mcp in without_instance.as_mcps()]
+    names = [mcp.aspectName for mcp in entity.as_mcps()]
+    assert names[0] == "dataPlatformInstance"
+    assert names.count("dataPlatformInstance") == 1
+    # The argument wins over an extra dataPlatformInstance.
+    assert entity.platform_instance is not None

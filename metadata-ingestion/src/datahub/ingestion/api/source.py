@@ -631,6 +631,7 @@ class Source(Closeable, metaclass=ABCMeta):
             AutoLowercaseUrnsProcessor,
             AutoMaterializeReferencedTagsTermsProcessor,
             AutoPatchLastModifiedProcessor,
+            AutoPlatformInstanceFirstProcessor,
             AutoResolveLineageUrnsProcessor,
             AutoStaleEntityRemovalProcessor,
             AutoStatusAspectProcessor,
@@ -686,6 +687,8 @@ class Source(Closeable, metaclass=ABCMeta):
             ValidateInputFieldsProcessor,
             EnsureAspectSizeProcessor,
             AutoStaleEntityRemovalProcessor,
+            # Last, so the order it sets is the order the sink sees.
+            AutoPlatformInstanceFirstProcessor,
         ]
 
         # Convert processor classes to names for comparison

@@ -74,10 +74,9 @@ class MLModelGroup(
     ):
         urn = MlModelGroupUrn(platform=platform, name=id, env=env)
         super().__init__(urn)
-        self._set_extra_aspects(extra_aspects)
-
-        self._set_platform_instance(urn.platform, platform_instance)
-        self._set_status_after_platform_instance()
+        self._set_platform_instance_then_extra_aspects(
+            urn.platform, platform_instance, extra_aspects
+        )
 
         # Set MLModelGroupProperties aspect
         self._ensure_model_group_props(name=display_name or name)

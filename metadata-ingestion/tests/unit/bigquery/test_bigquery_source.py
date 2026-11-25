@@ -1616,15 +1616,7 @@ def test_gen_snapshot_dataset_workunits(
     gen = schema_gen.gen_snapshot_dataset_workunits(
         bigquery_snapshot, [], project_id, dataset_name
     )
-    workunits = list(gen)
-    first = cast(MetadataChangeProposalWrapper, workunits[0].metadata)
-    assert isinstance(first.aspect, DataPlatformInstanceClass)
-    mcp = next(
-        cast(MetadataChangeProposalWrapper, wu.metadata)
-        for wu in workunits
-        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and isinstance(wu.metadata.aspect, DatasetPropertiesClass)
-    )
+    mcp = cast(MetadataChangeProposalWrapper, list(gen)[2].metadata)
     dataset_properties = cast(DatasetPropertiesClass, mcp.aspect)
     assert dataset_properties.customProperties["snapshot_ddl"] == bigquery_snapshot.ddl
     assert dataset_properties.customProperties["snapshot_time"] == str(

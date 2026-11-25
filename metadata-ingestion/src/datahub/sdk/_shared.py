@@ -47,7 +47,7 @@ from datahub.metadata.urns import (
     VersionSetUrn,
 )
 from datahub.sdk._utils import DEFAULT_ACTOR_URN, add_list_unique, remove_list_unique
-from datahub.sdk.entity import Entity
+from datahub.sdk.entity import Entity, ExtraAspectsType
 from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
@@ -262,20 +262,26 @@ class HasPlatformInstance(Entity):
             )
         )
 
-    def _set_status_after_platform_instance(self) -> None:
-        """Write status(removed=False) right after an instance-scoped dataPlatformInstance.
+    def _set_platform_instance_then_extra_aspects(
+        self,
+        platform: Union[str, DataPlatformUrn],
+        instance: Union[None, str, DataPlatformInstanceUrn],
+        extra_aspects: ExtraAspectsType,
+    ) -> None:
+        """Set dataPlatformInstance before any other aspect, extra aspects included.
 
-        For entity types whose URN carries no platform instance, policies scoped by
-        instance read the stored dataPlatformInstance. Without a status of its own,
-        the entity later gets the auto-status PATCH, which the server authorizes as
-        an edit and can check before an asynchronously written instance is stored.
-        An UPSERT here is authorized as a create and makes auto-status skip the entity.
+        as_mcps() emits aspects in the order they were set, so the entity is created
+        with its instance stored and policies scoped by platform instance apply to
+        its later writes. The given instance wins over an extra dataPlatformInstance.
         """
-        if (
-            self.platform_instance is not None
-            and self._get_aspect(models.StatusClass) is None
-        ):
-            self._set_aspect(models.StatusClass(removed=False))
+        self._set_platform_instance(platform, instance)
+        self._set_extra_aspects(
+            [
+                aspect
+                for aspect in extra_aspects or []
+                if not isinstance(aspect, models.DataPlatformInstanceClass)
+            ]
+        )
 
     @property
     def platform(self) -> Optional[DataPlatformUrn]:

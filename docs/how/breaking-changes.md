@@ -397,13 +397,11 @@ or isn't a Data Product, as it already did in the UI and GraphQL ([PR #21307](ht
 Create parents before their children. Existing products are unaffected unless their parent is changed.
 To turn the check off, set `metadataChangeProposal.validation.dataProductProperties.parent.enabled` to `false`.
 
-### Platform instance written first for new containers ([#20316](https://github.com/datahub-project/datahub/pull/20316))
+### Platform instance written first for new entities ([#20316](https://github.com/datahub-project/datahub/pull/20316))
 
-Containers created by ingestion or by the Python SDK, and Snowflake and BigQuery tables, now send their platform instance before their other metadata, so a new entity is created with its platform instance already stored. Before, the platform instance could arrive in a later request. An ingestion token that may create any entity but may only edit entities of one platform instance could then create an entity and be denied every later write to it, including the platform instance itself, which left the entity uneditable by that token. Stored metadata is unchanged.
+For every source, ingestion now sends an entity's platform instance ahead of the other metadata the source emits with it, and Python SDK containers, ML models and ML model groups do the same (before any `extra_aspects`). A new entity is therefore created with its platform instance already stored. Before, the platform instance could arrive in a later request. An ingestion token that may create any entity but may only edit entities of one platform instance could then create an entity, such as a container, and be denied every later write to it, including the platform instance itself, which left the entity uneditable by that token. Stored metadata is unchanged; only the order of writes within an entity changes.
 
 **Action:** none for new entities. An entity that was already created without its platform instance stays uneditable by such a token until a user with edit access writes its platform instance once.
-
-Python SDK containers, ML models and ML model groups that have a platform instance now also write `status` (`removed: false`) right after it, instead of leaving it to the end-of-run status patch, which such a token could be denied. Like the `status` that `gen_containers` already writes for every container, this full write resets a lifecycle stage stored on the entity. Lifecycle stages apply only to the entity types listed on the stage, so this matters only if you defined a stage that covers containers, ML models or ML model groups (or all entity types) and set it on one of them.
 
 <!--
 

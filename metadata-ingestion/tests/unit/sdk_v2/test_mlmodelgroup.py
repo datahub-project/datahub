@@ -6,6 +6,10 @@ from unittest import mock
 
 import pytest
 
+from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
+    GlobalTagsClass,
+)
 from datahub.metadata.urns import (
     DataProcessInstanceUrn,
     MlModelGroupUrn,
@@ -111,10 +115,19 @@ def test_client_get_mlmodelgroup_():
     mock_entities.get.assert_called_once_with(group_urn)
 
 
-def test_mlmodelgroup_status_follows_platform_instance() -> None:
-    with_instance = MLModelGroup(id="g", platform="mlflow", platform_instance="inst")
-    names = [mcp.aspectName for mcp in with_instance.as_mcps()]
-    assert names[names.index("dataPlatformInstance") + 1] == "status"
+def test_mlmodelgroup_emits_data_platform_instance_before_extra_aspects() -> None:
+    entity = MLModelGroup(
+        id="g",
+        platform="mlflow",
+        platform_instance="inst",
+        extra_aspects=[
+            GlobalTagsClass(tags=[]),
+            DataPlatformInstanceClass(platform="urn:li:dataPlatform:mlflow"),
+        ],
+    )
 
-    without_instance = MLModelGroup(id="g", platform="mlflow")
-    assert "status" not in [mcp.aspectName for mcp in without_instance.as_mcps()]
+    names = [mcp.aspectName for mcp in entity.as_mcps()]
+    assert names[0] == "dataPlatformInstance"
+    assert names.count("dataPlatformInstance") == 1
+    # The argument wins over an extra dataPlatformInstance.
+    assert entity.platform_instance is not None
