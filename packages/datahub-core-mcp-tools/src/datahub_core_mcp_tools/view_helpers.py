@@ -3,6 +3,7 @@
 Separated from view_preference.py to avoid circular imports.
 """
 
+import threading
 from typing import Hashable, Optional
 
 import cachetools
@@ -41,12 +42,14 @@ def _caller_key(graph: DataHubGraph) -> Hashable:
     return hashkey(graph)
 
 
+# Searches run in worker threads, and TTLCache is not thread-safe on its own.
 _global_view_cache: cachetools.TTLCache = cachetools.TTLCache(
     maxsize=64, ttl=VIEW_CACHE_TTL_SECONDS
 )
+_global_view_lock = threading.Lock()
 
 
-@cachetools.cached(cache=_global_view_cache, key=_caller_key)
+@cachetools.cached(cache=_global_view_cache, key=_caller_key, lock=_global_view_lock)
 def fetch_global_default_view(graph: DataHubGraph) -> Optional[str]:
     """The organization's default view URN, or None when disabled or not set.
 
@@ -77,19 +80,32 @@ def fetch_global_default_view(graph: DataHubGraph) -> Optional[str]:
 _user_view_cache: cachetools.TTLCache = cachetools.TTLCache(
     maxsize=64, ttl=VIEW_CACHE_TTL_SECONDS
 )
+_user_view_lock = threading.Lock()
 
 
-@cachetools.cached(cache=_user_view_cache, key=_caller_key)
 def fetch_user_default_view(graph: DataHubGraph) -> Optional[str]:
     """The calling user's personal default view URN.
 
     Uses the ``me`` query, so the result depends on the user behind ``graph``.
     Returns None if disabled, if the user has no default view, or if the settings
-    cannot be read. Cached per caller for VIEW_CACHE_TTL_SECONDS seconds.
+    cannot be read. Cached per caller for VIEW_CACHE_TTL_SECONDS seconds; a failed
+    read is not cached, so a transient error does not pin the caller to the
+    organization's default view until the entry expires.
     """
     if DISABLE_DEFAULT_VIEW:
         return None
 
+    try:
+        return _read_user_default_view(graph)
+    except Exception:
+        logger.opt(exception=True).warning(
+            "Failed to fetch user default view, skipping"
+        )
+        return None
+
+
+@cachetools.cached(cache=_user_view_cache, key=_caller_key, lock=_user_view_lock)
+def _read_user_default_view(graph: DataHubGraph) -> Optional[str]:
     query = """
     query getUserDefaultView {
         me {
@@ -106,14 +122,7 @@ def fetch_user_default_view(graph: DataHubGraph) -> Optional[str]:
     }
     """
 
-    try:
-        result = graphql_helpers.execute_graphql(graph, query=query)
-    except Exception:
-        logger.opt(exception=True).warning(
-            "Failed to fetch user default view, skipping"
-        )
-        return None
-
+    result = graphql_helpers.execute_graphql(graph, query=query)
     me = result.get("me") or {}
     corp_user = me.get("corpUser") or {}
     settings = corp_user.get("settings") or {}

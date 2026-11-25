@@ -307,15 +307,47 @@ def test_hybrid_pages_over_the_merged_pool() -> None:
 
 
 @pytest.mark.usefixtures("semantic_on")
+def test_hybrid_total_counts_matches_beyond_the_fetched_pool() -> None:
+    # Both legs return the same documents, so the merged pool is one page while
+    # the keyword leg reports 30 matches: total must let a caller page on.
+    docs = [_doc(f"urn:li:document:d{i}") for i in range(30)]
+    backend = FakeBackend(keyword=docs, semantic=docs)
+
+    result = _run(backend, query="/q deploy", semantic_query="deploying", num_results=5)
+
+    assert result["count"] == 5
+    assert result["total"] == 30
+
+
+@pytest.mark.usefixtures("semantic_on")
+def test_hybrid_page_size_is_capped() -> None:
+    backend = FakeBackend(
+        keyword=[_doc(f"urn:li:document:kw{i}") for i in range(60)],
+        semantic=[_doc(f"urn:li:document:sem{i}") for i in range(60)],
+    )
+
+    result = _run(
+        backend, query="/q deploy", semantic_query="deploying", num_results=500
+    )
+
+    assert result["count"] == 50
+    assert len(result["searchResults"]) == 50
+
+
+@pytest.mark.usefixtures("semantic_on")
 def test_failing_semantic_leg_falls_back_to_keyword() -> None:
     backend = FakeBackend(
-        keyword=[_doc("urn:li:document:a")],
+        keyword=[_doc(f"urn:li:document:d{i}") for i in range(20)],
         semantic_error=ToolError("Semantic search is disabled in this environment"),
     )
 
-    result = _run(backend, query="/q deploy", semantic_query="how to deploy")
+    result = _run(
+        backend, query="/q deploy", semantic_query="how to deploy", num_results=5
+    )
 
-    assert [r["searchType"] for r in result["searchResults"]] == ["keyword"]
+    assert {r["searchType"] for r in result["searchResults"]} == {"keyword"}
+    # Like a keyword-only search, total is the keyword leg's match count.
+    assert result["total"] == 20
 
 
 @pytest.mark.usefixtures("semantic_on")

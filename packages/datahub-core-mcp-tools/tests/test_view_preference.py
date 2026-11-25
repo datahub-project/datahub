@@ -93,10 +93,15 @@ def test_a_user_without_a_default_view_has_none(mock_graph, response):
         assert fetch_user_default_view(mock_graph) is None
 
 
-def test_an_unreadable_user_view_is_skipped(mock_graph):
+def test_an_unreadable_user_view_is_skipped_and_retried(mock_graph):
     with patch(_PATCH_GQL) as gql:
-        gql.execute_graphql.side_effect = RuntimeError("unauthorized")
+        gql.execute_graphql.side_effect = [
+            RuntimeError("unavailable"),
+            _me_response("urn:li:dataHubView:mine"),
+        ]
         assert fetch_user_default_view(mock_graph) is None
+        # The failure is not cached: the next call reads the view again.
+        assert fetch_user_default_view(mock_graph) == "urn:li:dataHubView:mine"
 
 
 def test_disabled_default_views_make_no_calls(mock_graph):

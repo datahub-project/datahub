@@ -74,6 +74,41 @@ def test_not_env_compiles_against_both_env_fields():
     )
 
 
+def _clause_rules(filter_str: str) -> list:
+    return [
+        sorted((rule.field, tuple(rule.values), rule.negated) for rule in clause["and"])
+        for clause in parse_filter_string(filter_str).compile()
+    ]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # NOT (a OR b) = NOT a AND NOT b: one clause excluding both.
+        (
+            "NOT (platform = snowflake OR platform = bigquery)",
+            [[("platform.keyword", ("urn:li:dataPlatform:bigquery",), True),
+              ("platform.keyword", ("urn:li:dataPlatform:snowflake",), True)]],
+        ),
+        # NOT (a AND (b OR c)) = NOT a OR (NOT b AND NOT c).
+        (
+            "NOT (tag = urn:li:tag:a AND (env = PROD OR env = DEV))",
+            [[("tags", ("urn:li:tag:a",), True)],
+             [("env", ("DEV",), True), ("env", ("PROD",), True),
+              ("origin", ("DEV",), True), ("origin", ("PROD",), True)]],
+        ),
+        # Double negation cancels.
+        (
+            "NOT NOT (platform = snowflake OR platform = bigquery)",
+            [[("platform.keyword", ("urn:li:dataPlatform:snowflake",), False)],
+             [("platform.keyword", ("urn:li:dataPlatform:bigquery",), False)]],
+        ),
+    ],
+)  # fmt: skip
+def test_not_negates_grouped_conditions(text, expected):
+    assert _clause_rules(text) == expected
+
+
 def test_is_not_null_and_is_null_check_existence():
     present = _compiled_rule("glossary_term IS NOT NULL", "glossaryTerms")
     assert (present.condition, present.negated) == ("EXISTS", False)

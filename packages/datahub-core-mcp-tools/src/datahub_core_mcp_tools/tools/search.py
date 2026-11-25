@@ -26,6 +26,9 @@ from ..view_preference import resolve_view_urn
 # The searchFlags every search sends, before a host's SearchFlagsOverride.
 DEFAULT_SEARCH_FLAGS: JsonObject = {"skipHighlighting": True, "maxAggValues": 5}
 MAX_NUM_RESULTS = 50
+# Elasticsearch's default index.max_result_window. searchAcrossEntities pages with
+# from/size, so a deeper page is refused by the index or costs a deep shard query.
+MAX_RESULT_WINDOW = 10_000
 
 # A quoted phrase (kept as-is) or a bare term; whitespace and parentheses are left
 # untouched between matches.
@@ -186,6 +189,11 @@ def _search_implementation(
         raise ToolError(f"Invalid filter {filter!r}: {e}") from e
 
     num_results = min(num_results, MAX_NUM_RESULTS)
+    if offset + max(num_results, 1) > MAX_RESULT_WINDOW:
+        raise ToolError(
+            f"offset + num_results cannot exceed {MAX_RESULT_WINDOW}. Narrow the"
+            " query or add filters instead of paging this deep."
+        )
 
     # "relevance" is the default ranking, not a field any search index can sort on.
     # Sent as a sort, GMS fails the whole search (all_shards_failed); a caller asking

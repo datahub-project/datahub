@@ -168,6 +168,16 @@ def test_paging_sorting_and_the_result_cap() -> None:
     }
 
 
+def test_paging_stops_at_the_search_index_result_window() -> None:
+    backend = FakeBackend()
+    _run(backend, query="*", num_results=50, offset=9_950)
+    assert backend.sent[0]["start"] == 9_950
+
+    with pytest.raises(ToolError, match="Narrow the query"):
+        _run(backend, query="*", num_results=10, offset=9_995)
+    assert len(backend.sent) == 1
+
+
 def test_sorting_by_relevance_keeps_the_default_ranking() -> None:
     # No index can sort on "relevance"; GMS would fail the whole search.
     backend = FakeBackend()

@@ -252,6 +252,7 @@ def _hybrid_search_documents(
     consistent. A failing semantic leg (an older or unconfigured GMS) falls back to
     keyword-only results.
     """
+    num_results = min(num_results, MAX_NUM_RESULTS)
     fetch_count = min(offset + num_results, MAX_HYBRID_FETCH_RESULTS)
     hit_fetch_limit = offset + num_results > MAX_HYBRID_FETCH_RESULTS
 
@@ -279,13 +280,19 @@ def _hybrid_search_documents(
         )
         semantic_results = None
 
+    # Each leg's total counts its matches, not just the ones fetched, and the union
+    # of the legs matches at least as many as either. The merged pool only holds the
+    # fetch window, so its size alone would end paging after the first page.
+    leg_totals = [
+        leg.get("total", 0) for leg in (keyword_results, semantic_results) if leg
+    ]
     merged = _merge_search_results(keyword_results, semantic_results)
     all_results = merged.get("searchResults", [])
     page = all_results[offset : offset + num_results]
     merged["searchResults"] = page
     merged["start"] = offset
     merged["count"] = len(page)
-    merged["total"] = len(all_results)
+    merged["total"] = max([len(all_results), *leg_totals])
     if hit_fetch_limit:
         merged["_hybridSearchLimitReached"] = True
         merged["_hybridSearchMaxResults"] = MAX_HYBRID_FETCH_RESULTS

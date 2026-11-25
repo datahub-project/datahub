@@ -65,7 +65,10 @@ from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.metadata.urns import ContainerUrn, DocumentUrn, DomainUrn
 from datahub.sdk.search_filters import (
     Filter,
+    _And,
     _EnvFilter,
+    _Not,
+    _Or,
 )
 from datahub.sdk.search_filters import (
     FilterDsl as F,
@@ -743,14 +746,22 @@ def _make_within_filter(field: str, values: Sequence[str]) -> Filter:
 
 
 def _negate_filter(inner: Filter) -> Filter:
-    """Negate a filter, handling special cases that _Not cannot handle.
+    """Negate a filter, pushing the NOT down to single conditions.
 
-    _Not.validate_not() rejects filters that compile to multiple OR clauses.
-    _EnvFilter produces 2 OR clauses (origin and env fields), so we handle
-    its negation with De Morgan's law: NOT(A OR B) = NOT A AND NOT B.
+    _Not.validate_not() rejects filters that compile to multiple OR clauses, such
+    as ``a OR b``, an _EnvFilter (origin and env fields), or an AND over either.
+    De Morgan's laws move the negation inward until each F.not_ wraps a filter
+    that compiles to one clause: NOT(A OR B) = NOT A AND NOT B, and
+    NOT(A AND B) = NOT A OR NOT B.
     """
     if isinstance(inner, _EnvFilter):
         return _negate_env_filter(inner.env)
+    if isinstance(inner, _Not):
+        return inner.not_
+    if isinstance(inner, _Or):
+        return F.and_(*(_negate_filter(f) for f in inner.or_))
+    if isinstance(inner, _And):
+        return F.or_(*(_negate_filter(f) for f in inner.and_))
     return F.not_(inner)
 
 
