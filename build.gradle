@@ -217,6 +217,15 @@ plugins {
 
 apply from: "gradle/docker/docker-utils.gradle"
 
+// Lock shared by every Yarn 1 `yarn install` task (attach with usesService). The installs share the
+// global yarn cache, and Yarn 1 can corrupt a cache entry when two installs extract the same package
+// at once ("the file appears to be corrupt ... ENOENT"). maxParallelUsages = 1 keeps Gradle from
+// running two of them together. It replaces `yarn install --mutex file:...`, whose lock must be
+// refreshed every 5s and fails the install with ECOMPROMISED when a loaded CI runner misses that.
+ext.yarnInstallLock = gradle.sharedServices.registerIfAbsent('yarnInstallLock', BuildService) {
+  maxParallelUsages = 1
+}
+
 // Jackson BOM patch version — bump here and in buildSrc/build.gradle (buildSrc classpath).
 ext.jacksonVersion = '2.21.7'
 // Parquet stack: parquet-jackson shades Jackson under shaded/parquet/.
