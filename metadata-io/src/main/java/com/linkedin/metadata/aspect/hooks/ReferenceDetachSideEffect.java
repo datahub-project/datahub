@@ -22,6 +22,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.retry.ExponentialBackoffRetry;
 import com.linkedin.mxe.SystemMetadata;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -31,6 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -225,30 +227,19 @@ public abstract class ReferenceDetachSideEffect extends MCPSideEffect {
   @Nonnull
   private static <T> Optional<T> withBoundedRetry(
       @Nonnull String what, @Nonnull Supplier<T> action) {
-    RuntimeException last = null;
-    for (int attempt = 1; attempt <= MAX_PAGE_ATTEMPTS; attempt++) {
-      try {
-        return Optional.ofNullable(action.get());
-      } catch (RuntimeException e) {
-        last = e;
-        log.warn("{} failed (attempt {}/{})", what, attempt, MAX_PAGE_ATTEMPTS, e);
-      }
-      if (attempt < MAX_PAGE_ATTEMPTS && !sleepBeforeRetry(attempt)) {
-        break;
-      }
+    AtomicReference<T> result = new AtomicReference<>();
+    boolean succeeded =
+        ExponentialBackoffRetry.run(
+            MAX_PAGE_ATTEMPTS,
+            INITIAL_RETRY_BACKOFF_MS,
+            () -> result.set(action.get()),
+            (attempt, e) ->
+                log.warn("{} failed (attempt {}/{})", what, attempt, MAX_PAGE_ATTEMPTS, e));
+    if (!succeeded) {
+      log.error("Exhausted retries: {}", what);
+      return Optional.empty();
     }
-    log.error("Exhausted retries: {}", what, last);
-    return Optional.empty();
-  }
-
-  private static boolean sleepBeforeRetry(int attempt) {
-    try {
-      Thread.sleep(INITIAL_RETRY_BACKOFF_MS << (2 * (attempt - 1)));
-      return true;
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      return false;
-    }
+    return Optional.ofNullable(result.get());
   }
 
   @Nonnull
