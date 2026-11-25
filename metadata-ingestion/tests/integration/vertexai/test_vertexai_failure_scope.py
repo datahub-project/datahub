@@ -43,6 +43,8 @@ from tests.integration.vertexai.mock_vertexai import (
     gen_mock_model,
     gen_mock_model_evaluation,
     gen_mock_models,
+    gen_mock_root_task_detail,
+    gen_mock_task_detail,
     gen_mock_training_automl_job,
     gen_mock_training_custom_job,
     get_mock_pipeline_job,
@@ -437,11 +439,12 @@ def test_kind_loss_still_soft_deletes_stale_entities_of_other_kinds(
     assert any(r["entityUrn"].startswith("urn:li:dataset:") for r in runs.run1)
     assert not runs.run2_report.failures
     # The training jobs and the dataset are kept, but the pipeline that is gone
-    # is soft-deleted all the same, with its task and its folder.
+    # is soft-deleted all the same, with its tasks and its folder.
     stale_containers = {u for u in runs.soft_deleted if "urn:li:container:" in u}
     assert len(stale_containers) == 1
     assert runs.soft_deleted - stale_containers == {
         stale_flow,
+        f"urn:li:dataJob:({stale_flow},concat)",
         f"urn:li:dataJob:({stale_flow},reverse)",
     }
 
@@ -927,10 +930,20 @@ def _pipeline_world(
             return []
         if project in refused:
             raise refused_error()
-        jobs = [get_mock_pipeline_job()]
+        clean = get_mock_pipeline_job()
+        # A step with no links writes no lineage, so give this one an output.
+        _mock(clean).task_details = [
+            gen_mock_task_detail(
+                "reverse", task_id=1, output_uris=["gs://my-bucket/reversed"]
+            ),
+            gen_mock_root_task_detail(),
+        ]
+        jobs = [clean]
         if project == REFUSED_PROJECT:
             return jobs + [job("mock_pipeline_job_first", FIRST_ONLY_PIPELINE)]
         lookup = job("mock_pipeline_job_lookup", LOOKUP_REFUSED_PIPELINE)
+        # The mock's spec resolves `reverse` after `concat`, so a link is there to
+        # be written if the lost lookup did not skip task lineage.
         if lookup_refused:
             type(lookup).task_details = PropertyMock(side_effect=refused_error())
         # Listed first, so a clean pipeline is read after the refused lookup.

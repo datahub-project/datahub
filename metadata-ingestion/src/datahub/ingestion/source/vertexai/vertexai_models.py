@@ -5,8 +5,6 @@ from typing import Annotated, Dict, Iterable, List, Optional, Protocol, Set
 from google.cloud.aiplatform import Endpoint, Experiment, ExperimentRun, Model
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import VersionInfo
-from google.cloud.aiplatform_v1.types import PipelineTaskDetail
-from google.protobuf import timestamp_pb2
 from pydantic import BaseModel, ConfigDict, Field, SkipValidation
 
 from datahub.emitter.mcp_builder import ProjectIdKey
@@ -16,6 +14,7 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     ResourceCategory,
     ResourceCategoryType,
 )
+from datahub.ingestion.source.vertexai.vertexai_pipeline_tree import TaskRun
 from datahub.metadata.schema_classes import EdgeClass, MLHyperParamClass, MLMetricClass
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn, MlModelUrn
 from datahub.utilities.urns.urn import guess_entity_type
@@ -204,23 +203,27 @@ class PipelineTaskArtifacts(BaseModel):
 
 
 class PipelineTaskMetadata(BaseModel):
-    """Metadata for a Vertex AI pipeline task."""
+    """Metadata for a step of a Vertex AI pipeline."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    name: str
+    path: str
+    shown_name: str
+    parent_path: Optional[str]
     urn: DataJobUrn
-    id: Optional[int] = None
-    type: Optional[str] = None
-    state: Optional[PipelineTaskDetail.State] = None
-    start_time: Optional[timestamp_pb2.Timestamp] = None
-    create_time: Optional[timestamp_pb2.Timestamp] = None
-    end_time: Optional[timestamp_pb2.Timestamp] = None
     upstreams: Optional[List[DataJobUrn]] = None
-    duration: Optional[int] = None
+    # Artifacts of every run of the step in this pipeline run, for its lineage.
     input_dataset_urns: Optional[List[str]] = None
     output_dataset_urns: Optional[List[str]] = None
-    output_model_resource_names: Optional[List[str]] = None
+
+
+class PipelineTaskRunMetadata(BaseModel):
+    """A run of a step and the artifacts of its own task detail."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    run: Annotated[TaskRun, SkipValidation()]
+    artifacts: PipelineTaskArtifacts
 
 
 class PipelineMetadata(BaseModel):
@@ -232,6 +235,7 @@ class PipelineMetadata(BaseModel):
     display_name: str
     resource_name: str
     tasks: List[PipelineTaskMetadata]
+    task_runs: List[PipelineTaskRunMetadata]
     urn: DataFlowUrn
     id: Optional[str] = None
     labels: Optional[Dict[str, str]] = None
@@ -259,16 +263,6 @@ class PipelineProperties(BaseModel):
     duration: str = ""
     location: str = ""
     labels: str = ""
-
-    def to_custom_properties(self) -> Dict[str, str]:
-        """Convert to custom properties dict."""
-        return {k: v for k, v in self.model_dump().items() if v}
-
-
-class PipelineTaskProperties(BaseModel):
-    """Properties for pipeline task custom properties."""
-
-    created_time: str = ""
 
     def to_custom_properties(self) -> Dict[str, str]:
         """Convert to custom properties dict."""

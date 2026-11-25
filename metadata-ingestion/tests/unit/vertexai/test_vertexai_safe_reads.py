@@ -61,6 +61,7 @@ from tests.integration.vertexai.mock_vertexai import (
     gen_mock_experiment_run,
     gen_mock_model,
     gen_mock_model_evaluation,
+    gen_mock_root_task_detail,
     get_mock_pipeline_job,
 )
 from tests.unit.vertexai.test_vertexai_failure_scope import (
@@ -628,6 +629,8 @@ def _spec_less_pipeline_job() -> PipelineJob:
     job = get_mock_pipeline_job()
     _mock(job).name = "no-spec"
     _mock(job).display_name = "no-spec"
+    # With no spec there is no step for a task detail to match.
+    _mock(job).task_details = [gen_mock_root_task_detail()]
     _mock(job).gca_resource = gca_pipeline_job.PipelineJob(
         name="projects/123/locations/us-central1/pipelineJobs/no-spec",
         display_name="no-spec",

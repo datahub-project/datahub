@@ -5,8 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from google.api_core.exceptions import GoogleAPICallError, NotFound, PermissionDenied
 from google.cloud.aiplatform import PipelineJob
-from google.cloud.aiplatform_v1 import PipelineTaskDetail
-from google.cloud.aiplatform_v1.types import Execution, PipelineJob as PipelineJobType
+from google.cloud.aiplatform_v1.types import Execution
 from google.rpc.error_details_pb2 import ErrorInfo
 
 import datahub.emitter.mce_builder as builder
@@ -32,6 +31,9 @@ from tests.integration.vertexai.mock_vertexai import (
     gen_mock_experiment_run,
     gen_mock_model,
     gen_mock_model_version,
+    gen_mock_pipeline_resource,
+    gen_mock_root_task_detail,
+    gen_mock_task_detail,
 )
 
 PROJECT_ID = "acryl-poc"
@@ -208,28 +210,16 @@ def test_model_downstream_lineage_from_pipeline_tasks(source: VertexAISource) ->
     mock_pipeline.update_time = datetime(2024, 1, 2, tzinfo=timezone.utc)
     mock_pipeline.location = "us-central1"
 
-    gca_resource = MagicMock(spec=PipelineJobType)
-    gca_resource.update_time = mock_pipeline.update_time
+    gca_resource = gen_mock_pipeline_resource(mock_pipeline.update_time)
     mock_pipeline.gca_resource = gca_resource
 
-    task_detail = MagicMock(spec=PipelineTaskDetail)
-    task_detail.task_name = "prediction_task"
-    task_detail.task_id = 1
-    task_detail.state = MagicMock()
-    task_detail.start_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
-    task_detail.create_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
-    task_detail.end_time = datetime(2024, 1, 1, 1, 0, 0, tzinfo=timezone.utc)
+    task_detail = gen_mock_task_detail(
+        "prediction_task",
+        task_id=1,
+        input_uris=["projects/test-project/locations/us-central1/models/123456"],
+    )
 
-    model_artifact = MagicMock()
-    model_artifact.uri = "projects/test-project/locations/us-central1/models/123456"
-
-    model_input = MagicMock()
-    model_input.artifacts = [model_artifact]
-
-    task_detail.inputs = {"model": model_input}
-    task_detail.outputs = {}
-
-    mock_pipeline.task_details = [task_detail]
+    mock_pipeline.task_details = [task_detail, gen_mock_root_task_detail()]
     gca_resource.pipeline_spec = {
         "root": {
             "dag": {
@@ -372,28 +362,16 @@ def test_model_group_downstream_lineage_from_pipeline_tasks(
     mock_pipeline.create_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
     mock_pipeline.update_time = datetime(2024, 1, 2, tzinfo=timezone.utc)
 
-    mock_task_detail = MagicMock(spec=PipelineTaskDetail)
-    mock_task_detail.task_name = "prediction_task"
-    mock_task_detail.task_id = 1
-    mock_task_detail.state = PipelineTaskDetail.State.SUCCEEDED
-    mock_task_detail.start_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
-    mock_task_detail.create_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
-    mock_task_detail.end_time = datetime(2024, 1, 1, 1, 0, 0, tzinfo=timezone.utc)
-
-    mock_artifact = MagicMock()
-    mock_artifact.uri = "projects/test-project/locations/us-central1/models/123456789"
-
-    mock_input_entry = MagicMock()
-    mock_input_entry.artifacts = [mock_artifact]
-
-    mock_task_detail.inputs = {"model": mock_input_entry}
-    mock_task_detail.outputs = {}
+    mock_task_detail = gen_mock_task_detail(
+        "prediction_task",
+        task_id=1,
+        input_uris=["projects/test-project/locations/us-central1/models/123456789"],
+    )
 
     # Set up the pipeline spec
-    gca_resource = MagicMock(spec=PipelineJobType)
-    gca_resource.update_time = mock_pipeline.update_time
+    gca_resource = gen_mock_pipeline_resource(mock_pipeline.update_time)
     mock_pipeline.gca_resource = gca_resource
-    mock_pipeline.task_details = [mock_task_detail]
+    mock_pipeline.task_details = [mock_task_detail, gen_mock_root_task_detail()]
     gca_resource.pipeline_spec = {
         "root": {
             "dag": {

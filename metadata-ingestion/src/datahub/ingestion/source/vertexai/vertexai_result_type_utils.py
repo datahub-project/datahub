@@ -1,9 +1,15 @@
+from dataclasses import dataclass
 from typing import Dict, Optional, Union
 
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.jobs import _RunnableJob
 from google.cloud.aiplatform.training_jobs import _TrainingJob
-from google.cloud.aiplatform_v1.types import JobState, PipelineState, PipelineTaskDetail
+from google.cloud.aiplatform_v1.types import (
+    Execution,
+    JobState,
+    PipelineState,
+    PipelineTaskDetail,
+)
 
 from datahub.metadata.schema_classes import RunResultTypeClass
 
@@ -37,23 +43,6 @@ EXECUTION_STATUS_MAPPING: Dict[int, Union[str, RunResultTypeClass]] = {
     4: RunResultTypeClass.FAILURE,
 }
 
-PIPELINE_TASK_STATE_MAPPING: Dict[int, Union[str, RunResultTypeClass]] = {
-    PipelineTaskDetail.State.SUCCEEDED: RunResultTypeClass.SUCCESS,
-    PipelineTaskDetail.State.FAILED: RunResultTypeClass.FAILURE,
-    PipelineTaskDetail.State.SKIPPED: RunResultTypeClass.SKIPPED,
-}
-
-# Note: The following Vertex AI pipeline task states cannot be mapped because
-# DataHub's RunResultType enum only supports: SUCCESS, FAILURE, SKIPPED, UP_FOR_RETRY.
-# These states will return UNKNOWN_STATUS and won't generate run events:
-# - PipelineTaskDetail.State.STATE_UNSPECIFIED
-# - PipelineTaskDetail.State.PENDING
-# - PipelineTaskDetail.State.RUNNING
-# - PipelineTaskDetail.State.CANCEL_PENDING
-# - PipelineTaskDetail.State.CANCELLING
-# - PipelineTaskDetail.State.NOT_TRIGGERED
-# - PipelineTaskDetail.State.CANCELLED (could potentially map to SKIPPED, but unclear semantics)
-
 UNKNOWN_STATUS = "UNKNOWN"
 
 
@@ -85,19 +74,56 @@ def get_execution_result_status(status: int) -> Union[str, RunResultTypeClass]:
     return EXECUTION_STATUS_MAPPING.get(status, UNKNOWN_STATUS)
 
 
-def get_pipeline_task_result_status(
-    status: Optional[PipelineTaskDetail.State],
-) -> Union[str, RunResultTypeClass]:
-    """
-    Map Vertex AI pipeline task state to DataHub RunResultType.
+@dataclass(frozen=True)
+class RunOutcome:
+    result: str
+    native: str
 
-    Only terminal states (SUCCEEDED, FAILED, SKIPPED) are mapped to DataHub enums.
-    Intermediate states (PENDING, RUNNING, etc.) return UNKNOWN_STATUS as they
-    don't have corresponding values in DataHub's RunResultType enum.
+
+_TASK_OUTCOMES: Dict[int, str] = {
+    PipelineTaskDetail.State.SUCCEEDED: RunResultTypeClass.SUCCESS,
+    PipelineTaskDetail.State.FAILED: RunResultTypeClass.FAILURE,
+    PipelineTaskDetail.State.CANCELLED: RunResultTypeClass.SKIPPED,
+}
+
+_PIPELINE_OUTCOMES: Dict[int, str] = {
+    PipelineState.PIPELINE_STATE_SUCCEEDED: RunResultTypeClass.SUCCESS,
+    PipelineState.PIPELINE_STATE_FAILED: RunResultTypeClass.FAILURE,
+    PipelineState.PIPELINE_STATE_CANCELLED: RunResultTypeClass.SKIPPED,
+}
+
+
+def is_cache_hit(detail: PipelineTaskDetail) -> bool:
+    return (
+        detail.state == PipelineTaskDetail.State.SKIPPED
+        or detail.execution.state == Execution.State.CACHED
+    )
+
+
+def task_run_outcome(detail: PipelineTaskDetail) -> Optional[RunOutcome]:
+    """Result of a finished task run, or None while it is unfinished.
+
+    The Vertex state is kept as the native result type. A cache hit is a
+    successful run, however Vertex labels it.
     """
-    if status is None:
-        return UNKNOWN_STATUS
-    return PIPELINE_TASK_STATE_MAPPING.get(status, UNKNOWN_STATUS)
+    result = (
+        RunResultTypeClass.SUCCESS
+        if is_cache_hit(detail)
+        else _TASK_OUTCOMES.get(detail.state)
+    )
+    if result is None:
+        return None
+    # A state newer than the installed client library reads back as a bare number.
+    state = detail.state
+    native = state.name if isinstance(state, PipelineTaskDetail.State) else str(state)
+    return RunOutcome(result=result, native=native)
+
+
+def pipeline_run_outcome(state: PipelineState) -> Optional[RunOutcome]:
+    result = _PIPELINE_OUTCOMES.get(state)
+    if result is None:
+        return None
+    return RunOutcome(result=result, native=PipelineState(state).name)
 
 
 def is_status_for_run_event_class(status: Union[str, RunResultTypeClass]) -> bool:

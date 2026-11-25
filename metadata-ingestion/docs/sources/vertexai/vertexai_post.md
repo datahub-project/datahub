@@ -16,6 +16,10 @@ The connector captures comprehensive lineage relationships including cross-platf
 - Model evaluation → Model and test datasets (inputs)
 - Pipeline task runs → Models and datasets (inputs/outputs via DataProcessInstance aspects)
 
+**Pipeline task lineage** is always added and never replaced. A task keeps the inputs and outputs of all its task runs, and a link stays after a pipeline stops using a table. The connector does not remove such a link, and stale entity removal does not either. Links between tasks (dependencies) work the same way. `incremental_lineage` has no effect for Vertex AI, because task lineage is always added.
+
+Artifacts that Vertex AI writes under a run's own folder have a new path on every run, so a task gains a link for each run.
+
 **Cross-Platform Lineage** (external data sources):
 
 The connector links Vertex AI resources to external datasets when referenced in job configurations or ML Metadata artifacts. Supported platforms:

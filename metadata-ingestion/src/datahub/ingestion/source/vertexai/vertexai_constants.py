@@ -123,6 +123,18 @@ UNEXPECTED_ERROR_TITLE = "Unexpected error while reading Vertex AI"
 UNEXPECTED_ERROR = "This looks like an error in the connector, not one from Google Cloud. Earlier entities are kept, because the error says nothing about what Vertex AI holds. Report it to DataHub with this entry and the ingestion log run with debug logging."
 UNEXPECTED_DETAIL_ERROR = "This looks like an error in the connector, not one from Google Cloud, so this detail was skipped. What depends on it is written without it, or kept as it was when it cannot be written without it. Report it to DataHub with this entry and the ingestion log run with debug logging."
 EVALUATIONS_KEPT_PROJECT_WIDE = "Earlier model evaluations in this project are kept until this model's evaluation list can be read, and evaluations deleted from other models are removed once it reads again. Evaluation names carry only the evaluation id, so they cannot be tied to one model."
+# The count is in pipeline_task_details_without_step; the context keeps only a sample.
+UNMATCHED_DETAILS_TITLE = "Pipeline task details match no step"
+UNMATCHED_DETAILS = "Some task details of a pipeline run match no step of its pipeline spec, so they get no task run."
+EXTRA_ROOT_DETAILS_TITLE = "Pipeline task details at the root were skipped"
+EXTRA_ROOT_DETAILS = "A pipeline run has more than one task detail at the root. Only the detail named after the run, if any, is used as its root; the others, and the details under them, get no task run and no task lineage."
+# The sample size of both warnings above.
+UNMATCHED_SAMPLE_SIZE = 10
+
+# Pending task lineage links: about 48 MB is held at the flush threshold.
+LINEAGE_FLUSH_PENDING_LINKS = 200_000
+# Links per add patch: about 391 KB per 1,000 links bounds the message size.
+LINEAGE_MAX_LINKS_PER_PATCH = 1_000
 
 # The switch that turns each read off, named when a read is lost for good.
 READ_SWITCHES: Dict[str, str] = {
@@ -506,13 +518,6 @@ class DurationUnit:
     MINUTES = "m"
     SECONDS = "s"
     MILLISECONDS = "ms"
-
-
-# Date/time format strings
-class DateTimeFormat:
-    """Standard date/time format strings used across the connector."""
-
-    TIMESTAMP = "%Y-%m-%d %H:%M:%S"
 
 
 # Label formatting constants
