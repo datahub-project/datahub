@@ -397,6 +397,12 @@ or isn't a Data Product, as it already did in the UI and GraphQL ([PR #21307](ht
 Create parents before their children. Existing products are unaffected unless their parent is changed.
 To turn the check off, set `metadataChangeProposal.validation.dataProductProperties.parent.enabled` to `false`.
 
+### A PATCH on a missing entity is authorized as a create ([#21600](https://github.com/datahub-project/datahub/pull/21600))
+
+A PATCH that targets an entity that does not exist yet is now authorized like an UPSERT: it needs **Create Entity** or **Edit Entity**. Before, it always needed Edit Entity. A PATCH on an existing entity still needs Edit Entity, so create-only principals still can't change existing entities.
+
+**Action:** none. No caller loses access. Principals with only Create Entity can now create an entity with a PATCH, as they already could with an UPSERT.
+
 <!--
 
 ## <version number>
