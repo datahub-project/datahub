@@ -1,11 +1,11 @@
 import { Input, Switch, Text } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Cron from 'react-js-cron';
 import styled from 'styled-components';
 
+import { CronBuilder } from '@components/components/CronBuilder';
+
 import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/constants';
-import { cronBuilderStyles } from '@app/sharedV2/cron/cronBuilderStyles';
 
 const CronText = styled.div`
     margin-top: 8px;
@@ -29,8 +29,6 @@ const AdvancedSchedule = styled.div`
 `;
 
 const ScheduleContainer = styled.div`
-    ${cronBuilderStyles}
-
     .cron-builder {
         color: ${(props) => props.theme.colors.textTertiary};
         font-size: 14px;
@@ -83,7 +81,7 @@ export default function CronField({ scheduleCronInterval, setScheduleCronInterva
                         label=""
                     />
                 ) : (
-                    <Cron
+                    <CronBuilder
                         value={scheduleCronInterval}
                         setValue={setScheduleCronInterval}
                         clearButton={false}

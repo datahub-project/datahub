@@ -8,6 +8,21 @@ fragment processInstanceRelationshipResults on EntityRelationshipsResult {
         entity {
             urn
             type
+            ... on HasEditableProperties {
+                editableProperties {
+                    description
+                }
+            }
+            ... on HasSubTypes {
+                subTypes {
+                    typeNames
+                }
+            }
+            ... on HasStatus {
+                status {
+                    removed
+                }
+            }
             ... on Dataset {
                 name
                 properties {
@@ -15,17 +30,8 @@ fragment processInstanceRelationshipResults on EntityRelationshipsResult {
                     description
                     qualifiedName
                 }
-                editableProperties {
-                    description
-                }
                 platform {
                     ...platformFields
-                }
-                subTypes {
-                    typeNames
-                }
-                status {
-                    removed
                 }
             }
             ... on DataJob {
@@ -49,15 +55,6 @@ fragment processInstanceRelationshipResults on EntityRelationshipsResult {
                 }
                 dataPlatformInstance {
                     ...dataPlatformInstanceFields
-                }
-                subTypes {
-                    typeNames
-                }
-                editableProperties {
-                    description
-                }
-                status {
-                    removed
                 }
             }
         }
@@ -126,6 +123,21 @@ fragment dataProcessInstanceFields on DataProcessInstance {
         urn
         type
         # TODO: Clean up fields below; support DataFlow
+        ... on HasEditableProperties {
+            editableProperties {
+                description
+            }
+        }
+        ... on HasSubTypes {
+            subTypes {
+                typeNames
+            }
+        }
+        ... on HasStatus {
+            status {
+                removed
+            }
+        }
         ... on Dataset {
             name
             properties {
@@ -133,17 +145,8 @@ fragment dataProcessInstanceFields on DataProcessInstance {
                 description
                 qualifiedName
             }
-            editableProperties {
-                description
-            }
             platform {
                 ...platformFields
-            }
-            subTypes {
-                typeNames
-            }
-            status {
-                removed
             }
         }
         ... on DataJob {
@@ -167,15 +170,6 @@ fragment dataProcessInstanceFields on DataProcessInstance {
             }
             dataPlatformInstance {
                 ...dataPlatformInstanceFields
-            }
-            subTypes {
-                typeNames
-            }
-            editableProperties {
-                description
-            }
-            status {
-                removed
             }
         }
     }

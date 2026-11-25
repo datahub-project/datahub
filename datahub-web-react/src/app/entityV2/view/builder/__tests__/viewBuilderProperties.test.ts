@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { viewBuilderProperties } from '@app/entityV2/view/builder/viewBuilderProperties';
 import { SelectInputMode, ValueTypeId } from '@app/sharedV2/queryBuilder/builder/property/types/values';
 
-import { EntityType } from '@types';
+import { EntityType, FabricType } from '@types';
 
 describe('viewBuilderProperties', () => {
     it('should export an array of properties', () => {
@@ -34,12 +34,14 @@ describe('viewBuilderProperties', () => {
         expect(typeNamesProp?.valueOptions?.aggregationField).toBe('typeNames');
     });
 
-    it('should include platform property with correct display name', () => {
+    it('should include platform property sourced from the platform facet aggregation', () => {
         const platformProp = viewBuilderProperties.find((p) => p.id === 'platform');
         expect(platformProp?.displayName).toBe('Platform');
         expect(platformProp?.description).toBe('The data platform where the asset lives.');
-        expect(platformProp?.valueType).toBe(ValueTypeId.URN);
-        expect(platformProp?.valueOptions?.entityTypes).toContain(EntityType.DataPlatform);
+        // Aggregation-based so only platforms that actually have assets are offered (not every
+        // seeded DataPlatform), mirroring platformInstance.
+        expect(platformProp?.valueType).toBe(ValueTypeId.ENUM);
+        expect(platformProp?.valueOptions?.aggregationField).toBe('platform');
     });
 
     it('should include owners property with correct display name', () => {
@@ -136,7 +138,14 @@ describe('viewBuilderProperties', () => {
         const options = originProp?.valueOptions?.options ?? [];
         expect(options.find((o: { id: string }) => o.id === 'PROD')?.displayName).toBe('Production');
         expect(options.find((o: { id: string }) => o.id === 'DEV')?.displayName).toBe('Development');
-        expect(options.find((o: { id: string }) => o.id === 'STAGING')?.displayName).toBe('Staging');
+        expect(options.find((o: { id: string }) => o.id === FabricType.Stg)?.displayName).toBe('Staging');
+    });
+
+    it('should only offer environment options that are FabricType values', () => {
+        const originProp = viewBuilderProperties.find((p) => p.id === 'origin');
+        const fabricTypes = new Set<string>(Object.values(FabricType));
+        const options = originProp?.valueOptions?.options ?? [];
+        options.forEach((o: { id: string }) => expect(fabricTypes).toContain(o.id));
     });
 
     it('should include platformInstance property with correct display name and aggregation', () => {

@@ -7,6 +7,7 @@ import static org.testng.Assert.assertTrue;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.http.HttpRequestContextEnricher;
 import io.datahubproject.metadata.context.http.HttpRequestContextResolver;
+import io.datahubproject.test.wiring.WiringCoverage;
 import java.util.Map;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -30,7 +31,9 @@ import org.testng.annotations.Test;
 public class HttpRequestContextResolverFactoryTest {
 
   private final ApplicationContextRunner runner =
-      new ApplicationContextRunner().withUserConfiguration(HttpRequestContextResolverFactory.class);
+      new ApplicationContextRunner()
+          .withInitializer(WiringCoverage.initializer())
+          .withUserConfiguration(HttpRequestContextResolverFactory.class);
 
   @Test
   public void registersResolverBean_passThroughWhenNoEnrichers() {

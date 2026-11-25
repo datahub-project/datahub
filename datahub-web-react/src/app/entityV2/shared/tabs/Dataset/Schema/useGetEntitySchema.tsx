@@ -2,8 +2,8 @@ import { ApolloClient, ApolloError, DocumentNode, useApolloClient } from '@apoll
 import cloneDeep from 'lodash/cloneDeep';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import { combineEntityDataWithSiblings } from '@app/entityV2/shared/siblingUtils';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 
 import {

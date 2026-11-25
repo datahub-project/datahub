@@ -92,7 +92,6 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
-    DatasetSnapshotClass,
     DateTypeClass,
     EnumTypeClass,
     FineGrainedLineageClass,
@@ -100,7 +99,6 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     ForeignKeyConstraintClass,
     GlobalTagsClass,
-    MetadataChangeEventClass,
     MySqlDDLClass,
     NullTypeClass,
     NumberTypeClass,
@@ -365,6 +363,12 @@ class ProfileMetadata:
 class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
+    # Pool class to default `poolclass` to when profiling is enabled. Sources whose
+    # dialect defaults to a pool that cannot serve parallel connections (for
+    # example Teradata's SingletonThreadPool) set this to QueuePool. It is a
+    # default: a `poolclass` in the user's options still wins.
+    _profiling_pool_class: ClassVar[Optional[Type[Pool]]] = None
+
     def __init__(self, config: SQLCommonConfig, ctx: PipelineContext, platform: str):
         super().__init__(config, ctx)
         self.config: SQLCommonConfig = config
@@ -407,14 +411,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self.aggregator = self._create_aggregator()
         self.report.sql_aggregator = self.aggregator.report
 
-    # Pool class to default `poolclass` to when profiling is enabled. Sources whose
-    # dialect defaults to a pool that cannot serve parallel connections (for
-    # example Teradata's SingletonThreadPool) set this to QueuePool. It is a
-    # default: a `poolclass` in the user's options still wins.
-    _profiling_pool_class: ClassVar[Optional[Type[Pool]]] = None
-
     def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
-        """Add default SQLAlchemy options. Can be overridden by subclasses to add additional defaults."""
+        """Add default SQLAlchemy options.
+
+        Can be overridden by subclasses to add additional defaults. To make
+        profiling default to a particular pool, set `_profiling_pool_class`
+        on the subclass rather than overriding this method.
+        """
         if not sql_config.is_profiling_enabled():
             return
         if self._profiling_pool_class is not None:
@@ -848,11 +851,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             self.config.platform_instance,
             self.config.env,
         )
-        dataset_snapshot = DatasetSnapshotClass(
-            urn=dataset_urn,
-            aspects=[StatusClass(removed=False)],
-        )
-
         description, properties, location_urn = self.get_table_properties(
             inspector, schema, table
         )
@@ -862,7 +860,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             description=description,
             customProperties=properties,
         )
-        dataset_snapshot.aspects.append(dataset_properties)
 
         extra_tags = self.get_extra_tags(inspector, schema, table)
         pk_constraints: Mapping[str, Any] = inspector.get_pk_constraint(table, schema)
@@ -880,7 +877,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_table_location_lineage and location_urn:
             self.aggregator.add_known_lineage_mapping(
                 upstream_urn=location_urn,
-                downstream_urn=dataset_snapshot.urn,
+                downstream_urn=dataset_urn,
                 lineage_type=DatasetLineageTypeClass.COPY,
             )
             external_upstream_table = UpstreamClass(
@@ -889,11 +886,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             )
 
             yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_snapshot.urn,
+                entityUrn=dataset_urn,
                 aspect=UpstreamLineageClass(
                     upstreams=[external_upstream_table],
                     fineGrainedLineages=self.get_fine_grained_lineages(
-                        dataset_urn=dataset_snapshot.urn,
+                        dataset_urn=dataset_urn,
                         upstream_dataset_urn=location_urn,
                         schema_fields=schema_fields,
                     ),
@@ -911,7 +908,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         )
         self._classify(dataset_name, schema, table, data_reader, schema_metadata)
 
-        dataset_snapshot.aspects.append(schema_metadata)
         if self._save_schema_to_resolver():
             self.aggregator.register_schema(dataset_urn, schema_metadata)
             self.discovered_datasets.add(dataset_name)
@@ -920,8 +916,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         yield from self.add_table_to_schema_container(
             dataset_urn=dataset_urn, db_name=db_name, schema=schema
         )
-        mce = MetadataChangeEventClass(proposedSnapshot=dataset_snapshot)
-        yield SqlWorkUnit(id=dataset_name, mce=mce)
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+            dataset_urn,
+            [StatusClass(removed=False), dataset_properties, schema_metadata],
+        ):
+            yield mcp.as_workunit()
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
@@ -936,7 +935,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_table_location_lineage and location_urn:
             self.aggregator.add_known_lineage_mapping(
                 upstream_urn=location_urn,
-                downstream_urn=dataset_snapshot.urn,
+                downstream_urn=dataset_urn,
                 lineage_type=DatasetLineageTypeClass.COPY,
             )
 
@@ -1347,10 +1346,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 default_schema=default_schema,
             )
 
-        dataset_snapshot = DatasetSnapshotClass(
-            urn=dataset_urn,
-            aspects=[StatusClass(removed=False)],
-        )
         db_name = self.get_db_name(inspector)
         yield from self.add_table_to_schema_container(
             dataset_urn=dataset_urn,
@@ -1363,11 +1358,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             description=description,
             customProperties=properties,
         )
-        dataset_snapshot.aspects.append(dataset_properties)
-        if schema_metadata:
-            dataset_snapshot.aspects.append(schema_metadata)
-        mce = MetadataChangeEventClass(proposedSnapshot=dataset_snapshot)
-        yield SqlWorkUnit(id=dataset_name, mce=mce)
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+            dataset_urn,
+            [StatusClass(removed=False), dataset_properties, schema_metadata],
+        ):
+            yield mcp.as_workunit()
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect

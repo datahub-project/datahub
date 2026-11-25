@@ -21,6 +21,7 @@ import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
 import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
 import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
+import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { Button } from '@src/alchemy-components';
@@ -32,8 +33,8 @@ const PageContainer = styled.div`
     overflow: auto;
     flex: 1;
     border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
-    gap: 16px;
-    padding: 5px;
+    /* The app shell insets the page; the settings nav and content sit a page gap apart like other panels. */
+    gap: ${PAGE_GAP_PX}px;
 `;
 
 const NavBarContainer = styled.div<{ $isCollapsed: boolean }>`

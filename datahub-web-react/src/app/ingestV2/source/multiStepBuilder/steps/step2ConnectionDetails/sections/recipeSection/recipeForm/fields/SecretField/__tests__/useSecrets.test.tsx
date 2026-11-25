@@ -1,9 +1,9 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { MockedFunction, vi } from 'vitest';
 
 import { useSecrets } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/SecretField/useSecrets';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useListSecretsQuery } from '@graphql/ingestion.generated';
 

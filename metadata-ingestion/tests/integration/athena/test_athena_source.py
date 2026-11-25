@@ -155,6 +155,7 @@ def test_athena_source_ingestion(pytestconfig, tmp_path):
         # Validate the output with the golden file
         mce_helpers.check_golden_file(
             pytestconfig=pytestconfig,
+            fail_on_output_mces=True,
             output_path=f"{tmp_path}/{output_file_name}",
             golden_path=f"{test_resources_dir}/{golden_file_name}",
         )

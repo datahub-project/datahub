@@ -12,7 +12,6 @@ const Container = styled.div<{ $isHidden?: boolean; $isShowNavBarRedesign?: bool
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        margin: 5px;
         border-radius: ${props.theme.styles['border-radius-navbar-redesign']};
         box-shadow: ${props.theme.colors.shadowSm};
         background-color: ${props.theme.colors.bg};

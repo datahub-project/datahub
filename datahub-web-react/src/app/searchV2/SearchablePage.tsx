@@ -11,8 +11,8 @@ import { SearchHeader } from '@app/searchV2/SearchHeader';
 import useGoToSearchPage from '@app/searchV2/useGoToSearchPage';
 import useQueryAndFiltersFromLocation from '@app/searchV2/useQueryAndFiltersFromLocation';
 import { getAutoCompleteInputFromQuickFilter } from '@app/searchV2/utils/filterUtils';
+import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
 import ProductUpdates from '@app/sharedV2/product/update/ProductUpdates';
-import { HIERARCHICAL_BROWSE_LAYOUT_PADDING_PX } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
@@ -42,6 +42,12 @@ const Navigation = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     z-index: ${(props) => (props.$isShowNavBarRedesign ? 0 : 200)};
 `;
 
+/**
+ * Redesign header: 8px top margin + 56px row with the 44px search box centered, so the box ends
+ * 58px down. Starting the shell there (plus its PAGE_GAP_PX padding) puts every page that far below the box.
+ */
+const REDESIGN_SEARCH_BOX_BOTTOM_PX = 58;
+
 const Content = styled.div<{
     $isShowNavBarRedesign?: boolean;
     $hideSearchBar?: boolean;
@@ -49,18 +55,19 @@ const Content = styled.div<{
 }>`
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    margin-top: ${(props) => (props.$isShowNavBarRedesign ? '56px' : '72px')};
-    ${(props) => props.$hideSearchBar && 'margin-top: 6px;'}
+    margin-top: ${(props) => (props.$isShowNavBarRedesign ? `${REDESIGN_SEARCH_BOX_BOTTOM_PX}px` : '72px')};
+    ${(props) => props.$hideSearchBar && `margin-top: ${props.$isShowNavBarRedesign ? 0 : 6}px;`}
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        padding: ${HIERARCHICAL_BROWSE_LAYOUT_PADDING_PX}px;
+        padding: ${PAGE_GAP_PX}px;
     `}
     flex: 1;
     display: flex;
     flex-direction: column;
-    max-height: ${(props) => (props.$isShowNavBarRedesign ? 'calc(100vh - 56px)' : 'calc(100vh - 72px)')};
-    max-height: ${(props) => props.$hideSearchBar && 'calc(100vh - 6px)'};
+    max-height: ${(props) =>
+        props.$isShowNavBarRedesign ? `calc(100vh - ${REDESIGN_SEARCH_BOX_BOTTOM_PX}px)` : 'calc(100vh - 72px)'};
+    max-height: ${(props) => props.$hideSearchBar && `calc(100vh - ${props.$isShowNavBarRedesign ? 0 : 6}px)`};
     width: 100%;
     overflow: ${(props) => (props.$isShowNavBarRedesign ? 'hidden' : 'auto')};
 `;

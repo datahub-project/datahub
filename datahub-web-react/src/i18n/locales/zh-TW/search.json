@@ -142,7 +142,6 @@
     "searchBar.noResults.clearFilters": "清除篩選條件",
     "searchBar.noResults.clearFiltersAndView": "清除篩選條件與已選取的檢視",
     "searchBar.noResults.clearView": "清除已選取的檢視",
-    "searchBar.noResults.defaultMessage": "請嘗試調整搜尋條件，以找到你要的內容",
     "searchBar.noResults.orClearSuggestion": "，或<clickable>{{clearText}}</clickable>。",
     "searchBar.placeholder": "尋找資料表、儀表板、人員等",
     "searchBar.placeholderWithShortcut": "{{message}}（{{shortcut}}）",

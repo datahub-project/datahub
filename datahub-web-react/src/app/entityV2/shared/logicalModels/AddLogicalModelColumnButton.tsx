@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { LogicalModelColumnDraft } from '@app/entityV2/shared/logicalModels/logicalModels.types';
 import {
     LOGICAL_MODEL_COLUMN_TYPE_OPTIONS,

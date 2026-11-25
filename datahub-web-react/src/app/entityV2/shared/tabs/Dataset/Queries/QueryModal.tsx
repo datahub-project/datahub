@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { CodeBlock } from '@components/components/CodeBlock';
-import { Editor } from '@components/components/Editor';
 
 import { SQL_LANGUAGE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
+import { Editor } from '@app/sharedV2/editor/Editor';
 import { Modal } from '@src/alchemy-components';
 
 const StyledModal = styled(Modal)`

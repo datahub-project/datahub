@@ -848,10 +848,11 @@ This event is emitted when an existing Action Request (proposal) changes status.
 
 These are the common parameters for all parameters.
 
-| Name                | Type   | Description                                                                               | Optional |
-| ------------------- | ------ | ----------------------------------------------------------------------------------------- | -------- |
-| actionRequestStatus | String | The status of the Action Request.                                                         | False    |
-| actionRequestResult | String | Only filled if the `actionRequestStatus` is `COMPLETED`. Either `ACCEPTED` or `REJECTED`. | True     |
+| Name                | Type   | Description                                                                                                                                          | Optional |
+| ------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| actionRequestStatus | String | The status of the Action Request.                                                                                                                    | False    |
+| actionRequestResult | String | Only filled if the `actionRequestStatus` is `COMPLETED`. Either `ACCEPTED` or `REJECTED`.                                                            | True     |
+| actionRequestNote   | String | The note left by the reviewer when completing the Action Request, e.g. the reason for accepting or rejecting it. Only filled if a note was provided. | True     |
 
 #### Sample Event
 
@@ -863,7 +864,8 @@ These are the common parameters for all parameters.
   "operation": "COMPLETED",
   "parameters": {
     "actionRequestStatus": "COMPLETED",
-    "actionRequestResult": "ACCEPTED"
+    "actionRequestResult": "ACCEPTED",
+    "actionRequestNote": "Approved, this tag matches our classification policy."
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",

@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useGlossaryChildren from '@app/entityV2/glossaryNode/useGlossaryChildren';
@@ -6,6 +5,7 @@ import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContex
 import { useGetGlossaryNodeCanManageChildrenQuery } from '@src/graphql/lifecycle.generated';
 import { useGetAutoCompleteMultipleResultsQuery, useScrollAcrossEntitiesQuery } from '@src/graphql/search.generated';
 import { Entity, EntityType } from '@src/types.generated';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Mock the context
 vi.mock('@app/entityV2/shared/GlossaryEntityContext', () => ({

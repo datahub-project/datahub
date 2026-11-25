@@ -33,12 +33,14 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.sql.sql_common import (
     PipelineContext,
     SQLAlchemySource,
-    SqlWorkUnit,
     _pool_accepts_sizing_options,
     get_column_type,
     get_schema_metadata,
 )
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    SQLCommonConfig,
+)
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
@@ -51,6 +53,7 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
 )
+from datahub.masking.constants import REDACTED_PREFIX
 from datahub.metadata.schema_classes import (
     ContainerClass,
     ContainerPropertiesClass,
@@ -73,6 +76,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from tests.test_helpers.masking_state_helpers import capture_masked_log
 from tests.unit.conftest import (
     aspects_by_urn,
     aspects_of_type,
@@ -434,12 +438,51 @@ def test_add_default_options_sets_max_overflow_when_pooled() -> None:
     assert config.options["max_overflow"] == config.profiling.max_workers
 
 
+class _TestPooledProfilingSource(_TestSQLAlchemySource):
+    _profiling_pool_class = QueuePool
+
+
+def test_profiling_pool_class_sets_poolclass_and_max_overflow() -> None:
+    source = _TestPooledProfilingSource.create(
+        config_dict={}, ctx=PipelineContext(run_id="test")
+    )
+    config = _TestSQLiteConfig.model_validate({"profiling": {"enabled": True}})
+
+    source._add_default_options(config)
+
+    # The declared pool replaces the dialect default (SingletonThreadPool for
+    # in-memory SQLite), and because it is a QueuePool, max_overflow follows.
+    assert config.options["poolclass"] is QueuePool
+    assert config.options["max_overflow"] == config.profiling.max_workers
+    create_engine(config.get_sql_alchemy_url(), **config.options).dispose()
+
+
+def test_profiling_pool_class_does_not_override_user_poolclass() -> None:
+    source = _TestPooledProfilingSource.create(
+        config_dict={}, ctx=PipelineContext(run_id="test")
+    )
+    config = _TestSQLiteConfig.model_validate(
+        {"profiling": {"enabled": True}, "options": {"poolclass": NullPool}}
+    )
+
+    source._add_default_options(config)
+
+    assert config.options["poolclass"] is NullPool
+    assert "max_overflow" not in config.options
+
+
 def test_add_default_options_noop_without_profiling() -> None:
-    source = get_test_sql_alchemy_source()
+    # A source that declares a profiling pool must still leave options alone
+    # when profiling is off; otherwise every non-profiling run of a connector
+    # such as Teradata would be moved onto that pool.
+    source = _TestPooledProfilingSource.create(
+        config_dict={}, ctx=PipelineContext(run_id="test")
+    )
     config = _TestSQLAlchemyConfig.model_validate({})
 
     source._add_default_options(config)
 
+    assert "poolclass" not in config.options
     assert "max_overflow" not in config.options
 
 
@@ -785,9 +828,11 @@ def test_duplicate_table_names_are_emitted_once(sqlite_db: str) -> None:
             workunits = list(source.loop_tables(inspector, "main", source.config))
     engine.dispose()
 
-    assert [wu.id for wu in workunits if isinstance(wu, SqlWorkUnit)] == [
-        "testdb.main.child"
-    ]
+    assert [
+        wu.get_urn()
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetPropertiesClass) is not None
+    ] == ["urn:li:dataset:(urn:li:dataPlatform:sqlite,testdb.main.child,PROD)"]
     assert source.report.tables_scanned == 1
 
 
@@ -1186,3 +1231,74 @@ def test_unexpected_procedure_failure_is_a_failure(sqlite_db: str) -> None:
     assert "Failed to list stored procedures for schema" in log_titles(
         source.report.failures
     )
+
+
+@pytest.mark.parametrize(
+    "connection",
+    [
+        pytest.param(
+            {"username": "my_user", "password": "Str0ng!Pass#2024"},
+            id="password_field",
+        ),
+        pytest.param(
+            {"sqlalchemy_uri": "mysql+pymysql://my_user:Str0ng%21Pass%232024@my-host/"},
+            id="sqlalchemy_uri",
+        ),
+        pytest.param(
+            {
+                "sqlalchemy_uri": "mysql+pymysql://my_user@my-host/?password=Str0ng%2fPass%3A1"
+            },
+            id="query_param_mixed_hex_case",
+        ),
+        pytest.param(
+            {
+                "sqlalchemy_uri": "mssql+pyodbc:///?odbc_connect="
+                "DRIVER%3D%7BMy+Driver%7D%3BPWD%3DStr0ng%2BPass%2525x"
+            },
+            id="odbc_connect_pwd_with_plus_and_percent",
+        ),
+    ],
+)
+def test_shared_debug_connection_url_log_masks_the_password(
+    connection: Dict[str, str],
+) -> None:
+    """The shared SQLAlchemySource.get_inspectors() logs the connection URL at
+    DEBUG for every SQLAlchemy source; its password must be masked whichever
+    way it was configured."""
+    with capture_masked_log("datahub.ingestion.source.sql.sql_common") as log:
+        config = BasicSQLAlchemyConfig.model_validate(
+            {"scheme": "mysql+pymysql", "host_port": "my-host:3306", **connection}
+        )
+        source = SQLAlchemySource(config, PipelineContext(run_id="test"), "mysql")
+        with (
+            mock.patch("datahub.ingestion.source.sql.sql_common.create_engine"),
+            mock.patch("datahub.ingestion.source.sql.sql_common.inspect"),
+        ):
+            list(source.get_inspectors())
+
+    output = log.getvalue()
+    assert "sql_alchemy_url=" in output, output
+    assert REDACTED_PREFIX in output, output
+    assert "Str0ng" not in output, output
+
+
+def test_two_tier_connection_url_log_masks_a_re_encoded_uri_password() -> None:
+    # TwoTierSQLAlchemyConfig re-encodes an already percent-encoded
+    # sqlalchemy_uri password ("%21" becomes "%2521"); the logged URL must
+    # still be masked.
+    with capture_masked_log("datahub.ingestion.source.sql.sql_common") as log:
+        config = _TestTwoTierSQLAlchemyConfig.model_validate(
+            {
+                "scheme": "mysql+pymysql",
+                "host_port": "my-host:3306",
+                "sqlalchemy_uri": "mysql+pymysql://my_user:Str0ng%21Uri%23Secret@my-host:3306/",
+            }
+        )
+        url = TwoTierSQLAlchemyConfig.get_sql_alchemy_url(config, current_db="my_db")
+        logging.getLogger("datahub.ingestion.source.sql.sql_common").debug(
+            f"sql_alchemy_url={url}"
+        )
+
+    output = log.getvalue()
+    assert REDACTED_PREFIX in output, output
+    assert "Str0ng" not in output, output

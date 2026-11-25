@@ -329,11 +329,6 @@ class TestConfluentCloudJdbcSources:
             cluster_topics=["mysql_users", "mysql_orders", "unrelated"],
         ) == {"mysql_users": "shop.users", "mysql_orders": "shop.orders"}
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="_extract_lineages_from_prefix_inference maps every cluster topic, "
-        "prefixed or not, so unrelated topics become tables of this connector",
-    )
     def test_prefix_inference_ignores_topics_outside_the_prefix(self) -> None:
         connector = ConfluentJDBCSourceConnector(
             make_manifest(

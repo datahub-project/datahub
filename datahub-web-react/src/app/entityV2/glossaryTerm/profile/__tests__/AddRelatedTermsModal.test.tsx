@@ -13,7 +13,8 @@ const { termSearch, searchState } = vi.hoisted(() => ({
     searchState: { data: undefined as { search?: { searchResults: unknown[] } } | undefined, loading: false },
 }));
 
-vi.mock('@graphql/search.generated', () => ({
+vi.mock('@graphql/search.generated', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@graphql/search.generated')>()),
     useGetSearchResultsLazyQuery: () => [termSearch, searchState],
 }));
 
@@ -21,7 +22,7 @@ vi.mock('@graphql/glossaryTerm.generated', () => ({
     useAddRelatedTermsMutation: () => [vi.fn()],
 }));
 
-vi.mock('@app/glossary/GlossaryBrowser/GlossaryBrowser', () => ({
+vi.mock('@app/glossaryV2/GlossaryBrowser/GlossaryBrowser', () => ({
     default: () => React.createElement('div', { 'data-testid': 'glossary-browser' }),
 }));
 

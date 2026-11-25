@@ -9,6 +9,7 @@ import static com.linkedin.metadata.resources.operations.OperationsResource.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedEntityUrns;
 import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedIngest;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -29,7 +30,6 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.resources.operations.Utils;
@@ -133,6 +133,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     this.entitySearchService = entitySearchService;
   }
 
+  @VisibleForTesting
+  void setTimeseriesAspectService(TimeseriesAspectService timeseriesAspectService) {
+    this.timeseriesAspectService = timeseriesAspectService;
+  }
+
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
    * TODO: Get rid of this and migrate to getAspect.
@@ -169,7 +174,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
           final VersionedAspect aspect =
               _entityService.getVersionedAspect(opContext, urn, aspectName, version);
           if (aspect == null) {
-              log.warn("Did not find urn: {} aspect: {} version: {}", urn, aspectName, version);
               throw RestliUtils.nonExceptionResourceNotFound();
           }
           if (aspectName != null
@@ -227,7 +231,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
           }
           if (latestValue) {
             response.setLimit(1);
-          } else {
+          } else if (limit != null) {
+            // The response field is a long, so an omitted limit would be unboxed into
+            // setLimit(long) and fail the request with an NPE. Omitting it means the server default.
             response.setLimit(limit);
           }
           List<EnvelopedAspect> values =
@@ -300,11 +306,25 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                   .withUsageOperation(UsageOperation.METADATA_INGEST)
                   .withUsageQuantity(metadataChangeProposals.size()), _authorizer, authentication, true);
 
+    // A proposal for an entity type the registry doesn't know (e.g. sent by a client built for a
+    // newer version) is a bad request; resolving a key-only proposal's urn for it would fail with a
+    // 500 in the authorization checks below.
+    if (handling().toleratesUnknownEntityAspect()) {
+      for (MetadataChangeProposal mcp : metadataChangeProposals) {
+        if (mcp.getEntityType() != null
+            && opContext.getEntityRegistry().findEntitySpec(mcp.getEntityType()).isEmpty()) {
+          throw new RestLiServiceException(
+              HttpStatus.S_400_BAD_REQUEST,
+              String.format("Unknown entity type %s", mcp.getEntityType()));
+        }
+      }
+    }
+
     // Ingest Authorization Checks
-    List<Pair<MetadataChangeProposal, Integer>> exceptions = isAPIAuthorizedIngest(opContext,
-             opContext.getEntityRegistry(), metadataChangeProposals)
-             .stream().filter(p -> p.getSecond() != HttpStatus.S_200_OK.getCode())
-             .collect(Collectors.toList());
+    final List<Pair<MetadataChangeProposal, Integer>> exceptions =
+        isAPIAuthorizedIngest(opContext, opContext.getEntityRegistry(), metadataChangeProposals)
+            .stream().filter(p -> p.getSecond() != HttpStatus.S_200_OK.getCode())
+            .collect(Collectors.toList());
     if (!exceptions.isEmpty()) {
         String errorMessages = exceptions.stream()
                  .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))
@@ -317,7 +337,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
     return RestliUtils.toTask(opContext, () -> {
       log.debug("Proposals: {}", metadataChangeProposals);
-      try {
         final AspectsBatch batch = AspectsBatchImpl.builder()
                 .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext(),
                     opContext.getValidationContext().isAlternateValidation(),
@@ -337,12 +356,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         List<IngestResult> results =
                 _entityService.ingestProposal(opContext, batch, asyncBool);
 
-            // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
-            return RESTLI_SUCCESS;
-          } catch (ValidationException e) {
-            throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
-          }
-        },
+        // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
+        return RESTLI_SUCCESS;
+      },
         MetricRegistry.name(this.getClass(), "ingestProposal"));
   }
 

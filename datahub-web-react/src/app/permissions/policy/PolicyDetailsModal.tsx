@@ -4,7 +4,7 @@ import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { extractTypeFromUrn } from '@app/entity/shared/utils';
+import { extractTypeFromUrn } from '@app/entityV2/shared/utils';
 import {
     getDisplayName as getStructuredPropertyDisplayName,
     isStructuredProperty,

@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import get from 'lodash/get';
 
 import {
@@ -374,6 +375,184 @@ export const MICROSTRATEGY_EXTRACT_METRIC_EXPRESSIONS: RecipeField = {
     fieldPath: extractMetricExpressionsFieldPath,
     rules: null,
     getValueFromRecipeOverride: getBooleanValueWithTrueDefault(extractMetricExpressionsFieldPath),
+};
+
+const extractDerivedMetricsFieldPath = 'source.config.extract_derived_metrics';
+export const MICROSTRATEGY_EXTRACT_DERIVED_METRICS: RecipeField = {
+    name: 'extract_derived_metrics',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.extractDerivedMetrics.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.extractDerivedMetrics.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.extractDerivedMetrics.tooltip');
+    },
+    type: FieldType.BOOLEAN,
+    fieldPath: extractDerivedMetricsFieldPath,
+    rules: null,
+    getValueFromRecipeOverride: getBooleanValueWithTrueDefault(extractDerivedMetricsFieldPath),
+};
+
+export const MICROSTRATEGY_EXTRACT_METRIC_FORMULA_LINEAGE: RecipeField = {
+    name: 'extract_metric_formula_lineage',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.extractMetricFormulaLineage.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.extractMetricFormulaLineage.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.extractMetricFormulaLineage.tooltip');
+    },
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.extract_metric_formula_lineage',
+    rules: null,
+};
+
+const usePredefinedFolderNamesFieldPath = 'source.config.use_predefined_folder_names';
+export const MICROSTRATEGY_USE_PREDEFINED_FOLDER_NAMES: RecipeField = {
+    name: 'use_predefined_folder_names',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.usePredefinedFolderNames.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.usePredefinedFolderNames.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.usePredefinedFolderNames.tooltip');
+    },
+    type: FieldType.BOOLEAN,
+    fieldPath: usePredefinedFolderNamesFieldPath,
+    rules: null,
+    getValueFromRecipeOverride: getBooleanValueWithTrueDefault(usePredefinedFolderNamesFieldPath),
+};
+
+export const MICROSTRATEGY_INCLUDE_PERSONAL_FOLDERS: RecipeField = {
+    name: 'include_personal_folders',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.includePersonalFolders.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.includePersonalFolders.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.includePersonalFolders.tooltip');
+    },
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.include_personal_folders',
+    rules: null,
+};
+
+const datasetFieldOrderReport = 'report';
+const datasetFieldOrderAlphabetical = 'alphabetical';
+const datasetFieldOrderFieldPath = 'source.config.dataset_field_order';
+export const MICROSTRATEGY_DATASET_FIELD_ORDER: RecipeField = {
+    name: 'dataset_field_order',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.datasetFieldOrder.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.datasetFieldOrder.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.datasetFieldOrder.tooltip');
+    },
+    type: FieldType.SELECT,
+    fieldPath: datasetFieldOrderFieldPath,
+    rules: null,
+    get options() {
+        return [
+            {
+                label: i18next.t('ingestion.sourceBuilder:microstrategy.datasetFieldOrder.report'),
+                value: datasetFieldOrderReport,
+            },
+            {
+                label: i18next.t('ingestion.sourceBuilder:microstrategy.datasetFieldOrder.alphabetical'),
+                value: datasetFieldOrderAlphabetical,
+            },
+        ];
+    },
+    getValueFromRecipeOverride: (recipe: any) => get(recipe, datasetFieldOrderFieldPath) ?? datasetFieldOrderReport,
+};
+
+const emitDocumentDatasetEdgesFieldPath = 'source.config.emit_document_dataset_edges';
+export const MICROSTRATEGY_EMIT_DOCUMENT_DATASET_EDGES: RecipeField = {
+    name: 'emit_document_dataset_edges',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.emitDocumentDatasetEdges.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.emitDocumentDatasetEdges.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.emitDocumentDatasetEdges.tooltip');
+    },
+    type: FieldType.BOOLEAN,
+    fieldPath: emitDocumentDatasetEdgesFieldPath,
+    rules: null,
+    getValueFromRecipeOverride: getBooleanValueWithTrueDefault(emitDocumentDatasetEdgesFieldPath),
+};
+
+const folderPathAllowFieldPath = 'source.config.folder_path_pattern.allow';
+export const MICROSTRATEGY_FOLDER_PATH_ALLOW: FilterRecipeField = {
+    name: 'folder_path_pattern.allow',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPathAllow.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPathAllow.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPathAllow.tooltip');
+    },
+    type: FieldType.LIST,
+    rule: FilterRule.INCLUDE,
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
+    fieldPath: folderPathAllowFieldPath,
+    rules: null,
+    get section() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPaths.section');
+    },
+    get filteringResource() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPaths.resource');
+    },
+    placeholder: '^Sales_Project/Shared Reports/Finance(/|$)',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, folderPathAllowFieldPath),
+};
+
+const folderPathDenyFieldPath = 'source.config.folder_path_pattern.deny';
+export const MICROSTRATEGY_FOLDER_PATH_DENY: FilterRecipeField = {
+    name: 'folder_path_pattern.deny',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPathDeny.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPathDeny.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPathDeny.tooltip');
+    },
+    type: FieldType.LIST,
+    rule: FilterRule.EXCLUDE,
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
+    fieldPath: folderPathDenyFieldPath,
+    rules: null,
+    get section() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPaths.section');
+    },
+    get filteringResource() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPaths.resource');
+    },
+    placeholder: '^Sales_Project/Shared Reports/Archive(/|$)',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, folderPathDenyFieldPath),
 };
 
 const extractModelLineageFieldPath = 'source.config.extract_model_lineage';

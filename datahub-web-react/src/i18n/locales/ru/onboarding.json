@@ -158,6 +158,9 @@
     "users.ssoTitle": "Настройка единого входа (SSO)",
     "welcome.docsLink": "Документация DataHub",
     "welcome.getStarted": "Начать",
+    "welcome.githubRepoDescription": "Платформа метаданных для вашего стека данных и AI",
+    "welcome.githubStargazers": "Присоединяйтесь к {{stars}} разработчикам, отметившим DataHub звёздочкой",
+    "welcome.githubStargazersNoCount": "Присоединяйтесь к разработчикам, отметившим DataHub звёздочкой",
     "welcome.loadingVideo": "Загрузка видео...",
     "welcome.modalTitle": "Добро пожаловать в DataHub",
     "welcome.slideDocsDescription": "Сэкономьте часы ручной работы, улучшив при этом возможность находить данные",
@@ -168,6 +171,8 @@
     "welcome.slideImpactTitle": "Уверенно управляйте критичными изменениями",
     "welcome.slideLineageDescription": "Узнайте полную историю того, как ваши данные были созданы и преобразованы",
     "welcome.slideLineageTitle": "Понимайте происхождение своих данных",
+    "welcome.slideGithubDescription": "Если DataHub полезен вашей команде, звёздочка на GitHub поможет и другим командам данных узнать о нём.",
+    "welcome.slideGithubTitle": "Нравится то, что видите?",
     "welcome.slideReadyDescription": "Изучите нашу подробную документацию или сразу переходите к работе с данными",
     "welcome.slideReadyTitle": "Готовы начать?"
 }

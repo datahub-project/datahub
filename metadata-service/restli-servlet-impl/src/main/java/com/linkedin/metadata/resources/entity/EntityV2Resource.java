@@ -4,6 +4,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedEntityUrns;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
@@ -157,7 +158,21 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       if (urns.size() <= 0) {
       return Task.value(Collections.emptyMap());
     }
-    final String entityName = urnToEntityName(urns.iterator().next());
+    // Urns of entity types only a newer version knows (e.g. after a rollback) are left out; the
+    // rest of the batch is fetched as before.
+    final Set<Urn> fetchedUrns =
+        handling().toleratesUnknownEntityAspect()
+            ? urns.stream()
+                .filter(
+                    urn ->
+                        !handling()
+                            .isUnknown(opContext.getEntityRegistry(), urn.getEntityType(), null))
+                .collect(Collectors.toSet())
+            : urns;
+    if (fetchedUrns.isEmpty()) {
+      return Task.value(Collections.emptyMap());
+    }
+    final String entityName = urnToEntityName(fetchedUrns.iterator().next());
     return RestliUtils.toTask(opContext,
         () -> {
           final Set<String> projectedAspects =
@@ -169,7 +184,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
                 _entityService.getEntitiesV2(
                     opContext,
                     entityName,
-                    urns,
+                    fetchedUrns,
                     projectedAspects,
                     alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
             EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(opContext, response);
@@ -178,7 +193,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
             throw new RuntimeException(
                 String.format(
                     "Failed to batch get entities with urns: %s, projectedAspects: %s",
-                    urns, projectedAspects),
+                    fetchedUrns, projectedAspects),
                 e);
           }
         },

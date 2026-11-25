@@ -148,7 +148,6 @@
     "searchBar.noResults.clearFilters": "tyhjennä suodattimet",
     "searchBar.noResults.clearFiltersAndView": "tyhjennä suodattimet ja valittu näkymä",
     "searchBar.noResults.clearView": "tyhjennä valittu näkymä",
-    "searchBar.noResults.defaultMessage": "Kokeile muuttaa hakuasi löytääksesi etsimäsi",
     "searchBar.noResults.orClearSuggestion": ", tai <clickable>{{clearText}}</clickable>.",
     "searchBar.placeholder": "Löydä taulut, koontinäytöt, ihmiset ja muuta",
     "searchBar.placeholderWithShortcut": "{{message}} ({{shortcut}})",

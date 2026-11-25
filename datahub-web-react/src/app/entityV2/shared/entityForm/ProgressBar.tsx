@@ -1,0 +1,39 @@
+import { Progress } from 'antd';
+import React from 'react';
+import styled, { useTheme } from 'styled-components';
+
+import useGetPromptInfo from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
+
+const StyledProgress = styled(Progress)`
+    &&& .ant-progress-outer {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        align-self: stretch;
+    }
+
+    .ant-progress-bg {
+        height: 6px !important;
+    }
+`;
+
+interface Props {
+    formUrn: string;
+}
+export default function ProgressBar({ formUrn }: Props) {
+    const theme = useTheme();
+    const { totalRequiredSchemaFieldPrompts, numRequiredPromptsRemaining, requiredEntityPrompts } =
+        useGetPromptInfo(formUrn);
+    const totalRequiredPrompts = requiredEntityPrompts.length + totalRequiredSchemaFieldPrompts;
+    const percent = ((totalRequiredPrompts - numRequiredPromptsRemaining) / totalRequiredPrompts) * 100;
+
+    return (
+        <StyledProgress
+            percent={percent}
+            showInfo={false}
+            strokeColor={`linear-gradient(90deg, ${theme.colors.buttonFillBrand} 0%, ${theme.colors.iconBrand} 100%)`}
+            trailColor={theme.colors.bg}
+        />
+    );
+}

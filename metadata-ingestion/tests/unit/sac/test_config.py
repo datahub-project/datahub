@@ -27,3 +27,28 @@ def test_blank_root_folder_name_is_rejected(field: str) -> None:
 def test_none_root_folder_name_disables_canonicalization(field: str) -> None:
     config = SACSourceConfig(**_BASE, **{field: None})
     assert getattr(config, field) is None
+
+
+def test_system_type_mapping_rejects_datasphere() -> None:
+    # DWC lineage is resolved from connection_mapping.datasphere_space, not externalId.
+    with pytest.raises(ValidationError):
+        SACSourceConfig(
+            **_BASE,
+            system_type_mapping={
+                "DWC": {"platform": "sap-datasphere", "external_id_format": "QUERY"}
+            },
+        )
+
+
+def test_system_type_mapping_rejects_transient_query_prefix_on_view() -> None:
+    with pytest.raises(ValidationError, match="transient_query_prefix"):
+        SACSourceConfig(
+            **_BASE,
+            system_type_mapping={
+                "MY_SYSTEM_TYPE": {
+                    "platform": "hana",
+                    "external_id_format": "VIEW",
+                    "transient_query_prefix": "2C",
+                }
+            },
+        )

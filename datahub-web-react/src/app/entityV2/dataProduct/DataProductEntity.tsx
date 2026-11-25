@@ -11,7 +11,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import { Preview } from '@app/entityV2/dataProduct/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfileTab, EntityTabPath } from '@app/entityV2/shared/constants';
+import { EntityProfileTab, EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
@@ -140,9 +140,6 @@ export class DataProductEntity implements Entity<DataProduct> {
         },
         {
             component: SidebarDomainSection,
-            properties: {
-                updateOnly: true,
-            },
         },
         {
             component: SidebarApplicationSection,
@@ -216,6 +213,7 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     getSidebarTabs = () => [
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),
@@ -289,11 +287,16 @@ export class DataProductEntity implements Entity<DataProduct> {
             domains: (data?.domain && [data?.domain?.domain]) || [],
             count: (data?.domain && 1) || 0,
         };
+        // Exposed as `children`, like domains and glossary nodes, so the entity menu can disable delete.
+        const children = data?.childDataProducts
+            ? { relationships: [], total: data.childDataProducts.total }
+            : undefined;
         return {
             name,
             externalUrl,
             entityCount,
             parentDomains,
+            children,
         };
     };
 

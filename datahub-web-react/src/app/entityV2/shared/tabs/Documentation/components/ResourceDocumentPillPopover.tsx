@@ -3,11 +3,10 @@ import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
-
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { ResourcePillMeta } from '@app/entityV2/shared/tabs/Documentation/components/ResourcePillMeta';
+import AvatarPillWithLinkAndHover from '@app/sharedV2/avatar/AvatarPillWithLinkAndHover';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
 import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';

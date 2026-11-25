@@ -47,6 +47,12 @@ export type LineChartProps = {
 
     /** Default line color when a series has none — also the single-series line color. */
     lineColor?: string;
+    /**
+     * Render a hover glyph on every series at its nearest datum (default true). Disable when
+     * series have very different point spacings, where nearest-datum glyphs land far from the
+     * cursor and read as data points at the wrong date.
+     */
+    showSeriesGlyphs?: boolean;
     /** Default area fill when a series has none — also the single-series area color. */
     areaColor?: string;
     margin?: Partial<Margin>;

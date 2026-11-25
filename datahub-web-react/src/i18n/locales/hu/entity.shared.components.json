@@ -96,9 +96,14 @@
     "searchActions.glossaryTerms.addTitle": "Fogalomtári kifejezések hozzáadása",
     "searchActions.glossaryTerms.name": "Fogalomtári kifejezések",
     "searchActions.glossaryTerms.removeTitle": "Fogalomtári kifejezések eltávolítása",
+    "searchActions.noSelection": "A művelet használatához jelöljön ki legalább egy eszközt.",
     "searchActions.notSupported": "Ez a művelet nem támogatott a kijelölt típusok esetében.",
     "searchActions.owners.addTitle": "Tulajdonosok hozzáadása",
     "searchActions.owners.removeTitle": "Tulajdonosok eltávolítása",
     "searchActions.tags.addTitle": "Címkék hozzáadása",
-    "searchActions.tags.removeTitle": "Címkék eltávolítása"
+    "searchActions.tags.removeTitle": "Címkék eltávolítása",
+    "structuredProperty.addMore": "+ Több hozzáadása",
+    "structuredProperty.selectPlaceholder": "Kiválasztás",
+    "viewAll.resultsIncomplete": "Az eredmények hiányosak lehetnek.",
+    "viewAll.searchAllAssets": "Az összes betöltött {{platform}} eszköz keresése"
 }

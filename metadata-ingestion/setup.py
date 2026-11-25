@@ -224,7 +224,7 @@ aws_common = {
 
 path_spec_common = {
     "parse>=1.19.0,<2.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 }
 
 looker_common = {
@@ -442,6 +442,12 @@ file_profiling = {
     # cpc_sketch (distinct count) and kll_floats_sketch (approx median) give us
     # Deequ-equivalent approximate metrics without a JVM or pyspark/pydeequ.
     "datasketches>=5.0.0,<6.0.0",
+    # The profiler reads Avro files with fastavro.
+    "fastavro>=1.2.0,<2.0.0",
+    # pyarrow resolves tz-aware timestamps (e.g. CSV values ending in "Z" infer as
+    # tz=UTC) through zoneinfo, which needs a tz database. Slim images have no system
+    # zoneinfo, so ship IANA data via tzdata. Same pin as databricks_common.
+    "tzdata>=2022.7,<2030",
     # cachetools is used by the profiling config
     *cachetools_lib,
 }
@@ -481,6 +487,11 @@ databricks_common = {
     # connector 4.x split the SQLAlchemy dialect into a separate package; required so
     # create_engine("databricks://...") can load the dialect for SQLAlchemy profiling.
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
+    # The SQL connector returns tz-aware Arrow timestamps. pyarrow needs a tz database
+    # to convert them, and slim images have no system zoneinfo, so ship IANA data via
+    # tzdata (zoneinfo's fallback). 2022.7 matches the floor pandas uses. Versions are
+    # year-based and carry only data, so the cap is loose to avoid yearly bumps.
+    "tzdata>=2022.7,<2030",
 }
 
 databricks = {
@@ -530,9 +541,11 @@ onnx_embeddings = {
 
 unstructured_lib = {
     # Unstructured.io core library for document partitioning with markdown support
-    # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+)
-    "unstructured[md]==0.24.1",
-    # unstructured 0.24.x requires ingest >=1.4.0
+    # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+).
+    # 0.24.x capped filelock<4, holding resolved envs on the 3.x line affected by
+    # CVE-2026-112940; 0.27.x requires filelock>=4.2.1, which carries the fix.
+    "unstructured[md]==0.27.37",
+    # unstructured 0.27.x accepts ingest >=1.4.0,<2
     "unstructured-ingest==1.4.28",
     # JSONPath for custom property extraction
     "jsonpath-ng==1.7.0",
@@ -592,8 +605,9 @@ plugins: Dict[str, Set[str]] = {
     }
     | aws_common,
     "datahub-rest": rest_common,
-    # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
-    "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
+    # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility (and filelock 4.2.1+ needs Python 3.11+);
+    # Docker/constraints enforce >=4.2.1 where needed.
+    "sync-file-emitter": {"filelock>=3.13.1,<5.0.0"},
     # DataHub Lite defaults to the stdlib sqlite3 engine, so this extra only
     # pulls in the `datahub lite serve` stack. The optional duckdb engine lives
     # in its own extra below.
@@ -671,6 +685,8 @@ plugins: Dict[str, Set[str]] = {
     | postgres_common
     | aws_common
     | {"sqlalchemy-cockroachdb>=2.0.0,<3.0.0"},
+    # smart-open backs the http(s) and s3 file systems used to read the CSV.
+    "csv-enricher": aws_common | {"smart-open[s3]>=5.2.1,<8.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common | cachetools_lib,
@@ -688,7 +704,8 @@ plugins: Dict[str, Set[str]] = {
     "dynamodb": aws_common,
     # opensearch-py, not elasticsearch-py: the latter only supports Elasticsearch and rejects OpenSearch.
     # 3.x generated APIs are keyword-only; require >=3 so 2.x is not installed.
-    "elasticsearch": {"opensearch-py>=3.0.0,<4.0.0", *cachetools_lib},
+    # aws_common provides credential resolution for optional AWS IAM (SigV4) auth.
+    "elasticsearch": {"opensearch-py>=3.0.0,<4.0.0", *aws_common, *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5,<4.0.0",
         "pandas<3.0.0",
@@ -768,18 +785,26 @@ plugins: Dict[str, Set[str]] = {
     # in the base install; JPype1/jdk4py bridge to the JDBC driver (no SQLAlchemy).
     "informix": sqlglot_lib | {"JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "json-schema": {"requests<3.0.0"},
-    "kafka": kafka_common | kafka_protobuf,
+    # sqlglot_lib: Flink stream-processing lineage parses transform SQL for
+    # best-effort column-level lineage via datahub.sql_parsing.
+    "kafka": kafka_common | kafka_protobuf | sqlglot_lib,
     "kafka-connect": sql_common
     | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     # kafka_protobuf reused for Glue Schema Registry PROTOBUF support
     # (kinesis_schema_registry imports protobuf_util at module load).
     "kinesis": aws_common | kafka_protobuf,
     "langfuse": {"requests<3.0.0"},
+    # Glue Schema Registry PROTOBUF schemas also need the kafka extra (grpc).
+    "sqs": aws_common,
+    "sns": aws_common,
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
     "metabase": {"requests<3.0.0"} | sqlglot_lib,
-    "microstrategy": {"requests<3.0.0"} | sqlglot_lib,
+    # usage_common: microstrategy emits no usage through it, but SQL-view lineage
+    # goes through create_lineage_from_sql_statements in sqlglot_lineage, which
+    # imports usage_common and so pulls sqlparse in via sql_formatter.
+    "microstrategy": {"requests<3.0.0"} | sqlglot_lib | usage_common,
     "mlflow": {
         "mlflow-skinny>=2.3.0,<2.21.0",
         # Pinned to avoid the breaking change introduced in MLflow 2.21.0 where search_registered_models injects an implicit filter
@@ -899,6 +924,7 @@ plugins: Dict[str, Set[str]] = {
     "confluence": confluence_common,
     "google-drive": google_drive_common,
     "github-documents": set(),
+    "gitlab-documents": {"tenacity>=8.0.1,<9.0.0"},
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common
@@ -913,7 +939,11 @@ plugins: Dict[str, Set[str]] = {
     # path (richer metadata, run history support).
     "dlt": {"dlt>=1.0.0,<2.0.0"},
     "snaplogic": set(),
-    "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
+    # path_spec_common: QVD folder containers use the data lake sources'
+    # ContainerWUCreator, whose module imports PathSpec.
+    "qlik-sense": sqlglot_lib
+    | path_spec_common
+    | {"requests<3.0.0", "websocket-client<2.0.0"},
     "quicksight": aws_common | sqlglot_lib,
     # usage_common: sigma emits no usage itself, but SqlParsingAggregator imports
     # usage_common, which pulls sqlparse in via sql_formatter.
@@ -925,6 +955,7 @@ plugins: Dict[str, Set[str]] = {
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
+    "hightouch": {"requests<3.0.0"} | usage_common | sqlglot_lib,
     "pinecone": {"pinecone-client>=3.0.0,<6.0.0"},
     # Debug/utility plugins
     "debug-recording": {
@@ -1092,6 +1123,7 @@ base_dev_requirements = {
             "druid",
             "elasticsearch",
             "feast",
+            "hightouch",
             "iceberg",
             "iceberg-catalog",
             "microstrategy",
@@ -1113,6 +1145,8 @@ base_dev_requirements = {
             "sagemaker",
             "kafka",
             "kinesis",
+            "sqs",
+            "sns",
             "datahub-rest",
             "datahub-lite",
             "duckdb",
@@ -1141,6 +1175,7 @@ base_dev_requirements = {
             "nifi",
             "notion",
             "github-documents",
+            "gitlab-documents",
             "vertica",
             "mode",
             "fivetran",
@@ -1247,7 +1282,7 @@ entry_points = {
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
-        "confluence = datahub.ingestion.source.confluence.confluence_source:ConfluenceSource",
+        "confluence = datahub.ingestion.source.confluence.source:ConfluenceSource",
         "google-drive = datahub.ingestion.source.google_drive.google_drive_source:GoogleDriveSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
@@ -1272,6 +1307,8 @@ entry_points = {
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
         "kinesis = datahub.ingestion.source.kinesis.kinesis:KinesisSource",
         "langfuse = datahub.ingestion.source.langfuse.langfuse:LangfuseSource",
+        "sqs = datahub.ingestion.source.aws_messaging.sqs_source:SqsSource",
+        "sns = datahub.ingestion.source.aws_messaging.sns_source:SnsSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
@@ -1333,6 +1370,7 @@ entry_points = {
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
         "github-documents = datahub.ingestion.source.github_documents.github_documents_source:GitHubDocumentsSource",
+        "gitlab-documents = datahub.ingestion.source.gitlab_documents.gitlab_documents_source:GitLabDocumentsSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "dlt = datahub.ingestion.source.dlt.dlt:DltSource",
@@ -1348,6 +1386,7 @@ entry_points = {
         "odcs = datahub.ingestion.source.odcs.odcs_source:ODCSSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "hightouch = datahub.ingestion.source.hightouch.hightouch:HightouchSource",
         "timescaledb = datahub.ingestion.source.sql.timescaledb:TimescaleDBSource",
         "omni = datahub.ingestion.source.omni.omni:OmniSource",
         "pinecone = datahub.ingestion.source.pinecone.pinecone_source:PineconeSource",
@@ -1417,6 +1456,7 @@ entry_points = {
         "s3 = datahub.ingestion.fs.s3_fs:S3FileSystem",
         "file = datahub.ingestion.fs.local_fs:LocalFileSystem",
         "http = datahub.ingestion.fs.http_fs:HttpFileSystem",
+        "https = datahub.ingestion.fs.http_fs:HttpFileSystem",
     ],
 }
 

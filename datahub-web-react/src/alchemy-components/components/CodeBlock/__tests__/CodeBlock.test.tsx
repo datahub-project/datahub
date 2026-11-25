@@ -345,4 +345,12 @@ describe('CodeBlock', () => {
         expect(warning).toHaveTextContent(/SELECT is missing columns/i);
         expect(warning).toHaveTextContent(/FROM is missing a table name/i);
     });
+
+    it('should wrap footer content in a padded footer region', () => {
+        renderCodeBlock(<CodeBlock code="SELECT 1" language="sql" footer={<span>Related Assets</span>} />);
+
+        const footer = screen.getByTestId('code-block-footer');
+        expect(footer).toHaveTextContent('Related Assets');
+        expect(footer).toHaveStyle({ padding: '8px 12px' });
+    });
 });

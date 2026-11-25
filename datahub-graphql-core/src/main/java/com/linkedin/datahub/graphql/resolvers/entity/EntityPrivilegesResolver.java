@@ -26,15 +26,19 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.domain.Domains;
+import com.linkedin.entity.Aspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -71,6 +75,10 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
               return getDataJobPrivileges(urn, context);
             case Constants.DOCUMENT_ENTITY_NAME:
               return getDocumentPrivileges(urn, context);
+            case Constants.DOMAIN_ENTITY_NAME:
+              return getDomainPrivileges(urn, context);
+            case Constants.DATA_PRODUCT_ENTITY_NAME:
+              return getDataProductPrivileges(urn, context);
             case Constants.QUERY_ENTITY_NAME:
               return getQueryPrivileges(urn, context);
             default:
@@ -162,6 +170,13 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
         LabelUtils.isAuthorizedToUpdateTerms(context, urn, "ignored"));
     result.setCanEditSchemaFieldDescription(
         DescriptionUtils.isAuthorizedToUpdateFieldDescription(context, urn));
+    // Coarse flag. The parent dataset is checked, then this stand-in schema field, so a policy on
+    // either can grant. A policy on one real column does not match the stand-in field path.
+    result.setCanEditSchemaFieldProperties(
+        AuthorizationUtils.canEditStructuredProperties(
+            SchemaFieldUtils.generateSchemaFieldUrn(urn, "ignored"),
+            context,
+            List.of(WILDCARD_URN)));
     result.setCanViewDatasetUsage(AuthorizationUtils.isViewDatasetUsageAuthorized(context, urn));
     result.setCanViewDatasetProfile(
         AuthorizationUtils.isViewDatasetProfileAuthorized(context, urn));
@@ -220,6 +235,49 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
         .contains(urn);
   }
 
+  private EntityPrivileges getDomainPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, urn, context);
+    result.setCanManageDataProducts(
+        DataProductAuthorizationUtils.isAuthorizedToManageDataProducts(context, urn));
+    return result;
+  }
+
+  /**
+   * Mirrors the checks in UpdateDataProductResolver, DeleteDataProductResolver and the product-side
+   * membership check in BatchSetDataProductResolver.
+   */
+  private EntityPrivileges getDataProductPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, urn, context);
+    boolean canManage;
+    try {
+      canManage =
+          DataProductAuthorizationUtils.isAuthorizedToManageDataProduct(
+              context, urn, getDataProductDomains(urn, context));
+    } catch (Exception e) {
+      // Fail closed: treating a failed read as "no domain" would apply the orphan fallback.
+      log.warn("Failed to fetch domains for data product {}", urn, e);
+      canManage = false;
+    }
+    result.setCanManageEntity(canManage);
+    // Deleting also falls back to the DELETE privilege on the product itself.
+    result.setCanDeleteEntity(canManage || AuthorizationUtils.canDeleteEntity(urn, context));
+    return result;
+  }
+
+  /** Bypasses the EntityClient cache, matching DataProductService.getDataProductDomains. */
+  @Nullable
+  private Domains getDataProductDomains(Urn urn, QueryContext context) {
+    final Aspect domainsAspect =
+        context
+            .getOperationContext()
+            .getAspectRetriever()
+            .getLatestAspectObject(
+                context.getOperationContext(), urn, Constants.DOMAINS_ASPECT_NAME);
+    return domainsAspect == null ? null : new Domains(domainsAspect.data());
+  }
+
   private EntityPrivileges getDocumentPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     addCommonPrivileges(result, urn, context);
@@ -236,7 +294,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
             : AuthorizationUtils.canDeleteEntity(urn, context));
     result.setCanEditLineage(canEditEntityLineage(urn, context));
     result.setCanEditProperties(
-        AuthorizationUtils.canEditProperties(urn, context, Collections.emptyList()));
+        AuthorizationUtils.canEditStructuredProperties(urn, context, List.of(WILDCARD_URN)));
     result.setCanEditAssertions(
         AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, urn));
     result.setCanEditAssertionOwners(

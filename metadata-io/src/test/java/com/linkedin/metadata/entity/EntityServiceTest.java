@@ -56,6 +56,7 @@ import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
@@ -83,6 +84,8 @@ import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -123,6 +126,8 @@ import org.junit.Assert;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -174,6 +179,16 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
   protected final AspectSpec structuredPropertiesDefinitionAspect =
       _testEntityRegistry.getAspectSpecs().get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
 
   protected EntityServiceTest() throws EntityRegistryException {}
 
@@ -1403,10 +1418,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     _entityServiceImpl.rollbackRun(
         opContext, ImmutableList.of(rollbackRow(urn, keyName, "run-a-soft")), "run-a-soft", false);
 
-    assertTrue(
-        DataTemplateUtil.areEqual(
-            new Status().setRemoved(true),
-            _entityServiceImpl.getLatestAspect(opContext, urn, statusName)));
+    // Checks the removed flag rather than the whole aspect: a soft delete may set other Status
+    // fields as well (e.g. lifecycleState).
+    Status status = (Status) _entityServiceImpl.getLatestAspect(opContext, urn, statusName);
+    assertNotNull(status);
+    assertTrue(status.isRemoved());
   }
 
   private void ingestForRollback(
@@ -1618,6 +1634,48 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     RecordTemplate deletedKeyAspect =
         _entityServiceImpl.getAspect(opContext, entityUrn1, "corpUserKey", 0);
     assertTrue(DataTemplateUtil.areEqual(null, deletedKeyAspect));
+  }
+
+  @Test
+  public void testStreamAspectsReturnsOnlyTheLatestVersion() {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:streamAspectsLatest");
+    CorpUserInfo first = AspectGenerationUtils.createCorpUserInfo("first@test.com");
+    CorpUserInfo second = AspectGenerationUtils.createCorpUserInfo("second@test.com");
+    String aspectName = AspectGenerationUtils.getAspectName(first);
+    for (CorpUserInfo aspect : List.of(first, second)) {
+      _entityServiceImpl.ingestAspects(
+          opContext,
+          AspectsBatchImpl.builder()
+              .retrieverContext(opContext.getRetrieverContext())
+              .items(
+                  List.of(
+                      ChangeItemImpl.builder()
+                          .urn(entityUrn)
+                          .aspectName(aspectName)
+                          .recordTemplate(aspect)
+                          .auditStamp(TEST_AUDIT_STAMP)
+                          .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+                          .build(opContext.getAspectRetriever())))
+              .build(opContext),
+          true,
+          true);
+    }
+    // The first write is kept as version 1, which is history rather than the aspect's value.
+    assertNotNull(_entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 1));
+
+    List<String> emails;
+    try (Stream<EntityAspect> stream =
+        _aspectDao.streamAspects(CORP_USER_ENTITY_NAME, aspectName)) {
+      emails =
+          stream
+              .filter(entityAspect -> entityAspect.getUrn().equals(entityUrn.toString()))
+              .map(
+                  entityAspect ->
+                      RecordUtils.toRecordTemplate(CorpUserInfo.class, entityAspect.getMetadata())
+                          .getEmail())
+              .collect(Collectors.toList());
+    }
+    assertEquals(emails, List.of("second@test.com"));
   }
 
   @Test
@@ -3295,6 +3353,198 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
         Set.of(tag1),
         "Expected all tags");
+  }
+
+  @Test
+  public void testIfEntityExistsDropsWriteToMissingEntity() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,ifEntityExistsMissing,PROD)");
+
+    _entityServiceImpl.ingestAspects(
+        opContext, batchOf(ifEntityExistsTagPatch(entityUrn)), true, true);
+
+    assertFalse(_entityServiceImpl.exists(opContext, entityUrn, true));
+    verify(_mockProducer, never())
+        .produceMetadataChangeLog(
+            any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+  }
+
+  @Test
+  public void testIfEntityExistsAppliesWriteToExistingEntity() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,ifEntityExistsExisting,PROD)");
+    _entityServiceImpl.ingestAspects(opContext, batchOf(statusUpsert(entityUrn)), false, true);
+
+    _entityServiceImpl.ingestAspects(
+        opContext, batchOf(ifEntityExistsTagPatch(entityUrn)), false, true);
+
+    assertEquals(latestTags(entityUrn), Set.of(TagUrn.createFromString("urn:li:tag:tag1")));
+  }
+
+  @DataProvider(name = "ifEntityExistsChangeTypes")
+  public Object[][] ifEntityExistsChangeTypes() {
+    return new Object[][] {{ChangeType.UPSERT}, {ChangeType.CREATE}, {ChangeType.CREATE_ENTITY}};
+  }
+
+  @Test(dataProvider = "ifEntityExistsChangeTypes")
+  public void testIfEntityExistsDropsNonPatchWriteToMissingEntity(ChangeType changeType)
+      throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,ifEntityExistsMissing"
+                + changeType
+                + ",PROD)");
+
+    _entityServiceImpl.ingestProposal(
+        opContext, batchOf(ifEntityExistsStatus(entityUrn, changeType)), false);
+
+    assertFalse(_entityServiceImpl.exists(opContext, entityUrn, true));
+  }
+
+  @Test
+  public void testIfEntityExistsAppliesUpsertToExistingEntity() throws Exception {
+    Urn missingUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,ifEntityExistsUpsertMissing,PROD)");
+    Urn existingUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,ifEntityExistsUpsertExisting,PROD)");
+    _entityServiceImpl.ingestAspects(opContext, batchOf(statusUpsert(existingUrn)), false, true);
+
+    _entityServiceImpl.ingestProposal(
+        opContext,
+        batchOf(
+            ifEntityExistsStatus(missingUrn, ChangeType.UPSERT),
+            ifEntityExistsStatus(existingUrn, ChangeType.UPSERT)),
+        false);
+
+    assertFalse(_entityServiceImpl.exists(opContext, missingUrn, true));
+    assertEquals(
+        _entityServiceImpl
+            .getLatestEnvelopedAspect(
+                opContext, DATASET_ENTITY_NAME, existingUrn, STATUS_ASPECT_NAME)
+            .getValue()
+            .data(),
+        new Status().setRemoved(true).data());
+  }
+
+  @Test
+  public void testIfEntityExistsHasNoEffectOnTimeseriesWrite() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,ifEntityExistsTimeseriesOnly,PROD)");
+    ChangeItemImpl profileUpsert =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(DATASET_PROFILE_ASPECT_NAME)
+            .recordTemplate(new DatasetProfile().setTimestampMillis(0L).setRowCount(1L))
+            .headers(Map.of(IF_ENTITY_EXISTS_HEADER_NAME, "true"))
+            .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(opContext.getAspectRetriever());
+
+    _entityServiceImpl.ingestProposal(opContext, batchOf(profileUpsert), false);
+
+    assertTrue(_entityServiceImpl.exists(opContext, entityUrn, true));
+  }
+
+  @DataProvider(name = "guardedFirst")
+  public Object[][] guardedFirst() {
+    return new Object[][] {{true}, {false}};
+  }
+
+  @Test(dataProvider = "guardedFirst")
+  public void testIfEntityExistsDoesNotBlockOtherWritesCreatingEntity(boolean guardedFirst)
+      throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,ifEntityExistsMixed"
+                + guardedFirst
+                + ",PROD)");
+    BatchItem guarded = ifEntityExistsTagPatch(entityUrn);
+    BatchItem status = statusUpsert(entityUrn);
+
+    _entityServiceImpl.ingestAspects(
+        opContext, guardedFirst ? batchOf(guarded, status) : batchOf(status, guarded), false, true);
+
+    assertTrue(_entityServiceImpl.exists(opContext, entityUrn, true));
+    assertNull(
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME));
+  }
+
+  @Test
+  public void testIfEntityExistsDropsWriteWhenTimeseriesWriteCreatesEntity() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,ifEntityExistsTimeseries,PROD)");
+    ChangeItemImpl profileUpsert =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(DATASET_PROFILE_ASPECT_NAME)
+            .recordTemplate(new DatasetProfile().setTimestampMillis(0L).setRowCount(1L))
+            .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(opContext.getAspectRetriever());
+
+    _entityServiceImpl.ingestProposal(
+        opContext, batchOf(ifEntityExistsTagPatch(entityUrn), profileUpsert), false);
+
+    assertTrue(_entityServiceImpl.exists(opContext, entityUrn, true));
+    assertNull(
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME));
+  }
+
+  private AspectsBatchImpl batchOf(BatchItem... items) {
+    return AspectsBatchImpl.builder()
+        .retrieverContext(opContext.getRetrieverContext())
+        .items(List.of(items))
+        .build(opContext);
+  }
+
+  private PatchItemImpl ifEntityExistsTagPatch(Urn entityUrn) throws Exception {
+    MetadataChangeProposal proposal =
+        new GlobalTagsPatchBuilder()
+            .urn(entityUrn)
+            .addTag(TagUrn.createFromString("urn:li:tag:tag1"), null)
+            .build()
+            .setHeaders(new StringMap(Map.of(IF_ENTITY_EXISTS_HEADER_NAME, "true")));
+    return PatchItemImpl.builder().build(proposal, TEST_AUDIT_STAMP, opContext.getEntityRegistry());
+  }
+
+  private ChangeItemImpl ifEntityExistsStatus(Urn entityUrn, ChangeType changeType) {
+    return ChangeItemImpl.builder()
+        .urn(entityUrn)
+        .changeType(changeType)
+        .aspectName(STATUS_ASPECT_NAME)
+        .recordTemplate(new Status().setRemoved(true))
+        .headers(Map.of(IF_ENTITY_EXISTS_HEADER_NAME, "true"))
+        .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+        .auditStamp(TEST_AUDIT_STAMP)
+        .build(opContext.getAspectRetriever());
+  }
+
+  private ChangeItemImpl statusUpsert(Urn entityUrn) {
+    return ChangeItemImpl.builder()
+        .urn(entityUrn)
+        .aspectName(STATUS_ASPECT_NAME)
+        .recordTemplate(new Status().setRemoved(false))
+        .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+        .auditStamp(TEST_AUDIT_STAMP)
+        .build(opContext.getAspectRetriever());
+  }
+
+  private Set<TagUrn> latestTags(Urn entityUrn) throws Exception {
+    return new GlobalTags(
+            _entityServiceImpl
+                .getLatestEnvelopedAspect(
+                    opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME)
+                .getValue()
+                .data())
+        .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet());
   }
 
   @Test

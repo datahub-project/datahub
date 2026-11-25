@@ -10,6 +10,7 @@ from typing import (
     ClassVar,
     Dict,
     Final,
+    FrozenSet,
     List,
     Optional,
     Sequence,
@@ -58,7 +59,10 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing._models import _TableName
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+from datahub.utilities.urns.field_paths import (
+    KEY_FIELD_PATH_MARKER,
+    get_simple_field_path_from_v2_field_path,
+)
 
 if TYPE_CHECKING:
     from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -129,6 +133,9 @@ DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER: Final[set] = {
     "io.debezium.connector.sqlserver.SqlServerConnector",
 }
 
+# Debezium change events nest the row's columns under the envelope's "after" field.
+DEBEZIUM_ENVELOPE_AFTER_PREFIX: Final[str] = "after."
+
 
 # Confluent Cloud connector class names
 # References:
@@ -139,6 +146,7 @@ DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER: Final[set] = {
 # - https://docs.confluent.io/cloud/current/connectors/cc-snowflake-source.html
 POSTGRES_CDC_SOURCE_CLOUD: Final[str] = "PostgresCdcSource"
 POSTGRES_CDC_SOURCE_V2_CLOUD: Final[str] = "PostgresCdcSourceV2"
+POSTGRES_SOURCE_CLOUD: Final[str] = "PostgresSource"
 POSTGRES_SINK_CLOUD: Final[str] = "PostgresSink"
 SNOWFLAKE_SINK_CLOUD: Final[str] = "SnowflakeSink"
 SNOWFLAKE_SOURCE_CLOUD: Final[str] = "SnowflakeSource"
@@ -146,8 +154,11 @@ MYSQL_SOURCE_CLOUD: Final[str] = "MySqlSource"
 MYSQL_CDC_SOURCE_CLOUD: Final[str] = "MySqlCdcSource"
 MYSQL_CDC_SOURCE_V2_CLOUD: Final[str] = "MySqlCdcSourceV2"
 MYSQL_SINK_CLOUD: Final[str] = "MySqlSink"
+S3_SOURCE_CLOUD: Final[str] = "S3Source"
 
-# Cloud JDBC source connector classes
+# Cloud CDC source classes routed to DebeziumSourceConnector.
+# PostgresSource is a managed JDBC source (topic.prefix + table), not CDC, so it
+# is not listed here - see ConnectorRegistry._get_source_connector.
 CLOUD_JDBC_SOURCE_CLASSES: Final[List[str]] = [
     POSTGRES_CDC_SOURCE_CLOUD,
     POSTGRES_CDC_SOURCE_V2_CLOUD,
@@ -155,6 +166,11 @@ CLOUD_JDBC_SOURCE_CLASSES: Final[List[str]] = [
     MYSQL_CDC_SOURCE_CLOUD,
     MYSQL_CDC_SOURCE_V2_CLOUD,
 ]
+
+# Every Confluent Cloud managed database source, CDC or not.
+MANAGED_JDBC_SOURCE_CLASSES: Final[FrozenSet[str]] = frozenset(
+    [*CLOUD_JDBC_SOURCE_CLASSES, POSTGRES_SOURCE_CLOUD]
+)
 
 # Cloud sink connector classes
 CLOUD_SINK_CLASSES: Final[List[str]] = [
@@ -198,15 +214,6 @@ class ConfluentCatalogConfig(ConfluentStreamCatalogConfig):
         "data came from, so enabling this replaces a source connector's `table -> topic` lineage, and "
         "the column-level lineage that comes with it, with a `connector -> topic` edge only. "
         "Sink connectors are unaffected.",
-    )
-    include_tags: bool = Field(
-        default=True,
-        description="Emit Confluent Cloud tags on connectors as DataHub tags.",
-    )
-    include_business_metadata: bool = Field(
-        default=True,
-        description="Emit Confluent Cloud business metadata attributes on connectors as DataHub "
-        "custom properties.",
     )
 
     @model_validator(mode="after")
@@ -621,6 +628,35 @@ class KafkaConnectLineage:
 
 
 @dataclass
+class TopicFieldPaths:
+    """A Kafka topic's stored value-schema field paths, looked up by simple path."""
+
+    by_simple_path: Dict[str, str] = field(default_factory=dict)
+    simple_paths_by_lower: Dict[str, Set[str]] = field(default_factory=dict)
+    is_debezium_envelope: bool = False
+
+    def add(self, simple_path: str, stored_path: str) -> None:
+        # A nullable Avro field is stored once per union branch; the first
+        # entry is the union itself, which is the one lineage should target.
+        self.by_simple_path.setdefault(simple_path, stored_path)
+        self.simple_paths_by_lower.setdefault(simple_path.lower(), set()).add(
+            simple_path
+        )
+        if simple_path.startswith(DEBEZIUM_ENVELOPE_AFTER_PREFIX):
+            self.is_debezium_envelope = True
+
+    def find(self, simple_path: str) -> Optional[str]:
+        """Exact-case match first; a case-insensitive match only if it is unique,
+        since Avro names are case-sensitive and e.g. Name and name can coexist."""
+        if simple_path in self.by_simple_path:
+            return self.by_simple_path[simple_path]
+        candidates = self.simple_paths_by_lower.get(simple_path.lower(), set())
+        if len(candidates) == 1:
+            return self.by_simple_path[next(iter(candidates))]
+        return None
+
+
+@dataclass
 class ConnectorManifest:
     """Each instance is potential DataFlow"""
 
@@ -887,6 +923,11 @@ class BaseConnector:
     schema_resolver: Optional["SchemaResolver"] = None
     all_cluster_topics: Optional[List[str]] = (
         None  # All topics from Kafka cluster (Confluent Cloud only, for validation)
+    )
+    # Topic URN -> value-schema field paths (None if DataHub has no schema).
+    # Shard tables routed into one topic would otherwise refetch it per table.
+    _topic_field_paths_cache: Dict[str, Optional[TopicFieldPaths]] = field(
+        default_factory=dict, init=False, repr=False
     )
 
     def requires_cluster_topics(self) -> bool:
@@ -1281,8 +1322,13 @@ class BaseConnector:
 
             column_mapping = self._apply_field_transforms(list(source_schema.keys()))
 
+            # When DataHub has the topic's schema, link to its stored field paths;
+            # otherwise fall back to the column name as the field path.
+            topic_field_paths = self._get_topic_field_paths(str(target_urn))
+
             # Create fine-grained lineage for each source column
             fine_grained_lineages: List[FineGrainedLineageClass] = []
+            unmatched_columns: List[str] = []
 
             for source_col in source_schema:
                 target_col = column_mapping.get(source_col)
@@ -1294,13 +1340,55 @@ class BaseConnector:
                     )
                     continue
 
+                target_field_path = target_col
+                if topic_field_paths is not None:
+                    # On an envelope topic the bare name could match envelope
+                    # metadata (op, source, ts_ms), so only "after." is searched.
+                    stored_path = topic_field_paths.find(
+                        f"{DEBEZIUM_ENVELOPE_AFTER_PREFIX}{target_col}"
+                        if topic_field_paths.is_debezium_envelope
+                        else target_col
+                    )
+                    if stored_path is None:
+                        unmatched_columns.append(source_col)
+                        continue
+                    target_field_path = stored_path
+
                 fine_grained_lineage = FineGrainedLineageClass(
                     upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                     downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                     upstreams=[make_schema_field_urn(source_urn_str, source_col)],
-                    downstreams=[make_schema_field_urn(str(target_urn), target_col)],
+                    downstreams=[
+                        make_schema_field_urn(str(target_urn), target_field_path)
+                    ],
                 )
                 fine_grained_lineages.append(fine_grained_lineage)
+
+            if (
+                topic_field_paths is not None
+                and not fine_grained_lineages
+                and not topic_field_paths.is_debezium_envelope
+            ):
+                # Nothing to compare against: e.g. Debezium MongoDB stores "after"
+                # as a JSON string, and String/JSON converters register no columns.
+                logger.debug(
+                    f"Topic {target_dataset} has no fields matching {source_platform} "
+                    f"table {source_dataset}; skipping column-level lineage"
+                )
+                return None
+
+            # A topic missing most source columns most likely has the wrong schema
+            # registered (e.g. a subject-name mismatch); emitting partial links
+            # would be misleading.
+            if len(unmatched_columns) > len(fine_grained_lineages):
+                self.report.warning(
+                    title="Source columns not found in Kafka topic schema",
+                    message="Most source columns are missing from the topic's schema in DataHub, "
+                    "so column-level lineage was skipped. Check the topic's registered schema.",
+                    context=f"connector={self.connector_manifest.name}, source={source_dataset}, "
+                    f"target={target_dataset}, unmatched={len(unmatched_columns)}",
+                )
+                return None
 
             if fine_grained_lineages:
                 logger.debug(
@@ -1318,6 +1406,28 @@ class BaseConnector:
             )
 
         return None
+
+    def _get_topic_field_paths(self, topic_urn: str) -> Optional[TopicFieldPaths]:
+        """The stored field paths of a topic's value schema, or None if DataHub
+        has no schema for the topic."""
+        if not (self.schema_resolver and self.schema_resolver.graph):
+            return None
+        if topic_urn in self._topic_field_paths_cache:
+            return self._topic_field_paths_cache[topic_urn]
+
+        field_paths: Optional[TopicFieldPaths] = None
+        schema = self.schema_resolver.graph.get_aspect(topic_urn, SchemaMetadataClass)
+        if isinstance(schema, SchemaMetadataClass):
+            field_paths = TopicFieldPaths()
+            for schema_field in schema.fields:
+                if KEY_FIELD_PATH_MARKER in schema_field.fieldPath:
+                    continue
+                field_paths.add(
+                    get_simple_field_path_from_v2_field_path(schema_field.fieldPath),
+                    schema_field.fieldPath,
+                )
+        self._topic_field_paths_cache[topic_urn] = field_paths
+        return field_paths
 
     def _extract_sink_fine_grained_lineage(
         self,

@@ -64,7 +64,8 @@ public class IngestPoliciesUpgradeStepTest {
             mockEntitySearchService,
             mockSearchDocumentTransformer,
             resource,
-            false);
+            false,
+            true);
 
     assertTrue(step.skip(mockUpgradeContext));
   }
@@ -78,6 +79,7 @@ public class IngestPoliciesUpgradeStepTest {
             mockEntitySearchService,
             mockSearchDocumentTransformer,
             resource,
+            true,
             true);
 
     assertFalse(step.skip(mockUpgradeContext));
@@ -92,6 +94,7 @@ public class IngestPoliciesUpgradeStepTest {
             mockEntitySearchService,
             mockSearchDocumentTransformer,
             resource,
+            true,
             true);
 
     when(mockEntitySearchService.docCount(any(), any())).thenReturn(1L);
@@ -110,6 +113,7 @@ public class IngestPoliciesUpgradeStepTest {
             mockEntitySearchService,
             mockSearchDocumentTransformer,
             resource,
+            true,
             true);
 
     when(mockEntitySearchService.docCount(any(), any())).thenReturn(1L);
@@ -130,6 +134,7 @@ public class IngestPoliciesUpgradeStepTest {
             mockEntitySearchService,
             mockSearchDocumentTransformer,
             resource,
+            true,
             true);
 
     // Policy already exists — getAspect returns non-null
@@ -152,6 +157,7 @@ public class IngestPoliciesUpgradeStepTest {
             mockEntitySearchService,
             mockSearchDocumentTransformer,
             resource,
+            true,
             true);
 
     when(mockEntityService.ingestProposal(any(), any(), eq(false)))
@@ -160,5 +166,23 @@ public class IngestPoliciesUpgradeStepTest {
     UpgradeStepResult result = step.executable().apply(mockUpgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
+  }
+
+  @Test
+  public void testSkipsDirectPolicyIndexWhenV2Disabled() throws Exception {
+    Resource resource = new ByteArrayResource(NON_EDITABLE_POLICY_JSON.getBytes());
+    IngestPoliciesUpgradeStep step =
+        new IngestPoliciesUpgradeStep(
+            mockEntityService,
+            mockEntitySearchService,
+            mockSearchDocumentTransformer,
+            resource,
+            true,
+            false);
+
+    step.maybeUpdatePolicyIndex(mockOpContext);
+
+    verify(mockEntitySearchService, never()).docCount(any(), any());
+    verify(mockEntitySearchService, never()).upsertDocument(any(), any(), any(), any());
   }
 }

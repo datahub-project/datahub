@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 
 if TYPE_CHECKING:
     from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -24,6 +25,10 @@ from datahub.ingestion.source.unstructured.chunking_source import (
 )
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingResult,
+    EmbeddingTask,
+)
+from datahub.ingestion.source.unstructured.embedding_target import (
+    resolve_embedding_target,
 )
 from datahub.metadata.schema_classes import (
     EmbeddingChunkClass,
@@ -644,7 +649,7 @@ def test_generate_embeddings_invokes_provider_with_text(pipeline_context):
 
     embeddings = source._generate_embeddings([{"text": "hello world"}])
     assert embeddings == [[0.1, 0.2, 0.3]]
-    provider.embed.assert_called_once_with(["hello world"])
+    provider.embed.assert_called_once_with(["hello world"], task=EmbeddingTask.DOCUMENT)
 
 
 def test_generate_embeddings_creates_provider_from_config(pipeline_context):
@@ -670,8 +675,12 @@ def test_generate_embeddings_creates_provider_from_config(pipeline_context):
         embeddings = source._generate_embeddings([{"text": "hello world"}])
 
     assert embeddings == [[0.1, 0.2, 0.3]]
-    mock_factory.assert_called_once_with(source.config.embedding)
-    fake_provider.embed.assert_called_once_with(["hello world"])
+    mock_factory.assert_called_once_with(
+        source.config.embedding, graph=None, target=source.resolved_target
+    )
+    fake_provider.embed.assert_called_once_with(
+        ["hello world"], task=EmbeddingTask.DOCUMENT
+    )
 
 
 def test_test_embedding_capability_uses_factory_and_returns_dimension():
@@ -693,7 +702,13 @@ def test_test_embedding_capability_uses_factory_and_returns_dimension():
 
     assert report.capable
     assert "dimension: 3" in (report.mitigation_message or "")
-    mock_factory.assert_called_once_with(config)
+    assert mock_factory.call_count == 1
+    assert mock_factory.call_args.args[0] is config
+    assert mock_factory.call_args.kwargs["graph"] is None
+    # The provider is built from the same resolved target a run uses.
+    assert mock_factory.call_args.kwargs["target"] == resolve_embedding_target(config)
+    # A provider built only for the check is closed afterwards.
+    fake_provider.close.assert_called_once_with()
 
 
 # ---------------------------------------------------------------------------
@@ -1318,6 +1333,54 @@ def test_batch_success_recorded_in_state(pipeline_context, chunking_config):
     assert doc["urn"] in source.document_state
 
 
+@pytest.mark.parametrize("force_reprocess", [False, True])
+def test_server_wide_failure_keeps_state_for_documents_already_embedded(
+    pipeline_context, chunking_config, tmp_path, force_reprocess
+):
+    """A server-wide failure ends the run, but documents embedded before it keep
+    their state, so the next run does not embed (and bill) them again. With
+    force_reprocess there is no state file, and the failure still propagates."""
+    with patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph"):
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=chunking_config, standalone=True, graph=None
+        )
+    source.config.incremental_mode = True
+    source.config.force_reprocess = force_reprocess
+    if not force_reprocess:
+        source.state_file_path = tmp_path / "state.json"
+
+    def document(name: str) -> dict:
+        return {
+            "urn": f"urn:li:document:(test,{name},PROD)",
+            "custom_properties": {
+                "unstructured_elements": '[{"type": "Title", "text": "Test Title"}]'
+            },
+        }
+
+    first, second, third = document("doc1"), document("doc2"), document("doc3")
+    with (
+        patch.object(source, "_fetch_documents", return_value=[first, second, third]),
+        patch.object(source, "_save_state") as save_state,
+        patch.object(
+            source,
+            "_generate_embeddings",
+            side_effect=[
+                [[0.1] * 4],
+                ServerEmbeddingRunError("embedding credits are exhausted"),
+                [[0.1] * 4],
+            ],
+        ) as generate,
+        pytest.raises(ServerEmbeddingRunError),
+    ):
+        list(source._process_batch())
+
+    assert save_state.call_count == int(not force_reprocess)
+    assert first["urn"] in source.document_state
+    assert second["urn"] not in source.document_state
+    # The run stopped at the failure instead of trying the next document.
+    assert generate.call_count == 2
+
+
 def test_malformed_elements_json_not_recorded_in_state(
     pipeline_context, chunking_config
 ):
@@ -1396,7 +1459,7 @@ class TestSkipMarkersAndEmbedAccounting:
         source = self._source(pipeline_context, chunking_config)
         vectors = {"alpha": [1.0, 0.0], "gamma": [0.0, 1.0]}
         provider = MagicMock()
-        provider.embed.side_effect = lambda texts: EmbeddingResult(
+        provider.embed.side_effect = lambda texts, task: EmbeddingResult(
             embeddings=[vectors[t] for t in texts]
         )
         source._provider = provider
@@ -1630,7 +1693,7 @@ def _per_input_provider(dim: int = 4) -> MagicMock:
     multiple batches.
     """
     provider = MagicMock()
-    provider.embed.side_effect = lambda batch: EmbeddingResult(
+    provider.embed.side_effect = lambda batch, task: EmbeddingResult(
         embeddings=[[0.1] * dim for _ in batch]
     )
     return provider

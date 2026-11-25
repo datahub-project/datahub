@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { type MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useLoader';
@@ -7,6 +6,7 @@ import {
     ChildrenLoaderType,
 } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/types';
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 

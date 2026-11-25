@@ -87,7 +87,7 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir, reques
         time.sleep(5)
 
         setup_sql = test_resources_dir / "setup" / "setup.sql"
-        setup_cmd = f"docker exec -i testdoris-fe mysql -h 127.0.0.1 -P {DORIS_PORT} -u root < {setup_sql}"
+        setup_cmd = f"docker exec -i testdoris-fe mysql --default-character-set=utf8mb4 -h 127.0.0.1 -P {DORIS_PORT} -u root < {setup_sql}"
 
         setup_success = False
         for attempt in range(5):
@@ -113,7 +113,7 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir, reques
 @pytest.mark.parametrize(
     "config_file,golden_file",
     [
-        ("doris_to_file.yml", "doris_mces_golden.json"),
+        ("doris_to_file.yml", "doris_golden.json"),
         ("doris_profile.yml", "doris_profile_golden.json"),
         ("doris_multi_db.yml", "doris_multi_db_golden.json"),
     ],
@@ -143,6 +143,7 @@ def test_doris_ingest(
 
     mce_helpers.check_golden_file(
         pytestconfig,
+        fail_on_output_mces=True,
         output_path=tmp_path / "doris_mces.json",
         golden_path=test_resources_dir / golden_file,
         ignore_paths=ignore_paths,

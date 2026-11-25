@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { Editor } from '@components/components/Editor';
 import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
 
 import { useContextLayout } from '@app/context/ContextLayoutContext';
@@ -11,9 +10,10 @@ import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissio
 import { useExtractMentions } from '@app/document/hooks/useExtractMentions';
 import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
 import { categorizeUrns, extractUrnsFromMarkdown, isAllowedRelatedAssetUrn } from '@app/document/utils/documentUtils';
-import { useRefetch } from '@app/entity/shared/EntityContext';
 import { RelatedSection } from '@app/entityV2/document/summary/RelatedSection';
+import { useRefetch } from '@app/entityV2/shared/EntityContext';
 import { useDiscardUnsavedChangesConfirmationContext } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
+import { Editor } from '@app/sharedV2/editor/Editor';
 import useFileUpload from '@app/sharedV2/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks';
 import { useIsDocumentExplicitSaveEnabled } from '@app/useAppConfig';

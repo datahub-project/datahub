@@ -109,7 +109,8 @@ public class IndexBuilderRetryElasticSearchIntegrationTest
                     .build())
             .build();
     ESIndexBuilder builder1Shard =
-        new ESIndexBuilder(searchClient, configWith1Shard, structPropConfig, Map.of(), gitVersion);
+        new ESIndexBuilder(
+            searchClient, configWith1Shard, structPropConfig, Map.of(), gitVersion, searchClient);
 
     ReindexConfig reindexConfig1 =
         builder1Shard.buildReindexState(
@@ -138,7 +139,8 @@ public class IndexBuilderRetryElasticSearchIntegrationTest
                     .build())
             .build();
     ESIndexBuilder builder2Shards =
-        new ESIndexBuilder(searchClient, configWith2Shards, structPropConfig, Map.of(), gitVersion);
+        new ESIndexBuilder(
+            searchClient, configWith2Shards, structPropConfig, Map.of(), gitVersion, searchClient);
 
     ReindexConfig reindexConfig2 =
         builder2Shards.buildReindexState(

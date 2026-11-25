@@ -293,6 +293,41 @@ For `.zip` archives:
 
 Set `path_spec.enable_compression` to `false` to skip compressed files; they are not ingested.
 
+#### Multiple AWS accounts
+
+`ListBuckets` only returns buckets owned by the account of the calling credentials, so a bucket wildcard such as `s3://*/` discovers one account's buckets. To catalog several accounts from one recipe, list them under `aws_accounts`. For each account the source assumes that account's role, runs every path spec, and places the account's buckets under an `AWS Account` container, so the browse tree shows S3, then the account, then its buckets. Set up each role's trust policy as described in [Cross-Account Access](#cross-account-access).
+
+```yaml
+source:
+  type: s3
+  config:
+    aws_config:
+      aws_region: us-east-1
+    aws_accounts:
+      - aws_role: "arn:aws:iam::111111111111:role/DataHubS3Reader"
+        name: analytics-prod # container name; defaults to the account ID
+      - aws_role:
+          RoleArn: "arn:aws:iam::222222222222:role/DataHubS3Reader"
+          ExternalId: "<external id>"
+    path_specs:
+      - include: "s3://*/" # every bucket, including empty ones
+        emit_folders_only: true
+      - include: "s3://*/*/" # first level of folders in each bucket
+        emit_folders_only: true
+```
+
+Bucket names are globally unique, so the account is not part of any URN. Bucket, folder and dataset URNs are the same as a single-account recipe produces, and lineage from other sources such as Glue or Athena still joins to them. The account only adds a parent container above each bucket.
+
+Credentials must come from the default AWS credential chain: environment variables, or the instance or pod role. `aws_access_key_id` and `aws_profile` are rejected with `aws_accounts`, because roles are not assumed from them. Roles in `aws_config.aws_role` are assumed before each account's role, so a hub role can chain into every account. Do not list the role the executor already runs as, since assuming a role from itself fails unless the role trusts itself.
+
+Every path spec runs in every account, so the bucket name in each `include` must be a wildcard or a placeholder such as `{table}`. With `emit_folders_only`, each account's role needs `s3:ListAllMyBuckets` and `s3:ListBucket`, but not `s3:GetObject`.
+
+If an account or one of its path specs fails, for example because the role cannot be assumed, the run reports a failure and carries on with the rest. One failure turns off stale-metadata removal for the whole run, so nothing is soft-deleted from any account, and the report sets `stale_removal_skipped_due_to_account_failures`. An account that fails on every run therefore stops stale metadata from being removed for all accounts: fix its role or bucket permissions, or remove it from `aws_accounts`. An account that works but matches nothing is reported as a warning, and no container is created for it.
+
+Moving accounts that are already ingested by one recipe each into `aws_accounts` keeps their bucket, folder and dataset URNs, provided those recipes did not set `platform_instance`. Recipes that set `platform_instance` to the account produce different URNs, so switching creates new entities, and documentation, tags and terms added in DataHub do not carry over. Those recipes can keep running as they are.
+
+`datahub recipe probe` does not support `aws_accounts`. Probe one account at a time by setting its role in `aws_config.aws_role`.
+
 #### S3-specific mapping details
 
 This ingestion source maps the following source system concepts to DataHub concepts:

@@ -17,7 +17,7 @@ import { EntityType } from '@types';
 // Mock the extractTypeFromUrn function
 const mockExtractTypeFromUrn = vi.hoisted(() => vi.fn());
 
-vi.mock('@app/entity/shared/utils', () => ({
+vi.mock('@app/entityV2/shared/utils', () => ({
     extractTypeFromUrn: mockExtractTypeFromUrn,
 }));
 

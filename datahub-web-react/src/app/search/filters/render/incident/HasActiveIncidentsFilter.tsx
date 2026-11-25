@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import BooleanMoreFilter from '@app/search/filters/render/shared/BooleanMoreFilter';
 import BooleanSearchFilter from '@app/search/filters/render/shared/BooleanSearchFilter';
 import { BooleanSimpleSearchFilter } from '@app/search/filters/render/shared/BooleanSimpleSearchFilter';
-import { FilterScenarioType } from '@app/search/filters/render/types';
+import { FilterScenarioType } from '@app/searchV2/filters/render/types';
 
 import { FacetFilter, FacetFilterInput, FacetMetadata } from '@types';
 

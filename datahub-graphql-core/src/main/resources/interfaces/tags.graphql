@@ -1,0 +1,38 @@
+"""
+An entity that can have tags
+"""
+interface HasTags {
+  """
+  Tags applied to the entity
+  """
+  tags: GlobalTags
+}
+
+extend type Api implements HasTags
+extend type Application implements HasTags
+extend type Assertion implements HasTags
+extend type Chart implements HasTags
+extend type Container implements HasTags
+extend type CorpUser implements HasTags
+extend type Dashboard implements HasTags
+extend type DataFlow implements HasTags
+extend type DataJob implements HasTags
+extend type DataPlatformInstance implements HasTags
+extend type DataProduct implements HasTags
+extend type Dataset implements HasTags
+extend type Document implements HasTags
+extend type ERModelRelationship implements HasTags
+extend type GlossaryNode implements HasTags
+extend type GlossaryTerm implements HasTags
+extend type Incident implements HasTags
+extend type MLFeature implements HasTags
+extend type MLFeatureTable implements HasTags
+extend type MLModel implements HasTags
+extend type MLModelGroup implements HasTags
+extend type MLPrimaryKey implements HasTags
+extend type Metric implements HasTags
+extend type Notebook implements HasTags
+extend type Repository implements HasTags
+extend type SchemaFieldEntity implements HasTags
+extend type SemanticModel implements HasTags
+extend type VersionedDataset implements HasTags

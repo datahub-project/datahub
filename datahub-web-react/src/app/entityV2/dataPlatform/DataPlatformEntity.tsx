@@ -2,9 +2,9 @@ import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { DataPlatform, EntityType, SearchResult } from '@types';
 

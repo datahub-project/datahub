@@ -14,6 +14,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
@@ -155,6 +156,16 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
 
     Integer getThreadCount();
 
+    /**
+     * Connections a client keeps open to the cluster at once: the pool is sized from the thread
+     * count with a floor of two. A caller that runs that many synchronous requests concurrently
+     * waits for a lease past this, and fails after {@link #getConnectionRequestTimeout()}. The one
+     * formula for both shims and for whatever paces itself by the pool.
+     */
+    static int maxConnectionsPerRoute(final int threadCount) {
+      return Math.max(2, threadCount);
+    }
+
     Integer getConnectionRequestTimeout();
 
     Integer getSocketTimeout();
@@ -170,6 +181,15 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
     /** Whether the engine type was auto-detected rather than explicitly configured. */
     default boolean isEngineTypeAutoDetected() {
       return false;
+    }
+
+    /**
+     * Configured engine version (e.g. "2.19.0"). When set, it replaces the cluster info probe,
+     * which needs cluster:monitor/main and is denied to restricted users. Null means probe.
+     */
+    @Nullable
+    default String getEngineVersionOverride() {
+      return null;
     }
 
     /** Explicit or JVM-resolved HTTP proxy host. Null means a direct connection. */
@@ -520,6 +540,9 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
   default long drainBulkTransferFailures() {
     return 0L;
   }
+
+  @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
+  BulkProcessorFlushResult flushBulkProcessorAndAwait(long timeout, @Nonnull TimeUnit timeUnit);
 
   @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
   void closeBulkProcessor();

@@ -228,7 +228,8 @@ public class ESIndexBuilderMetricsTest {
         elasticSearchConfiguration,
         TEST_ES_STRUCT_PROPS_DISABLED,
         Map.of(),
-        gitVersion);
+        gitVersion,
+        searchClient);
   }
 
   private void stubTaskCompleted(boolean completed) throws IOException {
