@@ -3149,6 +3149,36 @@ def test_emit_mce_posts_one_ingest_proposal_batch(
     callback.assert_called_once_with(None, "success")
 
 
+def test_emit_mce_posts_one_openapi_request() -> None:
+    emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
+    emitter._server_config = RestServiceConfig(
+        raw_config={"versions": {"acryldata/datahub": {"version": "v1.0.1rc0"}}}
+    )
+    mce = MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=_MCE_URN,
+            aspects=[Status(removed=False), DatasetProperties(description="d")],
+        )
+    )
+    response = Mock(spec=Response)
+    response.status_code = 200
+    response.headers = {}
+    response.json.return_value = []
+    with (
+        patch.object(emitter, "_emit_generic", return_value=response) as emit_generic,
+        pytest.warns(DataHubDeprecationWarning),
+    ):
+        emitter.emit(mce, emit_mode=EmitMode.SYNC_PRIMARY)
+
+    emit_generic.assert_called_once()
+    assert (
+        emit_generic.call_args.args[0]
+        == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=false"
+    )
+    entities = json.loads(emit_generic.call_args.kwargs["payload"])
+    assert [set(e) - {"urn"} for e in entities] == [{"status"}, {"datasetProperties"}]
+
+
 def test_emit_mce_failure_reaches_callback(
     mce_emitter: DataHubRestEmitter,
 ) -> None:

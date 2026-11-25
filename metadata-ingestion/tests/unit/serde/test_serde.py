@@ -100,6 +100,33 @@ def test_file_source_converts_mces_to_mcps(
     assert [list(w.context) for w in source.report.warnings] == [[str(mce_file)]]
 
 
+def test_file_source_reports_unconvertible_mce_and_continues(
+    tmp_path: pathlib.Path,
+) -> None:
+    json_path = tmp_path / "bad_urn_mce.json"
+    good_urn = mce_builder.make_dataset_urn("hive", "db.table")
+    write_metadata_file(
+        json_path,
+        [
+            MetadataChangeEventClass(
+                proposedSnapshot=models.DatasetSnapshotClass(
+                    urn=urn, aspects=[models.StatusClass(removed=False)]
+                )
+            )
+            for urn in ["not-a-urn", good_urn]
+        ],
+    )
+    source = GenericFileSource(
+        ctx=PipelineContext(run_id="file-source-bad-urn-mce"),
+        config=FileSourceConfig(path=str(json_path)),
+    )
+
+    workunits = list(source.get_workunits_internal())
+
+    assert [wu.get_urn() for wu in workunits] == [good_urn]
+    assert len(source.report.failures) == 1
+
+
 def test_file_source_skips_mce_without_aspects(tmp_path: pathlib.Path) -> None:
     json_path = tmp_path / "empty_mce.json"
     write_metadata_file(
