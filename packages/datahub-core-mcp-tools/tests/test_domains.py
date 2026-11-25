@@ -116,6 +116,16 @@ def test_a_write_without_a_reply_has_an_unknown_outcome(graph: MagicMock) -> Non
     assert graph.execute_graphql.call_count == 1
 
 
+def test_an_unknown_remove_says_why_a_retry_is_safe(graph: MagicMock) -> None:
+    graph.execute_graphql.side_effect = requests.ConnectionError("reset")
+
+    with pytest.raises(ToolError) as raised:
+        remove_domains(entity_urns=[USERS])
+
+    assert "already unset changes nothing" in str(raised.value)
+    assert "sets the same domain" not in str(raised.value)
+
+
 def test_the_domain_is_checked_through_the_bound_backend() -> None:
     client = MagicMock()
     backend = MagicMock(spec=["exists"])
@@ -217,23 +227,111 @@ def test_a_repeated_create_finds_the_domain_by_its_id(graph: MagicMock) -> None:
     graph.get_entity_semityped.assert_called_with(first["urn"])
 
 
-def test_a_domain_moved_away_from_its_id_does_not_block_a_new_one(
-    graph: MagicMock,
-) -> None:
+def _domains_at(graph: MagicMock, held: dict[str, tuple[str, str | None]]) -> None:
+    """Domains at these URNs (name, parent); every other id is free."""
+    graph.get_entity_semityped.side_effect = lambda urn: (
+        {
+            "domainProperties": DomainPropertiesClass(
+                name=held[urn][0], parentDomain=held[urn][1]
+            )
+        }
+        if urn in held
+        else {}
+    )
+
+
+def _creates(graph: MagicMock) -> None:
     graph.execute_graphql.side_effect = lambda **kw: {
         "createDomain": "urn:li:domain:" + kw["variables"]["input"]["id"]
     }
+
+
+def test_a_domain_moved_away_from_its_id_does_not_block_a_new_one(
+    graph: MagicMock,
+) -> None:
+    _creates(graph)
     first = create_domain(name="Campaigns", parent_domain=MARKETING)
-    graph.get_entity_semityped.return_value = {
-        "domainProperties": DomainPropertiesClass(
-            name="Campaigns", parentDomain="urn:li:domain:finance"
-        )
-    }
+    _domains_at(graph, {first["urn"]: ("Campaigns", "urn:li:domain:finance")})
 
     second = create_domain(name="Campaigns", parent_domain=MARKETING)
 
     assert second["created"] is True
     assert second["urn"] != first["urn"]
+
+
+def test_a_retry_after_a_moved_domain_returns_the_domain_it_made(
+    graph: MagicMock,
+) -> None:
+    # The first id holds a domain since moved, so the create goes to the next
+    # id. A retry after a lost reply must land on that same id, not a new one.
+    _creates(graph)
+    moved = create_domain(name="Campaigns", parent_domain=MARKETING)["urn"]
+    _domains_at(graph, {moved: ("Campaigns", "urn:li:domain:finance")})
+    graph.execute_graphql.side_effect = requests.ReadTimeout("read timed out")
+    with pytest.raises(ToolError) as raised:
+        create_domain(name="Campaigns", parent_domain=MARKETING)
+    sent = graph.execute_graphql.call_args.kwargs["variables"]["input"]["id"]
+    made = f"urn:li:domain:{sent}"
+    assert made != moved
+    assert made in str(raised.value)
+    _domains_at(
+        graph,
+        {
+            moved: ("Campaigns", "urn:li:domain:finance"),
+            made: ("Campaigns", MARKETING),
+        },
+    )
+    calls = graph.execute_graphql.call_count
+
+    retry = create_domain(name="Campaigns", parent_domain=MARKETING)
+
+    assert retry == {"urn": made, "created": False}
+    assert graph.execute_graphql.call_count == calls
+
+
+def test_every_derived_id_taken_is_an_error(graph: MagicMock) -> None:
+    graph.get_entity_semityped.side_effect = lambda urn: {
+        "domainProperties": DomainPropertiesClass(name="Renamed")
+    }
+
+    with pytest.raises(ToolError, match="renamed or moved"):
+        create_domain(name="Campaigns")
+
+    graph.execute_graphql.assert_not_called()
+
+
+ID_TAKEN = GraphError(
+    [{"message": "This Domain already exists!", "extensions": {"code": 400}}]
+)
+
+
+def test_a_refused_id_holding_this_domain_returns_it(graph: MagicMock) -> None:
+    # An overlapping call made the domain between the read and the write.
+    sent: list[str] = []
+
+    def refuse(**kw: object) -> object:
+        urn = "urn:li:domain:" + cast(dict, kw["variables"])["input"]["id"]
+        sent.append(urn)
+        _domains_at(graph, {urn: ("Campaigns", MARKETING)})
+        raise ID_TAKEN
+
+    graph.execute_graphql.side_effect = refuse
+
+    result = create_domain(name="Campaigns", parent_domain=MARKETING)
+
+    assert result == {"urn": sent[0], "created": False}
+
+
+def test_a_refused_id_holding_another_domain_is_an_error(graph: MagicMock) -> None:
+    def refuse(**kw: object) -> object:
+        urn = "urn:li:domain:" + cast(dict, kw["variables"])["input"]["id"]
+        _domains_at(graph, {urn: ("Other", MARKETING)})
+        raise ID_TAKEN
+
+    graph.execute_graphql.side_effect = refuse
+
+    with pytest.raises(ToolError, match="already exists"):
+        create_domain(name="Campaigns", parent_domain=MARKETING)
 
 
 def test_a_duplicate_under_the_same_parent_returns_the_existing_domain(

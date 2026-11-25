@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from datahub.configuration.common import GraphError
+from datahub.metadata.schema_classes import StatusClass
 from fastmcp import Client, FastMCP
 from fastmcp.exceptions import ToolError
 
@@ -28,6 +29,7 @@ class FakeGms:
         }
         graph.execute_graphql.side_effect = self._execute
         graph.exists.return_value = False
+        graph.get_entity_semityped.return_value = {}
 
     def _execute(self, *, operation_name: str, variables: dict, **_: object) -> object:
         self.sent.append((operation_name, variables))
@@ -84,6 +86,16 @@ def test_an_existing_id_is_returned_without_writing(gms: FakeGms) -> None:
     assert result["matched"] == "id"
     assert "description and color were not applied" in result["note"]
     assert gms.sent == []
+
+
+def test_a_deleted_tag_holding_the_id_is_not_returned(gms: FakeGms) -> None:
+    gms.graph.exists.side_effect = lambda urn: urn == "urn:li:tag:PII"
+    gms.graph.get_entity_semityped.return_value = {"status": StatusClass(removed=True)}
+
+    with pytest.raises(ToolError, match="urn:li:tag:PII was deleted"):
+        create_tag(name="PII")
+
+    assert gms.writes() == []
 
 
 def test_an_existing_display_name_in_another_case_is_returned(gms: FakeGms) -> None:

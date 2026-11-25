@@ -146,6 +146,17 @@ def test_remove_owners_of_any_type(graph: MagicMock) -> None:
     assert _write(graph) == {"ownerUrns": [JOHN], "resources": [{"resourceUrn": USERS}]}
 
 
+@pytest.mark.parametrize("ownership_type", ["", "  "])
+def test_a_blank_type_on_remove_means_any_type(
+    graph: MagicMock, ownership_type: str
+) -> None:
+    graph.execute_graphql.return_value = {"batchRemoveOwners": True}
+
+    remove_owners(owner_urns=[JOHN], entity_urns=[USERS], ownership_type=ownership_type)
+
+    assert _write(graph) == {"ownerUrns": [JOHN], "resources": [{"resourceUrn": USERS}]}
+
+
 def test_remove_one_ownership_type(graph: MagicMock) -> None:
     graph.execute_graphql.return_value = {"batchRemoveOwners": True}
 

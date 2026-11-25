@@ -147,8 +147,9 @@ class ReadBackend(Protocol):
 
         A dataset with siblings also carries their documentation-bearing parts
         under ``siblingsSearch`` for sibling_merge, as ``entity`` does. Unlike
-        there, a failed sibling read raises: the caller builds a write on the
-        merged text.
+        there, a failed sibling read raises, as does one that leaves out a
+        sibling the dataset's siblings aspect names: the caller builds a write
+        on the merged text.
         """
         ...
 
@@ -438,7 +439,16 @@ class GraphQLReadBackend:
             ).get("entity"),
         )
         if entity is not None and self._has_siblings(entity):
-            entity[SIBLINGS_SEARCH_KEY] = self._sibling_search(urn)
+            siblings = self._sibling_search(urn)
+            missing = _live_siblings(entity, urn) - _found_siblings(siblings)
+            if missing:
+                # The search answered without them (an index that lags the
+                # siblings aspect, or a null result): merging without their
+                # text would build the write on less than DataHub shows.
+                raise RuntimeError(
+                    f"the sibling read did not return {', '.join(sorted(missing))}"
+                )
+            entity[SIBLINGS_SEARCH_KEY] = siblings
         return entity
 
     def structured_property(self, urn: str) -> JsonObject | None:
@@ -451,6 +461,32 @@ class GraphQLReadBackend:
                 operation_name="getStructuredPropertyDefinition",
             ).get("entity"),
         )
+
+
+def _live_siblings(entity: JsonObject, urn: str) -> set[str]:
+    """The siblings the entity's siblings aspect names, less deleted ones."""
+    aspect = entity.get(SIBLINGS_KEY)
+    listed = aspect.get(SIBLINGS_KEY) if isinstance(aspect, dict) else None
+    live: set[str] = set()
+    for sibling in listed if isinstance(listed, list) else []:
+        if not isinstance(sibling, dict) or not isinstance(sibling.get("urn"), str):
+            continue
+        status = sibling.get("status")
+        if isinstance(status, dict) and status.get("removed"):
+            continue
+        if sibling["urn"] != urn:
+            live.add(cast(str, sibling["urn"]))
+    return live
+
+
+def _found_siblings(search: JsonValue) -> set[str]:
+    results = search.get("searchResults") if isinstance(search, dict) else None
+    found: set[str] = set()
+    for result in results if isinstance(results, list) else []:
+        entity = result.get("entity") if isinstance(result, dict) else None
+        if isinstance(entity, dict) and isinstance(entity.get("urn"), str):
+            found.add(cast(str, entity["urn"]))
+    return found
 
 
 def get_read_backend() -> ReadBackend:

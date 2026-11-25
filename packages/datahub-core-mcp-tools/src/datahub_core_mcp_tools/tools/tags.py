@@ -207,6 +207,25 @@ def _tag_with_name(name: str) -> Optional[str]:
     return None
 
 
+def _tag_id_taken(urn: str) -> bool:
+    """Whether a tag holds ``urn``; a ToolError when it is a deleted one.
+
+    A soft-deleted tag keeps its id, and GMS refuses to create another there.
+    Returning it as the existing tag would have add_tags apply a removed tag.
+    """
+    aspects = get_read_backend().aspects(urn)
+    if aspects is None:
+        return False
+    status = aspects.get("status")
+    if isinstance(status, dict) and status.get("removed"):
+        raise ToolError(
+            f"create_tag: {urn} was deleted, and a deleted tag keeps its id, so "
+            "no tag with this name can be created. Pick another name, or have it "
+            "restored in DataHub."
+        )
+    return True
+
+
 def _existing(urn: str, *, matched: str, ignored: list[str]) -> dict:
     result: dict = {"urn": urn, "created": False, "matched": matched}
     if ignored:
@@ -268,7 +287,7 @@ def create_tag(
     ]
     urn = f"urn:li:tag:{tag_name}"
 
-    if get_read_backend().exists(urn):
+    if _tag_id_taken(urn):
         return _existing(urn, matched="id", ignored=ignored)
     by_name = _tag_with_name(tag_name)
     if by_name is not None:
@@ -292,6 +311,7 @@ def create_tag(
     except ToolError as e:
         # Made by someone else between the check and this write.
         if "already exists" in str(e):
+            _tag_id_taken(urn)
             return _existing(urn, matched="id", ignored=ignored)
         raise
     created_urn = str(created.get("createTag") or urn)

@@ -1,5 +1,6 @@
 """update_description."""
 
+import re
 from typing import Iterator, cast
 from unittest.mock import MagicMock
 
@@ -267,7 +268,9 @@ def test_append_extends_the_description_a_sibling_shows(
     # The warehouse table has no docs of its own; DataHub shows its dbt model's.
     # Appending to the empty local text would write just the suffix, which, as
     # the edited description, would then hide the dbt text.
-    warehouse = _dataset_sources(V2_EMAIL, siblings={"isPrimary": False})
+    warehouse = _dataset_sources(
+        V2_EMAIL, siblings={"isPrimary": False, "siblings": [{"urn": DBT}]}
+    )
     warehouse.update(editableProperties=None, properties=None)
     graph.execute_graphql.side_effect = [
         _sources(warehouse),
@@ -319,6 +322,55 @@ def test_a_failed_sibling_read_never_becomes_a_partial_append(
         update_description(entity_urn=USERS, operation="append", description=" (PII)")
 
     assert graph.execute_graphql.call_count == 2
+
+
+@pytest.mark.parametrize(
+    "search",
+    [
+        {"entity": None},
+        {"entity": {"urn": USERS, "siblingsSearch": None}},
+        _sibling_search(),
+    ],
+    ids=["no-entity", "null-search", "no-results"],
+)
+def test_a_sibling_read_missing_a_listed_sibling_never_appends(
+    graph: MagicMock, search: dict
+) -> None:
+    # The siblings aspect names the dbt model, but the search did not return
+    # it: appending to the warehouse text alone would hide the dbt description.
+    warehouse = _dataset_sources(
+        siblings={"isPrimary": False, "siblings": [{"urn": DBT}]}
+    )
+    warehouse.update(editableProperties=None, properties=None)
+    graph.execute_graphql.side_effect = [_sources(warehouse), search]
+
+    with pytest.raises(
+        ToolError, match=f"could not read .* did not return {re.escape(DBT)}"
+    ):
+        update_description(entity_urn=USERS, operation="append", description=" (PII)")
+
+    assert graph.execute_graphql.call_count == 2
+
+
+def test_a_deleted_sibling_the_search_leaves_out_does_not_block_append(
+    graph: MagicMock,
+) -> None:
+    warehouse = _dataset_sources(
+        siblings={
+            "isPrimary": False,
+            "siblings": [{"urn": DBT, "status": {"removed": True}}],
+        }
+    )
+    warehouse.update(editableProperties=None, properties={"description": "Own."})
+    graph.execute_graphql.side_effect = [
+        _sources(warehouse),
+        _sibling_search(),
+        {"updateDescription": True},
+    ]
+
+    update_description(entity_urn=USERS, operation="append", description=" (PII)")
+
+    assert _write(graph)["variables"]["input"]["description"] == "Own. (PII)"
 
 
 @pytest.mark.parametrize(

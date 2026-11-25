@@ -128,6 +128,10 @@ def _batch_modify_owners(
     # deleted is how that dangling ownership gets cleaned up.
     owners = _require_owner_urns(owner_urns, tool=tool, must_exist=operation == "add")
     entities = require_entity_urns(entity_urns, tool=tool)
+    if operation == "remove" and ownership_type is not None:
+        # Clients often send "" for an omitted optional string; on remove that
+        # means "any type", not a type named "".
+        ownership_type = ownership_type.strip() or None
     type_urn = (
         _resolve_ownership_type_urn(ownership_type, tool=tool)
         if ownership_type is not None

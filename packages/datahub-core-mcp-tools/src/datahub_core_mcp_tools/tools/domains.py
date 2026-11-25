@@ -4,6 +4,7 @@ domain; remove_domains takes them out."""
 import uuid
 from typing import Optional
 
+from datahub.configuration.common import GraphError
 from fastmcp.exceptions import ToolError
 
 from .. import arg_validation, graphql_helpers
@@ -23,6 +24,8 @@ _DOMAIN_ID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "urn:li:domain")
 # Children of one parent to compare against the name: an exact match ranks near
 # the top of a search for it.
 _NAME_MATCH_CANDIDATES = 50
+# Derived ids create_domain tries for one name and parent (see _domain_urn_for).
+_DOMAIN_ID_SLOTS = 10
 
 
 def require_domain(value: str, *, tool: str, param: str) -> str:
@@ -50,6 +53,11 @@ def _batch_set_domain(
     domain_urn: Optional[str], entity_urns: list[str], *, tool: str
 ) -> int:
     resources = [{"resourceUrn": urn} for urn in entity_urns]
+    why_safe = (
+        "it sets the same domain"
+        if domain_urn is not None
+        else "unsetting a domain that is already unset changes nothing"
+    )
     result = graphql_helpers.execute_write(
         graphql_helpers.get_datahub_client()._graph,
         query=graphql_helpers.load_gql_document("domains.gql"),
@@ -57,7 +65,7 @@ def _batch_set_domain(
         variables={"input": {"domainUrn": domain_urn, "resources": resources}},
         unknown_outcome_hint=(
             f"Check the assets' domain with get_entities; calling {tool} again is "
-            "also safe, since it sets the same domain."
+            f"also safe, since {why_safe}."
         ),
     )
     if not result.get("batchSetDomain"):
@@ -173,17 +181,30 @@ def remove_domains(
     }
 
 
-def _domain_urn_for(name: str, parent: Optional[str]) -> str:
-    """The URN create_domain gives the domain ``name`` under ``parent``.
+def _domain_urn_for(name: str, parent: Optional[str], slot: int) -> str:
+    """The URN create_domain tries in ``slot`` for the domain ``name`` under ``parent``.
 
     The id is derived from the name and parent rather than random, so a repeated
     call finds the domain by a direct read. GMS's own check for a sibling with
     the same name runs on the search index, which lags writes: two quick calls
     with random ids would both pass it and make two domains. A known id also
     lets a create that gets no reply name the domain to look for.
+
+    Slot 0 is the usual id. A domain this tool made can later be renamed or
+    moved while keeping its id; the next slot is then tried, so a repeated call
+    walks the same ids and stops at the same domain.
     """
-    key = f"{parent or ''}/{name}"
+    key = f"{parent or ''}/{name}" + (f"#{slot}" if slot else "")
     return f"{DOMAIN_PREFIX}{uuid.uuid5(_DOMAIN_ID_NAMESPACE, key)}"
+
+
+def _holds(urn: str, name: str, parent: Optional[str]) -> Optional[bool]:
+    """Whether the domain at ``urn`` is ``name`` under ``parent``; None when the
+    id is free."""
+    properties = (get_read_backend().aspects(urn) or {}).get("domainProperties")
+    if not isinstance(properties, dict):
+        return None
+    return properties.get("name") == name and properties.get("parentDomain") == parent
 
 
 def _existing(urn: str, *, description_given: bool) -> dict:
@@ -250,17 +271,20 @@ def create_domain(
         else None
     )
     description_text = (description or "").strip()
-    urn = _domain_urn_for(domain_name, parent)
-    properties = (get_read_backend().aspects(urn) or {}).get("domainProperties")
-    if isinstance(properties, dict):
-        if (
-            properties.get("name") == domain_name
-            and properties.get("parentDomain") == parent
-        ):
+    for slot in range(_DOMAIN_ID_SLOTS):
+        urn = _domain_urn_for(domain_name, parent, slot)
+        holds = _holds(urn, domain_name, parent)
+        if holds is None:
+            break
+        if holds:
             return _existing(urn, description_given=bool(description_text))
-        # This tool made it, and it has since been renamed or moved: the name
-        # is free here, so the new domain gets an id of its own.
-        urn = f"{DOMAIN_PREFIX}{uuid.uuid4()}"
+    else:
+        raise ToolError(
+            f"{tool}: every id {tool} derives for {domain_name!r} "
+            f"{'under ' + parent if parent else 'at the top level'} is held by a "
+            "domain that has since been renamed or moved. Create this domain in "
+            "the DataHub UI, or pick another name."
+        )
 
     domain_input: dict = {"id": urn[len(DOMAIN_PREFIX) :], "name": domain_name}
     if description_text:
@@ -280,6 +304,11 @@ def create_domain(
         )
     except ToolError as e:
         if _NAME_CONFLICT not in str(e):
+            # GMS refused the id itself ("This Domain already exists!"): an
+            # overlapping call made it first, or an earlier call whose reply was
+            # lost landed after the read above. Either way it is this domain.
+            if isinstance(e.__cause__, GraphError) and _holds(urn, domain_name, parent):
+                return _existing(urn, description_given=bool(description_text))
             raise
         # A domain with this name that this tool did not make, e.g. one made
         # in the UI.

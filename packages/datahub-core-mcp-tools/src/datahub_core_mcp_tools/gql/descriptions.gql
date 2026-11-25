@@ -41,7 +41,8 @@ mutation updateDataJobDescription($urn: String!, $description: String!) {
 # source system (properties, schemaMetadata). Glossary terms and nodes, tags,
 # domains and data products have only one. A dataset's siblings (e.g. its dbt
 # model) are merged into what DataHub shows: `siblings` is non-null only when it
-# has any, and GetEntitySiblings then reads their descriptions.
+# has any, and GetEntitySiblings then reads their descriptions. The sibling
+# URNs listed here are checked against what that search returns.
 query getDescriptionSources($urn: String!) {
   entity(urn: $urn) {
     urn
@@ -49,6 +50,14 @@ query getDescriptionSources($urn: String!) {
     ... on Dataset {
       siblings {
         isPrimary
+        siblings {
+          urn
+          ... on Dataset {
+            status {
+              removed
+            }
+          }
+        }
       }
       editableProperties {
         description
