@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.hazelcast.config.Config;
@@ -379,6 +380,63 @@ public class EntityGraphCacheHazelcastIntegrationTest {
     assertTrue(warm.contains(ROOT));
     assertTrue(warm.contains(CHILD));
     assertEquals(distributedStore.getStatus(FULL_CACHE_KEY), CacheStatus.ACTIVE);
+  }
+
+  @Test
+  public void publishKeepsSnapshotBuiltFromALaterRead() {
+    long now = System.currentTimeMillis();
+    assertTrue(distributedStore.publish(fullSnapshot("newer", now), CacheStatus.ACTIVE));
+
+    assertFalse(distributedStore.publish(fullSnapshot("older", now - 10_000L), CacheStatus.ACTIVE));
+
+    assertEquals(distributedStore.getSnapshot(FULL_CACHE_KEY).getTopologyFingerprint(), "newer");
+  }
+
+  @Test
+  public void publishReplacesFailureTombstoneEvenWhenItIsNewer() {
+    distributedStore.markCooldown(FULL_CACHE_KEY);
+
+    assertTrue(
+        distributedStore.publish(
+            fullSnapshot("rebuilt", System.currentTimeMillis() - 10_000L), CacheStatus.ACTIVE));
+  }
+
+  @Test
+  public void refreshBuiltAtMovesBuildTimeForwardOnlyWhenTopologyIsConfirmed() {
+    long now = System.currentTimeMillis();
+    distributedStore.publish(fullSnapshot("fp", now - 10_000L), CacheStatus.ACTIVE);
+
+    distributedStore.refreshBuiltAt(FULL_CACHE_KEY, fullSnapshot("other", now));
+    assertEquals(
+        distributedStore.getSnapshot(FULL_CACHE_KEY).getBuiltAtMillis(),
+        now - 10_000L,
+        "a rebuild that disagrees confirms nothing");
+
+    distributedStore.refreshBuiltAt(FULL_CACHE_KEY, fullSnapshot("fp", now));
+    assertEquals(distributedStore.getSnapshot(FULL_CACHE_KEY).getBuiltAtMillis(), now);
+
+    distributedStore.refreshBuiltAt(FULL_CACHE_KEY, fullSnapshot("fp", now - 5_000L));
+    assertEquals(distributedStore.getSnapshot(FULL_CACHE_KEY).getBuiltAtMillis(), now);
+  }
+
+  @Test
+  public void everyWriteKeepsItsOwnVisibilityWatermark() {
+    long later = System.currentTimeMillis() + 60_000L;
+    assertEquals(distributedStore.getVisibilityWatermarks(FULL_GRAPH_ID).length, 0);
+
+    distributedStore.recordVisibilityWatermark(FULL_GRAPH_ID, later + 5_000L);
+    distributedStore.recordVisibilityWatermark(FULL_GRAPH_ID, later + 3_000L);
+
+    assertEquals(
+        distributedStore.getVisibilityWatermarks(FULL_GRAPH_ID),
+        new long[] {later + 3_000L, later + 5_000L});
+  }
+
+  private static EntityGraphSnapshot fullSnapshot(String fingerprint, long builtAtMillis) {
+    return fullSnapshotWithEdge().toBuilder()
+        .topologyFingerprint(fingerprint)
+        .builtAtMillis(builtAtMillis)
+        .build();
   }
 
   private Set<String> expandCached(

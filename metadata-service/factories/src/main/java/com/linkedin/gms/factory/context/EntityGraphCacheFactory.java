@@ -2,10 +2,18 @@ package com.linkedin.gms.factory.context;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.core.HazelcastInstance;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.metadata.cache.visibility.IndexVisibilityEstimator;
+import com.linkedin.metadata.cache.visibility.IndexVisibilityEstimator.IndexWriteSettings;
+import com.linkedin.metadata.cache.visibility.IndexWriteFlusher;
+import com.linkedin.metadata.cache.visibility.SourceIndexKind;
 import com.linkedin.metadata.config.GMSConfiguration;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheConfigLoader;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
 import com.linkedin.metadata.config.hazelcast.HazelcastBootstrapProperties;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.graph.cache.KnownEntityGraph;
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.EntityGraphDefinition;
@@ -16,8 +24,11 @@ import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotBuilder;
 import com.linkedin.metadata.graph.cache.store.EntityGraphDistributedStore;
 import com.linkedin.metadata.graph.cache.store.EntityGraphLocalViewCache;
 import com.linkedin.metadata.graph.cache.store.EntityGraphMemoryPressureMonitor;
+import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.service.UpdateIndicesService;
+import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
@@ -126,6 +137,47 @@ public class EntityGraphCacheFactory {
   }
 
   /**
+   * Bounds when a synchronous write is searchable in the graph or entity index, from the effective
+   * cluster configuration of each index. Used by graphs that set {@code invalidation.visibility}.
+   */
+  @Bean
+  @ConditionalOnProperty(
+      name = HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED,
+      havingValue = "true")
+  @Nonnull
+  public IndexVisibilityEstimator entityGraphIndexVisibilityEstimator(
+      SearchClusterRegistry searchClusterRegistry,
+      @Qualifier("graphService") ObjectProvider<GraphService> graphService,
+      ObjectProvider<UpdateIndicesService> updateIndicesService) {
+    IndexWriteFlusher flusher =
+        kind -> {
+          if (kind == SourceIndexKind.GRAPH) {
+            GraphService graph = graphService.getIfAvailable();
+            return graph instanceof ElasticSearchGraphService elastic
+                && elastic.flushAndAwaitWrites();
+          }
+          UpdateIndicesService indices = updateIndicesService.getIfAvailable();
+          if (indices == null) {
+            return false;
+          }
+          BulkProcessorFlushResult result = indices.flushAndAwait();
+          return !result.hasFailures();
+        };
+    return new IndexVisibilityEstimator(
+        kind -> {
+          ElasticSearchConfiguration config =
+              searchClusterRegistry.configFor(
+                  kind == SourceIndexKind.GRAPH
+                      ? SearchComponent.GRAPH
+                      : SearchComponent.SEARCH_V2);
+          return new IndexWriteSettings(
+              config.getIndex() == null ? null : config.getIndex().getRefreshIntervals(),
+              config.getBulkProcessor());
+        },
+        flusher);
+  }
+
+  /**
    * Internal implementation — inject by name only ({@code @Qualifier("entityGraphCacheService")}).
    * Call sites use {@link #entityGraphCache} ({@code @Qualifier("entityGraphCache")}).
    */
@@ -140,7 +192,8 @@ public class EntityGraphCacheFactory {
       @Autowired(required = false) @Qualifier("hazelcastInstance")
           HazelcastInstance hazelcastInstance,
       @Qualifier("systemOperationContext") @Lazy OperationContext systemOperationContext,
-      @Qualifier("entityGraphRebuildExecutor") ExecutorService entityGraphRebuildExecutor) {
+      @Qualifier("entityGraphRebuildExecutor") ExecutorService entityGraphRebuildExecutor,
+      IndexVisibilityEstimator entityGraphIndexVisibilityEstimator) {
 
     HazelcastInstance hazelcast =
         Objects.requireNonNull(
@@ -171,7 +224,8 @@ public class EntityGraphCacheFactory {
             localViews,
             snapshotBuilder,
             systemOperationContext,
-            entityGraphRebuildExecutor);
+            entityGraphRebuildExecutor,
+            entityGraphIndexVisibilityEstimator);
     serviceRef.set(service);
     return service;
   }

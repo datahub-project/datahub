@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.cache.service;
 
+import com.linkedin.metadata.cache.visibility.IndexVisibilityEstimator;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
 import com.linkedin.metadata.graph.cache.AncestorWalkResult;
 import com.linkedin.metadata.graph.cache.EntityGraphBinding;
@@ -59,6 +60,26 @@ public class EntityGraphCacheService implements EntityGraphCache {
       @Nonnull EntityGraphSnapshotBuilder snapshotBuilder,
       @Nonnull OperationContext systemOperationContext,
       @Nonnull ExecutorService rebuildExecutor) {
+    this(
+        properties,
+        registry,
+        distributedStore,
+        localViews,
+        snapshotBuilder,
+        systemOperationContext,
+        rebuildExecutor,
+        IndexVisibilityEstimator.DISABLED);
+  }
+
+  public EntityGraphCacheService(
+      @Nonnull EntityGraphCacheProperties properties,
+      @Nonnull EntityGraphRegistry registry,
+      @Nonnull EntityGraphDistributedStore distributedStore,
+      @Nonnull EntityGraphLocalViewCache localViews,
+      @Nonnull EntityGraphSnapshotBuilder snapshotBuilder,
+      @Nonnull OperationContext systemOperationContext,
+      @Nonnull ExecutorService rebuildExecutor,
+      @Nonnull IndexVisibilityEstimator visibilityEstimator) {
     this.properties = properties;
     this.registry = registry;
     this.distributedStore = distributedStore;
@@ -83,7 +104,8 @@ public class EntityGraphCacheService implements EntityGraphCache {
             freshnessEvaluator,
             rebuilder);
     this.invalidator =
-        new GraphCacheInvalidator(registry, distributedStore, localViews, systemOperationContext);
+        new GraphCacheInvalidator(
+            registry, distributedStore, localViews, systemOperationContext, visibilityEstimator);
   }
 
   @Override
@@ -246,6 +268,14 @@ public class EntityGraphCacheService implements EntityGraphCache {
       return;
     }
     invalidator.invalidateOnSyncBatch(batch);
+  }
+
+  @Override
+  public void invalidateImmediately(@Nonnull SyncGraphInvalidationBatch batch) {
+    if (!properties.isEnabled()) {
+      return;
+    }
+    invalidator.invalidateImmediately(batch);
   }
 
   public void onSnapshotUpdated(@Nonnull String cacheKey) {

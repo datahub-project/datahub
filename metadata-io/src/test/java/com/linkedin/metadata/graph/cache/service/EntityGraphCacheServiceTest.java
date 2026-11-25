@@ -108,6 +108,7 @@ public class EntityGraphCacheServiceTest {
     when(registry.getDefinition(GRAPH_ID)).thenReturn(definition);
     when(distributedStore.tryClaimRebuild(any(), anyLong())).thenReturn(true);
     when(distributedStore.getInvalidationGeneration(any())).thenReturn(0L);
+    when(distributedStore.publish(any(), any())).thenReturn(true);
 
     service =
         new EntityGraphCacheService(
