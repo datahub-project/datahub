@@ -16,8 +16,7 @@
 # unpruned prefix-hit union, so the consumers are restore-only and this workflow
 # is the single writer.
 #
-# This workflow runs on every push to the default branch and to release/hotfix
-# branches. When the exact key already exists the lookup-only restore hits and
+# This workflow runs on every push to the default branch and to release branches. When the exact key already exists the lookup-only restore hits and
 # the leg exits in seconds; on a miss (dependency manifests changed, or the entry
 # was evicted) it rebuilds the environments and saves one copy. Keys and cache
 # paths must stay byte-identical to the restore steps in the consuming workflows.
@@ -27,7 +26,6 @@ on:
     branches:
       - master
       - "releases/**"
-      - "hotfixes/**"
   workflow_dispatch:
 
 # Keyed on the ref: this workflow only runs on pushes and manual dispatches, so
@@ -44,8 +42,7 @@ jobs:
     # ref-scoped copy nothing can read.
     if: |
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
-      startsWith(github.ref, 'refs/heads/releases/') ||
-      startsWith(github.ref, 'refs/heads/hotfixes/')
+      startsWith(github.ref, 'refs/heads/releases/')
     # One leg per cache backend (see top).
     strategy:
       fail-fast: false
@@ -105,8 +102,7 @@ jobs:
     name: Warm smoke-test lint uv cache (${{ matrix.runner }})
     if: |
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
-      startsWith(github.ref, 'refs/heads/releases/') ||
-      startsWith(github.ref, 'refs/heads/hotfixes/')
+      startsWith(github.ref, 'refs/heads/releases/')
     strategy:
       fail-fast: false
       matrix:
@@ -151,8 +147,7 @@ jobs:
     name: Warm metadata-ingestion uv cache (${{ matrix.runner }})
     if: |
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
-      startsWith(github.ref, 'refs/heads/releases/') ||
-      startsWith(github.ref, 'refs/heads/hotfixes/')
+      startsWith(github.ref, 'refs/heads/releases/')
     strategy:
       fail-fast: false
       matrix:
@@ -210,8 +205,7 @@ jobs:
     name: Warm datahub-web-react yarn cache (${{ matrix.runner }})
     if: |
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
-      startsWith(github.ref, 'refs/heads/releases/') ||
-      startsWith(github.ref, 'refs/heads/hotfixes/')
+      startsWith(github.ref, 'refs/heads/releases/')
     strategy:
       fail-fast: false
       matrix:
@@ -233,6 +227,7 @@ jobs:
         uses: ./.github/actions/setup-toolchain
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         with:
+          node: true
           python: false
       - name: Populate yarn cache
         if: steps.yarn-cache.outputs.cache-hit != 'true'
@@ -253,8 +248,7 @@ jobs:
     name: Warm playwright lint yarn cache (${{ matrix.runner }})
     if: |
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
-      startsWith(github.ref, 'refs/heads/releases/') ||
-      startsWith(github.ref, 'refs/heads/hotfixes/')
+      startsWith(github.ref, 'refs/heads/releases/')
     strategy:
       fail-fast: false
       matrix:
@@ -298,8 +292,7 @@ jobs:
     name: Warm docs-website yarn cache (${{ matrix.runner }})
     if: |
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
-      startsWith(github.ref, 'refs/heads/releases/') ||
-      startsWith(github.ref, 'refs/heads/hotfixes/')
+      startsWith(github.ref, 'refs/heads/releases/')
     strategy:
       fail-fast: false
       matrix:
@@ -321,6 +314,7 @@ jobs:
         uses: ./.github/actions/setup-toolchain
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         with:
+          node: true
           python: false
       - name: Populate yarn cache
         if: steps.yarn-cache.outputs.cache-hit != 'true'
@@ -341,8 +335,7 @@ jobs:
     name: Warm docker-unified uv and yarn caches (ubuntu-24.04)
     if: |
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
-      startsWith(github.ref, 'refs/heads/releases/') ||
-      startsWith(github.ref, 'refs/heads/hotfixes/')
+      startsWith(github.ref, 'refs/heads/releases/')
     runs-on: ubuntu-24.04
     env:
       DATAHUB_TELEMETRY_ENABLED: false
@@ -369,6 +362,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           java: ${{ steps.uv-cache.outputs.cache-hit != 'true' || steps.yarn-cache.outputs.cache-hit != 'true' }}
           python: ${{ steps.uv-cache.outputs.cache-hit != 'true' }}
           gradle: ${{ steps.uv-cache.outputs.cache-hit != 'true' || steps.yarn-cache.outputs.cache-hit != 'true' }}
@@ -401,3 +395,31 @@ jobs:
         with:
           path: ~/.cache/yarn
           key: docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./datahub-web-react/yarn.lock') }}
+
+  # Single writer of the Gradle User Home that metadata-io.yml's seed and test legs
+  # restore (setup-gradle's basic provider, read-only there). The basic provider
+  # keys one entry on the Gradle build-file hash with no fallback, so a push that
+  # leaves the build files alone restores the exact entry and skips the save.
+  # Resolve-only: downloads every metadata-io configuration, test runtime included,
+  # without compiling.
+  warm-metadata-io-gradle-home:
+    name: Warm metadata-io Gradle User Home (${{ matrix.runner }})
+    if: |
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
+      startsWith(github.ref, 'refs/heads/releases/')
+    # One leg per cache backend (see top).
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, depot-ubuntu-24.04]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+        with:
+          python: false
+          gradle-cache-provider: basic
+      - name: Resolve metadata-io dependencies
+        run: ./gradlew :metadata-io:resolveAndLockAllForProject

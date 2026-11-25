@@ -49,7 +49,10 @@ buildscript {
   // CVE-2026-77420 (HISTORY_IGNORE ReDoS): fixed in 4.3.1+ / 3.30.15+
   ext.jlineVersion = '4.3.1'
   // CVE-2026-45292 (W3C Baggage unbounded memory): fixed in opentelemetry-api / trace-propagators 1.62.0+
-  ext.openTelemetryVersion = '1.62.0'
+  // CVE-2026-118259: fixed in opentelemetry-api 1.67.0+
+  ext.openTelemetryVersion = '1.67.0'
+  // org.apache.kerby (transitive): CVE-2026-57914 in kerby-asn1, fixed in 2.1.2. Align the whole group.
+  ext.kerbyVersion = '2.1.2'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.4'
@@ -147,8 +150,15 @@ buildscript {
 
   // CVE-2026-111497 (Brotli out-of-bounds write), CVE-2026-106069 (TLS hostname bypass),
   // CVE-2026-105482 (dns.resolve NUL truncation): fixed in 22.23.4 (October 2026 security release)
+  // nodeVersion is only what the node-gradle plugin downloads when it downloads Node. CI installs
+  // Node itself (.github/actions/setup-toolchain) and uses that copy, which only has to share the
+  // major version; downloading a second copy adds ~30s per Node task and fails when nodejs.org flakes.
+  // An explicit -PuseSystemNode=<bool> (or ORG_GRADLE_PROJECT_useSystemNode) always wins.
   ext.nodeVersion = '22.23.4'
   ext.yarnVersion = '1.22.22'
+  ext.useSystemNode = project.hasProperty('useSystemNode')
+      ? project.getProperty('useSystemNode').toBoolean()
+      : System.getenv('CI') == 'true'
 
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
 
@@ -338,7 +348,7 @@ project.ext.externalDependency = [
     'jsonPatch': 'jakarta.json:jakarta.json-api:2.1.3',
     'jsonPathImpl': 'org.eclipse.parsson:parsson:1.1.6',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
-    'jsonSmart': 'net.minidev:json-smart:2.5.2',
+    'jsonSmart': 'net.minidev:json-smart:2.6.1', // CVE-2026-113602
     'json': 'org.json:json:20260814',
     'jsonSchemaValidator': 'com.github.java-json-tools:json-schema-validator:2.2.14',
     'jjwtApi': "io.jsonwebtoken:jjwt-api:$jjwtVersion",
@@ -418,7 +428,7 @@ project.ext.externalDependency = [
     'pac4j': 'org.pac4j:pac4j-oidc:6.5.8',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:13.0.3-PLAY3.0",
     // CVE-2026-54291: channel-binding auth downgrade fixed in 42.7.12+
-    'postgresql': 'org.postgresql:postgresql:42.7.12',
+    'postgresql': 'org.postgresql:postgresql:42.7.15', // CVE-2026-107314, CVE-2026-107315
     'protobuf': 'com.google.protobuf:protobuf-java:4.36.2',
     'grpcProtobuf': "io.grpc:grpc-protobuf:$grpcVersion",
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
@@ -427,7 +437,8 @@ project.ext.externalDependency = [
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
     'servletApi': 'jakarta.servlet:jakarta.servlet-api:6.1.0',
     // CVE-2026-23903 / CVE-2026-23901: fixed in Shiro 2.1.0+; CVE-2026-49268 (DefaultLdapRealm LDAP DN injection): 2.2.1+
-    'shiroCore': 'org.apache.shiro:shiro-core:2.2.1',
+    // CVE-2026-56130, CVE-2026-58301, CVE-2026-74762, CVE-2026-129320: fixed in Shiro 3.0.2
+    'shiroCore': 'org.apache.shiro:shiro-core:3.0.2',
     'snakeYaml': 'org.yaml:snakeyaml:2.0',
     'sparkSql' : 'org.apache.spark:spark-sql_2.12:3.5.0',
     'sparkHive' : 'org.apache.spark:spark-hive_2.12:3.5.0',
@@ -779,6 +790,10 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force 'org.apache.thrift:libthrift:0.24.0' // CVE-2026-48586 (TZlibTransport zip-bomb DoS); transitive via jena-arq
     // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
     resolutionStrategy.eachDependency { details ->
+      if (details.requested.group == 'org.apache.kerby') {
+        details.useVersion(rootProject.ext.kerbyVersion)
+        details.because("CVE-2026-57914 (kerby-asn1); keep all kerby/kerb-* modules on ${rootProject.ext.kerbyVersion}")
+      }
       if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {
         details.useTarget(rootProject.ext.externalDependency.lz4Java)
         details.because("CVE-2025-12183, CVE-2026-59949, CVE-2026-106451; align org.lz4:lz4-java to at.yawk fork (${rootProject.ext.lz4JavaVersion})")
@@ -838,6 +853,12 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
           && details.requested.name != 'opentelemetry-api-incubator') {
         details.useVersion(rootProject.ext.openTelemetryVersion)
         details.because("OpenTelemetry aligned to ${rootProject.ext.openTelemetryVersion} for CVE-2026-45292")
+      }
+      // opentelemetry-api-incubator ships on the matching -alpha line. The SDK calls into it, so it must
+      // move with openTelemetryVersion or the SDK hits classes removed from opentelemetry-api.
+      if (details.requested.group == 'io.opentelemetry' && details.requested.name == 'opentelemetry-api-incubator') {
+        details.useVersion("${rootProject.ext.openTelemetryVersion}-alpha")
+        details.because("opentelemetry-api-incubator aligned to ${rootProject.ext.openTelemetryVersion}-alpha to match the SDK")
       }
       if (details.requested.group == 'org.apache.parquet') {
         details.useVersion(rootProject.ext.parquetVersion)
@@ -919,6 +940,45 @@ allprojects {
           !(details.requested.name in ['websocket-api', 'websocket-client', 'websocket-common'])) {
         details.useVersion(rootProject.ext.jettyVersion)
         details.because("Align all Jetty modules to ${rootProject.ext.jettyVersion}")
+      }
+    }
+  }
+}
+
+// With useSystemNode (the CI default), the node plugin runs whatever `node` is on PATH. Fail early,
+// with a fix in the message, if it is missing or on a different major version than nodeVersion,
+// rather than building with whatever the runner image happens to ship.
+if (rootProject.ext.useSystemNode) {
+  def expectedNodeMajor = rootProject.ext.nodeVersion.tokenize('.')[0]
+  def verifySystemNode = tasks.register('verifySystemNode') {
+    group = 'verification'
+    description = "Checks that the Node on PATH is major version ${expectedNodeMajor} (useSystemNode=true)."
+    doLast {
+      String found = null
+      try {
+        def node = providers.exec {
+          commandLine 'node', '--version'
+          ignoreExitValue = true
+        }
+        if (node.result.get().exitValue == 0) {
+          found = node.standardOutput.asText.get().trim()
+        }
+      } catch (Exception ignored) {
+        // node is not on PATH; reported below.
+      }
+      def foundMajor = found?.replaceFirst(/^v/, '')?.tokenize('.')?.getAt(0)
+      if (foundMajor != expectedNodeMajor) {
+        throw new GradleException(
+          "useSystemNode=true needs Node ${expectedNodeMajor}.x on PATH, but found ${found ?: 'no node'}.\n" +
+          "In CI, install it with .github/actions/setup-toolchain (node: true, node-version: '${expectedNodeMajor}').\n" +
+          "Or pass -PuseSystemNode=false to let Gradle download Node ${rootProject.ext.nodeVersion}.")
+      }
+    }
+  }
+  subprojects {
+    pluginManager.withPlugin('com.github.node-gradle.node') {
+      tasks.withType(com.github.gradle.node.task.BaseTask).configureEach {
+        dependsOn verifySystemNode
       }
     }
   }
@@ -1159,6 +1219,8 @@ tasks.register('lintCheck') {
   dependsOn(':metadata-ingestion:lint')
   dependsOn(':datahub-actions:lint')
   dependsOn(':datahub-agent-context:lint')
+  dependsOn(':packages:datahub-core-mcp-tools:lint')
+  dependsOn(':packages:datahub-ai-service:lint')
   dependsOn(':metadata-ingestion-modules:airflow-plugin:lint')
   dependsOn(':metadata-ingestion-modules:gx-plugin:lint')
   dependsOn(':metadata-ingestion-modules:dagster-plugin:lint')
@@ -1181,6 +1243,8 @@ tasks.register('lintFix') {
   dependsOn(':metadata-ingestion:lintFix')
   dependsOn(':datahub-actions:lintFix')
   dependsOn(':datahub-agent-context:lintFix')
+  dependsOn(':packages:datahub-core-mcp-tools:lintFix')
+  dependsOn(':packages:datahub-ai-service:lintFix')
   dependsOn(':metadata-ingestion-modules:airflow-plugin:lintFix')
   dependsOn(':metadata-ingestion-modules:gx-plugin:lintFix')
   dependsOn(':metadata-ingestion-modules:dagster-plugin:lintFix')

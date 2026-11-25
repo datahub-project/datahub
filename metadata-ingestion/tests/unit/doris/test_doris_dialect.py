@@ -1,9 +1,10 @@
 """Unit tests for Doris SQLAlchemy dialect."""
 
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 from unittest.mock import Mock, patch
 
 import pytest
+import sqlglot
 from sqlalchemy.dialects.mysql.base import MySQLDialect
 from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql
 from sqlalchemy.engine import Connection
@@ -14,8 +15,11 @@ from sqlalchemy.exc import (
     SQLAlchemyError,
 )
 from sqlalchemy.sql import sqltypes
+from sqlglot import exp
 
 from datahub.ingestion.source.sql.doris.doris_dialect import (
+    _COLUMN_COMMENTS_SQL,
+    _TABLE_COMMENTS_SQL,
     AGG_STATE,
     BITMAP,
     DORIS_ARRAY,
@@ -28,6 +32,8 @@ from datahub.ingestion.source.sql.doris.doris_dialect import (
     LARGEINT,
     QUANTILE_STATE,
     VARIANT,
+    CommentLookupFailure,
+    CommentLookupFailureKind,
     DorisDialect,
     ReflectionFallback,
     _doris_type_map,
@@ -39,9 +45,11 @@ def _execute_by_query(
     describe_rows: Sequence[Sequence[Any]] = (),
     column_comment_rows: Sequence[Sequence[Any]] = (),
     table_comment_rows: Sequence[Sequence[Any]] = (),
+    table_catalog: Optional[str] = "internal",
 ) -> Callable[..., List[Sequence[Any]]]:
-    """Answer each statement the dialect issues with its own rows. Requires `text`
-    to be patched to pass the SQL string through unchanged."""
+    """Answer each statement the dialect issues with its own rows, each comment row
+    led by `table_catalog` as its TABLE_CATALOG. Requires `text` to be patched to
+    pass the SQL string through unchanged."""
 
     def execute(
         statement: str, params: Optional[Dict[str, Any]] = None
@@ -49,10 +57,36 @@ def _execute_by_query(
         if statement.startswith("DESCRIBE"):
             return list(describe_rows)
         if "information_schema.COLUMNS" in statement:
-            return list(column_comment_rows)
+            return [(table_catalog, *row) for row in column_comment_rows]
         if "information_schema.TABLES" in statement:
-            return list(table_comment_rows)
+            return [(table_catalog, *row) for row in table_comment_rows]
         raise AssertionError(f"Unexpected statement: {statement}")
+
+    return execute
+
+
+def _execute_by_schema(
+    table_schema: str,
+    column_comment_rows: Sequence[Sequence[Any]] = (),
+    table_comment_rows: Sequence[Sequence[Any]] = (),
+    table_catalog: str = "my_catalog",
+) -> Callable[..., List[Sequence[Any]]]:
+    """Like Doris, answer an information_schema query only when the bound schema
+    is the TABLE_SCHEMA its rows are keyed by."""
+    answer = _execute_by_query(
+        column_comment_rows=column_comment_rows,
+        table_comment_rows=table_comment_rows,
+        table_catalog=table_catalog,
+    )
+
+    def execute(
+        statement: str, params: Optional[Dict[str, Any]] = None
+    ) -> List[Sequence[Any]]:
+        if "information_schema" in statement:
+            assert params is not None
+            if params.get("schema") != table_schema:
+                return []
+        return answer(statement, params)
 
     return execute
 
@@ -173,6 +207,8 @@ class TestDorisDialect:
     def test_get_columns_success(self, mock_text):
         """Test get_columns() successfully fetches and parses DESCRIBE output."""
         dialect = DorisDialect()
+        # The mock answers every statement with DESCRIBE rows.
+        dialect.read_comments = False
 
         # Mock connection and result
         mock_connection = Mock()
@@ -454,6 +490,8 @@ class TestDorisDialect:
         """A missing grant degrades the same way an async MV does, but must not be
         reported under the same benign heading."""
         dialect = DorisDialect()
+        # The mock answers every statement with DESCRIBE rows.
+        dialect.read_comments = False
 
         mock_connection = Mock()
         mock_connection.engine.url.database = "my_db"
@@ -477,6 +515,8 @@ class TestDorisDialect:
         """The MySQL DDL parser raises TypeError (not SQLAlchemyError) building
         NullType(*args) for a type it cannot model, so that branch must degrade too."""
         dialect = DorisDialect()
+        # The mock answers every statement with DESCRIBE rows.
+        dialect.read_comments = False
 
         mock_connection = Mock()
         mock_connection.engine.url.database = "my_db"
@@ -500,6 +540,8 @@ class TestDorisDialect:
         """The NullType anchor keeps an unrelated 'takes no arguments' TypeError from
         being waved through under the benign heading."""
         dialect = DorisDialect()
+        # The mock answers every statement with DESCRIBE rows.
+        dialect.read_comments = False
 
         mock_connection = Mock()
         mock_connection.engine.url.database = "my_db"
@@ -752,33 +794,326 @@ class TestDorisComments:
 
         assert table_comment == {"text": "Parsed"}
 
-    @pytest.mark.parametrize("table_schema", ["my_db", "my_catalog.my_db"])
-    def test_external_catalog_matches_bare_and_qualified_database_name(
-        self, mock_text, table_schema
+    @pytest.mark.parametrize(
+        "table_schema,expected_queries",
+        [("my_db", 1), ("my_catalog.my_db", 2)],
+    )
+    # The inspector passes the bare database name while the connection URL carries
+    # `catalog.database`, so the catalog has to come from the URL.
+    @pytest.mark.parametrize("schema", [None, "my_db"])
+    def test_external_catalog_matches_bare_then_qualified_database_name(
+        self, mock_text, table_schema, expected_queries, schema
     ):
         """An external catalog's information_schema rows carry the bare database
-        name, or `catalog.database` when show_full_dbname_in_info_schema_db is on."""
+        name, or `catalog.database` when show_full_dbname_in_info_schema_db is on.
+        The qualified form is only tried when the bare one finds nothing."""
         dialect = DorisDialect()
         mock_connection = Mock()
         mock_connection.engine.url.database = "my_catalog.my_db"
-        describe = _execute_by_query()
+        mock_connection.execute.side_effect = _execute_by_schema(
+            table_schema,
+            column_comment_rows=[("my_table", "col_a", "From the catalog")],
+        )
 
-        # Like Doris, return a row only when its TABLE_SCHEMA is one of the bound values.
+        columns = self._get_columns(dialect, mock_connection, "my_table", schema=schema)
+
+        assert columns[0]["comment"] == "From the catalog"
+        assert (
+            _count_queries(mock_connection, "information_schema.COLUMNS")
+            == expected_queries
+        )
+
+    @pytest.mark.parametrize("sql", [_COLUMN_COMMENTS_SQL, _TABLE_COMMENTS_SQL])
+    def test_comment_filter_is_one_pushable_equality(self, mock_text, sql):
+        """Doris pushes only `TABLE_SCHEMA = <literal>` into the scan; IN, OR or a
+        second predicate makes an external catalog load every remote schema."""
+        select = sqlglot.parse_one(sql, dialect="mysql")
+        where = select.args["where"].this
+        assert isinstance(where, exp.EQ)
+        assert isinstance(where.this, exp.Column)
+        assert where.this.name.upper() == "TABLE_SCHEMA"
+        assert isinstance(where.expression, exp.Placeholder)
+        # Naming the catalog's information_schema costs the push-down.
+        table = select.find(exp.Table)
+        assert table is not None
+        assert table.db.lower() == "information_schema"
+        assert not table.catalog
+
+    def test_another_catalogs_rows_do_not_stop_the_qualified_retry(self, mock_text):
+        """A bare-name hit on a same-named internal database is not a hit for the
+        external catalog, so the qualified name is still tried."""
+        dialect = DorisDialect()
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_catalog.my_db"
+        internal = _execute_by_schema(
+            "my_db",
+            column_comment_rows=[("my_table", "col_a", "Internal table's comment")],
+            table_catalog="internal",
+        )
+        external = _execute_by_schema(
+            "my_catalog.my_db",
+            column_comment_rows=[("my_table", "col_a", "From the catalog")],
+        )
+
         def execute(
             statement: str, params: Optional[Dict[str, Any]] = None
         ) -> List[Sequence[Any]]:
-            if "information_schema.COLUMNS" not in statement:
-                return describe(statement, params)
-            assert params is not None
-            if table_schema not in params.values():
-                return []
-            return [("my_table", "col_a", "From the catalog")]
+            return internal(statement, params) or external(statement, params)
 
         mock_connection.execute.side_effect = execute
 
         columns = self._get_columns(dialect, mock_connection, "my_table")
 
         assert columns[0]["comment"] == "From the catalog"
+        assert dialect.comment_lookup_failures == {}
+        assert dialect.qualified_comment_catalogs == {"my_catalog"}
+
+    @pytest.mark.parametrize("table_catalog", ["internal", None])
+    def test_another_catalogs_rows_do_not_lend_their_comments(
+        self, mock_text, table_catalog
+    ):
+        """Before Doris 2.1 an external catalog has no information_schema, so the
+        internal catalog's answers, including any same-named database's rows."""
+        dialect = DorisDialect()
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_catalog.my_db"
+        mock_connection.execute.side_effect = _execute_by_query(
+            column_comment_rows=[("my_table", "col_a", "Internal table's comment")],
+            table_catalog=table_catalog,
+        )
+
+        columns = self._get_columns(dialect, mock_connection, "my_table")
+
+        assert columns[0]["comment"] is None
+        failures = dialect.pop_comment_lookup_failures()
+        assert list(failures) == ["my_catalog.my_db"]
+        failure = failures["my_catalog.my_db"]
+        assert failure.kind == CommentLookupFailureKind.NOT_SERVED
+        # Names the catalog the rows came from, which says why they were dropped.
+        assert len(failure.errors) == 1
+        assert repr(table_catalog) in failure.errors[0]
+
+    # Views are reflected through get_columns and get_table_comment as well, but
+    # each must catch the empty lookup on its own.
+    @pytest.mark.parametrize(
+        "reflect",
+        [
+            ["get_columns"],
+            ["get_table_comment"],
+            ["get_columns", "get_table_comment"],
+        ],
+    )
+    def test_external_catalog_without_information_schema_rows_is_reported(
+        self, mock_text, reflect
+    ):
+        """Before Doris 2.1, with no same-named internal database, both name forms
+        come back empty. A table is being reflected, so that is reported once rather
+        than leaving the whole catalog silently without descriptions."""
+        dialect = DorisDialect()
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_catalog.my_db"
+        mock_connection.execute.side_effect = _execute_by_query()
+        kw: Dict[str, Any] = {"info_cache": {}}
+
+        with patch.object(
+            MySQLDialect, "get_table_comment", return_value={"text": None}
+        ):
+            for table in ("table_1", "table_2"):
+                if "get_columns" in reflect:
+                    self._get_columns(dialect, mock_connection, table, **kw)
+                if "get_table_comment" in reflect:
+                    dialect.get_table_comment(mock_connection, table, **kw)
+
+        failures = dialect.pop_comment_lookup_failures()
+        assert list(failures) == ["my_catalog.my_db"]
+        assert failures["my_catalog.my_db"].kind == CommentLookupFailureKind.NOT_SERVED
+        assert len(failures["my_catalog.my_db"].errors) == 1
+
+    def test_a_query_error_outranks_missing_rows_and_both_are_kept(self, mock_text):
+        """COLUMNS comes back empty and then TABLES raises: the failure is reported
+        as a query error, with both causes in its context."""
+        dialect = DorisDialect()
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_db"
+        empty = _execute_by_query()
+
+        def execute(
+            statement: str, params: Optional[Dict[str, Any]] = None
+        ) -> List[Sequence[Any]]:
+            if "information_schema.TABLES" in statement:
+                raise ProgrammingError(statement, params, Exception("Query timeout"))
+            return empty(statement, params)
+
+        mock_connection.execute.side_effect = execute
+
+        with patch.object(
+            MySQLDialect, "get_table_comment", return_value={"text": None}
+        ):
+            self._get_columns(dialect, mock_connection, "my_table")
+            dialect.get_table_comment(mock_connection, "my_table")
+
+        failure = dialect.pop_comment_lookup_failures()["my_db"]
+        assert failure.kind == CommentLookupFailureKind.QUERY_FAILED
+        assert len(failure.errors) == 2
+        assert "Query timeout" in failure.errors[1]
+
+    def test_qualified_hit_is_tried_first_for_the_rest_of_the_catalog(self, mock_text):
+        """With show_full_dbname_in_info_schema_db on, a bare-name miss still loads
+        the database's remote metadata, so the next database starts with the form
+        that worked."""
+        qualified_catalogs: Set[str] = set()
+        queries = []
+        for database in ("my_db", "other_db"):
+            dialect = DorisDialect()
+            dialect.qualified_comment_catalogs = qualified_catalogs
+            mock_connection = Mock()
+            mock_connection.engine.url.database = f"my_catalog.{database}"
+            mock_connection.execute.side_effect = _execute_by_schema(
+                f"my_catalog.{database}",
+                column_comment_rows=[("my_table", "col_a", "From the catalog")],
+            )
+
+            columns = self._get_columns(dialect, mock_connection, "my_table")
+
+            assert columns[0]["comment"] == "From the catalog"
+            queries.append(
+                _count_queries(mock_connection, "information_schema.COLUMNS")
+            )
+
+        assert queries == [2, 1]
+
+    def test_failure_keeps_each_distinct_cause_once(self, mock_text):
+        """COLUMNS and TABLES can fail for the same reason; the warning should not
+        repeat it, and a query error decides which warning is shown."""
+        failure = CommentLookupFailure(CommentLookupFailureKind.NOT_SERVED)
+        failure.add(CommentLookupFailureKind.NOT_SERVED, "rows of catalog 'internal'")
+        failure.add(CommentLookupFailureKind.NOT_SERVED, "rows of catalog 'internal'")
+        failure.add(CommentLookupFailureKind.QUERY_FAILED, "Access denied")
+
+        assert failure.kind == CommentLookupFailureKind.QUERY_FAILED
+        assert failure.errors == ["rows of catalog 'internal'", "Access denied"]
+
+    def test_internal_catalog_never_retries_with_qualified_name(self, mock_text):
+        """Outside an external catalog the bare and qualified names are the same, so
+        an empty database costs one query, not two."""
+        dialect = DorisDialect()
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_db"
+        mock_connection.execute.side_effect = _execute_by_query()
+
+        columns = self._get_columns(dialect, mock_connection, "my_table")
+
+        assert columns[2]["comment"] == "Parsed from DDL"
+        assert _count_queries(mock_connection, "information_schema.COLUMNS") == 1
+
+    def _comments_for(
+        self,
+        table_name: str,
+        column_comment_rows: Sequence[Sequence[Any]],
+        table_comment_rows: Sequence[Sequence[Any]],
+    ) -> Tuple[Dict[str, Optional[str]], Any]:
+        dialect = DorisDialect()
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_db"
+        mock_connection.execute.side_effect = _execute_by_query(
+            column_comment_rows=column_comment_rows,
+            table_comment_rows=table_comment_rows,
+        )
+        kw: Dict[str, Any] = {"schema": "my_db", "info_cache": {}}
+
+        with patch.object(
+            MySQLDialect, "get_table_comment", return_value={"text": None}
+        ):
+            columns = self._get_columns(dialect, mock_connection, table_name, **kw)
+            table_comment = dialect.get_table_comment(mock_connection, table_name, **kw)
+        return {col["name"]: col["comment"] for col in columns}, table_comment
+
+    def test_comment_names_match_case_insensitively_when_exact_match_misses(
+        self, mock_text
+    ):
+        """A reflected name may differ in case from information_schema's. An exact
+        match wins even when a case variant comes first."""
+        comments, table_comment = self._comments_for(
+            "my_table",
+            column_comment_rows=[
+                ("My_Table", "COL_A", "Case differs"),
+                ("My_Table", "COL_B", "Case differs, loses to exact"),
+                ("My_Table", "col_b", "Exact"),
+            ],
+            table_comment_rows=[("MY_TABLE", "Table comment")],
+        )
+
+        assert comments["col_a"] == "Case differs"
+        assert comments["col_b"] == "Exact"
+        assert table_comment == {"text": "Table comment"}
+
+    def test_exact_table_name_wins_over_a_case_variant(self, mock_text):
+        comments, table_comment = self._comments_for(
+            "my_table",
+            column_comment_rows=[
+                ("MY_TABLE", "col_a", "Variant table"),
+                ("my_table", "col_a", "Exact table"),
+            ],
+            table_comment_rows=[("MY_TABLE", "Variant"), ("my_table", "Exact")],
+        )
+
+        assert comments["col_a"] == "Exact table"
+        assert table_comment == {"text": "Exact"}
+
+    def test_uncommented_name_does_not_borrow_a_case_variants_comment(self, mock_text):
+        """With case-sensitive names, an uncommented `my_table` next to a commented
+        `MY_TABLE` is a different table, not a case mismatch."""
+        comments, table_comment = self._comments_for(
+            "my_table",
+            column_comment_rows=[
+                ("my_table", "col_a", ""),
+                ("my_table", "col_b", ""),
+                ("my_table", "COL_B", "Belongs to COL_B"),
+                ("MY_TABLE", "col_a", "Belongs to MY_TABLE"),
+            ],
+            table_comment_rows=[("my_table", ""), ("MY_TABLE", "Belongs to MY_TABLE")],
+        )
+
+        assert comments["col_a"] is None
+        assert comments["col_b"] is None
+        assert table_comment == {"text": None}
+
+    def test_ambiguous_case_insensitive_match_resolves_to_nothing(self, mock_text):
+        comments, table_comment = self._comments_for(
+            "My_Table",
+            column_comment_rows=[
+                ("my_table", "col_a", "Lower"),
+                ("MY_TABLE", "col_a", "Upper"),
+            ],
+            table_comment_rows=[("my_table", "Lower"), ("MY_TABLE", "Upper")],
+        )
+
+        assert comments["col_a"] is None
+        assert table_comment == {"text": None}
+
+    def test_failed_qualified_retry_keeps_columns_and_is_recorded(self, mock_text):
+        dialect = DorisDialect()
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_catalog.my_db"
+        bare = _execute_by_schema("my_db")
+
+        def execute(
+            statement: str, params: Optional[Dict[str, Any]] = None
+        ) -> List[Sequence[Any]]:
+            if params == {"schema": "my_catalog.my_db"}:
+                raise SQLAlchemyError("Access denied")
+            return bare(statement, params)
+
+        mock_connection.execute.side_effect = execute
+
+        columns = self._get_columns(dialect, mock_connection, "my_table")
+
+        assert columns[2]["comment"] == "Parsed from DDL"
+        failures = dialect.pop_comment_lookup_failures()
+        assert list(failures) == ["my_catalog.my_db"]
+        assert failures["my_catalog.my_db"].kind == (
+            CommentLookupFailureKind.QUERY_FAILED
+        )
 
     @pytest.mark.parametrize(
         "error",
@@ -790,12 +1125,17 @@ class TestDorisComments:
             ),
         ],
     )
-    def test_failed_lookup_keeps_columns_and_is_recorded_once(self, mock_text, error):
+    # A raised bare-name query is not a miss, so an external catalog does not go on
+    # to try the qualified name either.
+    @pytest.mark.parametrize("database", ["my_db", "my_catalog.my_db"])
+    def test_failed_lookup_keeps_columns_and_is_recorded_once(
+        self, mock_text, error, database
+    ):
         """A missing information_schema grant costs descriptions, not tables, and
         is not retried for every table in the database."""
         dialect = DorisDialect()
         mock_connection = Mock()
-        mock_connection.engine.url.database = "my_db"
+        mock_connection.engine.url.database = database
         describe = _execute_by_query()
 
         def execute(
@@ -806,7 +1146,7 @@ class TestDorisComments:
             return describe(statement, params)
 
         mock_connection.execute.side_effect = execute
-        kw: Dict[str, Any] = {"schema": "my_db", "info_cache": {}}
+        kw: Dict[str, Any] = {"info_cache": {}}
 
         first = self._get_columns(dialect, mock_connection, "table_1", **kw)
         self._get_columns(dialect, mock_connection, "table_2", **kw)
@@ -815,8 +1155,9 @@ class TestDorisComments:
         assert first[2]["comment"] == "Parsed from DDL"
         assert _count_queries(mock_connection, "information_schema") == 1
         failures = dialect.pop_comment_lookup_failures()
-        assert list(failures) == ["my_db"]
-        assert "Access denied" in failures["my_db"]
+        assert list(failures) == [database]
+        assert failures[database].kind == CommentLookupFailureKind.QUERY_FAILED
+        assert len(failures[database].errors) == 1
         assert dialect.comment_lookup_failures == {}
 
     def test_lost_connection_during_lookup_keeps_the_table(self, mock_text):
@@ -924,3 +1265,13 @@ class TestDorisComments:
 
         assert columns[0]["comment"] is None
         assert _count_queries(mock_connection, "information_schema") == 0
+
+    def test_names_are_matched_by_lower_casing_like_doris(self, mock_text):
+        """casefold() would match `strasse` to `straße`; Doris' toLowerCase does not."""
+        _, table_comment = self._comments_for(
+            "strasse",
+            column_comment_rows=[],
+            table_comment_rows=[("straße", "Another table")],
+        )
+
+        assert table_comment == {"text": None}

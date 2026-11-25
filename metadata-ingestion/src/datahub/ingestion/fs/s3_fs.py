@@ -82,7 +82,7 @@ class S3FileSystem(FileSystem):
         return S3FileSystem(**kwargs)
 
     def open(self, path: str, **kwargs: Any) -> Any:
-        transport_params = kwargs.update({"client": self.s3})
+        transport_params = {**kwargs, "client": self.s3}
         return smart_open.open(path, mode="rb", transport_params=transport_params)
 
     def file_status(self, path: str) -> FileInfo:

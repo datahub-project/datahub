@@ -171,6 +171,31 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
 
 ### Authorization Architecture
 
+A metadata policy has three parts, and policies are OR'd. One matching policy grants the
+operation. See [Policies](docs/authorization/policies.md).
+
+- **Resource filter** (`resources.filter`): which assets. A tag or domain criterion selects assets
+  that have that tag or domain. It is not a list of sub-resources the actor may edit.
+- **Privilege**: the operation. An entity update is **Edit Entity**, or **Manage Documents** on
+  documents. **Edit Entity Properties** covers every structured property. **Edit Entity Tags**
+  covers tags. A column is authorized on the parent dataset or on the schema field itself with
+  **Edit Entity** or **Edit Dataset Column Properties**. Create uses **Create Entity** when the
+  asset does not exist yet. Delete uses **Delete Entity**.
+- **Sub-resource list** (`privilegeConstraints`): which tags or structured properties that policy
+  may change when the action names them. No list means the privilege applies in full. An action
+  that names no sub-resource is not filtered by the list. A list of tag URNs allows only those
+  tags. A list of property URNs allows only those properties. `TYPE` equals `structuredProperty`
+  matches every structured property. A second policy with no list still grants in full.
+
+The validator sees the real diff and is the precise check. The ingest gate and GraphQL resolvers
+are coarse: they accept the same privilege set and must not deny a write the validator would
+allow. For aspects that carry tags or structured properties they pass a wildcard sub-resource so a
+list is decided by the validator, and both pick create, update or delete with
+`AuthUtil.subResourceWriteOperation`. A form prompt checks that the answer matches the prompt. An
+assigned user can answer without the property privilege: the value is written as the system actor
+and the audit stamp stays the caller. A user who is not assigned is authorized as the caller.
+Authorization failures are authorization results (403), not validation errors.
+
 When adding an entity or API:
 
 - Enforce authorization across GraphQL, OpenAPI, and Rest.li
@@ -475,7 +500,12 @@ Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start
 ### Docker-free stack
 
 Run `scripts/dev/datahub-dev.sh start --local` with JDK 25 to launch GMS on H2,
-in-memory queues and a shared OpenSearch 3 node. Use `--processes N` for isolated
+in-memory queues and a shared OpenSearch node. Select `--opensearch 2|3`; new stacks
+use `EMBEDDED_OPENSEARCH_VERSION` or `embeddedOpenSearchDefault` in root `gradle.properties`
+(currently 3). Restarts retain the recorded major; changing it requires `--fresh`.
+Unmarked legacy stacks retain 3. Each major uses `~/.datahub/local/opensearch-<major>/`;
+never use the unversioned `~/.datahub/local/opensearch/` directory. Status shows the
+major, and cleanup follows it. Use `--processes N` for isolated
 GMS instances, `--fresh` to reset this stack's data, `--auth` / `--no-auth` to enable
 or disable auth (omitting both keeps the recorded setting), and `--skip-build`
 to require existing artifacts (built jars are reused automatically).
@@ -508,15 +538,17 @@ See [scripts/dev/README.md](scripts/dev/README.md) for details and offline tests
 
 ### Module-to-Container Mapping
 
-| Source directory                  | Container                                     |
-| --------------------------------- | --------------------------------------------- |
-| `metadata-service/`               | `datahub-gms`                                 |
-| `datahub-graphql-core/`           | `datahub-gms`                                 |
-| `metadata-io/`                    | `datahub-gms`                                 |
-| `datahub-frontend/`               | `datahub-frontend-react`                      |
-| `metadata-jobs/mce-consumer-job/` | `datahub-mce-consumer`                        |
-| `metadata-jobs/mae-consumer-job/` | `datahub-mae-consumer`                        |
-| `metadata-models/`                | All (triggers full rebuild + code generation) |
+| Source directory                   | Container                                     |
+| ---------------------------------- | --------------------------------------------- |
+| `metadata-service/`                | `datahub-gms`                                 |
+| `datahub-graphql-core/`            | `datahub-gms`                                 |
+| `metadata-io/`                     | `datahub-gms`                                 |
+| `datahub-frontend/`                | `datahub-frontend-react`                      |
+| `packages/datahub-ai-service/`     | `datahub-ai-service`                          |
+| `packages/datahub-core-mcp-tools/` | `datahub-ai-service`                          |
+| `metadata-jobs/mce-consumer-job/`  | `datahub-mce-consumer`                        |
+| `metadata-jobs/mae-consumer-job/`  | `datahub-mae-consumer`                        |
+| `metadata-models/`                 | All (triggers full rebuild + code generation) |
 
 ### Environment Variables
 

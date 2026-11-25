@@ -96,6 +96,7 @@
     "searchActions.glossaryTerms.addTitle": "Legg til begreper",
     "searchActions.glossaryTerms.name": "Begreper",
     "searchActions.glossaryTerms.removeTitle": "Fjern begreper",
+    "searchActions.noSelection": "Velg minst én Asset for å bruke denne handlingen.",
     "searchActions.notSupported": "Denne handlingen støttes ikke for de valgte typene.",
     "searchActions.owners.addTitle": "Legg til eiere",
     "searchActions.owners.removeTitle": "Fjern eiere",

@@ -15,7 +15,10 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.DocumentSourceType;
+import com.linkedin.datahub.graphql.generated.DocumentState;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsResult;
 import com.linkedin.datahub.graphql.generated.SearchFlags;
@@ -37,11 +40,13 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.QueryEmbeddingException;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
 import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
@@ -651,6 +656,9 @@ public class SearchDocumentsResolverTest {
   public void testUnpublishedDocumentShownToGroupMember() throws Exception {
     QueryContext mockContext =
         getMockAllowContext(OTHER_USER_URN, ImmutableList.of(UrnUtils.getUrn(TEST_GROUP_URN)));
+    // The resolver derives a context that carries the anchor filter, which needs an active actor
+    when(mockContext.getOperationContext().getSessionActorContext().isActive(any(), any()))
+        .thenReturn(true);
     when(mockEnv.getContext()).thenReturn(mockContext);
     when(mockEnv.getArgument(eq("input"))).thenReturn(input);
 
@@ -733,6 +741,50 @@ public class SearchDocumentsResolverTest {
     assertTrue(everyClauseHasDomain, "View domain filter should be applied to all filter clauses");
   }
 
+  /**
+   * A similarity anchor the query names must be a document these results could show, so the
+   * resolver records the visibility rule on its own: without the caller's criteria, states, or
+   * view, and with the ownership clauses unless the viewer can manage documents.
+   */
+  @Test
+  public void testHoldsASimilarityAnchorToTheVisibilityRule() throws Exception {
+    input.setTypes(ImmutableList.of("tutorial"));
+    input.setStates(ImmutableList.of(DocumentState.UNPUBLISHED));
+    input.setViewUrn(TEST_VIEW_URN);
+    when(mockViewService.getViewInfo(
+            any(OperationContext.class), eq(UrnUtils.getUrn(TEST_VIEW_URN))))
+        .thenReturn(createViewWithDomainFilter(TEST_DOMAIN_URN));
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    QueryContext manager = getMockAllowContext(TEST_USER_URN);
+    QueryContext viewer = getMockDenyContext(TEST_USER_URN);
+
+    for (QueryContext context : List.of(manager, viewer)) {
+      when(mockEnv.getContext()).thenReturn(context);
+      resolver.get(mockEnv).get();
+    }
+
+    ArgumentCaptor<OperationContext> searching = ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockService, times(2))
+        .searchDocuments(
+            searching.capture(),
+            any(String.class),
+            any(),
+            any(),
+            any(Integer.class),
+            any(Integer.class),
+            nullable(List.class),
+            nullable(com.linkedin.metadata.query.SearchFlags.class));
+    assertEquals(
+        searching.getAllValues().stream()
+            .map(context -> context.getSearchContext().getAnchorFilter())
+            .collect(Collectors.toList()),
+        List.of(
+            DocumentSearchFilterUtils.buildCombinedFilter(
+                List.of(), List.of(TEST_USER_URN), true, true),
+            DocumentSearchFilterUtils.buildCombinedFilter(
+                List.of(), List.of(TEST_USER_URN), true, false)));
+  }
+
   @Test
   public void testSearchDocumentsWithoutViewUrnDoesNotResolveView() throws Exception {
     QueryContext mockContext = getMockAllowContext();
@@ -770,6 +822,94 @@ public class SearchDocumentsResolverTest {
             any());
 
     assertEquals(facetsCaptor.getValue(), ImmutableList.of("domains"));
+  }
+
+  @Test
+  public void testANamedTemplateThatCannotEmbedTheQueryFailsWithItsReason() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    SearchFlags flags = new SearchFlags();
+    flags.setSearchTemplate("urn:li:searchTemplate:semantic");
+    input.setSearchFlags(flags);
+    when(mockService.searchDocuments(
+            any(OperationContext.class),
+            any(String.class),
+            any(),
+            any(),
+            any(Integer.class),
+            any(Integer.class),
+            nullable(List.class),
+            nullable(com.linkedin.metadata.query.SearchFlags.class)))
+        .thenThrow(embeddingFailure(QueryEmbeddingException.TIMEOUT));
+
+    CompletionException failure =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    // As on searchAcrossEntities: a timeout is an exceeded deadline, naming the reason
+    assertTrue(failure.getCause() instanceof DataHubGraphQLException, failure.toString());
+    DataHubGraphQLException typed = (DataHubGraphQLException) failure.getCause();
+    assertEquals(typed.errorCode(), DataHubGraphQLErrorCode.DEADLINE_EXCEEDED);
+    assertTrue(typed.getMessage().contains(QueryEmbeddingException.TIMEOUT));
+  }
+
+  @Test
+  public void testTheKeywordFallbackSearchesAgainWithoutTheNamedTemplate() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    SearchFlags flags = new SearchFlags();
+    flags.setSearchTemplate("urn:li:searchTemplate:semantic");
+    flags.setKeywordFallbackOnEmbeddingFailure(true);
+    flags.setMinSimilarity(0.7f);
+    input.setSearchFlags(flags);
+    SearchResult keyword = new SearchResult();
+    keyword.setFrom(0);
+    keyword.setPageSize(10);
+    keyword.setNumEntities(1);
+    keyword.setEntities(
+        new SearchEntityArray(
+            ImmutableList.of(new SearchEntity().setEntity(UrnUtils.getUrn(TEST_DOCUMENT_URN)))));
+    keyword.setMetadata(new SearchResultMetadata());
+    when(mockService.searchDocuments(
+            any(OperationContext.class),
+            any(String.class),
+            any(),
+            any(),
+            any(Integer.class),
+            any(Integer.class),
+            nullable(List.class),
+            nullable(com.linkedin.metadata.query.SearchFlags.class)))
+        .thenThrow(embeddingFailure(QueryEmbeddingException.REJECTED))
+        .thenReturn(keyword);
+
+    SearchDocumentsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal(), 1);
+    assertEquals(result.getDocuments().size(), 1);
+    ArgumentCaptor<com.linkedin.metadata.query.SearchFlags> applied =
+        ArgumentCaptor.forClass(com.linkedin.metadata.query.SearchFlags.class);
+    verify(mockService, times(2))
+        .searchDocuments(
+            any(OperationContext.class),
+            eq("test query"),
+            any(),
+            any(),
+            eq(0),
+            eq(10),
+            isNull(),
+            applied.capture());
+    // The same search without the named template, with the caller's other flags
+    assertTrue(applied.getAllValues().get(0).hasSearchTemplate());
+    assertFalse(applied.getAllValues().get(1).hasSearchTemplate());
+    assertEquals(applied.getAllValues().get(1).getMinSimilarity(), Float.valueOf(0.7f));
+  }
+
+  /** How a vector rung that could not embed the query fails the search below the resolver. */
+  private static RuntimeException embeddingFailure(String reason) {
+    return new SearchTemplateFailClosedException(
+        "Search template urn:li:searchTemplate:semantic failed to retrieve by vector",
+        new QueryEmbeddingException(reason, null));
   }
 
   @Test

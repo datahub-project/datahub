@@ -23,6 +23,7 @@ class DatasetSubTypes(StrEnum):
     QLIK_DATASET = "Qlik Dataset"
     QLIK_TABLE = "Qlik Table"
     QLIK_QVD = "QVD"
+    QLIK_APP_FILE = "Qlik App File"
     GRAFANA_DATASET = "Grafana Dataset"
     QUICKSIGHT_DATASET = "Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
@@ -94,6 +95,7 @@ class DatasetContainerSubTypes(StrEnum):
     # A BigQuery Sharing linked dataset: a read-only pointer into another project.
     BIGQUERY_LINKED_DATASET = "Linked Dataset"
     DATABRICKS_METASTORE = "Metastore"
+    DATABRICKS_VOLUME = "Volume"
     FOLDER = "Folder"
     S3_BUCKET = "S3 bucket"
     AWS_ACCOUNT = "AWS Account"

@@ -158,6 +158,9 @@
     "users.ssoTitle": "設定單一登入（SSO）",
     "welcome.docsLink": "DataHub 文件",
     "welcome.getStarted": "開始使用",
+    "welcome.githubRepoDescription": "適用於資料與 AI 技術堆疊的詮釋資料平台",
+    "welcome.githubStargazers": "加入為 DataHub 加上星號的 {{stars}} 位開發人員",
+    "welcome.githubStargazersNoCount": "加入為 DataHub 加上星號的開發人員行列",
     "welcome.loadingVideo": "正在載入影片...",
     "welcome.modalTitle": "歡迎使用 DataHub",
     "welcome.slideDocsDescription": "省下大量人工作業時間，同時提升可探索性",
@@ -168,6 +171,8 @@
     "welcome.slideImpactTitle": "從容管理破壞性變更",
     "welcome.slideLineageDescription": "完整了解資料如何建立與轉換的來龍去脈",
     "welcome.slideLineageTitle": "了解資料的源頭",
+    "welcome.slideGithubDescription": "如果 DataHub 對你的團隊有幫助，在 GitHub 上為它加上星號，也能幫助其他資料團隊發現它。",
+    "welcome.slideGithubTitle": "喜歡你看到的內容嗎？",
     "welcome.slideReadyDescription": "探索我們完整的說明文件，或直接開始探索你的資料",
     "welcome.slideReadyTitle": "準備好開始了嗎？"
 }

@@ -114,12 +114,17 @@ task checkLockFile(type: Exec, dependsOn: installPackageOnly) {
   inputs.file file('uv.lock')
   inputs.file file('constraints.txt')
   outputs.file(sentinel_file)
+  // Compare pins only (name==version, markers dropped). uv releases write the
+  // same environment markers in different forms (uv 0.13.9 simplified several),
+  // so a text diff fails for whoever runs a different uv than the one that
+  // generated the file. `uv lock --check` above already validates the markers.
+  def pinsOnly = { String path -> "<(grep -E '^[A-Za-z0-9]' ${path} | sed 's/ ;.*//')" }
   commandLine 'bash', '-c',
     venv_activate_command +
     "python scripts/verify_pyproject_equivalence.py && " +
     "uv lock --check && " +
     "uv export --format requirements-txt --no-hashes --all-extras --no-emit-project -o /tmp/constraints-check.txt && " +
-    "diff <(grep -v '^#' constraints.txt) <(grep -v '^#' /tmp/constraints-check.txt) && " +
+    "diff ${pinsOnly('constraints.txt')} ${pinsOnly('/tmp/constraints-check.txt')} && " +
     "python scripts/check_wheel_coverage.py && " +
     "touch ${sentinel_file}"
 }

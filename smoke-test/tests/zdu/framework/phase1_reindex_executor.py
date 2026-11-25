@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Callable
 
 from .context import TestContext, ValidationResult
@@ -11,18 +12,25 @@ from .scenario_loader import ZDUTestScenario
 log = logging.getLogger(__name__)
 
 # Required per-alias keys in the parsed indicesState (from MySQL flat-dotted
-# shape, see ``upgrade_blocking._parse_flat_indices_state``). ``taskId`` is
-# intentionally optional — ``BuildIndicesIncrementalStep`` only emits it for
-# real reindexes (non-empty source). ``oldBackingIndexName`` is intentionally
-# absent — never observed in real-stack output.
-_REQUIRED_INDICES_STATE_KEYS = (
+# shape, see ``upgrade_blocking._parse_flat_indices_state``). Under Search V3
+# an index leaves the blocking phase on one of two paths, each with its own
+# keys: a populated index is copied by ``_reindex``, while an empty one is
+# planned as a fill from primary storage (``BACKFILL_PENDING``) that the
+# non-blocking phase completes.
+_COMMON_INDICES_STATE_KEYS = (
     "status",
     "nextIndexName",
     "sourceDocCount",
     "requiresDataBackfill",
     "reindexStartTime",
-    "reindexCompleteTime",
 )
+_REINDEX_PATH_KEYS = ("taskId", "reindexCompleteTime")
+_FILL_PATH_KEYS = ("backfillTargetIndex", "backfillStartTime")
+_FILL_STATUSES = frozenset({"BACKFILL_PENDING", "BACKFILL_IN_PROGRESS"})
+# A V2 entity index, physical or alias: ``datasetindex_v2``,
+# ``datasetindex_v2_<ts>``. Non-entity indices (``graph_service_v1``,
+# ``dataset_operationaspect_v1``) do not match.
+_V2_ENTITY_INDEX = re.compile(r"index_v2(_|$)")
 
 
 class Phase1ReindexExecutor:
@@ -38,6 +46,14 @@ class Phase1ReindexExecutor:
                 expected_to_fail=True,
                 actual_result="Expected failure on this stack",
                 failure_reason=scenario.skip_reason,
+            )
+        if scenario.skip_reason:
+            return ValidationResult(
+                tc_number=scenario.tc_number,
+                name=scenario.name,
+                status="SKIP",
+                expected_to_fail=False,
+                actual_result=scenario.skip_reason,
             )
         validator = _VALIDATORS.get(scenario.tc_number)
         if validator is None:
@@ -57,38 +73,54 @@ class Phase1ReindexExecutor:
 def _validate_single_index_reindex(
     scenario: ZDUTestScenario, ctx: TestContext
 ) -> ValidationResult:
-    """TC-101 — observed reindex set must exactly match ``expected_reindex_indices``.
+    """TC-101 — every index that held documents at T0 is reindexed.
 
-    Catches both missing-reindex (production regression) and unexpected-
-    reindex (over-reindexing). The expected set is hand-curated in the
-    scenario; the discipline of keeping it in sync with PDL diffs is enforced
-    by code review on ``scenarios.py``.
+    Search V3 entity indices share one root mapping, so the fixture's mapping
+    diff reaches every index and every index is rebuilt. A populated index
+    must be copied by ``_reindex``, and a reindex task must never run on an
+    empty source.
+
+    Expected comes from the ES doc counts captured at T0; observed comes from
+    the per-alias upgrade state in MySQL. An index empty at T0 may still be
+    reindexed: background GMS writers (execution requests, step state) can
+    add its first docs while the blocking upgrade runs. Those are reported,
+    not failed.
     """
     classified = _classify_reindexes(ctx)
-    if classified is None:
+    if classified is None or ctx.upgrade_blocking is None:
         return _skip_no_data(scenario)
-    if scenario.expected_reindex_indices is None:
+    if ctx.snapshot_t0 is None or not ctx.snapshot_t0.alias_doc_counts:
         return ValidationResult(
             tc_number=scenario.tc_number,
             name=scenario.name,
             status="SKIP",
             expected_to_fail=False,
             actual_result=(
-                "TC-101 has no expected_reindex_indices configured — set it "
-                "in scenarios.py to enable input-driven validation"
+                "No alias doc counts captured at T0 — snapshot_t0 skipped or "
+                "its alias lookup failed"
             ),
         )
-    observed = frozenset(classified[0])
-    expected = scenario.expected_reindex_indices
-    missing = expected - observed
-    unexpected = observed - expected
-    if not missing and not unexpected:
+    t0_counts = ctx.snapshot_t0.alias_doc_counts
+    # Every alias with docs at T0, including any the upgrade never processed.
+    expected = {alias for alias, count in t0_counts.items() if count > 0}
+    observed = classified[0]
+    missing = sorted(expected - observed)
+    empty_source_copies = sorted(
+        state.alias
+        for state in ctx.upgrade_blocking.indices
+        if state.task_id and state.source_doc_count == 0
+    )
+    populated_after_t0 = sorted(observed - expected)
+    if not missing and not empty_source_copies:
         return ValidationResult(
             tc_number=scenario.tc_number,
             name=scenario.name,
             status="PASS",
             expected_to_fail=False,
-            actual_result=(f"Reindex set matches: {sorted(observed)}"),
+            actual_result=(
+                f"All {len(expected)} index(es) populated at T0 were reindexed; "
+                f"populated after T0 and also reindexed: {populated_after_t0}"
+            ),
         )
     return ValidationResult(
         tc_number=scenario.tc_number,
@@ -96,49 +128,49 @@ def _validate_single_index_reindex(
         status="FAIL",
         expected_to_fail=False,
         actual_result=(
-            f"observed={sorted(observed)}, expected={sorted(expected)}, "
-            f"missing={sorted(missing)}, unexpected={sorted(unexpected)}"
+            f"missing={missing} (had docs at T0, not reindexed), "
+            f"empty_source_copies={empty_source_copies} (reindex task on 0 docs)"
         ),
-        failure_reason=("Observed reindex set diverges from expected_reindex_indices"),
+        failure_reason=(
+            "A populated index was not reindexed, or a reindex task ran on an "
+            "empty source"
+        ),
     )
 
 
-def _validate_unchanged_indices(
+def _validate_no_v2_indices(
     scenario: ZDUTestScenario, ctx: TestContext
 ) -> ValidationResult:
-    """TC-102 — every captured alias swap NOT in TC-101's expected set must
-    be a no-op (empty ``next_index_name``).
+    """TC-102 — the retired V2 entity indices are not created or rebuilt.
 
-    Proves the inverse of TC-101: indices whose mappings did NOT change were
-    not subjected to a real reindex. Reads the expected-reindex set from
-    TC-101's scenario, looked up via ``ctx.all_scenarios``.
+    Search V3 is the default with V2 off, so the upgrade must build only
+    ``_v3`` entity indices. A V2 index appearing after the upgrade, or a V2
+    alias in the upgrade state, means the legacy index builder ran.
     """
-    classified = _classify_reindexes(ctx)
-    if classified is None:
+    if ctx.upgrade_blocking is None or ctx.snapshot_t1 is None:
         return _skip_no_data(scenario)
-    expected_reindex = _lookup_expected_reindex_indices(ctx)
-    if expected_reindex is None:
+    if not ctx.snapshot_t1.index_names:
         return ValidationResult(
             tc_number=scenario.tc_number,
             name=scenario.name,
             status="SKIP",
             expected_to_fail=False,
-            actual_result=(
-                "TC-101's expected_reindex_indices not available — "
-                "TC-102 depends on it (was TC-101 filtered out of the run?)"
-            ),
+            actual_result="No index listing captured at T1",
         )
-    real, no_op = classified
-    violations = sorted(real - expected_reindex)
-    if not violations:
-        clean = sorted(no_op - expected_reindex)
+    v2_indices = sorted(
+        name for name in ctx.snapshot_t1.index_names if _V2_ENTITY_INDEX.search(name)
+    )
+    processed = [state.alias for state in ctx.upgrade_blocking.indices]
+    non_v3 = sorted(alias for alias in processed if not alias.endswith("index_v3"))
+    if not v2_indices and not non_v3:
         return ValidationResult(
             tc_number=scenario.tc_number,
             name=scenario.name,
             status="PASS",
             expected_to_fail=False,
             actual_result=(
-                f"All {len(clean)} non-expected alias swap(s) were no-ops: {clean}"
+                f"No V2 entity indices after upgrade; all {len(processed)} "
+                f"processed aliases are _v3"
             ),
         )
     return ValidationResult(
@@ -146,10 +178,74 @@ def _validate_unchanged_indices(
         name=scenario.name,
         status="FAIL",
         expected_to_fail=False,
-        actual_result=f"Unexpected real reindex(es): {violations}",
+        actual_result=(
+            f"v2_indices_present={v2_indices}, non_v3_aliases_processed={non_v3}"
+        ),
+        failure_reason="The upgrade created or rebuilt a retired V2 entity index",
+    )
+
+
+def _validate_settings_only_update(
+    scenario: ZDUTestScenario, ctx: TestContext
+) -> ValidationResult:
+    """TC-103 — a dynamic settings change is applied in place, with no reindex.
+
+    The settings-only upgrade changes only ``refresh_interval``. Every index
+    populated in the main upgrade must log an in-place settings update to the
+    new value, ES must report that value on it, and no reindex task may run.
+    """
+    run = ctx.upgrade_settings_only
+    classified = _classify_reindexes(ctx)
+    if run is None or classified is None:
+        return ValidationResult(
+            tc_number=scenario.tc_number,
+            name=scenario.name,
+            status="SKIP",
+            expected_to_fail=False,
+            actual_result="upgrade_settings_only or upgrade_blocking did not run",
+        )
+    desired = run.desired_refresh_interval
+    populated = sorted(classified[0])
+    not_updated = [
+        alias for alias in populated if run.settings_updated.get(alias) != desired
+    ]
+    es_mismatch = [
+        f"{alias}={run.es_refresh_intervals.get(alias)}"
+        for alias in populated
+        if run.es_refresh_intervals.get(alias) != desired
+    ]
+    if not populated:
+        return ValidationResult(
+            tc_number=scenario.tc_number,
+            name=scenario.name,
+            status="FAIL",
+            expected_to_fail=False,
+            actual_result="No populated index from the main upgrade to check",
+            failure_reason="Nothing to observe: the main upgrade reindexed no index",
+        )
+    if not not_updated and not es_mismatch and not run.reindex_tasks:
+        return ValidationResult(
+            tc_number=scenario.tc_number,
+            name=scenario.name,
+            status="PASS",
+            expected_to_fail=False,
+            actual_result=(
+                f"{len(populated)} populated index(es) updated in place to "
+                f"refresh_interval={desired}, no reindex task"
+            ),
+        )
+    return ValidationResult(
+        tc_number=scenario.tc_number,
+        name=scenario.name,
+        status="FAIL",
+        expected_to_fail=False,
+        actual_result=(
+            f"not_updated_in_place={not_updated}, es_mismatch={es_mismatch}, "
+            f"reindex_tasks={sorted(run.reindex_tasks)}"
+        ),
         failure_reason=(
-            "Indices outside TC-101's expected_reindex_indices copied data "
-            "(non-zero sourceDocCount), i.e. took the real reindex path"
+            "A dynamic settings change was not applied in place, or it "
+            "triggered a reindex"
         ),
     )
 
@@ -157,77 +253,77 @@ def _validate_unchanged_indices(
 def _validate_empty_source_noop(
     scenario: ZDUTestScenario, ctx: TestContext
 ) -> ValidationResult:
-    """TC-104 — at least one processed alias took the empty-source no-op path.
+    """TC-104 — empty indices are planned as a fill from primary storage.
 
-    Signal: the alias was swapped onto a newly created index but no data was
-    copied (``sourceDocCount=0``, no reindex task). When the MySQL raw payload
-    is available, cross-check ``sourceDocCount=0`` and ``status=COMPLETED``
-    on the same aliases.
+    Under Search V3 an empty index that needs a rebuild is not swapped as a
+    no-op. The blocking phase plans a fill into the next index and marks it
+    ``BACKFILL_PENDING``; the non-blocking phase completes it. Checks, per
+    empty alias in the blocking-phase state: a fill status, no copied docs,
+    and a fill target equal to the next index.
     """
     classified = _classify_reindexes(ctx)
     if classified is None:
         return _skip_no_data(scenario)
-    no_op_swaps = sorted(classified[1])
-    if not no_op_swaps:
+    empty_aliases = sorted(classified[1])
+    if not empty_aliases:
         return ValidationResult(
             tc_number=scenario.tc_number,
             name=scenario.name,
             status="FAIL",
             expected_to_fail=False,
             actual_result=(
-                f"No empty-source no-op swaps observed; "
-                f"real={sorted(classified[0])}, swaps={_alias_swaps(ctx)}"
+                f"No empty-source index observed; real={sorted(classified[0])}"
             ),
             failure_reason=(
-                "Expected at least one alias to take the empty-source no-op "
-                "path (swapped with sourceDocCount=0, no reindex task)"
+                "Expected at least one empty index to be planned as a fill"
             ),
         )
-    if ctx.upgrade_blocking and ctx.upgrade_blocking.raw:
-        raw_violations: list[str] = []
-        for alias in no_op_swaps:
-            entry = ctx.upgrade_blocking.raw.get(alias)
-            if not isinstance(entry, dict):
-                continue
-            if entry.get("sourceDocCount", 0) != 0:
-                raw_violations.append(
-                    f"{alias}: sourceDocCount={entry.get('sourceDocCount')}"
-                )
-            if entry.get("status") != "COMPLETED":
-                raw_violations.append(f"{alias}: status={entry.get('status')}")
-        if raw_violations:
-            return ValidationResult(
-                tc_number=scenario.tc_number,
-                name=scenario.name,
-                status="FAIL",
-                expected_to_fail=False,
-                actual_result=f"Empty-source path violations: {raw_violations}",
-                failure_reason=(
-                    "MySQL indicesState contradicts the empty-source no-op log"
-                ),
+    raw = (ctx.upgrade_blocking.raw if ctx.upgrade_blocking else None) or {}
+    violations: list[str] = []
+    for alias in empty_aliases:
+        entry = raw.get(alias)
+        if not isinstance(entry, dict):
+            violations.append(f"{alias}: no indicesState entry")
+            continue
+        if entry.get("status") not in _FILL_STATUSES:
+            violations.append(f"{alias}: status={entry.get('status')}")
+        if entry.get("sourceDocCount", 0) != 0:
+            violations.append(f"{alias}: sourceDocCount={entry.get('sourceDocCount')}")
+        if entry.get("backfillTargetIndex") != entry.get("nextIndexName"):
+            violations.append(
+                f"{alias}: backfillTargetIndex={entry.get('backfillTargetIndex')} "
+                f"!= nextIndexName={entry.get('nextIndexName')}"
             )
+    if violations:
+        return ValidationResult(
+            tc_number=scenario.tc_number,
+            name=scenario.name,
+            status="FAIL",
+            expected_to_fail=False,
+            actual_result=f"Fill path violations: {violations}",
+            failure_reason="An empty index was not planned as a fill into its next index",
+        )
     return ValidationResult(
         tc_number=scenario.tc_number,
         name=scenario.name,
         status="PASS",
         expected_to_fail=False,
-        actual_result=f"{len(no_op_swaps)} empty-source no-op swap(s): {no_op_swaps}",
+        actual_result=(
+            f"{len(empty_aliases)} empty index(es) planned as fills: {empty_aliases}"
+        ),
     )
 
 
 def _validate_mixed_reindex(
     scenario: ZDUTestScenario, ctx: TestContext
 ) -> ValidationResult:
-    """TC-106 — both real reindex and no-op alias swaps observed in same run.
+    """TC-106 — both paths observed in the same run.
 
-    The blocking phase iterates over all index aliases. With G19a/G19b PDLs
-    only ``dashboardindex_v2`` has a mapping diff vs. master HEAD, so it
-    reindexes; the other indices that get processed (schemafield, corpgroup
-    in the captured run) have 0 source docs and exercise the
-    "empty-source no-op alias swap" path. Observing both within a single
-    SystemUpdateBlocking invocation is the "mixed" invariant: the upgrade
-    job correctly classifies each index by need and skips reindex when
-    appropriate.
+    Under Search V3 every index is rebuilt: populated indices are copied by
+    ``_reindex`` and empty ones are planned as fills from primary storage.
+    Observing both within a single SystemUpdateBlocking invocation shows the
+    upgrade job classifies each index by its source and only copies data
+    when there is some.
     """
     classified = _classify_reindexes(ctx)
     if classified is None:
@@ -347,88 +443,15 @@ def _validate_multi_index_all_reindex(
     )
 
 
-def _validate_settings_only_update(
-    scenario: ZDUTestScenario, ctx: TestContext
-) -> ValidationResult:
-    """TC-103 — every expected index appears in
-    ``ctx.upgrade_blocking.indices_updated_in_place``.
-
-    Asserts that production took the in-place mapping update path
-    (``ESIndexBuilder.updateMappingsInPlace``) for the named indices — i.e.,
-    new mapping fields were added but no full reindex was triggered
-    (``ReindexConfig.isPureMappingsAddition`` is true). Cross-checks against
-    ``alias_swaps_observed``: the same indices must NOT appear there with a
-    non-empty new_index_name (which would indicate a real reindex instead).
-    """
-    if ctx.upgrade_blocking is None:
-        return _skip_no_data(scenario)
-    if scenario.expected_in_place_update_indices is None:
-        return ValidationResult(
-            tc_number=scenario.tc_number,
-            name=scenario.name,
-            status="SKIP",
-            expected_to_fail=False,
-            actual_result=(
-                "expected_in_place_update_indices not configured on this scenario"
-            ),
-        )
-    expected = scenario.expected_in_place_update_indices
-    observed = frozenset(ctx.upgrade_blocking.indices_updated_in_place)
-    missing = expected - observed
-    if missing:
-        return ValidationResult(
-            tc_number=scenario.tc_number,
-            name=scenario.name,
-            status="FAIL",
-            expected_to_fail=False,
-            actual_result=(
-                f"Expected in-place update missing for: {sorted(missing)} "
-                f"(observed in-place updates: {sorted(observed)})"
-            ),
-            failure_reason=(
-                "Production did not take the in-place mapping update path "
-                "for the named indices — either no diff was detected, or the "
-                "diff routed through the reindex+swap path instead"
-            ),
-        )
-    # Cross-check: none of the expected in-place indices should ALSO have taken
-    # the real reindex path. If one did, production took both paths somehow —
-    # surface as a FAIL. Keyed on copied-data rather than on a non-empty
-    # next_index_name, for the reason described in ``_classify_reindexes``.
-    classified = _classify_reindexes(ctx)
-    real_reindexes = classified[0] if classified else set()
-    swap_violations = sorted(expected & real_reindexes)
-    if swap_violations:
-        return ValidationResult(
-            tc_number=scenario.tc_number,
-            name=scenario.name,
-            status="FAIL",
-            expected_to_fail=False,
-            actual_result=(
-                f"Indices took BOTH paths (in-place update + reindex swap): "
-                f"{sorted(swap_violations)}"
-            ),
-            failure_reason="Expected in-place-only, but real reindex also fired",
-        )
-    return ValidationResult(
-        tc_number=scenario.tc_number,
-        name=scenario.name,
-        status="PASS",
-        expected_to_fail=False,
-        actual_result=(
-            f"{len(expected)} index(es) took the in-place mapping update path: "
-            f"{sorted(expected)} (total observed: {len(observed)})"
-        ),
-    )
-
-
 def _validate_doc_count_preservation(
     scenario: ZDUTestScenario, ctx: TestContext
 ) -> ValidationResult:
     """TC-109 — no index loses docs across the upgrade.
 
     Asserts ``t1_count >= t0_count`` for every alias in
-    ``ctx.snapshot_t0.doc_counts``. ``t1 > t0`` is allowed because the
+    ``ctx.snapshot_t0.alias_doc_counts``. Counts are by alias because under
+    Search V3 the T0 physical index is retired by the reindex, and counting
+    it again would never see the live index. ``t1 > t0`` is allowed because the
     snapshot phases don't force ES refresh + Kafka MCL drain before
     capturing — some seed-emitted writes may land in ES *after* t0 but
     before t1, inflating t1 counts harmlessly. ``t1 < t0`` is the real
@@ -456,8 +479,16 @@ def _validate_doc_count_preservation(
             expected_to_fail=False,
             actual_result="snapshot_t1 not captured",
         )
-    t0 = ctx.snapshot_t0.doc_counts
-    t1 = ctx.snapshot_t1.doc_counts
+    t0 = ctx.snapshot_t0.alias_doc_counts
+    t1 = ctx.snapshot_t1.alias_doc_counts
+    if not t0:
+        return ValidationResult(
+            tc_number=scenario.tc_number,
+            name=scenario.name,
+            status="SKIP",
+            expected_to_fail=False,
+            actual_result="No alias doc counts captured at T0",
+        )
     losses: dict[str, tuple[int, int]] = {}
     for name, t0_count in t0.items():
         if name not in t1:
@@ -612,7 +643,12 @@ def _validate_rerun_completed(
 def _validate_state_shape(
     scenario: ZDUTestScenario, ctx: TestContext
 ) -> ValidationResult:
-    """TC-107 (was TC-108) — every per-alias entry has the required keys."""
+    """TC-107 (was TC-108) — every per-alias entry has the keys for its path.
+
+    A reindexed entry (copied docs or a task id) needs ``taskId`` and
+    ``reindexCompleteTime``; a fill entry needs its fill target and start
+    time instead, since the non-blocking phase finishes it.
+    """
     if ctx.upgrade_blocking is None or not ctx.upgrade_blocking.raw:
         return ValidationResult(
             tc_number=scenario.tc_number,
@@ -627,9 +663,13 @@ def _validate_state_shape(
     missing_per_alias: dict[str, list[str]] = {}
     for alias, entry in ctx.upgrade_blocking.raw.items():
         if not isinstance(entry, dict):
-            missing_per_alias[alias] = list(_REQUIRED_INDICES_STATE_KEYS)
+            missing_per_alias[alias] = list(_COMMON_INDICES_STATE_KEYS)
             continue
-        missing = [k for k in _REQUIRED_INDICES_STATE_KEYS if k not in entry]
+        reindexed = entry.get("sourceDocCount", 0) > 0 or bool(entry.get("taskId"))
+        required = _COMMON_INDICES_STATE_KEYS + (
+            _REINDEX_PATH_KEYS if reindexed else _FILL_PATH_KEYS
+        )
+        missing = [k for k in required if k not in entry]
         if missing:
             missing_per_alias[alias] = missing
     if missing_per_alias:
@@ -649,27 +689,18 @@ def _validate_state_shape(
         status="PASS",
         expected_to_fail=False,
         actual_result=(
-            f"All {len(ctx.upgrade_blocking.raw)} per-alias entries have all "
-            f"{len(_REQUIRED_INDICES_STATE_KEYS)} required keys"
+            f"All {len(ctx.upgrade_blocking.raw)} per-alias entries have the "
+            f"required keys for their path"
         ),
     )
 
 
-def _alias_swaps(ctx: TestContext) -> list[tuple[str, str]] | None:
-    """Returns ``ctx.upgrade_blocking.alias_swaps_observed`` or None when
-    Phase 4 didn't run / didn't capture.
-    """
-    if ctx.upgrade_blocking is None:
-        return None
-    return list(ctx.upgrade_blocking.alias_swaps_observed)
-
-
 def _classify_reindexes(ctx: TestContext) -> tuple[set[str], set[str]] | None:
-    """Split the processed aliases into ``(real_reindex, no_op_swap)``.
+    """Split the processed aliases into ``(real_reindex, empty_source)``.
 
-    "Real" means data was actually copied; "no-op" means the alias was still
-    repointed at a freshly created index (so new code reads the new mappings)
-    but no ``_reindex`` ran because the source held no documents.
+    "Real" means data was actually copied; "empty source" means no
+    ``_reindex`` ran because the source held no documents. Under Search V3
+    those empty indices are planned as fills from primary storage (TC-104).
 
     Classification reads ``ctx.upgrade_blocking.indices``, i.e. the
     ``DataHubUpgradeResult.indicesState`` persisted in MySQL, and keys on
@@ -715,16 +746,6 @@ def _classify_reindexes(ctx: TestContext) -> tuple[set[str], set[str]] | None:
     return real, no_op
 
 
-def _lookup_expected_reindex_indices(
-    ctx: TestContext,
-) -> frozenset[str] | None:
-    """Read TC-101's ``expected_reindex_indices`` from the runner-cached list."""
-    for s in ctx.all_scenarios:
-        if getattr(s, "tc_number", None) == 101:
-            return getattr(s, "expected_reindex_indices", None)
-    return None
-
-
 def _skip_no_data(scenario: ZDUTestScenario) -> ValidationResult:
     return ValidationResult(
         tc_number=scenario.tc_number,
@@ -740,7 +761,7 @@ def _skip_no_data(scenario: ZDUTestScenario) -> ValidationResult:
 
 _VALIDATORS: dict[int, Callable[[ZDUTestScenario, TestContext], ValidationResult]] = {
     101: _validate_single_index_reindex,
-    102: _validate_unchanged_indices,
+    102: _validate_no_v2_indices,
     103: _validate_settings_only_update,
     104: _validate_empty_source_noop,
     105: _validate_multi_index_all_reindex,

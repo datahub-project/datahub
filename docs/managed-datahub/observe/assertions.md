@@ -1,6 +1,6 @@
 # Assertions
 
-An assertion is **a data quality test that finds data that violates a specified rule.** Assertions serve as the building blocks of [Data Contracts](/docs/managed-datahub/observe/data-contract.md) – this is how we verify the contract is met.
+An assertion is **a data quality test that finds data that violates a specified rule.**
 
 DataHub Cloud Observe supports assertions on any platform that ingests the required metadata into DataHub. There are two ways an assertion can be evaluated:
 
@@ -101,11 +101,11 @@ You can integrate 3rd party tools as follows:
 - [ODCS](/docs/generated/ingestion/sources/odcs.md#quality-rule-mapping)
 - [Custom Assertions](../../api/tutorials/custom-assertions.md)
 
-If you opt for a 3rd party tool, it will be your responsibility to ensure the assertions are run based on the Data Contract spec stored in DataHub. With 3rd party runners, you can get the Assertion Change events by subscribing to our Kafka topic using the [DataHub Actions Framework](/docs/actions/README.md).
+If you opt for a 3rd party tool, it will be your responsibility to ensure the assertions are run. With 3rd party runners, you can get the Assertion Change events by subscribing to our Kafka topic using the [DataHub Actions Framework](/docs/actions/README.md).
 
 ## Alerts
 
-Beyond the ability to see the results of the assertion checks (and result history) both on the asset's page in the DataHub UI and via the DataHub API, you can also get notified via [Slack messages](/docs/managed-datahub/slack/saas-slack-setup.md) (DMs or to a team channel) based on your [subscription](https://youtu.be/VNNZpkjHG_I?t=79) to an assertion run event, or when an [incident](../../incidents/incidents.md) is raised or resolved. In the future, we'll also provide the ability to subscribe directly to contracts.
+Beyond the ability to see the results of the assertion checks (and result history) both on the asset's page in the DataHub UI and via the DataHub API, you can also get notified via [Slack messages](/docs/managed-datahub/slack/saas-slack-setup.md) (DMs or to a team channel) based on your [subscription](https://youtu.be/VNNZpkjHG_I?t=79) to an assertion run event, or when an [incident](../../incidents/incidents.md) is raised or resolved.
 
 <p align="center">
   <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/assertions/slack-assertions-rich-alert.png"/>

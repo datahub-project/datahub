@@ -32,6 +32,8 @@ from _opensearch_manager import (  # noqa: E402
     OpenSearchHealthTimeout,
     SharedOpenSearchManager,
     delete_prefixes,
+    ensure_data_major,
+    selected_major,
     wait_for_ready,
 )
 from _opensearch_manager import (  # noqa: E402
@@ -56,6 +58,106 @@ def hold_port(connection: Connection) -> None:
 
 
 class LauncherSafetyTest(unittest.TestCase):
+    def test_selected_major_pins_gms_and_upgrade_environment(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            for major in ("2", "3"):
+                with self.subTest(major=major):
+                    env = stack.instance_env(
+                        {
+                            "ELASTICSEARCH_SHIM_ENGINE_TYPE": "AUTO_DETECT",
+                            "ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED": "wrong",
+                        },
+                        "gms-0",
+                        8090,
+                        9200,
+                        directory,
+                        stack.load_credentials(directory),
+                        True,
+                        major,
+                    )
+                    self.assertEqual(
+                        env["ELASTICSEARCH_SHIM_ENGINE_TYPE"], f"OPENSEARCH_{major}"
+                    )
+                    self.assertEqual(env["ELASTICSEARCH_SHIM_AUTO_DETECT"], "false")
+                    self.assertEqual(
+                        env["ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED"],
+                        "true" if major == "3" else "false",
+                    )
+
+    def test_default_comes_from_build_and_invalid_override_fails(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            expected = next(
+                line.split("=", 1)[1]
+                for line in (stack.REPO_ROOT / "gradle.properties")
+                .read_text()
+                .splitlines()
+                if line.startswith("embeddedOpenSearchDefault=")
+            )
+            self.assertEqual(selected_major(), expected)
+        with patch.dict(os.environ, {"EMBEDDED_OPENSEARCH_VERSION": "4"}):
+            with self.assertRaises(ValueError):
+                selected_major()
+
+    def test_stack_major_is_persistent_and_switch_requires_fresh(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary) / "stack"
+            directory.mkdir()
+            (directory / ".gms-lite").touch()
+            with self.assertRaisesRegex(SystemExit, "--fresh"):
+                with stack.data_directory(directory, False, "2"):
+                    pass
+            with stack.data_directory(directory, False, "3"):
+                self.assertEqual(
+                    (directory / "opensearch-major").read_text().strip(), "3"
+                )
+            with stack.data_directory(directory, True, "2", private_opensearch=True):
+                self.assertEqual(
+                    (directory / "opensearch-major").read_text().strip(), "2"
+                )
+
+    def test_fresh_major_switch_cleans_previous_shared_node_before_reset(self) -> None:
+        for private in (False, True):
+            with (
+                self.subTest(private=private),
+                tempfile.TemporaryDirectory() as temporary,
+                patch.object(stack, "SharedOpenSearchManager") as manager,
+                patch.object(stack, "delete_prefixes") as delete,
+            ):
+                directory = Path(temporary) / "stack"
+                directory.mkdir()
+                (directory / ".gms-lite").touch()
+                version = directory / "opensearch-major"
+                version.write_text("3\n")
+                (directory / "gms-2").mkdir()
+                manager.return_value.get_or_start.return_value = 9200
+
+                def clean(port: int, prefixes: list[str]) -> None:
+                    self.assertEqual(version.read_text().strip(), "3")
+                    self.assertTrue((directory / "gms-2").exists())
+                    self.assertEqual(port, 9200)
+                    self.assertEqual(
+                        prefixes,
+                        sorted(
+                            stack.index_prefix(directory, f"gms-{i}") for i in range(3)
+                        ),
+                    )
+
+                delete.side_effect = clean
+                with stack.data_directory(
+                    directory, True, "2", processes=2, private_opensearch=private
+                ):
+                    self.assertEqual(version.read_text().strip(), "2")
+                    self.assertFalse((directory / "gms-2").exists())
+                if private:
+                    manager.assert_not_called()
+                    delete.assert_not_called()
+                else:
+                    manager.assert_called_once_with(
+                        Path.home() / ".datahub/local/opensearch-3", major="3"
+                    )
+                    delete.assert_called_once()
+
     def test_frontend_port_cannot_overlap_gms(self) -> None:
         with (
             patch.object(
@@ -140,6 +242,7 @@ class LauncherSafetyTest(unittest.TestCase):
                     directory,
                     stack.load_credentials(directory),
                     True,
+                    "3",
                 )
             env = stack.instance_env(
                 stack.read_env_file(env_file),
@@ -149,6 +252,7 @@ class LauncherSafetyTest(unittest.TestCase):
                 directory,
                 stack.load_credentials(directory),
                 True,
+                "3",
             )
             other = stack.instance_env(
                 {},
@@ -158,6 +262,7 @@ class LauncherSafetyTest(unittest.TestCase):
                 directory,
                 stack.load_credentials(directory),
                 True,
+                "3",
             )
             self.assertEqual(env["POLICY_CACHE_REFRESH_INTERVAL_SECONDS"], "10")
             self.assertEqual(env["SERVER_PORT"], "8090")
@@ -234,8 +339,16 @@ class LauncherSafetyTest(unittest.TestCase):
                 parents.pop()
             parents.append((len(indent), key))
             names = tuple(re.findall(r"\$\{([A-Z_0-9]+):", value))
+            path = ".".join(key for _, key in parents)
+            # Bedrock keeps the host region. The line still names AWS_REGION, which the
+            # search-cluster and pgCron entries clear, so it would otherwise match here.
+            if path == (
+                "elasticsearch.entityIndex.semanticSearch"
+                ".embeddingProvider.bedrock.awsRegion"
+            ):
+                continue
             if placeholders.intersection(names):
-                found[".".join(key for _, key in parents)] = names
+                found[path] = names
         expected = {
             path: names
             for path, (names, _) in stack.SEARCH_CONNECTION_PROPERTIES.items()
@@ -392,6 +505,31 @@ def get_shared(directory: str, connection: Connection) -> None:
 
 
 class SharedOpenSearchSafetyTest(unittest.TestCase):
+    def test_data_markers_prevent_cross_major_reuse(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            ensure_data_major(directory, "2")
+            with self.assertRaises(RuntimeError):
+                ensure_data_major(directory, "3")
+            (directory / "opensearch-major").unlink()
+            (directory / "data").mkdir()
+            with self.assertRaises(RuntimeError):
+                ensure_data_major(directory, "2")
+            ensure_data_major(directory, "3")
+
+    def test_reserved_directory_is_refused_without_reading_it(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as temporary,
+            patch.dict(os.environ, {"HOME": temporary}),
+        ):
+            reserved = Path(temporary) / ".datahub/local/opensearch"
+            for action in ("status", "get_or_start", "stop"):
+                with self.assertRaises(ValueError):
+                    getattr(SharedOpenSearchManager(reserved, major="2"), action)()
+            self.assertFalse(reserved.exists())
+            with self.assertRaises(ValueError):
+                SharedOpenSearchManager(reserved.with_name("opensearch-3"), major="2")
+
     def test_concurrent_get_or_start_starts_exactly_once(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             connections = [multiprocessing.Pipe() for _ in range(2)]
@@ -423,7 +561,7 @@ class SharedOpenSearchSafetyTest(unittest.TestCase):
             root = Path(temporary)
             script = (
                 root
-                / "metadata-service/opensearch-embedded/build/install/opensearch-embedded/bin/opensearch-embedded"
+                / "metadata-service/opensearch-embedded/build/install/opensearch-embedded-os3/bin/opensearch-embedded"
             )
             script.parent.mkdir(parents=True)
             script.write_text(
@@ -433,7 +571,7 @@ class SharedOpenSearchSafetyTest(unittest.TestCase):
             script.chmod(0o700)
             state = root / "state"
             state.mkdir()
-            manager = SharedOpenSearchManager(state, root)
+            manager = SharedOpenSearchManager(state, root, major="3")
             popen = subprocess.Popen
             children: list[subprocess.Popen[str]] = []
 
@@ -482,7 +620,7 @@ class SharedOpenSearchSafetyTest(unittest.TestCase):
 
     def test_unrelated_pid_is_never_signalled_or_replaced(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
-            manager = SharedOpenSearchManager(Path(temporary))
+            manager = SharedOpenSearchManager(Path(temporary), major="3")
             manager.pid_file.write_text(str(os.getpid()))
             manager.port_file.write_text("12345")
             with patch("_opensearch_manager.os.kill") as kill:
@@ -509,14 +647,14 @@ class SharedOpenSearchSafetyTest(unittest.TestCase):
                 root = Path(temporary)
                 script = (
                     root
-                    / "metadata-service/opensearch-embedded/build/install/opensearch-embedded/bin/opensearch-embedded"
+                    / "metadata-service/opensearch-embedded/build/install/opensearch-embedded-os3/bin/opensearch-embedded"
                 )
                 script.parent.mkdir(parents=True)
                 script.write_text("#!/bin/sh\n")
                 script.chmod(0o700)
                 state = root / "state"
                 state.mkdir()
-                manager = SharedOpenSearchManager(state, root)
+                manager = SharedOpenSearchManager(state, root, major="3")
                 manager.health_timeout_seconds = 0.1
                 manager.READY_TIMEOUT_SECONDS = 0.1
                 version = "2.19.1" if outcome == "wrong_version" else "3.6.0"
@@ -579,7 +717,7 @@ class SharedOpenSearchSafetyTest(unittest.TestCase):
                 self.subTest(response=response),
                 tempfile.TemporaryDirectory() as temporary,
             ):
-                manager = SharedOpenSearchManager(Path(temporary))
+                manager = SharedOpenSearchManager(Path(temporary), major="3")
                 manager.pid_file.write_text("123")
                 manager.port_file.write_text("12345")
 
@@ -616,7 +754,7 @@ class SharedOpenSearchSafetyTest(unittest.TestCase):
 
     def test_other_major_is_refused_before_replacement(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
-            manager = SharedOpenSearchManager(Path(temporary))
+            manager = SharedOpenSearchManager(Path(temporary), major="3")
             manager.pid_file.write_text("123")
             manager.port_file.write_text("12345")
             with (
@@ -637,7 +775,7 @@ class SharedOpenSearchSafetyTest(unittest.TestCase):
     def test_dead_or_refused_node_is_replaced_with_data_retained(self) -> None:
         for alive in (False, True):
             with self.subTest(alive=alive), tempfile.TemporaryDirectory() as temporary:
-                manager = SharedOpenSearchManager(Path(temporary))
+                manager = SharedOpenSearchManager(Path(temporary), major="3")
                 manager.pid_file.write_text("123")
                 manager.port_file.write_text("12345")
                 data = manager.shared_dir / "data"
@@ -667,7 +805,7 @@ class SharedOpenSearchSafetyTest(unittest.TestCase):
                 self.subTest(recovers=recovers),
                 tempfile.TemporaryDirectory() as temporary,
             ):
-                manager = SharedOpenSearchManager(Path(temporary))
+                manager = SharedOpenSearchManager(Path(temporary), major="3")
                 manager.health_timeout_seconds = 10
                 manager.pid_file.write_text("123")
                 manager.port_file.write_text("12345")
@@ -702,7 +840,9 @@ class SharedOpenSearchSafetyTest(unittest.TestCase):
     def test_launcher_shutdown_leaves_shared_node_outside_owned_children(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             args = argparse.Namespace(
-                private_opensearch=False, shared_opensearch_dir=Path(temporary)
+                private_opensearch=False,
+                shared_opensearch_dir=Path(temporary),
+                opensearch="3",
             )
             processes = stack.Processes()
             with patch.object(stack, "SharedOpenSearchManager") as manager:

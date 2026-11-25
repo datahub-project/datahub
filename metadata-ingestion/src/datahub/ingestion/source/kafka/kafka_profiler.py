@@ -58,6 +58,7 @@ from datahub.metadata.schema_classes import (
     UnionTypeClass,
     ValueFrequencyClass,
 )
+from datahub.utilities.urns.field_paths import KEY_FIELD_PATH_MARKER
 
 logger = logging.getLogger(__name__)
 
@@ -303,7 +304,7 @@ class KafkaProfiler:
                 # Look for field with [key=True] annotation and the matching base name
                 for schema_field in schema_metadata.fields:
                     if (
-                        "[key=True]" in schema_field.fieldPath
+                        KEY_FIELD_PATH_MARKER in schema_field.fieldPath
                         and clean_field_path(schema_field.fieldPath) == base_field_name
                     ):
                         return schema_field.fieldPath
@@ -318,7 +319,7 @@ class KafkaProfiler:
             key_schema_fields = [
                 schema_field
                 for schema_field in schema_metadata.fields
-                if "[key=True]" in schema_field.fieldPath
+                if KEY_FIELD_PATH_MARKER in schema_field.fieldPath
             ]
 
             # If we found exactly one key field, use its full fieldPath
@@ -340,7 +341,7 @@ class KafkaProfiler:
         if schema_metadata and schema_metadata.fields:
             for schema_field in schema_metadata.fields:
                 # Skip key fields when looking for regular field matches
-                if "[key=True]" in schema_field.fieldPath:
+                if KEY_FIELD_PATH_MARKER in schema_field.fieldPath:
                     continue
 
                 if clean_field_path(schema_field.fieldPath) == clean_sample:

@@ -43,7 +43,9 @@ public final class BoundMembershipAccess {
       int start,
       int count,
       boolean includeSoftDelete) {
-    if (relationshipTypes.isEmpty() || count <= 0) {
+    // count == 0 is a totals-only page: the group hover asks for the member total and no members.
+    // A negative count is not a read.
+    if (relationshipTypes.isEmpty() || count < 0) {
       return MembershipNeighborResult.fromNeighbors(List.of(), 0);
     }
     if (shouldUseCache(opContext, spec, includeSoftDelete)) {

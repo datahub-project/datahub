@@ -52,12 +52,6 @@ class ZDUTestScenario:
     # ``_source``. ``None`` (the default) opts the scenario out of Dim-4
     # validation; an empty list opts in but asserts no specific fields.
     expected_es_fields: list[str] | None = None
-    # Suite B (phase1_reindex) — set of ES index aliases that MUST appear as
-    # real reindexes after SystemUpdateBlocking. The set is the authoritative
-    # expectation: TC-101 asserts observed == this set; TC-102 asserts every
-    # OTHER captured alias swap was a no-op. ``None`` opts the scenario out
-    # of input-driven validation.
-    expected_reindex_indices: frozenset[str] | None = None
     # Suite B (phase1_reindex) — minimum number of aliases that must appear
     # in ``ctx.upgrade_blocking.raw`` with ``requiresDataBackfill=true`` AND
     # ``status="COMPLETED"``. Used by TC-105 to assert "multiple indices
@@ -65,14 +59,6 @@ class ZDUTestScenario:
     # nextIndexName-non-empty (0-doc source still counts here). ``None``
     # opts the scenario out.
     min_real_reindex_count: int | None = None
-    # Suite B (phase1_reindex) — set of ES index aliases that MUST appear in
-    # ``ctx.upgrade_blocking.indices_updated_in_place`` (captured from the
-    # ``Updating index <name> mappings in place`` log line). Used by TC-103
-    # to assert the upgrade took the in-place mapping update path for the
-    # named indices — i.e., new mapping fields were added but no full
-    # reindex was needed (``isPureMappingsAddition=true``). ``None`` opts
-    # the scenario out.
-    expected_in_place_update_indices: frozenset[str] | None = None
 
 
 class ScenarioLoader:

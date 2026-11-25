@@ -126,6 +126,77 @@ public class OpenSearch2KnnQueryBuilderTest {
   }
 
   @Test
+  public void testOrGroupsNextToRequiredClausesBecomeOneRequiredKnnClause() {
+    // Two OR groups next to the latest-version clause, as ESUtils builds them.
+    Map<String, Object> versionGuard = Map.of("term", Map.of("isLatest", true));
+    Map<String, Object> groupA =
+        Map.of(
+            "bool", Map.of("filter", List.of(Map.of("term", Map.of("urn", "urn:li:document:a")))));
+    Map<String, Object> groupB =
+        Map.of(
+            "bool", Map.of("filter", List.of(Map.of("term", Map.of("urn", "urn:li:document:b")))));
+    Map<String, Object> filterClause =
+        Map.of(
+            "bool",
+            Map.of(
+                "must",
+                List.of(versionGuard),
+                "should",
+                List.of(groupA, groupB),
+                "minimum_should_match",
+                "1"));
+    KnnSearchRequest req =
+        KnnSearchRequest.builder()
+            .indexName("documentindex_v2_semantic")
+            .vectorField(VECTOR_FIELD)
+            .queryVector(new float[] {0.1f, 0.2f})
+            .k(5)
+            .filter(filterClause)
+            .build();
+
+    Map<String, Object> body = OpenSearch2KnnQueryBuilder.build(req);
+
+    assertEquals(
+        extractKnnParams(body, VECTOR_FIELD).get("filter"),
+        Map.of(
+            "bool",
+            Map.of(
+                "must",
+                List.of(versionGuard),
+                "filter",
+                List.of(
+                    Map.of(
+                        "bool",
+                        Map.of("should", List.of(groupA, groupB), "minimum_should_match", "1"))))));
+  }
+
+  @Test
+  public void testOptionalShouldNextToRequiredClausesIsLeftAsIs() {
+    // Without minimum_should_match these should clauses only score; requiring them would change
+    // which documents match.
+    Map<String, Object> filterClause =
+        Map.of(
+            "bool",
+            Map.of(
+                "must",
+                List.of(Map.of("term", Map.of("platform", "snowflake"))),
+                "should",
+                List.of(Map.of("term", Map.of("typeNames", "Table")))));
+    KnnSearchRequest req =
+        KnnSearchRequest.builder()
+            .indexName("datasetindex_v2_semantic")
+            .vectorField(VECTOR_FIELD)
+            .queryVector(new float[] {0.1f, 0.2f})
+            .k(5)
+            .filter(filterClause)
+            .build();
+
+    Map<String, Object> body = OpenSearch2KnnQueryBuilder.build(req);
+
+    assertEquals(extractKnnParams(body, VECTOR_FIELD).get("filter"), filterClause);
+  }
+
+  @Test
   public void testNoFilterWhenNotProvided() {
     Map<String, Object> body = OpenSearch2KnnQueryBuilder.build(baseRequest());
 

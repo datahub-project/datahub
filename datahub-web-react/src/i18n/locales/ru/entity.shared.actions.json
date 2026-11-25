@@ -6,6 +6,7 @@
     "addDataProductError": "Не удалось добавить ассеты в дата-продукт. Произошла неизвестная ошибка.",
     "addDataProductModalTitle": "Добавить ассеты в дата-продукт",
     "addDataProductTooltip": "Добавить ассеты в дата-продукт",
+    "addDataProductUnauthorized": "Нет прав на добавление ассетов в этот дата-продукт",
     "addDomainError": "Не удалось добавить ассеты в домен: {{error}}",
     "addDomainModalTitle": "Добавить ассеты в домен",
     "addDomainTooltip": "Добавить ассеты в домен",

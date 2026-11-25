@@ -29,6 +29,7 @@ from datahub.configuration.common import (
     Filters,
     HiddenFromDocs,
     Qualifier,
+    SupportedSources,
 )
 from datahub.configuration.env_vars import get_bigquery_schema_parallelism
 from datahub.configuration.source_common import (
@@ -53,7 +54,10 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.profiling.config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import (
+    ProfilingConfig,
+    coerce_profiling_config_instance,
+)
 from datahub.ingestion.source.sql.sql_config import (
     SQLCommonConfig,
     SQLFilterConfig,
@@ -116,6 +120,15 @@ _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
 
 
 class BigQueryProfilingConfig(ProfilingConfig):
+    # Redeclared with Annotated[...] so schema_extra.supported_sources survives
+    # on the subclass -- a plain redeclaration drops it.
+    use_sampling: Annotated[bool, SupportedSources(["bigquery"])] = Field(
+        # On by default here, unlike the shared config: BigQuery implements sampling.
+        default=True,
+        description="Whether to profile column level stats on a sample of the table rather "
+        "than all of it. Smaller tables are not sampled.",
+    )
+
     fallback_partition_values: Dict[str, Union[str, int, float]] = Field(
         default_factory=dict,
         description="Fallback values for partition columns when partition discovery fails. Keys are column "
@@ -777,13 +790,7 @@ class BigQueryV2Config(
     @field_validator("profiling", mode="before")
     @classmethod
     def coerce_profiling_config(cls, v: object) -> object:
-        # A code caller may pass a ProfilingConfig instance rather than a YAML dict.
-        # Re-validating it as the BigQueryProfilingConfig subclass runs ProfilingConfig's
-        # inherited before-validators, which assume a dict and raise on a model instance;
-        # dump it back to a dict so re-validation runs on plain data.
-        if isinstance(v, ProfilingConfig):
-            return v.dict()
-        return v
+        return coerce_profiling_config_instance(v)
 
     pushdown_deny_usernames: List[str] = Field(
         default=[],
