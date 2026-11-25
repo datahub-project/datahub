@@ -1,17 +1,23 @@
 package com.linkedin.gms.factory.clientwrite;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertThrows;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -27,21 +33,32 @@ public class ClientWriteTrackingFilterTest {
     AuthenticationContext.remove();
   }
 
+  /** Served under a GMS base path, which Spring Boot exposes as the context path. */
   private static MockHttpServletRequest ingestRequest() {
     MockHttpServletRequest request = new MockHttpServletRequest("POST", "/gms/aspects");
+    request.setContextPath("/gms");
+    request.setServletPath("/aspects");
     request.setQueryString("action=ingestProposal");
     request.addHeader("X-DataHub-Py-Cli-Version", "1.8.0");
     return request;
   }
 
-  @Test
-  public void testRecordsWriteWithAuthenticatedActor() throws Exception {
+  private static void authenticateAs(String userId) {
     AuthenticationContext.setAuthentication(
-        new Authentication(new Actor(ActorType.USER, "svc_loader"), ""));
+        new Authentication(new Actor(ActorType.USER, userId), ""));
+  }
+
+  private static FilterChain respondingWith(int status) {
+    return (request, response) -> ((HttpServletResponse) response).setStatus(status);
+  }
+
+  @Test
+  public void testRecordsAcceptedWriteWithAuthenticatedActor() throws Exception {
+    authenticateAs("svc_loader");
     ClientWriteRecorder recorder = mock(ClientWriteRecorder.class);
     MockFilterChain chain = new MockFilterChain();
 
-    new ClientWriteTrackingFilter(recorder, "/gms", SYSTEM_ACTOR)
+    new ClientWriteTrackingFilter(recorder, SYSTEM_ACTOR)
         .doFilter(ingestRequest(), new MockHttpServletResponse(), chain);
 
     verify(recorder).record(any(ClientWrite.class), eq("urn:li:corpuser:svc_loader"), eq(false));
@@ -49,13 +66,45 @@ public class ClientWriteTrackingFilterTest {
   }
 
   @Test
+  public void testSystemActorIsFlagged() throws Exception {
+    authenticateAs("__datahub_system");
+    ClientWriteRecorder recorder = mock(ClientWriteRecorder.class);
+
+    new ClientWriteTrackingFilter(recorder, SYSTEM_ACTOR)
+        .doFilter(ingestRequest(), new MockHttpServletResponse(), respondingWith(200));
+
+    verify(recorder).record(any(ClientWrite.class), eq(SYSTEM_ACTOR), eq(true));
+  }
+
+  @Test
+  public void testRejectedOrFailedWritesAreNotCounted() throws Exception {
+    authenticateAs("svc_loader");
+    ClientWriteRecorder recorder = mock(ClientWriteRecorder.class);
+    ClientWriteTrackingFilter filter = new ClientWriteTrackingFilter(recorder, SYSTEM_ACTOR);
+
+    filter.doFilter(ingestRequest(), new MockHttpServletResponse(), respondingWith(403));
+    filter.doFilter(ingestRequest(), new MockHttpServletResponse(), respondingWith(500));
+    assertThrows(
+        ServletException.class,
+        () ->
+            filter.doFilter(
+                ingestRequest(),
+                new MockHttpServletResponse(),
+                (request, response) -> {
+                  throw new ServletException("handler failed");
+                }));
+
+    verify(recorder, never()).record(any(), any(), anyBoolean());
+  }
+
+  @Test
   public void testSkipsNonWrites() throws Exception {
     ClientWriteRecorder recorder = mock(ClientWriteRecorder.class);
-    new ClientWriteTrackingFilter(recorder, null, SYSTEM_ACTOR)
-        .doFilter(
-            new MockHttpServletRequest("GET", "/openapi/v3/entity/dataset"),
-            new MockHttpServletResponse(),
-            new MockFilterChain());
+    MockHttpServletRequest request =
+        new MockHttpServletRequest("GET", "/openapi/v3/entity/dataset");
+    request.setServletPath("/openapi/v3/entity/dataset");
+    new ClientWriteTrackingFilter(recorder, SYSTEM_ACTOR)
+        .doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
     verifyNoInteractions(recorder);
   }
 
@@ -65,7 +114,7 @@ public class ClientWriteTrackingFilterTest {
     doThrow(new IllegalStateException("boom")).when(recorder).record(any(), any(), eq(false));
     MockFilterChain chain = new MockFilterChain();
 
-    new ClientWriteTrackingFilter(recorder, "/gms", SYSTEM_ACTOR)
+    new ClientWriteTrackingFilter(recorder, SYSTEM_ACTOR)
         .doFilter(ingestRequest(), new MockHttpServletResponse(), chain);
 
     assertNotNull(chain.getRequest(), "the request must continue down the chain");

@@ -136,11 +136,11 @@ public class ServletConfig implements WebMvcConfigurer {
     FilterRegistrationBean<ClientWriteTrackingFilter> registration = new FilterRegistrationBean<>();
     registration.setFilter(
         new ClientWriteTrackingFilter(
-            clientWriteRecorder,
-            BasePathUtils.resolveBasePath(
-                gmsConfiguration.getBasePathEnabled(), gmsConfiguration.getBasePath()),
-            systemOperationContext.getAuthentication().getActor().toUrnStr()));
+            clientWriteRecorder, systemOperationContext.getAuthentication().getActor().toUrnStr()));
     registration.setEnabled(clientWriteTrackingConfiguration.isEnabled());
+    if (!clientWriteTrackingConfiguration.isEnabled()) {
+      log.info("Client write tracking is disabled; the tracking filter is not registered");
+    }
     // After authentication (so the actor is known) and rate limiting (so rejected requests are
     // not counted as writes).
     registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 4);

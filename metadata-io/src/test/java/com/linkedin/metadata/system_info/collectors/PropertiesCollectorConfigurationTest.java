@@ -954,6 +954,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ingestion.batchRefreshCount",
           "ingestion.clientWriteTracking.enabled",
           "ingestion.clientWriteTracking.maxTrackedKeys",
+          "ingestion.clientWriteTracking.maxVersionTags",
           "ingestion.clientWriteTracking.summaryIntervalSeconds",
           "ingestion.defaultCliVersion",
           "ingestion.deploymentId",

@@ -16,6 +16,9 @@ import com.linkedin.gms.factory.clientwrite.ClientWrite;
 import com.linkedin.gms.factory.clientwrite.ClientWriteRecorder;
 import com.linkedin.metadata.config.ClientWriteTrackingConfiguration;
 import com.linkedin.metadata.ratelimit.GraphqlDocumentAnalyzer;
+import graphql.ExecutionResult;
+import graphql.ExecutionResultImpl;
+import graphql.GraphqlErrorBuilder;
 import jakarta.servlet.http.HttpServletRequest;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
@@ -48,9 +51,18 @@ public class GraphQLControllerClientWriteTest {
     return request;
   }
 
-  private void post(HttpServletRequest request, String operationName, String query) {
+  private void post(
+      HttpServletRequest request, String operationName, String query, ExecutionResult result) {
     controller.recordClientWrite(
-        request, GraphqlDocumentAnalyzer.analyze(operationName, query), AUTHENTICATION, false);
+        controller.classifyClientWrite(
+            request, GraphqlDocumentAnalyzer.analyze(operationName, query)),
+        AUTHENTICATION,
+        false,
+        result);
+  }
+
+  private void post(HttpServletRequest request, String operationName, String query) {
+    post(request, operationName, query, ExecutionResultImpl.newExecutionResult().build());
   }
 
   @Test
@@ -62,6 +74,19 @@ public class GraphQLControllerClientWriteTest {
     assertEquals(write.getValue().getApi(), "graphql");
     assertEquals(write.getValue().getClient(), "python");
     assertEquals(write.getValue().getClientVersion(), "1.7.0");
+  }
+
+  @Test
+  public void testMutationWithErrorsIsNotCounted() {
+    post(
+        pythonSdkRequest(),
+        "createTag",
+        MUTATION,
+        ExecutionResultImpl.newExecutionResult()
+            .addError(GraphqlErrorBuilder.newError().message("Unauthorized").build())
+            .build());
+
+    verify(recorder, never()).record(any(), any(), anyBoolean());
   }
 
   @Test

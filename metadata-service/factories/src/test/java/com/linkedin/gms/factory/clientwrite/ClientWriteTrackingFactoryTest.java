@@ -51,13 +51,13 @@ public class ClientWriteTrackingFactoryTest {
   }
 
   @Test
-  public void testDefaultsToEnabledWhenTheBlockIsMissing() {
+  public void testFailsClosedWhenTheBlockIsMissing() {
     runner(provider(null))
         .run(
             context -> {
               assertThat(context).hasSingleBean(ClientWriteRecorder.class);
               assertThat(context.getBean(ClientWriteTrackingConfiguration.class).isEnabled())
-                  .isTrue();
+                  .isFalse();
             });
   }
 }

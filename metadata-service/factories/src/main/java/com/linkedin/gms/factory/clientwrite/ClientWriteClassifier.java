@@ -6,6 +6,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
@@ -17,6 +18,27 @@ import javax.annotation.Nullable;
 /**
  * Decides whether a request writes metadata and, if so, which client sent it. Headers are advisory:
  * anyone can set them, so this attributes traffic for reporting and never authorizes.
+ *
+ * <p>What counts as a write:
+ *
+ * <ul>
+ *   <li>Rest.li {@code /aspects} actions {@code ingestProposal} and {@code ingestProposalBatch}
+ *   <li>Rest.li {@code /entities} actions {@code ingest}, {@code batchIngest}, {@code delete},
+ *       {@code deleteAll} and {@code deleteReferences}
+ *   <li>Rest.li {@code /usageStats} action {@code batchIngest}, {@code /platform} action {@code
+ *       producePlatformEvent}, and {@code DELETE /relationships}
+ *   <li>OpenAPI {@code POST}, {@code PUT}, {@code PATCH} and {@code DELETE} under the entity APIs
+ *       ({@code /openapi/v2/entity}, {@code /openapi/v3/entity}, {@code /openapi/entities/v1},
+ *       {@code /openapi/v2/platform/entities/v1}) and {@code /openapi/v3/logical}, except the
+ *       {@code batchGet} and {@code scroll} reads
+ *   <li>OpenLineage {@code POST /openapi/openlineage/api/v1/lineage}
+ *   <li>GraphQL mutations sent by the Python client (SDK, CLI or ingestion), via {@link
+ *       #classifyGraphQL}
+ * </ul>
+ *
+ * <p>Out of scope: GraphQL mutations from the UI and any other GraphQL client, the Iceberg catalog
+ * API, and admin or maintenance operations ({@code setWritable}, {@code applyRetention}, {@code
+ * restoreIndices}, {@code truncateTimeseriesAspect}, ingestion run {@code rollback}).
  */
 public final class ClientWriteClassifier {
 
@@ -40,18 +62,27 @@ public final class ClientWriteClassifier {
   static final String UNPARSEABLE = "unparseable";
   static final String OTHER = "other";
 
-  private static final Set<String> KNOWN_CLIENT_MODES = Set.of("INGESTION", "CLI", "SDK");
+  // Lowercase, matching the agent_class tag of the request metrics.
+  private static final Set<String> KNOWN_CLIENT_MODES = Set.of("ingestion", "cli", "sdk");
 
-  private static final Set<String> RESTLI_WRITE_RESOURCES = Set.of("/aspects", "/entities");
-  private static final Set<String> RESTLI_WRITE_ACTIONS =
-      Set.of("ingestProposal", "ingestProposalBatch", "ingest", "batchIngest");
+  // Write actions per Rest.li resource, keyed by the path the Rest.li servlet serves it on.
+  private static final Map<String, Set<String>> RESTLI_WRITE_ACTIONS =
+      Map.of(
+          "/aspects", Set.of("ingestProposal", "ingestProposalBatch"),
+          "/entities", Set.of("ingest", "batchIngest", "delete", "deleteAll", "deleteReferences"),
+          "/usageStats", Set.of("batchIngest"),
+          "/platform", Set.of("producePlatformEvent"));
+  // Rest.li resources whose HTTP DELETE method removes metadata.
+  private static final Set<String> RESTLI_DELETE_RESOURCES = Set.of("/relationships");
 
   private static final List<String> OPENAPI_WRITE_PREFIXES =
       List.of(
           "/openapi/v2/entity/",
           "/openapi/v3/entity/",
           "/openapi/entities/v1/",
-          "/openapi/v2/platform/entities/v1/");
+          "/openapi/v2/platform/entities/v1/",
+          "/openapi/v3/logical/",
+          "/openapi/openlineage/api/v1/lineage/");
   private static final Set<String> WRITE_METHODS = Set.of("POST", "PUT", "PATCH", "DELETE");
   // POST endpoints under the entity prefixes that only read.
   private static final Set<String> OPENAPI_READ_POST_SEGMENTS = Set.of("batchGet", "scroll");
@@ -62,8 +93,9 @@ public final class ClientWriteClassifier {
   // "DataHub-Client/1.0 (<mode>; <component>/<caller>; <version>)" from the Python emitter.
   private static final Pattern PYTHON_USER_AGENT =
       Pattern.compile("^DataHub-Client/\\S+ \\(([^;)]*);[^;)]*;\\s*([^)]*)\\)");
-  // Keeps up to four numeric segments: 1.9.0rc1 -> 1.9.0, v1.7.0.5 -> 1.7.0.5. The PEP 440 epoch
-  // form of development builds (1!0.0.0.dev0) does not match and reports as unparseable.
+  // Keeps up to four numeric segments: 1.9.0rc1 -> 1.9.0, v1.7.0.5 -> 1.7.0.5. Python clients
+  // installed in develop mode send "unavailable (installed in develop mode)" (nice_version_name()
+  // in _version.py), which does not match and reports as unparseable.
   private static final Pattern VERSION = Pattern.compile("^v?(\\d+(?:\\.\\d+){1,3})");
 
   private static final int MAX_USER_AGENT_LENGTH = 160;
@@ -76,7 +108,7 @@ public final class ClientWriteClassifier {
    * #classifyGraphQL} instead.
    *
    * @param method HTTP method
-   * @param path request path with any GMS base path already removed
+   * @param path request path within the servlet context, so any GMS base path is already removed
    * @param queryString raw query string, or null
    * @param headers header lookup by name, returning null when absent
    * @return the write and its client, or empty when the request does not write metadata
@@ -160,9 +192,14 @@ public final class ClientWriteClassifier {
     if (!WRITE_METHODS.contains(method)) {
       return null;
     }
-    if ("POST".equals(method) && RESTLI_WRITE_RESOURCES.contains(path)) {
+    String restliResource = trimTrailingSlashes(path);
+    Set<String> restliActions = RESTLI_WRITE_ACTIONS.get(restliResource);
+    if (restliActions != null && "POST".equals(method)) {
       String action = queryParam(queryString, "action");
-      return action != null && RESTLI_WRITE_ACTIONS.contains(action) ? API_RESTLI : null;
+      return action != null && restliActions.contains(action) ? API_RESTLI : null;
+    }
+    if ("DELETE".equals(method) && RESTLI_DELETE_RESOURCES.contains(restliResource)) {
+      return API_RESTLI;
     }
     String withSlash = path.endsWith("/") ? path : path + "/";
     boolean entityPath = OPENAPI_WRITE_PREFIXES.stream().anyMatch(withSlash::startsWith);
@@ -191,7 +228,7 @@ public final class ClientWriteClassifier {
     if (raw == null || raw.isBlank()) {
       return NONE;
     }
-    String mode = raw.trim().toUpperCase(Locale.ROOT);
+    String mode = raw.trim().toLowerCase(Locale.ROOT);
     return KNOWN_CLIENT_MODES.contains(mode) ? mode : OTHER;
   }
 
@@ -233,6 +270,15 @@ public final class ClientWriteClassifier {
       }
     }
     return null;
+  }
+
+  @Nonnull
+  private static String trimTrailingSlashes(@Nonnull String path) {
+    int end = path.length();
+    while (end > 1 && path.charAt(end - 1) == '/') {
+      end--;
+    }
+    return path.substring(0, end);
   }
 
   @Nonnull

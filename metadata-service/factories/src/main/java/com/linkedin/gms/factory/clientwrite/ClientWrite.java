@@ -2,7 +2,7 @@ package com.linkedin.gms.factory.clientwrite;
 
 import lombok.Value;
 
-/** A write request to GMS, with the client that sent it as identified from its headers. */
+/** A metadata write to GMS, with the client that sent it as identified from its headers. */
 @Value
 public class ClientWrite {
   /** API family the write arrived on: {@code restli}, {@code openapi} or {@code graphql}. */
@@ -11,7 +11,10 @@ public class ClientWrite {
   /** {@code python}, {@code java}, {@code browser}, or {@code unknown} for custom code. */
   String client;
 
-  /** Client mode sent by the client ({@code INGESTION}, {@code CLI}, {@code SDK}), else none. */
+  /**
+   * Client mode sent by the client, lowercased ({@code ingestion}, {@code cli}, {@code sdk}), else
+   * {@code other} or {@code none}.
+   */
   String clientMode;
 
   /** Client version reduced to its numeric part, or {@code none} / {@code unparseable}. */

@@ -1,8 +1,10 @@
 package com.linkedin.gms.factory.clientwrite;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.metadata.config.ClientWriteTrackingConfiguration;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
@@ -17,7 +19,7 @@ public class ClientWriteRecorderTest {
   private static final ClientWrite CUSTOM_CODE =
       new ClientWrite("openapi", "unknown", "none", "none", "curl/8.4.0");
   private static final ClientWrite PYTHON_CLI =
-      new ClientWrite("restli", "python", "INGESTION", "1.7.0", "DataHub-Client/1.0");
+      new ClientWrite("restli", "python", "ingestion", "1.7.0", "DataHub-Client/1.0");
 
   private SimpleMeterRegistry registry;
   private AtomicLong clock;
@@ -31,7 +33,16 @@ public class ClientWriteRecorderTest {
   }
 
   private ClientWriteRecorder recorder(int maxTrackedKeys) {
-    return new ClientWriteRecorder(registry, true, maxTrackedKeys, clock::get, summaries::add);
+    return new ClientWriteRecorder(registry, true, maxTrackedKeys, 20, clock::get, summaries::add);
+  }
+
+  private static ClientWriteTrackingConfiguration configuration(
+      boolean enabled, int summaryIntervalSeconds, int maxTrackedKeys) {
+    ClientWriteTrackingConfiguration configuration = new ClientWriteTrackingConfiguration();
+    configuration.setEnabled(enabled);
+    configuration.setSummaryIntervalSeconds(summaryIntervalSeconds);
+    configuration.setMaxTrackedKeys(maxTrackedKeys);
+    return configuration;
   }
 
   @Test
@@ -45,7 +56,7 @@ public class ClientWriteRecorderTest {
             .get(ClientWriteRecorder.METRIC_NAME)
             .tags(
                 "client", "python",
-                "client_mode", "INGESTION",
+                "client_mode", "ingestion",
                 "client_version", "1.7.0",
                 "api", "restli",
                 "system_actor", "false")
@@ -102,7 +113,7 @@ public class ClientWriteRecorderTest {
   @Test
   public void testDisabledSummaryStillCountsTheMetric() {
     ClientWriteRecorder recorder =
-        new ClientWriteRecorder(registry, false, 100, clock::get, summaries::add);
+        new ClientWriteRecorder(registry, false, 100, 20, clock::get, summaries::add);
     recorder.record(PYTHON_CLI, "urn:li:corpuser:a", false);
     recorder.flush();
 
@@ -127,11 +138,89 @@ public class ClientWriteRecorderTest {
   }
 
   @Test
-  public void testVersionTagValuesAreCapped() {
+  public void testSystemActorIsTagged() {
     ClientWriteRecorder recorder = recorder(100);
-    for (int i = 0; i <= ClientWriteRecorder.MAX_VERSION_TAGS; i++) {
-      recorder.record(new ClientWrite("restli", "python", "SDK", "9.9." + i, "ua"), null, false);
+    recorder.record(PYTHON_CLI, "urn:li:corpuser:__datahub_system", true);
+
+    assertEquals(
+        registry.get(ClientWriteRecorder.METRIC_NAME).tag("system_actor", "true").counter().count(),
+        1.0);
+  }
+
+  @Test
+  public void testVaryingUserAgentsDoNotExhaustTrackedKeys() {
+    ClientWriteRecorder recorder = recorder(2);
+    for (int i = 0; i < 50; i++) {
+      recorder.record(
+          new ClientWrite("openapi", "unknown", "none", "none", "custom-agent/" + i),
+          "urn:li:corpuser:svc_rotating",
+          false);
     }
+    recorder.record(CUSTOM_CODE, "urn:li:corpuser:svc_other", false);
+
+    recorder.flush();
+
+    assertEquals(summaries.size(), 2, String.join("\n", summaries));
+    String rotating =
+        summaries.stream().filter(s -> s.contains("svc_rotating")).findFirst().orElseThrow();
+    assertTrue(rotating.contains("count=50"));
+    assertTrue(rotating.contains("user_agent=\"custom-agent/0\""), "keeps the first User-Agent");
+    assertTrue(summaries.stream().anyMatch(s -> s.contains("actor=urn:li:corpuser:svc_other")));
+    assertTrue(summaries.stream().noneMatch(s -> s.contains("untracked")));
+  }
+
+  @Test
+  public void testWritesAfterCloseCountInTheMetricOnly() {
+    ClientWriteRecorder recorder = recorder(100);
+    recorder.close();
+    recorder.record(PYTHON_CLI, "urn:li:corpuser:a", false);
+    recorder.flush();
+
+    assertTrue(summaries.isEmpty());
+    assertEquals(registry.get(ClientWriteRecorder.METRIC_NAME).counter().count(), 1.0);
+  }
+
+  @Test
+  public void testConfigurationStartsTheSummaryThreadOnlyWhenTheSummaryIsOn() {
+    ClientWriteRecorder scheduled =
+        new ClientWriteRecorder(registry, configuration(true, 3600, 100));
+    try {
+      assertTrue(scheduled.isSummaryScheduled());
+    } finally {
+      scheduled.close();
+    }
+
+    for (ClientWriteTrackingConfiguration off :
+        List.of(
+            configuration(true, 0, 100),
+            configuration(true, -1, 100),
+            configuration(true, 3600, 0),
+            configuration(true, 3600, -5),
+            configuration(false, 3600, 100))) {
+      ClientWriteRecorder recorder = new ClientWriteRecorder(registry, off);
+      try {
+        assertFalse(recorder.isSummaryScheduled(), off.toString());
+      } finally {
+        recorder.close();
+      }
+    }
+  }
+
+  @Test
+  public void testVersionTagValuesAreCapped() {
+    ClientWriteRecorder recorder =
+        new ClientWriteRecorder(registry, true, 100, 2, clock::get, summaries::add);
+    for (String version : List.of("1.7.0", "1.8.0", "1.9.0", "1.7.0")) {
+      recorder.record(new ClientWrite("restli", "python", "sdk", version, "ua"), null, false);
+    }
+    assertEquals(
+        registry
+            .get(ClientWriteRecorder.METRIC_NAME)
+            .tag("client_version", "1.7.0")
+            .counter()
+            .count(),
+        2.0,
+        "a version seen before the cap was reached keeps its tag");
     assertEquals(
         registry
             .get(ClientWriteRecorder.METRIC_NAME)

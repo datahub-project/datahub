@@ -4,6 +4,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.testng.annotations.Test;
@@ -31,6 +32,50 @@ public class ClientWriteClassifierTest {
   }
 
   @Test
+  public void testRestliDeletesAreWrites() {
+    for (String action : List.of("delete", "deleteAll", "deleteReferences")) {
+      assertEquals(write("POST", "/entities", "action=" + action, Map.of()).getApi(), "restli");
+    }
+    assertEquals(
+        write("DELETE", "/relationships", "urn=urn%3Ali%3Adataset%3Ax", Map.of()).getApi(),
+        "restli");
+    // Admin toggle, not a metadata write.
+    assertFalse(classify("POST", "/entities", "action=setWritable", Map.of()).isPresent());
+  }
+
+  @Test
+  public void testOtherRestliWriteResources() {
+    assertEquals(write("POST", "/usageStats", "action=batchIngest", Map.of()).getApi(), "restli");
+    assertEquals(
+        write("POST", "/platform", "action=producePlatformEvent", Map.of()).getApi(), "restli");
+    assertFalse(classify("POST", "/usageStats", "action=query", Map.of()).isPresent());
+  }
+
+  @Test
+  public void testRestliTrailingSlashIsTheSameResource() {
+    assertEquals(write("POST", "/aspects/", "action=ingestProposal", Map.of()).getApi(), "restli");
+  }
+
+  @Test
+  public void testOpenLineageAndLogicalModelWritesAreWrites() {
+    assertEquals(
+        write("POST", "/openapi/openlineage/api/v1/lineage", null, Map.of()).getApi(), "openapi");
+    assertEquals(
+        write(
+                "DELETE",
+                "/openapi/v3/logical/urn:li:dataset:x/relationship/physicalInstanceOf",
+                null,
+                Map.of())
+            .getApi(),
+        "openapi");
+  }
+
+  @Test
+  public void testGraphQlEndpointIsLeftToTheController() {
+    assertFalse(classify("POST", "/api/graphql", null, Map.of()).isPresent());
+  }
+
+  @Test
   public void testReadsAreNotWrites() {
     assertFalse(classify("POST", "/entities", "action=search", Map.of()).isPresent());
     assertFalse(classify("GET", "/aspects/urn%3Ali%3Acorpuser%3Ax", null, Map.of()).isPresent());
@@ -39,7 +84,6 @@ public class ClientWriteClassifierTest {
     assertFalse(classify("POST", "/openapi/v3/entity/scroll", null, Map.of()).isPresent());
     assertFalse(classify("POST", "/openapi/v2/entity/batch/dataset", null, Map.of()).isPresent());
     assertFalse(classify("GET", "/openapi/v3/entity/dataset", null, Map.of()).isPresent());
-    assertFalse(classify("POST", "/api/graphql", null, Map.of()).isPresent());
   }
 
   @Test
@@ -67,7 +111,7 @@ public class ClientWriteClassifierTest {
                 "X-DataHub-Client-Mode", "INGESTION"));
     assertEquals(write.getClient(), "python");
     assertEquals(write.getClientVersion(), "1.7.0.5");
-    assertEquals(write.getClientMode(), "INGESTION");
+    assertEquals(write.getClientMode(), "ingestion");
   }
 
   @Test
@@ -104,7 +148,7 @@ public class ClientWriteClassifierTest {
                 "DataHub-Client/1.0 (sdk; datahub/script; 1.8.0) python-requests/2.32.3"));
     assertEquals(write.getClient(), "python");
     assertEquals(write.getClientVersion(), "1.8.0");
-    assertEquals(write.getClientMode(), "SDK");
+    assertEquals(write.getClientMode(), "sdk");
   }
 
   @Test
@@ -140,7 +184,7 @@ public class ClientWriteClassifierTest {
         ClientWriteClassifier.normalizeVersion("unavailable (installed in develop mode)"),
         "unparseable");
     assertEquals(ClientWriteClassifier.normalizeVersion(null), "none");
-    assertEquals(ClientWriteClassifier.normalizeClientMode("cli"), "CLI");
+    assertEquals(ClientWriteClassifier.normalizeClientMode("CLI"), "cli");
     assertEquals(ClientWriteClassifier.normalizeClientMode("SOMETHING"), "other");
   }
 
@@ -151,7 +195,7 @@ public class ClientWriteClassifierTest {
     ClientWrite write = ClientWriteClassifier.classifyGraphQL(true, python::get).orElseThrow();
     assertEquals(write.getApi(), "graphql");
     assertEquals(write.getClient(), "python");
-    assertEquals(write.getClientMode(), "SDK");
+    assertEquals(write.getClientMode(), "sdk");
 
     assertFalse(ClientWriteClassifier.classifyGraphQL(false, python::get).isPresent());
     Map<String, String> browser = Map.of("X-DataHub-Request-Source", "browser");
