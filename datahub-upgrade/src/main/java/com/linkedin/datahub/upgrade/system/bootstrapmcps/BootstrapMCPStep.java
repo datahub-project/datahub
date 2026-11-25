@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,6 +33,8 @@ public class BootstrapMCPStep implements UpgradeStep {
 
   private final String upgradeId;
   private final Urn upgradeIdUrn;
+  // Keyed by template name only, so it does not change with the version or a revision override.
+  private final Urn lastAppliedValuesUrn;
 
   private final OperationContext opContext;
   private final EntityService<?> entityService;
@@ -47,6 +50,9 @@ public class BootstrapMCPStep implements UpgradeStep {
     this.upgradeId =
         String.join("-", List.of("bootstrap", mcpTemplate.getName(), mcpTemplate.getVersion()));
     this.upgradeIdUrn = BootstrapStep.getUpgradeUrn(this.upgradeId);
+    this.lastAppliedValuesUrn =
+        BootstrapStep.getUpgradeUrn(
+            String.join("-", List.of("bootstrap", mcpTemplate.getName(), "last-applied-values")));
   }
 
   @Override
@@ -68,11 +74,15 @@ public class BootstrapMCPStep implements UpgradeStep {
 
       if (mcpTemplate.isValuesTrackedAcrossRuns()) {
         try {
+          Map<String, String> valuesHash =
+              Map.of(VALUES_HASH_KEY, BootstrapMCPUtil.valuesHash(opContext, mcpTemplate));
+          // The last applied record goes first. If the id's own result then fails to write, that
+          // id keeps an older hash and cannot be skipped, so a later return to it still applies.
+          // The other order would leave the last applied record on the older values.
           BootstrapStep.setUpgradeResult(
-              context.opContext(),
-              upgradeIdUrn,
-              entityService,
-              Map.of(VALUES_HASH_KEY, BootstrapMCPUtil.valuesHash(opContext, mcpTemplate)));
+              context.opContext(), lastAppliedValuesUrn, entityService, valuesHash);
+          BootstrapStep.setUpgradeResult(
+              context.opContext(), upgradeIdUrn, entityService, valuesHash);
         } catch (IOException e) {
           log.error("Error hashing bootstrap MCP values", e);
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
@@ -114,20 +124,27 @@ public class BootstrapMCPStep implements UpgradeStep {
     }
   }
 
+  /**
+   * The values are unchanged only when this upgrade id's own result and the template's last applied
+   * values both match the current hash. The id can carry the values themselves, as the Helm chart
+   * puts a hash of them in the revision override, so turning a value off and back on at one version
+   * returns to an id whose result still matches. The last applied record is what shows that the
+   * schedule written since then was for different values.
+   */
   private boolean valuesUnchangedSinceLastRun(UpgradeContext context) {
-    Optional<DataHubUpgradeResult> stored =
-        BootstrapStep.getUpgradeResult(context.opContext(), upgradeIdUrn, entityService);
-    String storedHash =
-        stored
-            .filter(DataHubUpgradeResult::hasResult)
-            .map(result -> result.getResult().get(VALUES_HASH_KEY))
-            .orElse(null);
+    String storedHash = storedValuesHash(context, upgradeIdUrn);
     if (storedHash == null) {
       log.info("{} has no stored values hash. Running.", id());
       return false;
     }
+    String lastAppliedHash = storedValuesHash(context, lastAppliedValuesUrn);
+    if (lastAppliedHash == null) {
+      log.info("{} has no record of the last applied values. Running.", id());
+      return false;
+    }
     try {
-      boolean unchanged = storedHash.equals(BootstrapMCPUtil.valuesHash(opContext, mcpTemplate));
+      String currentHash = BootstrapMCPUtil.valuesHash(opContext, mcpTemplate);
+      boolean unchanged = storedHash.equals(currentHash) && lastAppliedHash.equals(currentHash);
       log.info(
           unchanged ? "{} values are unchanged. Skipping." : "{} values changed. Running.", id());
       return unchanged;
@@ -136,5 +153,15 @@ public class BootstrapMCPStep implements UpgradeStep {
       log.warn("Could not hash values for {}. Running.", id(), e);
       return false;
     }
+  }
+
+  @Nullable
+  private String storedValuesHash(UpgradeContext context, Urn urn) {
+    Optional<DataHubUpgradeResult> stored =
+        BootstrapStep.getUpgradeResult(context.opContext(), urn, entityService);
+    return stored
+        .filter(DataHubUpgradeResult::hasResult)
+        .map(result -> result.getResult().get(VALUES_HASH_KEY))
+        .orElse(null);
   }
 }
