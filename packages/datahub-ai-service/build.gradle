@@ -1,0 +1,79 @@
+ext {
+  // Installed editable before this package, so local and CI builds run against the
+  // monorepo's own SDK and tools rather than published wheels.
+  local_dependency_dirs = ['../../metadata-ingestion', '../datahub-core-mcp-tools']
+  local_dependency_tasks = [':metadata-ingestion:codegen']
+}
+
+apply from: "${rootProject.projectDir}/gradle/python/datahub-python-package.gradle"
+
+// After the package script, which applies versioning and so sets `version`.
+ext {
+  docker_registry = rootProject.ext.has('docker_registry') ? rootProject.ext.docker_registry : 'acryldata'
+  docker_repo = 'datahub-ai-service'
+  python_docker_version = project.getProperties().getOrDefault("pythonDockerVersion", "1!0.0.0+docker.${version}")
+}
+
+apply from: "${rootProject.projectDir}/gradle/docker/docker.gradle"
+apply from: "${rootProject.projectDir}/gradle/docker/python-docker.gradle"
+
+docker {
+  dependsOn ':metadata-ingestion:codegen'
+  name "${docker_registry}/${docker_repo}:${versionTag}"
+  dockerfile file("${rootProject.projectDir}/docker/datahub-ai-service/Dockerfile")
+  files fileTree(rootProject.projectDir) {
+    include ".dockerignore"
+    include "docker/datahub-ai-service/**"
+    include "docker/snippets/openssl4_ssl_compat.py"
+    include "docker/snippets/uv/**"
+    include "metadata-ingestion/**"
+    exclude "metadata-ingestion/docs/**"
+    exclude "metadata-ingestion/tests/**"
+    exclude "metadata-ingestion/examples/**"
+    include "packages/datahub-core-mcp-tools/**"
+    include "packages/datahub-ai-service/**"
+    exclude "packages/*/venv/**"
+    exclude "packages/*/build/**"
+    exclude "packages/*/tests/**"
+    exclude "**/*.xml"
+  }.exclude {
+    i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
+  }
+  additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
+  buildArgs(resolveUvBuildArgs([RELEASE_VERSION: python_docker_version]))
+}
+
+// Third-party dependencies of the image, locked for Python 3.11 under the same
+// constraints as the ingestion images. The SDK and both packages install from source.
+tasks.register('lockfileUpdate', Exec) {
+  workingDir rootProject.projectDir
+  commandLine 'uv', 'pip', 'compile', '--quiet', '--universal', '--python-version', '3.11',
+      '--constraint', 'docker/snippets/ingestion/constraints.txt',
+      '--no-emit-package', 'acryl-datahub',
+      '--no-emit-package', 'datahub-core-mcp-tools',
+      '--no-emit-package', 'datahub-ai-service',
+      '--no-header',
+      'docker/datahub-ai-service/requirements.in', '-o', 'docker/datahub-ai-service/requirements.lock'
+}
+
+// Fails when requirements.lock no longer matches requirements.in or no longer resolves,
+// so that surfaces in PRs rather than in a release build. The resolution starts from the
+// committed lock, so uv keeps its pins while they still satisfy the requirements: a new
+// upstream release alone doesn't fail the check (lockfileUpdate with --upgrade picks it up).
+tasks.register('lockfileCheck', Exec) {
+  workingDir rootProject.projectDir
+  commandLine 'bash', '-euc', '''
+    fresh=$(mktemp)
+    trap 'rm -f "$fresh"' EXIT
+    cp docker/datahub-ai-service/requirements.lock "$fresh"
+    uv pip compile --quiet --universal --python-version 3.11 \
+      --constraint docker/snippets/ingestion/constraints.txt \
+      --no-emit-package acryl-datahub --no-emit-package datahub-core-mcp-tools \
+      --no-emit-package datahub-ai-service --no-header \
+      docker/datahub-ai-service/requirements.in -o "$fresh"
+    if ! diff -u docker/datahub-ai-service/requirements.lock "$fresh"; then
+      echo "docker/datahub-ai-service/requirements.lock is stale: run ./gradlew :packages:datahub-ai-service:lockfileUpdate" >&2
+      exit 1
+    fi
+  '''
+}

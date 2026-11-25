@@ -147,6 +147,14 @@ public final class SearchTemplateCapabilities {
   public static final Set<String> PROFILE_SCORES = Set.of("best", PROFILE_SCORE_WEIGHTED_SUM);
   public static final Set<String> ANCHOR_URN_PARAMETERS = Set.of("raw");
 
+  // Closed retrieval total, facets, page, and authorization values: the ones the design doc
+  // defines, for combine: vector. No release reads them yet. Page and authorization have no value
+  // yet, so any value is rejected.
+  public static final Set<String> RETRIEVAL_TOTALS = Set.of("candidates");
+  public static final Set<String> RETRIEVAL_FACETS = Set.of("candidateUrns");
+  public static final Set<String> RETRIEVAL_PAGES = Set.of();
+  public static final Set<String> RETRIEVAL_AUTHORIZATIONS = Set.of();
+
   /**
    * {@code embeddingClausesJson} and {@code embeddingField} under any Mustache tag: variable,
    * unescaped, triple braces, section, inverted section, or section end.

@@ -270,6 +270,12 @@ public class ValidationUtils {
             .setStart(entityLineageResult.getStart())
             .setCount(entityLineageResult.getCount())
             .setTotal(entityLineageResult.getTotal());
+    if (entityLineageResult.hasPartial()) {
+      validatedEntityLineageResult.setPartial(entityLineageResult.isPartial());
+    }
+    if (entityLineageResult.hasPartialReason()) {
+      validatedEntityLineageResult.setPartialReason(entityLineageResult.getPartialReason());
+    }
 
     LineageRelationshipArray validatedRelationships =
         validateSearchUrns(

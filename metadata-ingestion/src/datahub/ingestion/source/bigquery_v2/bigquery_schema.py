@@ -33,7 +33,10 @@ from google.cloud.bigquery.table import (
 from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
-from datahub.ingestion.source.bigquery_v2.bigquery_helper import parse_labels
+from datahub.ingestion.source.bigquery_v2.bigquery_helper import (
+    parse_labels,
+    unquote_and_decode_escape_seq,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQuerySchemaApiPerfReport,
     BigQueryV2Report,
@@ -603,7 +606,12 @@ class BigQuerySchemaApi:
             )
             for dataset in location_datasets:
                 if dataset.name in metadata:
-                    dataset.comment = metadata[dataset.name].get("description")
+                    description = metadata[dataset.name].get("description")
+                    dataset.comment = (
+                        unquote_and_decode_escape_seq(description)
+                        if description
+                        else None
+                    )
                     dataset.created = metadata[dataset.name].get("created")
                     dataset.last_altered = metadata[dataset.name].get("modified")
                 else:
@@ -755,7 +763,9 @@ class BigQuerySchemaApi:
             last_altered=parse_ts_millis(table.get("last_altered")),
             size_in_bytes=table.get("bytes"),
             rows_count=table.get("row_count"),
-            comment=table.comment,
+            comment=unquote_and_decode_escape_seq(table.comment)
+            if table.comment
+            else None,
             ddl=table.ddl,
             expires=expiration,
             labels=table_basic.labels if table_basic else None,
@@ -872,7 +882,9 @@ class BigQuerySchemaApi:
             name=view.table_name,
             created=view.created,
             last_altered=(parse_ts_millis(view.get("last_altered"))),
-            comment=view.comment,
+            comment=unquote_and_decode_escape_seq(view.comment)
+            if view.comment
+            else None,
             view_definition=view.view_definition,
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
             size_in_bytes=view.get("size_bytes"),
@@ -1265,7 +1277,9 @@ class BigQuerySchemaApi:
             name=snapshot.table_name,
             created=snapshot.created,
             last_altered=parse_ts_millis(snapshot.get("last_altered")),
-            comment=snapshot.comment,
+            comment=unquote_and_decode_escape_seq(snapshot.comment)
+            if snapshot.comment
+            else None,
             ddl=snapshot.ddl,
             snapshot_time=snapshot.snapshot_time,
             size_in_bytes=snapshot.get("size_bytes"),

@@ -883,6 +883,56 @@ def test_a_malformed_predicate_is_flagged_beside_a_good_one(good_first: bool) ->
 
 
 @pytest.mark.parametrize(
+    ("right", "repeated"),
+    [
+        (_ELEMENT_SIDE_R, []),
+        # A self-join: the primary is also a right.
+        (_ELEMENT_SIDE_L, ["el-x"]),
+        # Element ids are not unique across Data Models.
+        (_other_model("el-left", "dm-2"), []),
+    ],
+    ids=["distinct", "self-join", "same-id-other-model"],
+)
+def test_a_side_joined_twice_is_recorded_by_full_identity(
+    right: Dict[str, Any], repeated: List[str]
+) -> None:
+    index = _parse_join(_one_join([{"left": "[K]", "right": "[J]"}], right=right))
+    assert len(index.pairs) == 1
+    assert index.repeated_side_join_element_ids == repeated
+
+
+def test_a_side_repeated_after_a_dropped_composite_key_is_recorded() -> None:
+    """No predicate of the first join survives to name the primary."""
+    composite = _one_join(
+        [{"left": 'Concat([First], " ", [Last])', "right": "[Full Name]"}]
+    )
+    self_join = _one_join(
+        [{"left": "[Parent]", "right": "[Id]"}], right=_ELEMENT_SIDE_L
+    )
+    index = _parse_join(composite, self_join)
+    assert index.repeated_side_join_element_ids == ["el-x"]
+
+
+def test_an_unreadable_join_hides_its_side_so_the_element_is_recorded() -> None:
+    index = _parse_join(_GOOD_JOIN, _RENAMED_JOIN)
+    assert index.repeated_side_join_element_ids == ["el-x"]
+
+
+@pytest.mark.parametrize("rename", [False, True], ids=["missing", "renamed"])
+def test_an_unreadable_primary_source_is_recorded_as_unreadable(rename: bool) -> None:
+    source = _join_source(_GOOD_JOIN)
+    primary = source.pop("primarySource")
+    if rename:
+        source["primary"] = primary
+    index = parse_data_model_spec(_spec(source))
+    assert len(index.pairs) == 1
+    assert index.repeated_side_join_element_ids == ["el-x"]
+    # Feeds drift detection, so a renamed key warns instead of silently
+    # dropping every join's keys.
+    assert index.unreadable_join_element_ids == ["el-x"]
+
+
+@pytest.mark.parametrize(
     "spec",
     [
         None,

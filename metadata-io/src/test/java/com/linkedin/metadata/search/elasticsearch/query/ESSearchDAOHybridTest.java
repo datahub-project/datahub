@@ -60,6 +60,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateM
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.embedding.EmbeddingProfile;
 import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
+import com.linkedin.metadata.search.embedding.EmbeddingThrottledException;
 import com.linkedin.metadata.search.hybrid.HybridRerankPlan;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.utils.CriterionUtils;
@@ -308,6 +309,42 @@ public class ESSearchDAOHybridTest {
             100);
     assertEquals(rowIds(timedOut), range(10, 20));
     assertKept(SearchTemplateKeywordRerank.TIMEOUT);
+  }
+
+  @Test
+  public void testAThrottledQueryEmbeddingKeepsKeywordOrderAsRejected() throws IOException {
+    // The provider throttled the query embedding, which a vector rung reports as rejected too
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
+        .thenThrow(new EmbeddingThrottledException("Vertex AI call failed after 1 attempts: 429"));
+
+    SearchResult throttled =
+        dao.finishTemplateHybrid(
+            keywordRerankContext(KEEP_PLACES, true, null),
+            ENTITY_NAMES,
+            "revenue",
+            null,
+            result(100),
+            10,
+            10,
+            100);
+
+    assertEquals(rowIds(throttled), range(10, 20));
+    assertKept(SearchTemplateKeywordRerank.REJECTED);
+    // Unlike a full executor, a throttle comes from the provider, so three in a row pause hybrid
+    // read, as failed reranks do
+    for (int i = 0; i < 3; i++) {
+      dao.finishTemplateHybrid(
+          keywordRerankContext(KEEP_PLACES, true, null),
+          ENTITY_NAMES,
+          "revenue",
+          null,
+          result(100),
+          10,
+          10,
+          100);
+    }
+    assertKept(SearchTemplateKeywordRerank.PAUSED);
   }
 
   @Test

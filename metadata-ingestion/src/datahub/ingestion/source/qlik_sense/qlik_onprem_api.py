@@ -32,6 +32,7 @@ from datahub.ingestion.source.qlik_sense.qlik_base_api import (
 from datahub.ingestion.source.qlik_sense.script_lineage import DataConnectionInfo
 from datahub.ingestion.source.qlik_sense.websocket_connection import (
     EngineError,
+    RefusedConnectionBudget,
     WebsocketConnection,
 )
 
@@ -128,6 +129,7 @@ class QlikOnPremAPI(QlikBaseAPI):
             raise ValueError("On-prem Qlik Sense requires the on_prem block")
         self.on_prem = on_prem = config.on_prem
         self.xrfkey = secrets.token_hex(_XRFKEY_LENGTH // 2)
+        self.engine_refusals = RefusedConnectionBudget()
         self.session = requests.Session()
         self.session.cert = (on_prem.client_cert, on_prem.client_key)
         self.session.verify = on_prem.root_cert
@@ -284,6 +286,7 @@ class QlikOnPremAPI(QlikBaseAPI):
             assert_hostname=self.on_prem.tls_assert_hostname(),
             key_password=self.key_password,
             timeout=self.config.timeout_seconds,
+            refusals=self.engine_refusals,
         )
 
     def check_engine_port(self) -> None:

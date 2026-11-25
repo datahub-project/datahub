@@ -197,6 +197,7 @@
     "marketplace.home": "Startsida för dataprodukter",
     "marketplace.applicationFilter.placeholder": "Filtrera applikationer",
     "marketplace.createTooltip": "Skapa dataprodukt",
+    "marketplace.createUnauthorized": "Du har inte behörighet att skapa dataprodukter här. Försök att skapa en från fliken Dataprodukter i en domän som du hanterar.",
     "marketplace.cardAssets_other": "{{count}} tillgångar",
     "marketplace.cardDeprecated": "Föråldrad",
     "marketplace.cardMetaWithSubProducts": "{{assets}} · {{subProducts}}",

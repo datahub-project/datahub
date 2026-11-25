@@ -34,6 +34,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.NoHandlerFoundException;
@@ -101,6 +102,13 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
 
     return new ResponseEntity<>(
         Map.of("error", e.getMessage()), headers, HttpStatus.TOO_MANY_REQUESTS);
+  }
+
+  @ExceptionHandler(HttpClientErrorException.class)
+  public static ResponseEntity<Map<String, String>> handleHttpClientErrorException(
+      HttpClientErrorException e) {
+    return new ResponseEntity<>(
+        Map.of("error", sanitizeExceptionMessage(e.getStatusText())), e.getStatusCode());
   }
 
   @ExceptionHandler(UnauthorizedException.class)

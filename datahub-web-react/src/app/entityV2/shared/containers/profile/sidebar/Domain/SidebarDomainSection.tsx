@@ -96,7 +96,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                             <DomainLinkWrapper>
                                 <DomainLink
                                     domain={domain}
-                                    closable={!readOnly && !updateOnly}
+                                    closable={!readOnly && !updateOnly && canEditDomains}
                                     readOnly={readOnly}
                                     onClose={(e) => {
                                         e.preventDefault();
