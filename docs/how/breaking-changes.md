@@ -29,6 +29,16 @@ The Vertex AI source now shows a pipeline as it is defined and as it ran. This a
 
 **Action:** none for most users. If you read a Vertex AI task's inputs and outputs from the GraphQL `inputOutput` lists, read them from its lineage instead.
 
+### Vertex AI pipeline-backed custom jobs move under their task runs ([#TBD-3](https://github.com/datahub-project/datahub/pull/TBD-3))
+
+This applies only when `include_pipelines` is on (the default).
+
+- A pipeline-backed custom job (a custom job that a pipeline task ran) no longer appears in the Training Jobs folder. It keeps its Training Job type, so a search by type still finds it. It appears under the task run that ran it. Some jobs get no record there: see the Vertex AI connector page for the conditions.
+- Jobs ingested before this change stay in the Training Jobs folder. Those still within `max_training_jobs_per_type` (newest first) are also linked to their task runs. This release does not remove them from the folder, and stale entity removal does not either.
+- With `include_pipelines: false`, nothing changes for pipeline-backed jobs.
+
+**Action:** none.
+
 ### Pinned links removed from Settings > Home Page ([#21466](https://github.com/datahub-project/datahub/pull/21466))
 
 If the home page redesign is enabled (`SHOW_HOME_PAGE_REDESIGN=true`, the default), the

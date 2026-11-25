@@ -16,21 +16,39 @@ from typing import (
     Tuple,
     Union,
 )
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
+from google.api_core.exceptions import (
+    PermissionDenied,
+    RetryError,
+    ServiceUnavailable,
+)
 from google.cloud.aiplatform_v1.types import (
     Execution,
+    PipelineState,
     PipelineTaskDetail,
 )
+from google.rpc.error_details_pb2 import ErrorInfo
 
+from datahub.configuration.common import PipelineExecutionError
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.vertexai.vertexai import VertexAISource
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
+    BACKING_JOBS_NOT_LINKED,
+    BACKING_JOBS_NOT_LINKED_TITLE,
+    BACKING_JOBS_SKIPPED_TITLE,
     EXTRA_ROOT_DETAILS_TITLE,
+    PIPELINE_LIST_LOST_JOBS,
     UNMATCHED_DETAILS_TITLE,
     ResourceReads,
+    ResourceTypes,
+)
+from datahub.ingestion.source.vertexai.vertexai_models import (
+    AutoMLJobConfig,
+    ModelToUpload,
 )
 from datahub.ingestion.source.vertexai.vertexai_pipeline_extractor import (
     VertexAIPipelineExtractor,
@@ -41,9 +59,16 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     task_run_outcome,
 )
 from datahub.ingestion.source.vertexai.vertexai_scope import DetailResult
-from datahub.metadata.schema_classes import MetadataChangeProposalClass
+from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
+from datahub.metadata.schema_classes import (
+    DataProcessInstanceRunEventClass,
+    MetadataChangeProposalClass,
+)
+from datahub.utilities.time import datetime_to_ts_millis
 from tests.integration.vertexai.mock_vertexai import (
     PIPELINE_TASKS_FIXTURE_DIR,
+    gen_custom_job_from_fixture,
+    gen_mock_training_automl_job,
     gen_pipeline_job_from_fixture,
     run_pipeline_fixtures,
 )
@@ -53,6 +78,7 @@ LOOP = "loop-pipe-20261103171359"
 CACHE1 = "demo-cache-20261123155235"
 FAIL = "demo-failure-20261123155239"
 CANCEL = "demo-cancel-20261123155241"
+CACHE2 = "demo-cache-20261123160226"
 EXTRACTOR = "datahub.ingestion.source.vertexai.vertexai_pipeline_extractor"
 
 WorldAspects = Dict[str, Dict[str, List[Dict[str, Any]]]]
@@ -73,6 +99,7 @@ def run_world_with_report(
     """Run the source over the fixtures; return entity URN -> aspect name -> aspect JSON list, and the report.
 
     A fixture is a name in `pipeline_tasks/` or an in-memory pipeline run.
+    `include_training_jobs` defaults to whether "custom_jobs" is in `fixtures`.
     """
     with tempfile.TemporaryDirectory() as tmp_dir:
         sink_path = Path(tmp_dir) / "mcps.json"
@@ -93,6 +120,10 @@ def run_world(fixtures: Sequence[Fixture], **config: Any) -> WorldAspects:
 
 def load_fixture(name: str) -> Dict[str, Any]:
     return json.loads((PIPELINE_TASKS_FIXTURE_DIR / f"{name}.json").read_text())
+
+
+def listed_custom_jobs() -> List[Dict[str, Any]]:
+    return json.loads((PIPELINE_TASKS_FIXTURE_DIR / "custom_jobs.json").read_text())
 
 
 def _task_details(data: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -1000,13 +1031,360 @@ def test_pipeline_run_events(
     assert ("durationMillis" in complete) is started
 
 
-@pytest.mark.parametrize("kind", ["pipeline_run", "task_run"])
+@pytest.mark.parametrize("kind", ["pipeline_run", "task_run", "job_record"])
 def test_run_has_no_container(kind: str) -> None:
-    world = run_world(["nested_run", "refused_run"])
-    marker = {"pipeline_run": "pipeline_run", "task_run": "pipeline_task_run"}[kind]
-    runs = [u for u in world if f"dataProcessInstance:my-project.{marker}." in u]
+    if kind == "job_record":
+        world = run_world(JOBS_WORLD)
+        runs = job_records(world)
+    else:
+        world = run_world(["nested_run", "refused_run"])
+        marker = {"pipeline_run": "pipeline_run", "task_run": "pipeline_task_run"}[kind]
+        runs = [u for u in world if f"dataProcessInstance:my-project.{marker}." in u]
     assert runs
     assert not [u for u in runs if "container" in world[u]]
+
+
+FLAKY_MAIN, FLAKY_FAILED, EMIT_MAIN = (
+    "1000000000000000006",
+    "1000000000000000007",
+    "1000000000000000004",
+)
+BACKING_JOB_IDS = [
+    FLAKY_MAIN,
+    FLAKY_FAILED,
+    EMIT_MAIN,
+    *(
+        "1000000000000000019",
+        "1000000000000000017",
+        "1000000000000000024",
+    ),
+]
+JOBS_WORLD = ["cache_first_run", "cache_hit_run", "custom_jobs"]
+
+
+def job_record(job_id: str) -> str:
+    return f"urn:li:dataProcessInstance:my-project.job.{job_id}"
+
+
+def job_records(world: WorldAspects) -> List[str]:
+    return [u for u in world if u.startswith(job_record(""))]
+
+
+def task_run_properties(world: WorldAspects, run_id: str) -> Dict[str, str]:
+    (properties,) = world[run(run_id)]["dataProcessInstanceProperties"]
+    return properties["customProperties"]
+
+
+def extra_job(job_id: str, billing: str, task: str, **fields: Any) -> Dict[str, Any]:
+    return {
+        "create_time": "2026-11-23T10:30:00Z",
+        "update_time": "2026-11-23T10:31:00Z",
+        "start_time": "2026-11-23T10:30:10Z",
+        "end_time": "2026-11-23T10:30:40Z",
+        "state": 4,
+        "display_name": f"caip_pipelines_{billing}_{task}",
+        "labels": {"vertex-ai-pipelines-run-billing-id": billing},
+        "name": f"projects/123456789012/locations/us-central1/customJobs/{job_id}",
+        **fields,
+    }
+
+
+@pytest.mark.parametrize("check", ["not_a_training_job", "parent"])
+def test_backing_job_record(check: str) -> None:
+    world = run_world(JOBS_WORLD)
+    aspects = world[job_record(FLAKY_MAIN)]
+    if check == "not_a_training_job":
+        assert "container" not in aspects
+        return
+    (relationships,) = aspects["dataProcessInstanceRelationships"]
+    assert relationships["parentInstance"] == run(f"{CACHE1}_flaky")
+    assert "parentTemplate" not in relationships
+
+
+def test_cache_hit_task_run_names_no_job() -> None:
+    properties = task_run_properties(run_world(JOBS_WORLD), f"{CACHE2}_emit")
+    assert not [key for key in properties if "job" in key]
+
+
+def test_cache_hit_job_links_to_earlier_run() -> None:
+    world = run_world(JOBS_WORLD)
+    (relationships,) = world[job_record(EMIT_MAIN)]["dataProcessInstanceRelationships"]
+    assert relationships["parentInstance"] == run(f"{CACHE1}_emit")
+
+
+@pytest.mark.parametrize(
+    "case,count",
+    [
+        pytest.param("run_not_read", 3, id="run_not_read"),
+        pytest.param("task_not_found", 1, id="task_not_found"),
+    ],
+)
+def test_backing_job_skipped(case: str, count: int) -> None:
+    extra = (
+        [extra_job("1000000000000000998", "1000000000000000001", "1000000000000000999")]
+        if case == "task_not_found"
+        else []
+    )
+    world, report = run_world_with_report(JOBS_WORLD, extra_custom_jobs=extra)
+    assert (
+        report.backing_jobs_skipped_run_not_read
+        if case == "run_not_read"
+        else report.backing_jobs_skipped_task_not_found
+    ) == count
+    assert report.backing_jobs_linked == 3
+    skipped = (
+        ["1000000000000000019", "1000000000000000017", "1000000000000000024"]
+        if case == "run_not_read"
+        else ["1000000000000000998"]
+    )
+    for job_id in skipped:
+        assert job_record(job_id) not in world
+    (warning,) = skipped_backing_job_warnings(report)
+    (context,) = warning.context
+    assert f"{case}={count}" in context
+    names = [
+        job["display_name"]
+        for job in [*listed_custom_jobs(), *extra]
+        if job["name"].rsplit("/", 1)[-1] in skipped
+    ]
+    assert len(names) == len(skipped)
+    assert all(name in context for name in names)
+
+
+@pytest.mark.parametrize(
+    "cap", [pytest.param(None, id="within_cap"), pytest.param(1, id="beyond_cap")]
+)
+def test_task_run_job_property(cap: Optional[int]) -> None:
+    world = run_world(JOBS_WORLD, max_training_jobs_per_type=cap)
+    properties = task_run_properties(world, f"{CACHE1}_flaky")
+    assert properties["main_job"].endswith(f"/customJobs/{FLAKY_MAIN}")
+    assert properties["main_job_record"] == job_record(FLAKY_MAIN)
+    assert properties["failed_jobs"].endswith(f"/customJobs/{FLAKY_FAILED}")
+    assert properties["failed_job_records"] == job_record(FLAKY_FAILED)
+
+
+def listed_job(job_id: str) -> Dict[str, Any]:
+    (data,) = [j for j in listed_custom_jobs() if j["name"].endswith(f"/{job_id}")]
+    return data
+
+
+def test_failed_attempt_job_record() -> None:
+    world = run_world(JOBS_WORLD)
+    aspects = world[job_record(FLAKY_FAILED)]
+    (relationships,) = aspects["dataProcessInstanceRelationships"]
+    assert relationships["parentInstance"] == run(f"{CACHE1}_flaky")
+    complete = events(world, job_record(FLAKY_FAILED))["COMPLETE"]
+    assert complete["result"]["type"] == "FAILURE"
+    listed = listed_job(FLAKY_FAILED)
+    assert complete["timestampMillis"] == millis(listed["create_time"])
+    assert complete["durationMillis"] == millis(listed["end_time"]) - millis(
+        listed["create_time"]
+    )
+
+
+@pytest.mark.parametrize(
+    "removed,state",
+    [
+        pytest.param("start_time", 5, id="ended_without_start"),
+        pytest.param("end_time", 5, id="no_end_time"),
+        pytest.param("start_time", 7, id="cancelled_without_start"),
+    ],
+)
+def test_job_record_run_event_times(removed: str, state: int) -> None:
+    attempt = {
+        key: value
+        for key, value in extra_job(
+            "1000000000000000995",
+            "1000000000000000001",
+            "1000000000000000005",
+            state=state,
+        ).items()
+        if key != removed
+    }
+    world = run_world(JOBS_WORLD, extra_custom_jobs=[attempt])
+    assert "dataProcessInstanceProperties" in world[job_record("1000000000000000995")]
+    by_status = events(world, job_record("1000000000000000995"))
+    # Like a Training Job, a job record has no run event without an end time, or
+    # for a cancelled job.
+    if removed == "end_time" or state == 7:
+        assert not by_status
+        return
+    assert list(by_status) == ["COMPLETE"]
+    complete = by_status["COMPLETE"]
+    assert complete["timestampMillis"] == millis(attempt["end_time"])
+    assert complete["result"]["type"] == "FAILURE"
+    assert "durationMillis" not in complete
+
+
+def test_training_job_run_event_is_stamped_at_create_time() -> None:
+    automl: object = gen_mock_training_automl_job()
+    assert isinstance(automl, MagicMock)
+    automl.state = PipelineState.PIPELINE_STATE_SUCCEEDED
+    automl.end_time = automl.create_time + timedelta(minutes=5)
+    automl.to_dict.return_value = {}
+    source = bare_source(
+        use_ml_metadata_for_lineage=False, extract_execution_metrics=False
+    )
+    with patch(
+        "datahub.ingestion.source.vertexai.vertexai_training_extractor.rate_limited_gapic_list",
+        side_effect=lambda cls, *_a, **_k: (
+            [automl] if cls.__name__ == "AutoMLTabularTrainingJob" else []
+        ),
+    ):
+        (event,) = [
+            workunit.metadata.aspect
+            for workunit in source.training_extractor.get_workunits()
+            if isinstance(workunit.metadata, MetadataChangeProposalWrapper)
+            and isinstance(workunit.metadata.aspect, DataProcessInstanceRunEventClass)
+        ]
+    assert event.timestampMillis == datetime_to_ts_millis(automl.create_time)
+    assert event.durationMillis == timedelta(minutes=5) // timedelta(milliseconds=1)
+
+
+SECOND_FAILED = "1000000000000000990"
+
+
+def cache_first_run_with_two_failed_attempts() -> Dict[str, Any]:
+    """cache_first_run where `flaky` failed twice before its main job ran."""
+    data = load_fixture("cache_first_run")
+    flaky = next(d for d in _task_details(data) if d["taskName"] == "flaky")
+    failed = flaky["executorDetail"]["containerDetail"]["failedMainJobs"]
+    failed.insert(0, failed[0].replace(FLAKY_FAILED, SECOND_FAILED))
+    return data
+
+
+def test_task_run_with_two_failed_attempts() -> None:
+    earlier = extra_job(
+        SECOND_FAILED, "1000000000000000001", "1000000000000000005", state=5
+    )
+    world = run_world(
+        [cache_first_run_with_two_failed_attempts(), "cache_hit_run", "custom_jobs"],
+        extra_custom_jobs=[earlier],
+    )
+    flaky = run(f"{CACHE1}_flaky")
+    assert events(world, flaky)["COMPLETE"]["attempt"] == 3
+    properties = task_run_properties(world, f"{CACHE1}_flaky")
+    failed = (SECOND_FAILED, FLAKY_FAILED)
+    assert properties["failed_jobs"] == ",".join(
+        f"projects/123456789012/locations/us-central1/customJobs/{i}" for i in failed
+    )
+    assert properties["failed_job_records"] == ",".join(map(job_record, failed))
+    for job_id in failed:
+        (relationships,) = world[job_record(job_id)]["dataProcessInstanceRelationships"]
+        assert relationships["parentInstance"] == flaky
+
+
+def test_job_record_reads_listed_state() -> None:
+    world = run_world(JOBS_WORLD, custom_job_state_raises=True)
+    assert sorted(job_records(world)) == sorted(
+        job_record(i) for i in BACKING_JOB_IDS[:3]
+    )
+    assert (
+        events(world, job_record(FLAKY_MAIN))["COMPLETE"]["result"]["type"] == "SUCCESS"
+    )
+
+
+def test_job_records_written_after_a_training_job_lookup_stops() -> None:
+    training_job = extra_job(
+        "1000000000000000994",
+        "1000000000000000001",
+        "1000000000000000005",
+        display_name="hand-named-job",
+    )
+    with patch(
+        "datahub.ingestion.source.vertexai.vertexai_training_extractor.get_job_result_status",
+        side_effect=ServiceUnavailable("busy"),
+    ):
+        world, report = run_world_with_report(
+            JOBS_WORLD, extra_custom_jobs=[training_job]
+        )
+    assert job_record("1000000000000000994") not in world
+    assert report.backing_jobs_linked == 3
+    assert sorted(job_records(world)) == sorted(
+        job_record(i) for i in BACKING_JOB_IDS[:3]
+    )
+
+
+@pytest.mark.parametrize(
+    "part",
+    [
+        "subtype",
+        "training_properties",
+        "run_event",
+        "edges",
+        "no_parent_template",
+        "names_task_run",
+    ],
+)
+def test_job_record_content(part: str) -> None:
+    output_job = extra_job(
+        "1000000000000000888",
+        "1000000000000000001",
+        "1000000000000000005",
+        to_dict={
+            "jobSpec": {
+                "output": {"artifactOutputUri": "gs://bucket/training-output/model"}
+            }
+        },
+    )
+    world = run_world(JOBS_WORLD, extra_custom_jobs=[output_job])
+    aspects = world[job_record(FLAKY_MAIN)]
+    if part == "subtype":
+        assert aspects["subTypes"][0]["typeNames"] == ["Training Job"]
+    elif part == "training_properties":
+        assert aspects["mlTrainingRunProperties"][0]["id"] == FLAKY_MAIN
+    elif part == "run_event":
+        complete = events(world, job_record(FLAKY_MAIN))["COMPLETE"]
+        assert complete["result"]["type"] == "SUCCESS"
+        listed = listed_job(FLAKY_MAIN)
+        assert complete["timestampMillis"] == millis(listed["create_time"])
+        assert complete["durationMillis"] == millis(listed["end_time"]) - millis(
+            listed["create_time"]
+        )
+    elif part == "edges":
+        today, _ = run_world_with_report(
+            ["custom_jobs"], extra_custom_jobs=[output_job], include_pipelines=False
+        )
+        urn = job_record("1000000000000000888")
+        outputs = world[urn]["dataProcessInstanceOutput"][0]["outputEdges"]
+        assert outputs
+        assert outputs == today[urn]["dataProcessInstanceOutput"][0]["outputEdges"]
+    elif part == "no_parent_template":
+        assert all(
+            "parentTemplate" not in r
+            for r in aspects["dataProcessInstanceRelationships"]
+        )
+    else:
+        properties = aspects["dataProcessInstanceProperties"][0]["customProperties"]
+        assert properties["pipeline_task_run"] == run(f"{CACHE1}_flaky")
+
+
+def test_custom_job_training_jobs_get_no_run_event() -> None:
+    world = run_world(["custom_jobs"], include_pipelines=False)
+    assert len(job_records(world)) == 6
+    for urn in job_records(world):
+        assert "dataProcessInstanceRunEvent" not in world[urn]
+
+
+def test_pipelines_off_keeps_training_jobs() -> None:
+    world = run_world(["custom_jobs"], include_pipelines=False)
+    assert len(job_records(world)) == 6
+    for urn in job_records(world):
+        assert "container" in world[urn]
+        assert "parentInstance" not in str(
+            world[urn].get("dataProcessInstanceRelationships")
+        )
+
+
+@pytest.mark.parametrize("case", ["counts_backing_jobs", "beyond_cap_no_record"])
+def test_cap(case: str) -> None:
+    world = run_world(JOBS_WORLD, max_training_jobs_per_type=2)
+    if case == "counts_backing_jobs":
+        assert sorted(job_records(world)) == sorted(
+            [job_record(FLAKY_MAIN), job_record(FLAKY_FAILED)]
+        )
+    else:
+        assert job_record(EMIT_MAIN) not in world
 
 
 def bare_source(**config: Any) -> VertexAISource:
@@ -1019,6 +1397,311 @@ def bare_source(**config: Any) -> VertexAISource:
     source._current_project_id = "my-project"
     source._current_region = "us-central1"
     return source
+
+
+@pytest.mark.parametrize(
+    "case", ["urn", "earlier_ingestion", "experiment_link", "model_link"]
+)
+def test_job_record_urn(case: str) -> None:
+    expected = f"urn:li:dataProcessInstance:my-project.job.{FLAKY_MAIN}"
+    if case == "urn":
+        assert expected in run_world(JOBS_WORLD)
+    elif case == "earlier_ingestion":
+        assert expected in run_world(["custom_jobs"], include_pipelines=False)
+    elif case == "experiment_link":
+        job = gen_custom_job_from_fixture(listed_custom_jobs()[0])
+        source = bare_source()
+        assert source.experiment_extractor._logged_training_job_urns([job]) == [
+            expected
+        ]
+    else:
+        job = gen_custom_job_from_fixture(listed_custom_jobs()[0])
+        source = bare_source()
+        source.training_extractor._track_listed_output_model(
+            job,
+            AutoMLJobConfig(
+                modelToUpload=ModelToUpload(
+                    name="projects/1/locations/us-central1/models/234", versionId="1"
+                )
+            ),
+            None,
+        )
+        tracked = [
+            urn
+            for relationship in source.model_usage_tracker.relationships.values()
+            for urn in relationship.training_jobs
+        ]
+        assert tracked == [expected]
+
+
+@pytest.mark.parametrize("case", ["training_jobs_off", "pattern_excludes_custom_job"])
+def test_no_job_records_without_listing(case: str) -> None:
+    config: Dict[str, Any] = (
+        {"include_training_jobs": False}
+        if case == "training_jobs_off"
+        else {"training_job_type_pattern": {"deny": ["CustomJob"]}}
+    )
+    world = run_world(JOBS_WORLD, **config)
+    assert not job_records(world)
+    assert "main_job" in task_run_properties(world, f"{CACHE1}_flaky")
+
+
+def test_held_jobs_do_not_advance_checkpoint() -> None:
+    source = bare_source()
+    jobs = [gen_custom_job_from_fixture(data) for data in listed_custom_jobs()]
+    # Only the flaky task (id ...05) of billing id ...01 is read: jobs 6 and 7 match.
+    parents = {"1000000000000000001": {"1000000000000000005": run(f"{CACHE1}_flaky")}}
+    handler = source.training_extractor.state_handler
+    with (
+        patch.object(handler, "get_last_update_time", return_value=1),
+        patch.object(handler, "update_resource_timestamp") as update,
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_training_extractor.rate_limited_gapic_list",
+            side_effect=lambda cls, *_a, **_k: (
+                jobs if cls.__name__ == "CustomJob" else []
+            ),
+        ),
+    ):
+        list(source.training_extractor.get_workunits())
+        update.assert_not_called()
+        list(
+            source.training_extractor.gen_backing_job_records(
+                parents, run_not_read=[], task_not_found=[]
+            )
+        )
+    recorded = {call.args[1] for call in update.call_args_list}
+    written = {
+        int(job.update_time.timestamp() * 1000)
+        for job in jobs
+        if job.name in (FLAKY_MAIN, FLAKY_FAILED)
+    }
+    assert recorded == written
+
+
+def test_backing_job_parents_do_not_outlive_the_region() -> None:
+    left: List[Dict[str, Dict[str, str]]] = []
+
+    def collect(source: Any) -> None:
+        left.append(dict(source.pipeline_extractor.backing_job_parents))
+
+    run_world(JOBS_WORLD, after_run=collect)
+    assert left == [{}]
+
+
+@pytest.mark.parametrize("path", ["transient_stop", "keep_previous_detail"])
+def test_kept_job_is_neither_linked_nor_checkpointed(path: str) -> None:
+    source = bare_source(use_ml_metadata_for_lineage=True)
+    extractor = source.training_extractor
+    jobs = [gen_custom_job_from_fixture(data) for data in listed_custom_jobs()]
+    parents = {"1000000000000000001": {"1000000000000000005": run(f"{CACHE1}_flaky")}}
+    keep = (
+        patch.object(extractor._stopped, "any_transient", return_value=True)
+        if path == "transient_stop"
+        else patch.object(
+            extractor,
+            "_get_job_lineage_from_ml_metadata",
+            return_value=DetailResult(value=None, keep_previous=True),
+        )
+    )
+    with (
+        patch.object(extractor.state_handler, "get_last_update_time", return_value=1),
+        patch.object(extractor.state_handler, "update_resource_timestamp") as update,
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_training_extractor.rate_limited_gapic_list",
+            side_effect=lambda cls, *_a, **_k: (
+                jobs if cls.__name__ == "CustomJob" else []
+            ),
+        ),
+        keep,
+    ):
+        list(extractor.get_workunits())
+        assert not list(
+            extractor.gen_backing_job_records(
+                parents, run_not_read=[], task_not_found=[]
+            )
+        )
+    assert source.report.backing_jobs_linked == 0
+    update.assert_not_called()
+
+
+def test_held_jobs_are_joined_only_in_their_own_region() -> None:
+    source = bare_source()
+    extractor = source.training_extractor
+    jobs = [gen_custom_job_from_fixture(data) for data in listed_custom_jobs()]
+    parents = {"1000000000000000001": {"1000000000000000005": run(f"{CACHE1}_flaky")}}
+    listings = iter([jobs, []])
+    skipped: List[List[str]] = []
+    with patch(
+        "datahub.ingestion.source.vertexai.vertexai_training_extractor.rate_limited_gapic_list",
+        side_effect=lambda cls, *_a, **_k: (
+            next(listings) if cls.__name__ == "CustomJob" else []
+        ),
+    ):
+        for _region in ("us-central1", "europe-west4"):
+            run_not_read: List[str] = []
+            task_not_found: List[str] = []
+            list(extractor.get_workunits())
+            list(
+                extractor.gen_backing_job_records(
+                    parents, run_not_read=run_not_read, task_not_found=task_not_found
+                )
+            )
+            skipped.append(run_not_read + task_not_found)
+    assert source.report.backing_jobs_linked == 2
+    assert skipped[0]
+    assert skipped[1] == []
+
+
+def test_join_records_no_checkpoint_time_without_an_earlier_one() -> None:
+    source = bare_source()
+    jobs = [gen_custom_job_from_fixture(data) for data in listed_custom_jobs()]
+    parents = {"1000000000000000001": {"1000000000000000005": run(f"{CACHE1}_flaky")}}
+    handler = source.training_extractor.state_handler
+    with (
+        patch.object(handler, "get_last_update_time", return_value=None),
+        patch.object(handler, "update_resource_timestamp") as update,
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_training_extractor.rate_limited_gapic_list",
+            side_effect=lambda cls, *_a, **_k: (
+                jobs if cls.__name__ == "CustomJob" else []
+            ),
+        ),
+    ):
+        list(source.training_extractor.get_workunits())
+        list(
+            source.training_extractor.gen_backing_job_records(
+                parents, run_not_read=[], task_not_found=[]
+            )
+        )
+    assert source.report.backing_jobs_linked == 2
+    update.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "recorded", [True, False], ids=["keeps_listing_error", "records_when_none"]
+)
+def test_join_error_never_replaces_the_listing_error(recorded: bool) -> None:
+    source = bare_source()
+    listing_error, join_error = RuntimeError("listing"), RuntimeError("join")
+    if recorded:
+        source._ledger.record_read(
+            "my-project", "us-central1", "training_jobs", error=listing_error
+        )
+    with patch.object(
+        source.training_extractor, "gen_backing_job_records", side_effect=join_error
+    ):
+        assert not list(source._join_backing_jobs("my-project", "us-central1"))
+    lost = source._ledger.lost_phase1_kinds("my-project", "us-central1")
+    assert lost == {"training_jobs": listing_error if recorded else join_error}
+
+
+@pytest.mark.parametrize("listing_failed", [True, False], ids=["warned", "not_warned"])
+def test_join_error_after_a_failed_listing_is_warned(listing_failed: bool) -> None:
+    source = bare_source()
+    listing_error, join_error = RuntimeError("listing"), RuntimeError("join")
+    if listing_failed:
+        source._ledger.record_read(
+            "my-project", "us-central1", "training_jobs", error=listing_error
+        )
+    with patch.object(
+        source.training_extractor, "gen_backing_job_records", side_effect=join_error
+    ):
+        assert not list(source._join_backing_jobs("my-project", "us-central1"))
+    warnings = [
+        w for w in source.report.warnings if w.title == BACKING_JOBS_NOT_LINKED_TITLE
+    ]
+    if not listing_failed:
+        assert not warnings
+        return
+    (warning,) = warnings
+    assert warning.message == BACKING_JOBS_NOT_LINKED
+    context = " ".join(warning.context)
+    assert "project=my-project, region=us-central1" in context
+    assert "RuntimeError" in context and "join" in context
+
+
+def cache_first_run_with_failed_jobs_only() -> Dict[str, Any]:
+    """cache_first_run where `flaky` names its failed attempt but no main job."""
+    data = load_fixture("cache_first_run")
+    flaky = next(d for d in _task_details(data) if d["taskName"] == "flaky")
+    flaky["executorDetail"]["containerDetail"].pop("mainJob")
+    return data
+
+
+def nested_run_without_jobs() -> Dict[str, Any]:
+    """nested_run with no step naming a backing job."""
+    data = load_fixture("nested_run")
+    for detail in _task_details(data):
+        detail.pop("executorDetail", None)
+    return data
+
+
+# A read run is held by its billing id even when none of its tasks can name a job.
+JOINED_PARENTS = {
+    "1000000000000000001": {
+        "-1000000000000000003": run(f"{CACHE1}_emit"),
+        "1000000000000000005": run(f"{CACHE1}_flaky"),
+    },
+    "1000000000000000008": {},
+}
+
+
+@pytest.mark.parametrize(
+    "fixtures,config,expected",
+    [
+        pytest.param(JOBS_WORLD, {}, JOINED_PARENTS, id="joined"),
+        pytest.param(
+            JOBS_WORLD, {"include_training_jobs": False}, {}, id="training_jobs_off"
+        ),
+        pytest.param(
+            JOBS_WORLD,
+            {"training_job_type_pattern": {"deny": ["CustomJob"]}},
+            {},
+            id="pattern_denies_custom_job",
+        ),
+        pytest.param(
+            ["cache_hit_run"],
+            {"include_training_jobs": True},
+            {"1000000000000000008": {}},
+            id="cache_hit",
+        ),
+        pytest.param(
+            [nested_run_without_jobs()],
+            {"include_training_jobs": True},
+            {"1000000000000000026": {}},
+            id="no_main_or_failed_job",
+        ),
+        pytest.param(
+            [cache_first_run_with_failed_jobs_only(), "cache_hit_run", "custom_jobs"],
+            {},
+            JOINED_PARENTS,
+            id="failed_jobs_only",
+        ),
+    ],
+)
+def test_backing_job_parents_hold_only_joinable_runs(
+    fixtures: List[Fixture],
+    config: Dict[str, Any],
+    expected: Dict[str, Dict[str, str]],
+) -> None:
+    seen: List[Dict[str, Dict[str, str]]] = []
+
+    def copy_before_clear(extractor: VertexAIPipelineExtractor) -> None:
+        seen.append(
+            {
+                billing: dict(tasks)
+                for billing, tasks in extractor.backing_job_parents.items()
+            }
+        )
+
+    with patch.object(
+        VertexAIPipelineExtractor,
+        "clear_backing_job_parents",
+        autospec=True,
+        side_effect=copy_before_clear,
+    ):
+        run_world(fixtures, **config)
+    assert seen == [expected]
 
 
 def renamed(fixture: str, name: str) -> Dict[str, Any]:
@@ -1083,6 +1766,294 @@ def test_unmatched_details_context_is_a_sample() -> None:
     assert len(re.findall(r"ghost-\d\d", context)) == 10
     assert "ghost-09" in context
     assert "ghost-10" not in context
+
+
+@pytest.mark.parametrize(
+    "display_name",
+    [
+        pytest.param("hand-named-job", id="other_name"),
+        pytest.param(
+            "caip_pipelines_1000000000000000999_1000000000000000005",
+            id="other_billing_id",
+        ),
+    ],
+)
+def test_labelled_job_without_backing_job_name_is_training_job(
+    display_name: str,
+) -> None:
+    labelled = extra_job(
+        "1000000000000000996",
+        "1000000000000000001",
+        "1000000000000000005",
+        display_name=display_name,
+    )
+    world, report = run_world_with_report(JOBS_WORLD, extra_custom_jobs=[labelled])
+    aspects = world[job_record("1000000000000000996")]
+    assert aspects["subTypes"][0]["typeNames"] == ["Training Job"]
+    assert "container" in aspects
+    assert "parentInstance" not in str(aspects.get("dataProcessInstanceRelationships"))
+    assert report.backing_jobs_skipped_task_not_found == 0
+    assert report.backing_jobs_linked == 3
+
+
+def test_job_of_a_run_with_lost_details_is_run_not_read() -> None:
+    lost: DetailResult[List[PipelineTaskDetail]] = DetailResult(
+        value=None, keep_previous=False
+    )
+    with patch.object(
+        VertexAIPipelineExtractor, "_read_pipeline_task_details", return_value=lost
+    ):
+        world, report = run_world_with_report(JOBS_WORLD)
+    assert report.backing_jobs_skipped_run_not_read == len(listed_custom_jobs())
+    assert report.backing_jobs_linked == 0
+    assert not job_records(world)
+
+
+def test_jobs_of_a_lost_pipeline_list_get_no_record() -> None:
+    lost = RetryError("retries exhausted", cause=ServiceUnavailable("busy"))
+    with patch.object(VertexAIPipelineExtractor, "get_workunits", side_effect=lost):
+        world, report = run_world_with_report(JOBS_WORLD)
+    assert not job_records(world)
+    assert report.backing_jobs_skipped_run_not_read == len(listed_custom_jobs())
+    assert [w for w in report.warnings if w.message.endswith(PIPELINE_LIST_LOST_JOBS)]
+
+
+def skipped_backing_job_warnings(report: VertexAISourceReport) -> List[Any]:
+    return [w for w in report.warnings if w.title == BACKING_JOBS_SKIPPED_TITLE]
+
+
+def test_skipped_backing_jobs_warned_once_per_region() -> None:
+    unread = [
+        extra_job("1000000000000000951", "1000000000000000961", "1000000000000000971"),
+        extra_job("1000000000000000952", "1000000000000000962", "1000000000000000972"),
+    ]
+    world, report = run_world_with_report(
+        ["cache_first_run"], include_training_jobs=True, extra_custom_jobs=unread
+    )
+    (warning,) = skipped_backing_job_warnings(report)
+    (context,) = warning.context
+    assert (
+        "project=my-project, region=us-central1, run_not_read=2, task_not_found=0"
+        in context
+    )
+    assert all(job["display_name"] in context for job in unread)
+    assert report.backing_jobs_skipped_run_not_read == 2
+    assert job_record("1000000000000000951") not in world
+    assert job_record("1000000000000000952") not in world
+
+
+def test_skipped_backing_jobs_not_warned_when_pipeline_list_lost() -> None:
+    lost = RetryError("retries exhausted", cause=ServiceUnavailable("busy"))
+    with patch.object(VertexAIPipelineExtractor, "get_workunits", side_effect=lost):
+        _, report = run_world_with_report(JOBS_WORLD)
+    assert report.backing_jobs_skipped_run_not_read == len(listed_custom_jobs())
+    assert not skipped_backing_job_warnings(report)
+    assert [w for w in report.warnings if w.message.endswith(PIPELINE_LIST_LOST_JOBS)]
+
+
+def test_skipped_backing_jobs_warned_after_checkpoint_stop() -> None:
+    # cache_first_run was last updated before this checkpoint, so the listing stops
+    # at it and its jobs, like those of runs never listed, are skipped.
+    checkpoint = millis("2026-11-24T00:00:00Z")
+    with patch.object(
+        VertexAIStateHandler,
+        "get_last_update_time",
+        side_effect=lambda resource_type: (
+            checkpoint if resource_type == ResourceTypes.PIPELINE_JOB else None
+        ),
+    ):
+        world, report = run_world_with_report(["cache_first_run", "custom_jobs"])
+    assert not job_records(world)
+    assert report.backing_jobs_skipped_run_not_read == len(listed_custom_jobs())
+    (warning,) = skipped_backing_job_warnings(report)
+    (context,) = warning.context
+    assert f"run_not_read={len(listed_custom_jobs())}, task_not_found=0" in context
+    assert listed_job(FLAKY_MAIN)["display_name"] in context
+
+
+def test_skipped_backing_jobs_warning_names_at_most_ten() -> None:
+    unread = [
+        extra_job(
+            f"10000000000000009{i:02d}",
+            f"10000000000000008{i:02d}",
+            "1000000000000000005",
+        )
+        for i in range(11)
+    ]
+    _, report = run_world_with_report(
+        ["cache_first_run"], include_training_jobs=True, extra_custom_jobs=unread
+    )
+    (warning,) = skipped_backing_job_warnings(report)
+    (context,) = warning.context
+    assert "run_not_read=11, task_not_found=0" in context
+    named = [job["display_name"] in context for job in unread]
+    assert named == [True] * 10 + [False]
+
+
+@pytest.mark.parametrize(
+    "config,carried",
+    [
+        pytest.param({}, True, id="job_records_on"),
+        # The model step keeps a read that does not fail, so the loss is reported
+        # per read rather than as a project that could not be read.
+        pytest.param(
+            {"include_training_jobs": False, "include_models": True},
+            False,
+            id="training_jobs_off",
+        ),
+        pytest.param(
+            {"training_job_type_pattern": {"deny": ["CustomJob"]}},
+            False,
+            id="custom_job_denied",
+        ),
+    ],
+)
+def test_refused_pipeline_list_names_held_jobs_only_with_job_records(
+    config: Dict[str, Any], carried: bool
+) -> None:
+    refused = PermissionDenied(
+        "no role", error_info=ErrorInfo(reason="IAM_PERMISSION_DENIED")
+    )
+    with (
+        patch.object(VertexAIPipelineExtractor, "get_workunits", side_effect=refused),
+        pytest.raises(PipelineExecutionError) as raised,
+    ):
+        run_world_with_report(JOBS_WORLD, **config)
+    (failure,) = [
+        f for f in raised.value.args[1] if "resource=pipelines" in " ".join(f.context)
+    ]
+    assert failure.message.endswith(PIPELINE_LIST_LOST_JOBS) is carried
+
+
+def test_pipeline_read_stopped_partway_links_jobs_of_runs_read() -> None:
+    original = VertexAIPipelineExtractor._get_pipeline_workunits
+    calls: List[None] = []
+
+    def fail_after_first_run(
+        extractor: VertexAIPipelineExtractor, *args: Any, **kwargs: Any
+    ) -> Iterator[Any]:
+        calls.append(None)
+        if len(calls) > 1:
+            raise ValueError("error while writing a later run")
+        yield from original(extractor, *args, **kwargs)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        sink_path = Path(tmp_dir) / "mcps.json"
+        with (
+            patch.object(
+                VertexAIPipelineExtractor,
+                "_get_pipeline_workunits",
+                fail_after_first_run,
+            ),
+            pytest.raises(PipelineExecutionError) as raised,
+        ):
+            run_pipeline_fixtures(JOBS_WORLD, str(sink_path))
+        urns = {mcp["entityUrn"] for mcp in json.loads(sink_path.read_text())}
+    # cache_first_run is read first; cache_hit_run, whose run names no job, fails.
+    assert sorted(u for u in urns if u.startswith(job_record(""))) == sorted(
+        job_record(i) for i in BACKING_JOB_IDS[:3]
+    )
+    (failure,) = [
+        f for f in raised.value.args[1] if "resource=pipelines" in " ".join(f.context)
+    ]
+    assert failure.message.endswith(PIPELINE_LIST_LOST_JOBS)
+
+
+def test_job_of_a_read_run_without_joinable_tasks_is_task_not_found() -> None:
+    # Every task of cache_hit_run is a cache hit, so none can name a job of its own.
+    extra = [
+        extra_job("1000000000000000997", "1000000000000000008", "1000000000000000011")
+    ]
+    _, report = run_world_with_report(JOBS_WORLD, extra_custom_jobs=extra)
+    assert report.backing_jobs_skipped_task_not_found == 1
+    assert report.backing_jobs_skipped_run_not_read == 3
+    (warning,) = skipped_backing_job_warnings(report)
+    (context,) = warning.context
+    assert "run_not_read=3, task_not_found=1" in context
+    assert extra[0]["display_name"] in context
+
+
+PIPELINE_RECORDINGS = sorted(
+    path.stem for path in PIPELINE_TASKS_FIXTURE_DIR.glob("*_run.json")
+)
+
+
+@pytest.mark.parametrize("recording", PIPELINE_RECORDINGS)
+def test_no_recording_has_a_job_whose_task_is_not_found(recording: str) -> None:
+    _, report = run_world_with_report([recording, "custom_jobs"])
+    assert report.backing_jobs_skipped_task_not_found == 0
+    for warning in skipped_backing_job_warnings(report):
+        assert "task_not_found=0" in " ".join(warning.context)
+
+
+def test_full_world_skips_no_backing_job() -> None:
+    assert PIPELINE_RECORDINGS
+    _, report = run_world_with_report([*PIPELINE_RECORDINGS, "custom_jobs"])
+    assert report.backing_jobs_skipped_task_not_found == 0
+    assert not skipped_backing_job_warnings(report)
+
+
+def test_job_whose_task_is_not_found_alone_is_warned() -> None:
+    orphan = extra_job(
+        "1000000000000000993", "1000000000000000001", "1000000000000000999"
+    )
+    _, report = run_world_with_report(
+        [*PIPELINE_RECORDINGS, "custom_jobs"], extra_custom_jobs=[orphan]
+    )
+    (warning,) = skipped_backing_job_warnings(report)
+    (context,) = warning.context
+    assert "run_not_read=0, task_not_found=1" in context
+    assert orphan["display_name"] in context
+
+
+def test_job_whose_task_is_not_found_is_named_before_unread_runs() -> None:
+    unread = [
+        extra_job(
+            f"10000000000000009{i:02d}",
+            f"10000000000000008{i:02d}",
+            "1000000000000000005",
+        )
+        for i in range(11)
+    ]
+    orphan = extra_job(
+        "1000000000000000993", "1000000000000000001", "1000000000000000999"
+    )
+    _, report = run_world_with_report(
+        ["cache_first_run"],
+        include_training_jobs=True,
+        extra_custom_jobs=[*unread, orphan],
+    )
+    (warning,) = skipped_backing_job_warnings(report)
+    (context,) = warning.context
+    assert "run_not_read=11, task_not_found=1" in context
+    assert orphan["display_name"] in context
+
+
+def test_job_whose_task_is_not_found_is_warned_when_pipeline_list_lost() -> None:
+    original = VertexAIPipelineExtractor._get_pipeline_workunits
+    calls: List[None] = []
+
+    def fail_after_first_run(
+        extractor: VertexAIPipelineExtractor, *args: Any, **kwargs: Any
+    ) -> Iterator[Any]:
+        calls.append(None)
+        if len(calls) > 1:
+            raise RetryError("retries exhausted", cause=ServiceUnavailable("busy"))
+        yield from original(extractor, *args, **kwargs)
+
+    orphan = extra_job(
+        "1000000000000000993", "1000000000000000001", "1000000000000000999"
+    )
+    with patch.object(
+        VertexAIPipelineExtractor, "_get_pipeline_workunits", fail_after_first_run
+    ):
+        _, report = run_world_with_report(JOBS_WORLD, extra_custom_jobs=[orphan])
+    assert report.backing_jobs_skipped_run_not_read == 3
+    (warning,) = skipped_backing_job_warnings(report)
+    (context,) = warning.context
+    assert "task_not_found=1" in context
+    assert "run_not_read" not in context
+    assert orphan["display_name"] in context
 
 
 def loop_run_copies(count: int = 3) -> List[Dict[str, Any]]:

@@ -2,7 +2,7 @@ import logging
 import types
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, replace
-from typing import Callable, Dict, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Mapping, Optional, Union
 
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import Model, VersionInfo
@@ -20,7 +20,10 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 )
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
+    JOB_PIPELINE_TASK_RUN,
     ORDER_BY_UPDATE_TIME_DESC,
+    PIPELINE_BACKING_JOB_NAME,
+    PIPELINE_BILLING_LABEL,
     DatasetTypes,
     DetailCalls,
     ResourceCategory,
@@ -42,6 +45,7 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
 from datahub.ingestion.source.vertexai.vertexai_report import VertexAISourceReport
 from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     UNKNOWN_STATUS,
+    get_custom_job_result_type,
     get_job_result_status,
     is_status_for_run_event_class,
 )
@@ -66,6 +70,7 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceInputClass,
     DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
+    DataProcessInstanceRelationshipsClass,
     DataProcessInstanceRunEventClass,
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
@@ -86,7 +91,16 @@ logger = logging.getLogger(__name__)
 @dataclass
 class JobLookup:
     result_type: Union[str, RunResultTypeClass]
+    # When the run event is stamped; None means the job gets no run event.
+    event_millis: Optional[int]
     duration_millis: Optional[int]
+
+
+@dataclass(frozen=True)
+class _HeldJob:
+    job: VertexAiResourceNoun
+    billing_id: str
+    task_id: str
 
 
 @dataclass
@@ -140,6 +154,9 @@ class VertexAITrainingExtractor:
         self.rate_limiter = rate_limiter
 
         self.datasets: Optional[Dict[str, VertexAiResourceNoun]] = None
+        # Listed CustomJobs that Vertex ran for a pipeline task, waiting to be
+        # joined to their task run.
+        self._held_jobs: List[_HeldJob] = []
 
     def reset_regional_caches(self) -> None:
         """Clear the cached datasets, which are region-specific."""
@@ -162,6 +179,10 @@ class VertexAITrainingExtractor:
                 order_by=ORDER_BY_UPDATE_TIME_DESC,
             )
 
+            holds_backing_jobs = (
+                self.config.links_pipeline_backed_jobs
+                and class_name == TrainingJobTypes.CUSTOM_JOB
+            )
             max_jobs = self.config.max_training_jobs_per_type
             for job_count, job in enumerate(jobs, start=1):
                 if last_checkpoint_millis:
@@ -172,12 +193,17 @@ class VertexAITrainingExtractor:
                         )
                         break
 
-                    self.state_handler.update_resource_timestamp(
-                        class_name, job_update_millis
-                    )
-
                 log_progress(job_count, max_jobs, class_name)
-                yield from self._get_training_job_mcps(job)
+                held_job = self._as_held_job(job) if holds_backing_jobs else None
+                if held_job is not None:
+                    # Its checkpoint time is recorded only if the join writes it.
+                    self._held_jobs.append(held_job)
+                else:
+                    if last_checkpoint_millis:
+                        self.state_handler.update_resource_timestamp(
+                            class_name, job_update_millis
+                        )
+                    yield from self._get_training_job_mcps(job)
 
                 if max_jobs is not None and job_count >= max_jobs:
                     logger.info(
@@ -185,19 +211,82 @@ class VertexAITrainingExtractor:
                     )
                     break
 
-    def _get_training_job_mcps(
-        self, job: VertexAiResourceNoun
+    @staticmethod
+    def _as_held_job(job: VertexAiResourceNoun) -> Optional[_HeldJob]:
+        """The job, if a pipeline task ran it: it carries the billing label, and its
+        display name is the backing-job name with that same billing id."""
+        billing_id = (getattr(job, "labels", None) or {}).get(PIPELINE_BILLING_LABEL)
+        name = PIPELINE_BACKING_JOB_NAME.match(job.display_name or "")
+        if name is None or name.group(1) != billing_id:
+            return None
+        return _HeldJob(job=job, billing_id=name.group(1), task_id=name.group(2))
+
+    def gen_backing_job_records(
+        self,
+        parents: Mapping[str, Mapping[str, str]],
+        *,
+        run_not_read: List[str],
+        task_not_found: List[str],
     ) -> Iterable[MetadataWorkUnit]:
+        """Write each held job under the task run that ran it, then forget the held jobs.
+
+        `parents` maps a pipeline run's billing id to its task ids and their task run URNs.
+        The display names of held jobs whose run is not in `parents` are added to
+        `run_not_read`, and of those whose task is not in their run to `task_not_found`.
+        """
+        held, self._held_jobs = self._held_jobs, []
+        # As in the listing loop, a checkpoint time is recorded only after a prior one.
+        has_checkpoint = bool(
+            self.state_handler.get_last_update_time(TrainingJobTypes.CUSTOM_JOB)
+        )
+        for held_job in held:
+            tasks = parents.get(held_job.billing_id)
+            if tasks is None:
+                self.report.report_backing_job_skipped_run_not_read()
+                run_not_read.append(held_job.job.gca_resource.display_name)
+                continue
+            task_run_urn = tasks.get(held_job.task_id)
+            if task_run_urn is None:
+                self.report.report_backing_job_skipped_task_not_found()
+                task_not_found.append(held_job.job.gca_resource.display_name)
+                continue
+            job = held_job.job
+            written = False
+            for workunit in self._get_training_job_mcps(job, task_run_urn=task_run_urn):
+                written = True
+                yield workunit
+            # A job kept as it was (a stop, an unreadable detail) writes nothing:
+            # it is not linked, and its checkpoint time must not move.
+            if not written:
+                continue
+            self.report.report_backing_job_linked()
+            if has_checkpoint:
+                # The SDK's update_time property calls GetCustomJob; the listing holds it.
+                self.state_handler.update_resource_timestamp(
+                    TrainingJobTypes.CUSTOM_JOB,
+                    int(job.gca_resource.update_time.timestamp() * 1000),
+                )
+
+    def _get_training_job_mcps(
+        self, job: VertexAiResourceNoun, task_run_urn: Optional[str] = None
+    ) -> Iterable[MetadataWorkUnit]:
+        """Write a training job; with `task_run_urn`, a job record under that task run."""
         job_config = (
             self._parse_automl_config(job) if self._is_automl_job(job) else None
         )
-        if self._stopped.any_transient(
-            self._get_scope(), self._job_call_kinds(job_config)
-        ):
+        call_kinds = self._job_call_kinds(job_config)
+        if task_run_urn is not None:
+            # A job record reads its state from the listing: no lookup call to stop.
+            call_kinds.remove(DetailCalls.TRAINING_JOB_LOOKUP)
+        if self._stopped.any_transient(self._get_scope(), call_kinds):
             self.report.report_item_kept_after_stop()
             self._keep_previous_job(job, job_config)
             return
-        lookup = self._look_up_job(job)
+        lookup = (
+            self._look_up_job(job)
+            if task_run_urn is None
+            else self._read_listed_job(job)
+        )
         if lookup.keep_previous:
             self._keep_previous_job(job, job_config)
             return
@@ -208,7 +297,7 @@ class VertexAITrainingExtractor:
         external_urns = self.uri_parser.extract_external_uris_from_job(job)
         job_meta.external_input_urns = external_urns.input_urns
         job_meta.external_output_urns = external_urns.output_urns
-        yield from self._gen_training_job_mcps(job_meta, lookup)
+        yield from self._gen_training_job_mcps(job_meta, lookup, task_run_urn)
         yield from self._get_input_dataset_mcps(job_meta)
         yield from self._gen_output_model_mcps(job_meta)
 
@@ -305,13 +394,42 @@ class VertexAITrainingExtractor:
 
     def _look_up_job(self, job: VertexAiResourceNoun) -> DetailResult[JobLookup]:
         # The SDK refreshes the job from Google when its state or end time is read.
-        return self._read_detail(
-            DetailCalls.TRAINING_JOB_LOOKUP,
-            lambda: JobLookup(
-                result_type=get_job_result_status(job),
-                duration_millis=self._get_job_duration_millis(job),
+        def read() -> JobLookup:
+            result_type = get_job_result_status(job)
+            duration = self._get_job_duration_millis(job)
+            return JobLookup(
+                result_type=result_type,
+                # A duration means the job has a create time.
+                event_millis=(
+                    datetime_to_ts_millis(job.create_time)
+                    if duration is not None
+                    else None
+                ),
+                duration_millis=duration,
+            )
+
+        return self._read_detail(DetailCalls.TRAINING_JOB_LOOKUP, read, item=job.name)
+
+    @staticmethod
+    def _read_listed_job(job: VertexAiResourceNoun) -> DetailResult[JobLookup]:
+        # The listed resource holds the state and times; the SDK's `state` would
+        # call GetCustomJob for each job.
+        resource = job.gca_resource
+        event_millis: Optional[int] = None
+        duration_millis: Optional[int] = None
+        if resource.end_time and resource.start_time and resource.create_time:
+            event_millis = datetime_to_ts_millis(resource.create_time)
+            duration_millis = datetime_to_ts_millis(resource.end_time) - event_millis
+        elif resource.end_time:
+            # An attempt that ended without starting: its end, with no duration.
+            event_millis = datetime_to_ts_millis(resource.end_time)
+        return DetailResult(
+            value=JobLookup(
+                result_type=get_custom_job_result_type(resource.state),
+                event_millis=event_millis,
+                duration_millis=duration_millis,
             ),
-            item=job.name,
+            keep_previous=False,
         )
 
     def _get_job_duration_millis(self, job: VertexAiResourceNoun) -> Optional[int]:
@@ -384,12 +502,14 @@ class VertexAITrainingExtractor:
         self,
         job_meta: TrainingJobMetadata,
         lookup: DetailResult[JobLookup],
+        task_run_urn: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         job = job_meta.job
         job_id = self.name_formatter.format_job_name(entity_id=job.name)
         job_urn = builder.make_data_process_instance_urn(job_id)
 
         result_type = lookup.value.result_type if lookup.value else UNKNOWN_STATUS
+        event_millis = lookup.value.event_millis if lookup.value else None
         duration = lookup.value.duration_millis if lookup.value else None
 
         created_time = datetime_to_ts_millis(job.create_time) if job.create_time else 0
@@ -407,6 +527,12 @@ class VertexAITrainingExtractor:
         hyperparams = ml_metrics.hyperparams
         metrics = ml_metrics.metrics
 
+        custom_properties = TrainingJobCustomProperties(
+            job_type=job.__class__.__name__,
+        ).to_custom_properties()
+        if task_run_urn is not None:
+            custom_properties[JOB_PIPELINE_TASK_RUN] = task_run_urn
+
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
             aspect=DataProcessInstancePropertiesClass(
@@ -417,9 +543,7 @@ class VertexAITrainingExtractor:
                     or builder.UNKNOWN_USER,
                 ),
                 externalUrl=self.url_builder.make_job_url(job.name),
-                customProperties=TrainingJobCustomProperties(
-                    job_type=job.__class__.__name__,
-                ).to_custom_properties(),
+                customProperties=custom_properties,
             ),
         ).as_workunit()
 
@@ -437,7 +561,16 @@ class VertexAITrainingExtractor:
             entity_urn=job_urn,
             subtype=MLAssetSubTypes.VERTEX_TRAINING_JOB,
             resource_category=ResourceCategory.TRAINING_JOBS,
+            include_container=task_run_urn is None,
         )
+
+        if task_run_urn is not None:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=job_urn,
+                aspect=DataProcessInstanceRelationshipsClass(
+                    upstreamInstances=[], parentInstance=task_run_urn
+                ),
+            ).as_workunit()
 
         if dataset_urn or external_input_edges:
             yield MetadataChangeProposalWrapper(
@@ -463,12 +596,12 @@ class VertexAITrainingExtractor:
                 ),
             ).as_workunit()
 
-        if is_status_for_run_event_class(result_type) and duration:
+        if is_status_for_run_event_class(result_type) and event_millis is not None:
             yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
                 aspect=DataProcessInstanceRunEventClass(
                     status=DataProcessRunStatusClass.COMPLETE,
-                    timestampMillis=created_time,
+                    timestampMillis=event_millis,
                     result=DataProcessInstanceRunResultClass(
                         type=result_type,
                         nativeResultType=self.platform,

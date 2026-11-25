@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Tuple
 
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     LINKS_LOST_ON_STOP,
+    PIPELINE_LIST_LOST_JOBS,
     READ_SWITCHES,
     ResourceReads,
 )
@@ -183,7 +184,9 @@ class ReadLedger:
                 temporary=loss_kind is ErrorKind.TRANSIENT,
             )
 
-    def report_lost_reads(self, project_id: str, listed: bool) -> None:
+    def report_lost_reads(
+        self, project_id: str, *, listed: bool, job_records: bool
+    ) -> None:
         """A temporary loss is a warning. A lasting one fails the run for a listed
         project; a discovered project, which nobody chose to ingest, gets a
         warning instead."""
@@ -200,6 +203,10 @@ class ReadLedger:
             else:
                 title = "Resource type could not be read"
                 message = "This resource type could not be read in this region of a discovered project, and the error repeats on every run. Its earlier entities are kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project, and what depends on it is written without it. Grant the permission named in the context, or turn the read off with the switch named there."
+            message = error_message(lost.error, message)
+            if job_records and lost.kind == ResourceReads.PIPELINES:
+                # The held jobs are joined only to runs this list reads.
+                message = message + " " + PIPELINE_LIST_LOST_JOBS
             emit = (
                 self._report.failure
                 if listed and not lost.temporary
@@ -208,7 +215,7 @@ class ReadLedger:
             context = self._list_context(project_id, lost)
             emit(
                 title=error_title(lost.error, title),
-                message=error_message(lost.error, message),
+                message=message,
                 context=context,
                 exc=lost.error,
             )

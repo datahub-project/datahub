@@ -2,7 +2,7 @@ import contextlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Type, Union
 from unittest.mock import MagicMock, Mock, PropertyMock, patch
 
 import google.cloud.aiplatform as aiplatform
@@ -21,11 +21,14 @@ from google.cloud.aiplatform.models import Endpoint, VersionInfo
 from google.cloud.aiplatform_v1 import PipelineTaskDetail
 from google.cloud.aiplatform_v1.types import (
     Artifact,
+    CustomJob as CustomJobType,
     Event,
+    JobState,
     PipelineJob as PipelineJobType,
     PipelineState,
 )
 
+from datahub.ingestion.api.source import Source
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.vertexai.vertexai_report import VertexAISourceReport
 
@@ -341,15 +344,75 @@ def gen_pipeline_job_from_fixture(data: Dict[str, Any]) -> PipelineJob:
     return job
 
 
+def _parse_fixture_time(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def gen_custom_job_from_fixture(
+    data: Dict[str, Any], *, state_raises: bool = False
+) -> CustomJob:
+    """A CustomJob mock; `to_dict` is the fixture's optional `to_dict` entry.
+
+    With `state_raises`, reading the SDK's `state` property fails the test, as it
+    would call GetCustomJob for real.
+    """
+    create_time = _parse_fixture_time(data["create_time"])
+    update_time = _parse_fixture_time(data["update_time"])
+    labels = data.get("labels", {})
+    state = JobState(data["state"])
+
+    gca_resource = CustomJobType(
+        name=data["name"],
+        display_name=data["display_name"],
+        labels=labels,
+        state=state,
+        create_time=create_time,
+        update_time=update_time,
+    )
+    if "start_time" in data:
+        gca_resource.start_time = _parse_fixture_time(data["start_time"])
+    if "end_time" in data:
+        gca_resource.end_time = _parse_fixture_time(data["end_time"])
+
+    job = MagicMock(spec=CustomJob)
+    job.name = data["name"].split("/")[-1]
+    job.resource_name = data["name"]
+    job.display_name = data["display_name"]
+    # labels is a property descriptor on the real class, so set it on the type
+    type(job).labels = PropertyMock(return_value=labels)
+    job.create_time = create_time
+    job.update_time = update_time
+    if state_raises:
+        type(job).state = PropertyMock(
+            side_effect=AssertionError("CustomJob.state read: it calls GetCustomJob")
+        )
+    else:
+        job.state = state
+    job.gca_resource = gca_resource
+    job.to_dict.return_value = data.get(
+        "to_dict", {"displayName": data["display_name"]}
+    )
+    return job
+
+
 def run_pipeline_fixtures(
     fixtures: Sequence[Union[str, Dict[str, Any]]],
     sink_path: str,
+    *,
+    extra_custom_jobs: Sequence[Dict[str, Any]] = (),
+    custom_job_state_raises: bool = False,
+    after_run: Optional[Callable[[Source], None]] = None,
     **config: Any,
 ) -> VertexAISourceReport:
     """Run the Vertex AI source offline over fixtures, writing MCPs to `sink_path`.
 
     A fixture is the name of a file in `pipeline_tasks/` or an in-memory pipeline run
-    (the same JSON as a file). Any `config` entry overrides the source config.
+    (the same JSON as a file). Every named fixture is a pipeline run except
+    "custom_jobs", which is the list of CustomJobs. `include_training_jobs` defaults
+    to whether "custom_jobs" is in `fixtures`; any `config` entry overrides the
+    source config. `extra_custom_jobs` are CustomJobs listed after those of
+    "custom_jobs"; `custom_job_state_raises` makes every CustomJob mock fail when
+    its `state` property is read. `after_run` is called with the source once it has run.
     """
 
     def load(name: str) -> Any:
@@ -360,7 +423,16 @@ def run_pipeline_fixtures(
 
     class_data: Dict[Type, List[Any]] = {
         aiplatform.PipelineJob: [
-            gen_pipeline_job_from_fixture(pipeline_run(fixture)) for fixture in fixtures
+            gen_pipeline_job_from_fixture(pipeline_run(fixture))
+            for fixture in fixtures
+            if fixture != "custom_jobs"
+        ],
+        aiplatform.CustomJob: [
+            gen_custom_job_from_fixture(job_data, state_raises=custom_job_state_raises)
+            for job_data in [
+                *(load("custom_jobs") if "custom_jobs" in fixtures else []),
+                *extra_custom_jobs,
+            ]
         ],
     }
     source_config: Dict[str, Any] = {
@@ -369,7 +441,7 @@ def run_pipeline_fixtures(
         "include_models": False,
         "include_experiments": False,
         "include_evaluations": False,
-        "include_training_jobs": False,
+        "include_training_jobs": "custom_jobs" in fixtures,
         "include_pipelines": True,
         "use_ml_metadata_for_lineage": False,
         "extract_execution_metrics": False,
@@ -399,6 +471,8 @@ def run_pipeline_fixtures(
         pipeline.raise_from_status()
         report = pipeline.source.get_report()
         assert isinstance(report, VertexAISourceReport)
+        if after_run is not None:
+            after_run(pipeline.source)
         return report
 
 

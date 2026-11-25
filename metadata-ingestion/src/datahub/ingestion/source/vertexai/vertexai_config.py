@@ -30,6 +30,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     IngestionLimits,
     MLMetadataDefaults,
+    TrainingJobTypes,
 )
 
 logger = logging.getLogger(__name__)
@@ -87,7 +88,7 @@ class VertexAIConfig(
     )
     include_training_jobs: bool = Field(
         default=True,
-        description="Ingest training jobs and related run events.",
+        description="Ingest training jobs and related run events. With include_pipelines on, this also decides whether job records are written for custom jobs that pipeline tasks ran.",
     )
     include_experiments: bool = Field(
         default=True,
@@ -95,7 +96,7 @@ class VertexAIConfig(
     )
     include_pipelines: bool = Field(
         default=True,
-        description="Ingest pipelines and tasks.",
+        description="Ingest pipelines and tasks. With this on, a custom job that a pipeline task ran is written as a job record under that task run instead of as a Training Job. This needs the CustomJob listing: `include_training_jobs` on, `CustomJob` allowed, and within `max_training_jobs_per_type`.",
     )
     include_evaluations: bool = Field(
         default=True,
@@ -139,7 +140,8 @@ class VertexAIConfig(
         le=IngestionLimits.ABSOLUTE_MAX_TRAINING_JOBS_PER_TYPE,
         description=f"Maximum training jobs per type (CustomJob, AutoML, etc.). Jobs are ordered by update_time "
         f"descending (most recently updated first). Default: {IngestionLimits.DEFAULT_MAX_TRAINING_JOBS_PER_TYPE}, "
-        f"Max: {IngestionLimits.ABSOLUTE_MAX_TRAINING_JOBS_PER_TYPE}. Set to None for unlimited (not recommended).",
+        f"Max: {IngestionLimits.ABSOLUTE_MAX_TRAINING_JOBS_PER_TYPE}. Set to None for unlimited (not recommended). "
+        "Custom jobs that pipeline tasks ran count toward this limit, although with include_pipelines on they are written as job records, not Training Jobs.",
     )
     max_experiments: Optional[int] = Field(
         default=IngestionLimits.DEFAULT_MAX_EXPERIMENTS,
@@ -318,6 +320,15 @@ class VertexAIConfig(
                 "Must specify at least one of: 'region' (deprecated), 'regions', or 'discover_regions=true'."
             )
         return self
+
+    @property
+    def links_pipeline_backed_jobs(self) -> bool:
+        """Whether custom jobs that pipeline tasks ran are listed, held and written as job records under their task runs."""
+        return (
+            self.include_pipelines
+            and self.include_training_jobs
+            and self.training_job_type_pattern.allowed(TrainingJobTypes.CUSTOM_JOB)
+        )
 
     def get_listed_regions(self) -> List[str]:
         return self.regions or ([self.region] if self.region else [])

@@ -1,0 +1,80 @@
+[
+ {
+  "create_time": "2026-11-23T10:29:09.386102Z",
+  "display_name": "caip_pipelines_1000000000000000001_1000000000000000005",
+  "end_time": "2026-11-23T10:31:28Z",
+  "labels": {
+   "vertex-ai-pipelines-run-billing-id": "1000000000000000001",
+   "vertex_pipelines": ""
+  },
+  "name": "projects/123456789012/locations/us-central1/customJobs/1000000000000000006",
+  "start_time": "2026-11-23T10:31:28Z",
+  "state": 4,
+  "update_time": "2026-11-23T10:31:30.490876Z"
+ },
+ {
+  "create_time": "2026-11-23T10:24:54.581568Z",
+  "display_name": "caip_pipelines_1000000000000000001_1000000000000000005",
+  "end_time": "2026-11-23T10:29:02Z",
+  "labels": {
+   "vertex-ai-pipelines-run-billing-id": "1000000000000000001",
+   "vertex_pipelines": ""
+  },
+  "name": "projects/123456789012/locations/us-central1/customJobs/1000000000000000007",
+  "start_time": "2026-11-23T10:28:59Z",
+  "state": 5,
+  "update_time": "2026-11-23T10:29:03.918007Z"
+ },
+ {
+  "create_time": "2026-11-23T10:25:06.459994Z",
+  "display_name": "caip_pipelines_1000000000000000012_1000000000000000018",
+  "end_time": "2026-11-23T10:27:15Z",
+  "labels": {
+   "vertex-ai-pipelines-run-billing-id": "1000000000000000012",
+   "vertex_pipelines": ""
+  },
+  "name": "projects/123456789012/locations/us-central1/customJobs/1000000000000000019",
+  "start_time": "2026-11-23T10:27:15Z",
+  "state": 5,
+  "update_time": "2026-11-23T10:27:17.490238Z"
+ },
+ {
+  "create_time": "2026-11-23T10:22:45.846247Z",
+  "display_name": "caip_pipelines_1000000000000000020_1000000000000000023",
+  "end_time": "2026-11-23T10:25:19.868985Z",
+  "labels": {
+   "vertex-ai-pipelines-run-billing-id": "1000000000000000020",
+   "vertex_pipelines": ""
+  },
+  "name": "projects/123456789012/locations/us-central1/customJobs/1000000000000000024",
+  "start_time": "2026-11-23T10:25:02Z",
+  "state": 7,
+  "update_time": "2026-11-23T10:25:19.868985Z"
+ },
+ {
+  "create_time": "2026-11-23T10:22:42.902819Z",
+  "display_name": "caip_pipelines_1000000000000000012_1000000000000000016",
+  "end_time": "2026-11-23T10:24:55Z",
+  "labels": {
+   "vertex-ai-pipelines-run-billing-id": "1000000000000000012",
+   "vertex_pipelines": ""
+  },
+  "name": "projects/123456789012/locations/us-central1/customJobs/1000000000000000017",
+  "start_time": "2026-11-23T10:24:54Z",
+  "state": 4,
+  "update_time": "2026-11-23T10:24:56.211396Z"
+ },
+ {
+  "create_time": "2026-11-23T10:22:41.094592Z",
+  "display_name": "caip_pipelines_1000000000000000001_-1000000000000000003",
+  "end_time": "2026-11-23T10:24:41Z",
+  "labels": {
+   "vertex-ai-pipelines-run-billing-id": "1000000000000000001",
+   "vertex_pipelines": ""
+  },
+  "name": "projects/123456789012/locations/us-central1/customJobs/1000000000000000004",
+  "start_time": "2026-11-23T10:24:41Z",
+  "state": 4,
+  "update_time": "2026-11-23T10:24:43.573644Z"
+ }
+]
