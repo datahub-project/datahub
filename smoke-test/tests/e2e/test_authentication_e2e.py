@@ -141,7 +141,6 @@ def test_health_endpoint_with_invalid_token() -> None:
     logger.info(f"✅ /health with invalid token: {response.status_code}")
 
 
-@pytest.mark.requires(Capability.DOCKER_FREE_INVESTIGATION)
 def test_actuator_prometheus_no_auth() -> None:
     """Prometheus metrics should work without authentication (excluded path)."""
     response = requests.get(f"{get_gms_prometheus_base_url()}/actuator/prometheus")
@@ -438,6 +437,7 @@ def test_malformed_auth_headers(auth_header: str) -> None:
     )
 
 
+@pytest.mark.requires(Capability.PLAY_FRONTEND)
 def test_api_token_authentication(auth_session: TestSessionWrapper) -> None:
     """Test API token-based authentication behavior.
 
@@ -484,6 +484,7 @@ def test_api_token_authentication(auth_session: TestSessionWrapper) -> None:
             revoke_api_token(auth_session, token_id)
 
 
+@pytest.mark.requires(Capability.PLAY_FRONTEND)
 def test_session_vs_token_authentication(auth_session: TestSessionWrapper) -> None:
     """Test the different authentication methods work as designed.
 

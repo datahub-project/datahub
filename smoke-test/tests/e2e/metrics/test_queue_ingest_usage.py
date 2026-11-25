@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.domain(Domain.PLATFORM),
-    pytest.mark.requires(Capability.OBJECT_STORAGE, Capability.KAFKA),
+    pytest.mark.requires(Capability.KAFKA),
 ]
 
 
