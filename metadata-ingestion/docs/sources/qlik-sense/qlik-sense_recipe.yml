@@ -1,10 +1,9 @@
 source:
   type: qlik-sense
   config:
-    # Coordinates
+    # Qlik Cloud
     tenant_hostname: "xyz12xz.us.qlikcloud.com"
-    # Credentials
-    api_key: "QLIK_API_KEY"
+    api_key: "${QLIK_API_KEY}"
 
     # Qlik Sense Enterprise on Windows: set on_prem instead of tenant_hostname and api_key.
     # on_prem:
@@ -12,24 +11,23 @@ source:
     #   client_cert: /secrets/client.pem
     #   client_key: /secrets/client_key.pem
     #   root_cert: /secrets/root.pem
-    
-    # Optional - filter for certain space names instead of ingesting everything.
-    # Mention 'personal_space' if entities of personal space need to ingest
+
+    # Optional: only ingest some spaces. Use 'personal_space' for personal spaces.
     # space_pattern:
     #   allow:
     #     - space_name
 
     ingest_owner: true
-    
-    # Optional -- This mapping is optional and only required to configure platform-instance for Qlik app dataset upstream source tables
-    # A mapping of the Qlik app dataset upstream tables from data connection to platform instance. Use 'data_connection_name' as key.
+
+    # Optional: the platform, database and platform instance of the tables
+    # load script SELECT statements read, keyed by data connection name.
     # data_connection_to_platform_instance:
     #   data_connection_name:
-    #     platform_instance: cloud_instance
-    #     env: DEV
     #     platform: mssql
     #     database: sales_db
     #     default_schema: dbo
+    #     platform_instance: cloud_instance
+    #     env: DEV
 
 sink:
   # sink configs

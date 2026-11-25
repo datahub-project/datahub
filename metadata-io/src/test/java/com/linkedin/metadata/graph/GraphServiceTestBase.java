@@ -13,6 +13,7 @@ import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
@@ -728,6 +729,9 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         siblingGraphService.getLineageCount(
             operationContext, dataset1Urn, LineageDirection.DOWNSTREAM, 0, 100, false, false);
 
+    // A hop that misses the graph timeout is dropped from the walk; the totals below would then
+    // compare an incomplete walk.
+    assertFalse(Boolean.TRUE.equals(walked.isPartial(GetMode.NULL)), "walk is partial");
     // dataset1 -> {dataset2, dataJobOne, dataJobTwo}; dataset2 -> {dataset3, dataset4, dataJobOne,
     // dataJobTwo}. Outside the pair: dataset3, dataset4, dataJobOne, dataJobTwo.
     assertEquals(counted.getTotal() - counted.getFiltered(), 4);
@@ -735,7 +739,9 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         walked.getTotal() - walked.getFiltered(), counted.getTotal() - counted.getFiltered());
     // total on its own is not comparable: the walk counts edges (shared neighbours twice).
     assertEquals(counted.getTotal().intValue(), 4);
-    assertTrue(walked.getTotal() > counted.getTotal(), "walk total " + walked.getTotal());
+    assertTrue(
+        walked.getTotal() > counted.getTotal(),
+        "walk total " + walked.getTotal() + ", count total " + counted.getTotal());
   }
 
   @Test

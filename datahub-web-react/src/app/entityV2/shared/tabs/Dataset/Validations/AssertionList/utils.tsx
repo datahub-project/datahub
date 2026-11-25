@@ -30,6 +30,7 @@ import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validatio
 import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
 import { getCustomAssertionFields } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/shared/structuredAssertionUtils';
 import {
+    ASSERTION_CUSTOM_TYPE_FILTER_NAME,
     ASSERTION_FIELD_PATH_FILTER_NAME,
     ASSERTION_SOURCE_FILTER_NAME,
     ASSERTION_STATUS_FILTER_NAME,
@@ -235,6 +236,9 @@ const buildFilterOptions = (
     Object.entries(value).forEach(([name, count]) => {
         let displayName =
             displayNames[name] || (key === 'type' ? getAssertionGroupName(name) : getStatusGroupDisplayName(name));
+        if (key === 'category') {
+            displayName = name;
+        }
         if (key === 'source') {
             displayName = RECOMMENDED_FILTER_NAME_MAP[name];
         }
@@ -286,6 +290,7 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
     const filterOptions: AssertionFilterOptions = {
         filterGroupOptions: {
             type: [],
+            category: [],
             status: [],
             column: [],
             tags: [],
@@ -297,6 +302,7 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
 
     const filterGroupCounts = {
         type: {} as Record<string, number>,
+        category: {} as Record<string, number>,
         status: {} as Record<string, number>,
         column: {} as Record<string, number>,
         tags: {} as Record<string, number>,
@@ -311,13 +317,18 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
 
     assertions.forEach((assertion: Assertion) => {
         // filter out tracked types
-        const type = (getAssertionType(assertion) || '') as AssertionType;
+        const type = assertion.info?.type || AssertionType.Custom;
         const index = remainingAssertionTypes.indexOf(type);
         if (index > -1) {
             remainingAssertionTypes.splice(index, 1);
         }
 
         filterGroupCounts.type[type] = (filterGroupCounts.type[type] || 0) + 1;
+
+        const customType = assertion.info?.customAssertion?.type;
+        if (assertion.info?.type === AssertionType.Custom && customType) {
+            filterGroupCounts.category[customType] = (filterGroupCounts.category[customType] || 0) + 1;
+        }
 
         // filter out tracked statuses
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
@@ -377,6 +388,7 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
 
     buildFilterOptions('status', filterGroupCounts.status, filterOptions);
     buildFilterOptions('type', filterGroupCounts.type, filterOptions);
+    buildFilterOptions('category', filterGroupCounts.category, filterOptions);
     buildFilterOptions('column', filterGroupCounts.column, filterOptions);
     buildFilterOptions('source', filterGroupCounts.source, filterOptions);
     buildFilterOptions('tags', filterGroupCounts.tags, filterOptions, tagDisplayNames);
@@ -389,10 +401,7 @@ const normalizeStatusFacet = (value: string): string => {
     return value;
 };
 
-export const extractFilterOptionsFromFacets = (
-    assertions: Assertion[],
-    facets?: FacetMetadata[],
-): AssertionFilterOptions => {
+const extractAvailableFilterOptions = (assertions: Assertion[], facets?: FacetMetadata[]): AssertionFilterOptions => {
     if (!facets) {
         return extractFilterOptionListFromAssertions(assertions);
     }
@@ -400,6 +409,7 @@ export const extractFilterOptionsFromFacets = (
     const filterOptions: AssertionFilterOptions = {
         filterGroupOptions: {
             type: [],
+            category: [],
             status: [],
             column: [],
             tags: [],
@@ -411,6 +421,7 @@ export const extractFilterOptionsFromFacets = (
     const fields: Array<{ field: string; category: keyof AssertionFilterOptions['filterGroupOptions'] }> = [
         { field: ASSERTION_STATUS_FILTER_NAME, category: 'status' },
         { field: ASSERTION_TYPE_FILTER_NAME, category: 'type' },
+        { field: ASSERTION_CUSTOM_TYPE_FILTER_NAME, category: 'category' },
         { field: ASSERTION_FIELD_PATH_FILTER_NAME, category: 'column' },
         { field: ASSERTION_SOURCE_FILTER_NAME, category: 'source' },
         { field: TAGS_FILTER_NAME, category: 'tags' },
@@ -458,6 +469,26 @@ export const extractFilterOptionsFromFacets = (
     ).forEach((source) => buildFilterOptions('source', { [source]: 0 }, filterOptions));
 
     return filterOptions;
+};
+
+export const extractFilterOptionsFromFacets = (
+    assertions: Assertion[],
+    facets?: FacetMetadata[],
+    selectedCategories: string[] = [],
+): AssertionFilterOptions => {
+    const options = extractAvailableFilterOptions(assertions, facets);
+    const existingNames = new Set(options.filterGroupOptions.category.map((option) => option.name));
+    const missingCategories = [...new Set(selectedCategories)]
+        .filter((name) => !existingNames.has(name))
+        .map((name): AssertionRecommendedFilter => ({ name, displayName: name, category: 'category', count: 0 }));
+    return {
+        ...options,
+        filterGroupOptions: {
+            ...options.filterGroupOptions,
+            category: [...options.filterGroupOptions.category, ...missingCategories],
+        },
+        recommendedFilters: [...options.recommendedFilters, ...missingCategories],
+    };
 };
 
 // create column id group from column assertions
@@ -591,9 +622,11 @@ export const getFilteredTransformedAssertionData = (
 /** Build the Assertion Redirect Search Param URL to help add with location pathname for redirection */
 export const buildAssertionUrlSearch = ({
     type,
+    customType,
     status,
 }: {
     type?: AssertionType;
+    customType?: string;
     status?: AssertionResultType;
 }): string => {
     const { search } = window.location;
@@ -601,6 +634,11 @@ export const buildAssertionUrlSearch = ({
 
     if (type) {
         params.set('assertion_type', type);
+    }
+    if (customType) {
+        params.set('assertion_custom_type', customType);
+    } else if (type) {
+        params.delete('assertion_custom_type');
     }
     if (status) {
         params.set('assertion_status', status);

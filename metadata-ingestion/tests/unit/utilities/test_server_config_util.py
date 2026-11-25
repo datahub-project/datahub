@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -549,3 +549,18 @@ def test_requirements_not_defined():
 
     # Should return False as no requirements defined
     assert not config.supports_feature(mock_feature)
+
+
+@pytest.mark.parametrize(
+    ("raw_config", "expected"),
+    [
+        ({"authentication": {"enabled": True}}, True),
+        ({"authentication": {"enabled": False}}, False),
+        # A GMS from before /config reported it.
+        ({}, None),
+        ({"authentication": {}}, None),
+        ({"authentication": {"enabled": "true"}}, None),
+    ],
+)
+def test_auth_enabled(raw_config: dict, expected: Optional[bool]) -> None:
+    assert RestServiceConfig(raw_config=raw_config).auth_enabled is expected

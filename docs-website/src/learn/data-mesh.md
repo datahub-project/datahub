@@ -94,17 +94,6 @@ DataHub Cloud offers a comprehensive set of features designed to support the imp
 
 - **[Data Domains](https://docs.datahub.com/docs/domains)**: Clearly define and manage data products within each business unit.
 - **[Data Products](https://docs.datahub.com/docs/dataproducts):** Ensure each domain owns and manages its data products, promoting autonomy and agility.
-- **[Data Contracts](https://docs.datahub.com/docs/managed-datahub/observe/data-contract)**: Establish clear agreements between domains to ensure consistency and reliability.
-    
-
-<p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-mesh/data-contract.png"/> 
-  <br />
-  <i style={{color:"grey"}}>Data Contracts in DataHub Cloud UI</i>
-</p>
-
-
-
 - **[Assertions](https://docs.datahub.com/docs/managed-datahub/observe/assertions)** Monitor data quality using freshness, volume, column validity, schema, and custom SQL checks to get notified first when things go wrong
 
 

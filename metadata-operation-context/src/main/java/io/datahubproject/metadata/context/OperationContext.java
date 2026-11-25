@@ -21,6 +21,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -392,6 +393,18 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
     try {
       return toBuilder()
           .searchContext(getSearchContext().toBuilder().callerFiltered(callerFiltered).build())
+          .build(getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /** Records the filter a similarity anchor must pass; see {@link SearchContext}. */
+  @Nonnull
+  public OperationContext withAnchorFilter(@Nullable Filter anchorFilter) {
+    try {
+      return toBuilder()
+          .searchContext(getSearchContext().toBuilder().anchorFilter(anchorFilter).build())
           .build(getSessionActorContext(), false);
     } catch (OperationContextException e) {
       throw new RuntimeException(e);

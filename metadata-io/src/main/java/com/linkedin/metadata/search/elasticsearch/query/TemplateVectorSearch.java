@@ -26,6 +26,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHan
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateEngineSupport;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
@@ -34,6 +35,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateS
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateVectorRetrieval;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateWalk;
 import com.linkedin.metadata.search.embedding.EmbeddingProfile;
+import com.linkedin.metadata.search.embedding.EmbeddingThrottledException;
 import com.linkedin.metadata.search.embedding.VectorStore;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
@@ -44,7 +46,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.opentelemetry.context.Context;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -102,6 +103,17 @@ final class TemplateVectorSearch {
   private final ESSearchDAO dao;
   private final NativeVectorStore nativeStore;
   private final Map<String, Breaker> breakers = new ConcurrentHashMap<>();
+  private final SearchTemplateEngineSupport engineSupport =
+      new SearchTemplateEngineSupport(
+          "The Search V3 cluster runs OpenSearch {}. A vector template rung that the DataHub index"
+              + " serves needs OpenSearch 3.5 or later, so each one fails closed as unavailable."
+              + " Upgrade OpenSearch and restart GMS to run vector templates.",
+          "The Search V3 engine reads as {}, so GMS cannot tell whether it runs OpenSearch 3.5 or"
+              + " later, which a vector template rung that the DataHub index serves needs. Those"
+              + " rungs run, and GMS reads the engine again at most once a minute. Reading the"
+              + " OpenSearch version needs the cluster:monitor/main permission, and a cluster in"
+              + " compatibility mode reports 7.10.2 whatever it runs.",
+          System::currentTimeMillis);
 
   TemplateVectorSearch(@Nonnull ESSearchDAO dao) {
     this.dao = dao;
@@ -113,10 +125,11 @@ final class TemplateVectorSearch {
    * embedding, store, hydration, or facet request follows the rung's {@code onFailure}: {@code
    * next} returns the failure to the ladder, and anything else fails the search. On the semantic
    * search surface it always fails the search, and a failed embedding is a {@link
-   * QueryEmbeddingException} with its reason. A store with no adapter, or a caller filter on a
-   * store without preFilter, fails closed. Similarity checks its anchor first, so an anchor it
-   * cannot use fails the search even when no requested type is eligible. A caller floor out of
-   * range fails as a bad request before either.
+   * QueryEmbeddingException} with its reason. A store with no adapter, the DataHub index on
+   * OpenSearch before 3.5, or a caller filter on a store without preFilter, fails closed, whatever
+   * {@code onFailure} says. Similarity checks its anchor first, so an anchor it cannot use fails
+   * the search even when no requested type is eligible. A caller floor out of range fails as a bad
+   * request before either.
    */
   @Nonnull
   SearchTemplateWalk.AttemptResult<SearchResult> attempt(
@@ -188,8 +201,11 @@ final class TemplateVectorSearch {
       // scope assigns candidate types only, so it does not apply to the anchor.
       final Set<String> anchorProfiles = gates.profileIds(template, anchor.getEntityType(), system);
       if (anchorProfiles.size() != 1) {
-        throw SearchTemplateVectorRetrieval.noAnchor(
-            opContext, template, anchor + " has no embedding profile to search with");
+        throw SearchTemplateVectorRetrieval.anchorWithoutProfile(
+            opContext,
+            template,
+            anchor,
+            gates.anchorProfileFailure(template, anchor.getEntityType(), system));
       }
       profile = anchorProfiles.iterator().next();
       anchorVectors = anchorVectors(opContext, template, store, anchor, profile, deadlineNanos);
@@ -252,6 +268,23 @@ final class TemplateVectorSearch {
               + " is served by vector store "
               + system
               + ", which has no adapter in this process");
+    }
+    // Before OpenSearch 3.5 the kNN pre-filter, which names _entityType, runs in the chunk scope,
+    // where it can leave out documents it should match: an empty or short page would look like a
+    // search that found less. An engine GMS cannot read lets the rung run, as there is no other
+    // path
+    // to serve it. A read that is due runs here, after this rung's vector deadline started, so a
+    // slow cluster info call spends that deadline, and a rung that then runs out of time reports
+    // the
+    // embedding timeout. That happens on the first vector rung after startup, and at most once a
+    // minute while the engine reads as unknown.
+    if (!store.external()
+        && engineSupport.read(opContext) == SearchTemplateEngineSupport.Support.UNSUPPORTED) {
+      SearchTemplateMetrics.vectorRetrieval(opContext, SearchTemplateVectorRetrieval.UNAVAILABLE);
+      throw new SearchTemplateFailClosedException(
+          "Search template "
+              + template.getUrn()
+              + " retrieves by vector from the DataHub index, which needs OpenSearch 3.5 or later");
     }
     requirePreFilter(opContext, template, system, store, postFilters);
     requireCosineForCallerFloor(
@@ -609,18 +642,18 @@ final class TemplateVectorSearch {
     }
   }
 
-  /** The anchor URN, the whole trimmed query. A query that is not a URN fails the search. */
+  /** The anchor URN the query names, read as bind reads it. A query that is not a URN fails. */
   @Nonnull
   private static Urn anchor(
       @Nonnull OperationContext opContext,
       @Nonnull MergedSearchTemplate template,
       @Nonnull String input) {
-    try {
-      return Urn.createFromString(input.trim());
-    } catch (URISyntaxException e) {
+    final Urn anchor = SearchTemplateVectorRetrieval.anchorUrn(input);
+    if (anchor == null) {
       throw SearchTemplateVectorRetrieval.noAnchor(
           opContext, template, "the query is not an entity URN");
     }
+    return anchor;
   }
 
   /**
@@ -951,9 +984,9 @@ final class TemplateVectorSearch {
   }
 
   /**
-   * The query's vector. A failure is typed by reason: one that ended at the search's deadline timed
-   * out, as keywordRerank counts it, any other failed, and one the embedding service typed keeps
-   * its reason.
+   * The query's vector. A failure is typed by reason: one the provider throttled is rejected, one
+   * that ended at the search's deadline timed out, as keywordRerank counts it, any other failed,
+   * and one the embedding service typed keeps its reason.
    */
   @Nonnull
   private static float[] queryVector(
@@ -962,6 +995,8 @@ final class TemplateVectorSearch {
       return embedding.embed(input, deadlineNanos).vector();
     } catch (QueryEmbeddingException e) {
       throw e;
+    } catch (EmbeddingThrottledException e) {
+      throw new QueryEmbeddingException(QueryEmbeddingException.REJECTED, e);
     } catch (RuntimeException e) {
       throw new QueryEmbeddingException(
           e instanceof UncheckedTimeoutException || System.nanoTime() - deadlineNanos >= 0

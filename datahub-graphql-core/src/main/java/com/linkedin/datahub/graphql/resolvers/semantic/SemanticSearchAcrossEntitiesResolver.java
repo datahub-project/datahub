@@ -24,16 +24,15 @@ import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.search.DefaultEntityFiltersUtil;
+import com.linkedin.datahub.graphql.resolvers.search.QueryEmbeddingFailures;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.search.QueryEmbeddingException;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SemanticSearchDisabledException;
 import com.linkedin.metadata.search.SemanticSearchService;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
@@ -47,9 +46,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 
 /**
  * Resolver responsible for resolving 'semanticSearchAcrossEntities' field of the Query type.
@@ -82,8 +82,9 @@ public class SemanticSearchAcrossEntitiesResolver
     final List<String> entityNames =
         getSearchEntityNames(context.getOperationContext(), input.getTypes());
 
-    // The query text only feeds the embedding provider (kNN); it never reaches a query_string
-    // clause, so it is passed as typed. Escaping "/" would change the embedded text.
+    // The query text feeds the embedding provider (kNN), or, when it is an entity URN the semantic
+    // template routes to similarity, names the anchor. It never reaches a query_string clause, so
+    // it is passed as typed. Escaping "/" would change the embedded text.
     final String query = input.getQuery();
     // A blank query embeds to a fixed sentinel vector under the classical provider, so kNN would
     // return arbitrary nearest documents instead of failing. Reject it before any service call.
@@ -153,17 +154,20 @@ public class SemanticSearchAcrossEntitiesResolver
                     : Collections.emptyList();
 
             if (servedByTemplate) {
-              return templateSearch(
-                  context,
-                  finalEntities,
-                  query,
-                  baseFilter,
-                  finalFilter,
-                  searchFlags,
-                  sortCriteria,
-                  start,
-                  count,
-                  structuredPropertyFacets);
+              return templateSearch()
+                  .semanticSearchService(_semanticSearchService)
+                  .entityClient(_entityClient)
+                  .context(context)
+                  .entityNames(finalEntities)
+                  .query(query)
+                  .baseFilter(baseFilter)
+                  .callerFilter(finalFilter)
+                  .searchFlags(searchFlags)
+                  .sortCriteria(sortCriteria)
+                  .start(start)
+                  .count(count)
+                  .facets(structuredPropertyFacets)
+                  .search();
             }
 
             return UrnSearchResultsMapper.map(
@@ -206,13 +210,24 @@ public class SemanticSearchAcrossEntitiesResolver
   }
 
   /**
-   * Semantic search through the semantic search template. As keyword search does, it adds the
-   * document defaults (the published-document default and placement) to the caller's filter,
-   * records whether that filter, with its view, had a criterion of its own, and keeps the default
-   * fields out of the facets. A query it could not embed is an error naming why, or, when the
-   * caller opted in, the keyword search results for the same request, marked with that reason.
+   * Semantic search through the semantic search template, for this resolver and for single-entity
+   * semantic search, which passes its one entity type. Callers name each argument through the
+   * {@code templateSearch()} builder and run it with {@code search()}. {@code baseFilter} is the
+   * caller's filter without its view and {@code callerFilter} the same filter with it, so without a
+   * view they are the same filter. As keyword search does, it adds the document defaults (the
+   * published-document default and placement) to the caller's filter, records whether that filter,
+   * with its view, had a criterion of its own, and keeps the default fields out of the facets. A
+   * query it could not embed is an error naming why, or, when the caller opted in, the keyword
+   * search results across the same entity types for the same request, marked with that reason.
    */
-  private SearchResults templateSearch(
+  @Builder(
+      builderClassName = "TemplateSearch",
+      builderMethodName = "templateSearch",
+      buildMethodName = "search",
+      access = AccessLevel.PACKAGE)
+  private static SearchResults searchByTemplate(
+      final SemanticSearchService semanticSearchService,
+      final com.linkedin.entity.client.EntityClient entityClient,
       final QueryContext context,
       final List<String> entityNames,
       final String query,
@@ -225,104 +240,36 @@ public class SemanticSearchAcrossEntitiesResolver
       final List<String> facets)
       throws RemoteInvocationException {
     final boolean callerFiltered = FilterUtils.hasCriterion(callerFilter);
-    final Filter filter =
-        DefaultEntityFiltersUtil.applyDefaultEntityFilters(
-            callerFilter, entityNames, searchFlags, context);
+    final DefaultEntityFiltersUtil.SearchFilters defaults =
+        DefaultEntityFiltersUtil.searchFilters(callerFilter, entityNames, searchFlags, context);
+    final Filter filter = defaults.filter();
     final OperationContext searching =
         context
             .getOperationContext()
             .withSearchFlags(flags -> searchFlags)
             .withCallerOptionalFilterFields(
                 DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
-            .withCallerFiltered(callerFiltered);
-    SearchResult result;
-    try {
-      result =
-          _semanticSearchService.semanticSearchAcrossEntitiesByTemplate(
-              searching, entityNames, query, filter, sortCriteria, start, count, facets);
-    } catch (RuntimeException e) {
-      final QueryEmbeddingException failure =
-          ExceptionUtils.throwableOfType(e, QueryEmbeddingException.class);
-      if (failure == null) {
-        throw e;
-      }
-      if (searchFlags == null
-          || !Boolean.TRUE.equals(searchFlags.isKeywordFallbackOnEmbeddingFailure())) {
-        throw new DataHubGraphQLException(failure.getMessage(), errorCode(failure), failure);
-      }
-      log.warn(
-          "Semantic search could not embed the query ({}); serving keyword results, as the caller"
-              + " opted in",
-          failure.getReason());
-      log.debug("The query embedding failure behind the keyword fallback", failure);
-      SearchTemplateMetrics.keywordFallback(searching, reasonTag(failure));
-      // The keyword search the same request runs, as keyword search escapes it. A template the
-      // caller named is not run again: it may be the vector template that just failed.
-      try {
-        result =
-            _entityClient.searchAcrossEntities(
-                searching.withSearchFlags(
-                    flags -> {
-                      flags.removeSearchTemplate();
-                      return flags;
-                    }),
-                entityNames,
-                ResolverUtils.escapeForwardSlash(query),
-                filter,
-                start,
-                count,
-                sortCriteria,
-                facets);
-      } catch (RemoteInvocationException | RuntimeException keywordFailure) {
-        // The fallback's own failure sets the code: the embedding's code may invite a retry, which
-        // would fail the same way. The message and the suppressed failure keep the embedding's
-        // reason for the log.
-        keywordFailure.addSuppressed(failure);
-        throw new DataHubGraphQLException(
-            failure.getMessage()
-                + ", and the keyword fallback failed: "
-                + keywordFailure.getMessage(),
-            ExceptionUtils.throwableOfType(keywordFailure, IllegalArgumentException.class) != null
-                ? DataHubGraphQLErrorCode.BAD_REQUEST
-                : DataHubGraphQLErrorCode.SERVER_ERROR,
-            keywordFailure);
-      }
-      result.getMetadata().setKeywordFallback(failure.getReason());
-    }
+            .withCallerFiltered(callerFiltered)
+            .withAnchorFilter(defaults.anchorFilter());
+    final SearchResult result =
+        QueryEmbeddingFailures.searchWithKeywordFallback(
+            searching,
+            opContext ->
+                semanticSearchService.semanticSearchAcrossEntitiesByTemplate(
+                    opContext, entityNames, query, filter, sortCriteria, start, count, facets),
+            // The keyword search the same request runs, as keyword search escapes it
+            opContext ->
+                entityClient.searchAcrossEntities(
+                    opContext,
+                    entityNames,
+                    ResolverUtils.escapeForwardSlash(query),
+                    filter,
+                    start,
+                    count,
+                    sortCriteria,
+                    facets));
     return UrnSearchResultsMapper.map(
         context, DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(result));
-  }
-
-  /**
-   * A query embedding that ran out of time is an exceeded deadline, and one the embedding service
-   * throttled or budgeted out is a transient unavailability. Any other failure stays a server
-   * error, since it may not clear on a retry.
-   */
-  private static DataHubGraphQLErrorCode errorCode(final QueryEmbeddingException failure) {
-    return switch (failure.getReason()) {
-      case QueryEmbeddingException.TIMEOUT -> DataHubGraphQLErrorCode.DEADLINE_EXCEEDED;
-      case QueryEmbeddingException.REJECTED,
-          QueryEmbeddingException.RESERVE_EXHAUSTED,
-          QueryEmbeddingException.BUDGET_EXHAUSTED ->
-          DataHubGraphQLErrorCode.SERVICE_UNAVAILABLE;
-      default -> DataHubGraphQLErrorCode.SERVER_ERROR;
-    };
-  }
-
-  /**
-   * The keyword fallback metric's reason tag. An embedding service can set any reason, so one
-   * outside the codes {@link QueryEmbeddingException} names counts as {@code failed}, which keeps
-   * the tag's values bounded.
-   */
-  private static String reasonTag(final QueryEmbeddingException failure) {
-    return switch (failure.getReason()) {
-      case QueryEmbeddingException.TIMEOUT,
-          QueryEmbeddingException.REJECTED,
-          QueryEmbeddingException.RESERVE_EXHAUSTED,
-          QueryEmbeddingException.BUDGET_EXHAUSTED ->
-          failure.getReason();
-      default -> QueryEmbeddingException.FAILED;
-    };
   }
 
   private List<String> getStructuredPropertyFacets(

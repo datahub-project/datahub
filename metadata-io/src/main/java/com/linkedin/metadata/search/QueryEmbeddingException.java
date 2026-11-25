@@ -5,9 +5,12 @@ import javax.annotation.Nullable;
 
 /**
  * A vector rung could not embed its query, so no neighbor was retrieved. {@link #getReason()} is
- * one of the codes below, named as keywordRerank names its reasons where one exists. This build
- * raises {@link #TIMEOUT} and {@link #FAILED}. {@link #REJECTED}, {@link #RESERVE_EXHAUSTED}, and
- * {@link #BUDGET_EXHAUSTED} are for an embedding service that throttles or budgets query
+ * one of the codes below. {@link #TIMEOUT} and {@link #FAILED} mean what keywordRerank's reasons of
+ * those names mean. {@link #REJECTED} is a provider throttle here, which keywordRerank also reports
+ * as {@code rejected}, as it does its own executor turning the rerank away. This build raises
+ * {@link #TIMEOUT}, {@link #FAILED}, and {@link #REJECTED}, for a provider that throttled the query
+ * embedding ({@link com.linkedin.metadata.search.embedding.EmbeddingThrottledException}). {@link
+ * #RESERVE_EXHAUSTED} and {@link #BUDGET_EXHAUSTED} are for an embedding service that budgets query
  * embeddings, which throws this exception with that reason itself.
  */
 public class QueryEmbeddingException extends RuntimeException {
@@ -29,7 +32,7 @@ public class QueryEmbeddingException extends RuntimeException {
   private final String reason;
 
   public QueryEmbeddingException(@Nonnull String reason, @Nullable Throwable cause) {
-    super("Semantic search could not embed the query: " + reason, cause);
+    super("The search could not embed the query: " + reason, cause);
     this.reason = reason;
   }
 

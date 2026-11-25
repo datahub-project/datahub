@@ -71,6 +71,7 @@
     "levelFilter.directTooltip": "直接関連するData Assetを表示",
     "levelFilter.indirect": "間接",
     "levelFilter.indirectTooltip": "間接的に関連するData Assetを表示",
+    "loadError": "Lineageを読み込めませんでした。もう一度お試しください。",
     "manageLineage.changeToHome": "ホームに設定",
     "manageLineage.dashboardNoDownstream": "Dashboardには下流のLineageがありません",
     "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",
