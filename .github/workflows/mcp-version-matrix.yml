@@ -8,6 +8,8 @@ name: MCP Version Matrix
 #     `quickstart`, which master gets only after a full smoke pass).
 #   - GMS, system-update (datahub-upgrade) and the MAE / MCE consumers: pinned to the
 #     matrix's GMS version. They share storage and must move together.
+#   - Search: the OpenSearch that GMS version's own smoke tests ran on. The compose files
+#     here default to OpenSearch 3, which older GMS can't use (v1.7.0 supports only 2.x).
 #
 # It pulls published images and builds nothing, so it runs nightly and on demand, never
 # on pull requests.
@@ -65,6 +67,28 @@ jobs:
             echo "DATAHUB_MAE_VERSION=${GMS}"
             echo "DATAHUB_MCE_VERSION=${GMS}"
           } >> "$GITHUB_ENV"
+
+          # master (quickstart) keeps run-quickstart.sh's default. A release gets the
+          # default from its own copy of that script.
+          if [[ "$GMS" != "quickstart" ]]; then
+            SEARCH_TAG=$(gh api -H "Accept: application/vnd.github.raw" \
+              "repos/${GITHUB_REPOSITORY}/contents/smoke-test/run-quickstart.sh?ref=${GMS}" \
+              | grep -m1 '^DATAHUB_SEARCH_TAG=' | grep -oE ':=[^}]+' | cut -c3-)
+            if [[ -z "$SEARCH_TAG" ]]; then
+              echo "::error::Could not read the OpenSearch tag from ${GMS}'s smoke-test/run-quickstart.sh"
+              exit 1
+            fi
+            echo "OpenSearch: ${SEARCH_TAG}" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "DATAHUB_SEARCH_TAG=${SEARCH_TAG}" >> "$GITHUB_ENV"
+            if [[ "$SEARCH_TAG" == 2.* ]]; then
+              # The settings docker/profiles/docker-compose.prerequisites.yml lists for
+              # staying on OpenSearch 2.x.
+              {
+                echo "DATAHUB_SEARCH_VOLUME=osdata"
+                echo "ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED=false"
+              } >> "$GITHUB_ENV"
+            fi
+          fi
 
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
