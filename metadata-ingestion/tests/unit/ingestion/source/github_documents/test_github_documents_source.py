@@ -1461,12 +1461,13 @@ def test_unchanged_file_not_soft_deleted_emits_nothing(
 
 
 DRAFT_STAGE_URN = "urn:li:lifecycleStageType:DRAFT"
+PUBLISHED_STAGE_URN = "urn:li:lifecycleStageType:PUBLISHED"
 
 
-def test_resurrect_preserves_stored_lifecycle_stage(
+def test_resurrect_sets_published_lifecycle_stage(
     source: GitHubDocumentsSource,
 ) -> None:
-    """Un-deleting a document re-emits its stored Status, so a DRAFT stage survives."""
+    """Un-deleting an imported document sets the PUBLISHED stage over a stored DRAFT."""
     source_id = make_file_source_id(
         "acme/docs", "docs/readme.md", source_prefix="github"
     )
@@ -1510,7 +1511,7 @@ def test_resurrect_preserves_stored_lifecycle_stage(
     ]
     assert len(statuses) == 1
     assert statuses[0].removed is False
-    assert statuses[0].lifecycleStage == DRAFT_STAGE_URN
+    assert statuses[0].lifecycleStage == PUBLISHED_STAGE_URN
 
 
 def test_changed_file_status_carries_published_lifecycle_stage(
@@ -1710,9 +1711,9 @@ def test_existing_folder_document_does_not_overwrite_body(
         if status is not None
     ]
     assert statuses
-    # The stored lifecycle stage survives while removed is cleared.
+    # The import owns the stage: a stored DRAFT is replaced by PUBLISHED.
     assert all(
-        status.removed is False and status.lifecycleStage == DRAFT_STAGE_URN
+        status.removed is False and status.lifecycleStage == PUBLISHED_STAGE_URN
         for status in statuses
     )
 

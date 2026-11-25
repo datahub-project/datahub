@@ -101,7 +101,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 from datahub.metadata.urns import DocumentUrn
-from datahub.sdk.document import Document
+from datahub.sdk.document import PUBLISHED_LIFECYCLE_STAGE_URN, Document
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +109,17 @@ EXTRACTION_ALGO_VERSION = "2"
 # Version of the aspects emitted for each file. Bump it when that output changes,
 # so the next run re-imports unchanged files. 2: Status carries the lifecycle stage.
 OUTPUT_VERSION = "2"
+
+
+def _imported_status() -> StatusClass:
+    """Status for a document this source imports: not removed, PUBLISHED stage.
+
+    The repository owns these documents, so each emit sets the stage. A stage changed
+    in the UI does not survive the next import.
+    """
+    return StatusClass(removed=False, lifecycleStage=PUBLISHED_LIFECYCLE_STAGE_URN)
+
+
 LAST_EXPORTED_CONTENT_HASH_KEY = "last_exported_content_hash"
 PROP_IMPORT_SOURCE_ID = "import_source_id"
 _DOCUMENT_URN_PREFIX = "urn:li:document:"
@@ -473,11 +484,6 @@ class RepositoryDocumentsSourceBase(
         if self._resolved_source_id_urns.get(dir_source_id):
             doc = Document(urn=DocumentUrn(doc_id))
             self._attach_platform_instance(doc, owner_repo)
-            # Nothing is loaded on this bare document, so start from the stored Status:
-            # removed is cleared below without disturbing the lifecycle stage.
-            stored = self._get_stored_status(str(doc.urn))
-            if stored is not None:
-                doc._set_aspect(stored)
         else:
             doc = self._build_document(
                 doc_id=doc_id,
@@ -498,8 +504,8 @@ class RepositoryDocumentsSourceBase(
                 ),
                 is_directory=True,
             )
-        # Clear removed in place: replacing the aspect would drop the lifecycle stage.
-        doc._setdefault_aspect(StatusClass(removed=False)).removed = False
+        # A built document already has its Status; a bare existing folder gets one here.
+        doc._setdefault_aspect(_imported_status())
         self._register_document(
             doc, dir_source_id, title, parent_source_id, is_directory=True
         )
@@ -599,8 +605,7 @@ class RepositoryDocumentsSourceBase(
         # Status.removed so a previously soft-deleted DataHub doc is resurrected.
         # The unchanged-file short-circuit above resurrects too, so this does not
         # depend on whether the content happened to change.
-        # Clear removed in place: replacing the aspect would drop the lifecycle stage.
-        doc._setdefault_aspect(StatusClass(removed=False)).removed = False
+        doc._setdefault_aspect(_imported_status())
         if okf_mapping is not None:
             for aspect in okf_mapping.aspects:
                 doc._set_aspect(aspect)
@@ -1227,19 +1232,9 @@ class RepositoryDocumentsSourceBase(
         if document_urn not in self._soft_deleted_urns():
             return
         self.report.documents_resurrected += 1
-        # Re-emit the stored Status with removed cleared so the lifecycle stage survives.
-        status = self._get_stored_status(document_urn) or StatusClass(removed=False)
-        status.removed = False
         yield MetadataChangeProposalWrapper(
-            entityUrn=document_urn, aspect=status
+            entityUrn=document_urn, aspect=_imported_status()
         ).as_workunit()
-
-    def _get_stored_status(self, document_urn: str) -> Optional[StatusClass]:
-        """The document's stored Status aspect, or None if absent or there is no graph."""
-        if not self.ctx.graph:
-            return None
-        stored = self.ctx.graph.get_aspect(document_urn, StatusClass)
-        return stored if isinstance(stored, StatusClass) else None
 
     def _map_okf(
         self,
