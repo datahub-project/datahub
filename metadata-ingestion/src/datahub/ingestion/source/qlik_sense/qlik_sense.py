@@ -113,7 +113,6 @@ from datahub.ingestion.source.qlik_sense.file_lineage import (
     qri_part_id,
 )
 from datahub.ingestion.source.qlik_sense.lib_path import (
-    _connection_key,
     _is_ambiguous_connection,
     _is_ambiguous_lib_path,
     _is_data_files,
@@ -128,11 +127,7 @@ from datahub.ingestion.source.qlik_sense.lib_path import (
     _path_space,
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
-from datahub.ingestion.source.qlik_sense.qlik_base_api import (
-    UNREAD_DATA_CONNECTIONS,
-    UNREAD_SPACES,
-    QlikBaseAPI,
-)
+from datahub.ingestion.source.qlik_sense.qlik_base_api import QlikBaseAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.qvd_lineage import (
     CANONICAL_ABSOLUTE_PATH_RE,
@@ -174,7 +169,6 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ResolvedConnection,
     ScriptTable,
     ScriptTableLineage,
-    app_own_variables,
     app_table_identifier,
     apply_crosstable,
     apply_preceding_loads,
@@ -183,10 +177,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     expand_variables,
     expression_names,
     has_qualified_name,
-    infer_data_connection,
     is_connector_sql,
-    is_inline_connection,
-    merged_variables,
     parse_script,
     reads_unknown_fields,
     redact_connection,
@@ -194,7 +185,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     stores_in_competing_branches,
     unquoted_values,
 )
-from datahub.ingestion.source.qlik_sense.source.entities import EntityEmitMixin
+from datahub.ingestion.source.qlik_sense.source.connections import DataConnectionMixin
 from datahub.ingestion.source.qlik_sense.source_models import (
     PendingStoredFile,
     PendingTableLineage,
@@ -208,11 +199,9 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     _StorageFile,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import (
-    MappingT,
     _app_field_names,
     _bounded_list,
     _error_type,
-    _get_ignoring_case,
     _is_qvd,
     _own_table_urns,
     _patch_workunits,
@@ -299,7 +288,7 @@ logger = logging.getLogger(__name__)
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-class QlikSenseSource(EntityEmitMixin, StatefulIngestionSourceBase, TestableSource):
+class QlikSenseSource(DataConnectionMixin, StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
     - Qlik Sense Spaces (Cloud) or Streams (Enterprise on Windows) and Apps as Container.
@@ -1415,81 +1404,6 @@ class QlikSenseSource(EntityEmitMixin, StatefulIngestionSourceBase, TestableSour
             aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_TABLE]),
         ).as_workunit()
 
-    def _get_data_connections(self) -> Dict[str, DataConnectionInfo]:
-        if self._data_connections is None:
-            self._data_connections = self.qlik_api.get_data_connections()
-        return self._data_connections
-
-    def _find_data_connection(
-        self, connection: str, space_id: str
-    ) -> Optional[DataConnectionInfo]:
-        connections = self._get_data_connections()
-        lib_connection = _lib_connection(connection)
-        space_name = self.qlik_api.spaces.get(space_id)
-        if self._on_cloud and space_name and not lib_connection.space:
-            # Qlik Cloud looks a bare name up in the app's own space only. A
-            # same-named connection elsewhere may point at another database
-            # when the app's own one is not visible to the API key.
-            return _get_ignoring_case(
-                connections, f"{space_name}{SPACE_SEPARATOR}{lib_connection.name}"
-            )
-        return _get_ignoring_case(connections, _connection_key(lib_connection))
-
-    def _mapped_connection(
-        self, connection: str, space_id: str, mapping: Dict[str, MappingT]
-    ) -> Optional[MappingT]:
-        """A recipe mapping's entry for a connection a load script names. On
-        Qlik Cloud a bare name is the app's own space's connection, so an
-        entry keyed `<space>:<connection>` matches it first; a bare key
-        matches the connection in any space."""
-        lib_connection = _lib_connection(connection)
-        # As the script spells it, then as Qlik lists it, without brackets.
-        names = list(
-            dict.fromkeys(
-                [connection, _connection_key(lib_connection), lib_connection.name]
-            )
-        )
-        space_name = self.qlik_api.spaces.get(space_id)
-        if self._on_cloud and space_name and not lib_connection.space:
-            names.insert(0, f"{space_name}{SPACE_SEPARATOR}{lib_connection.name}")
-        return next(
-            (
-                entry
-                for name in names
-                if (entry := _get_ignoring_case(mapping, name)) is not None
-            ),
-            None,
-        )
-
-    def _resolve_script_connection(
-        self, connection: Optional[str], space_id: str
-    ) -> Optional[ResolvedConnection]:
-        if not connection:
-            return None
-        configured = self._mapped_connection(
-            connection, space_id, self.config.data_connection_to_platform_instance
-        )
-        inferred = self._find_data_connection(connection, space_id)
-        # Inline ODBC/OLEDB connection strings carry the driver and database
-        # themselves. A bare name says nothing about the platform behind it.
-        if inferred is None and is_inline_connection(connection):
-            inferred = infer_data_connection(connection, connection)
-        platform = (configured.platform if configured else None) or (
-            inferred.platform if inferred else None
-        )
-        if not platform:
-            return None
-        return ResolvedConnection(
-            platform=platform,
-            database=(configured.database if configured else None)
-            or (inferred.database if inferred else None),
-            default_schema=configured.default_schema if configured else None,
-            env=configured.env
-            if configured and "env" in configured.model_fields_set
-            else self.config.env,
-            platform_instance=configured.platform_instance if configured else None,
-        )
-
     def _parse_script_sql(
         self, sql: str, connection: ResolvedConnection
     ) -> SqlParsingResult:
@@ -2152,17 +2066,6 @@ class QlikSenseSource(EntityEmitMixin, StatefulIngestionSourceBase, TestableSour
         if self._data_connections_unread():
             return "the data connections could not be listed"
         return None
-
-    def _data_connections_unread(self) -> bool:
-        return any(
-            item.name == UNREAD_DATA_CONNECTIONS for item in self.qlik_api.unread_items
-        )
-
-    def _app_variables(self, app: App) -> Dict[str, str]:
-        return merged_variables(self.config.script_variables, app.variables)
-
-    def _app_own_variables(self, app: App) -> Dict[str, str]:
-        return app_own_variables(self.config.script_variables, app.variables)
 
     def _file_source_resolver(
         self, app: App, parsed: ParsedScript
@@ -3702,23 +3605,6 @@ class QlikSenseSource(EntityEmitMixin, StatefulIngestionSourceBase, TestableSour
                 yield from containers.create_container_hierarchy(path.lstrip("/"), urn)
             else:
                 yield from self._gen_lib_path_location(urn, path)
-
-    def _note_unseen_space(self, space: Optional[str], need: str) -> None:
-        """Records a space a script or Qlik names, when the API key can't see
-        it, as one the run needs access to for complete lineage."""
-        if not space or self.config.on_prem is not None:
-            return
-        if self._listed_space_names is None:
-            # Without the listing, every space would look unseen.
-            if any(item.name == UNREAD_SPACES for item in self.qlik_api.unread_items):
-                return
-            self._listed_space_names = {
-                name.lower() for name in self.qlik_api.spaces.values()
-            }
-        if space.lower() in self._listed_space_names:
-            return
-        _, needs = self._unseen_spaces.setdefault(space.lower(), (space, set()))
-        needs.add(need)
 
     def _ingested_space_id(self, name: str) -> Optional[str]:
         # Qlik resolves `lib://` space names regardless of case, so a space is
