@@ -45,6 +45,11 @@ to GMS. `frontend.log` contains startup and HMR output; use `tail -f <data-dir>/
 - `reset`: stop and warm-start with the recorded options.
 - `rebuild`: rebuild the GMS artifact and warm-start with the recorded options.
 - `wait`: wait for all GMS instances to become healthy.
+- `logs [service] [-n N] [-f]`: tail a log the stack wrote (`gms`, `gms-N`, `system-update`,
+  `frontend`, `launcher`, `opensearch`, ...). No argument lists them. Docker mode runs
+  `docker compose logs`.
+- `frontend --local --preview --detach`: serve the built bundle in the background. Returns once
+  `/health` answers; the PID is recorded so `status`, `stop` and `nuke` see it.
 - `nuke --keep-data`: stop and remove stale H2 locks; retain data and profiles.
 - `nuke`: remove this stack's indices, data, profiles and registry entry; no restart.
 - `instances clean`: preview cleanup; `--yes` reclaims marked, stopped stacks whose recorded worktrees no

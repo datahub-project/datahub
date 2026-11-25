@@ -209,7 +209,13 @@ def _owned_by(pid: int, data_dir: Path, unknown: bool = False) -> bool:
             or arg == "org.gradle.wrapper.GradleWrapperMain"
             for arg in args
         )
-        and ":datahub-web-react:yarnServe" in args
+        and any(
+            task in args
+            for task in (
+                ":datahub-web-react:yarnServe",
+                ":datahub-web-react:yarnPreview",
+            )
+        )
         and f"-PfrontendStackFile={data_dir / 'stack.json'}" in args
         and "-PfrontendMode=lite" in args
     )
@@ -450,6 +456,49 @@ def profile_name(
     worktree_id: str, instance: str = "gms-0", default: str = "gms-0"
 ) -> str:
     return f"local-{worktree_id}" + (f"-{instance}" if instance != default else "")
+
+
+def stack_test_env(stack: Mapping[str, object]) -> dict[str, str]:
+    """Smoke-test and Playwright environment for a local stack's default instance.
+
+    Every value comes from stack.json; nothing is inferred from the worktree id or slot.
+    No DATAHUB_GMS_TOKEN: tests log in as the admin user, as on the Docker stack.
+    """
+    instance = cast(str, stack["default"])
+    prefix = cast(dict[str, str], stack["indexPrefixes"])[instance]
+    services = cast(dict[str, dict[str, str]], stack.get("services") or {})
+    env = {
+        "SMOKE_BACKEND": "local",
+        "DATAHUB_GMS_URL": cast(dict[str, str], stack["instances"])[instance],
+        "ELASTICSEARCH_URL": f"http://localhost:{stack['opensearchPort']}",
+        "INDEX_PREFIX": prefix,
+        "ELASTICSEARCH_INDEX": f"{prefix}_datahub_usage_event",
+        "ADMIN_USERNAME": "datahub",
+        "ADMIN_PASSWORD": "datahub",
+        "DATAHUB_ADMIN_USERNAME": "datahub",
+        "DATAHUB_ADMIN_PASSWORD": "datahub",
+        "DATAHUB_TELEMETRY_ENABLED": "false",
+    }
+    if stack.get("frontendPort"):
+        env["DATAHUB_FRONTEND_URL"] = env["BASE_URL"] = (
+            f"http://localhost:{stack['frontendPort']}"
+        )
+    if stack.get("systemClientId"):
+        env["DATAHUB_SYSTEM_CLIENT_ID"] = cast(str, stack["systemClientId"])
+        env["DATAHUB_SYSTEM_CLIENT_SECRET"] = cast(str, stack["systemClientSecret"])
+    for role, key in (
+        ("integrations", "DATAHUB_INTEGRATIONS_SERVICE_URL"),
+        ("executor", "DATAHUB_EXECUTOR_URL"),
+    ):
+        if instance in services.get(role, {}):
+            env[key] = services[role][instance]
+    return env
+
+
+def load_test_env(worktree_id: str) -> dict[str, str]:
+    return stack_test_env(
+        json.loads((local_data_dir(worktree_id) / "stack.json").read_text())
+    )
 
 
 def _profile_owner(path: Path) -> str | None:
@@ -788,8 +837,18 @@ def log_boot_timings(path: Path) -> None:
 
 
 def launch_frontend(
-    worktree_id: str, ports: Mapping[str, int], repo_root: Path, timeout: int = 900
+    worktree_id: str,
+    ports: Mapping[str, int],
+    repo_root: Path,
+    timeout: int = 900,
+    *,
+    preview: bool = False,
+    build: bool = False,
 ) -> int:
+    """Start the frontend in the background, record its PID and wait for /health.
+
+    ``preview`` serves the built dist/ bundle (``build`` rebuilds it first) instead of HMR.
+    """
     _require_owned(worktree_id)
     data_dir = local_data_dir(worktree_id)
     stack_file = data_dir / "stack.json"
@@ -803,10 +862,18 @@ def launch_frontend(
     pids_file = data_dir / "pids.json"
     pids = _load_pids(pids_file)
     pid = pids.get("frontend")
+    label = "preview" if preview else "HMR"
     if pid and _owned_by(pid, data_dir, unknown=True):
+        task = "yarnPreview" if preview else "yarnServe"
+        running = _process_command(pid) or ""
         if _owned_by(pid, data_dir) and _http_ok(f"http://localhost:{port}/health"):
-            _log(f"Frontend HMR already running: http://localhost:{port}")
-            return 0
+            if task in running:
+                _log(f"Frontend {label} already running: http://localhost:{port}")
+                return 0
+            _log(
+                "ERROR: a frontend in the other mode is running; stop it first with 'datahub-dev.sh stop'"
+            )
+            return 1
         _log("ERROR: frontend is still starting or ownership is unknown; stop it first")
         return 1
     if _occupied_stack_port({"gms": port, "frontend": port}, 1, no_frontend=True):
@@ -815,13 +882,14 @@ def launch_frontend(
     command = [
         str(repo_root / "gradlew"),
         "--no-daemon",
-        ":datahub-web-react:yarnServe",
+        *([":datahub-web-react:yarnBuild"] if preview and build else []),
+        ":datahub-web-react:yarnPreview" if preview else ":datahub-web-react:yarnServe",
         f"-PfrontendPort={port}",
         "-PfrontendMode=lite",
         f"-PfrontendStackFile={stack_file}",
     ]
     log_file = data_dir / "frontend.log"
-    _log(f"Starting frontend HMR: http://localhost:{port}; tail -f {log_file}")
+    _log(f"Starting frontend {label}: http://localhost:{port}; tail -f {log_file}")
     spawned_at = time.monotonic()
     with log_file.open("w") as output:
         process = subprocess.Popen(
@@ -845,7 +913,7 @@ def launch_frontend(
                 data_dir / TIMINGS_FILE,
                 {"frontend_ready_s": round(time.monotonic() - spawned_at, 2)},
             )
-            _log(f"Frontend HMR ready: http://localhost:{port}")
+            _log(f"Frontend {label} ready: http://localhost:{port}")
             return 0
         time.sleep(1)
     _log(f"ERROR: frontend did not become ready within {timeout}s; see {log_file}")
@@ -958,14 +1026,17 @@ def cmd_status_local(
         services[name] = {"url": url, "healthy": _http_ok(f"{url}/health")}
     record = read_instance_record(worktree_id) or {}
     options = cast(dict[str, object], record.get("local_options", {}))
-    if not options.get("no_frontend", False):
-        frontend_pid = _load_pids(data_dir / "pids.json").get("frontend")
+    frontend_pid = _load_pids(data_dir / "pids.json").get("frontend")
+    no_frontend = bool(options.get("no_frontend", False))
+    # A detached frontend can run on a --no-frontend stack; show it without gating readiness.
+    if frontend_pid or not no_frontend:
         frontend_url = f"http://localhost:{ports['frontend']}"
         services["frontend"] = {
             "url": frontend_url,
             "pid": frontend_pid,
             "healthy": bool(frontend_pid and _owned_by(frontend_pid, data_dir))
             and _http_ok(f"{frontend_url}/health"),
+            **({"required": False} if no_frontend else {}),
         }
     checks = cast(
         dict[str, dict[str, dict[str, object]]], stack.get("serviceHealth", {})
@@ -1020,6 +1091,68 @@ def cmd_status_local(
         )
     )
     return 0 if ready else 1
+
+
+def log_files(worktree_id: str) -> dict[str, Path]:
+    """Logs this stack wrote, by name.
+
+    The launcher writes ``logs/<instance>-<role>.log`` (gms, systemupdate, restoreindices,
+    extension services) and ``logs/opensearch.log`` for a private node; datahub-dev writes
+    ``launcher.log`` and ``frontend.log``. A shared node logs to its own directory.
+    """
+    record = _require_owned(worktree_id)
+    data_dir = local_data_dir(worktree_id)
+    files = {
+        name: data_dir / f"{name}.log"
+        for name in ("launcher", "frontend")
+        if (data_dir / f"{name}.log").is_file()
+    }
+    try:
+        shared = json.loads((data_dir / "stack.json").read_text()).get(
+            "opensearchShared", True
+        )
+    except (OSError, ValueError):
+        shared = True
+    if shared:
+        shared_log = opensearch_manager(recorded_major(record)).log_file
+        if shared_log.is_file():
+            files["opensearch"] = shared_log
+    files.update({path.stem: path for path in (data_dir / "logs").glob("*.log")})
+    return dict(sorted(files.items()))
+
+
+def resolve_log(files: Mapping[str, Path], service: str, default: str) -> Path | None:
+    """Map ``gms``, ``gms-1``, ``system-update`` or ``gms-1/integrations`` to a log file."""
+    if service in files:
+        return files[service]
+    if re.fullmatch(r"gms-[0-9]+", service):
+        return files.get(f"{service}-gms")
+    instance, _, role = service.rpartition("/")
+    return files.get(f"{instance or default}-{role.replace('-', '')}")
+
+
+def cmd_logs_local(
+    worktree_id: str, service: str | None, lines: int, follow: bool
+) -> int:
+    files = log_files(worktree_id)
+    if not service:
+        print(json.dumps({name: str(path) for name, path in files.items()}, indent=2))
+        return 0
+    try:
+        default = json.loads(
+            (local_data_dir(worktree_id) / "stack.json").read_text()
+        ).get("default", "gms-0")
+    except (OSError, ValueError):
+        default = "gms-0"
+    path = resolve_log(files, service, default)
+    if path is None:
+        _log(f"ERROR: no log for {service!r}; available: {', '.join(files) or 'none'}")
+        return 1
+    command = ["tail", "-n", str(lines), *(["-F"] if follow else []), str(path)]
+    try:
+        return subprocess.run(command).returncode
+    except KeyboardInterrupt:
+        return 0
 
 
 def cmd_nuke_local(worktree_id: str, ports: dict[str, int], keep_data: bool) -> int:
