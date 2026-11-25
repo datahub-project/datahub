@@ -533,3 +533,36 @@ def test_restore_downstream_column_casing_skips_ambiguous_names() -> None:
         "dupe",
         "unknown",
     ]
+
+def test_bigquery_cll_downstream_column_follows_catalog_over_graph() -> None:
+    upstream_dbt_name = "source.mypackage.mydb.stg_utm_campaigns"
+    model_dbt_name = "model.mypackage.my_model"
+    upstream, model = _make_bigquery_camel_case_nodes(upstream_dbt_name, model_dbt_name)
+
+    source = _make_dbt_source()
+    source.ctx.graph.get_aspect.return_value = SchemaMetadataClass(
+        schemaName="my_model",
+        platform="urn:li:dataPlatform:bigquery",
+        version=0,
+        hash="",
+        platformSchema=None,  # type: ignore[arg-type]
+        fields=[
+            SchemaFieldClass(
+                fieldPath=name,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="STRING",
+            )
+            for name in ["id", "columnnamefirst"]
+        ],
+    )
+    source._infer_schemas_and_update_cll(
+        {upstream_dbt_name: upstream, model_dbt_name: model}
+    )
+
+    emitted_fields = {
+        f.fieldPath
+        for f in source.get_schema_metadata(source.report, model, "bigquery").fields
+    }
+    downstream = {c.downstream_col for c in model.upstream_cll}
+    assert downstream == {"id", "columnNameFirst"}
+    assert downstream <= emitted_fields

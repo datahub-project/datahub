@@ -3177,15 +3177,27 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         depends_on_ephemeral_models = True
 
                     sql_result = self._parse_cll(node, cte_mapping, schema_resolver)
-                    # The emitted schema is lowercased in this mode, so restoring
-                    # graph casing here would make the CLL miss its own fields.
-                    if (
-                        schema_fields
-                        and not self.config.convert_column_urns_to_lowercase
-                    ):
-                        self._restore_downstream_column_casing(
-                            sql_result, schema_fields
+                    # Restore against the names the schema aspect will emit: the
+                    # catalog's columns when it has them, else the graph's. The
+                    # emitted schema is lowercased in lowercase mode, so skip it.
+                    if not self.config.convert_column_urns_to_lowercase:
+                        emitted_fields = (
+                            [
+                                SchemaField(
+                                    fieldPath=column.name,
+                                    type=column.datahub_data_type
+                                    or SchemaFieldDataType(type=NullTypeClass()),
+                                    nativeDataType=column.data_type,
+                                )
+                                for column in node.columns
+                            ]
+                            if node.columns
+                            else schema_fields
                         )
+                        if emitted_fields:
+                            self._restore_downstream_column_casing(
+                                sql_result, emitted_fields
+                            )
                 else:
                     self.report.sql_parser_skipped_missing_code.append(node.dbt_name)
                     if self.config.include_column_lineage:
