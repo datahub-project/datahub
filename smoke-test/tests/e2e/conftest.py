@@ -36,6 +36,7 @@ from tests.e2e.utils import (
     wait_for_writes_to_sync,
 )
 from utilities import env_vars
+from utilities.backend_plugin import configured_backend
 from utilities.domains import (
     ALL_DOMAINS,
     domains_of,
@@ -352,10 +353,23 @@ def _apply_batch_plan(config: pytest.Config, items: List[Item], path: str) -> No
     batch_number = env_vars.get_batch_number()
     try:
         with open(path) as f:
-            scopes = json.load(f)["batches"][batch_number]["scopes"]
+            plan = json.load(f)
+        scopes = plan["batches"][batch_number]["scopes"]
     except (OSError, ValueError, KeyError, IndexError, TypeError) as exc:
         pytest.exit(
             f"SMOKE_BATCH_PLAN={path}: cannot read scopes for batch {batch_number}: {exc!r}",
+            returncode=pytest.ExitCode.USAGE_ERROR,
+        )
+    # A plan built for another backend lists scopes this run deselected (or
+    # misses ones it needs), which would otherwise only log the warning below.
+    # Plans from before the backend field existed were always docker/select.
+    backend, mode = configured_backend(config)
+    planned = (plan.get("backend", "docker"), plan.get("backend_mode", "select"))
+    if planned != (backend.value, mode.value):
+        pytest.exit(
+            f"SMOKE_BATCH_PLAN={path} was planned for SMOKE_BACKEND={planned[0]} "
+            f"SMOKE_BACKEND_MODE={planned[1]}, but this run uses "
+            f"{backend.value}/{mode.value}",
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
     kept = items_for_scopes(items, scopes)

@@ -56,12 +56,16 @@ def test_serialize_batch_plans_shape() -> None:
         missing_weight_count=2,
         markexpr="p0",
         domains=["catalog"],
+        backend="local",
+        backend_mode="select",
     )
     assert payload["batch_count"] == 2
     assert payload["batch_number"] == 0
     assert payload["xdist_workers"] == 3
     assert payload["markexpr"] == "p0"
     assert payload["domains"] == ["catalog"]
+    assert payload["backend"] == "local"
+    assert payload["backend_mode"] == "select"
     assert payload["test_count"] == 6
     assert payload["scope_count"] == 3
     assert payload["missing_weight_count"] == 2

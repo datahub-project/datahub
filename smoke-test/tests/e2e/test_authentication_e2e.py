@@ -42,6 +42,7 @@ from tests.e2e.utils import (
     get_gms_url,
     login_as,
 )
+from utilities.backends import Capability
 from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
@@ -140,6 +141,7 @@ def test_health_endpoint_with_invalid_token() -> None:
     logger.info(f"✅ /health with invalid token: {response.status_code}")
 
 
+@pytest.mark.requires(Capability.DOCKER_FREE_INVESTIGATION)
 def test_actuator_prometheus_no_auth() -> None:
     """Prometheus metrics should work without authentication (excluded path)."""
     response = requests.get(f"{get_gms_prometheus_base_url()}/actuator/prometheus")
@@ -205,6 +207,7 @@ def test_graphql_endpoint_valid_token(auth_session):
     logger.info(f"✅ GraphQL with valid session: {response.status_code}")
 
 
+@pytest.mark.requires(Capability.PLAY_FRONTEND)
 def test_graphql_endpoint_via_frontend_uses_gzip(auth_session):
     """GraphQL via frontend proxy should return gzip-compressed responses (GzipFilter)."""
     query = {"query": "{ me { corpUser { username } } }"}

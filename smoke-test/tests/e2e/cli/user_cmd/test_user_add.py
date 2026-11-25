@@ -6,12 +6,29 @@ import pytest
 
 from datahub.ingestion.graph.client import DataHubGraph
 from tests.e2e.utils import run_datahub_cmd, unique_suffix
+from utilities import env_vars
 from utilities.consistency_utils import wait_for_writes_to_sync
 from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.domain(Domain.INGESTION)
+
+
+@pytest.fixture(autouse=True)
+def _frontend_url_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Send `user add`'s /signUp call to DATAHUB_FRONTEND_URL when it is set.
+
+    The SDK derives the frontend URL from the GMS URL by swapping port 8080 for
+    9002, which only holds for the default Docker ports. The CLI runs in-process
+    (CliRunner), so patching the client module's reference is enough.
+    """
+    frontend_url = env_vars.get_frontend_url()
+    if frontend_url:
+        monkeypatch.setattr(
+            "datahub.ingestion.graph.client.guess_frontend_url_from_gms_url",
+            lambda _gms_url: frontend_url.rstrip("/"),
+        )
 
 
 def generate_test_email() -> str:

@@ -40,6 +40,9 @@ on:
       - "metadata-ingestion/src/datahub/cli/config_utils.py"
       - "metadata-ingestion/src/datahub/cli/profile_cli.py"
       - ".github/workflows/gms-lite-local-stack.yml"
+      - "smoke-test/utilities/backends.py"
+      - "smoke-test/utilities/backend_plugin.py"
+      - ".github/scripts/check_local_lane_selection.sh"
   workflow_dispatch:
 
 concurrency:
@@ -57,6 +60,9 @@ jobs:
       matrix:
         opensearch: ["2", "3"]
     env:
+      # Smoke tests below run on the Docker-free stack: deselect what it
+      # cannot run, and stop if GMS turns out not to be the local stack.
+      SMOKE_BACKEND: local
       EMBEDDED_OPENSEARCH_VERSION: ${{ matrix.opensearch }}
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && !github.event.pull_request.head.repo.fork && 'depot-ubuntu-24.04' || 'ubuntu-24.04' }}
     timeout-minutes: 45
@@ -105,6 +111,11 @@ jobs:
       - name: Install smoke-test and frontend dependencies
         if: matrix.opensearch == steps.opensearch_default.outputs.major
         run: ./gradlew :smoke-test:installDev :datahub-web-react:yarnInstall
+
+      - name: Check the local lane selection
+        if: matrix.opensearch == steps.opensearch_default.outputs.major
+        working-directory: smoke-test
+        run: ../.github/scripts/check_local_lane_selection.sh
 
       - name: Install Playwright dependencies
         if: matrix.opensearch == steps.opensearch_default.outputs.major
