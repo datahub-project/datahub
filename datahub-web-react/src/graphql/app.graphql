@@ -79,6 +79,7 @@ query appConfig {
             contextDocumentsEnabled
             documentExplicitSaveEnabled
             dataContractsEnabled
+            showApplicationsFeatureToggle
             editableDatasetNameEnabled
             themeV2Enabled
             themeV2Default
@@ -116,9 +117,11 @@ query appConfig {
             structuredPropertiesInPoliciesEnabled
             multipleDataProductsPerAsset
             showTestsInHealthIcon
+            mcpServerEnabled
             i18nEnabled
             browserTracingEnabled
             browserWebVitalsEnabled
+            showGithubStarPrompt
         }
         chromeExtensionConfig {
             enabled

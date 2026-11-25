@@ -292,6 +292,8 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_intra_upstreams_recovered: int = 0
     # Union branches /lineage did not list, added as upstreams from /spec.
     data_model_element_union_upstreams_added: int = 0
+    # Joined sides /lineage did not list, added as upstreams from /spec.
+    data_model_element_join_key_upstreams_added: int = 0
     data_model_element_external_upstreams: int = 0
     # Split intentionally so operators can triage "upstream dataset
     # exists but wasn't ingested in this run" (typically a pattern
@@ -400,6 +402,22 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # are a warehouse table or another Data Model's element, not mapped yet.
     data_model_element_fgl_union_unresolved: int = 0
     data_model_element_fgl_union_branch_unmapped: int = 0
+    # Join-key edges read from /spec: the other side of a join predicate an
+    # existing edge reaches.
+    data_model_element_fgl_join_key_resolved: int = 0
+    # Join predicates /spec named whose side could not be matched to an
+    # ingested element and column; and predicates with a side that is a
+    # warehouse table or another Data Model's element, not mapped yet. Counted
+    # once per Data Model.
+    data_model_join_key_partner_unresolved: int = 0
+    data_model_join_key_partner_unmapped: int = 0
+    # Join predicates with a side that transforms its column (``Left([A], 3)``),
+    # so the two columns match on values without being the same column.
+    data_model_join_key_partner_transformed: int = 0
+    # Join elements that join one source more than once, or have a side that
+    # cannot be read, so their keys cannot be told apart; they add no join-key
+    # edges. Counted once per Data Model.
+    data_model_join_key_repeated_side_skipped: int = 0
     # Data Models whose /spec could not be fetched (see the warning for why),
     # and those whose /spec did not match the shape the parser expects, so
     # what is read from it may be incomplete until the connector is updated.
@@ -766,10 +784,20 @@ class SigmaSourceConfig(
         "for column lineage a formula cannot express. A union element's column "
         "formula names the union's output, not a branch, so without ``/spec`` "
         "no branch gets column lineage; with it, each column reading an output "
-        "gets an edge from every branch in the same Data Model. Costs one API call per Data "
-        "Model, which needs the same access as reading its elements. A failed "
-        "call is counted and reported, with each model's status, and never "
-        "fails the run. Requires ``ingest_data_models`` and ``extract_lineage``.",
+        "gets an edge from every branch in the same Data Model (score 1.0). A "
+        "join's output column names one side, so with ``/spec`` a column of "
+        "the join element that reads a join key also gets the other side's key "
+        "(score 0.7, or 0.6 for an outer join, since a join states equality "
+        "rather than a copy), marked with transformOperation ``JOIN_KEY``. "
+        "Only keys where both sides are a bare ``[Col]`` count; a transformed "
+        "side such as ``Left([Zip], 3)`` adds no edge. Elements built on the "
+        "join get no join-key edges of their own. Keys chained inside the join "
+        "are followed: with A = B and B = C, a column reading A's key gets B's "
+        "and C's. A join that joins one source twice, or has a side that cannot "
+        "be read, adds no join-key edges, since its keys cannot be told apart. "
+        "Costs one API call per Data Model, which needs the same access as "
+        "reading its elements. A failed call is counted and reported, with "
+        "each model's status, and never fails the run. Requires ``ingest_data_models`` and ``extract_lineage``.",
     )
     data_model_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

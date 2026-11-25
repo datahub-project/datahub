@@ -2,7 +2,7 @@
 
 - The ``gms_*`` methods speak to DataHub GMS (used by Suite N validation).
 - The ``list_indices`` / ``get_alias_targets`` / ``get_doc_count`` /
-  ``get_doc`` / ``get_mappings`` / ``list_tasks`` methods speak directly
+  ``get_doc`` (by urn field) / ``get_mappings`` / ``list_tasks`` methods speak directly
   to Elasticsearch — required for ZDU assertions that must bypass the
   DataHub abstraction layer (alias swap, doc parity, reindex tasks).
 """
@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import logging
-import urllib.parse
 from typing import Any
 
 import requests
@@ -75,6 +74,35 @@ class ElasticsearchClient:
         resp.raise_for_status()
         return list(resp.json().keys())
 
+    def get_alias_map(self) -> dict[str, list[str]]:
+        """Return physical index name -> alias names, for every index."""
+        resp = self._es_session.get(f"{self._es_url}/_alias", timeout=30)
+        resp.raise_for_status()
+        return {
+            index: list((body or {}).get("aliases", {}).keys())
+            for index, body in resp.json().items()
+        }
+
+    def get_refresh_interval(self, index_or_alias: str) -> str | None:
+        """Return ``index.refresh_interval`` of the index an alias resolves to."""
+        resp = self._es_session.get(
+            f"{self._es_url}/{index_or_alias}/_settings/index.refresh_interval",
+            timeout=30,
+        )
+        if resp.status_code == _HTTP_NOT_FOUND:
+            return None
+        resp.raise_for_status()
+        for body in resp.json().values():
+            value = (
+                (body or {})
+                .get("settings", {})
+                .get("index", {})
+                .get("refresh_interval")
+            )
+            if value is not None:
+                return str(value)
+        return None
+
     def get_doc_count(self, index_name: str) -> int:
         resp = self._es_session.get(f"{self._es_url}/{index_name}/_count", timeout=30)
         if resp.status_code == _HTTP_NOT_FOUND:
@@ -82,23 +110,22 @@ class ElasticsearchClient:
         resp.raise_for_status()
         return int(resp.json().get("count", 0))
 
-    def get_doc(self, index_name: str, doc_id: str) -> dict[str, Any] | None:
-        # DataHub stores the URL-encoded URN literally as the ES ``_id`` —
-        # ``urn:li:dashboard:(test,zdu-tc-15)`` is stored under
-        # ``_id = "urn%3Ali%3Adashboard%3A%28test%2Czdu-tc-15%29"``.
-        # ES path-decodes URL-encoded path components once during routing,
-        # so to look up the literal URL-encoded ``_id`` we must encode the
-        # caller's URN twice: once to produce the stored ``_id``, and once
-        # more so ES's path-decoding leaves us with the encoded ``_id``.
-        once = urllib.parse.quote(doc_id, safe="")
-        twice = urllib.parse.quote(once, safe="")
-        resp = self._es_session.get(
-            f"{self._es_url}/{index_name}/_doc/{twice}", timeout=30
+    def get_doc(self, index_name: str, urn: str) -> dict[str, Any] | None:
+        # Look up by the ``urn`` field, not ``_id``: Search V3 entity indices
+        # use a hashed ``_id``, while V2 used the URL-encoded URN. A term
+        # query on ``urn`` works for both.
+        resp = self._es_session.post(
+            f"{self._es_url}/{index_name}/_search",
+            json={"size": 1, "query": {"term": {"urn": urn}}},
+            timeout=30,
         )
         if resp.status_code == _HTTP_NOT_FOUND:
             return None
         resp.raise_for_status()
-        source = resp.json().get("_source")
+        hits = resp.json().get("hits", {}).get("hits", [])
+        if not hits:
+            return None
+        source = hits[0].get("_source")
         return source if isinstance(source, dict) else None
 
     def get_mappings(self, index_name: str) -> dict[str, Any]:

@@ -56,6 +56,11 @@
             <class name="com.linkedin.metadata.aspect.validation.UrnAnnotationValidatorTest"/>
             <class name="com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidatorTest"/>
             <class name="com.linkedin.metadata.search.SearchServiceUnknownEntityTypeTest"/>
+            <!-- Container-free; they switch the process-wide AuthUtil REST API authorization flag,
+                 so testng-other.xml leaves them out and they run here, one class at a time. -->
+            <class name="com.linkedin.metadata.aspect.validation.PrivilegeConstraintsValidatorTest"/>
+            <class name="com.linkedin.metadata.aspect.validation.PrivilegeConstraintsWriteGateParityTest"/>
+            <class name="com.linkedin.metadata.authorization.EntityAuthorizationUtilsSubResourceGateTest"/>
             <!-- Container-free tests of the unknown entity/aspect tolerance (rollback) in consistency
                  checks, side effects, deletes, Cassandra, versioning, index mappings and timeseries.
                  They switch the process-wide UnknownDataHandlings, so they run here, one class at a

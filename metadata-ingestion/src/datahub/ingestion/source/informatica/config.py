@@ -304,7 +304,7 @@ class InformaticaSourceConfig(
 
     export_batch_size: int = Field(
         default=DEFAULT_EXPORT_BATCH_SIZE,
-        description="Number of mappings per v3 export batch job (max 1000).",
+        description="Number of mappings or taskflows per v3 export batch job (max 1000).",
         ge=1,
         le=1000,
     )

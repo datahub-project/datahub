@@ -434,10 +434,14 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         (resolved via the relationship's ``isUpstream`` semantics) rather than as the
         raw graph source/destination.
 
+        Column-level lineage between schema fields is included: anchor on a
+        ``urn:li:schemaField:(...)`` urn to get that column's upstream or downstream
+        columns (the edges themselves, not their parent datasets).
+
         Args:
             urns: URNs to anchor the lineage search on; edges are returned if either
                 endpoint is in this list. If None or empty, no URN filter is applied
-                and all lineage edges are scrolled.
+                and all lineage edges are scrolled, column-level edges included.
             relationship_types: Relationship types to include (e.g. ["DownstreamOf"]).
                 If None or empty, all lineage relationship types are returned.
             direction: UPSTREAM or DOWNSTREAM, applied relative to `urns` as a

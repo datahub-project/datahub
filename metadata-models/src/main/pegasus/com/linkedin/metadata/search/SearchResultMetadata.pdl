@@ -34,4 +34,11 @@ record SearchResultMetadata {
    */
   vectorRetrieval: optional VectorRetrievalExplanation
 
+  /**
+   * Set when a search served keyword search results because the template serving it could not
+   * embed the query and the caller set SearchFlags.keywordFallbackOnEmbeddingFailure: why the
+   * embedding failed (timeout, rejected, reserveExhausted, budgetExhausted, or failed).
+   */
+  keywordFallback: optional string
+
 }

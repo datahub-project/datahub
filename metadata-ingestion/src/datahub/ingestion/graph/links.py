@@ -10,6 +10,12 @@ _url_prefixes = {
     urns.DataFlowUrn.ENTITY_TYPE: "pipelines",
     urns.CorpUserUrn.ENTITY_TYPE: "user",
     urns.CorpGroupUrn.ENTITY_TYPE: "group",
+    urns.ApiUrn.ENTITY_TYPE: "apis",
+    urns.MlModelUrn.ENTITY_TYPE: "mlModels",
+    urns.MlFeatureUrn.ENTITY_TYPE: "features",
+    urns.MlFeatureTableUrn.ENTITY_TYPE: "featureTables",
+    urns.MlPrimaryKeyUrn.ENTITY_TYPE: "mlPrimaryKeys",
+    urns.BusinessAttributeUrn.ENTITY_TYPE: "business-attribute",
     # Normal mappings - matches the entity type.
     urns.ChartUrn.ENTITY_TYPE: "chart",
     urns.ContainerUrn.ENTITY_TYPE: "container",
@@ -44,6 +50,18 @@ def make_url_for_urn(
         'https://demo.datahub.com/container/urn%3Ali%3Acontainer%3Ab41c14bc5cb3ccfbb0433c8cbdef2992/Contents'
         >>> make_url_for_urn("https://demo.datahub.com", "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.actuating,PROD)")
         'https://demo.datahub.com/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Clong_tail_companions.adoption.actuating%2CPROD%29/'
+        >>> make_url_for_urn("https://demo.datahub.com", "urn:li:api:my-api-id")
+        'https://demo.datahub.com/apis/urn%3Ali%3Aapi%3Amy-api-id/'
+        >>> make_url_for_urn("https://demo.datahub.com", "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,my-model,PROD)")
+        'https://demo.datahub.com/mlModels/urn%3Ali%3AmlModel%3A%28urn%3Ali%3AdataPlatform%3Asagemaker%2Cmy-model%2CPROD%29/'
+        >>> make_url_for_urn("https://demo.datahub.com", "urn:li:mlFeature:(my_feature_namespace,my_feature)")
+        'https://demo.datahub.com/features/urn%3Ali%3AmlFeature%3A%28my_feature_namespace%2Cmy_feature%29/'
+        >>> make_url_for_urn("https://demo.datahub.com", "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,my_feature_table)")
+        'https://demo.datahub.com/featureTables/urn%3Ali%3AmlFeatureTable%3A%28urn%3Ali%3AdataPlatform%3Afeast%2Cmy_feature_table%29/'
+        >>> make_url_for_urn("https://demo.datahub.com", "urn:li:mlPrimaryKey:(my_feature_namespace,my_key)")
+        'https://demo.datahub.com/mlPrimaryKeys/urn%3Ali%3AmlPrimaryKey%3A%28my_feature_namespace%2Cmy_key%29/'
+        >>> make_url_for_urn("https://demo.datahub.com", "urn:li:businessAttribute:my-attribute")
+        'https://demo.datahub.com/business-attribute/urn%3Ali%3AbusinessAttribute%3Amy-attribute/'
     """
     entity_type = guess_entity_type(entity_urn)
     encoded_entity_urn = urllib.parse.quote(entity_urn, safe="")

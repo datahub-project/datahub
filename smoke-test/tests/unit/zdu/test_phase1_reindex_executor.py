@@ -5,6 +5,9 @@ from __future__ import annotations
 import pytest
 
 from tests.zdu.framework.context import (
+    IndexState,
+    SettingsOnlyUpgradeResult,
+    SnapshotT0,
     TestContext,
     UpgradeBlockingReRunResult,
     UpgradeBlockingResult,
@@ -22,9 +25,7 @@ def _scenario(
     *,
     expected_to_fail: bool = False,
     skip_reason: str | None = None,
-    expected_reindex_indices: frozenset[str] | None = None,
     min_real_reindex_count: int | None = None,
-    expected_in_place_update_indices: frozenset[str] | None = None,
 ) -> ZDUTestScenario:
     return ZDUTestScenario(
         tc_number=tc,
@@ -45,23 +46,47 @@ def _scenario(
         skip_reason=skip_reason,
         scenario_type="phase1_reindex",
         suite=Suite.B,
-        expected_reindex_indices=expected_reindex_indices,
         min_real_reindex_count=min_real_reindex_count,
-        expected_in_place_update_indices=expected_in_place_update_indices,
     )
 
 
-# Per-alias entry shape that satisfies _REQUIRED_INDICES_STATE_KEYS. taskId is
-# optional (only present on real reindex), but included here to cover both paths.
-_ALL_REQUIRED_KEYS = {
+# Blocking-phase indicesState entries as a Search V3 stack writes them: a
+# populated index is copied by _reindex, an empty one is planned as a fill.
+_REINDEX_ENTRY = {
     "status": "COMPLETED",
-    "nextIndexName": "dashboardindex_v2_new",
-    "sourceDocCount": 42,
+    "nextIndexName": "datasetindex_v3_v1_9_0rc1-1_1795277536286",
+    "sourceDocCount": 3,
     "requiresDataBackfill": True,
-    "reindexStartTime": 1000000,
-    "reindexCompleteTime": 1000005,
-    "taskId": "abc123",
+    "reindexStartTime": 1795277536286,
+    "reindexCompleteTime": 1795277536440,
+    "taskId": "_OzrOBMmSRSEzelFPpF2Ew:7612",
 }
+_FILL_ENTRY = {
+    "status": "BACKFILL_PENDING",
+    "nextIndexName": "tagindex_v3_v1_9_0rc1-1_1795277529771",
+    "sourceDocCount": 0,
+    "requiresDataBackfill": False,
+    "reindexStartTime": 1795277529771,
+    "backfillTargetIndex": "tagindex_v3_v1_9_0rc1-1_1795277529771",
+    "backfillStartTime": 1795277529771,
+}
+
+
+def _blocking(raw: dict[str, dict]) -> UpgradeBlockingResult:
+    """Build the blocking result the way UpgradeBlockingPhase does from MySQL."""
+    return UpgradeBlockingResult(
+        indices=[
+            IndexState(
+                alias=alias,
+                next_index_name=entry.get("nextIndexName"),
+                source_doc_count=entry.get("sourceDocCount", 0),
+                task_id=entry.get("taskId"),
+                status=entry.get("status", "UNKNOWN"),
+            )
+            for alias, entry in raw.items()
+        ],
+        raw=raw,
+    )
 
 
 @pytest.fixture
@@ -87,6 +112,16 @@ class TestXfailDispatch:
         assert result.failure_reason == "needs mapping diff"
 
 
+class TestSkipReasonDispatch:
+    def test_skip_reason_without_xfail_returns_skip(
+        self, executor: Phase1ReindexExecutor
+    ) -> None:
+        scen = _scenario(tc=103, skip_reason="nothing to observe on V3")
+        result = executor.validate(scen, TestContext())
+        assert result.status == "SKIP"
+        assert result.actual_result == "nothing to observe on V3"
+
+
 class TestUnknownTC:
     def test_unknown_tc_returns_skip(self, executor: Phase1ReindexExecutor) -> None:
         scen = _scenario(tc=199)  # not in the registered range
@@ -94,178 +129,228 @@ class TestUnknownTC:
         assert result.status == "SKIP"
 
 
-class TestTC101InputDrivenReindex:
-    def _ctx(self, swaps: list[tuple[str, str]]) -> TestContext:
+class TestTC101PopulatedIndicesReindexed:
+    def _ctx(self, t0_counts: dict[str, int], raw: dict[str, dict]) -> TestContext:
         ctx = TestContext()
-        ctx.upgrade_blocking = UpgradeBlockingResult(alias_swaps_observed=swaps)
+        ctx.snapshot_t0 = SnapshotT0(epoch_ms=0, alias_doc_counts=t0_counts)
+        ctx.upgrade_blocking = _blocking(raw)
         return ctx
 
-    def test_passes_when_observed_matches_expected(
+    def test_passes_when_reindexed_set_matches_populated_at_t0(
         self, executor: Phase1ReindexExecutor
     ) -> None:
-        scen = _scenario(
-            tc=101,
-            expected_reindex_indices=frozenset({"dashboardindex_v2"}),
-        )
         ctx = self._ctx(
-            [
-                ("dashboardindex_v2", "dashboardindex_v2_v1_5_new"),
-                ("schemafieldindex_v2", ""),
-                ("corpgroupindex_v2", ""),
-            ]
+            {"datasetindex_v3": 3, "tagindex_v3": 0},
+            {"datasetindex_v3": _REINDEX_ENTRY, "tagindex_v3": _FILL_ENTRY},
         )
-        result = executor.validate(scen, ctx)
+        result = executor.validate(_scenario(tc=101), ctx)
         assert result.status == "PASS", result.actual_result
 
-    def test_fails_when_expected_reindex_is_missing(
+    def test_fails_when_populated_index_not_reindexed(
         self, executor: Phase1ReindexExecutor
     ) -> None:
-        scen = _scenario(
-            tc=101,
-            expected_reindex_indices=frozenset({"dashboardindex_v2"}),
-        )
-        # The expected index never appears with a non-empty new_index_name.
-        ctx = self._ctx([("dashboardindex_v2", "")])
-        result = executor.validate(scen, ctx)
-        assert result.status == "FAIL"
-        assert "missing" in (result.actual_result or "")
-
-    def test_fails_when_unexpected_reindex_observed(
-        self, executor: Phase1ReindexExecutor
-    ) -> None:
-        scen = _scenario(
-            tc=101,
-            expected_reindex_indices=frozenset({"dashboardindex_v2"}),
-        )
+        # Docs at T0 but the upgrade planned it like an empty index.
         ctx = self._ctx(
-            [
-                ("dashboardindex_v2", "dashboardindex_v2_v1_5_new"),
-                ("chartindex_v2", "chartindex_v2_v1_5_new"),  # not expected!
-            ]
+            {"datasetindex_v3": 3, "tagindex_v3": 5},
+            {"datasetindex_v3": _REINDEX_ENTRY, "tagindex_v3": _FILL_ENTRY},
         )
-        result = executor.validate(scen, ctx)
+        result = executor.validate(_scenario(tc=101), ctx)
         assert result.status == "FAIL"
-        assert "unexpected" in (result.actual_result or "")
-        assert "chartindex_v2" in (result.actual_result or "")
+        assert "tagindex_v3" in (result.actual_result or "")
 
-    def test_skips_when_expected_set_is_none(
+    def test_passes_when_index_populated_after_t0_is_reindexed(
         self, executor: Phase1ReindexExecutor
     ) -> None:
-        scen = _scenario(tc=101)  # no expected_reindex_indices
-        ctx = self._ctx([("dashboardindex_v2", "dashboardindex_v2_new")])
-        result = executor.validate(scen, ctx)
-        assert result.status == "SKIP"
-
-    def test_skips_when_phase4_did_not_run(
-        self, executor: Phase1ReindexExecutor
-    ) -> None:
-        scen = _scenario(
-            tc=101,
-            expected_reindex_indices=frozenset({"dashboardindex_v2"}),
+        # Background GMS writers can add an index's first docs after T0 but
+        # before the blocking upgrade reaches it; copying them is correct.
+        ctx = self._ctx(
+            {"datasetindex_v3": 0},
+            {"datasetindex_v3": _REINDEX_ENTRY},
         )
-        # ctx.upgrade_blocking is None — Phase 4 was skipped.
-        result = executor.validate(scen, TestContext())
+        result = executor.validate(_scenario(tc=101), ctx)
+        assert result.status == "PASS", result.actual_result
+        assert "datasetindex_v3" in (result.actual_result or "")
+
+    def test_fails_when_reindex_task_runs_on_empty_source(
+        self, executor: Phase1ReindexExecutor
+    ) -> None:
+        empty_copy = dict(_REINDEX_ENTRY, sourceDocCount=0)
+        ctx = self._ctx({"datasetindex_v3": 0}, {"datasetindex_v3": empty_copy})
+        result = executor.validate(_scenario(tc=101), ctx)
+        assert result.status == "FAIL"
+        assert "datasetindex_v3" in (result.actual_result or "")
+
+    def test_fails_when_populated_index_not_processed(
+        self, executor: Phase1ReindexExecutor
+    ) -> None:
+        # Docs at T0, but the upgrade never touched the index at all.
+        ctx = self._ctx(
+            {"datasetindex_v3": 3, "chartindex_v3": 2},
+            {"datasetindex_v3": _REINDEX_ENTRY},
+        )
+        result = executor.validate(_scenario(tc=101), ctx)
+        assert result.status == "FAIL"
+        assert "chartindex_v3" in (result.actual_result or "")
+
+    def test_skips_without_t0_alias_counts(
+        self, executor: Phase1ReindexExecutor
+    ) -> None:
+        ctx = TestContext()
+        ctx.upgrade_blocking = _blocking({"datasetindex_v3": _REINDEX_ENTRY})
+        result = executor.validate(_scenario(tc=101), ctx)
         assert result.status == "SKIP"
 
 
-class TestTC102UnchangedIndices:
-    def _ctx_with_tc101(
-        self,
-        swaps: list[tuple[str, str]],
-        tc101_expected: frozenset[str],
-    ) -> TestContext:
+class TestTC102NoV2Indices:
+    def _ctx(self, t1_indices: list[str]) -> TestContext:
         ctx = TestContext()
-        ctx.upgrade_blocking = UpgradeBlockingResult(alias_swaps_observed=swaps)
-        # TC-102 looks up TC-101's expected_reindex_indices via ctx.all_scenarios.
-        ctx.all_scenarios = [
-            _scenario(tc=101, expected_reindex_indices=tc101_expected),
-            _scenario(tc=102),
-        ]
+        ctx.upgrade_blocking = _blocking(
+            {"datasetindex_v3": _REINDEX_ENTRY, "tagindex_v3": _FILL_ENTRY}
+        )
+        ctx.snapshot_t1 = SnapshotT0(epoch_ms=0, index_names=t1_indices)
         return ctx
 
-    def test_passes_when_only_expected_indices_reindexed(
+    def test_passes_with_only_v3_entity_indices(
         self, executor: Phase1ReindexExecutor
     ) -> None:
-        ctx = self._ctx_with_tc101(
-            swaps=[
-                ("dashboardindex_v2", "dashboardindex_v2_new"),
-                ("schemafieldindex_v2", ""),
-                ("corpgroupindex_v2", ""),
-            ],
-            tc101_expected=frozenset({"dashboardindex_v2"}),
+        ctx = self._ctx(
+            [
+                "datasetindex_v3_v1_9_0rc1-1_1795277536286",
+                "tagindex_v3_v1_9_0rc1-1_1795277529771",
+                "graph_service_v1",
+                "system_metadata_service_v1",
+            ]
         )
         result = executor.validate(_scenario(tc=102), ctx)
         assert result.status == "PASS", result.actual_result
 
-    def test_fails_when_unexpected_index_reindexed(
+    def test_fails_when_v2_entity_index_present(
         self, executor: Phase1ReindexExecutor
     ) -> None:
-        ctx = self._ctx_with_tc101(
-            swaps=[
-                ("dashboardindex_v2", "dashboardindex_v2_new"),
-                ("chartindex_v2", "chartindex_v2_new"),  # violation
-            ],
-            tc101_expected=frozenset({"dashboardindex_v2"}),
+        ctx = self._ctx(
+            ["datasetindex_v3_v1_9_0rc1-1_1795277536286", "datasetindex_v2_1795277536"]
         )
         result = executor.validate(_scenario(tc=102), ctx)
         assert result.status == "FAIL"
-        assert "chartindex_v2" in (result.actual_result or "")
+        assert "datasetindex_v2_1795277536" in (result.actual_result or "")
 
-    def test_skips_when_tc101_not_in_scenario_list(
-        self, executor: Phase1ReindexExecutor
-    ) -> None:
-        ctx = TestContext()
-        ctx.upgrade_blocking = UpgradeBlockingResult(
-            alias_swaps_observed=[("dashboardindex_v2", "new")]
-        )
-        # all_scenarios deliberately doesn't include TC-101 — simulates a
-        # filtered run via run_only_tc=[102].
-        ctx.all_scenarios = [_scenario(tc=102)]
-        result = executor.validate(_scenario(tc=102), ctx)
+    def test_skips_without_t1_listing(self, executor: Phase1ReindexExecutor) -> None:
+        result = executor.validate(_scenario(tc=102), self._ctx([]))
         assert result.status == "SKIP"
 
 
-class TestTC104EmptySourceNoop:
-    def test_passes_when_empty_source_swap_present(
+class TestTC103SettingsOnlyUpdate:
+    def _ctx(self, run: SettingsOnlyUpgradeResult) -> TestContext:
+        ctx = TestContext()
+        ctx.upgrade_blocking = _blocking(
+            {"datasetindex_v3": _REINDEX_ENTRY, "tagindex_v3": _FILL_ENTRY}
+        )
+        ctx.upgrade_settings_only = run
+        return ctx
+
+    def _run(self, **kwargs: object) -> SettingsOnlyUpgradeResult:
+        run = SettingsOnlyUpgradeResult(
+            desired_refresh_interval="7s",
+            settings_updated={"datasetindex_v3": "7s"},
+            es_refresh_intervals={"datasetindex_v3": "7s"},
+            exit_code=0,
+        )
+        for key, value in kwargs.items():
+            setattr(run, key, value)
+        return run
+
+    def test_passes_when_populated_index_updated_in_place(
+        self, executor: Phase1ReindexExecutor
+    ) -> None:
+        result = executor.validate(_scenario(tc=103), self._ctx(self._run()))
+        assert result.status == "PASS", result.actual_result
+
+    def test_fails_when_settings_change_triggers_reindex(
+        self, executor: Phase1ReindexExecutor
+    ) -> None:
+        run = self._run(reindex_tasks=["datasetindex_v3"])
+        result = executor.validate(_scenario(tc=103), self._ctx(run))
+        assert result.status == "FAIL"
+        assert "reindex_tasks=['datasetindex_v3']" in (result.actual_result or "")
+
+    def test_fails_when_es_keeps_old_value(
+        self, executor: Phase1ReindexExecutor
+    ) -> None:
+        # The log claims the update, but ES still serves the old interval.
+        run = self._run(es_refresh_intervals={"datasetindex_v3": "3s"})
+        result = executor.validate(_scenario(tc=103), self._ctx(run))
+        assert result.status == "FAIL"
+        assert "datasetindex_v3=3s" in (result.actual_result or "")
+
+    def test_skips_when_settings_phase_did_not_run(
         self, executor: Phase1ReindexExecutor
     ) -> None:
         ctx = TestContext()
-        ctx.upgrade_blocking = UpgradeBlockingResult(
-            alias_swaps_observed=[
-                ("dashboardindex_v2", "dashboardindex_v2_new"),
-                ("schemafieldindex_v2", ""),  # empty-source no-op
-            ]
+        ctx.upgrade_blocking = _blocking({"datasetindex_v3": _REINDEX_ENTRY})
+        result = executor.validate(_scenario(tc=103), ctx)
+        assert result.status == "SKIP"
+
+
+class TestParseSettingsOnlyLine:
+    def test_records_settings_update_and_reindex_task(self) -> None:
+        from tests.zdu.framework.phases.upgrade_settings_only import (
+            parse_settings_only_line,
+        )
+
+        result = SettingsOnlyUpgradeResult(desired_refresh_interval="7s")
+        parse_settings_only_line(
+            "2026-11-21 17:05:02,101 [main] INFO  c.l.m.s.e.i.ESIndexBuilder - "
+            "Updated index datasetindex_v3 settings. desired refresh_interval=7s "
+            'current refresh_interval=3s settings={"index.refresh_interval":"7s"} '
+            "acknowledged=true",
+            result,
+        )
+        parse_settings_only_line(
+            "2026-11-21 16:12:16,412 [main] INFO  c.l.m.s.e.i.ESIndexBuilder - "
+            "Incremental reindex: submitted _reindex task _OzrOBMmSRSEzelFPpF2Ew:7612 "
+            "from datasetindex_v3 to datasetindex_v3_v1_9_0rc1-1_1795277536286 "
+            "(source docs: 3)",
+            result,
+        )
+        assert result.settings_updated == {"datasetindex_v3": "7s"}
+        assert result.reindex_tasks == ["datasetindex_v3"]
+
+
+class TestTC104EmptySourceFill:
+    def test_passes_when_empty_index_planned_as_fill(
+        self, executor: Phase1ReindexExecutor
+    ) -> None:
+        ctx = TestContext()
+        ctx.upgrade_blocking = _blocking(
+            {"datasetindex_v3": _REINDEX_ENTRY, "tagindex_v3": _FILL_ENTRY}
         )
         result = executor.validate(_scenario(tc=104), ctx)
-        assert result.status == "PASS"
-        assert "schemafieldindex_v2" in (result.actual_result or "")
+        assert result.status == "PASS", result.actual_result
+        assert "tagindex_v3" in (result.actual_result or "")
 
-    def test_fails_when_all_swaps_are_real_reindexes(
+    def test_fails_when_no_empty_index_observed(
         self, executor: Phase1ReindexExecutor
     ) -> None:
         ctx = TestContext()
-        ctx.upgrade_blocking = UpgradeBlockingResult(
-            alias_swaps_observed=[
-                ("dashboardindex_v2", "dashboardindex_v2_new"),
-                ("datasetindex_v2", "datasetindex_v2_new"),
-            ]
-        )
+        ctx.upgrade_blocking = _blocking({"datasetindex_v3": _REINDEX_ENTRY})
         result = executor.validate(_scenario(tc=104), ctx)
         assert result.status == "FAIL"
 
-    def test_cross_check_fails_when_raw_contradicts(
+    def test_fails_when_empty_index_not_planned_as_fill(
         self, executor: Phase1ReindexExecutor
     ) -> None:
-        # Log says no-op swap, but MySQL says sourceDocCount > 0 — that's a
-        # production bug (or test fixture mismatch). Surface it.
+        # Empty index marked COMPLETED with no fill target: nothing will fill it.
+        not_filled = {
+            k: v
+            for k, v in _FILL_ENTRY.items()
+            if k not in ("backfillTargetIndex", "backfillStartTime")
+        }
+        not_filled["status"] = "COMPLETED"
         ctx = TestContext()
-        ctx.upgrade_blocking = UpgradeBlockingResult(
-            alias_swaps_observed=[("schemafieldindex_v2", "")],
-            raw={"schemafieldindex_v2": {"sourceDocCount": 42, "status": "COMPLETED"}},
-        )
+        ctx.upgrade_blocking = _blocking({"tagindex_v3": not_filled})
         result = executor.validate(_scenario(tc=104), ctx)
         assert result.status == "FAIL"
-        assert "sourceDocCount" in (result.actual_result or "")
+        assert "status=COMPLETED" in (result.actual_result or "")
 
 
 class TestTC105MultiIndexAllReindex:
@@ -357,124 +442,38 @@ class TestTC105MultiIndexAllReindex:
         assert "not configured" in (result.actual_result or "")
 
 
-class TestTC103SettingsOnlyUpdate:
-    _TARGET = "datasetindex_v2"
-
-    def _scenario_with_expected(
-        self, expected: frozenset[str] | None
-    ) -> ZDUTestScenario:
-        return _scenario(tc=103, expected_in_place_update_indices=expected)
-
-    def test_passes_when_expected_in_place_update_observed(
-        self, executor: Phase1ReindexExecutor
-    ) -> None:
-        ctx = TestContext()
-        ctx.upgrade_blocking = UpgradeBlockingResult(
-            indices_updated_in_place=[
-                "datasetindex_v2",
-                "chartindex_v2",
-                "dataflowindex_v2",
-            ],
-        )
-        result = executor.validate(
-            self._scenario_with_expected(frozenset({self._TARGET})), ctx
-        )
-        assert result.status == "PASS", result.actual_result
-
-    def test_fails_when_expected_in_place_update_missing(
-        self, executor: Phase1ReindexExecutor
-    ) -> None:
-        ctx = TestContext()
-        ctx.upgrade_blocking = UpgradeBlockingResult(
-            indices_updated_in_place=["chartindex_v2"]
-        )
-        result = executor.validate(
-            self._scenario_with_expected(frozenset({self._TARGET})), ctx
-        )
-        assert result.status == "FAIL"
-        assert "datasetindex_v2" in (result.actual_result or "")
-
-    def test_fails_when_index_also_reindexed_with_swap(
-        self, executor: Phase1ReindexExecutor
-    ) -> None:
-        # Production took BOTH paths for the expected index — that's a regression.
-        ctx = TestContext()
-        ctx.upgrade_blocking = UpgradeBlockingResult(
-            indices_updated_in_place=["datasetindex_v2"],
-            alias_swaps_observed=[("datasetindex_v2", "datasetindex_v2_new")],
-        )
-        result = executor.validate(
-            self._scenario_with_expected(frozenset({self._TARGET})), ctx
-        )
-        assert result.status == "FAIL"
-        assert "BOTH paths" in (result.actual_result or "")
-
-    def test_passes_when_swap_is_for_different_index(
-        self, executor: Phase1ReindexExecutor
-    ) -> None:
-        # dashboardindex_v2 reindexed via swap (unrelated); datasetindex_v2
-        # took the in-place path as expected.
-        ctx = TestContext()
-        ctx.upgrade_blocking = UpgradeBlockingResult(
-            indices_updated_in_place=["datasetindex_v2"],
-            alias_swaps_observed=[("dashboardindex_v2", "dashboardindex_v2_new")],
-        )
-        result = executor.validate(
-            self._scenario_with_expected(frozenset({self._TARGET})), ctx
-        )
-        assert result.status == "PASS"
-
-    def test_skips_when_phase4_did_not_run(
-        self, executor: Phase1ReindexExecutor
-    ) -> None:
-        result = executor.validate(
-            self._scenario_with_expected(frozenset({self._TARGET})), TestContext()
-        )
-        assert result.status == "SKIP"
-
-    def test_skips_when_expected_unset(self, executor: Phase1ReindexExecutor) -> None:
-        ctx = TestContext()
-        ctx.upgrade_blocking = UpgradeBlockingResult(
-            indices_updated_in_place=["datasetindex_v2"]
-        )
-        result = executor.validate(self._scenario_with_expected(None), ctx)
-        assert result.status == "SKIP"
-        assert "not configured" in (result.actual_result or "")
-
-
 class TestTC107StateShape:
-    def test_passes_when_all_required_keys_present(
+    def test_passes_with_keys_for_each_path(
         self, executor: Phase1ReindexExecutor
     ) -> None:
         ctx = TestContext()
-        # raw is now a per-alias dict (not nested under "indicesState").
-        ctx.upgrade_blocking = UpgradeBlockingResult(
-            raw={"dashboardindex_v2": dict(_ALL_REQUIRED_KEYS)}
+        ctx.upgrade_blocking = _blocking(
+            {"datasetindex_v3": _REINDEX_ENTRY, "tagindex_v3": _FILL_ENTRY}
         )
         result = executor.validate(_scenario(tc=107), ctx)
         assert result.status == "PASS", result.actual_result
 
-    def test_fails_when_required_keys_missing(
+    def test_fails_when_reindex_entry_lacks_complete_time(
         self, executor: Phase1ReindexExecutor
     ) -> None:
-        # Drop a required key (status is required; taskId is NOT in
-        # _REQUIRED_INDICES_STATE_KEYS so dropping it would not fail).
-        partial = {k: v for k, v in _ALL_REQUIRED_KEYS.items() if k != "status"}
+        partial = {
+            k: v for k, v in _REINDEX_ENTRY.items() if k != "reindexCompleteTime"
+        }
         ctx = TestContext()
-        ctx.upgrade_blocking = UpgradeBlockingResult(raw={"dashboardindex_v2": partial})
+        ctx.upgrade_blocking = _blocking({"datasetindex_v3": partial})
         result = executor.validate(_scenario(tc=107), ctx)
         assert result.status == "FAIL"
-        assert "status" in (result.actual_result or "")
+        assert "reindexCompleteTime" in (result.actual_result or "")
 
-    def test_taskid_not_required(self, executor: Phase1ReindexExecutor) -> None:
-        # Empty-source no-op entries don't get a taskId; that must still PASS.
-        no_taskid = {k: v for k, v in _ALL_REQUIRED_KEYS.items() if k != "taskId"}
+    def test_fails_when_fill_entry_lacks_target(
+        self, executor: Phase1ReindexExecutor
+    ) -> None:
+        partial = {k: v for k, v in _FILL_ENTRY.items() if k != "backfillTargetIndex"}
         ctx = TestContext()
-        ctx.upgrade_blocking = UpgradeBlockingResult(
-            raw={"schemafieldindex_v2": no_taskid}
-        )
+        ctx.upgrade_blocking = _blocking({"tagindex_v3": partial})
         result = executor.validate(_scenario(tc=107), ctx)
-        assert result.status == "PASS"
+        assert result.status == "FAIL"
+        assert "backfillTargetIndex" in (result.actual_result or "")
 
     def test_skips_when_raw_empty(self, executor: Phase1ReindexExecutor) -> None:
         ctx = TestContext()
@@ -623,7 +622,7 @@ class TestTC109DocCountPreservation:
     def _snap(self, **counts: int):
         from tests.zdu.framework.context import SnapshotT0
 
-        return SnapshotT0(epoch_ms=0, doc_counts=dict(counts))
+        return SnapshotT0(epoch_ms=0, alias_doc_counts=dict(counts))
 
     def test_passes_when_all_counts_match(
         self, executor: Phase1ReindexExecutor
@@ -662,6 +661,26 @@ class TestTC109DocCountPreservation:
         result = executor.validate(_scenario(tc=109), ctx)
         assert result.status == "FAIL"
         assert "dashboardindex_v2" in (result.actual_result or "")
+
+    def test_fails_when_live_alias_lost_docs_but_retired_index_kept_them(
+        self, executor: Phase1ReindexExecutor
+    ) -> None:
+        # V3 retires the T0 physical index; it keeps its docs while the live
+        # alias serves the rebuilt one. Only the alias count shows the loss.
+        ctx = TestContext()
+        ctx.snapshot_t0 = SnapshotT0(
+            epoch_ms=0,
+            doc_counts={"datasetindex_v3_v1_9_0rc1-0_1795280860654": 3},
+            alias_doc_counts={"datasetindex_v3": 3},
+        )
+        ctx.snapshot_t1 = SnapshotT0(
+            epoch_ms=0,
+            doc_counts={"datasetindex_v3_v1_9_0rc1-0_1795280860654": 3},
+            alias_doc_counts={"datasetindex_v3": 1},
+        )
+        result = executor.validate(_scenario(tc=109), ctx)
+        assert result.status == "FAIL"
+        assert "datasetindex_v3" in (result.actual_result or "")
 
     def test_skips_when_t0_missing(self, executor: Phase1ReindexExecutor) -> None:
         ctx = TestContext()

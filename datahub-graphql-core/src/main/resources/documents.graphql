@@ -409,8 +409,9 @@ Settings specific to a Document
 type DocumentSettings {
   """
   Whether or not this document should be visible in the global context (e.g., global navigation, knowledge base search).
-  When false, the document is accessible primarily through the assets it is related to.
-  When true, the document appears in the global documents space accessible to all users.
+  When false, global search and the sidebar leave the document out by default, and its related assets still lead to it.
+  This is not access control: searches can still return it, for example a cross-entity search (searchAcrossEntities, scrollAcrossEntities, aggregateAcrossEntities, browseV2 or semanticSearchAcrossEntities) that filters on showInGlobalContext or sets includeHiddenLifecycleStages, or search with type DOCUMENT.
+  When true, the document appears in the global documents space.
   """
   showInGlobalContext: Boolean!
 }
@@ -589,7 +590,8 @@ input CreateDocumentInput {
   """
   Optional settings for the document. If not provided, defaults will be used.
   Documents created from the UI sidebar will always have showInGlobalContext=true.
-  API/programmatic clients can set showInGlobalContext=false to create private context documents.
+  API/programmatic clients can set showInGlobalContext=false to keep a document out of global search and the sidebar by default.
+  This is not access control: searches can still return it, for example a cross-entity search (searchAcrossEntities, scrollAcrossEntities, aggregateAcrossEntities, browseV2 or semanticSearchAcrossEntities) that filters on showInGlobalContext or sets includeHiddenLifecycleStages, or search with type DOCUMENT.
   """
   settings: DocumentSettingsInput
 }
@@ -790,7 +792,9 @@ input SearchDocumentsInput {
   """
   Optional - the URN of a View to apply to the search. When provided, the View's
   filter is combined with the document search filter so that document results are
-  scoped to the active View (mirrors searchAcrossEntities view scoping).
+  scoped to the active View (mirrors searchAcrossEntities view scoping). One exception:
+  a View that filters on showInGlobalContext brings documents hidden from global context
+  into searchAcrossEntities, but searchDocuments always leaves them out.
   """
   viewUrn: String
 

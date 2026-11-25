@@ -224,7 +224,7 @@ aws_common = {
 
 path_spec_common = {
     "parse>=1.19.0,<2.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 }
 
 looker_common = {
@@ -685,7 +685,8 @@ plugins: Dict[str, Set[str]] = {
     | postgres_common
     | aws_common
     | {"sqlalchemy-cockroachdb>=2.0.0,<3.0.0"},
-    "csv-enricher": set(),
+    # smart-open backs the http(s) and s3 file systems used to read the CSV.
+    "csv-enricher": aws_common | {"smart-open[s3]>=5.2.1,<8.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common | cachetools_lib,
@@ -923,6 +924,7 @@ plugins: Dict[str, Set[str]] = {
     "confluence": confluence_common,
     "google-drive": google_drive_common,
     "github-documents": set(),
+    "gitlab-documents": {"tenacity>=8.0.1,<9.0.0"},
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common
@@ -1173,6 +1175,7 @@ base_dev_requirements = {
             "nifi",
             "notion",
             "github-documents",
+            "gitlab-documents",
             "vertica",
             "mode",
             "fivetran",
@@ -1367,6 +1370,7 @@ entry_points = {
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
         "github-documents = datahub.ingestion.source.github_documents.github_documents_source:GitHubDocumentsSource",
+        "gitlab-documents = datahub.ingestion.source.gitlab_documents.gitlab_documents_source:GitLabDocumentsSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "dlt = datahub.ingestion.source.dlt.dlt:DltSource",
@@ -1452,6 +1456,7 @@ entry_points = {
         "s3 = datahub.ingestion.fs.s3_fs:S3FileSystem",
         "file = datahub.ingestion.fs.local_fs:LocalFileSystem",
         "http = datahub.ingestion.fs.http_fs:HttpFileSystem",
+        "https = datahub.ingestion.fs.http_fs:HttpFileSystem",
     ],
 }
 

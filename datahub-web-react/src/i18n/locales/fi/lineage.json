@@ -72,6 +72,7 @@
     "levelFilter.directTooltip": "Näytä suoraan liittyvät kohteet",
     "levelFilter.indirect": "epäsuora",
     "levelFilter.indirectTooltip": "Näytä epäsuorasti liittyvät kohteet",
+    "loadError": "Lineagea ei voitu ladata. Yritä uudelleen.",
     "manageLineage.changeToHome": "Vaihda kotikohteeksi",
     "manageLineage.dashboardNoDownstream": "Dashboard-kohteilla ei ole alavirran Lineage-tietoja",
     "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",

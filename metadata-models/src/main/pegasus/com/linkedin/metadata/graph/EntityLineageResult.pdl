@@ -25,9 +25,15 @@ record EntityLineageResult {
   filtered: optional int = 0
 
   /**
-   * Indicates whether the results are partial due to reaching the maxRelations limit
+   * Indicates whether the results are partial: the walk reached the maxRelations limit, or part of
+   * the graph could not be read in time
    */
   partial: optional boolean
+
+  /**
+   * Why the results are partial. Absent when the results are complete or the reason is unknown.
+   */
+  partialReason: optional LineagePartialReason
 
   /**
    * Relationships in the result set

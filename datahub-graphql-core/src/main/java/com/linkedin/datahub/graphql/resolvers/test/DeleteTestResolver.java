@@ -4,9 +4,11 @@ import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -31,7 +33,8 @@ public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean
     final Urn urn = Urn.createFromString(testUrn);
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (canManageTests(context)) {
+          if (AuthorizationUtils.isEntityType(urn, Constants.TEST_ENTITY_NAME)
+              && canManageTests(context)) {
             try {
               _entityClient.deleteEntity(context.getOperationContext(), urn);
               return true;
