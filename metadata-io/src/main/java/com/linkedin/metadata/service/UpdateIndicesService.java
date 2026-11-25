@@ -588,11 +588,11 @@ public class UpdateIndicesService implements SearchIndicesService {
         log.debug("Bulk transfer acknowledged after flush-and-wait");
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-        throw new RuntimeException("Interrupted while waiting for bulk transfer", e);
+        throw new RetryableIndexingException("Interrupted while waiting for bulk transfer", e);
       } catch (TimeoutException e) {
-        throw new RuntimeException("Timed out waiting for bulk transfer", e);
+        throw new RetryableIndexingException("Timed out waiting for bulk transfer", e);
       } catch (BulkTransferException e) {
-        throw new RuntimeException("Bulk transfer failed before offset ack", e);
+        throw new RetryableIndexingException("Bulk transfer failed before offset ack", e);
       }
     }
   }

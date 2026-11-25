@@ -8,6 +8,8 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
 import com.linkedin.metadata.kafka.context.inbound.DefaultInboundBatchAffinityResolver;
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
+import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
+import com.linkedin.metadata.service.RetryableIndexingException;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
@@ -171,6 +173,52 @@ public class AbstractKafkaListenerTest {
     assertTrue(hook1.invoked);
     assertTrue(hook2.invoked);
     verify(metricUtils).increment(eq(StubListener.class), eq("HookOne_failure"), eq(1d));
+  }
+
+  @Test
+  public void retryableHookFailurePropagatesAndDoesNotAckEvent() {
+    TestEvent event = new TestEvent("evt-retryable-fail");
+    listener.nextEvent = event;
+    hook1.failureToThrow =
+        new RetryableIndexingException("bulk transfer failed", new BulkTransferException(1, "403"));
+
+    ConsumerRecord<String, String> record = new ConsumerRecord<>(TOPIC, 0, 0L, null, "payload");
+
+    expectThrows(RetryableIndexingException.class, () -> listener.consume(record));
+
+    assertTrue(hook1.invoked);
+    assertFalse(hook2.invoked);
+    verify(metricUtils).increment(eq(StubListener.class), eq("HookOne_failure"), eq(1d));
+    verify(metricUtils, never())
+        .increment(
+            eq(StubListener.class), eq(CONSUMER_GROUP + "_consumed_event_count"), anyDouble());
+  }
+
+  @Test
+  public void wrappedBulkTransferExceptionPropagatesAsRetryable() {
+    TestEvent event = new TestEvent("evt-wrapped-bulk-fail");
+    listener.nextEvent = event;
+    hook1.failureToThrow =
+        new IllegalStateException(
+            "wrapped", new BulkTransferException(1, "cluster_block_exception"));
+
+    ConsumerRecord<String, String> record = new ConsumerRecord<>(TOPIC, 0, 0L, null, "payload");
+
+    expectThrows(IllegalStateException.class, () -> listener.consume(record));
+
+    assertFalse(hook2.invoked);
+    verify(metricUtils, never())
+        .increment(
+            eq(StubListener.class), eq(CONSUMER_GROUP + "_consumed_event_count"), anyDouble());
+  }
+
+  @Test
+  public void isRetryableHookFailureHandlesCauseCycles() {
+    RuntimeException first = new RuntimeException("first");
+    RuntimeException second = new RuntimeException("second", first);
+    first.initCause(second);
+
+    assertFalse(AbstractKafkaListener.isRetryableHookFailure(first));
   }
 
   /**
@@ -379,6 +427,7 @@ public class AbstractKafkaListenerTest {
   abstract static class BaseHook implements EventHook<TestEvent> {
     boolean invoked;
     boolean failOnInvoke;
+    RuntimeException failureToThrow;
     String cascadeIdSeenDuringInvoke;
     OperationContext contextSeenDuringInvoke;
 
@@ -392,6 +441,9 @@ public class AbstractKafkaListenerTest {
       invoked = true;
       contextSeenDuringInvoke = operationContext;
       cascadeIdSeenDuringInvoke = MDC.get(CascadeOperationContext.MDC_CASCADE_OPERATION_ID);
+      if (failureToThrow != null) {
+        throw failureToThrow;
+      }
       if (failOnInvoke) {
         throw new RuntimeException("hook failed");
       }

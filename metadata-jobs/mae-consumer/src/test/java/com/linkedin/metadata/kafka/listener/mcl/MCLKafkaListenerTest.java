@@ -12,6 +12,8 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.context.inbound.DefaultInboundBatchAffinityResolver;
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
+import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
+import com.linkedin.metadata.service.RetryableIndexingException;
 import com.linkedin.metadata.trace.TraceServiceImpl;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -383,6 +385,32 @@ public class MCLKafkaListenerTest {
               eq(MCLKafkaListener.class),
               eq(TEST_CONSUMER_GROUP + "_consumed_event_count"),
               eq(1d));
+    }
+  }
+
+  @Test
+  public void testRetryableHookFailurePropagatesWithoutCountingConsumed() throws Exception {
+    MetadataChangeLog event = createTestMCL(ChangeType.UPSERT);
+
+    doThrow(
+            new RetryableIndexingException(
+                "bulk transfer failed", new BulkTransferException(1, "403")))
+        .when(mockHook1)
+        .invoke(any(OperationContext.class), any(MetadataChangeLog.class));
+
+    try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class)) {
+      eventUtils.when(() -> EventUtils.avroToPegasusMCL(any())).thenReturn(event);
+
+      expectThrows(RetryableIndexingException.class, () -> listener.consume(mockConsumerRecord));
+
+      verify(mockHook1).invoke(any(OperationContext.class), eq(event));
+      verify(mockHook2, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
+      verify(metricUtils).increment(eq(MCLKafkaListener.class), eq("TestHook1_failure"), eq(1d));
+      verify(metricUtils, never())
+          .increment(
+              eq(MCLKafkaListener.class),
+              eq(TEST_CONSUMER_GROUP + "_consumed_event_count"),
+              anyDouble());
     }
   }
 

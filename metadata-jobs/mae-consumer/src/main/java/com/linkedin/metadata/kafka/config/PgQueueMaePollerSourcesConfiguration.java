@@ -13,6 +13,7 @@ import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
 import com.linkedin.metadata.kafka.context.inbound.DefaultInboundBatchAffinityResolver;
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
+import com.linkedin.metadata.kafka.listener.AbstractKafkaListener;
 import com.linkedin.metadata.kafka.listener.GenericKafkaListener;
 import com.linkedin.metadata.kafka.listener.mcl.MCLKafkaListener;
 import com.linkedin.metadata.pgqueue.PgQueueBatchPolicy;
@@ -298,6 +299,9 @@ public class PgQueueMaePollerSourcesConfiguration {
                     hook.getClass().getSimpleName(),
                     gid,
                     ex);
+                if (AbstractKafkaListener.isRetryableHookFailure(ex)) {
+                  throw AbstractKafkaListener.propagateAsRuntime(ex);
+                }
               }
             }
           }

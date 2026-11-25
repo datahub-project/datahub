@@ -3,16 +3,21 @@ package com.linkedin.metadata.kafka.config;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.config.MaeConsumerConfiguration;
@@ -31,9 +36,13 @@ import com.linkedin.metadata.queue.MetadataQueueStore;
 import com.linkedin.metadata.queue.PgQueuePayloadCompression;
 import com.linkedin.metadata.queue.QueueMessageHandle;
 import com.linkedin.metadata.queue.QueueReceivedMessage;
+import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
+import com.linkedin.metadata.service.RetryableIndexingException;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -206,6 +215,80 @@ public class PgQueueMaePollerSourcesConfigurationTest {
   }
 
   @Test
+  public void pgQueueMclHookSources_batchFlushSkipsCommitOnRetryableFailure() throws Exception {
+    verifyBatchFlushFailure(
+        new RetryableIndexingException("bulk transfer failed", new BulkTransferException(1, "403")),
+        false);
+  }
+
+  @Test
+  public void pgQueueMclHookSources_batchFlushCommitsOnNonRetryableHookFailure() throws Exception {
+    verifyBatchFlushFailure(new RuntimeException("non-retryable failure"), true);
+  }
+
+  private void verifyBatchFlushFailure(RuntimeException hookFailure, boolean expectCommit)
+      throws Exception {
+    MetadataChangeLogHook hook = mock(MetadataChangeLogHook.class);
+    when(hook.isEnabled()).thenReturn(true);
+    when(hook.getConsumerGroupSuffix()).thenReturn("");
+    when(hook.executionOrder()).thenReturn(0);
+    doThrow(hookFailure).when(hook).invokeBatch(any(OperationContext.class), any());
+
+    stubMclConfiguration(
+        true,
+        MetadataChangeLogConfig.BatchConfig.builder()
+            .enabled(true)
+            .maxMessages(500)
+            .size(1048576)
+            .maxAgeMs(1000L)
+            .build());
+
+    MetadataQueueStore store = mock(MetadataQueueStore.class);
+    @SuppressWarnings("unchecked")
+    Deserializer<GenericRecord> deserializer = mock(Deserializer.class);
+    when(deserializer.deserialize(anyString(), any(byte[].class)))
+        .thenReturn(mock(GenericRecord.class));
+
+    PgQueuePollerRegistration reg =
+        configuration
+            .pgQueueMclHookSources(
+                List.of(hook),
+                new ObjectMapper(),
+                TestOperationContexts.systemContextNoSearchAuthorization(),
+                new InboundContextResolver(Collections.emptyList()),
+                "mae-batch",
+                Topics.METADATA_CHANGE_LOG_VERSIONED,
+                Topics.METADATA_CHANGE_LOG_TIMESERIES)
+            .registrations()
+            .findFirst()
+            .orElseThrow();
+
+    MetadataChangeLog mcl = sampleMcl();
+    QueueReceivedMessage msg = sampleMessage();
+    PgQueuePollContext ctx =
+        new PgQueuePollContext(store, "mae-batch", Duration.ofSeconds(30), deserializer);
+
+    try (var eventUtils = mockStatic(EventUtils.class)) {
+      eventUtils.when(() -> EventUtils.avroToPegasusMCL(any())).thenReturn(mcl);
+      if (expectCommit) {
+        reg.flushHandler().flush(Topics.METADATA_CHANGE_LOG_VERSIONED, List.of(msg), ctx);
+      } else {
+        expectThrows(
+            RetryableIndexingException.class,
+            () ->
+                reg.flushHandler().flush(Topics.METADATA_CHANGE_LOG_VERSIONED, List.of(msg), ctx));
+      }
+    }
+
+    verify(hook).invokeBatch(any(OperationContext.class), any());
+    if (expectCommit) {
+      verify(store).commitForGroup(eq("mae-batch"), eq(List.of(msg.handle())), eq(true));
+    } else {
+      verify(store, never()).commitForGroup(any(), any(), eq(true));
+    }
+  }
+
+  @Test
   public void isMclBatchEnabled_falseWhenConfigMissing() {
     ConfigurationProvider provider = mock(ConfigurationProvider.class);
     when(provider.getMetadataChangeLog()).thenReturn(null);
@@ -267,6 +350,53 @@ public class PgQueueMaePollerSourcesConfigurationTest {
     reg.handler().handleBatch(Topics.METADATA_CHANGE_LOG_VERSIONED, List.of(msg), ctx);
 
     verify(store).commitForGroup(eq("mae-group"), eq(List.of(msg.handle())), eq(true));
+  }
+
+  @Test
+  public void pgQueueMclHookSources_handlerSkipsCommitOnRetryableFailure() throws Exception {
+    MetadataChangeLogHook hook = mock(MetadataChangeLogHook.class);
+    when(hook.isEnabled()).thenReturn(true);
+    when(hook.getConsumerGroupSuffix()).thenReturn("");
+    when(hook.executionOrder()).thenReturn(0);
+    doThrow(
+            new RetryableIndexingException(
+                "bulk transfer failed", new BulkTransferException(1, "403")))
+        .when(hook)
+        .invoke(any(OperationContext.class), any(MetadataChangeLog.class));
+
+    stubMclConfiguration(false, null);
+    MetadataQueueStore store = mock(MetadataQueueStore.class);
+    @SuppressWarnings("unchecked")
+    Deserializer<GenericRecord> deserializer = mock(Deserializer.class);
+    GenericRecord record = mock(GenericRecord.class);
+    when(deserializer.deserialize(anyString(), any(byte[].class))).thenReturn(record);
+
+    PgQueuePollerRegistration reg =
+        configuration
+            .pgQueueMclHookSources(
+                List.of(hook),
+                new ObjectMapper(),
+                TestOperationContexts.systemContextNoSearchAuthorization(),
+                new InboundContextResolver(Collections.emptyList()),
+                "mae-group",
+                Topics.METADATA_CHANGE_LOG_VERSIONED,
+                Topics.METADATA_CHANGE_LOG_TIMESERIES)
+            .registrations()
+            .findFirst()
+            .orElseThrow();
+
+    MetadataChangeLog mcl = sampleMcl();
+    QueueReceivedMessage msg = sampleMessage();
+    PgQueuePollContext ctx =
+        new PgQueuePollContext(store, "mae-group", Duration.ofSeconds(30), deserializer);
+
+    try (var eventUtils = mockStatic(EventUtils.class)) {
+      eventUtils.when(() -> EventUtils.avroToPegasusMCL(any())).thenReturn(mcl);
+      reg.handler().handleBatch(Topics.METADATA_CHANGE_LOG_VERSIONED, List.of(msg), ctx);
+    }
+
+    verify(hook).invoke(any(OperationContext.class), eq(mcl));
+    verify(store, never()).commitForGroup(any(), any(), eq(true));
   }
 
   @Test
@@ -358,5 +488,16 @@ public class PgQueueMaePollerSourcesConfigurationTest {
         List.of(),
         "key",
         "owner");
+  }
+
+  private static MetadataChangeLog sampleMcl() throws Exception {
+    MetadataChangeLog mcl = new MetadataChangeLog();
+    mcl.setEntityUrn(
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,test.dataset,PROD)"));
+    mcl.setAspectName("datasetProperties");
+    mcl.setEntityType("dataset");
+    mcl.setChangeType(ChangeType.UPSERT);
+    mcl.setSystemMetadata(new SystemMetadata());
+    return mcl;
   }
 }
