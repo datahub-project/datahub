@@ -6,6 +6,7 @@ import { EntityTabPath } from '@app/entityV2/shared/constants';
 import AcrylAssertionListStatusDot from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListStatusDot';
 import { DataContractBadge } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/DataContractBadge';
 import { AssertionPlatformAvatar } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionPlatformAvatar';
+import { useIsContractsEnabled } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/useIsContractsEnabled';
 import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopover';
 import { ResultStatusType } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
 import { useBuildAssertionPrimaryLabel } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
@@ -68,13 +69,14 @@ export const AssertionName = ({
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
+    const contractsEnabled = useIsContractsEnabled();
 
     const name = useBuildAssertionPrimaryLabel(assertion.info, {
         showColumnTag: true,
     });
 
     const disabled = false;
-    const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
+    const isPartOfContract = contractsEnabled && contract && isAssertionPartOfContract(assertion, contract);
 
     return (
         <StyledAssertionNameContainer>
