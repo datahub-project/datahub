@@ -14,6 +14,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -65,13 +66,14 @@ public class EnvFieldResolverProvider implements EntityFieldResolverProvider {
       Set<String> aspectNames = new LinkedHashSet<>();
       for (FabricTypeNameFields.Field field : entityFields) {
         if (field.isKeyAspect()) {
+          // The URN's type comes from data; an entity type this registry does not know has no env.
+          Optional<com.linkedin.metadata.models.EntitySpec> urnSpec =
+              opContext.getEntityRegistry().findEntitySpec(urn.getEntityType());
+          if (urnSpec.isEmpty()) {
+            continue;
+          }
           String value =
-              EntityKeyUtils.convertUrnToEntityKey(
-                      urn,
-                      opContext
-                          .getEntityRegistry()
-                          .getEntitySpec(urn.getEntityType())
-                          .getKeyAspectSpec())
+              EntityKeyUtils.convertUrnToEntityKey(urn, urnSpec.get().getKeyAspectSpec())
                   .data()
                   .getString(field.getFieldName());
           if (value != null) {
