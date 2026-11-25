@@ -173,9 +173,17 @@ Complete the Databricks connection configuration:
 
 #### Required Connection Details
 
-- **Workspace URL**: Your Databricks workspace URL (e.g., `https://abcsales.cloud.databricks.com`)
-- **Warehouse ID**: The SQL warehouse ID used for executing for metadata operations (e.g., `fab3e5fg0bcbfc56`)
-- **Token**: Databricks personal access token or service principal token
+- **Workspace URL** (`workspace_url`): Your Databricks workspace URL (e.g., `https://abcsales.cloud.databricks.com`)
+- **Warehouse Id** (`warehouse_id`): The SQL warehouse ID used for executing for metadata operations (e.g., `fab3e5fg0bcbfc56`)
+- **Authentication Type**: How the automation signs in to Databricks. Pick one:
+
+| Authentication Type           | Fields                                                                                                                                            | Use for                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Personal Access Token         | **Personal Access Token** (`token`)                                                                                                               | A personal access token of a user or service principal                     |
+| OAuth M2M (Service Principal) | **Client ID** (`client_id`) and **Client Secret** (`client_secret`)                                                                               | An OAuth secret of a Databricks service principal. Both fields are needed. |
+| Azure AD (Service Principal)  | **Azure Tenant ID**, **Azure Client ID** and **Azure Client Secret** (`azure_auth.tenant_id`, `azure_auth.client_id`, `azure_auth.client_secret`) | A Microsoft Entra ID service principal on Azure Databricks                 |
+
+The automation fails to start if its recipe holds credentials for more than one type, or only one of `client_id` and `client_secret`. A recipe created through the API with no credentials at all uses Databricks' default authentication on the machine that runs the automation, such as `DATABRICKS_*` environment variables on a remote executor.
 
 <p align="center">
   <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/databricks-metadata-sync/connection-config.png" alt="Connection Configuration"/>
@@ -196,6 +204,14 @@ Provide automation metadata:
 - **Category**: Select an appropriate category for organization
 
 Click **Save and Run** to activate the automation and begin real-time synchronization.
+
+## Which Assets the Automation Acts On
+
+The automation acts on every Databricks table and column in DataHub, and on the catalogs and schemas they belong to. It has no setting to limit it to some catalogs or schemas. It writes to `<catalog>.<schema>.<table>` in the workspace it connects to, taking those three parts from the end of the table's name in DataHub, so a platform instance in that name is ignored.
+
+If you ingest more than one Databricks workspace, each automation therefore also tries to write the tags and descriptions of the other workspaces' tables to its own workspace. Those writes fail where its workspace has no table with the same catalog, schema and table name, and change that table where it has one.
+
+The recipe also accepts a top-level `platform_instance` setting. It doesn't limit which assets the automation writes to, and it currently has no effect on the sync.
 
 ## Historical Data Synchronization
 
@@ -258,7 +274,7 @@ When you sync Descriptions, you can also select **Sync descriptions from logical
 #### Connection Issues
 
 - Validate Databricks workspace URL format
-- Ensure access token is valid and not expired
+- Ensure the access token or OAuth client secret is valid and not expired
 - Verify warehouse ID is correct and accessible
 - Check network connectivity between DataHub and Databricks
 
