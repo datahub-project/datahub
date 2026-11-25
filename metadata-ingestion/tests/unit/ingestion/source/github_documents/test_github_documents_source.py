@@ -1512,6 +1512,8 @@ def test_resurrect_sets_published_lifecycle_stage(
     assert len(statuses) == 1
     assert statuses[0].removed is False
     assert statuses[0].lifecycleStage == PUBLISHED_STAGE_URN
+    stamp = statuses[0].lifecycleLastUpdated
+    assert stamp is not None and stamp.time > 0
 
 
 def test_changed_file_status_carries_published_lifecycle_stage(

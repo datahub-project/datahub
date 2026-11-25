@@ -5,6 +5,7 @@ import json
 import logging
 import os
 from abc import abstractmethod
+from datetime import datetime
 from functools import cached_property, partial
 from pathlib import PurePosixPath
 from typing import (
@@ -91,6 +92,7 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     BrowsePathEntryClass,
     DataPlatformInstanceClass,
     DocumentInfoClass,
@@ -101,6 +103,8 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 from datahub.metadata.urns import DocumentUrn
+from datahub.sdk._shared import make_time_stamp
+from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.document import PUBLISHED_LIFECYCLE_STAGE_URN, Document
 
 logger = logging.getLogger(__name__)
@@ -117,7 +121,14 @@ def _imported_status() -> StatusClass:
     The repository owns these documents, so each emit sets the stage. A stage changed
     in the UI does not survive the next import.
     """
-    return StatusClass(removed=False, lifecycleStage=PUBLISHED_LIFECYCLE_STAGE_URN)
+    stamp = make_time_stamp(datetime.now())
+    return StatusClass(
+        removed=False,
+        lifecycleStage=PUBLISHED_LIFECYCLE_STAGE_URN,
+        lifecycleLastUpdated=AuditStampClass(
+            time=stamp.time if stamp else 0, actor=DEFAULT_ACTOR_URN
+        ),
+    )
 
 
 LAST_EXPORTED_CONTENT_HASH_KEY = "last_exported_content_hash"
