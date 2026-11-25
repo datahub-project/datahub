@@ -4,6 +4,7 @@ from typing import AbstractSet, Callable, Dict, List, Optional, Set
 
 from pydantic import BaseModel, Field
 
+from datahub.ingestion.source.qlik_sense.constants import QVD_EXTENSION
 from datahub.ingestion.source.qlik_sense.file_lineage import (
     FilePlatform,
     FileStorage,
@@ -153,7 +154,6 @@ LIB_PATH_RE = re.compile(
 )
 # A file system path, which only legacy mode allows: C:\..., \\server\... or //server/...
 ABSOLUTE_PATH_RE = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\|//)")
-QVD_EXTENSION = ".qvd"
 # STORE formats other than QVD, which write files storage sources ingest.
 STORED_FILE_FORMATS = ("txt", "parquet")
 LOAD_FIELDS_RE = re.compile(

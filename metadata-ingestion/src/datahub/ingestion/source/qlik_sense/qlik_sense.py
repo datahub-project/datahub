@@ -74,6 +74,19 @@ from datahub.ingestion.source.qlik_sense.config import (
     QlikSourceConfig,
     QlikSourceReport,
 )
+from datahub.ingestion.source.qlik_sense.constants import (
+    APP_PARTLY_READ_TITLE,
+    BINARY_TABLES_UNKNOWN,
+    CHECKPOINT_LOAD_FAILED_TITLE,
+    DATA_FILES_CONNECTION,
+    DATAHUB_LINEAGE_READ_FAILED_TITLE,
+    ENTITY_CHECK_BATCH_SIZE,
+    QLIK_APP_QRI_RE,
+    QVD_EXTENSION,
+    SCRIPT_TABLE_LINEAGE_SKIPPED,
+    UNQUALIFIED_TABLES_SKIPPED,
+    UNRESOLVED_STORE,
+)
 from datahub.ingestion.source.qlik_sense.data_classes import (
     DATABASE_QRI_PREFIX,
     FIELD_TYPE_MAPPING,
@@ -238,18 +251,6 @@ class _PartialRead(StrEnum):
     NOT_KEPT = "not_kept"
 
 
-# Entities per DataHub request when checking that a skipped app's entities exist.
-ENTITY_CHECK_BATCH_SIZE = 100
-
-# Lineage graph QRIs of Qlik dataset tables, `<dataset secureQri>#<table>`.
-# An analytics app is a sense resource in the lineage graph, a script app a
-# dataprep resource.
-QLIK_APP_QRI_RE = re.compile(r"^qri:app:(?:sense|dataprep)://([^#]+)")
-QVD_EXTENSION = ".qvd"
-# Every Qlik Cloud space's connection to its own data files.
-DATA_FILES_CONNECTION = "datafiles"
-
-
 class _LibConnection(BaseModel):
     # "" when the `lib://` connection is not qualified by a space.
     space: str
@@ -335,10 +336,6 @@ def _qvd_fields(writes: List[QvdWrite], reads: List[str]) -> Optional[List[str]]
             )
         )
     return reads or None
-
-
-# Why the QVD writes of an app with an unresolved STORE are not all known.
-UNRESOLVED_STORE = "a STORE path could not be resolved"
 
 
 # A reload statement that ran SQL: Qlik keeps the `SQL` prefix when the script
@@ -1249,7 +1246,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # Reporting a failure stops stale entity removal from soft-deleting
             # what the app's last read produced.
             self.reporter.failure(
-                title="Unable to load the last checkpoint of a Qlik app",
+                title=CHECKPOINT_LOAD_FAILED_TITLE,
                 message="Entities from the app's last read could not be kept, so "
                 "stale metadata removal is skipped for this run.",
                 context=app_id,
@@ -1383,7 +1380,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         previous = self._usable_checkpoint(app.id, failures)
         for failure in failures:
             self.reporter.warning(
-                title="Unable to load the last checkpoint of a Qlik app",
+                title=CHECKPOINT_LOAD_FAILED_TITLE,
                 message="The partly read app could not keep its last read.",
                 context=failure,
             )
@@ -2216,7 +2213,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 context += f", sql={sql[:200]}"
             self.reporter.warning(
                 title="Qlik load script SQL uses a variable that is not set",
-                message="Upstream lineage for this script table is skipped."
+                message=SCRIPT_TABLE_LINEAGE_SKIPPED
                 + (
                     " Set the variables listed as settable in "
                     "`script_variables` to include it; no script sets them."
@@ -2238,7 +2235,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if result.debug_info.table_error:
             self.reporter.warning(
                 title="Unable to parse Qlik load script SQL",
-                message="Upstream lineage for this script table is skipped.",
+                message=SCRIPT_TABLE_LINEAGE_SKIPPED,
                 context=f"app={app_id}, table={script_table.label}, "
                 f"error={_error_type(result.debug_info.table_error)}",
             )
@@ -2385,9 +2382,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if unqualified:
             self.reporter.warning(
                 title="Qlik load script table is missing its database or schema",
-                message="Lineage to these tables is skipped. Set `database` and "
-                "`default_schema` for their connection in "
-                "`data_connection_to_platform_instance`.",
+                message=UNQUALIFIED_TABLES_SKIPPED,
                 context=f"app={app.id}, tables={sorted(set(unqualified))}",
             )
         # A data table and a mapping table with the same identifier share one
@@ -2791,7 +2786,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         for failure in failures:
             # A failure stops stale entity removal from soft-deleting them.
             self.reporter.failure(
-                title="Unable to load the last checkpoint of a Qlik app",
+                title=CHECKPOINT_LOAD_FAILED_TITLE,
                 message="Datasets the app's last read named from Qlik's lineage "
                 "graph could not be kept, so stale metadata removal is skipped "
                 "for this run.",
@@ -3579,9 +3574,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if unqualified:
             self.reporter.warning(
                 title="Qlik reload SQL table is missing its database or schema",
-                message="Lineage to these tables is skipped. Set `database` and "
-                "`default_schema` for their connection in "
-                "`data_connection_to_platform_instance`.",
+                message=UNQUALIFIED_TABLES_SKIPPED,
                 context=f"app={app.id}, tables={sorted(set(unqualified))}",
             )
         return parsed
@@ -4942,7 +4935,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         previous = self._usable_checkpoint(app.id, failures)
         for failure in failures:
             self.reporter.warning(
-                title="Unable to load the last checkpoint of a Qlik app",
+                title=CHECKPOINT_LOAD_FAILED_TITLE,
                 message="The data model fields of an app BINARY loads come from "
                 "are not known, so lineage to its tables is only added to.",
                 context=failure,
@@ -4988,9 +4981,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         previous = self._usable_checkpoint(app.id, failures)
         if failures:
             # Its last read may hold BINARY tables.
-            app.read_errors.append(
-                f"The tables the app's BINARY load brings in are not known: {reason}"
-            )
+            app.read_errors.append(f"{BINARY_TABLES_UNKNOWN}{reason}")
             return
         if previous is None or not previous.binary_tables:
             return
@@ -5003,9 +4994,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 context=f"{app.id}: {reason}",
             )
             return
-        app.read_errors.append(
-            f"The tables the app's BINARY load brings in are not known: {reason}"
-        )
+        app.read_errors.append(f"{BINARY_TABLES_UNKNOWN}{reason}")
 
     def _binary_load(self, app: App, parsed: ParsedScript) -> _BinaryLoad:
         """The app's tables a BINARY statement loads: the data model's tables
@@ -5362,7 +5351,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 )
         if failures:
             self.reporter.warning(
-                title="Unable to load the last checkpoint of a Qlik app",
+                title=CHECKPOINT_LOAD_FAILED_TITLE,
                 message="Edges from these apps into storage QVDs they no longer "
                 "write are kept.",
                 context=_bounded_list(failures),
@@ -5564,7 +5553,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             if partial_read == _PartialRead.KEPT:
                 self.reporter.warning(
-                    title="Unable to fully read Qlik app",
+                    title=APP_PARTLY_READ_TITLE,
                     message="Nothing from this read of the app is emitted. Its "
                     "metadata stays as of its last complete read until a read of "
                     "it completes.",
@@ -5583,7 +5572,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 # Reporting a failure also stops stale entity removal from
                 # soft-deleting what this app's last full read produced.
                 self.reporter.failure(
-                    title="Unable to fully read Qlik app",
+                    title=APP_PARTLY_READ_TITLE,
                     message="Some sheets, charts, tables or load script lineage "
                     "of this app could not be read from Qlik.",
                     context=self._read_errors_context(item),
@@ -5621,7 +5610,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 )
             except Exception as e:
                 self.reporter.warning(
-                    title="Unable to read Qlik dataset lineage from DataHub",
+                    title=DATAHUB_LINEAGE_READ_FAILED_TITLE,
                     message="The lineage of these datasets from apps that store "
                     "into them is only added to.",
                     context=_bounded_list(batch),
@@ -5656,7 +5645,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
         except Exception as e:
             self.reporter.warning(
-                title="Unable to read Qlik dataset lineage from DataHub",
+                title=DATAHUB_LINEAGE_READ_FAILED_TITLE,
                 message="The dataset's lineage from apps that store into it is "
                 "only added to.",
                 context=dataset_urn,
