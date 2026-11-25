@@ -4136,6 +4136,11 @@
                   "copy_to" : [ "hasDescription" ],
                   "type" : "boolean"
                 },
+                "instructions" : {
+                  "doc_values" : false,
+                  "index" : false,
+                  "type" : "keyword"
+                },
                 "name" : {
                   "doc_values" : false,
                   "index" : false,
@@ -4145,6 +4150,11 @@
                   "copy_to" : [ "requiredTools_urn" ],
                   "doc_values" : false,
                   "index" : false,
+                  "type" : "keyword"
+                },
+                "requiredTools__urn_name" : {
+                  "copy_to" : [ "other" ],
+                  "normalizer" : "keyword_normalizer",
                   "type" : "keyword"
                 }
               }
@@ -15109,6 +15119,12 @@
           },
           "type" : "keyword"
         },
+        "instructions" : {
+          "copy_to" : [ "other" ],
+          "doc_values" : false,
+          "index" : false,
+          "type" : "keyword"
+        },
         "interval" : {
           "ignore_above" : 8191,
           "type" : "keyword"
@@ -17922,74 +17938,74 @@
   "documents" : {
     "datasetKey/PROD" : {
       "urn" : "urn:li:dataset:(urn:li:dataPlatform:hive,db.tbl,PROD)",
+      "platform" : "urn:li:dataPlatform:hive",
       "origin" : "PROD",
-      "id" : "db.tbl",
-      "platform" : "urn:li:dataPlatform:hive"
+      "id" : "db.tbl"
     },
     "datasetKey/DEV" : {
       "urn" : "urn:li:dataset:(urn:li:dataPlatform:hive,db.tbl,DEV)",
+      "platform" : "urn:li:dataPlatform:hive",
       "origin" : "DEV",
-      "id" : "db.tbl",
-      "platform" : "urn:li:dataPlatform:hive"
+      "id" : "db.tbl"
     },
     "datasetKey/CERT" : {
       "urn" : "urn:li:dataset:(urn:li:dataPlatform:hive,db.tbl,CERT)",
+      "platform" : "urn:li:dataPlatform:hive",
       "origin" : "CERT",
-      "id" : "db.tbl",
-      "platform" : "urn:li:dataPlatform:hive"
+      "id" : "db.tbl"
     },
     "mlModelKey/PROD" : {
       "urn" : "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,model,PROD)",
+      "origin" : "PROD",
       "id" : "model",
-      "platform" : "urn:li:dataPlatform:sagemaker",
-      "origin" : "PROD"
+      "platform" : "urn:li:dataPlatform:sagemaker"
     },
     "mlModelKey/DEV" : {
       "urn" : "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,model,DEV)",
+      "origin" : "DEV",
       "id" : "model",
-      "platform" : "urn:li:dataPlatform:sagemaker",
-      "origin" : "DEV"
+      "platform" : "urn:li:dataPlatform:sagemaker"
     },
     "mlModelKey/CERT" : {
       "urn" : "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,model,CERT)",
+      "origin" : "CERT",
       "id" : "model",
-      "platform" : "urn:li:dataPlatform:sagemaker",
-      "origin" : "CERT"
+      "platform" : "urn:li:dataPlatform:sagemaker"
     },
     "mlModelGroupKey/PROD" : {
       "urn" : "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,group,PROD)",
+      "origin" : "PROD",
       "id" : "group",
-      "platform" : "urn:li:dataPlatform:sagemaker",
-      "origin" : "PROD"
+      "platform" : "urn:li:dataPlatform:sagemaker"
     },
     "mlModelGroupKey/DEV" : {
       "urn" : "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,group,DEV)",
+      "origin" : "DEV",
       "id" : "group",
-      "platform" : "urn:li:dataPlatform:sagemaker",
-      "origin" : "DEV"
+      "platform" : "urn:li:dataPlatform:sagemaker"
     },
     "mlModelGroupKey/CERT" : {
       "urn" : "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,group,CERT)",
+      "origin" : "CERT",
       "id" : "group",
-      "platform" : "urn:li:dataPlatform:sagemaker",
-      "origin" : "CERT"
+      "platform" : "urn:li:dataPlatform:sagemaker"
     },
     "mlModelDeploymentKey/PROD" : {
       "urn" : "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,deployment,PROD)",
-      "platform" : "urn:li:dataPlatform:sagemaker",
       "origin" : "PROD",
+      "platform" : "urn:li:dataPlatform:sagemaker",
       "name" : "deployment"
     },
     "mlModelDeploymentKey/DEV" : {
       "urn" : "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,deployment,DEV)",
-      "platform" : "urn:li:dataPlatform:sagemaker",
       "origin" : "DEV",
+      "platform" : "urn:li:dataPlatform:sagemaker",
       "name" : "deployment"
     },
     "mlModelDeploymentKey/CERT" : {
       "urn" : "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,deployment,CERT)",
-      "platform" : "urn:li:dataPlatform:sagemaker",
       "origin" : "CERT",
+      "platform" : "urn:li:dataPlatform:sagemaker",
       "name" : "deployment"
     },
     "dataProcessKey/PROD" : {
@@ -18012,66 +18028,66 @@
     },
     "containerProperties/PROD" : {
       "urn" : "urn:li:container:c1",
-      "customProperties" : [ ],
-      "name" : "c1",
+      "hasDescription" : false,
       "env" : "PROD",
-      "hasDescription" : false
+      "customProperties" : [ ],
+      "name" : "c1"
     },
     "containerProperties/DEV" : {
       "urn" : "urn:li:container:c1",
-      "customProperties" : [ ],
-      "name" : "c1",
+      "hasDescription" : false,
       "env" : "DEV",
-      "hasDescription" : false
+      "customProperties" : [ ],
+      "name" : "c1"
     },
     "containerProperties/CERT" : {
       "urn" : "urn:li:container:c1",
-      "customProperties" : [ ],
-      "name" : "c1",
+      "hasDescription" : false,
       "env" : "CERT",
-      "hasDescription" : false
+      "customProperties" : [ ],
+      "name" : "c1"
     },
     "dataFlowInfo/PROD" : {
       "urn" : "urn:li:dataFlow:(airflow,flow,prod)",
-      "customProperties" : [ ],
-      "name" : "flow",
+      "hasDescription" : false,
       "env" : "PROD",
-      "hasDescription" : false
+      "customProperties" : [ ],
+      "name" : "flow"
     },
     "dataFlowInfo/DEV" : {
       "urn" : "urn:li:dataFlow:(airflow,flow,prod)",
-      "customProperties" : [ ],
-      "name" : "flow",
+      "hasDescription" : false,
       "env" : "DEV",
-      "hasDescription" : false
+      "customProperties" : [ ],
+      "name" : "flow"
     },
     "dataFlowInfo/CERT" : {
       "urn" : "urn:li:dataFlow:(airflow,flow,prod)",
-      "customProperties" : [ ],
-      "name" : "flow",
+      "hasDescription" : false,
       "env" : "CERT",
-      "hasDescription" : false
+      "customProperties" : [ ],
+      "name" : "flow"
     },
     "dataJobInfo/PROD" : {
       "urn" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,flow,prod),job)",
-      "customProperties" : [ ],
-      "name" : "job",
+      "hasDescription" : false,
       "env" : "PROD",
-      "hasDescription" : false
+      "customProperties" : [ ],
+      "name" : "job"
     },
     "dataJobInfo/DEV" : {
       "urn" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,flow,prod),job)",
-      "customProperties" : [ ],
-      "name" : "job",
+      "hasDescription" : false,
       "env" : "DEV",
-      "hasDescription" : false
+      "customProperties" : [ ],
+      "name" : "job"
     },
     "dataJobInfo/CERT" : {
       "urn" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,flow,prod),job)",
-      "customProperties" : [ ],
-      "name" : "job",
+      "hasDescription" : false,
       "env" : "CERT",
-      "hasDescription" : false
+      "customProperties" : [ ],
+      "name" : "job"
     },
     "icebergWarehouseInfo/PROD" : {
       "urn" : "urn:li:dataPlatformInstance:(urn:li:dataPlatform:iceberg,wh)"
