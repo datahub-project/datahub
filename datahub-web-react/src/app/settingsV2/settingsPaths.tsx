@@ -13,6 +13,7 @@ const ManagePermissions = lazyNamed(() => import('@app/permissions/ManagePermiss
 const ManageOwnership = lazyNamed(() => import('@app/entityV2/ownership/ManageOwnership'), 'ManageOwnership');
 const ManagePosts = lazyDefault(() => import('@app/settingsV2/posts/ManagePosts'));
 const Features = lazyNamed(() => import('@app/settingsV2/features/Features'), 'Features');
+const PlatformAiSettings = lazyNamed(() => import('@app/settingsV2/platform/PlatformAiSettings'), 'PlatformAiSettings');
 
 /**
  * URL Paths for each settings page.
@@ -27,6 +28,7 @@ export const PATHS: SettingsPath[] = [
     { path: 'ownership', content: <ManageOwnership /> },
     { path: 'posts', content: <ManagePosts /> },
     { path: 'features', content: <Features /> },
+    { path: 'ai', content: <PlatformAiSettings /> },
     ...ADDITIONAL_PATHS,
 ];
 

@@ -109,6 +109,9 @@ public class FeatureFlags {
   // Gates browser Core Web Vitals (LCP/CLS/FID/FCP/TTFB) emission as OTel spans. Independent of
   // browserTracingEnabled so vitals can stay off while browser request tracing is validated.
   private boolean browserWebVitalsEnabled = false;
+  // Lets admins create scoped MCP servers (/mcp/:slug) next to the default one. Off: only servers
+  // already stored in mcpSettings, and the default server's overrides, can be changed.
+  private boolean createMcpServersEnabled = false;
   private boolean datasetStatsSummaryBatchLoadEnabled = true;
   private boolean entityHealthBatchLoadEnabled = true;
   private boolean siblingsSearchBatchLoadEnabled = true;

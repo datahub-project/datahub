@@ -1,0 +1,24 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Selects the base instruction prompt a DataHub-hosted MCP server serves.
+ * customInstructions (if any) are appended to this base; NONE serves only the
+ * customInstructions (or nothing).
+ */
+enum McpInstructionSize {
+  /**
+   * No base prompt: the server serves only its customInstructions (or nothing if
+   * unset).
+   */
+  NONE
+
+  /**
+   * The routing instructions: what DataHub is and when to use it.
+   */
+  SMALL
+
+  /**
+   * The SMALL instructions plus examples of which tool fits which job.
+   */
+  LARGE
+}

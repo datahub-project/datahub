@@ -334,6 +334,7 @@ public class AppConfigResolverTest {
     when(mockFeatureFlags.isBusinessAttributeEntityEnabled()).thenReturn(true);
     when(mockFeatureFlags.isReadOnlyModeEnabled()).thenReturn(true);
     when(mockFeatureFlags.isThemeV2Enabled()).thenReturn(true);
+    when(mockFeatureFlags.isCreateMcpServersEnabled()).thenReturn(true);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -342,6 +343,7 @@ public class AppConfigResolverTest {
     assertTrue(result.getFeatureFlags().getBusinessAttributeEntityEnabled());
     assertTrue(result.getFeatureFlags().getReadOnlyModeEnabled());
     assertTrue(result.getFeatureFlags().getThemeV2Enabled());
+    assertTrue(result.getFeatureFlags().getCreateMcpServersEnabled());
   }
 
   @Test

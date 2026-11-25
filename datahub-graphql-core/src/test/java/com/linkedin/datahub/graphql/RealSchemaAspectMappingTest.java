@@ -63,6 +63,7 @@ public class RealSchemaAspectMappingTest {
     "module.graphql",
     "patch.graphql",
     "settings.graphql",
+    "mcp.graphql",
     "files.graphql",
     "documents.graphql",
     "metrics.graphql",

@@ -40,6 +40,7 @@ import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentFieldPathValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentPlatformValidator;
+import com.linkedin.metadata.aspect.validation.McpSettingsValidator;
 import com.linkedin.metadata.aspect.validation.MetricUpstreamsValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
 import com.linkedin.metadata.aspect.validation.PrivilegeGrantAuthorizationValidator;
@@ -1474,6 +1475,23 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(POLICY_ENTITY_NAME)
                             .aspectName(DATAHUB_POLICY_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator mcpSettingsValidator() {
+    return new McpSettingsValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(McpSettingsValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH, RESTATE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(GLOBAL_SETTINGS_ENTITY_NAME)
+                            .aspectName(GLOBAL_SETTINGS_INFO_ASPECT_NAME)
                             .build()))
                 .build());
   }

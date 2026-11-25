@@ -2268,6 +2268,7 @@ featureFlags:
   unknownEnumToleranceEnabled: ${UNKNOWN_ENUM_TOLERANCE_ENABLED:${UNKNOWN_DATA_TOLERANCE_ENABLED:false}} # Enum symbols and union members a newer version added to aspects this version knows: fall back in GraphQL, and rows failing only on them are skipped instead of failing consumers and upgrade steps. Defaults to UNKNOWN_DATA_TOLERANCE_ENABLED; set this to override that kind. Off keeps the previous behavior
   browserTracingEnabled: ${BROWSER_TRACING_ENABLED:false} # If enabled, the React app emits browser (RUM) OpenTelemetry spans, exported via the frontend /otel/v1/traces proxy and correlated with backend traces.
   browserWebVitalsEnabled: ${BROWSER_WEB_VITALS_ENABLED:false} # If enabled, the React app emits Core Web Vitals (LCP/CLS/FID/FCP/TTFB) as OTel spans. Requires browserTracingEnabled.
+  createMcpServersEnabled: ${CREATE_MCP_SERVERS_ENABLED:false} # If enabled, admins can create scoped MCP servers (exposed at /mcp/:slug) in addition to customizing the default server. When off, updateMcpSettings rejects servers whose slug is not already stored.
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

@@ -1,0 +1,94 @@
+namespace com.linkedin.settings.global
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+import com.linkedin.agent.AIAgentToolRef
+
+/**
+ * Configuration for a DataHub-hosted MCP server.
+ * Each scoped server is exposed at /mcp/:slug; the default server at /mcp uses this
+ * type for overrides (slug absent).
+ */
+record McpServerConfig {
+
+  /**
+   * URL-safe unique identifier used as the path segment in /mcp/:slug.
+   * Absent only for defaultMcpServerOverrides on the default server.
+   */
+  slug: optional string
+
+  /**
+   * Human-readable display name for this server.
+   */
+  name: string
+
+  /**
+   * Short description of the MCP server.
+   */
+  description: optional string
+
+  /**
+   * Whether this server is active and should be mounted by the dispatcher.
+   * Defaults to true.
+   */
+  enabled: boolean = true
+
+  /**
+   * Optional custom system prompt / instructions for this server's scope.
+   */
+  customInstructions: optional string
+
+  /**
+   * Deprecated: superseded by instructionSize=NONE (serve only customInstructions).
+   * Retained for schema back-compatibility; no longer read at serve time.
+   */
+  @deprecated
+  overrideDefaultInstructions: boolean = false
+
+  /**
+   * Selects the base instruction prompt this server serves: NONE (customInstructions
+   * only), SMALL (concise base), or LARGE (the SMALL base plus a one-line description
+   * of every tool the server exposes).
+   * customInstructions are appended on top of the SMALL/LARGE base. Defaults to LARGE.
+   */
+  instructionSize: McpInstructionSize = "LARGE"
+
+  /**
+   * Tools exposed by this scoped server, mirroring the AI Agents tool-selection
+   * model (see AIAgentToolRef). When null/absent, all available tools are enabled;
+   * use tool refs only to restrict the server to a subset.
+   */
+  tools: optional array[AIAgentToolRef]
+
+  /**
+   * Optional DataHub View that scopes this server's search/lookup results. When
+   * set, the server's tools operate as if this View's filters were applied.
+   * Mirrors DataHubAgentSettings.view.
+   */
+  viewUrn: optional Urn
+
+  /**
+   * Optional domain this server is scoped to. When set, viewUrn points at a
+   * system-managed View filtered to this domain (and its sub-domains), which
+   * DataHub creates, retargets, and deletes along with this field.
+   * Mirrors AIAgentInfo.domain.
+   */
+  domainUrn: optional Urn
+
+  /**
+   * The agentSkill entities this server serves as skills, next to the bundled ones:
+   * named in its instructions and readable as skill:// resources. Absent or empty
+   * serves none. Each user only gets the skills they can view.
+   */
+  skills: optional array[Urn]
+
+  /**
+   * Audit stamp for when this server was created.
+   */
+  created: AuditStamp
+
+  /**
+   * Audit stamp for when this server was last modified.
+   */
+  lastModified: AuditStamp
+}

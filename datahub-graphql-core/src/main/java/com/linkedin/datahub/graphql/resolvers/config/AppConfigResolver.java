@@ -321,6 +321,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                   .setBrowserTracingEnabled(_featureFlags.isBrowserTracingEnabled())
                   .setBrowserWebVitalsEnabled(_featureFlags.isBrowserWebVitalsEnabled())
                   .setShowGithubStarPrompt(_featureFlags.isShowGithubStarPrompt())
+                  .setCreateMcpServersEnabled(_featureFlags.isCreateMcpServersEnabled())
                   .build();
 
           appConfig.setFeatureFlags(featureFlagsConfig);

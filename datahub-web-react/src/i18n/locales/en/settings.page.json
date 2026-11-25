@@ -18,5 +18,7 @@
     "nav.collapseSidebar": "Collapse settings sidebar",
     "nav.expandSidebar": "Expand settings sidebar",
     "subTitle": "Manage your settings",
-    "title": "Settings"
+    "title": "Settings",
+    "nav.ai": "AI",
+    "nav.platform": "Platform"
 }

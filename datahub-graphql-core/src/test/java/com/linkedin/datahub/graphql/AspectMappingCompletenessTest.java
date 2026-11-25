@@ -49,6 +49,7 @@ public class AspectMappingCompletenessTest {
     "incident.graphql",
     "ingestion.graphql",
     "logical.graphql",
+    "mcp.graphql",
     "metrics.graphql",
     "module.graphql",
     "properties.graphql",

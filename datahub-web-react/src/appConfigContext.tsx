@@ -79,6 +79,7 @@ export const DEFAULT_APP_CONFIG = {
         platformBrowseV2: false,
         browserTracingEnabled: false,
         browserWebVitalsEnabled: false,
+        createMcpServersEnabled: false,
         businessAttributeEntityEnabled: false,
         dataContractsEnabled: false,
         showApplicationsFeatureToggle: false,

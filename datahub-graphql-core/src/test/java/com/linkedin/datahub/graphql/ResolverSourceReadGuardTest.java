@@ -69,7 +69,9 @@ public class ResolverSourceReadGuardTest {
           "source[IngestionSource, Input]",
           "ExecutionRequest.source maps [\"dataHubExecutionRequestInput\"], which populates input",
           "actor[ActorUrn]",
-          "ResolvedAuditStamp is a nested type populated by its parent's annotated field");
+          "ResolvedAuditStamp is a nested type populated by its parent's annotated field",
+          "view[ViewUrn]",
+          "source is nested McpServerConfig; reads viewUrn to resolve the referenced view");
 
   private static final Pattern CHAINED_SOURCE_GETTER =
       Pattern.compile("getSource\\(\\)\\)?\\s*\\.get([A-Za-z0-9]+)\\(");
