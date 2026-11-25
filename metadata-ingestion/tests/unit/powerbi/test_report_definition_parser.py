@@ -964,6 +964,8 @@ def test_legacy_visual_title_filters_and_groups_are_parsed() -> None:
         "report.json#ReportSection1/1",
         "report.json#ReportSection1/2",
     ]
+    # The broken filters string also costs the visual chart its filters.
+    assert parsed.failed_visual_filters == ["report.json#ReportSection1/2"]
 
 
 @pytest.mark.parametrize(

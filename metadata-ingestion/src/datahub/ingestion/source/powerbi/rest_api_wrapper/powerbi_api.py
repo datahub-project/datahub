@@ -1436,7 +1436,7 @@ class PowerBiAPI:
             self.reporter.report_definition_parts_failed += len(failed_parts)
             self.reporter.warning(
                 title="Report Definition Part Not Parsed",
-                message="Some parts of the report definition were not valid JSON; the visuals they describe are missing from the page's inputFields and are not emitted as visual charts.",
+                message="Some parts of the report definition were not valid JSON; the fields they reference are missing from the page's inputFields, and a visual whose own definition is unreadable is not emitted as a visual chart.",
                 context=f"{context}, parts={failed_parts}",
             )
         if parsed.failed_filters:

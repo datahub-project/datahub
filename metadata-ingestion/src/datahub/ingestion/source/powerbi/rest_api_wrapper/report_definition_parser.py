@@ -603,9 +603,15 @@ def _parse_legacy(report_json: str) -> ParsedReportDefinition:
             single_visual = config.get(KEY_SINGLE_VISUAL) or {}
             fields: List[PageFieldReference] = []
             _collect_field_refs(single_visual.get(KEY_PROTOTYPE_QUERY), fields)
+            failed_filter_json = len(parsed.failed_parts)
             visual_filters = _loads_json(
                 container.get(KEY_FILTERS), [], label, parsed.failed_parts
             )
+            # An unreadable filters string loses both the filter fields from
+            # the page's inputFields (a part failure) and the visual chart's
+            # filters, but not the visual itself.
+            if len(parsed.failed_parts) > failed_filter_json:
+                parsed.failed_visual_filters.append(label)
             _collect_field_refs(visual_filters, fields)
             page.visuals.append(
                 ParsedVisual(
