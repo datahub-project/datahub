@@ -21,7 +21,9 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     PendingStoredFile,
     PendingTableLineage,
     _BinaryLink,
+    _OnlyAddedTables,
     _ParsedApp,
+    _UnseenSpace,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -45,7 +47,7 @@ class QlikSourceBase:
     _file_sources_by_app: Dict[str, FileSourceResolver]
     _app_space_ids: Dict[str, str]
     _apps_variables_unread: Set[str]
-    _only_added_tables: Dict[Tuple[str, str], List[str]]
+    _only_added_tables: Dict[_OnlyAddedTables, List[str]]
     _apps_file_paths_unknown: Set[str]
     _apps_with_includes: Set[str]
     _reported_include_apps: Set[str]
@@ -68,7 +70,7 @@ class QlikSourceBase:
     _reload_files: Dict[str, List[_ReloadFile]]
     _reload_files_unread: Set[str]
     _reload_path_failures: List[str]
-    _unseen_spaces: Dict[str, Tuple[str, Set[str]]]
+    _unseen_spaces: Dict[str, _UnseenSpace]
     _listed_space_names: Optional[Set[str]]
     _graph_resource_readers: Dict[str, Set[str]]
     _allowed_space_ids: Set[str]
@@ -102,6 +104,8 @@ class QlikSourceBase:
     _dataset_store_sources: Dict[str, List[str]]
     _dataset_store_field_sources: Dict[str, Dict[str, List[str]]]
     _dataset_store_fields_unknown: Set[str]
+    # Values are UntypedTable, typed as the tuple it is so that plain tuples
+    # still fit.
     _untyped_tables: Dict[str, Tuple[str, List[QlikDatasetSchemaField]]]
     _dataset_field_types: Dict[str, Dict[str, Optional[str]]]
     _field_names_by_id: Dict[str, str]

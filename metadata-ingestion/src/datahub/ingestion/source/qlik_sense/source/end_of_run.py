@@ -61,8 +61,8 @@ class EndOfRunMixin(ItemsMixin):
                 "`file_connection_to_storage`.",
                 context=_bounded_list(
                     sorted(
-                        f"{name}: {', '.join(sorted(needs))}"
-                        for name, needs in self._unseen_spaces.values()
+                        f"{space.name}: {', '.join(sorted(space.needs))}"
+                        for space in self._unseen_spaces.values()
                     )
                 ),
             )

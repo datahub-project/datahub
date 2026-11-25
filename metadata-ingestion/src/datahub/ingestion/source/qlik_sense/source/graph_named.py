@@ -2,7 +2,7 @@ import logging
 import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Set
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -16,7 +16,10 @@ from datahub.ingestion.source.qlik_sense.lib_path import (
 )
 from datahub.ingestion.source.qlik_sense.reload_sql import _reload_files
 from datahub.ingestion.source.qlik_sense.source.file_entities import FileEntitiesMixin
-from datahub.ingestion.source.qlik_sense.source_models import _GraphNamedApps
+from datahub.ingestion.source.qlik_sense.source_models import (
+    GraphNamedPath,
+    _GraphNamedApps,
+)
 from datahub.ingestion.source.qlik_sense.source_utils import _bounded_list, _qlik_app_id
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetLineageType
 
@@ -80,9 +83,7 @@ class GraphNamedMixin(FileEntitiesMixin):
             graph_unread=bool(keeping),
         )
 
-    def _graph_named_path(
-        self, label: str, apps: _GraphNamedApps
-    ) -> Tuple[Optional[str], bool]:
+    def _graph_named_path(self, label: str, apps: _GraphNamedApps) -> GraphNamedPath:
         """The `lib://` path of a dataset only the upstream graph names, such as
         `lib://<space>:DataFiles/orders.qvd` for a QVD in a space the API key
         can't see, and whether the apps that may give it were all read. Qlik's
@@ -96,12 +97,12 @@ class GraphNamedMixin(FileEntitiesMixin):
                     paths.setdefault(_path_key(file.path), file.path)
         reloads_unread = bool(apps.apps & self._reload_files_unread)
         if len(paths) == 1 and not reloads_unread:
-            return next(iter(paths.values())), True
+            return GraphNamedPath(next(iter(paths.values())), True)
         if len(paths) != 1:
             for path in paths.values():
                 self._note_unseen_space(_path_space(path), "datasets")
         # An unread reload may hold another file with the label.
-        return None, not apps.graph_unread and not reloads_unread
+        return GraphNamedPath(None, not apps.graph_unread and not reloads_unread)
 
     def _leave_out_unplaced(self, urn: str, label: str, all_read: bool) -> None:
         """A dataset the graph names but whose path is not certain is not

@@ -51,7 +51,9 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     PendingStoredFile,
     PendingTableLineage,
     _BinaryLink,
+    _OnlyAddedTables,
     _ParsedApp,
+    _UnseenSpace,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import (
     _refs_of_field_sources as _refs_of_field_sources,
@@ -121,7 +123,7 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
         self._apps_variables_unread: Set[str] = set()
         # The tables whose lineage is only added to, by app and reason, reported
         # once per app at the end of the run.
-        self._only_added_tables: Dict[Tuple[str, str], List[str]] = {}
+        self._only_added_tables: Dict[_OnlyAddedTables, List[str]] = {}
         # Apps that load files by a wildcard or a path the connector can't
         # expand, so the files in their lineage graph can't all be named.
         self._apps_file_paths_unknown: Set[str] = set()
@@ -171,7 +173,7 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
         self._reload_path_failures: List[str] = []
         # Spaces the API key can't see that lineage goes through, by lowercased
         # name, with the name as written and what lineage needs from them.
-        self._unseen_spaces: Dict[str, Tuple[str, Set[str]]] = {}
+        self._unseen_spaces: Dict[str, _UnseenSpace] = {}
         self._listed_space_names: Optional[Set[str]] = None
         # The apps whose upstream graph names each graph-named dataset.
         self._graph_resource_readers: Dict[str, Set[str]] = {}

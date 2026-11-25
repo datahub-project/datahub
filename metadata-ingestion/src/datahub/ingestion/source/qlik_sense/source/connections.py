@@ -19,6 +19,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     merged_variables,
 )
 from datahub.ingestion.source.qlik_sense.source.entities import EntityEmitMixin
+from datahub.ingestion.source.qlik_sense.source_models import _UnseenSpace
 from datahub.ingestion.source.qlik_sense.source_utils import (
     MappingT,
     _get_ignoring_case,
@@ -126,5 +127,6 @@ class DataConnectionMixin(EntityEmitMixin):
             }
         if space.lower() in self._listed_space_names:
             return
-        _, needs = self._unseen_spaces.setdefault(space.lower(), (space, set()))
-        needs.add(need)
+        self._unseen_spaces.setdefault(
+            space.lower(), _UnseenSpace(name=space)
+        ).needs.add(need)

@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -38,8 +38,11 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 from datahub.ingestion.source.qlik_sense.source.graph_named import GraphNamedMixin
 from datahub.ingestion.source.qlik_sense.source_models import (
     PendingTableLineage,
+    UntypedTable,
     _BinaryLink,
+    _OnlyAddedTables,
     _ParsedApp,
+    _ScriptTableKey,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import (
     _bounded_list,
@@ -119,7 +122,7 @@ class TableLineageMixin(GraphNamedMixin):
 
     @staticmethod
     def _merge_script_table(
-        tables: Dict[Tuple[str, bool], ScriptTableLineage],
+        tables: Dict[_ScriptTableKey, ScriptTableLineage],
         app_id: str,
         script_table: ScriptTable,
         connection_name: Optional[str],
@@ -131,7 +134,7 @@ class TableLineageMixin(GraphNamedMixin):
         # mapping load is kept apart.
         identifier = app_table_identifier(app_id, script_table.label)
         lineage = tables.setdefault(
-            (identifier, script_table.mapping),
+            _ScriptTableKey(identifier=identifier, mapping=script_table.mapping),
             ScriptTableLineage(
                 label=script_table.label,
                 identifier=identifier,
@@ -195,7 +198,7 @@ class TableLineageMixin(GraphNamedMixin):
     ) -> List[ScriptTableLineage]:
         if not app.script:
             return []
-        tables: Dict[Tuple[str, bool], ScriptTableLineage] = {}
+        tables: Dict[_ScriptTableKey, ScriptTableLineage] = {}
         # Tables the data model already traces are ingested from it instead.
         traced = {
             name.lower()
@@ -261,8 +264,11 @@ class TableLineageMixin(GraphNamedMixin):
         # dataset URN, so only the data table, which charts read, is kept.
         script_tables = [
             lineage
-            for (identifier, mapping), lineage in tables.items()
-            if not (mapping and (identifier, False) in tables)
+            for key, lineage in tables.items()
+            if not (
+                key.mapping
+                and _ScriptTableKey(identifier=key.identifier, mapping=False) in tables
+            )
         ]
         self.reporter.script_tables_with_lineage += len(script_tables)
         return script_tables
@@ -361,7 +367,7 @@ class TableLineageMixin(GraphNamedMixin):
                 )
             schema = self._table_schema(identifier, fields)
             if schema and all(field.dataType is None for field in schema):
-                self._untyped_tables[dataset_urn] = (identifier, schema)
+                self._untyped_tables[dataset_urn] = UntypedTable(identifier, schema)
             yield from self._gen_app_table_entity(identifier, schema, app.id)
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
@@ -465,13 +471,13 @@ class TableLineageMixin(GraphNamedMixin):
             )
             yield from self._gen_table_lineage(pending, graph_fields)
         self._pending_table_lineage = []
-        for (app_id, reason), labels in self._only_added_tables.items():
+        for key, labels in self._only_added_tables.items():
             self.reporter.warning(
                 title="Lineage of Qlik app tables only added to",
                 message="A source of these tables could not be read this run, so "
                 "the lineage read this run is added to their existing lineage "
                 "instead of replacing it.",
-                context=f"app={app_id}, reason={reason}, "
+                context=f"app={key.app_id}, reason={key.reason}, "
                 f"tables={_bounded_list(sorted(labels))}",
             )
         self._only_added_tables = {}
@@ -517,9 +523,9 @@ class TableLineageMixin(GraphNamedMixin):
         # a source field could not be read this run: replacing the lineage
         # would drop the edges an earlier run wrote, so what was read is added
         # to them instead.
-        self._only_added_tables.setdefault((pending.app_id, reason), []).append(
-            pending.table_label
-        )
+        self._only_added_tables.setdefault(
+            _OnlyAddedTables(app_id=pending.app_id, reason=reason), []
+        ).append(pending.table_label)
         yield from self._patch_upstreams(
             pending.dataset_urn,
             upstream_urns,

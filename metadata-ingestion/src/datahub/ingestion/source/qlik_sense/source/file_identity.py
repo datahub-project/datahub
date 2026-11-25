@@ -1,13 +1,12 @@
 import functools
 from functools import partial
-from typing import Callable, Dict, Optional, Set, Tuple
+from typing import Callable, Dict, Optional, Set
 
 from datahub.ingestion.source.qlik_sense.config import Constant, FileStorageDetail
 from datahub.ingestion.source.qlik_sense.data_classes import App
 from datahub.ingestion.source.qlik_sense.file_lineage import (
     FILE_QRI_RE,
     PLATFORM_BY_QRI_SCHEME,
-    FilePlatform,
     FileReference,
     FileSourceResolver,
     FileStorage,
@@ -29,7 +28,11 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     unquoted_values,
 )
 from datahub.ingestion.source.qlik_sense.source.dashboards import DashboardMixin
-from datahub.ingestion.source.qlik_sense.source_models import _FileSourceResolution
+from datahub.ingestion.source.qlik_sense.source_models import (
+    FileStorageMatch,
+    _CataloguedFile,
+    _FileSourceResolution,
+)
 from datahub.ingestion.source.qlik_sense.source_utils import _is_qvd
 
 
@@ -142,9 +145,7 @@ class FileIdentityMixin(DashboardMixin):
             )
         return FileSourceResolver(references)
 
-    def _file_storage(
-        self, connection: str, space_id: str
-    ) -> Tuple[Optional[FileStorage], Optional[FileStorageDetail]]:
+    def _file_storage(self, connection: str, space_id: str) -> FileStorageMatch:
         detail = self._mapped_connection(
             connection, space_id, self.config.file_connection_to_storage
         )
@@ -155,8 +156,8 @@ class FileIdentityMixin(DashboardMixin):
             if storage is not None and visible is not None:
                 # The connection's own properties still check the QRI.
                 storage.qri_connection_id = visible.qri_connection_id
-            return storage, detail
-        return visible, detail
+            return FileStorageMatch(storage, detail)
+        return FileStorageMatch(visible, detail)
 
     def _file_urn(
         self, storage: FileStorage, detail: Optional[FileStorageDetail], path: str
@@ -227,7 +228,11 @@ class FileIdentityMixin(DashboardMixin):
         if datasets is None:
             return None
         connections = self._catalogued_files.get(
-            (storage.platform, qri_part_id(normalized_file_path(path))), set()
+            _CataloguedFile(
+                platform=storage.platform,
+                path_id=qri_part_id(normalized_file_path(path)),
+            ),
+            set(),
         )
         return (
             storage.qri_connection_id in connections
@@ -236,19 +241,20 @@ class FileIdentityMixin(DashboardMixin):
         )
 
     @functools.cached_property
-    def _catalogued_files(self) -> Dict[Tuple[FilePlatform, str], Set[str]]:
+    def _catalogued_files(self) -> Dict[_CataloguedFile, Set[str]]:
         """The connection parts of catalogued files' QRIs, by platform and the
         path part."""
-        files: Dict[Tuple[FilePlatform, str], Set[str]] = {}
+        files: Dict[_CataloguedFile, Set[str]] = {}
         for qri in self._dataset_urns_by_secure_qri or {}:
             match = FILE_QRI_RE.match(qri)
             platform = (
                 PLATFORM_BY_QRI_SCHEME.get(match.group("scheme")) if match else None
             )
             if match and platform:
-                files.setdefault((platform, match.group("path")), set()).add(
-                    match.group("connection")
-                )
+                files.setdefault(
+                    _CataloguedFile(platform=platform, path_id=match.group("path")),
+                    set(),
+                ).add(match.group("connection"))
         return files
 
     @functools.cached_property

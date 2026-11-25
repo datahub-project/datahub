@@ -1,8 +1,13 @@
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, NamedTuple, Optional, Set
 
 from pydantic import BaseModel, ConfigDict
 
-from datahub.ingestion.source.qlik_sense.data_classes import App
+from datahub.ingestion.source.qlik_sense.config import FileStorageDetail
+from datahub.ingestion.source.qlik_sense.data_classes import (
+    App,
+    SchemaField as QlikDatasetSchemaField,
+)
+from datahub.ingestion.source.qlik_sense.file_lineage import FilePlatform, FileStorage
 from datahub.ingestion.source.qlik_sense.qvd_lineage import QvdWrite
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     ParsedScript,
@@ -13,6 +18,59 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     UpstreamLineage,
 )
 from datahub.utilities.str_enum import StrEnum
+
+
+class ResolvedSource(NamedTuple):
+    urn: Optional[str]
+    # Why the source could not be told this run, if so.
+    unknown_reason: Optional[str]
+
+
+class GraphNamedPath(NamedTuple):
+    path: Optional[str]
+    # Whether the apps that may give the path were all read.
+    all_read: bool
+
+
+class FileStorageMatch(NamedTuple):
+    storage: Optional[FileStorage]
+    detail: Optional[FileStorageDetail]
+
+
+class UntypedTable(NamedTuple):
+    identifier: str
+    schema: List[QlikDatasetSchemaField]
+
+
+class _UnseenSpace(BaseModel):
+    # As first written, while the space is keyed by its lowercased name.
+    name: str
+    needs: Set[str] = set()
+
+
+class _OnlyAddedTables(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    app_id: str
+    reason: str
+
+
+class _CataloguedFile(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    platform: FilePlatform
+    # The path part of the file's QRI.
+    path_id: str
+
+
+class _ScriptTableKey(BaseModel):
+    """Loads of one dataset URN are one table, but a mapping load is kept
+    apart."""
+
+    model_config = ConfigDict(frozen=True)
+
+    identifier: str
+    mapping: bool
 
 
 class _PartialRead(StrEnum):
