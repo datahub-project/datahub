@@ -12,8 +12,6 @@ from datahub.ingestion.source.common.object_store_files import (
     expand_local_glob,
     expand_object_store_glob,
     has_glob_characters,
-    http_url_secrets,
-    http_url_userinfo,
     is_http_uri,
     read_file_as_bytes,
 )
@@ -21,8 +19,6 @@ from datahub.ingestion.source.dbt.dbt_common import DBTSourceReport
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 logger = logging.getLogger(__name__)
-
-_REDACTED = "***"
 
 
 def is_glob_pattern(path: str) -> bool:
@@ -49,18 +45,6 @@ def redact_url_credentials(path: str) -> str:
     # IPv6 host keeps its brackets and an unparseable port is passed through.
     host_and_port = parsed.netloc.rpartition("@")[2]
     return f"{parsed.scheme}://{host_and_port}{parsed.path}"
-
-
-def redact_url_credentials_in_text(text: str, url: str) -> str:
-    """Remove the credentials embedded in `url` from text that may quote it, such
-    as an exception message built by an HTTP library."""
-    userinfo = http_url_userinfo(url)
-    if userinfo:
-        text = text.replace(f"{userinfo}@", "")
-    secrets = sorted(set(http_url_secrets("url", url).values()), key=len, reverse=True)
-    for secret in secrets:
-        text = text.replace(secret, _REDACTED)
-    return text
 
 
 def sibling_artifact_path(manifest_path: str, filename: str) -> str:

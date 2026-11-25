@@ -47,6 +47,8 @@ from datahub.ingestion.source.state.entity_removal_state import GenericCheckpoin
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
+from datahub.masking.masking_filter import SecretMaskingFilter
+from datahub.masking.secret_registry import SecretRegistry
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionRunEventClass,
@@ -1220,16 +1222,19 @@ def test_run_results_report_entries_omit_url_credentials(
     load_error: Optional[Exception],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Basic-auth credentials and a presigned query in a run_results URL are kept
-    out of the report and the log, which still name the host and path, also when
-    the failure's own message quotes the URL."""
+    """The entry names the run_results URL without its credentials. When the
+    failure's own message quotes the URL, the registered secrets are masked in the
+    log and in the report as it is serialized."""
     fixture = json.loads(
         (
             Path(__file__).parent / "artifacts" / "run_results_contract_preflight.json"
         ).read_text()
     )
     del fixture["args"]
-    source = _make_source()
+    source = _make_source(run_results_paths=[_CREDENTIALED_RUN_RESULTS_URL])
+    masking_filter = SecretMaskingFilter(SecretRegistry.get_instance())
+    # What the CLI's masking bootstrap installs on every handler.
+    caplog.handler.addFilter(masking_filter)
     load_json = mock.patch.object(
         source._artifacts,
         "load_json",
@@ -1245,8 +1250,14 @@ def test_run_results_report_entries_omit_url_credentials(
         )
 
     (warning,) = source.report.warnings
-    for text in [" ".join(warning.context), caplog.text]:
-        assert "https://host.example/dbt/run_results.json" in text
+    assert " ".join(warning.context).startswith(
+        "https://host.example/dbt/run_results.json"
+    )
+    serialized_report = json.dumps(
+        masking_filter.mask_structure(source.report.as_obj())
+    )
+    for text in [serialized_report, caplog.text]:
+        assert "host.example/dbt/run_results.json" in text
         assert _RUN_RESULTS_PASSWORD not in text
         assert _RUN_RESULTS_SIGNATURE not in text
 

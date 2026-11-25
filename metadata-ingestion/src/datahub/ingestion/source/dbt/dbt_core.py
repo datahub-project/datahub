@@ -44,7 +44,6 @@ from datahub.ingestion.source.dbt.dbt_artifacts import (
     is_glob_pattern,
     load_file_as_json,
     redact_url_credentials,
-    redact_url_credentials_in_text,
     sibling_artifact_path,
 )
 from datahub.ingestion.source.dbt.dbt_common import (
@@ -1422,17 +1421,21 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     # A failure, not a warning: it keeps stale-entity removal from
                     # soft-deleting the skipped project's entities.
                     self.report.manifests_failed += 1
-                    self.report.manifest_paths_failed.append(paths.manifest)
+                    self.report.manifest_paths_failed.append(
+                        redact_url_credentials(paths.manifest)
+                    )
                     self.report.failure(
                         title="Failed to load dbt project",
                         message="Failed to load one dbt project matched by the "
                         "globbed manifest_path; skipping it",
-                        context=paths.manifest,
+                        context=redact_url_credentials(paths.manifest),
                         exc=e,
                     )
                     continue
                 if project.project_name is not None:
-                    ingested_project_names[project.project_name] = paths.manifest
+                    ingested_project_names[project.project_name] = (
+                        redact_url_credentials(paths.manifest)
+                    )
                 self.report.manifests_loaded += 1
                 yield project
         finally:
@@ -1501,7 +1504,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                         title="Could not parse catalog generated_at",
                         message="Profile timestamps for this project fall back to "
                         "the ingestion time, so they change on every run.",
-                        context=f"{paths.manifest}: {generated_at_str}",
+                        context=f"{redact_url_credentials(paths.manifest)}: {generated_at_str}",
                         exc=e,
                     )
         elif paths.catalog is None:
@@ -1521,7 +1524,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 title="No catalog file found for project",
                 message="This dbt project has no catalog.json beside its manifest; "
                 "some metadata, particularly schema information, will be missing.",
-                context=paths.manifest,
+                context=redact_url_credentials(paths.manifest),
             )
 
         sources_invocation_id = None
@@ -1540,7 +1543,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     title="No sources file found for project",
                     message="This dbt project has no sources.json beside its "
                     "manifest; last-modified fields will not be populated.",
-                    context=paths.manifest,
+                    context=redact_url_credentials(paths.manifest),
                 )
 
         manifest_schema = dbt_manifest_json["metadata"].get("dbt_schema_version")
@@ -1705,13 +1708,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     title="Failed to load run_results file",
                     message="This project is ingested without the test results "
                     "and model performance from this file.",
-                    # Not exc=e: the report appends str(e) to the context, and an
-                    # HTTP error names the URL with its credentials.
-                    context=f"{redact_url_credentials(run_results_path)} "
-                    f"{type(e).__name__}: "
-                    f"{redact_url_credentials_in_text(str(e), run_results_path)}",
+                    context=redact_url_credentials(run_results_path),
+                    exc=e,
                 )
-                logger.debug("Full stack trace:", exc_info=e)
 
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
         nodes = super()._filter_nodes(all_nodes)

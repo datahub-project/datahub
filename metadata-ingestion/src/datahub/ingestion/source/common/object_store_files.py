@@ -34,7 +34,7 @@ def is_http_uri(uri: str) -> bool:
     return bool(_HTTP_URI_PATTERN.match(uri))
 
 
-def http_url_userinfo(url: str) -> Optional[str]:
+def _http_url_userinfo(url: str) -> Optional[str]:
     """The `user[:password]` an http(s) URL embeds before its host, read from the
     raw string (the last "@" ends it, as in urlparse), or None when it has none."""
     authority = _HTTP_URI_AUTHORITY.match(url)
@@ -57,7 +57,7 @@ def http_url_secrets(field_name: str, url: str) -> Dict[str, str]:
     if not authority:
         return {}
     secrets: Dict[str, str] = {}
-    userinfo = http_url_userinfo(url)
+    userinfo = _http_url_userinfo(url)
     if userinfo:
         _, colon, password = userinfo.partition(":")
         if colon and password:
