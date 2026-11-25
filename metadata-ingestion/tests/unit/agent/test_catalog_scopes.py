@@ -985,6 +985,16 @@ REFUSED_TABLE_FUNCTION_SHAPE: List[Tuple[str, str]] = [
         "without TABLE()",
         "SELECT * FROM information_schema.tag_references('t', 'table')",
     ),
+    (
+        "TABLE() in the select list",
+        "SELECT TABLE(information_schema.tag_references('t', 'table')) "
+        "FROM information_schema.tables",
+    ),
+    # A database given by a session variable can name any database's schema.
+    (
+        "variable database",
+        "SELECT * FROM TABLE($db.information_schema.tag_references('t', 'table'))",
+    ),
     # Listed by name: the schema's other table functions stay refused.
     ("unlisted function", "SELECT * FROM TABLE(information_schema.query_history())"),
     (
