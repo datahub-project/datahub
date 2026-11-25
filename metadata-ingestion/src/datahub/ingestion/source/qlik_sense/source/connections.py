@@ -19,7 +19,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     merged_variables,
 )
 from datahub.ingestion.source.qlik_sense.source.entities import EntityEmitMixin
-from datahub.ingestion.source.qlik_sense.source_models import _UnseenSpace
+from datahub.ingestion.source.qlik_sense.source_models import _SpaceNeed, _UnseenSpace
 from datahub.ingestion.source.qlik_sense.source_utils import (
     MappingT,
     _get_ignoring_case,
@@ -113,7 +113,7 @@ class DataConnectionMixin(EntityEmitMixin):
     def _app_own_variables(self, app: App) -> Dict[str, str]:
         return app_own_variables(self.config.script_variables, app.variables)
 
-    def _note_unseen_space(self, space: Optional[str], need: str) -> None:
+    def _note_unseen_space(self, space: Optional[str], need: _SpaceNeed) -> None:
         """Records a space a script or Qlik names, when the API key can't see
         it, as one the run needs access to for complete lineage."""
         if not space or self.config.on_prem is not None:

@@ -19,6 +19,7 @@ from datahub.ingestion.source.qlik_sense.source.file_entities import FileEntitie
 from datahub.ingestion.source.qlik_sense.source_models import (
     GraphNamedPath,
     _GraphNamedApps,
+    _SpaceNeed,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import _bounded_list, _qlik_app_id
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetLineageType
@@ -100,7 +101,7 @@ class GraphNamedMixin(FileEntitiesMixin):
             return GraphNamedPath(next(iter(paths.values())), True)
         if len(paths) != 1:
             for path in paths.values():
-                self._note_unseen_space(_path_space(path), "datasets")
+                self._note_unseen_space(_path_space(path), _SpaceNeed.DATASETS)
         # An unread reload may hold another file with the label.
         return GraphNamedPath(None, not apps.graph_unread and not reloads_unread)
 
@@ -161,7 +162,7 @@ class GraphNamedMixin(FileEntitiesMixin):
                 self._leave_out_unplaced(urn, label, all_read)
                 continue
             emitted.add(urn)
-            self._note_unseen_space(_path_space(path), "datasets")
+            self._note_unseen_space(_path_space(path), _SpaceNeed.DATASETS)
             yield from self._gen_file_entity(
                 urn,
                 # The label holds the folders under the connection, which the

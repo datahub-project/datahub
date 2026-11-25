@@ -40,9 +40,11 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     PendingTableLineage,
     UntypedTable,
     _BinaryLink,
+    _IncompleteLineageReason,
     _OnlyAddedTables,
     _ParsedApp,
     _ScriptTableKey,
+    _SpaceNeed,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import (
     _bounded_list,
@@ -234,7 +236,8 @@ class TableLineageMixin(GraphNamedMixin):
                     f"{app.id}: {connection_name}"
                 )
                 self._note_unseen_space(
-                    _named_space(script_table.connection or ""), "data connections"
+                    _named_space(script_table.connection or ""),
+                    _SpaceNeed.DATA_CONNECTIONS,
                 )
                 continue
             result = self._parse_script_table(app.id, script_table, connection)
@@ -392,18 +395,18 @@ class TableLineageMixin(GraphNamedMixin):
                 source_qris=table.source_qris,
                 script_upstream_urns=script_table.upstream_urns if script_table else [],
                 incomplete_reason=(
-                    "the app's load script could not be read"
+                    _IncompleteLineageReason.SCRIPT_UNREAD
                     if app.script_read_failed
-                    else "the app's tables could not be read"
+                    else _IncompleteLineageReason.TABLES_UNREAD
                     if app.tables_read_failed
-                    else "the table's field lineage could not be read"
+                    else _IncompleteLineageReason.FIELD_LINEAGE_UNREAD
                     if table.field_lineage_failed
-                    else "the SQL of the app's last reload could not be read"
+                    else _IncompleteLineageReason.RELOAD_SQL_UNREAD
                     if app.reload_statements_read_failed
                     and any(
                         qri.startswith(DATABASE_QRI_PREFIX) for qri in table.source_qris
                     )
-                    else "the data connections could not be read"
+                    else _IncompleteLineageReason.DATA_CONNECTIONS_UNREAD
                     if self._data_connections_unread()
                     and any(
                         qri.startswith(DATABASE_QRI_PREFIX) for qri in table.source_qris

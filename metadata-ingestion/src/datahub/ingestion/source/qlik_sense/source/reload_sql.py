@@ -34,6 +34,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     redact_connection,
 )
 from datahub.ingestion.source.qlik_sense.source.resolution import SourceResolutionMixin
+from datahub.ingestion.source.qlik_sense.source_models import _SpaceNeed
 from datahub.ingestion.source.qlik_sense.source_utils import (
     _bounded_list,
     _error_type,
@@ -98,7 +99,7 @@ class ReloadSqlMixin(SourceResolutionMixin):
             if connection is None:
                 unresolved.add(redact_connection(connection_name))
                 self._note_unseen_space(
-                    _named_space(connection_name), "data connections"
+                    _named_space(connection_name), _SpaceNeed.DATA_CONNECTIONS
                 )
                 parsed.skipped_table_names |= _table_clause_names(sql)
                 continue

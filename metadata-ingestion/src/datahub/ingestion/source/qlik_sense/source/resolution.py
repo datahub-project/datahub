@@ -12,6 +12,7 @@ from datahub.ingestion.source.qlik_sense.file_lineage import FILE_QRI_RE
 from datahub.ingestion.source.qlik_sense.source.file_identity import FileIdentityMixin
 from datahub.ingestion.source.qlik_sense.source_models import (
     ResolvedSource,
+    _IncompleteLineageReason,
     _ResolvedSources,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import (
@@ -123,7 +124,7 @@ class SourceResolutionMixin(FileIdentityMixin):
                     )
             if urn is None and datasets is None:
                 self._keep_graph_named_sources(own_app_id, table_qri)
-                return ResolvedSource(None, "the Qlik datasets could not be listed")
+                return ResolvedSource(None, _IncompleteLineageReason.DATASETS_UNLISTED)
             if (
                 urn is None
                 and table_qri.startswith(QLIK_DATASET_QRI_PREFIX)
@@ -138,7 +139,9 @@ class SourceResolutionMixin(FileIdentityMixin):
                 # It may be a listed dataset the listing gave no QRI for, so
                 # it is not named from the graph either.
                 self._keep_graph_named_sources(own_app_id, table_qri)
-                return ResolvedSource(None, "a listed Qlik dataset has no QRI to match")
+                return ResolvedSource(
+                    None, _IncompleteLineageReason.DATASET_WITHOUT_QRI
+                )
             # A file on known storage that could not be told which is left out
             # rather than named apart from its storage dataset.
             if urn is None and graph_app_id is not None and not on_known_storage:
@@ -150,7 +153,7 @@ class SourceResolutionMixin(FileIdentityMixin):
                 ):
                     # The upstream graph that may name it could not be read.
                     return ResolvedSource(
-                        None, "the app's upstream lineage graph could not be read"
+                        None, _IncompleteLineageReason.UPSTREAM_GRAPH_UNREAD
                     )
         return ResolvedSource(urn if urn != dataset_urn else None, None)
 
@@ -268,7 +271,7 @@ class SourceResolutionMixin(FileIdentityMixin):
             and self._lineage_upstreams[app_id] is None
         )
 
-    def _file_inputs_unknown(self, app_id: str) -> Optional[str]:
+    def _file_inputs_unknown(self, app_id: str) -> Optional[_IncompleteLineageReason]:
         """Why the files the app's load script reads are not all known, if so."""
         if app_id in self._apps_with_includes:
             if app_id not in self._reported_include_apps:
@@ -285,13 +288,13 @@ class SourceResolutionMixin(FileIdentityMixin):
                     "the table's lineage.",
                     context=app_id,
                 )
-            return "a file in its lineage graph may be loaded by an included script"
+            return _IncompleteLineageReason.INCLUDED_FILE
         if app_id in self._apps_variables_unread:
-            return "the app's variables could not be read"
+            return _IncompleteLineageReason.VARIABLES_UNREAD
         if app_id in self._apps_file_paths_unknown:
-            return "the app loads files through paths the connector can't name"
+            return _IncompleteLineageReason.FILE_PATHS_UNKNOWN
         if self._data_connections_unread():
-            return "the data connections could not be listed"
+            return _IncompleteLineageReason.DATA_CONNECTIONS_UNLISTED
         return None
 
     def _graph_column_lineage(

@@ -5,7 +5,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.qlik_sense.constants import (
     CHECKPOINT_LOAD_FAILED_TITLE,
-    UNRESOLVED_STORE,
 )
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
@@ -23,6 +22,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ScriptTableLineage,
 )
 from datahub.ingestion.source.qlik_sense.source.reload_sql import ReloadSqlMixin
+from datahub.ingestion.source.qlik_sense.source_models import _QvdsUnknownReason
 from datahub.ingestion.source.qlik_sense.source_utils import (
     _bounded_list,
     _patch_workunits,
@@ -74,16 +74,18 @@ class OnPremQvdMixin(ReloadSqlMixin):
         self.reporter.storage_qvds_resolved += len(lineage.storage_urns)
         if app.script is None or app.script_read_failed:
             # QVDs the script writes can't be known, so their lineage is kept.
-            self._apps_qvds_unknown[app.id] = "its load script could not be read"
+            self._apps_qvds_unknown[app.id] = _QvdsUnknownReason.SCRIPT_UNREAD
             return lineage
         if self._data_connections_unread():
             # Without the folder connections, the lib:// QVDs it writes are
             # unknown.
-            unknown_reason: Optional[str] = "data connections could not be listed"
+            unknown_reason: Optional[_QvdsUnknownReason] = (
+                _QvdsUnknownReason.DATA_CONNECTIONS_UNREAD
+            )
         elif parsed.has_unresolved_store or lineage.has_unresolved_store:
             # Such as a loop STORE, or a path built from a variable that failed
             # to read.
-            unknown_reason = UNRESOLVED_STORE
+            unknown_reason = _QvdsUnknownReason.UNRESOLVED_STORE
         else:
             unknown_reason = None
         if unknown_reason:
@@ -128,7 +130,7 @@ class OnPremQvdMixin(ReloadSqlMixin):
             return
         unknown = dict(self._apps_qvds_unknown)
         if self.qlik_api.unread_items:
-            unknown["apps that could not be listed"] = "they were not read"
+            unknown["apps that could not be listed"] = _QvdsUnknownReason.NOT_LISTED
         if unknown:
             # An app whose QVD writes are unknown may write any QVD, so its
             # edges are kept and a QVD only it writes keeps its last schema.

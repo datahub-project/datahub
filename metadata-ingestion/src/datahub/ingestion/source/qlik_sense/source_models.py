@@ -3,6 +3,7 @@ from typing import Dict, List, NamedTuple, Optional, Set
 from pydantic import BaseModel, ConfigDict
 
 from datahub.ingestion.source.qlik_sense.config import FileStorageDetail
+from datahub.ingestion.source.qlik_sense.constants import UNRESOLVED_STORE
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     SchemaField as QlikDatasetSchemaField,
@@ -71,6 +72,45 @@ class _ScriptTableKey(BaseModel):
 
     identifier: str
     mapping: bool
+
+
+class _SpaceNeed(StrEnum):
+    """What lineage needs from a space the API key can't see."""
+
+    DATASETS = "datasets"
+    INCLUDED_SCRIPTS = "included scripts"
+    DATA_CONNECTIONS = "data connections"
+
+
+class _QvdsUnknownReason(StrEnum):
+    """Why the QVDs an app writes are not known this run."""
+
+    SCRIPT_UNREAD = "its load script could not be read"
+    DATA_CONNECTIONS_UNREAD = "data connections could not be listed"
+    UNRESOLVED_STORE = UNRESOLVED_STORE
+    CHECKPOINT_UNREAD = "its last read could not be loaded"
+    NO_CHECKPOINT = "it has no last read to keep"
+    RECORDED_BEFORE_QVDS = "its last read was recorded before QVD lineage"
+    PARTLY_READ = "it was partly read, so its QVDs are from its last full read"
+    NOT_LISTED = "they were not read"
+
+
+class _IncompleteLineageReason(StrEnum):
+    """Why a table's lineage is only added to this run. Reasons that name an
+    app are formatted where they arise instead."""
+
+    DATASETS_UNLISTED = "the Qlik datasets could not be listed"
+    DATASET_WITHOUT_QRI = "a listed Qlik dataset has no QRI to match"
+    UPSTREAM_GRAPH_UNREAD = "the app's upstream lineage graph could not be read"
+    INCLUDED_FILE = "a file in its lineage graph may be loaded by an included script"
+    VARIABLES_UNREAD = "the app's variables could not be read"
+    FILE_PATHS_UNKNOWN = "the app loads files through paths the connector can't name"
+    DATA_CONNECTIONS_UNLISTED = "the data connections could not be listed"
+    SCRIPT_UNREAD = "the app's load script could not be read"
+    TABLES_UNREAD = "the app's tables could not be read"
+    FIELD_LINEAGE_UNREAD = "the table's field lineage could not be read"
+    RELOAD_SQL_UNREAD = "the SQL of the app's last reload could not be read"
+    DATA_CONNECTIONS_UNREAD = "the data connections could not be read"
 
 
 class _PartialRead(StrEnum):

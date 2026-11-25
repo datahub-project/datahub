@@ -13,6 +13,7 @@ from datahub.ingestion.source.qlik_sense.constants import (
 )
 from datahub.ingestion.source.qlik_sense.lib_path import _path_space
 from datahub.ingestion.source.qlik_sense.source.items import ItemsMixin
+from datahub.ingestion.source.qlik_sense.source_models import _SpaceNeed
 from datahub.ingestion.source.qlik_sense.source_utils import _bounded_list
 
 
@@ -47,7 +48,7 @@ class EndOfRunMixin(ItemsMixin):
             # Entries are `<path> (app <id> in space <name>): <reason>`, and a
             # bracketed space name in the path may hold `: ` itself.
             path = failure.partition(" (app ")[0]
-            self._note_unseen_space(_path_space(path), "included scripts")
+            self._note_unseen_space(_path_space(path), _SpaceNeed.INCLUDED_SCRIPTS)
         if self._unseen_spaces:
             self.reporter.warning(
                 title=UNSEEN_SPACES_TITLE,

@@ -16,7 +16,6 @@ from datahub.ingestion.source.qlik_sense.config import Constant
 from datahub.ingestion.source.qlik_sense.constants import (
     APP_PARTLY_READ_TITLE,
     CHECKPOINT_LOAD_FAILED_TITLE,
-    UNRESOLVED_STORE,
 )
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
@@ -29,7 +28,11 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     app_table_identifier,
 )
 from datahub.ingestion.source.qlik_sense.source.onprem_binary import OnPremBinaryMixin
-from datahub.ingestion.source.qlik_sense.source_models import _PartialRead, _StorageFile
+from datahub.ingestion.source.qlik_sense.source_models import (
+    _PartialRead,
+    _QvdsUnknownReason,
+    _StorageFile,
+)
 from datahub.ingestion.source.qlik_sense.source_utils import (
     _app_field_names,
     _own_table_urns,
@@ -57,11 +60,11 @@ class ItemsMixin(OnPremBinaryMixin):
                 exc=e,
             )
             self._apps_tables_unknown.add(app_id)
-            self._apps_qvds_unknown[app_id] = "its last read could not be loaded"
+            self._apps_qvds_unknown[app_id] = _QvdsUnknownReason.CHECKPOINT_UNREAD
             return None
         if previous is None:
             self._apps_tables_unknown.add(app_id)
-            self._apps_qvds_unknown[app_id] = "it has no last read to keep"
+            self._apps_qvds_unknown[app_id] = _QvdsUnknownReason.NO_CHECKPOINT
             return None
         self._kept_app_ids.add(app_id)
         if app_id in self._binary_source_apps:
@@ -71,13 +74,11 @@ class ItemsMixin(OnPremBinaryMixin):
         if previous.data_model_fields is not None:
             self._app_model_fields[app_id] = previous.data_model_fields
         if previous.qvds is None:
-            self._apps_qvds_unknown[app_id] = (
-                "its last read was recorded before QVD lineage"
-            )
+            self._apps_qvds_unknown[app_id] = _QvdsUnknownReason.RECORDED_BEFORE_QVDS
         else:
             self._app_qvds[app_id] = previous.qvds
             if not previous.qvds.writes_complete:
-                self._apps_qvds_unknown[app_id] = UNRESOLVED_STORE
+                self._apps_qvds_unknown[app_id] = _QvdsUnknownReason.UNRESOLVED_STORE
         if previous.field_names:
             self._learn_field_names(previous.field_names)
         unmapped_stores: Dict[str, UnmappedFileStore] = {}
@@ -195,9 +196,7 @@ class ItemsMixin(OnPremBinaryMixin):
             return _PartialRead.NOT_KEPT
         # Its QVD writes are from its last full read and may have changed, so
         # they protect its QVD edges without replacing anyone else's.
-        self._apps_qvds_unknown.setdefault(
-            app.id, "it was partly read, so its QVDs are from its last full read"
-        )
+        self._apps_qvds_unknown.setdefault(app.id, _QvdsUnknownReason.PARTLY_READ)
         # No fingerprint, so the next run reads the app again.
         self.app_state.record(
             app.id,
