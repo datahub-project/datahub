@@ -19,7 +19,6 @@ from datahub.ingestion.source.qlik_sense.source.file_entities import FileEntitie
 from datahub.ingestion.source.qlik_sense.source_models import _GraphNamedApps
 from datahub.ingestion.source.qlik_sense.source_utils import _bounded_list, _qlik_app_id
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetLineageType
-from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -110,10 +109,7 @@ class GraphNamedMixin(FileEntitiesMixin):
         earlier run emitted are then soft-deleted, unless a reload that may give
         the path, or the graph of an app that keeps it, could not be read."""
         if not all_read:
-            if self.stale_entity_removal_handler is not None:
-                self.stale_entity_removal_handler.add_entity_to_state(
-                    guess_entity_type(urn), urn
-                )
+            self._keep_in_stale_state(urn)
             return
         self.reporter.graph_named_datasets_without_path.append(f"{label}: {urn}")
         for urns in self._app_end_of_run_urns.values():

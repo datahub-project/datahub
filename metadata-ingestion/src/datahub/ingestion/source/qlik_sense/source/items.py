@@ -122,9 +122,7 @@ class ItemsMixin(OnPremBinaryMixin):
                 self._apps_graph_tables_unresolved.add(app_id)
         assert self.stale_entity_removal_handler is not None
         for urn in previous.urns:
-            self.stale_entity_removal_handler.add_entity_to_state(
-                guess_entity_type(urn), urn
-            )
+            self._keep_in_stale_state(urn)
         return previous
 
     def _storage_of_unmapped_store(

@@ -55,6 +55,12 @@ class IncrementalMixin(DataConnectionMixin):
             f"{self._fingerprint_salt}|{fingerprint}".encode("utf-8")
         ).hexdigest()
 
+    def _keep_in_stale_state(self, urn: str) -> None:
+        if self.stale_entity_removal_handler is not None:
+            self.stale_entity_removal_handler.add_entity_to_state(
+                guess_entity_type(urn), urn
+            )
+
     def _usable_checkpoint(
         self, app_id: str, failures: List[str]
     ) -> Optional[AppCheckpoint]:

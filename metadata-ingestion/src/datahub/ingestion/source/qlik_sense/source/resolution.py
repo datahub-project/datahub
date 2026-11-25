@@ -20,7 +20,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
 )
-from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -252,9 +251,7 @@ class SourceResolutionMixin(FileIdentityMixin):
         for urn in previous.urns:
             if urn.startswith(prefixes):
                 self._app_end_of_run_urns[app_id].add(urn)
-                self.stale_entity_removal_handler.add_entity_to_state(
-                    guess_entity_type(urn), urn
-                )
+                self._keep_in_stale_state(urn)
         # Datasets a run left out are in no URNs, but the app still reads them.
         self._app_read_graph_named[app_id].update(previous.read_graph_named_urns)
 
