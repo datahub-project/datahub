@@ -4,6 +4,7 @@ import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import { Graph } from '@phosphor-icons/react/dist/csr/Graph';
 import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
+import { PlugsConnected } from '@phosphor-icons/react/dist/csr/PlugsConnected';
 import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
 import { SortAscending } from '@phosphor-icons/react/dist/csr/SortAscending';
 import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
@@ -33,6 +34,7 @@ export const MODULE_TYPE_TO_DESCRIPTION: Map<DataHubPageModuleType, string> = ne
     [DataHubPageModuleType.MetricSql, 'SQL expression for this metric'],
     [DataHubPageModuleType.RelatedMetrics, 'Related metrics'],
     [DataHubPageModuleType.SubDataProducts, 'Child data products of this data product'],
+    [DataHubPageModuleType.Mcp, 'Use DataHub in Claude, Cursor, and other AI tools'],
 ]);
 
 export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, React.ComponentType<any>> = new Map([
@@ -51,6 +53,7 @@ export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, React.ComponentType
     [DataHubPageModuleType.MetricSql, TextT],
     [DataHubPageModuleType.RelatedMetrics, ChartBar],
     [DataHubPageModuleType.SubDataProducts, Storefront],
+    [DataHubPageModuleType.Mcp, PlugsConnected],
 ]);
 
 export const DEFAULT_MODULE_ICON = Database;
@@ -83,6 +86,7 @@ export const DEFAULT_MODULE_URNS = [
     'urn:li:dataHubPageModule:ai_context',
     'urn:li:dataHubPageModule:sql',
     'urn:li:dataHubPageModule:related_metrics',
+    'urn:li:dataHubPageModule:mcp',
 ];
 
 export const DEFAULT_TEMPLATE_URN = 'urn:li:dataHubPageTemplate:home_default_1';
@@ -114,10 +118,13 @@ export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.AiContext,
     DataHubPageModuleType.MetricSql,
     DataHubPageModuleType.RelatedMetrics,
+    DataHubPageModuleType.Mcp,
 ];
 
 export const SMALL_MODULE_TYPES: DataHubPageModuleType[] = [DataHubPageModuleType.Link];
 
+// Fallback when no default template is stored. Keep in sync with home_default_1 in
+// bootstrap_mcps/page-templates.yaml.
 export const DEFAULT_TEMPLATE: PageTemplateFragment = {
     urn: DEFAULT_TEMPLATE_URN,
     type: EntityType.DatahubPageTemplate,
@@ -146,6 +153,24 @@ export const DEFAULT_TEMPLATE: PageTemplateFragment = {
                         },
                     },
                     {
+                        urn: 'urn:li:dataHubPageModule:mcp',
+                        type: EntityType.DatahubPageModule,
+                        properties: {
+                            get name() {
+                                return i18next.t('modules:mcp.moduleName');
+                            },
+                            type: DataHubPageModuleType.Mcp,
+                            visibility: {
+                                scope: PageModuleScope.Global,
+                            },
+                            params: {},
+                        },
+                    },
+                ],
+            },
+            {
+                modules: [
+                    {
                         urn: 'urn:li:dataHubPageModule:top_domains',
                         type: EntityType.DatahubPageModule,
                         properties: {
@@ -153,6 +178,20 @@ export const DEFAULT_TEMPLATE: PageTemplateFragment = {
                                 return i18next.t('modules:domains.moduleName');
                             },
                             type: DataHubPageModuleType.Domains,
+                            visibility: {
+                                scope: PageModuleScope.Global,
+                            },
+                            params: {},
+                        },
+                    },
+                    {
+                        urn: 'urn:li:dataHubPageModule:platforms',
+                        type: EntityType.DatahubPageModule,
+                        properties: {
+                            get name() {
+                                return i18next.t('modules:platforms.moduleName');
+                            },
+                            type: DataHubPageModuleType.Platforms,
                             visibility: {
                                 scope: PageModuleScope.Global,
                             },

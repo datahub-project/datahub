@@ -24,6 +24,7 @@ import DocumentationModule from '@app/homeV3/modules/documentation/Documentation
 import TopDomainsModule from '@app/homeV3/modules/domains/TopDomainsModule';
 import HierarchyViewModule from '@app/homeV3/modules/hierarchyViewModule/HierarchyViewModule';
 import LinkModule from '@app/homeV3/modules/link/LinkModule';
+import McpModule from '@app/homeV3/modules/mcp/McpModule';
 import PlatformsModule from '@app/homeV3/modules/platforms/PlatformsModule';
 
 import { DataHubPageModuleType } from '@types';
@@ -76,6 +77,7 @@ function Module({ onHiddenChange, ...props }: Props) {
         if (module.properties.type === DataHubPageModuleType.Platforms) return PlatformsModule;
         if (module.properties.type === DataHubPageModuleType.Lineage) return LineageModule;
         if (module.properties.type === DataHubPageModuleType.Columns) return ColumnsModule;
+        if (module.properties.type === DataHubPageModuleType.Mcp) return McpModule;
         if (module.properties.type === DataHubPageModuleType.AiContext) return AiContextModule;
         if (module.properties.type === DataHubPageModuleType.SemanticModelDatasets) return SemanticModelDatasetsModule;
         if (module.properties.type === DataHubPageModuleType.SemanticModelMetrics) return SemanticModelMetricsModule;

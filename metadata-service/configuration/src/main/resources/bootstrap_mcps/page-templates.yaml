@@ -1,6 +1,8 @@
 # Instructions to add additional entry
 # 1. Add new entry to this list
 # 2. Increment version in bootstrap_mcps.yaml for the entry referring to this file
+# Changing rows of an existing template does not need a version bump. The template uses CREATE,
+# so a re-run does not change existing instances. Only new instances get the new rows.
 - entityUrn: urn:li:dataHubPageTemplate:home_default_1
   entityType: dataHubPageTemplate
   aspectName: dataHubPageTemplateProperties
@@ -9,6 +11,7 @@
     rows:
       - modules:
         - "urn:li:dataHubPageModule:your_assets"
+        - "urn:li:dataHubPageModule:mcp"
       - modules:
         - "urn:li:dataHubPageModule:top_domains"
         - "urn:li:dataHubPageModule:platforms"

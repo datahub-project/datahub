@@ -2,6 +2,7 @@ import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
+import { PlugsConnected } from '@phosphor-icons/react/dist/csr/PlugsConnected';
 import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import { Table } from '@phosphor-icons/react/dist/csr/Table';
 import { TextT } from '@phosphor-icons/react/dist/csr/TextT';
@@ -17,6 +18,7 @@ import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { CONTENTS_MODULE_URN, DATA_SOURCES_MODULE_URN } from '@app/entityV2/summary/modules/assets/constants';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { SMALL_MODULE_TYPES } from '@app/homeV3/modules/constants';
+import { useIsMcpEnabled } from '@app/homeV3/modules/mcp/useIsMcpEnabled';
 import { convertModuleToModuleInfo } from '@app/homeV3/modules/utils';
 import GroupItem from '@app/homeV3/template/components/addModuleMenu/components/GroupItem';
 import MenuItem from '@app/homeV3/template/components/addModuleMenu/components/MenuItem';
@@ -48,6 +50,19 @@ const DOMAINS_MODULE: PageModuleFragment = {
             return i18next.t('modules:domains.moduleName');
         },
         type: DataHubPageModuleType.Domains,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+const MCP_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:mcp',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:mcp.moduleName');
+        },
+        type: DataHubPageModuleType.Mcp,
         visibility: { scope: PageModuleScope.Global },
         params: {},
     },
@@ -295,6 +310,8 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         globalTemplate,
         templateType,
     } = usePageTemplateContext();
+
+    const { isMcpEnabled } = useIsMcpEnabled({ skip: templateType !== PageTemplateSurfaceType.HomePage });
 
     const handleAddExistingModule = useCallback(
         (module: PageModuleFragment) => {
@@ -594,7 +611,28 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-columns-module',
         };
 
+        const mcp = {
+            name: t('mcp.moduleName'),
+            key: 'mcp',
+            label: (
+                <MenuItem
+                    description={t('mcp.moduleDescription')}
+                    title={t('mcp.moduleName')}
+                    icon={PlugsConnected}
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(MCP_MODULE);
+            },
+            'data-testid': 'add-mcp-module',
+        };
+
         const defaultHomeModules = [yourAssets, domains, platforms];
+        // Hidden while MCP is off: the template would hide the module as soon as it was added.
+        if (isMcpEnabled) {
+            defaultHomeModules.push(mcp);
+        }
         // TODO: make this a function to pull out and write unit tests for
         let defaultSummaryModules = [assets];
         if (entityType === EntityType.Domain) {
@@ -667,7 +705,15 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         }
 
         return { items };
-    }, [t, globalTemplate, handleOpenCreateModuleModal, handleAddExistingModule, entityType, templateType]);
+    }, [
+        t,
+        globalTemplate,
+        handleOpenCreateModuleModal,
+        handleAddExistingModule,
+        isMcpEnabled,
+        entityType,
+        templateType,
+    ]);
 
     return menu;
 }

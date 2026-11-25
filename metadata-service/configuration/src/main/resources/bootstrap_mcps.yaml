@@ -43,7 +43,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/roles.yaml"
 
     - name: page-modules
-      version: v10
+      version: v13
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/page-modules.yaml"

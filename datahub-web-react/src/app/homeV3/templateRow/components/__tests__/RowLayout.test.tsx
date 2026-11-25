@@ -20,6 +20,11 @@ vi.mock('@app/homeV3/template/components/AddModuleButton', () => ({
     default: () => null,
 }));
 
+// The MCP module is hidden by type while MCP is off; these modules are other types.
+vi.mock('@app/homeV3/templateRow/hooks/useIsModuleHidden', () => ({
+    useIsModuleHidden: () => () => false,
+}));
+
 vi.mock('@app/sharedV2/reloadableContext/hooks/useReloadableContext', () => ({
     useReloadableContext: () => ({ shouldBeReloaded: () => false, markAsReloaded: () => {} }),
 }));
