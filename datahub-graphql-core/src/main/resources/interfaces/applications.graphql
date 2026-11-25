@@ -22,5 +22,7 @@ extend type MLFeatureTable implements HasApplications
 extend type MLModel implements HasApplications
 extend type MLModelGroup implements HasApplications
 extend type MLPrimaryKey implements HasApplications
+extend type Metric implements HasApplications
 extend type Notebook implements HasApplications
+extend type SemanticModel implements HasApplications
 extend type VersionedDataset implements HasApplications

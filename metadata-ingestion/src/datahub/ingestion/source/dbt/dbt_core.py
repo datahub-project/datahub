@@ -36,13 +36,14 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionConfig
+from datahub.ingestion.source.common.object_store_files import http_url_secrets
 from datahub.ingestion.source.dbt.dbt_artifacts import (
     ArtifactReader,
     Prefetched,
     expand_glob_path,
     is_glob_pattern,
     load_file_as_json,
-    redact_url_query,
+    redact_url_credentials,
     sibling_artifact_path,
 )
 from datahub.ingestion.source.dbt.dbt_common import (
@@ -76,6 +77,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
 )
 from datahub.ingestion.source.dremio.dremio_naming import is_dremio_platform
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
+from datahub.masking.secret_registry import SecretRegistry
 from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
@@ -178,6 +180,26 @@ class DBTCoreConfig(DBTCommonConfig):
     )
 
     _github_info_deprecated = pydantic_renamed_field("github_info", "git_info")
+
+    @model_validator(mode="after")
+    def register_artifact_url_secrets(self) -> "DBTCoreConfig":
+        # The artifact paths are plain str, so _register_secret_fields never sees
+        # credentials embedded in an http(s) URL. Register them by hand so they are
+        # masked wherever they surface, including errors raised by the validators
+        # below and messages built by libraries. Defined first so it runs first.
+        secrets: Dict[str, str] = {}
+        for name, value in (
+            ("manifest_path", self.manifest_path),
+            ("catalog_path", self.catalog_path),
+            ("sources_path", self.sources_path),
+        ):
+            if value:
+                secrets.update(http_url_secrets(name, value))
+        for index, path in enumerate(self.run_results_paths):
+            secrets.update(http_url_secrets(f"run_results_paths.{index}", path))
+        if secrets:
+            SecretRegistry.get_instance().register_secrets_batch(secrets)
+        return self
 
     @model_validator(mode="after")
     def cloud_connection_needed_if_cloud_uris_present(self) -> "DBTCoreConfig":
@@ -1324,12 +1346,14 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     message="The globbed manifest_path matched no manifests, so no "
                     "dbt project could be ingested. Check the pattern and that the "
                     "artifacts it points at exist.",
-                    context=redact_url_query(self.config.manifest_path),
+                    context=redact_url_credentials(self.config.manifest_path),
                 )
                 return
 
         run_results_paths = self._expand_run_results_paths()
-        self.report.run_results_paths_expanded.extend(run_results_paths)
+        self.report.run_results_paths_expanded.extend(
+            redact_url_credentials(path) for path in run_results_paths
+        )
         run_results_by_dir = self._group_run_results_by_directory(run_results_paths)
 
         projects: List[_ProjectArtifactPaths] = []
@@ -1397,17 +1421,21 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     # A failure, not a warning: it keeps stale-entity removal from
                     # soft-deleting the skipped project's entities.
                     self.report.manifests_failed += 1
-                    self.report.manifest_paths_failed.append(paths.manifest)
+                    self.report.manifest_paths_failed.append(
+                        redact_url_credentials(paths.manifest)
+                    )
                     self.report.failure(
                         title="Failed to load dbt project",
                         message="Failed to load one dbt project matched by the "
                         "globbed manifest_path; skipping it",
-                        context=paths.manifest,
+                        context=redact_url_credentials(paths.manifest),
                         exc=e,
                     )
                     continue
                 if project.project_name is not None:
-                    ingested_project_names[project.project_name] = paths.manifest
+                    ingested_project_names[project.project_name] = (
+                        redact_url_credentials(paths.manifest)
+                    )
                 self.report.manifests_loaded += 1
                 yield project
         finally:
@@ -1476,7 +1504,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                         title="Could not parse catalog generated_at",
                         message="Profile timestamps for this project fall back to "
                         "the ingestion time, so they change on every run.",
-                        context=f"{paths.manifest}: {generated_at_str}",
+                        context=f"{redact_url_credentials(paths.manifest)}: {generated_at_str}",
                         exc=e,
                     )
         elif paths.catalog is None:
@@ -1496,7 +1524,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 title="No catalog file found for project",
                 message="This dbt project has no catalog.json beside its manifest; "
                 "some metadata, particularly schema information, will be missing.",
-                context=paths.manifest,
+                context=redact_url_credentials(paths.manifest),
             )
 
         sources_invocation_id = None
@@ -1515,7 +1543,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     title="No sources file found for project",
                     message="This dbt project has no sources.json beside its "
                     "manifest; last-modified fields will not be populated.",
-                    context=paths.manifest,
+                    context=redact_url_credentials(paths.manifest),
                 )
 
         manifest_schema = dbt_manifest_json["metadata"].get("dbt_schema_version")
@@ -1668,7 +1696,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                         message="The run_results file does not record which dbt "
                         "command produced it (args.which), so its model results "
                         "produce no contract run events.",
-                        context=run_results_path,
+                        context=redact_url_credentials(run_results_path),
                     )
             except MemoryError:
                 raise
@@ -1680,7 +1708,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     title="Failed to load run_results file",
                     message="This project is ingested without the test results "
                     "and model performance from this file.",
-                    context=run_results_path,
+                    context=redact_url_credentials(run_results_path),
                     exc=e,
                 )
 
