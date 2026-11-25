@@ -9,7 +9,8 @@ import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
 import DragAndDropProvider from '@app/homeV3/template/components/DragAndDropProvider';
 import TemplateGrid from '@app/homeV3/template/components/TemplateGrid';
 import { BottomAddButtonMode, getBottomButtonMode } from '@app/homeV3/template/components/utils';
-import { wrapRows } from '@app/homeV3/templateRow/utils';
+import { useIsModuleHidden } from '@app/homeV3/templateRow/hooks/useIsModuleHidden';
+import { getVisibleRows, wrapRows } from '@app/homeV3/templateRow/utils';
 
 import { DataHubPageTemplateRow } from '@types';
 
@@ -43,8 +44,14 @@ function Template({ className }: Props) {
         () => (template?.properties?.rows ?? []) as DataHubPageTemplateRow[],
         [template?.properties?.rows],
     );
-    const hasRows = useMemo(() => !!rows.length, [rows.length]);
     const wrappedRows = useMemo(() => wrapRows(rows), [rows]);
+    const isModuleHidden = useIsModuleHidden();
+    // A template whose rows are all hidden (e.g. only the MCP module while MCP is off) draws like an
+    // empty one, so the bottom add button is the add control and is laid out for an empty page.
+    const hasRows = useMemo(
+        () => getVisibleRows(wrappedRows, isModuleHidden).length > 0,
+        [wrappedRows, isModuleHidden],
+    );
 
     return (
         // set data-testid once module context resolves to reduce cypress flakiness

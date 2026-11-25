@@ -123,6 +123,8 @@ export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
 
 export const SMALL_MODULE_TYPES: DataHubPageModuleType[] = [DataHubPageModuleType.Link];
 
+// Fallback when no default template is stored. Keep in sync with home_default_1 in
+// bootstrap_mcps/page-templates.yaml.
 export const DEFAULT_TEMPLATE: PageTemplateFragment = {
     urn: DEFAULT_TEMPLATE_URN,
     type: EntityType.DatahubPageTemplate,
@@ -164,6 +166,10 @@ export const DEFAULT_TEMPLATE: PageTemplateFragment = {
                             params: {},
                         },
                     },
+                ],
+            },
+            {
+                modules: [
                     {
                         urn: 'urn:li:dataHubPageModule:top_domains',
                         type: EntityType.DatahubPageModule,
@@ -172,6 +178,20 @@ export const DEFAULT_TEMPLATE: PageTemplateFragment = {
                                 return i18next.t('modules:domains.moduleName');
                             },
                             type: DataHubPageModuleType.Domains,
+                            visibility: {
+                                scope: PageModuleScope.Global,
+                            },
+                            params: {},
+                        },
+                    },
+                    {
+                        urn: 'urn:li:dataHubPageModule:platforms',
+                        type: EntityType.DatahubPageModule,
+                        properties: {
+                            get name() {
+                                return i18next.t('modules:platforms.moduleName');
+                            },
+                            type: DataHubPageModuleType.Platforms,
                             visibility: {
                                 scope: PageModuleScope.Global,
                             },
