@@ -14,8 +14,7 @@ from pydantic.fields import Field
 from datahub.configuration.common import ConfigEnum
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.emitter.mcp import MetadataChangeProposalWrapper, mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -260,7 +259,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
                     self.report.warning(
                         title="Skipped empty MetadataChangeEvent",
                         message="Skipped a MetadataChangeEvent with no aspects",
-                        context=id,
+                        context=f"{id} {obj.proposedSnapshot.urn}",
                     )
                 else:
                     if not warned_mce:

@@ -3178,6 +3178,24 @@ def test_emit_mce_posts_one_openapi_request() -> None:
     assert [set(e) - {"urn"} for e in entities] == [{"status"}, {"datasetProperties"}]
 
 
+def test_emit_mce_without_aspects_sends_nothing(
+    mce_emitter: DataHubRestEmitter,
+) -> None:
+    mce = MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(urn=_MCE_URN, aspects=[])
+    )
+    callback = Mock()
+    with (
+        patch.object(mce_emitter, "_emit_generic") as emit_generic,
+        pytest.warns(DataHubDeprecationWarning),
+    ):
+        mce_emitter.emit(mce, callback=callback)
+
+    emit_generic.assert_not_called()
+    callback.assert_called_once()
+    assert callback.call_args.args[0] is None
+
+
 def test_emit_mce_failure_reaches_callback(
     mce_emitter: DataHubRestEmitter,
 ) -> None:

@@ -26,8 +26,7 @@ from datahub.configuration.env_vars import (
     get_rest_sink_default_max_threads,
     get_rest_sink_default_mode,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.emitter.mcp import MetadataChangeProposalWrapper, mcps_from_mce
 from datahub.emitter.rest_emitter import (
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     DEFAULT_REST_EMITTER_ENDPOINT,
@@ -426,7 +425,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             mcps = self._mcps_from_mce(record)
             if not mcps:
                 return
-            # Not emitter.emit(): that logs an MCE deprecation warning recipe users cannot act on.
+            # Not emitter.emit(): it only logs an MCE with no aspects and reports success; the sink reports it as a warning.
             self.emitter.emit_mcps(mcps, emit_mode=emit_mode)
         else:
             self.emitter.emit(record, emit_mode=emit_mode)

@@ -12,8 +12,7 @@ from avrogen import avrojson
 import datahub.metadata.schema_classes as models
 from datahub.cli.json_file import check_mce_file
 from datahub.emitter import mce_builder
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.emitter.mcp import MetadataChangeProposalWrapper, mcps_from_mce
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
@@ -147,7 +146,10 @@ def test_file_source_skips_mce_without_aspects(tmp_path: pathlib.Path) -> None:
     assert list(source.get_workunits_internal()) == []
     assert not source.report.failures
     # The record, not the file: the per-file deprecation warning would name the file.
-    assert [list(w.context) for w in source.report.warnings] == [[f"{json_path}:0"]]
+    urn = mce_builder.make_dataset_urn("hive", "db.table")
+    assert [list(w.context) for w in source.report.warnings] == [
+        [f"{json_path}:0 {urn}"]
+    ]
     assert "no aspects" in check_mce_file(str(json_path))
 
 
@@ -247,6 +249,14 @@ def test_check_metadata_schema(pytestconfig: pytest.Config, json_filename: str) 
     json_file_path = pytestconfig.rootpath / json_filename
 
     run_datahub_cmd(["check", "metadata-file", f"{json_file_path}"])
+
+
+def test_check_metadata_file_accepts_deprecated_unpack_mces(
+    pytestconfig: pytest.Config,
+) -> None:
+    json_file_path = pytestconfig.rootpath / "examples/mce_files/single_mce.json"
+
+    run_datahub_cmd(["check", "metadata-file", f"{json_file_path}", "--unpack-mces"])
 
 
 def test_serde_paired(pytestconfig: pytest.Config) -> None:
