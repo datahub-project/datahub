@@ -29,7 +29,7 @@ The Vertex AI source now shows a pipeline as it is defined and as it ran. This a
 
 **Action:** none for most users. If you read a Vertex AI task's inputs and outputs from the GraphQL `inputOutput` lists, read them from its lineage instead.
 
-### Vertex AI pipeline-backed custom jobs move under their task runs ([#TBD-3](https://github.com/datahub-project/datahub/pull/TBD-3))
+### Vertex AI pipeline-backed custom jobs move under their task runs ([#21615](https://github.com/datahub-project/datahub/pull/21615))
 
 This applies only when `include_pipelines` is on (the default).
 
