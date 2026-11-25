@@ -662,7 +662,7 @@ Requirements:
 
 - [#21356](https://github.com/datahub-project/datahub/pull/21356) **(Ingestion / REST emitter)** Emitting a `MetadataChangeEvent` with `DatahubRestEmitter` or `DataHubGraph` (`emit` or `emit_mce`) is deprecated and will be removed in a future release. **Action:** emit `MetadataChangeProposalWrapper` instead.
 
-- [#21356](https://github.com/datahub-project/datahub/pull/21356) **(Ingestion / file source)** Reading `MetadataChangeEvent` records with the `file` source is deprecated and will be removed in a future release. The run report shows a warning for each file that contains them. **Action:** rewrite the file as MCPs, for example by running it through the `file` source into the `file` sink.
+- [#21356](https://github.com/datahub-project/datahub/pull/21356) **(Ingestion / file source)** Reading `MetadataChangeEvent` records with the `file` source is deprecated and will be removed in a future release. The run report shows a warning for each file that contains them, so `datahub ingest --strict-warnings` over such a file now exits non-zero. **Action:** rewrite the file as MCPs, for example by running it through the `file` source into the `file` sink.
 
 ### Other Notable Changes
 

@@ -258,6 +258,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
                         yield MetadataWorkUnit(id, mcp_raw=obj)
                 elif not obj.proposedSnapshot.aspects:
                     self.report.warning(
+                        title="Skipped empty MetadataChangeEvent",
                         message="Skipped a MetadataChangeEvent with no aspects",
                         context=id,
                     )
@@ -275,6 +276,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
                         mcps = list(mcps_from_mce(obj))
                     except Exception as e:
                         self.report.failure(
+                            title="Failed to convert MetadataChangeEvent",
                             message="Failed to convert MetadataChangeEvent to MCPs",
                             context=id,
                             exc=e,
