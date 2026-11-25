@@ -128,8 +128,8 @@ public class AuthUtil {
    * Authorize MCPs with optional entity-existence awareness. When {@code entityExists} is provided,
    * UPSERT/UPDATE/RESTATE against a non-existent entity use the CREATE privilege path ({@code
    * CREATE_ENTITY}), and CREATE_ENTITY against an existing entity uses the UPDATE privilege path
-   * ({@code EDIT_ENTITY}) so create-only callers cannot overwrite. PATCH always uses UPDATE ({@code
-   * EDIT_ENTITY}), never CREATE.
+   * ({@code EDIT_ENTITY}) so create-only callers cannot overwrite. PATCH follows UPSERT: CREATE for
+   * a missing entity, UPDATE for an existing one, as {@link #resolveEntityWriteOperation} does.
    */
   public static List<Pair<MetadataChangeProposal, Integer>> isAPIAuthorized(
       @Nonnull final AuthorizationSession session,
@@ -210,6 +210,7 @@ public class AuthUtil {
                 case UPSERT:
                 case UPDATE:
                 case RESTATE:
+                case PATCH:
                   {
                     final ApiOperation apiOperation = existenceKnown && !exists ? CREATE : UPDATE;
                     if (!isAPIAuthorized(
@@ -221,16 +222,6 @@ public class AuthUtil {
                     }
                     break;
                   }
-                case PATCH:
-                  // PATCH never uses CREATE_ENTITY — always Edit Entity.
-                  if (!isAPIAuthorized(
-                      session,
-                      lookupAPIPrivilege(apiGroup, UPDATE, urn.getEntityType()),
-                      new EntitySpec(urn.getEntityType(), urn.toString()),
-                      Collections.emptyList())) {
-                    return Pair.of(changeTypePair, HttpStatus.SC_FORBIDDEN);
-                  }
-                  break;
                 case CREATE_ENTITY:
                   {
                     // Entity must not exist for CREATE_ENTITY privilege; if it exists require EDIT.
