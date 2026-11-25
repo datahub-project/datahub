@@ -28,6 +28,12 @@ inputs:
   gradle-home-cache-excludes:
     description: setup-gradle gradle-home-cache-excludes. Empty caches everything.
     default: caches/build-cache-1
+  gradle-cache-provider:
+    description: >-
+      setup-gradle cache-provider. 'basic' keys one shared entry on the Gradle
+      build-file hash with no fallback to other jobs' entries, and ignores
+      gradle-home-cache-excludes.
+    default: enhanced
   node:
     description: >-
       Install Node. Off by default; set true on jobs that run Node-based Gradle
@@ -62,6 +68,7 @@ runs:
       with:
         cache-read-only: ${{ inputs.gradle-cache-read-only }}
         gradle-home-cache-excludes: ${{ inputs.gradle-home-cache-excludes }}
+        cache-provider: ${{ inputs.gradle-cache-provider }}
     - if: inputs.node == 'true'
       uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
