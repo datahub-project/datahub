@@ -2,6 +2,7 @@ package controllers;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import auth.AuthUtils;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import com.typesafe.config.Config;
@@ -44,6 +45,7 @@ class AiServiceControllerTest {
     upstream = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     upstream.setExecutor(java.util.concurrent.Executors.newCachedThreadPool());
     upstream.createContext("/", this::handle);
+    upstream.createContext("/catalog/tools", this::handleCatalog);
     upstream.start();
     // Reference config only: application.conf needs secrets a unit test has no use for.
     system = ActorSystem.create("ai-proxy-test", ConfigFactory.defaultReference());
@@ -82,6 +84,25 @@ class AiServiceControllerTest {
       // The client went away.
     }
   }
+
+  private void handleCatalog(HttpExchange exchange) throws IOException {
+    seen.add(
+        new Seen(
+            exchange.getRequestMethod(),
+            exchange.getRequestURI().getPath(),
+            new HashMap<>(exchange.getRequestHeaders()),
+            ""));
+    byte[] body = CATALOG.getBytes(StandardCharsets.UTF_8);
+    exchange.getResponseHeaders().add("Content-Type", "application/json");
+    exchange.sendResponseHeaders(200, body.length);
+    try (OutputStream out = exchange.getResponseBody()) {
+      out.write(body);
+    }
+  }
+
+  private static final String CATALOG =
+      "{\"tools\":[{\"toolId\":\"search\",\"description\":\"Search\","
+          + "\"category\":\"read_only\",\"groups\":[\"read_metadata\"]}]}";
 
   private AiServiceController controller(Map<String, Object> overrides) {
     Map<String, Object> config = new HashMap<>();
@@ -254,5 +275,57 @@ class AiServiceControllerTest {
 
     assertEquals(503, result.status());
     assertTrue(body(result).contains("\"jsonrpc\":\"2.0\""));
+  }
+
+  private static Http.RequestBuilder catalogRequest() {
+    return new Http.RequestBuilder().method("GET").uri("/ai/catalog/tools");
+  }
+
+  private static Http.Request signedIn() {
+    return catalogRequest()
+        .session(
+            Map.of(AuthUtils.ACCESS_TOKEN, "session-token", AuthUtils.ACTOR, "urn:li:corpuser:a"))
+        .cookie(Http.Cookie.builder(AuthUtils.ACTOR, "urn:li:corpuser:a").build())
+        .header("Authorization", "Bearer pat")
+        .header("Cookie", "PLAY_SESSION=secret")
+        .build();
+  }
+
+  private Result catalog(AiServiceController controller, Http.Request request) throws Exception {
+    return controller.toolCatalog(request).toCompletableFuture().get(10, TimeUnit.SECONDS);
+  }
+
+  @Test
+  void catalogIsServedToSignedInUsersWithoutTheirCredentials() throws Exception {
+    Result result = catalog(controller(Map.of()), signedIn());
+
+    assertEquals(200, result.status());
+    assertEquals(CATALOG, body(result));
+    assertEquals("application/json", result.contentType().orElse(""));
+    Seen upstreamSaw = seen.get(0);
+    assertEquals("/catalog/tools", upstreamSaw.path());
+    assertNull(upstreamSaw.headers().get("Authorization"));
+    assertNull(upstreamSaw.headers().get("Cookie"));
+  }
+
+  @Test
+  void catalogNeedsASessionNotJustAnAuthorizationHeader() throws Exception {
+    Http.Request headerOnly = catalogRequest().header("Authorization", "Bearer anything").build();
+
+    assertEquals(401, catalog(controller(Map.of()), headerOnly).status());
+    assertEquals(401, catalog(controller(Map.of()), catalogRequest().build()).status());
+    assertTrue(seen.isEmpty());
+  }
+
+  @Test
+  void catalogIsNotFoundWithoutAServiceUrlAndUnavailableWhileItIsDown() throws Exception {
+    assertEquals(404, catalog(new AiServiceController(ConfigFactory.empty()), signedIn()).status());
+
+    AiServiceController controller = controller(Map.of());
+    upstream.stop(0);
+    Result result = catalog(controller, signedIn());
+
+    assertEquals(503, result.status());
+    assertTrue(body(result).contains("unavailable"));
   }
 }

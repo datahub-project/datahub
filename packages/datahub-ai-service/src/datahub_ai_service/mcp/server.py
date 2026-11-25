@@ -17,6 +17,7 @@ from .._version import __version__
 from ..metrics import ServiceMetrics
 from .caller import CallerClientMiddleware
 from .client_factory import CallerClientFactory
+from .policy import McpPolicyMiddleware
 from .telemetry import ToolCallObserver, ToolCallTelemetryMiddleware
 
 
@@ -32,6 +33,7 @@ def build_mcp_server(
 ) -> FastMCP:
     mcp = FastMCP[None](name="datahub", version=__version__)
     served = register_tools(mcp, is_oss=True)
+    # The default; McpPolicyMiddleware serves each request the settings' own.
     mcp.instructions = build_instructions(InstructionSize.LARGE, served)
     # Served statelessly, so there is no session to announce list changes on.
     disable_list_changed_capabilities(mcp)
@@ -46,6 +48,7 @@ def build_mcp_server(
             on_token_rejected=on_token_rejected,
         )
     )
+    mcp.add_middleware(McpPolicyMiddleware(server_info))
     mcp.add_middleware(VersionFilterMiddleware(server_info))
     sinks = list(telemetry_sinks)
     if metrics is not None:

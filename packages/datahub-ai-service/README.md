@@ -16,7 +16,25 @@ requests addressed to an allowed host (`DATAHUB_AI_ALLOWED_HOSTS`) and, when the
 reaching `/mcp` through DNS rebinding; it is not authentication. Behind the DataHub frontend, set
 `DATAHUB_AI_TRUSTED_PROXIES` to the frontend so its `X-Forwarded-Host` is believed.
 
-`/health` reports the auth mode it last saw, for status pages and debugging.
+The settings page (**Settings > Platform > AI > MCP Servers**) controls `/mcp`: its master switch
+and the Default server's switch (off: `/mcp` answers 404), the Default server's tool selection
+(filters both the tool list and direct calls) and its instructions. The service reads GraphQL
+`mcpSettings` with the caller's token and shares the validated result with every caller for up to
+60 seconds. If the settings can't be read, or don't validate, `/mcp` answers 503 rather than fall
+back to defaults the settings may have overridden. Only two answers mean defaults (MCP on, every
+tool, Large instructions): GMS returning no settings, and a GMS whose schema has no `mcpSettings`
+query. `TOOLS_IS_MUTATION_ENABLED=false` always wins over the selection.
+
+`GET /catalog/tools` lists the tools the settings page can select: each registered tool the
+connected GMS can run, with its `toolId`, `description`, `category` (`read_only` or `mutation`),
+`groups` (e.g. `read_metadata`) and, for version-gated tools, `minVersion`. It ignores the current
+selection and leaves out `get_me`, which is always served. Like `/health` it needs no credential,
+since it holds only the tools' published metadata; browsers reach it through the frontend's
+`/ai/catalog/tools`, which requires a DataHub session.
+
+`/health` reports the auth mode and settings state (`unknown` until the first caller's request
+reads them, then `enabled`, `disabled` or `unavailable`) it last saw, for status pages and
+debugging. It never shows the settings themselves.
 
 ## Run
 
@@ -82,8 +100,8 @@ so they never slow or fail a call.
 ## Metrics
 
 `/metrics` serves Prometheus metrics without authentication, like `/health`; the frontend
-proxies only `/mcp`, so it is reachable only where the service's own port is. Besides the
-process metrics:
+doesn't proxy it (only `/mcp` and the tool catalog), so it is reachable only where the service's
+own port is. Besides the process metrics:
 
 | Metric                                      | Labels             | Meaning                                                       |
 | ------------------------------------------- | ------------------ | ------------------------------------------------------------- |
