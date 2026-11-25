@@ -42,6 +42,7 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -62,6 +63,15 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class EntityRelationshipsResultResolver
     implements DataFetcher<CompletableFuture<EntityRelationshipsResult>> {
+
+  /**
+   * Page size for a domain or glossary child listing when the caller omits {@code count}, and the
+   * most children one request may return. Each returned child costs a view check, so the listing
+   * must not scale with the size of the group.
+   */
+  static final int DIRECT_CHILD_DEFAULT_COUNT = 100;
+
+  static final int DIRECT_CHILD_MAX_COUNT = 1000;
 
   private static final Set<String> DOMAIN_CHILD_RELATIONSHIP_TYPES =
       Set.of(IS_PART_OF_RELATIONSHIP_NAME);
@@ -603,29 +613,34 @@ public class EntityRelationshipsResultResolver
       existentChildUrns = null;
     }
 
-    List<Urn> candidates =
+    // Sorted so that an offset selects the same children on every request.
+    List<Urn> children =
         childUrns.stream()
             .filter(childUrn -> existentChildUrns == null || existentChildUrns.contains(childUrn))
+            .sorted(Comparator.comparing(Urn::toString))
             .collect(Collectors.toList());
-    seedChildHierarchyField(context, spec, hierarchyField, parentUrn, candidates);
-    List<Urn> viewable =
-        candidates.stream()
+
+    final int resolvedStart = Math.max(0, start != null ? start : 0);
+    final int pageSize =
+        Math.min(
+            DIRECT_CHILD_MAX_COUNT,
+            Math.max(0, count != null ? count : DIRECT_CHILD_DEFAULT_COUNT));
+    // View checks run on the requested slice only, so a viewer who cannot see some children gets a
+    // short page, and the total counts every child. A count of 0 asks only for the total and
+    // checks nothing.
+    final List<Urn> slice =
+        pageSize == 0
+            ? List.of()
+            : children.stream().skip(resolvedStart).limit(pageSize).collect(Collectors.toList());
+    seedChildHierarchyField(context, spec, hierarchyField, parentUrn, slice);
+    final List<Urn> page =
+        slice.stream()
             .filter(childUrn -> canView(context.getOperationContext(), childUrn))
             .collect(Collectors.toList());
 
-    int resolvedStart = start != null ? start : 0;
-    int resolvedCount = count != null ? count : viewable.size();
-    List<Urn> page =
-        resolvedCount <= 0
-            ? List.of()
-            : viewable.stream()
-                .skip(resolvedStart)
-                .limit(resolvedCount)
-                .collect(Collectors.toList());
-
     EntityRelationshipsResult result = new EntityRelationshipsResult();
     result.setStart(resolvedStart);
-    result.setTotal(viewable.size());
+    result.setTotal(children.size());
     result.setCount(page.size());
     result.setRelationships(
         page.stream()

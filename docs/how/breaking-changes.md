@@ -15,6 +15,17 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Domain and glossary child listings are paged, and totals no longer hide restricted children
+
+When search access controls are enabled, the GraphQL `relationships` field for `IsPartOf` (the children of a domain, glossary term group or glossary term) now limits the work it does per request:
+
+- If `count` is omitted, at most 100 children are returned. Before, every child was returned.
+- `count` is capped at 1000. A larger value is treated as 1000, and a negative `start` or `count` is treated as 0.
+- `total` is now the number of children that exist, including any the viewer cannot see. Before, it excluded children the viewer cannot see. A page can therefore hold fewer entries than `count` even when more children follow.
+- `count: 0` returns only `total`, with no per-child permission checks.
+
+If you read these children through the API, request them in pages and keep going while `start + count` is less than `total`. The web UI's glossary delete check only needs `total`, so it now requests `count: 0`.
+
 ### Pinned links removed from Settings > Home Page ([#21466](https://github.com/datahub-project/datahub/pull/21466))
 
 If the home page redesign is enabled (`SHOW_HOME_PAGE_REDESIGN=true`, the default), the
