@@ -15,7 +15,8 @@ interface Props {
     className?: string;
 }
 
-export const OverflowText = ({ text, className }: Props) => {
+// Memoized: menus render one per item and re-render them on every hover.
+export const OverflowText = React.memo(({ text, className }: Props) => {
     const textRef = useRef<HTMLSpanElement>(null);
     const [isTruncated, setIsTruncated] = useState(false);
 
@@ -33,4 +34,6 @@ export const OverflowText = ({ text, className }: Props) => {
             </TextWrapper>
         </Tooltip>
     );
-};
+});
+
+OverflowText.displayName = 'OverflowText';

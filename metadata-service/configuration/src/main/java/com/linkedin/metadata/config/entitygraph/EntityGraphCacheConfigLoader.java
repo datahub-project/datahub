@@ -353,6 +353,21 @@ public class EntityGraphCacheConfigLoader {
       }
     }
 
+    if (graph.getPopulation() != null
+        && graph.getPopulation().getRebuildExecution() == RebuildExecution.STALE_WHILE_REVALIDATE) {
+      if (graph.getPopulation().getStrategy() != PopulationStrategy.LAZY) {
+        errors.add(
+            "graph "
+                + graphId
+                + ": rebuildExecution STALE_WHILE_REVALIDATE requires LAZY strategy");
+      } else if (graph.getScope() == null || graph.getScope().getMode() != ScopeMode.PARTIAL) {
+        errors.add(
+            "graph "
+                + graphId
+                + ": rebuildExecution STALE_WHILE_REVALIDATE requires PARTIAL scope");
+      }
+    }
+
     if (hasLineage) {
       LineageEdgeConfig lineage = graph.getLineage();
       if (lineage.getEntityTypes() != null) {

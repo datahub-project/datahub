@@ -1,4 +1,4 @@
-import Link from 'antd/lib/typography/Link';
+import Link from 'antd/es/typography/Link';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';

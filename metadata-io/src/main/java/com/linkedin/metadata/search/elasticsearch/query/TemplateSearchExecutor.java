@@ -17,12 +17,14 @@ import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTem
 import com.linkedin.metadata.search.elasticsearch.query.template.OwnRungComponent;
 import com.linkedin.metadata.search.elasticsearch.query.template.PostProcessComponent;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCandidates;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponent;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentPage;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRequest;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponents;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRankingInput;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRollout;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
@@ -38,6 +40,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -55,9 +59,11 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 @Slf4j
 final class TemplateSearchExecutor {
   private final ESSearchDAO dao;
+  private final TemplateVectorSearch vectorSearch;
 
   TemplateSearchExecutor(ESSearchDAO dao) {
     this.dao = dao;
+    this.vectorSearch = new TemplateVectorSearch(dao);
   }
 
   /**
@@ -90,19 +96,34 @@ final class TemplateSearchExecutor {
               coordinator.ladderExecutor(),
               renderUrn,
               new SearchTemplateWalk.Request(
-                  query, postFilters, sortCriteria, size, SearchTemplateWalk.identity()),
-              urn ->
-                  searchAttempt(
-                      bound,
-                      urn,
-                      entityNames,
-                      query,
-                      normalizeQuery(bound, query),
-                      postFilters,
-                      sortCriteria,
-                      0,
-                      size,
-                      facets),
+                  query,
+                  postFilters,
+                  sortCriteria,
+                  size,
+                  entityNames,
+                  SearchTemplateWalk.identity()),
+              (urn, assigned) -> {
+                // A vector rung has no keyword query to explain, so explain fails closed, as
+                // scroll does, also from a parallel group
+                if (SearchTemplateCapabilities.vectorRetrieval(
+                    coordinator.loader().load(bound, urn))) {
+                  throw new SearchTemplateFailClosedException(
+                      "Search template "
+                          + urn
+                          + " retrieves by vector and has no keyword query to explain");
+                }
+                return searchAttempt(
+                    bound,
+                    urn,
+                    assigned,
+                    query,
+                    normalizeQuery(bound, query),
+                    postFilters,
+                    sortCriteria,
+                    0,
+                    size,
+                    facets);
+              },
               (first, entities, total) -> {
                 SearchResult copy = new SearchResult();
                 copy.setEntities(new SearchEntityArray(entities));
@@ -164,6 +185,7 @@ final class TemplateSearchExecutor {
       @Nonnull T page,
       boolean shardFailed,
       @Nullable RenderedSearchTemplate renderedTemplate,
+      boolean templateSort,
       @Nullable SearchResponse response) {}
 
   record PreparedRequestComponents(
@@ -171,9 +193,18 @@ final class TemplateSearchExecutor {
       @Nullable Filter filter,
       @Nonnull List<EntitySpec> entitySpecs) {}
 
-  /** The context {@code armServed} updated, plus the page that search returned. */
-  record BoundSearch(@Nonnull OperationContext context, @Nonnull SearchResult result) {}
+  /**
+   * The context {@code armServed} updated, plus the page that search returned. {@code pageFetched}
+   * is true when the served rung fetched only the requested page, not the hybrid window, so the
+   * page is not sliced again. See {@link #pageFetched}.
+   */
+  record BoundSearch(
+      @Nonnull OperationContext context, @Nonnull SearchResult result, boolean pageFetched) {}
 
+  /**
+   * @param hybridFetchSize the keyword window a hybrid search fetches from offset 0, or 0. A rung
+   *     that {@link #pageFetched fetches only the page} ignores it.
+   */
   @Nonnull
   BoundSearch searchWithTemplates(
       @Nonnull OperationContext opContext,
@@ -183,21 +214,38 @@ final class TemplateSearchExecutor {
       List<SortCriterion> sortCriteria,
       int from,
       @Nullable Integer size,
+      int hybridFetchSize,
       @Nonnull List<String> facets) {
+    final int fetchFrom = hybridFetchSize > 0 ? 0 : from;
+    final Integer fetchSize = hybridFetchSize > 0 ? hybridFetchSize : size;
     SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator == null || !coordinator.executes(opContext)) {
       return new BoundSearch(
           opContext,
-          searchOnce(opContext, entityNames, input, postFilters, sortCriteria, from, size, facets));
+          searchOnce(
+              opContext,
+              entityNames,
+              input,
+              postFilters,
+              sortCriteria,
+              fetchFrom,
+              fetchSize,
+              facets),
+          false);
     }
     OperationContext bound = bindTemplates(opContext, input, false, entityNames);
     ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
     if (resolved == null) {
       return new BoundSearch(
           bound,
-          searchOnce(bound, entityNames, input, postFilters, sortCriteria, from, size, facets));
+          searchOnce(
+              bound, entityNames, input, postFilters, sortCriteria, fetchFrom, fetchSize, facets),
+          false);
     }
     String normalizedQuery = normalizeQuery(bound, input);
+    // The vector rungs attempted, so the served rung's kind needs no second template load.
+    // Parallel members run on the ladder executor.
+    final Set<String> vectorRungs = ConcurrentHashMap.newKeySet();
     SearchTemplateWalk.Served<SearchResult> served =
         SearchTemplateWalk.walk(
             bound,
@@ -208,30 +256,43 @@ final class TemplateSearchExecutor {
                 input,
                 postFilters,
                 sortCriteria,
-                size,
-                (urn, raw) ->
-                    componentReorder(
-                        bound,
-                        urn,
-                        raw,
-                        input,
-                        normalizedQuery,
-                        postFilters,
-                        sortCriteria,
-                        from,
-                        size)),
-            urn ->
-                searchAttempt(
-                    bound,
-                    urn,
-                    entityNames,
-                    input,
-                    normalizedQuery,
-                    postFilters,
-                    sortCriteria,
-                    from,
-                    size,
-                    facets),
+                fetchSize,
+                entityNames,
+                (urn, raw) -> {
+                  boolean page =
+                      pageFetched(coordinator.loader().load(bound, urn), resolved, entityNames);
+                  return componentReorder(
+                      bound,
+                      urn,
+                      raw,
+                      input,
+                      normalizedQuery,
+                      postFilters,
+                      sortCriteria,
+                      page ? from : fetchFrom,
+                      page ? size : fetchSize);
+                }),
+            // Each rung searches only the requested types its scope assigns it
+            (urn, assigned) -> {
+              MergedSearchTemplate template = coordinator.loader().load(bound, urn);
+              if (SearchTemplateCapabilities.vectorRetrieval(template)) {
+                vectorRungs.add(urn);
+                return vectorSearch.attempt(
+                    bound, template, assigned, input, postFilters, from, size, facets);
+              }
+              boolean page = pageFetched(template, resolved, entityNames);
+              return searchAttempt(
+                  bound,
+                  urn,
+                  assigned,
+                  input,
+                  normalizedQuery,
+                  postFilters,
+                  sortCriteria,
+                  page ? from : fetchFrom,
+                  page ? size : fetchSize,
+                  facets);
+            },
             (first, entities, total) -> {
               SearchResult copy = new SearchResult();
               copy.setEntities(new SearchEntityArray(entities));
@@ -244,9 +305,33 @@ final class TemplateSearchExecutor {
     ResolvedSearchTemplate current = bound.getSearchContext().getResolvedSearchTemplate();
     if (current != null) {
       current.setHighlightFields(served.highlights());
+      current.setTemplateSortApplied(served.templateSort());
+      current.setVectorServed(served.urn() != null && vectorRungs.contains(served.urn()));
     }
-    coordinator.armServed(bound, ESSearchDAO.isRelevanceSort(sortCriteria) ? served.urn() : null);
-    return new BoundSearch(bound, served.page());
+    // Every sort records the served rung, so a keywordRerank search can report that its rerank does
+    // not apply. Whether it applies is decided where the page is ranked.
+    coordinator.armServed(bound, served.urn());
+    return new BoundSearch(
+        bound,
+        served.page(),
+        served.urn() != null
+            && pageFetched(coordinator.loader().load(bound, served.urn()), resolved, entityNames));
+  }
+
+  /**
+   * Whether the rung fetches only the requested page instead of the hybrid window. A vector rung
+   * pages its own window. A keywordRerank rung keeps keyword order when the request cannot run
+   * document rerank (semantic read is off or the request has no Document) or its scope assigns it
+   * no Document, so it has no window to rerank.
+   */
+  private static boolean pageFetched(
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull ResolvedSearchTemplate resolved,
+      @Nonnull List<String> entityNames) {
+    return SearchTemplateCapabilities.vectorRetrieval(template)
+        || (SearchTemplateCapabilities.keywordRerank(template)
+            && !(resolved.isDocumentRerank()
+                && SearchTemplateCapabilities.assignsDocument(template, entityNames)));
   }
 
   /**
@@ -329,7 +414,8 @@ final class TemplateSearchExecutor {
               List.of(),
               ranked.shardFailed(),
               null,
-              null);
+              null,
+              false);
         }
         if (!SearchTemplateComponents.empty(spec)
             && spec.getMode() == SearchTemplateComponentMode.POST_PROCESS) {
@@ -381,7 +467,8 @@ final class TemplateSearchExecutor {
                 prepared.filter(),
                 fetchFrom,
                 fetchSize,
-                prepared.prepared().template());
+                prepared.prepared().template(),
+                prepared.prepared().templateSort());
         int mergeWindow = fetchSize == null ? 0 : fetchSize;
         SearchTemplateCandidates.SupplementaryMerge merge =
             TemplateResultSupplements.get()
@@ -418,7 +505,8 @@ final class TemplateSearchExecutor {
               : execution.renderedTemplate().highlights(),
           execution.shardFailed(),
           rendered,
-          candidates);
+          candidates,
+          execution.templateSort());
     } catch (RuntimeException e) {
       return SearchTemplateWalk.AttemptResult.failed(e);
     }
@@ -444,7 +532,10 @@ final class TemplateSearchExecutor {
     }
     MergedSearchTemplate template = coordinator.loader().load(opContext, urn);
     com.linkedin.search.template.SearchTemplateComponent spec = template.getComponent();
-    if (SearchTemplateComponents.empty(spec) || spec.getMode() == null) {
+    // A vector rung orders by vector score, so an inherited component does not reorder its hits
+    if (SearchTemplateComponents.empty(spec)
+        || spec.getMode() == null
+        || SearchTemplateCapabilities.vectorRetrieval(template)) {
       return raw;
     }
     @SuppressWarnings("unchecked")
@@ -499,8 +590,36 @@ final class TemplateSearchExecutor {
       @Nullable Integer size,
       @Nonnull List<String> facets) {
     return searchOnceExecution(
-            opContext, entityNames, input, postFilters, sortCriteria, from, size, facets, null)
+            bindWhole(opContext, input, entityNames),
+            entityNames,
+            input,
+            postFilters,
+            sortCriteria,
+            from,
+            size,
+            facets,
+            null)
         .page();
+  }
+
+  /**
+   * Binds a request that renders the bound template once for the caller's entity types and does not
+   * walk a ladder: filter, aggregation, and count. As on scroll, a scope that leaves out a
+   * requested type fails closed instead of rendering the template for that type.
+   */
+  @Nonnull
+  OperationContext bindWhole(
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nonnull List<String> entityNames) {
+    OperationContext bound = bindTemplates(opContext, input, false, entityNames);
+    ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(bound);
+    if (resolved != null && coordinator != null) {
+      SearchTemplateCapabilities.requireWholeScope(
+          coordinator.load(bound, resolved.getUrn()), entityNames);
+    }
+    return bound;
   }
 
   @Nonnull
@@ -532,7 +651,8 @@ final class TemplateSearchExecutor {
         components.filter(),
         from,
         size,
-        components.prepared().template());
+        components.prepared().template(),
+        components.prepared().templateSort());
   }
 
   @Nonnull
@@ -628,7 +748,8 @@ final class TemplateSearchExecutor {
         transformedFilters,
         keepAlive,
         size,
-        prepared.template());
+        prepared.template(),
+        prepared.templateSort());
   }
 
   @Nonnull
@@ -681,7 +802,8 @@ final class TemplateSearchExecutor {
       @Nullable Filter filter,
       int from,
       @Nullable Integer size,
-      @Nullable RenderedSearchTemplate template) {
+      @Nullable RenderedSearchTemplate template,
+      boolean templateSort) {
     SearchResponse searchResponse = null;
     try {
       searchResponse =
@@ -706,7 +828,7 @@ final class TemplateSearchExecutor {
                       from,
                       ConfigUtils.applyLimit(dao.searchServiceConfig, size),
                       template));
-      return new SearchExecution<>(page, shardFailed, template, searchResponse);
+      return new SearchExecution<>(page, shardFailed, template, templateSort, searchResponse);
     } catch (Exception e) {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
@@ -721,7 +843,8 @@ final class TemplateSearchExecutor {
       @Nullable Filter filter,
       @Nullable String keepAlive,
       @Nullable Integer size,
-      @Nullable RenderedSearchTemplate template) {
+      @Nullable RenderedSearchTemplate template,
+      boolean templateSort) {
     try {
       SearchResponse searchResponse =
           dao.searchClient(opContext, searchRequest)
@@ -749,6 +872,7 @@ final class TemplateSearchExecutor {
           page,
           searchResponse.getFailedShards() > 0 || searchResponse.isTimedOut(),
           template,
+          templateSort,
           null);
     } catch (Exception e) {
       log.error("Search query failed: {}", searchRequest, e);
@@ -807,7 +931,8 @@ final class TemplateSearchExecutor {
     boolean fulltext =
         opContext.getSearchContext().getSearchFlags() != null
             && Boolean.TRUE.equals(opContext.getSearchContext().getSearchFlags().isFulltext());
-    coordinator.shadow(opContext, entitySpecs, query, fulltext, scroll);
+    // Its callers, filter, aggregation, and count, do not walk a ladder
+    coordinator.shadow(opContext, entitySpecs, query, fulltext, scroll, false);
   }
 
   @Nonnull
@@ -815,7 +940,16 @@ final class TemplateSearchExecutor {
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nullable Filter filter) {
-    return prepareTemplateSearch(opContext, entityNames, "*", filter, null, 0, 0, List.of(), null)
+    return prepareTemplateSearch(
+            bindWhole(opContext, "*", entityNames),
+            entityNames,
+            "*",
+            filter,
+            null,
+            0,
+            0,
+            List.of(),
+            null)
         .prepared()
         .request()
         .source()

@@ -54,10 +54,16 @@ public class DocumentV3EmbeddingMappingContributorTest {
   }
 
   @Test
-  public void testDatasetIndexGetsNoEmbeddingsByDefault() {
+  public void testEveryIndexGetsEmbeddingsWhenAnyEntityIsEnabled() {
     DocumentV3EmbeddingMappingContributor contributor =
         new DocumentV3EmbeddingMappingContributor(semanticConfig("document"), osShim());
-    assertTrue(contributor.extraRootProperties("dataset").isEmpty());
+    // The mapping document is shared. primary holds documents; default holds entities with no
+    // search group. Both carry the vector field even though only document is embedded.
+    for (String indexKey : new String[] {"document", "dataset", "primary", "default"}) {
+      Map<String, Object> extras = contributor.extraRootProperties(indexKey);
+      assertTrue(extras.containsKey("embeddings"), indexKey);
+      assertTrue(extras.containsKey("resolvedTextSha256"), indexKey);
+    }
   }
 
   @Test
@@ -74,7 +80,7 @@ public class DocumentV3EmbeddingMappingContributorTest {
     DocumentV3EmbeddingMappingContributor contributor =
         new DocumentV3EmbeddingMappingContributor(semanticConfig("dataset"), osShim());
     assertTrue(contributor.extraRootProperties("dataset").containsKey("embeddings"));
-    assertTrue(contributor.extraRootProperties("document").isEmpty());
+    assertTrue(contributor.extraRootProperties("primary").containsKey("embeddings"));
   }
 
   private static SemanticSearchConfiguration semanticConfig(String entity) {

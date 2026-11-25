@@ -6,6 +6,7 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -14,6 +15,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.search.template.SearchTemplateComponentMode;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateScope;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +63,35 @@ public class SearchTemplateComponentTest {
   }
 
   @Test
+  public void testAScopedOwnRungComponentFailsClosed() {
+    // The component returns its own hits, so a scope could not keep out a type it leaves out
+    SearchTemplateComponentRegistry registry =
+        new SearchTemplateComponentRegistry(List.of(new ReverseComponent()));
+    MergedSearchTemplate.MergedSearchTemplateBuilder ownRung =
+        MergedSearchTemplate.builder()
+            .urn("urn:li:searchTemplate:own")
+            .dialect("ELASTICSEARCH")
+            .queryFragments(Map.of())
+            .parameters(Map.of())
+            .chain(List.of("urn:li:searchTemplate:own"))
+            .component(componentProperties(SearchTemplateComponentMode.OWN_RUNG).getComponent());
+    assertEquals(
+        SearchTemplateCapabilities.rejectionCode(
+            ownRung.build(), false, false, registry, SearchTemplateGates.none()),
+        null);
+    assertEquals(
+        SearchTemplateCapabilities.rejectionCode(
+            ownRung
+                .scope(new SearchTemplateScope().setEntityTypes(new StringArray("dataset")))
+                .build(),
+            false,
+            false,
+            registry,
+            SearchTemplateGates.none()),
+        "componentScope");
+  }
+
+  @Test
   public void testEmptyPostProcessLeavesOrderUnchanged() {
     SearchTemplateComponentRegistry empty = SearchTemplateComponentRegistry.empty();
     expectThrows(
@@ -87,9 +118,15 @@ public class SearchTemplateComponentTest {
             .component(valid.getComponent())
             .build();
     assertEquals(
-        SearchTemplateCapabilities.rejectionCode(template, false, false, empty), "component");
-    assertEquals(SearchTemplateCapabilities.rejectionCode(template, false, false, registry), null);
-    SearchTemplateCapabilities.requireSupported(template, false, registry);
+        SearchTemplateCapabilities.rejectionCode(
+            template, false, false, empty, SearchTemplateGates.none()),
+        "component");
+    assertEquals(
+        SearchTemplateCapabilities.rejectionCode(
+            template, false, false, registry, SearchTemplateGates.none()),
+        null);
+    SearchTemplateCapabilities.requireSupported(
+        template, false, false, registry, SearchTemplateGates.none());
 
     SearchResult page = new SearchResult();
     page.setEntities(

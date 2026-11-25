@@ -703,7 +703,8 @@ plugins: Dict[str, Set[str]] = {
     "dynamodb": aws_common,
     # opensearch-py, not elasticsearch-py: the latter only supports Elasticsearch and rejects OpenSearch.
     # 3.x generated APIs are keyword-only; require >=3 so 2.x is not installed.
-    "elasticsearch": {"opensearch-py>=3.0.0,<4.0.0", *cachetools_lib},
+    # aws_common provides credential resolution for optional AWS IAM (SigV4) auth.
+    "elasticsearch": {"opensearch-py>=3.0.0,<4.0.0", *aws_common, *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5,<4.0.0",
         "pandas<3.0.0",
@@ -922,6 +923,7 @@ plugins: Dict[str, Set[str]] = {
     "confluence": confluence_common,
     "google-drive": google_drive_common,
     "github-documents": set(),
+    "gitlab-documents": {"tenacity>=8.0.1,<9.0.0"},
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common
@@ -1172,6 +1174,7 @@ base_dev_requirements = {
             "nifi",
             "notion",
             "github-documents",
+            "gitlab-documents",
             "vertica",
             "mode",
             "fivetran",
@@ -1278,7 +1281,7 @@ entry_points = {
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
-        "confluence = datahub.ingestion.source.confluence.confluence_source:ConfluenceSource",
+        "confluence = datahub.ingestion.source.confluence.source:ConfluenceSource",
         "google-drive = datahub.ingestion.source.google_drive.google_drive_source:GoogleDriveSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
@@ -1366,6 +1369,7 @@ entry_points = {
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
         "github-documents = datahub.ingestion.source.github_documents.github_documents_source:GitHubDocumentsSource",
+        "gitlab-documents = datahub.ingestion.source.gitlab_documents.gitlab_documents_source:GitLabDocumentsSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "dlt = datahub.ingestion.source.dlt.dlt:DltSource",

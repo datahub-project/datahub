@@ -23,6 +23,7 @@ import com.linkedin.metadata.graph.cache.service.rebuild.GraphCacheRebuilder;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotBuilder;
 import com.linkedin.metadata.graph.cache.store.EntityGraphDistributedStore;
 import com.linkedin.metadata.graph.cache.store.EntityGraphLocalViewCache;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.Locale;
@@ -254,5 +255,30 @@ public class EntityGraphCacheService implements EntityGraphCache {
 
   public EntityGraphLocalViewCache getLocalViews() {
     return localViews;
+  }
+
+  /**
+   * Samples Hazelcast snapshot map sizes. Called from the memory-pressure loop, not each scrape.
+   */
+  public void recordSnapshotEntryGauges() {
+    if (systemOperationContext == null) {
+      return;
+    }
+    Optional<MetricUtils> metrics = systemOperationContext.getMetricUtils();
+    if (metrics == null) {
+      return;
+    }
+    metrics.ifPresent(
+        utils -> {
+          int fullEntries = distributedStore.fullSnapshotCount();
+          if (fullEntries >= 0) {
+            utils.setMicrometerGauge("entity.graph.cache.entries", fullEntries, "graphId", "full");
+          }
+          int containerEntries = distributedStore.partialSnapshotCount("container");
+          if (containerEntries >= 0) {
+            utils.setMicrometerGauge(
+                "entity.graph.cache.entries", containerEntries, "graphId", "container");
+          }
+        });
   }
 }

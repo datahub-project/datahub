@@ -661,7 +661,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.confluence.confluence_source.ConfluenceSource",
+      "classname": "datahub.ingestion.source.confluence.source.ConfluenceSource",
       "platform_id": "confluence",
       "platform_name": "Confluence",
       "support_status": "ALPHA"
@@ -1731,6 +1731,12 @@
           "supported": true
         },
         {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -1740,6 +1746,32 @@
       "classname": "datahub.ingestion.source.github_documents.github_documents_source.GitHubDocumentsSource",
       "platform_id": "github",
       "platform_name": "GitHub",
+      "support_status": "ALPHA"
+    },
+    "gitlab-documents": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.gitlab_documents.gitlab_documents_source.GitLabDocumentsSource",
+      "platform_id": "gitlab",
+      "platform_name": "GitLab",
       "support_status": "ALPHA"
     },
     "glue": {
@@ -3778,13 +3810,19 @@
         },
         {
           "capability": "OWNERSHIP",
-          "description": "Enabled by default",
+          "description": "Disabled by default, configured using `extract_ownership`. In `metadata_api_mode: workspace_apis` owners come from workspace roles.",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TAGS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `extract_refresh_history`: the latest dataset refresh as an Operation aspect",
           "subtype_modifier": null,
           "supported": true
         },
@@ -3808,7 +3846,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default, configured using `extract_lineage`.",
+          "description": "Enabled by default, configured using `extract_lineage`. In `metadata_api_mode: workspace_apis` lineage comes from the semantic-model definitions (TMDL partitions) without admin API access.",
           "subtype_modifier": null,
           "supported": true
         },

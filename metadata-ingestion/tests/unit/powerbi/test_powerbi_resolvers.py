@@ -195,6 +195,15 @@ def test_regular_pages_by_report_degrade_to_empty_on_http_failure(
     assert [(p.id, p.displayName) for p in pages] == [("r-1.Page_1", "Summary")]
 
 
+def test_regular_pages_by_report_strict_raises_on_http_failure(
+    msal_stub: MsalStub, requests_mock: rm.Mocker
+) -> None:
+    requests_mock.get(f"{_ORG}/groups/ws-1/reports/r-1/pages", status_code=403)
+
+    with pytest.raises(requests.HTTPError):
+        make_resolver().get_pages_by_report(make_workspace(), "r-1", strict=True)
+
+
 def test_admin_get_app_pages_through_the_apps_listing(
     msal_stub: MsalStub, requests_mock: rm.Mocker
 ) -> None:
