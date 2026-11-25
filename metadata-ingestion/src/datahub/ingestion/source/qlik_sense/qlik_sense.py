@@ -2810,6 +2810,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self.stale_entity_removal_handler.add_entity_to_state(
                     guess_entity_type(urn), urn
                 )
+        # Datasets a run left out are in no URNs, but the app still reads them.
+        self._app_read_graph_named[app_id].update(previous.read_graph_named_urns)
 
     def _upstream_graph_unread(self, app_id: str) -> bool:
         return (
@@ -4766,6 +4768,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             app_id
             for app_id in self._apps_graph_named_kept
             if urn in self._app_end_of_run_urns.get(app_id, ())
+            or urn in self._app_read_graph_named.get(app_id, ())
         }
         return _GraphNamedApps(
             apps=set(self._graph_resource_readers.get(urn, set()))

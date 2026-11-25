@@ -4224,6 +4224,31 @@ def test_kept_reader_of_a_left_out_graph_named_dataset_counts_toward_its_path(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unread_graph_keeps_the_reads_of_a_left_out_dataset(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(mock_api_cls, DATASETS)
+    prices = _urn(UNLISTED_QVD)
+    source._graph_named_resources = {prices: "prices.qvd"}
+    source._graph_resource_readers = {prices: {"report-app"}}
+    source.stale_entity_removal_handler = MagicMock()
+    source.app_state = MagicMock()
+    # The last run left the dataset out, so only the recorded read holds it.
+    source.app_state.previous.return_value = AppCheckpoint(
+        urns=[_urn("graph-app.orders")], read_graph_named_urns=[prices]
+    )
+
+    # The app is read again, but its upstream graph can't be.
+    source._keep_graph_named_urns("graph-app")
+    apps = source._graph_named_apps(prices, set())
+    source._record_end_of_run_urns()
+
+    assert apps.apps == {"report-app", "graph-app"}
+    assert apps.graph_unread
+    source.app_state.add_read_graph_named.assert_called_once_with("graph-app", {prices})
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_lib_path_spellings_follow_a_replaced_spelling(
     mock_api_cls: MagicMock,
 ) -> None:
