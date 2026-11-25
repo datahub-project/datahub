@@ -75,6 +75,7 @@ import com.linkedin.metadata.ingestion.IngestionMetricsEmitter;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.roles.sideeffects.RoleReferenceDetachSideEffect;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
@@ -354,6 +355,25 @@ public class SpringStandardPluginConfiguration {
     return new DomainReferenceDetachSideEffect()
         .setMaxFanoutPerCommit(Math.max(1, maxFanoutPerCommit))
         .setConfig(config);
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.sideEffects.roleReferenceDetach.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public MCPSideEffect roleReferenceDetachSideEffect(
+      @Value("${metadataChangeProposal.sideEffects.roleReferenceDetach.pageSize:500}")
+          final int pageSize,
+      @Nullable MetricUtils metricUtils) {
+    RoleReferenceDetachSideEffect sideEffect = new RoleReferenceDetachSideEffect();
+    sideEffect.setPageSize(Math.max(1, pageSize)).setMetricUtils(metricUtils);
+    sideEffect.setConfig(sideEffect.keyDeleteConfig());
+    log.info(
+        "Initialized {} with pageSize={}",
+        RoleReferenceDetachSideEffect.class.getName(),
+        sideEffect.getPageSize());
+    return sideEffect;
   }
 
   // Returns null when MeterRegistry/ObjectMapper unavailable

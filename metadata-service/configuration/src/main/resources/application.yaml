@@ -2596,6 +2596,9 @@ metadataChangeProposal:
     domainReferenceDetach:
       enabled: ${MCP_SIDE_EFFECTS_DOMAIN_REFERENCE_DETACH_ENABLED:true}
       maxFanoutPerCommit: ${MCP_SIDE_EFFECTS_DOMAIN_REFERENCE_DETACH_MAX_FANOUT:500}
+    roleReferenceDetach:
+      enabled: ${MCP_SIDE_EFFECTS_ROLE_REFERENCE_DETACH_ENABLED:true}
+      pageSize: ${MCP_SIDE_EFFECTS_ROLE_REFERENCE_DETACH_PAGE_SIZE:500} # Search page size; every reference is detached, however many pages
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 
