@@ -401,7 +401,7 @@ To turn the check off, set `metadataChangeProposal.validation.dataProductPropert
 
 A PATCH that targets an entity that does not exist yet is now authorized like an UPSERT: it needs **Create Entity** or **Edit Entity**. Before, it always needed Edit Entity. A PATCH on an existing entity still needs Edit Entity, so create-only principals still can't change existing entities.
 
-**Action:** none. No caller loses access. Principals with only Create Entity can now create an entity with a PATCH, as they already could with an UPSERT.
+**Action:** none for entity writes: no caller loses access, and principals with only Create Entity can now create an entity with a PATCH, as they already could with an UPSERT. Where an API's create privilege differs from its edit privilege, a PATCH that creates the item now needs the create privilege, as an UPSERT already does.
 
 <!--
 
