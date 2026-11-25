@@ -3412,11 +3412,13 @@ def test_pipeline_list_not_found_is_a_failed_list() -> None:
 def test_pipeline_task_artifact_error_warns_once_and_writes_task() -> None:
     source = _pipeline_source()
     job = get_mock_pipeline_job()
-    task_detail = job.task_details[0]
-    task_detail.inputs = MagicMock()
-    task_detail.inputs.values.side_effect = TypeError("bad artifact")
 
-    workunits = _read_pipelines(source, [job])
+    with patch.object(
+        source.pipeline_extractor,
+        "_extract_pipeline_task_inputs",
+        side_effect=TypeError("bad artifact"),
+    ):
+        workunits = _read_pipelines(source, [job])
 
     assert any(wu.get_urn() == _MOCK_JOB_URN for wu in workunits)
     assert _aspects(workunits, DataProcessInstanceRelationshipsClass)

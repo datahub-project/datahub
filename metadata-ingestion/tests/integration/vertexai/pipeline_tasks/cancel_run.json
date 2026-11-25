@@ -1,0 +1,112 @@
+{
+ "createTime": "2026-11-23T10:22:44.103065Z",
+ "displayName": "demo-cancel",
+ "endTime": "2026-11-23T10:25:29.338591Z",
+ "jobDetail": {
+  "taskDetails": [
+   {
+    "createTime": "2026-11-23T10:22:44.789471Z",
+    "endTime": "2026-11-23T10:25:29.324249Z",
+    "execution": {
+     "state": 6
+    },
+    "parentTaskId": "0",
+    "pipelineTaskStatus": [
+     {
+      "state": 6,
+      "updateTime": "2026-11-23T10:25:29.139475098Z"
+     }
+    ],
+    "startTime": "2026-11-23T10:22:45.183551Z",
+    "state": 6,
+    "taskId": "-1000000000000000021",
+    "taskName": "demo-cancel-20261123155241",
+    "taskUniqueName": "demo-cancel-20261123155241"
+   },
+   {
+    "createTime": "2026-11-23T10:22:45.183551Z",
+    "endTime": "2026-11-23T10:25:08.360954Z",
+    "parentTaskId": "-1000000000000000021",
+    "pipelineTaskStatus": [
+     {
+      "error": {
+       "message": "Task is cancelled."
+      },
+      "state": 9,
+      "updateTime": "2026-11-23T10:25:08.351557821Z"
+     }
+    ],
+    "state": 9,
+    "taskId": "-1000000000000000022",
+    "taskName": "emit",
+    "taskUniqueName": "emit"
+   },
+   {
+    "createTime": "2026-11-23T10:22:45.183551Z",
+    "endTime": "2026-11-23T10:25:29.111141Z",
+    "error": {
+     "message": "CANCELED"
+    },
+    "execution": {
+     "state": 6
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "failedMainJobs": [],
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/1000000000000000024"
+     }
+    },
+    "parentTaskId": "-1000000000000000021",
+    "pipelineTaskStatus": [
+     {
+      "state": 6,
+      "updateTime": "2026-11-23T10:25:29.023806940Z"
+     }
+    ],
+    "startTime": "2026-11-23T10:22:45.539972Z",
+    "state": 6,
+    "taskId": "1000000000000000023",
+    "taskName": "sleeper",
+    "taskUniqueName": "sleeper"
+   }
+  ]
+ },
+ "labels": {
+  "vertex-ai-pipelines-run-billing-id": "1000000000000000020"
+ },
+ "name": "projects/123456789012/locations/us-central1/pipelineJobs/demo-cancel-20261123155241",
+ "pipelineSpec": {
+  "components": {},
+  "pipelineInfo": {
+   "name": "demo-cancel"
+  },
+  "root": {
+   "dag": {
+    "tasks": {
+     "emit": {
+      "componentRef": {
+       "name": "comp-emit"
+      },
+      "dependentTasks": [
+       "sleeper"
+      ],
+      "taskInfo": {
+       "name": "emit"
+      }
+     },
+     "sleeper": {
+      "componentRef": {
+       "name": "comp-sleeper"
+      },
+      "taskInfo": {
+       "name": "sleeper"
+      }
+     }
+    }
+   }
+  }
+ },
+ "startTime": "2026-11-23T10:22:44.789471Z",
+ "state": 7,
+ "updateTime": "2026-11-23T10:25:29.338591Z"
+}

@@ -1,8 +1,11 @@
+import contextlib
+import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
-from unittest.mock import MagicMock, Mock, PropertyMock
+from typing import Any, Dict, List, Optional, Sequence, Type, Union
+from unittest.mock import MagicMock, Mock, PropertyMock, patch
 
+import google.cloud.aiplatform as aiplatform
 from google.cloud.aiplatform import (
     AutoMLTabularTrainingJob,
     CustomJob,
@@ -20,9 +23,19 @@ from google.cloud.aiplatform_v1.types import (
     Artifact,
     Event,
     PipelineJob as PipelineJobType,
+    PipelineState,
 )
 
+from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.vertexai.vertexai_report import VertexAISourceReport
+
 PIPELINE_TASKS_FIXTURE_DIR = Path(__file__).parent / "pipeline_tasks"
+_EXTRACTOR_MODULES = [
+    "datahub.ingestion.source.vertexai.vertexai_model_extractor",
+    "datahub.ingestion.source.vertexai.vertexai_pipeline_extractor",
+    "datahub.ingestion.source.vertexai.vertexai_training_extractor",
+]
+
 MOCK_CREATE_TIME = datetime(2022, 3, 21, 16, 0, 0, tzinfo=timezone.utc)
 MOCK_UPDATE_TIME = datetime(2022, 3, 21, 16, 1, 40, tzinfo=timezone.utc)
 MOCK_TASK_START_TIME = datetime(2022, 3, 21, 16, 0, 0, tzinfo=timezone.utc)
@@ -194,6 +207,64 @@ def gen_mock_experiment_run() -> ExperimentRun:
     return mock_experiment_run
 
 
+def gen_mock_task_detail(
+    task_name: str,
+    task_id: int,
+    parent_task_id: int = 2,
+    state: int = PipelineTaskDetail.State.SUCCEEDED,
+    started: bool = True,
+    end_time: Optional[datetime] = MOCK_TASK_END_TIME,
+    input_uris: Sequence[str] = (),
+    output_uris: Sequence[str] = (),
+) -> PipelineTaskDetail:
+    """A task detail as the API lists it. Defaults make it a started child of `gen_mock_root_task_detail()`."""
+
+    def artifacts(uris: Sequence[str]) -> Dict[str, PipelineTaskDetail.ArtifactList]:
+        return {
+            f"artifact_{index}": PipelineTaskDetail.ArtifactList(
+                artifacts=[Artifact(uri=uri)]
+            )
+            for index, uri in enumerate(uris)
+        }
+
+    detail = PipelineTaskDetail(
+        task_id=task_id,
+        parent_task_id=parent_task_id,
+        task_name=task_name,
+        state=state,
+        create_time=MOCK_CREATE_TIME,
+        inputs=artifacts(input_uris),
+        outputs=artifacts(output_uris),
+    )
+    if started:
+        detail.start_time = MOCK_TASK_START_TIME
+    if end_time is not None:
+        detail.end_time = end_time
+    return detail
+
+
+def gen_mock_root_task_detail() -> PipelineTaskDetail:
+    """The detail of the pipeline run itself, which every real run lists."""
+    return gen_mock_task_detail(
+        "mock_pipeline_job", task_id=2, parent_task_id=0, end_time=None
+    )
+
+
+def gen_mock_pipeline_resource(
+    update_time: datetime,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+    state: int = PipelineState.PIPELINE_STATE_UNSPECIFIED,
+) -> MagicMock:
+    """The listed resource of a hand-built pipeline run, with a state and times."""
+    gca_resource = MagicMock(spec=PipelineJobType)
+    gca_resource.update_time = update_time
+    gca_resource.start_time = start_time
+    gca_resource.end_time = end_time
+    gca_resource.state = state
+    return gca_resource
+
+
 def get_mock_pipeline_job() -> PipelineJob:
     mock_pipeline_job = MagicMock(spec=PipelineJob)
     mock_pipeline_job.name = "mock_pipeline_job"
@@ -205,36 +276,31 @@ def get_mock_pipeline_job() -> PipelineJob:
     mock_pipeline_job.create_time = MOCK_CREATE_TIME
     mock_pipeline_job.update_time = MOCK_UPDATE_TIME
     mock_pipeline_job.location = "us-west2"
-    gca_resource = MagicMock(spec=PipelineJobType)
-    gca_resource.update_time = MOCK_UPDATE_TIME
+    gca_resource = gen_mock_pipeline_resource(
+        MOCK_UPDATE_TIME,
+        start_time=MOCK_CREATE_TIME,
+        end_time=MOCK_UPDATE_TIME,
+        state=PipelineState.PIPELINE_STATE_SUCCEEDED,
+    )
     mock_pipeline_job.gca_resource = gca_resource
-    task_detail = MagicMock(spec=PipelineTaskDetail)
-    task_detail.task_name = "reverse"
-    task_detail.task_id = 1
-    task_detail.state = PipelineTaskDetail.State.SUCCEEDED
-    task_detail.start_time = MOCK_TASK_START_TIME
-    task_detail.create_time = MOCK_CREATE_TIME
-    task_detail.end_time = MOCK_TASK_END_TIME
+    # Input URI matches gen_mock_model(1).resource_name: exercises downstream model lineage from pipeline tasks;
+    # output URI matches gen_mock_model(2).resource_name
+    task_detail = gen_mock_task_detail(
+        "reverse",
+        task_id=1,
+        input_uris=["projects/123/locations/us-central1/models/234"],
+        output_uris=["projects/123/locations/us-central1/models/345"],
+    )
 
-    # Input URI matches gen_mock_model(1).resource_name — exercises downstream model lineage from pipeline tasks
-    mock_model_artifact = MagicMock()
-    mock_model_artifact.uri = "projects/123/locations/us-central1/models/234"
-    mock_input_entry = MagicMock()
-    mock_input_entry.artifacts = [mock_model_artifact]
-    task_detail.inputs = {"model": mock_input_entry}
-
-    # Output URI matches gen_mock_model(2).resource_name
-    mock_output_model_artifact = MagicMock()
-    mock_output_model_artifact.uri = "projects/123/locations/us-central1/models/345"
-    mock_output_entry = MagicMock()
-    mock_output_entry.artifacts = [mock_output_model_artifact]
-    task_detail.outputs = {"output_model": mock_output_entry}
-
-    mock_pipeline_job.task_details = [task_detail]
+    mock_pipeline_job.task_details = [task_detail, gen_mock_root_task_detail()]
     gca_resource.pipeline_spec = {
         "root": {
             "dag": {
                 "tasks": {
+                    "concat": {
+                        "componentRef": {"name": "comp-concat"},
+                        "taskInfo": {"name": "concat"},
+                    },
                     "reverse": {
                         "componentRef": {"name": "comp-reverse"},
                         "inputs": {
@@ -249,13 +315,91 @@ def get_mock_pipeline_job() -> PipelineJob:
                         },
                         "taskInfo": {"name": "reverse"},
                         "dependentTasks": ["concat"],
-                    }
+                    },
                 }
             }
         }
     }
 
     return mock_pipeline_job
+
+
+def gen_pipeline_job_from_fixture(data: Dict[str, Any]) -> PipelineJob:
+    gca_resource = PipelineJobType.from_json(
+        json.dumps(data), ignore_unknown_fields=True
+    )
+    job = MagicMock(spec=PipelineJob)
+    job.name = data["name"].split("/")[-1]
+    job.resource_name = data["name"]
+    job.display_name = data.get("displayName", "")
+    job.labels = dict(gca_resource.labels)
+    job.create_time = gca_resource.create_time
+    job.update_time = gca_resource.update_time
+    job.location = data["name"].split("/")[3]
+    job.gca_resource = gca_resource
+    job.task_details = list(gca_resource.job_detail.task_details)
+    return job
+
+
+def run_pipeline_fixtures(
+    fixtures: Sequence[Union[str, Dict[str, Any]]],
+    sink_path: str,
+    **config: Any,
+) -> VertexAISourceReport:
+    """Run the Vertex AI source offline over fixtures, writing MCPs to `sink_path`.
+
+    A fixture is the name of a file in `pipeline_tasks/` or an in-memory pipeline run
+    (the same JSON as a file). Any `config` entry overrides the source config.
+    """
+
+    def load(name: str) -> Any:
+        return json.loads((PIPELINE_TASKS_FIXTURE_DIR / f"{name}.json").read_text())
+
+    def pipeline_run(fixture: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
+        return load(fixture) if isinstance(fixture, str) else fixture
+
+    class_data: Dict[Type, List[Any]] = {
+        aiplatform.PipelineJob: [
+            gen_pipeline_job_from_fixture(pipeline_run(fixture)) for fixture in fixtures
+        ],
+    }
+    source_config: Dict[str, Any] = {
+        "project_id": "my-project",
+        "region": "us-central1",
+        "include_models": False,
+        "include_experiments": False,
+        "include_evaluations": False,
+        "include_training_jobs": False,
+        "include_pipelines": True,
+        "use_ml_metadata_for_lineage": False,
+        "extract_execution_metrics": False,
+        **config,
+    }
+
+    with contextlib.ExitStack() as exit_stack:
+        exit_stack.enter_context(
+            patch("google.auth.default", return_value=(None, None))
+        )
+        exit_stack.enter_context(patch("google.cloud.aiplatform.init"))
+        for module in _EXTRACTOR_MODULES:
+            exit_stack.enter_context(
+                patch(
+                    f"{module}.rate_limited_gapic_list",
+                    side_effect=lambda cls, _rl, **_kw: class_data.get(cls, []),
+                )
+            )
+        pipeline = Pipeline.create(
+            {
+                "run_id": "vertexai-pipeline-tasks-test",
+                "source": {"type": "vertexai", "config": source_config},
+                "sink": {"type": "file", "config": {"filename": sink_path}},
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+        report = pipeline.source.get_report()
+        assert isinstance(report, VertexAISourceReport)
+        return report
 
 
 def gen_mock_model_evaluation(

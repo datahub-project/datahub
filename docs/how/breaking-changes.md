@@ -15,6 +15,20 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Vertex AI pipelines show every step ([#TBD-2](https://github.com/datahub-project/datahub/pull/TBD-2))
+
+The Vertex AI source now shows a pipeline as it is defined and as it ran. This applies only when `include_pipelines` is on (the default).
+
+- Some records from earlier versions remain: task runs with 1970 times, task runs for steps that never started, and merged records, where steps with the same name in different sub-pipelines, or passes of a loop, wrote over each other. This release does not remove these records, and stale entity removal does not either.
+- Nested tasks (inside exit handlers, conditions, loops and sub-pipelines) appear as new entities, so pipelines look bigger than before.
+- Task runs show their outcome as Vertex AI reports it. On the next ingestion, a task run written by an earlier version gets a start event at the time the task started and an end event at the time it ended, carrying the Vertex AI state (for example `SUCCEEDED` or `CANCELLED`). A task served from the cache now counts as a success, and a cancelled task counts as skipped. The end event that an earlier version wrote at the task's create time stays in the run's history as an earlier entry.
+- Pipeline runs change their type from Task Run to Pipeline Run when they are next ingested, so a search or filter on Task Run no longer returns them.
+- A top-level task whose pipeline definition gives it a display name, and its task runs, now show that name instead of its step key. URNs do not change.
+- Task lineage links are only ever added. A link stays after a pipeline stops using a table. This release does not remove it, and stale entity removal does not either. Until you upgrade to this release, set `incremental_lineage: true` to stop earlier versions from erasing links.
+- Task lineage is now written only as lineage edges. In the GraphQL API, the `inputOutput` lists of a Vertex AI task (`inputDatasets`, `outputDatasets` and `inputDatajobs`) are no longer filled: they are empty for a task first written by this release, and keep what an earlier version wrote for an older task. This release does not clear those older lists, and stale entity removal does not either. Read a task's inputs and outputs from its lineage instead.
+
+**Action:** none for most users. If you read a Vertex AI task's inputs and outputs from the GraphQL `inputOutput` lists, read them from its lineage instead.
+
 ### Pinned links removed from Settings > Home Page ([#21466](https://github.com/datahub-project/datahub/pull/21466))
 
 If the home page redesign is enabled (`SHOW_HOME_PAGE_REDESIGN=true`, the default), the

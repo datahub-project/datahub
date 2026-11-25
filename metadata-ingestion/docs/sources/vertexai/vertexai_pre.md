@@ -26,7 +26,8 @@ Enabling `stateful_ingestion` soft-deletes entities that were deleted from Verte
 For improved organization in the DataHub UI:
 
 - Model versions are organized under their respective model group folders
-- Pipeline tasks and task runs are nested under their parent pipeline folders
+- Pipeline tasks sit in their pipeline's folder, and nested tasks show under their container steps in Browse
+- Pipeline runs and task runs have no folder. Pipeline runs show on the Runs tab of their pipeline, and task runs on the Runs tab of their own task
 
 ### Prerequisites
 

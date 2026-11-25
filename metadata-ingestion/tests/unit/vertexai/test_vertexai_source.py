@@ -10,7 +10,6 @@ from google.cloud.aiplatform.metadata.execution import Execution as MetadataExec
 from google.cloud.aiplatform.metadata.experiment_resources import Experiment
 from google.cloud.aiplatform.models import Model
 from google.cloud.aiplatform_v1 import PipelineTaskDetail
-from google.cloud.aiplatform_v1.types import PipelineJob as PipelineJobType
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -32,6 +31,8 @@ from datahub.metadata.schema_classes import (
 )
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_experiment,
+    gen_mock_pipeline_resource,
+    gen_mock_root_task_detail,
 )
 
 PROJECT_ID = "acryl-poc"
@@ -73,7 +74,7 @@ def test_pipeline_task_with_none_timestamps(
     end_time: datetime | None,
     task_name: str,
 ) -> None:
-    """Test that pipeline tasks with None start_time or end_time don't crash the ingestion."""
+    """A detail without start_time gets no task run; its DataJob is still written."""
     mock_pipeline_job = MagicMock(spec=PipelineJob)
     mock_pipeline_job.name = f"test_pipeline_{task_name}"
     mock_pipeline_job.display_name = f"stable_pipeline_{task_name}"
@@ -85,21 +86,22 @@ def test_pipeline_task_with_none_timestamps(
     mock_pipeline_job.update_time = datetime.now(timezone.utc) - timedelta(days=2)
     mock_pipeline_job.location = "us-west2"
 
-    gca_resource = MagicMock(spec=PipelineJobType)
-    gca_resource.update_time = mock_pipeline_job.update_time
+    gca_resource = gen_mock_pipeline_resource(mock_pipeline_job.update_time)
     mock_pipeline_job.gca_resource = gca_resource
 
-    task_detail = MagicMock(spec=PipelineTaskDetail)
-    task_detail.task_name = task_name
-    task_detail.task_id = 123
-    task_detail.state = MagicMock()
-    task_detail.start_time = start_time
-    task_detail.create_time = datetime.now(timezone.utc) - timedelta(days=3)
-    task_detail.end_time = end_time
-    task_detail.inputs = {}
-    task_detail.outputs = {}
+    task_detail = PipelineTaskDetail(
+        task_id=123,
+        parent_task_id=2,
+        task_name=task_name,
+        state=PipelineTaskDetail.State.SUCCEEDED,
+        create_time=datetime.now(timezone.utc) - timedelta(days=3),
+    )
+    if start_time is not None:
+        task_detail.start_time = start_time
+    if end_time is not None:
+        task_detail.end_time = end_time
 
-    mock_pipeline_job.task_details = [task_detail]
+    mock_pipeline_job.task_details = [task_detail, gen_mock_root_task_detail()]
     gca_resource.pipeline_spec = {
         "root": {
             "dag": {
@@ -117,8 +119,13 @@ def test_pipeline_task_with_none_timestamps(
         "datahub.ingestion.source.vertexai.vertexai_pipeline_extractor.rate_limited_gapic_list",
         return_value=[mock_pipeline_job],
     ):
-        mcps = list(source.pipeline_extractor.get_workunits())
-        assert len(mcps) > 0, "Should generate MCPs for pipeline task"
+        urns = {wu.get_urn() for wu in source.pipeline_extractor.get_workunits()}
+    assert any(
+        urn.startswith("urn:li:dataJob:") and urn.endswith(f",{task_name})")
+        for urn in urns
+    )
+    task_runs = [urn for urn in urns if ".pipeline_task_run." in urn]
+    assert bool(task_runs) == (start_time is not None)
 
 
 def test_training_reset_regional_caches_refetches_datasets(

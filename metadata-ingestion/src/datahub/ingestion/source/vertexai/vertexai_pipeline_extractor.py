@@ -1,8 +1,9 @@
+import itertools
 import logging
 import types
 from contextlib import AbstractContextManager, nullcontext
-from dataclasses import replace
-from datetime import timedelta
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timedelta
 from functools import partial
 from typing import (
     Callable,
@@ -10,8 +11,9 @@ from typing import (
     Iterable,
     List,
     Mapping,
-    Sequence,
+    Optional,
     Set,
+    Tuple,
     Union,
 )
 
@@ -34,9 +36,15 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 )
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
+    EXTRA_ROOT_DETAILS,
+    EXTRA_ROOT_DETAILS_TITLE,
     KUBEFLOW_TIMESTAMP_SUFFIX_PATTERN,
+    LINEAGE_FLUSH_PENDING_LINKS,
+    LINEAGE_MAX_LINKS_PER_PATCH,
     ORDER_BY_UPDATE_TIME_DESC,
-    DateTimeFormat,
+    UNMATCHED_DETAILS,
+    UNMATCHED_DETAILS_TITLE,
+    UNMATCHED_SAMPLE_SIZE,
     DetailCalls,
     DurationUnit,
     LabelFormat,
@@ -50,13 +58,21 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     PipelineProperties,
     PipelineTaskArtifacts,
     PipelineTaskMetadata,
-    PipelineTaskProperties,
+    PipelineTaskRunMetadata,
     YieldCommonAspectsProtocol,
+)
+from datahub.ingestion.source.vertexai.vertexai_pipeline_tree import (
+    PipelineStep,
+    RunTree,
+    build_run_tree,
+    build_step_tree,
 )
 from datahub.ingestion.source.vertexai.vertexai_report import VertexAISourceReport
 from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
-    get_pipeline_task_result_status,
-    is_status_for_run_event_class,
+    RunOutcome,
+    is_cache_hit,
+    pipeline_run_outcome,
+    task_run_outcome,
 )
 from datahub.ingestion.source.vertexai.vertexai_scope import (
     CarryForward,
@@ -75,8 +91,8 @@ from datahub.ingestion.source.vertexai.vertexai_utils import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    ContainerClass,
-    DataJobInputOutputClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     DataProcessInstanceInputClass,
     DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
@@ -85,7 +101,6 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
     EdgeClass,
-    RunResultTypeClass,
     StatusClass,
 )
 from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DataJobUrn
@@ -94,17 +109,51 @@ from datahub.sdk.datajob import DataJob
 from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.time import datetime_to_ts_millis
-from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
 
-def _as_mapping(value: object) -> Mapping[str, object]:
-    # A malformed spec must still fail the job's guarded build, not read as empty.
-    if not isinstance(value, Mapping):
-        raise TypeError(f"Expected a mapping in the pipeline spec, got {type(value)}")
-    return value
+def _first_set_millis(*times: Optional[datetime]) -> Optional[int]:
+    """The first time that is set and not zero, or None when none is."""
+    for candidate in times:
+        millis = datetime_to_ts_millis(candidate) if candidate else 0
+        if millis:
+            return millis
+    return None
+
+
+@dataclass
+class _TaskLinks:
+    input_datasets: Dict[str, None] = field(default_factory=dict)
+    output_datasets: Dict[str, None] = field(default_factory=dict)
+    upstream_jobs: Dict[str, None] = field(default_factory=dict)
+
+
+class _PendingTaskLineage:
+    """Task lineage links not yet sent, per task URN, in first-seen order.
+
+    Each call of get_workunits makes its own, so phase-1 threads share none.
+    """
+
+    def __init__(self) -> None:
+        self.tasks: Dict[str, _TaskLinks] = {}
+        self.count = 0
+
+    def add(self, task: PipelineTaskMetadata) -> None:
+        links = self.tasks.setdefault(str(task.urn.urn()), _TaskLinks())
+        self._add(links.input_datasets, task.input_dataset_urns or [])
+        self._add(links.output_datasets, task.output_dataset_urns or [])
+        self._add(links.upstream_jobs, (str(urn) for urn in task.upstreams or []))
+
+    def _add(self, pending: Dict[str, None], urns: Iterable[str]) -> None:
+        for urn in urns:
+            if urn not in pending:
+                pending[urn] = None
+                self.count += 1
+
+    def clear(self) -> None:
+        self.tasks = {}
+        self.count = 0
 
 
 class VertexAIPipelineExtractor:
@@ -146,6 +195,7 @@ class VertexAIPipelineExtractor:
         self.rate_limiter = rate_limiter
         self._emitted_pipeline_urns: Set[str] = set()
         self._emitted_task_urns: Set[str] = set()
+        self._lineage_patch_numbers = itertools.count()
 
     @staticmethod
     def _pipeline_spec(pipeline: PipelineJob) -> Mapping[str, object]:
@@ -247,51 +297,66 @@ class VertexAIPipelineExtractor:
             order_by=ORDER_BY_UPDATE_TIME_DESC,
         )
 
-        for job_count, pipeline in enumerate(pipeline_jobs, start=1):
-            if last_checkpoint_millis:
-                job_update_millis = int(
-                    pipeline.gca_resource.update_time.timestamp() * 1000
-                )
-                if job_update_millis <= last_checkpoint_millis:
-                    logger.info(
-                        f"Reached checkpoint timestamp for PipelineJobs, stopping early (processed {job_count - 1} new jobs)"
+        pending = _PendingTaskLineage()
+        try:
+            for job_count, pipeline in enumerate(pipeline_jobs, start=1):
+                if last_checkpoint_millis:
+                    job_update_millis = int(
+                        pipeline.gca_resource.update_time.timestamp() * 1000
                     )
-                    break
+                    if job_update_millis <= last_checkpoint_millis:
+                        logger.info(
+                            f"Reached checkpoint timestamp for PipelineJobs, stopping early (processed {job_count - 1} new jobs)"
+                        )
+                        break
 
-                self.state_handler.update_resource_timestamp(
-                    ResourceTypes.PIPELINE_JOB, job_update_millis
+                    self.state_handler.update_resource_timestamp(
+                        ResourceTypes.PIPELINE_JOB, job_update_millis
+                    )
+
+                log_progress(job_count, None, f"{ResourceTypes.PIPELINE_JOB}s")
+
+                logger.debug(f"Fetching pipeline ({pipeline.name})")
+                details = self._read_pipeline_task_details(pipeline)
+                pipeline_meta = (
+                    None
+                    if details.keep_previous
+                    else self._read_detail(
+                        DetailCalls.PIPELINE_BUILD,
+                        partial(
+                            self._get_pipeline_metadata, pipeline, details.value or []
+                        ),
+                        item=pipeline.name,
+                    ).value
                 )
-
-            log_progress(job_count, None, f"{ResourceTypes.PIPELINE_JOB}s")
-
-            logger.debug(f"Fetching pipeline ({pipeline.name})")
-            details = self._read_pipeline_task_details(pipeline)
-            pipeline_meta = (
-                None
-                if details.keep_previous
-                else self._read_detail(
-                    DetailCalls.PIPELINE_BUILD,
-                    partial(self._get_pipeline_metadata, pipeline, details.value or []),
-                    item=pipeline.name,
-                ).value
-            )
-            if pipeline_meta is None:
-                self._keep_pipeline(pipeline)
-                continue
-            yield from self._get_pipeline_workunits(
-                pipeline, pipeline_meta, lookup_lost=details.value is None
-            )
+                if pipeline_meta is None:
+                    self._keep_pipeline(pipeline)
+                    continue
+                yield from self._get_pipeline_workunits(
+                    pipeline,
+                    pipeline_meta,
+                    pending,
+                    lookup_lost=details.value is None,
+                )
+                if pending.count >= LINEAGE_FLUSH_PENDING_LINKS:
+                    yield from self._gen_task_lineage(pending)
+        except Exception:
+            # Runs read before the failure keep their lineage.
+            yield from self._gen_task_lineage(pending)
+            raise
+        yield from self._gen_task_lineage(pending)
 
     def _get_pipeline_workunits(
         self,
         pipeline_job: PipelineJob,
         pipeline_meta: PipelineMetadata,
+        pending: _PendingTaskLineage,
         *,
         lookup_lost: bool,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Emit stable DataFlow/DataJob entities only once,
-        create DataProcessInstances for each run, and emit lineage.
+        create DataProcessInstances for each run, and hold its lineage in `pending`.
         """
         dataflow_urn = pipeline_meta.urn
         pipeline_urn_str = str(dataflow_urn.urn())
@@ -312,42 +377,62 @@ class VertexAIPipelineExtractor:
                 f"Skipping DataFlow (already emitted): {pipeline_job.display_name or pipeline_job.name}"
             )
 
-        yield from self._gen_pipeline_run_instance(pipeline_job, pipeline_meta)
+        # The SDK's start_time and end_time properties fetch the job again.
+        resource = pipeline_job.gca_resource
+        run_created = _first_set_millis(
+            pipeline_job.create_time, resource.start_time, resource.end_time
+        )
+        if run_created is None:
+            self.report.report_run_skipped_without_time()
+        else:
+            yield from self._gen_pipeline_run_instance(
+                pipeline_job, pipeline_meta, run_created
+            )
 
+        tasks_by_path = {task.path: task for task in pipeline_meta.tasks}
         for task in pipeline_meta.tasks:
             task_urn_str = str(task.urn.urn())
 
             if task_urn_str not in self._emitted_task_urns:
-                logger.debug(f"Emitting stable DataJob for task: {task.name}")
+                logger.debug(f"Emitting stable DataJob for task: {task.path}")
                 yield from self._gen_pipeline_task_datajob(
-                    task, dataflow_urn, pipeline_container_key
+                    task, dataflow_urn, pipeline_container_key, tasks_by_path
                 )
                 self._emitted_task_urns.add(task_urn_str)
+                if task.parent_path is not None:
+                    self.report.report_pipeline_nested_step_written()
             else:
-                logger.debug(f"Skipping DataJob (already emitted): {task.name}")
+                logger.debug(f"Skipping DataJob (already emitted): {task.path}")
 
-            yield from self._gen_pipeline_task_run_instance(task, pipeline_meta)
-            # The task is shared with other runs of the template; a run that
-            # could not read its details would overwrite their dataset links.
-            if not lookup_lost:
-                yield from self._gen_pipeline_task_lineage(task)
+        for task_run in pipeline_meta.task_runs:
+            yield from self._gen_pipeline_task_run_instance(
+                task_run,
+                pipeline_meta,
+                tasks_by_path,
+                has_pipeline_run_record=run_created is not None,
+            )
+
+        # A run whose details were lost must not write the links the spec implies.
+        if not lookup_lost:
+            for task in pipeline_meta.tasks:
+                pending.add(task)
 
     def _gen_pipeline_run_instance(
-        self, pipeline_job: PipelineJob, pipeline_meta: PipelineMetadata
+        self,
+        pipeline_job: PipelineJob,
+        pipeline_meta: PipelineMetadata,
+        created_millis: int,
     ) -> Iterable[MetadataWorkUnit]:
-        run_id = self.name_formatter.format_pipeline_run_id(pipeline_job.name)
-        dpi_urn = builder.make_data_process_instance_urn(run_id)
+        dpi_urn = self._pipeline_run_urn(pipeline_job.name)
+
+        resource = pipeline_job.gca_resource
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dpi_urn,
             aspect=DataProcessInstancePropertiesClass(
                 name=pipeline_job.display_name or pipeline_job.name,
                 created=AuditStampClass(
-                    time=(
-                        datetime_to_ts_millis(pipeline_job.create_time)
-                        if pipeline_job.create_time
-                        else 0
-                    ),
+                    time=created_millis,
                     actor=get_actor_from_labels(pipeline_meta.labels) or UNKNOWN_USER,
                 ),
                 externalUrl=self.url_builder.make_pipeline_url(pipeline_job.name),
@@ -360,7 +445,7 @@ class VertexAIPipelineExtractor:
 
         yield from self._yield_common_aspects(
             entity_urn=dpi_urn,
-            subtype=MLAssetSubTypes.VERTEX_PIPELINE_TASK_RUN,
+            subtype=MLAssetSubTypes.VERTEX_PIPELINE_RUN,
             include_container=False,
         )
 
@@ -372,25 +457,73 @@ class VertexAIPipelineExtractor:
             ),
         ).as_workunit()
 
+        yield from self._gen_run_events(
+            dpi_urn,
+            start_time=resource.start_time,
+            end_time=resource.end_time,
+            outcome=pipeline_run_outcome(resource.state),
+        )
+
+    @staticmethod
+    def _gen_run_events(
+        dpi_urn: str,
+        *,
+        start_time: Optional[datetime],
+        end_time: Optional[datetime],
+        outcome: Optional[RunOutcome],
+        attempt: Optional[int] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        start_millis = _first_set_millis(start_time)
+        if start_millis is not None:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dpi_urn,
+                aspect=DataProcessInstanceRunEventClass(
+                    status=DataProcessRunStatusClass.STARTED,
+                    timestampMillis=start_millis,
+                ),
+            ).as_workunit()
+        end_millis = _first_set_millis(end_time)
+        # An end time without an outcome is a state we cannot map, so no result.
+        if outcome is None or end_millis is None:
+            return
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dpi_urn,
+            aspect=DataProcessInstanceRunEventClass(
+                status=DataProcessRunStatusClass.COMPLETE,
+                timestampMillis=end_millis,
+                result=DataProcessInstanceRunResultClass(
+                    type=outcome.result, nativeResultType=outcome.native
+                ),
+                durationMillis=(
+                    end_millis - start_millis if start_millis is not None else None
+                ),
+                attempt=attempt,
+            ),
+        ).as_workunit()
+
     def _gen_pipeline_task_datajob(
         self,
         task: PipelineTaskMetadata,
         dataflow_urn: DataFlowUrn,
         container_key: PipelineContainerKey,
+        tasks_by_path: Mapping[str, PipelineTaskMetadata],
     ) -> Iterable[MetadataWorkUnit]:
         datajob = DataJob(
-            name=task.name,
-            display_name=task.name,
+            name=task.path,
+            display_name=task.shown_name,
             flow_urn=str(dataflow_urn),
             platform_instance=self.config.platform_instance,
         )
 
         datajob._set_container(container_key)
+        self._append_container_step_browse_path(datajob, task, tasks_by_path)
 
+        # The SDK DataJob writes the container and platform instance.
         yield from self._yield_common_aspects(
             entity_urn=datajob.urn.urn(),
             subtype=MLAssetSubTypes.VERTEX_PIPELINE_TASK,
             include_container=False,
+            include_platform=False,
         )
 
         yield from datajob.as_workunits()
@@ -400,32 +533,79 @@ class VertexAIPipelineExtractor:
             aspect=StatusClass(removed=False),
         ).as_workunit()
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=datajob.urn.urn(),
-            aspect=ContainerClass(container=container_key.as_urn()),
-        ).as_workunit()
+    @staticmethod
+    def _step_browse_entries(
+        task: PipelineTaskMetadata, tasks_by_path: Mapping[str, PipelineTaskMetadata]
+    ) -> List[BrowsePathEntryClass]:
+        """Ancestor container steps of `task`, outermost first."""
+        ancestors: List[PipelineTaskMetadata] = []
+        parent_path = task.parent_path
+        while parent_path is not None:
+            parent = tasks_by_path[parent_path]
+            ancestors.append(parent)
+            parent_path = parent.parent_path
+        return [
+            BrowsePathEntryClass(id=str(a.urn.urn()), urn=str(a.urn.urn()))
+            for a in reversed(ancestors)
+        ]
+
+    def _append_container_step_browse_path(
+        self,
+        datajob: DataJob,
+        task: PipelineTaskMetadata,
+        tasks_by_path: Mapping[str, PipelineTaskMetadata],
+    ) -> None:
+        entries = self._step_browse_entries(task, tasks_by_path)
+        if not entries:
+            return
+        browse_paths = datajob._get_aspect(BrowsePathsV2Class)
+        assert browse_paths is not None
+        # Must run after _set_container, which replaces the whole path.
+        datajob._set_aspect(BrowsePathsV2Class(path=[*browse_paths.path, *entries]))
+
+    def _pipeline_run_urn(self, pipeline_name: str) -> str:
+        return builder.make_data_process_instance_urn(
+            self.name_formatter.format_pipeline_run_id(pipeline_name)
+        )
+
+    def _task_run_urn(self, pipeline_name: str, run_path: str) -> str:
+        return builder.make_data_process_instance_urn(
+            self.name_formatter.format_pipeline_task_run_id(
+                entity_id=f"{pipeline_name}_{run_path}"
+            )
+        )
 
     def _gen_pipeline_task_run_instance(
-        self, task: PipelineTaskMetadata, pipeline: PipelineMetadata
+        self,
+        task_run: PipelineTaskRunMetadata,
+        pipeline: PipelineMetadata,
+        tasks_by_path: Mapping[str, PipelineTaskMetadata],
+        has_pipeline_run_record: bool,
     ) -> Iterable[MetadataWorkUnit]:
-        task_run_id = f"{pipeline.name}_{task.name}"
-        dpi_urn = builder.make_data_process_instance_urn(
-            self.name_formatter.format_pipeline_task_run_id(entity_id=task_run_id)
+        run = task_run.run
+        detail = run.detail
+        create_millis = _first_set_millis(
+            detail.create_time, detail.start_time, detail.end_time
         )
-        result_status: Union[str, RunResultTypeClass] = get_pipeline_task_result_status(
-            task.state
-        )
+        # Unreachable while is_started requires start_time.
+        if create_millis is None:
+            self.report.report_run_skipped_without_time()
+            return
+        dpi_urn = self._task_run_urn(pipeline.name, run.run_path)
+        parent_instance: Optional[str]
+        if run.parent_run_path is not None:
+            parent_instance = self._task_run_urn(pipeline.name, run.parent_run_path)
+        elif has_pipeline_run_record:
+            parent_instance = self._pipeline_run_urn(pipeline.name)
+        else:
+            parent_instance = None
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dpi_urn,
             aspect=DataProcessInstancePropertiesClass(
-                name=task.name,
+                name=run.step.shown_name,
                 created=AuditStampClass(
-                    time=(
-                        int(task.create_time.timestamp() * 1000)
-                        if task.create_time
-                        else 0
-                    ),
+                    time=create_millis,
                     actor=get_actor_from_labels(pipeline.labels)
                     or builder.UNKNOWN_USER,
                 ),
@@ -443,34 +623,32 @@ class VertexAIPipelineExtractor:
         yield MetadataChangeProposalWrapper(
             entityUrn=dpi_urn,
             aspect=DataProcessInstanceRelationshipsClass(
-                upstreamInstances=[], parentTemplate=str(task.urn.urn())
+                upstreamInstances=[
+                    self._task_run_urn(pipeline.name, upstream_run_path)
+                    for upstream_run_path in run.upstream_run_paths
+                ],
+                parentTemplate=str(tasks_by_path[run.step.path].urn.urn()),
+                parentInstance=parent_instance,
             ),
         ).as_workunit()
 
-        if is_status_for_run_event_class(result_status) and task.duration:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dpi_urn,
-                aspect=DataProcessInstanceRunEventClass(
-                    status=DataProcessRunStatusClass.COMPLETE,
-                    timestampMillis=(
-                        int(task.create_time.timestamp() * 1000)
-                        if task.create_time
-                        else 0
-                    ),
-                    result=DataProcessInstanceRunResultClass(
-                        type=result_status,
-                        nativeResultType=self.platform,
-                    ),
-                    durationMillis=task.duration,
-                ),
-            ).as_workunit()
+        yield from self._gen_run_events(
+            dpi_urn,
+            start_time=detail.start_time,
+            end_time=detail.end_time,
+            outcome=task_run_outcome(detail),
+            # Vertex copies the earlier run's failed jobs into a cached detail.
+            attempt=(
+                1
+                if is_cache_hit(detail)
+                else len(detail.executor_detail.container_detail.failed_main_jobs) + 1
+            ),
+        )
 
-        input_edges: List[EdgeClass] = []
-        if task.input_dataset_urns:
-            input_edges.extend(
-                [EdgeClass(destinationUrn=urn) for urn in task.input_dataset_urns]
-            )
-
+        input_edges: List[EdgeClass] = [
+            EdgeClass(destinationUrn=urn)
+            for urn in task_run.artifacts.input_dataset_urns
+        ]
         if input_edges:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dpi_urn,
@@ -480,15 +658,12 @@ class VertexAIPipelineExtractor:
                 ),
             ).as_workunit()
 
-        output_edges: List[EdgeClass] = []
-        if task.output_dataset_urns:
-            output_edges.extend(
-                [EdgeClass(destinationUrn=urn) for urn in task.output_dataset_urns]
-            )
-
-        # Note: Model outputs are tracked for downstream lineage but not emitted as edges here,
+        # Model outputs are tracked for downstream lineage but not emitted as edges here,
         # since we need to resolve resource names to URNs when processing the actual models
-
+        output_edges: List[EdgeClass] = [
+            EdgeClass(destinationUrn=urn)
+            for urn in task_run.artifacts.output_dataset_urns
+        ]
         if output_edges:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dpi_urn,
@@ -498,58 +673,44 @@ class VertexAIPipelineExtractor:
                 ),
             ).as_workunit()
 
-    def _gen_pipeline_task_lineage(
-        self, task: PipelineTaskMetadata
+    def _gen_task_lineage(
+        self, pending: _PendingTaskLineage
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit lineage for a task - either as patches (incremental) or full aspects (non-incremental)."""
-        task_urn_str = str(task.urn.urn())
+        """Send the pending links as add patches, whatever `incremental_lineage` says.
 
-        input_datasets = (
-            [
-                urn
-                for urn in task.input_dataset_urns
-                if guess_entity_type(urn) == DatasetUrn.ENTITY_TYPE
-            ]
-            if task.input_dataset_urns
-            else []
-        )
-        output_datasets = (
-            [
-                urn
-                for urn in task.output_dataset_urns
-                if guess_entity_type(urn) == DatasetUrn.ENTITY_TYPE
-            ]
-            if task.output_dataset_urns
-            else []
-        )
-
-        upstream_jobs = task.upstreams if task.upstreams else []
-
-        if self.config.incremental_lineage:
-            patch_builder = DataJobPatchBuilder(task_urn_str)
-
-            for input_urn in input_datasets:
-                patch_builder.add_input_dataset(input_urn)
-            for output_urn in output_datasets:
-                patch_builder.add_output_dataset(output_urn)
-            for upstream_urn in upstream_jobs:
-                patch_builder.add_input_datajob(upstream_urn)
-
-            for patch_mcp in patch_builder.build():
-                yield MetadataWorkUnit(
-                    id=f"{task_urn_str}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
-                )
-        else:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=task_urn_str,
-                aspect=DataJobInputOutputClass(
-                    inputDatasets=input_datasets,
-                    outputDatasets=output_datasets,
-                    inputDatajobs=[urn.urn() for urn in upstream_jobs]
-                    if upstream_jobs
-                    else [],
+        A task keeps the links of all its runs, and a link stays after a pipeline
+        stops using a table. A task with no links gets no patch.
+        """
+        patches_sent = 0
+        links_sent = 0
+        for task_urn, links in pending.tasks.items():
+            adds: List[Tuple[Callable[[DataJobPatchBuilder, str], object], str]] = [
+                *(
+                    (DataJobPatchBuilder.add_input_dataset, urn)
+                    for urn in links.input_datasets
                 ),
-            ).as_workunit()
+                *(
+                    (DataJobPatchBuilder.add_output_dataset, urn)
+                    for urn in links.output_datasets
+                ),
+                *(
+                    (DataJobPatchBuilder.add_input_datajob, urn)
+                    for urn in links.upstream_jobs
+                ),
+            ]
+            links_sent += len(adds)
+            for start in range(0, len(adds), LINEAGE_MAX_LINKS_PER_PATCH):
+                patch_builder = DataJobPatchBuilder(task_urn)
+                for add, urn in adds[start : start + LINEAGE_MAX_LINKS_PER_PATCH]:
+                    add(patch_builder, urn)
+                for patch_mcp in patch_builder.build():
+                    patches_sent += 1
+                    yield MetadataWorkUnit(
+                        id=f"{task_urn}-{patch_mcp.aspectName}-{next(self._lineage_patch_numbers)}",
+                        mcp_raw=patch_mcp,
+                    )
+        pending.clear()
+        self.report.report_pipeline_lineage_sent(patches=patches_sent, links=links_sent)
 
     def _extract_pipeline_task_artifacts(
         self,
@@ -621,85 +782,96 @@ class VertexAIPipelineExtractor:
             output_model_resource_names=output_model_resource_names,
         )
 
-    def _get_pipeline_tasks_metadata(
+    def _read_task_runs(
+        self, pipeline: PipelineJob, pipeline_urn: DataFlowUrn, tree: RunTree
+    ) -> List[PipelineTaskRunMetadata]:
+        task_runs: List[PipelineTaskRunMetadata] = []
+        for run in tree.runs:
+            logger.debug(
+                f"reading task run ({run.run_path}) in pipeline ({pipeline.name})"
+            )
+            # Keeps the URN shape the artifact tracker has always used.
+            tracker_urn = builder.make_data_process_instance_urn(
+                self.name_formatter.format_pipeline_task_run_id(entity_id=run.step.path)
+            )
+            read_artifacts = self._read_detail(
+                DetailCalls.PIPELINE_TASK_ARTIFACTS,
+                partial(self._extract_pipeline_task_artifacts, run.detail, tracker_urn),
+                item=f"{pipeline_urn.flow_id}/{pipeline.name}/{run.run_path}",
+            )
+            task_runs.append(
+                PipelineTaskRunMetadata(
+                    run=run, artifacts=read_artifacts.value or PipelineTaskArtifacts()
+                )
+            )
+        return task_runs
+
+    def _report_details_without_run(
         self,
         pipeline: PipelineJob,
+        *,
+        title: str,
+        message: str,
+        count: Callable[[int], None],
+        label: str,
+        details: List[str],
+    ) -> None:
+        """Count `details` and write one warning naming a sample of them."""
+        if not details:
+            return
+        count(len(details))
+        self.report.warning(
+            title=title,
+            message=message,
+            context=(
+                f"pipeline={pipeline.name}, {label}={len(details)}, "
+                f"sample={details[:UNMATCHED_SAMPLE_SIZE]}"
+            ),
+        )
+
+    def _get_pipeline_tasks_metadata(
+        self,
         pipeline_urn: DataFlowUrn,
-        task_details: List[PipelineTaskDetail],
+        steps: Mapping[str, PipelineStep],
+        task_runs: List[PipelineTaskRunMetadata],
     ) -> List[PipelineTaskMetadata]:
+        runs_by_step: Dict[str, List[PipelineTaskRunMetadata]] = {}
+        for task_run in task_runs:
+            runs_by_step.setdefault(task_run.run.step.path, []).append(task_run)
+
         tasks: List[PipelineTaskMetadata] = list()
-        task_map: Dict[str, PipelineTaskDetail] = dict()
-        for task in task_details:
-            task_map[task.task_name] = task
-
-        spec_tasks = self._pipeline_spec(pipeline)
-        for key in ("root", "dag", "tasks"):
-            spec_tasks = _as_mapping(spec_tasks.get(key, {}))
-        for task_name in spec_tasks:
-            logger.debug(
-                f"fetching pipeline task ({task_name}) in pipeline ({pipeline.name})"
-            )
-            task_urn = DataJobUrn.create_from_ids(
-                data_flow_urn=pipeline_urn.urn(),
-                job_id=task_name,
-            )
-            task_meta = PipelineTaskMetadata(name=task_name, urn=task_urn)
-
-            dpi_urn = builder.make_data_process_instance_urn(
-                self.name_formatter.format_pipeline_task_run_id(entity_id=task_name)
-            )
-            task_spec = _as_mapping(spec_tasks[task_name])
-            if "dependentTasks" in task_spec:
-                upstream_tasks = task_spec["dependentTasks"]
-                if isinstance(upstream_tasks, (str, bytes)) or not isinstance(
-                    upstream_tasks, Sequence
-                ):
-                    raise TypeError(
-                        f"Expected a list of dependentTasks, got {type(upstream_tasks)}"
-                    )
-                upstream_urls = [
-                    DataJobUrn.create_from_ids(
-                        data_flow_urn=pipeline_urn.urn(),
-                        job_id=str(upstream_task),
-                    )
-                    for upstream_task in upstream_tasks
-                ]
-                task_meta.upstreams = upstream_urls
-
-            task_detail = task_map.get(task_name)
-            if task_detail:
-                task_meta.id = task_detail.task_id
-                task_meta.state = task_detail.state
-                task_meta.start_time = task_detail.start_time
-                task_meta.create_time = task_detail.create_time
-                if task_detail.end_time and task_meta.start_time:
-                    task_meta.end_time = task_detail.end_time
-                    if task_meta.start_time and task_meta.end_time:
-                        task_meta.duration = int(
-                            (
-                                task_meta.end_time.timestamp()
-                                - task_meta.start_time.timestamp()
-                            )
-                            * 1000
-                        )
-
-                read_artifacts = self._read_detail(
-                    DetailCalls.PIPELINE_TASK_ARTIFACTS,
-                    partial(
-                        self._extract_pipeline_task_artifacts,
-                        task_detail,
-                        dpi_urn,
+        for step in steps.values():
+            step_runs = runs_by_step.get(step.path, [])
+            tasks.append(
+                PipelineTaskMetadata(
+                    path=step.path,
+                    shown_name=step.shown_name,
+                    parent_path=step.parent_path,
+                    urn=DataJobUrn.create_from_ids(
+                        data_flow_urn=pipeline_urn.urn(), job_id=step.path
                     ),
-                    item=f"{pipeline_urn.flow_id}/{pipeline.name}/{task_name}",
+                    upstreams=[
+                        DataJobUrn.create_from_ids(
+                            data_flow_urn=pipeline_urn.urn(), job_id=upstream_path
+                        )
+                        for upstream_path in step.upstream_paths
+                    ],
+                    input_dataset_urns=list(
+                        dict.fromkeys(
+                            urn
+                            for step_run in step_runs
+                            for urn in step_run.artifacts.input_dataset_urns
+                        )
+                    ),
+                    output_dataset_urns=list(
+                        dict.fromkeys(
+                            urn
+                            for step_run in step_runs
+                            for urn in step_run.artifacts.output_dataset_urns
+                        )
+                    ),
                 )
-                artifacts = read_artifacts.value or PipelineTaskArtifacts()
-                task_meta.input_dataset_urns = artifacts.input_dataset_urns
-                task_meta.output_dataset_urns = artifacts.output_dataset_urns
-                task_meta.output_model_resource_names = (
-                    artifacts.output_model_resource_names
-                )
-
-            tasks.append(task_meta)
+            )
         return tasks
 
     def _get_pipeline_metadata(
@@ -707,11 +879,28 @@ class VertexAIPipelineExtractor:
     ) -> PipelineMetadata:
         stable_id = self._get_stable_pipeline_id(pipeline)
         dataflow_urn = self._flow_urn(pipeline)
-        tasks = self._get_pipeline_tasks_metadata(
-            pipeline=pipeline,
-            pipeline_urn=dataflow_urn,
-            task_details=task_details,
+        steps = build_step_tree(self._pipeline_spec(pipeline))
+        tree = build_run_tree(steps, task_details, run_name=pipeline.name)
+        self.report.report_pipeline_loop_passes(tree.loop_passes)
+        self.report.report_pipeline_task_runs_skipped_not_started(tree.not_started)
+        self._report_details_without_run(
+            pipeline,
+            title=UNMATCHED_DETAILS_TITLE,
+            message=UNMATCHED_DETAILS,
+            count=self.report.report_pipeline_task_details_without_step,
+            label="unmatched",
+            details=tree.unmatched,
         )
+        self._report_details_without_run(
+            pipeline,
+            title=EXTRA_ROOT_DETAILS_TITLE,
+            message=EXTRA_ROOT_DETAILS,
+            count=self.report.report_pipeline_task_details_extra_roots,
+            label="extra",
+            details=tree.extra_roots,
+        )
+        task_runs = self._read_task_runs(pipeline, dataflow_urn, tree)
+        tasks = self._get_pipeline_tasks_metadata(dataflow_urn, steps, task_runs)
 
         pipeline_meta = PipelineMetadata(
             name=pipeline.name,
@@ -719,6 +908,7 @@ class VertexAIPipelineExtractor:
             resource_name=pipeline.resource_name,
             urn=dataflow_urn,
             tasks=tasks,
+            task_runs=task_runs,
         )
         pipeline_meta.resource_name = pipeline.resource_name
         pipeline_meta.labels = pipeline.labels
@@ -729,10 +919,11 @@ class VertexAIPipelineExtractor:
         update_time = pipeline.gca_resource.update_time
         if update_time:
             pipeline_meta.update_time = update_time
-            pipeline_meta.duration = timedelta(
-                milliseconds=datetime_to_ts_millis(update_time)
-                - datetime_to_ts_millis(pipeline.create_time)
-            )
+            if pipeline.create_time:
+                pipeline_meta.duration = timedelta(
+                    milliseconds=datetime_to_ts_millis(update_time)
+                    - datetime_to_ts_millis(pipeline.create_time)
+                )
         return pipeline_meta
 
     def _format_pipeline_duration(self, td: timedelta) -> str:
@@ -753,17 +944,6 @@ class VertexAIPipelineExtractor:
         if milliseconds:
             parts.append(f"{milliseconds}{DurationUnit.MILLISECONDS}")
         return " ".join(parts) if parts else f"0{DurationUnit.SECONDS}"
-
-    def _get_pipeline_task_properties(
-        self, task: PipelineTaskMetadata
-    ) -> PipelineTaskProperties:
-        return PipelineTaskProperties(
-            created_time=(
-                task.create_time.strftime(DateTimeFormat.TIMESTAMP)
-                if task.create_time
-                else ""
-            )
-        )
 
     def _get_pipeline_properties(
         self, pipeline: PipelineMetadata

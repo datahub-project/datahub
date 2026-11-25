@@ -1,0 +1,118 @@
+{
+ "createTime": "2026-11-23T10:32:28.805166Z",
+ "displayName": "demo-cache-2",
+ "endTime": "2026-11-23T10:32:30.995775Z",
+ "jobDetail": {
+  "taskDetails": [
+   {
+    "createTime": "2026-11-23T10:32:29.786447Z",
+    "endTime": "2026-11-23T10:32:30.208173Z",
+    "execution": {
+     "state": 5
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "failedMainJobs": [],
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/1000000000000000004"
+     }
+    },
+    "parentTaskId": "1000000000000000010",
+    "pipelineTaskStatus": [
+     {
+      "state": 8,
+      "updateTime": "2026-11-23T10:32:30.101059912Z"
+     }
+    ],
+    "startTime": "2026-11-23T10:32:30.208173Z",
+    "state": 8,
+    "taskId": "-1000000000000000009",
+    "taskName": "emit",
+    "taskUniqueName": "emit"
+   },
+   {
+    "createTime": "2026-11-23T10:32:29.786447Z",
+    "endTime": "2026-11-23T10:32:30.788228Z",
+    "execution": {
+     "state": 5
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "failedMainJobs": [
+       "projects/123456789012/locations/us-central1/customJobs/1000000000000000007"
+      ],
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/1000000000000000006"
+     }
+    },
+    "parentTaskId": "1000000000000000010",
+    "pipelineTaskStatus": [
+     {
+      "state": 8,
+      "updateTime": "2026-11-23T10:32:30.681712294Z"
+     }
+    ],
+    "startTime": "2026-11-23T10:32:30.788228Z",
+    "state": 8,
+    "taskId": "1000000000000000011",
+    "taskName": "flaky",
+    "taskUniqueName": "flaky"
+   },
+   {
+    "createTime": "2026-11-23T10:32:29.389439Z",
+    "endTime": "2026-11-23T10:32:30.980664Z",
+    "execution": {
+     "state": 3
+    },
+    "parentTaskId": "0",
+    "pipelineTaskStatus": [
+     {
+      "state": 3,
+      "updateTime": "2026-11-23T10:32:30.825220806Z"
+     }
+    ],
+    "startTime": "2026-11-23T10:32:29.786447Z",
+    "state": 3,
+    "taskId": "1000000000000000010",
+    "taskName": "demo-cache-20261123160226",
+    "taskUniqueName": "demo-cache-20261123160226"
+   }
+  ]
+ },
+ "labels": {
+  "vertex-ai-pipelines-run-billing-id": "1000000000000000008"
+ },
+ "name": "projects/123456789012/locations/us-central1/pipelineJobs/demo-cache-20261123160226",
+ "pipelineSpec": {
+  "components": {},
+  "pipelineInfo": {
+   "name": "demo-cache"
+  },
+  "root": {
+   "dag": {
+    "tasks": {
+     "emit": {
+      "componentRef": {
+       "name": "comp-emit"
+      },
+      "taskInfo": {
+       "name": "emit"
+      }
+     },
+     "flaky": {
+      "componentRef": {
+       "name": "comp-flaky"
+      },
+      "dependentTasks": [
+       "emit"
+      ],
+      "taskInfo": {
+       "name": "flaky"
+      }
+     }
+    }
+   }
+  }
+ },
+ "startTime": "2026-11-23T10:32:29.389439Z",
+ "state": 4,
+ "updateTime": "2026-11-23T10:32:30.995775Z"
+}

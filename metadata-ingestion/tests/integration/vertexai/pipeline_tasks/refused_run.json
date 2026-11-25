@@ -1,0 +1,45 @@
+{
+ "createTime": "2026-11-23T10:15:26.921352Z",
+ "displayName": "demo-cache-1",
+ "endTime": "2026-11-23T10:20:31.966812Z",
+ "error": {
+  "message": "Failed to create pipeline job. Error: Service account `123456789012-compute@developer.gserviceaccount.com` does not have"
+ },
+ "labels": {
+  "vertex-ai-pipelines-run-billing-id": "1000000000000000025"
+ },
+ "name": "projects/123456789012/locations/us-central1/pipelineJobs/demo-cache-20261123154523",
+ "pipelineSpec": {
+  "components": {},
+  "pipelineInfo": {
+   "name": "demo-cache"
+  },
+  "root": {
+   "dag": {
+    "tasks": {
+     "emit": {
+      "componentRef": {
+       "name": "comp-emit"
+      },
+      "taskInfo": {
+       "name": "emit"
+      }
+     },
+     "flaky": {
+      "componentRef": {
+       "name": "comp-flaky"
+      },
+      "dependentTasks": [
+       "emit"
+      ],
+      "taskInfo": {
+       "name": "flaky"
+      }
+     }
+    }
+   }
+  }
+ },
+ "state": 5,
+ "updateTime": "2026-11-23T10:20:31.966812Z"
+}
