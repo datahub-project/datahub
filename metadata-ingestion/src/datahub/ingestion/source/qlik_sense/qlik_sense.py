@@ -16,21 +16,16 @@ from typing import (
     Dict,
     Iterable,
     List,
-    Mapping,
     Optional,
     Set,
     Tuple,
-    TypeVar,
     Union,
 )
-
-from pydantic import BaseModel, ConfigDict
 
 import datahub.emitter.mce_builder as builder
 from datahub._version import __version__
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_entity_to_container, gen_containers
-from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -77,10 +72,9 @@ from datahub.ingestion.source.qlik_sense.constants import (
     APP_PARTLY_READ_TITLE,
     BINARY_TABLES_UNKNOWN,
     CHECKPOINT_LOAD_FAILED_TITLE,
-    DATA_FILES_CONNECTION,
     DATAHUB_LINEAGE_READ_FAILED_TITLE,
+    DUPLICATE_TABLE_NAME_RE,
     ENTITY_CHECK_BATCH_SIZE,
-    QLIK_APP_QRI_RE,
     QVD_EXTENSION,
     SCRIPT_TABLE_LINEAGE_SKIPPED,
     UNQUALIFIED_TABLES_SKIPPED,
@@ -102,7 +96,6 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     Item,
     LineageTable,
     LineageUpstreams,
-    ListedDataset,
     QlikDataset,
     QlikTable,
     ReloadStatement,
@@ -124,6 +117,21 @@ from datahub.ingestion.source.qlik_sense.file_lineage import (
     normalized_file_path,
     qri_part_id,
 )
+from datahub.ingestion.source.qlik_sense.lib_path import (
+    _connection_key,
+    _is_ambiguous_connection,
+    _is_ambiguous_lib_path,
+    _is_data_files,
+    _lib_connection,
+    _lib_name,
+    _lib_path,
+    _lib_path_parts,
+    _lib_path_segments,
+    _named_space,
+    _path_has_label,
+    _path_key,
+    _path_space,
+)
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     UNREAD_DATA_CONNECTIONS,
@@ -140,6 +148,24 @@ from datahub.ingestion.source.qlik_sense.qvd_lineage import (
     app_qvd_lineage,
     canonical_path,
     stored_fields,
+)
+from datahub.ingestion.source.qlik_sense.reload_sql import (
+    READ_QUERY_TYPES,
+    RELOAD_SQL_RE,
+    RELOAD_UNPARSED_SQL_RE,
+    _database_qri_platform,
+    _label_parts,
+    _merged_lineage,
+    _names_identifier,
+    _ParsedReloadSql,
+    _reload_files,
+    _ReloadFile,
+    _ReloadSql,
+    _string_literal_table_names,
+    _table_clause_names,
+    _untraced_source_groups,
+    _UntracedSources,
+    _urn_names_table,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     BACKTICK_QUOTED_PLATFORMS,
@@ -172,6 +198,35 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     select_list_size,
     stores_in_competing_branches,
     unquoted_values,
+)
+from datahub.ingestion.source.qlik_sense.source_models import (
+    PendingStoredFile,
+    PendingTableLineage,
+    _BinaryLink,
+    _BinaryLoad,
+    _FileSourceResolution,
+    _GraphNamedApps,
+    _ParsedApp,
+    _PartialRead,
+    _ResolvedSources,
+    _StorageFile,
+)
+from datahub.ingestion.source.qlik_sense.source_utils import (
+    MappingT,
+    _app_field_names,
+    _bounded_list,
+    _dataset_display_name,
+    _dataset_subtype,
+    _error_type,
+    _get_ignoring_case,
+    _is_qvd,
+    _own_table_urns,
+    _patch_workunits,
+    _qlik_app_id,
+    _qlik_field_id,
+    _qvd_fields,
+    _refs_of_field_sources as _refs_of_field_sources,
+    _schema_field_parent,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
     STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
@@ -224,663 +279,19 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SchemaFieldDataTypeClass,
 )
-from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
+from datahub.metadata.urns import DatasetUrn
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
-from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
-    ColumnRef,
     SqlParsingResult,
     column_refs_to_schema_field_urns,
     create_lineage_sql_parsed_result,
     create_schema_resolver,
 )
-from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import guess_entity_type
 
 # Logger instance
 logger = logging.getLogger(__name__)
-
-MappingT = TypeVar("MappingT")
-
-
-class _PartialRead(StrEnum):
-    KEPT = "kept"
-    LIMIT_REACHED = "limit_reached"
-    NOT_KEPT = "not_kept"
-
-
-class _LibConnection(BaseModel):
-    # "" when the `lib://` connection is not qualified by a space.
-    space: str
-    name: str
-
-
-def _lib_connection(connection: str) -> _LibConnection:
-    """Splits a `lib://` connection into its space and name. Qlik brackets a
-    name that holds the separator, as in `[Team: Sales]:Lake`."""
-    connection = connection.strip()
-    end = connection.find("]") if connection.startswith("[") else -1
-    if end > 0:
-        rest = connection[end + 1 :].strip()
-        if not rest:
-            return _LibConnection(space="", name=connection[1:end])
-        if rest.startswith(SPACE_SEPARATOR):
-            return _LibConnection(
-                space=connection[1:end],
-                name=rest[len(SPACE_SEPARATOR) :].strip().strip("[]"),
-            )
-    space, qualified, name = connection.partition(SPACE_SEPARATOR)
-    if not qualified:
-        return _LibConnection(space="", name=space.strip("[]"))
-    return _LibConnection(
-        space=space.strip().strip("[]"), name=name.strip().strip("[]")
-    )
-
-
-def _connection_key(lib_connection: _LibConnection) -> str:
-    # How Qlik Cloud's data connection listing keys a connection.
-    if not lib_connection.space:
-        return lib_connection.name
-    return f"{lib_connection.space}{SPACE_SEPARATOR}{lib_connection.name}"
-
-
-def _lib_name(name: str) -> str:
-    # Bracketed only when it must be, so other names keep their URNs.
-    return f"[{name}]" if SPACE_SEPARATOR in name else name
-
-
-def _is_data_files(connection: str) -> bool:
-    return _lib_connection(connection).name.lower() == DATA_FILES_CONNECTION
-
-
-def _get_ignoring_case(
-    mapping: Mapping[str, MappingT], name: str
-) -> Optional[MappingT]:
-    if name in mapping:
-        return mapping[name]
-    # Qlik resolves connection names regardless of case. A case variant is
-    # taken only when a single key matches it.
-    matches = [key for key in mapping if key.lower() == name.lower()]
-    return mapping[matches[0]] if len(matches) == 1 else None
-
-
-def _is_qvd(dataset: Union[QlikDataset, ListedDataset]) -> bool:
-    return dataset.type.upper() == "QVD" or dataset.name.lower().endswith(QVD_EXTENSION)
-
-
-def _dataset_subtype(dataset: QlikDataset) -> str:
-    return (
-        DatasetSubTypes.QLIK_QVD if _is_qvd(dataset) else DatasetSubTypes.QLIK_DATASET
-    )
-
-
-def _dataset_display_name(dataset: QlikDataset) -> str:
-    # The URN keeps the file name, so `sales.qvd` and `sales.csv` in one space
-    # stay apart and QVDs ingested before keep their URNs.
-    if _is_qvd(dataset) and dataset.name.lower().endswith(QVD_EXTENSION):
-        return dataset.name[: -len(QVD_EXTENSION)]
-    return dataset.name
-
-
-def _qvd_fields(writes: List[QvdWrite], reads: List[str]) -> Optional[List[str]]:
-    """A QVD's fields: what its writers store, or failing that what its readers
-    load, which may be only some of them. None when unknown."""
-    if writes:
-        if any(write.fields is None for write in writes):
-            return None
-        return list(
-            dict.fromkeys(
-                field.name for write in writes for field in write.fields or []
-            )
-        )
-    return reads or None
-
-
-# A reload statement that ran SQL: Qlik keeps the `SQL` prefix when the script
-# used one, and a bare `SELECT` or `WITH` is SQL too.
-RELOAD_SQL_RE = re.compile(
-    r"^\s*(?:SQL\b|(?=(?:SELECT|WITH)\b))(?P<sql>.*)$", re.IGNORECASE | re.DOTALL
-)
-# Other SQL a reload may have run without the prefix, which is never parsed
-# for lineage but may read the tables a label names.
-RELOAD_UNPARSED_SQL_RE = re.compile(
-    r"^\s*(?:EXEC|EXECUTE|INSERT|MERGE|UPDATE|DELETE)\b", re.IGNORECASE
-)
-# Reload statements whose tables can be load sources of the app.
-READ_QUERY_TYPES = {QueryType.SELECT, QueryType.INSERT}
-QUOTE_CHARACTERS = '[]"`'
-# A file an app's last reload stored or loaded, as Qlik records it, such as
-# `STORE - lib://<space>:DataFiles/orders.qvd;` or `{lib://... (txt)};`.
-RELOAD_FILE_RE = re.compile(
-    r"^\{?(?P<store>STORE - )?(?P<path>lib://[^{}]+?)\}?;?$", re.IGNORECASE
-)
-
-
-class _ReloadFile(BaseModel):
-    path: str
-    stored: bool
-
-
-class _GraphNamedApps(BaseModel):
-    apps: Set[str]
-    # Whether an app keeps the dataset from its last read, as this run could
-    # not tell its sources, such as when its upstream graph could not be read.
-    graph_unread: bool
-
-
-class _ReloadFiles(BaseModel):
-    files: List[_ReloadFile] = []
-    # Statements that name a `lib://` path in a form RELOAD_FILE_RE doesn't know.
-    unrecognised: List[str] = []
-
-
-def _without_file_format(path: str) -> str:
-    """The path without a trailing file format, such as `(qvd)` or
-    `(ooxml, filters(Remove(Row, Pos(Top, 1))))`."""
-    depth = 0
-    for i in range(len(path) - 1, -1, -1) if path.endswith(")") else []:
-        depth += {")": 1, "(": -1}.get(path[i], 0)
-        if depth == 0:
-            return path[:i].rstrip() if path[:i].endswith(" ") else path
-    return path
-
-
-def _reload_files(statements: List[ReloadStatement]) -> _ReloadFiles:
-    result = _ReloadFiles()
-    for statement in statements:
-        discriminator = statement.discriminator.strip()
-        match = RELOAD_FILE_RE.match(discriminator)
-        if match:
-            file = _ReloadFile(
-                path=_without_file_format(match.group("path").strip()),
-                stored=bool(match.group("store")),
-            )
-            if file not in result.files:
-                result.files.append(file)
-        elif "lib://" in discriminator.lower():
-            result.unrecognised.append(discriminator)
-    return result
-
-
-def _is_ambiguous_connection(connection: str) -> bool:
-    # Qlik load records drop the brackets around a name holding the separator,
-    # so `team: sales:lake` may be space `team: sales` or connection `sales:lake`.
-    return re.sub(r"\[[^\]]*\]", "", connection).count(SPACE_SEPARATOR) > 1
-
-
-def _named_space(connection: str) -> Optional[str]:
-    """The space a `<space>:<connection>` name, or the connection part of a
-    `lib://` path, names."""
-    if _is_ambiguous_connection(connection):
-        return None
-    return _lib_connection(connection).space or None
-
-
-def _is_ambiguous_lib_path(path: str) -> bool:
-    match = LIB_PATH_RE.match(path)
-    return match is not None and _is_ambiguous_connection(match.group("connection"))
-
-
-def _path_space(path: str) -> Optional[str]:
-    match = LIB_PATH_RE.match(path)
-    return _named_space(match.group("connection")) if match else None
-
-
-def _path_key(path: str) -> str:
-    # Qlik records loads in lowercase, and brackets around a space name with
-    # spaces are optional.
-    return path.lower().replace("[", "").replace("]", "")
-
-
-def _lib_path_segments(path: str) -> Optional[List[str]]:
-    """The space, connection, folders and file of a `lib://` path. The space
-    is empty when the path doesn't name one."""
-    match = LIB_PATH_RE.match(path)
-    if not match or "$(" in path or _is_ambiguous_connection(match.group("connection")):
-        return None
-    connection = _lib_connection(match.group("connection"))
-    return [
-        # Optional brackets are kept as the script spelled them.
-        f"[{name}]" if name and f"[{name}]" in match.group("connection") else name
-        for name in (connection.space, connection.name)
-    ] + _lib_path_parts(match.group("path"))
-
-
-def _lib_path_parts(path: str) -> List[str]:
-    return [part for part in re.split(r"[/\\]", path) if part]
-
-
-def _lib_path(segments: List[str]) -> str:
-    space, connection, *rest = segments
-    space, connection = (
-        name if name.startswith("[") else _lib_name(name)
-        for name in (space, connection)
-    )
-    qualified = f"{space}{SPACE_SEPARATOR}{connection}" if space else connection
-    return "/".join([f"lib://{qualified}", *rest])
-
-
-def _path_key_parts(path: str) -> List[str]:
-    return [part for part in re.split(r"[/\\]", _path_key(path)) if part]
-
-
-def _path_has_label(path: str, label: str) -> bool:
-    """Whether Qlik's label for the file, which holds its folders under the
-    connection, is the whole path under the connection."""
-    match = LIB_PATH_RE.match(path)
-    return match is not None and _path_key_parts(
-        match.group("path")
-    ) == _path_key_parts(label)
-
-
-def _label_parts(label: str) -> List[str]:
-    return [part.strip().strip(QUOTE_CHARACTERS).lower() for part in label.split(".")]
-
-
-def _names_identifier(sql: str, name: str) -> bool:
-    """Whether lowercased SQL names `name` as a whole identifier, so that
-    `orders_archive` doesn't count as naming `orders`."""
-    return re.search(rf"(?<![\w$#@]){re.escape(name)}(?![\w$#@])", sql) is not None
-
-
-# Comments, string literals, quoted identifiers, words and single characters.
-SQL_TOKEN_RE = re.compile(
-    r"/\*[\s\S]*?(?:\*/|\Z)|--[^\n]*"
-    r"|'(?:[^']|'')*'?|\[[^\]]*\]?|\"[^\"]*\"?|`[^`]*`?|[\w$#@]+|\S"
-)
-# Keywords after which SQL names the tables it reads or writes.
-TABLE_CLAUSE_KEYWORDS = {"from", "join", "into", "using", "update"}
-# SQL Server allows `INSERT t`, `MERGE t` and `DELETE t` without INTO or FROM.
-DML_STATEMENT_KEYWORDS = {"insert", "merge", "delete"}
-# CROSS APPLY and OUTER APPLY start a table list again.
-APPLY_PREFIX_KEYWORDS = {"cross", "outer"}
-# Keywords that end such a list of tables.
-TABLE_CLAUSE_END_KEYWORDS = {
-    "where",
-    "group",
-    "order",
-    "having",
-    "union",
-    "intersect",
-    "except",
-    "minus",
-    "on",
-    "inner",
-    "left",
-    "right",
-    "full",
-    "cross",
-    "outer",
-    "natural",
-    "limit",
-    "qualify",
-    "window",
-    "select",
-    "values",
-    "set",
-    "fetch",
-    "offset",
-    "when",
-    "then",
-    "pivot",
-    "unpivot",
-}
-
-
-# Keywords that end a table name but not the FROM clause it is in.
-JOIN_KEYWORDS = {"on", "inner", "left", "right", "full", "cross", "outer", "natural"}
-
-
-def _table_clause_names(sql: str) -> Set[str]:
-    """The lowercased names in the table lists of SQL, after FROM, JOIN and
-    INTO, so that a keyword such as ORDER in ORDER BY doesn't count as naming
-    a table called `order`. Aliases and the parts of qualified names are
-    included, and so are the names in string literals, which may hold SQL
-    run dynamically."""
-    names: Set[str] = set()
-    in_clause = False
-    # Still in a FROM clause after a join's ON condition, where a comma
-    # starts another table, as in `FROM a JOIN b ON a.id = b.id, orders c`.
-    in_from = False
-    # Right after FROM, a comma or a dot, a keyword such as ORDER is a name.
-    expects_name = False
-    previous = ""
-    statement_start = True
-    stack: List[Tuple[bool, bool]] = []
-    for token in SQL_TOKEN_RE.findall(sql):
-        if token.startswith(("/*", "--")):
-            continue
-        is_word = re.match(r"[\w$#@]", token) is not None
-        opens_clause = False
-        if token.startswith("'"):
-            names |= _table_clause_names(token.strip("'").replace("''", "'"))
-        elif token == "(":
-            stack.append((in_clause, in_from))
-            in_clause = in_from = False
-        elif token == ")":
-            in_clause, in_from = stack.pop() if stack else (False, False)
-        elif token == ";":
-            in_clause = in_from = False
-        elif token == "," and in_from and not in_clause:
-            in_clause = opens_clause = True
-        elif token[0] in QUOTE_CHARACTERS:
-            if in_clause:
-                names.add(token.strip(QUOTE_CHARACTERS).strip().lower())
-        elif is_word:
-            word = token.lower()
-            if (statement_start and word in DML_STATEMENT_KEYWORDS) or (
-                previous in DML_STATEMENT_KEYWORDS and word in {"into", "from"}
-            ):
-                in_clause = opens_clause = True
-            elif in_clause and expects_name:
-                names.add(word)
-            elif word in TABLE_CLAUSE_KEYWORDS or (
-                word == "apply" and previous in APPLY_PREFIX_KEYWORDS
-            ):
-                in_clause = opens_clause = True
-            elif word in TABLE_CLAUSE_END_KEYWORDS:
-                in_clause = False
-                in_from = in_from and word in JOIN_KEYWORDS
-            elif in_clause:
-                names.add(word)
-        if opens_clause:
-            in_from = True
-        expects_name = opens_clause or (in_clause and token in {",", "."})
-        previous = token.lower() if is_word else ""
-        statement_start = token == ";"
-    return names
-
-
-def _string_literal_table_names(sql: str) -> Set[str]:
-    return {
-        name
-        for token in SQL_TOKEN_RE.findall(sql)
-        if token.startswith("'")
-        for name in _table_clause_names(token.strip("'").replace("''", "'"))
-    }
-
-
-def _database_qri_platform(source_qri: str) -> str:
-    scheme = source_qri[len(DATABASE_QRI_PREFIX) :].partition("://")[0].lower()
-    # A scheme that isn't mapped is compared as is, such as `oracle`, so one
-    # that names no DataHub platform matches nothing.
-    return KNOWN_DATA_PLATFORM_MAPPING.get(scheme, scheme)
-
-
-def _urn_names_table(urn: str, source_qri: str, label: str) -> bool:
-    """Whether a dataset URN is the database table a lineage graph node, such
-    as `qri:db:sqlserver://<hash>#<hash>` labelled `dbo.orders`, names. The
-    label leaves out the database, and the URN's case may differ from it."""
-    dataset = DatasetUrn.from_string(urn)
-    platform = _database_qri_platform(source_qri)
-    if dataset.platform != builder.make_data_platform_urn(platform):
-        return False
-    parts = _label_parts(label)
-    return dataset.name.lower().split(".")[-len(parts) :] == parts
-
-
-class _ReloadSql(BaseModel):
-    """A SQL statement of an app's last reload, with the tables it reads."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    upstream_urns: List[str]
-    result: SqlParsingResult
-    # The tables DataHub holds no schema for, when DataHub was asked.
-    urns_without_schema: List[str] = []
-
-
-class _ParsedReloadSql(BaseModel):
-    statements: List[_ReloadSql] = []
-    # The names in the table lists of statements that may name a label but
-    # were not read, for an unresolved connection, a parse error or dynamic
-    # SQL, and the names of tables read without their database or schema.
-    skipped_table_names: Set[str] = set()
-    # A statement kept a variable Qlik did not expand, so it may name any
-    # table.
-    unexpanded_variable: bool = False
-
-
-class _UntracedSources(BaseModel):
-    """Database sources of a graph table that the load script doesn't trace
-    and whose labels may name the same table, such as `dbo.orders` in two
-    databases."""
-
-    name: str
-    labels: Dict[str, str]
-    # How many of them the script traced to a table any of them may name, so
-    # without telling which.
-    traced_count: int = 0
-    # The tables the script linked, which the reload SQL can't link again.
-    script_urns: List[str] = []
-
-
-def _untraced_source_groups(
-    labels: Dict[str, str], script_urns: List[str]
-) -> List[_UntracedSources]:
-    """The database sources, by graph QRI and label, that the script's tables
-    don't trace. A script table traces a source only when it is the one source
-    of the graph table that could be it."""
-    groups: Dict[Tuple[str, str], Dict[str, str]] = {}
-    for qri, label in labels.items():
-        key = (_database_qri_platform(qri), _label_parts(label)[-1])
-        groups.setdefault(key, {})[qri] = label
-    untraced: List[_UntracedSources] = []
-    for (_, name), group in groups.items():
-        sources = _UntracedSources(
-            name=name, labels=dict(group), script_urns=script_urns
-        )
-        for urn in script_urns:
-            named = [
-                qri for qri, label in group.items() if _urn_names_table(urn, qri, label)
-            ]
-            if len(named) == 1:
-                sources.labels.pop(named[0], None)
-            elif named:
-                sources.traced_count += 1
-        if len(sources.labels) > sources.traced_count:
-            untraced.append(sources)
-    return untraced
-
-
-def _merged_lineage(
-    script_table: ScriptTableLineage, reload_table: ScriptTableLineage
-) -> ScriptTableLineage:
-    upstream_urns = list(script_table.upstream_urns)
-    upstream_urns.extend(
-        urn for urn in reload_table.upstream_urns if urn not in upstream_urns
-    )
-    column_upstreams = {
-        column: list(upstreams)
-        for column, upstreams in script_table.column_upstreams.items()
-    }
-    # The parser may fold the case of the script's columns, so the reload
-    # SQL's field joins the script's column of the same name in any case.
-    script_columns = {column.lower(): column for column in column_upstreams}
-    for column, upstreams in reload_table.column_upstreams.items():
-        merged = column_upstreams.setdefault(
-            script_columns.get(column.lower(), column), []
-        )
-        merged.extend(upstream for upstream in upstreams if upstream not in merged)
-    return script_table.model_copy(
-        update={"upstream_urns": upstream_urns, "column_upstreams": column_upstreams}
-    )
-
-
-def _own_table_urns(app_id: str, urns: Dict[str, str]) -> Dict[str, str]:
-    return {
-        qri: urn for qri, urn in urns.items() if _qlik_app_id(qri) in (None, app_id)
-    }
-
-
-def _qlik_app_id(qri: str) -> Optional[str]:
-    match = QLIK_APP_QRI_RE.match(qri)
-    return match.group(1) if match else None
-
-
-# A table Qlik renamed because its name was taken, such as `Orders-1`.
-DUPLICATE_TABLE_NAME_RE = re.compile(r"^(?P<name>.+)-\d+$")
-
-
-class _BinaryLink(BaseModel):
-    """A table an app BINARY loads from another app, whose lineage is written
-    once every app has been read."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    app_id: str
-    source_app_id: str
-    table: str
-    dataset_urn: str
-    fields: List[str]
-    # An included script that is not read could change the table.
-    additive: bool = False
-    # Named like a script table Qlik renamed, such as `Sales-1` beside a
-    # `Sales` load, so it is the file's only if the source app has it.
-    maybe_renamed_script_table: bool = False
-    # The table's lineage from the app's own script.
-    upstream_urns: List[str] = []
-    script_fields: List[FineGrainedLineage] = []
-
-
-class _ParsedApp(BaseModel):
-    """The last app whose script was parsed, with the parse."""
-
-    app: App
-    parsed: ParsedScript
-
-
-class _BinaryLoad(BaseModel):
-    """The tables an on-prem app's BINARY statement brings in, by identifier,
-    the app file, by URN, when it is linked to the file, and the tables linked
-    to the app the file was exported from, by URN."""
-
-    tables: Dict[str, ScriptTableLineage] = {}
-    paths: Dict[str, str] = {}
-    links: Dict[str, _BinaryLink] = {}
-
-
-class PendingTableLineage(BaseModel):
-    """What an app table's lineage is built from, kept until the end of the
-    run when a source field's name, or a source app's tables, are only read
-    later."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    app_id: str
-    table_label: str
-    dataset_urn: str
-    # Table-level sources in Qlik's lineage graph, resolved when the lineage
-    # is written.
-    source_qris: List[str]
-    script_upstream_urns: List[str]
-    # Why the app's script or tables, or the table's field lineage, were not
-    # read.
-    incomplete_reason: Optional[str]
-    script_fields: List[FineGrainedLineage]
-    field_source_qris: Dict[str, List[str]]
-
-
-class PendingStoredFile(BaseModel):
-    """An app's edges into a file it stores into on storage, written at the end
-    of the run, when every app that may share a stored table has been seen."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    app_id: str
-    file_urn: str
-    writes: List[QvdWrite]
-    # DataHub's lineage of the file; None when this app's edges are only added.
-    current: Optional[UpstreamLineage]
-    # Tables of the app whose edges into the file it may remove.
-    app_table_urns: Set[str]
-    # Only Parquet and text files have fields on storage; QVDs don't.
-    has_field_schema: bool
-
-
-def _schema_field_parent(urn: str) -> Optional[str]:
-    # Lineage another tool wrote may hold any kind of URN.
-    try:
-        return SchemaFieldUrn.from_string(urn).parent
-    except Exception:
-        return None
-
-
-def _app_field_names(app: App) -> List[str]:
-    names = [field.name for table in app.tables for field in table.datasetSchema]
-    names.extend(
-        field.name for table in app.data_model_tables for field in table.fields
-    )
-    names.extend(field for table in app.lineage_tables for field in table.fields)
-    return list(dict.fromkeys(names))
-
-
-def _qlik_field_id(name: str) -> str:
-    """The last part of a field node's QRI in Qlik's lineage graph, which is the
-    unpadded base64url SHA-256 of the field name. Not documented by Qlik, so it
-    is only used to confirm a name, never to make one up."""
-    return qri_part_id(name)
-
-
-def _refs_of_field_sources(
-    refs: List[ColumnRef], field_name: str, field_ids: Set[str]
-) -> List[ColumnRef]:
-    """The columns whose name Qlik's graph hashes into one of `field_ids`.
-    Qlik hashes the name the database returned, whose case the SQL and DataHub
-    may not share, so a column also matches the Qlik field it loads when that
-    field kept the source's name, unless another column differs from it only
-    in case."""
-    exact = [ref for ref in refs if _qlik_field_id(ref.column) in field_ids]
-    if exact or _qlik_field_id(field_name) not in field_ids:
-        return exact
-    folded = [ref for ref in refs if ref.column.lower() == field_name.lower()]
-    return folded if len({ref.column for ref in folded}) == 1 else []
-
-
-class _StorageFile(BaseModel):
-    # None when the file is not linked on storage, as a full read leaves it.
-    urn: Optional[str]
-
-
-class _ResolvedSources(BaseModel):
-    urns: List[str] = []
-    # Why sources could not be resolved this run.
-    unknown_reasons: List[str] = []
-
-    @property
-    def complete(self) -> bool:
-        return not self.unknown_reasons
-
-
-class _FileSourceResolution(BaseModel):
-    urn: Optional[str] = None
-    # The script reads the file through a connection whose storage, of the
-    # file's platform, is known, so the file has a storage URN even when it
-    # could not be told which.
-    on_known_storage: bool = False
-
-
-def _patch_workunits(
-    patch: MetadataPatchProposal, is_primary_source: bool
-) -> Iterable[MetadataWorkUnit]:
-    for mcp in patch.build():
-        yield MetadataWorkUnit(
-            id=MetadataWorkUnit.generate_workunit_id(mcp),
-            mcp_raw=mcp,
-            is_primary_source=is_primary_source,
-        )
-
-
-def _bounded_list(items: List[str], limit: int = 10) -> str:
-    more = f" (and {len(items) - limit} more)" if len(items) > limit else ""
-    return ", ".join(items[:limit]) + more
-
-
-def _error_type(error: Optional[Exception]) -> str:
-    # SQL parser errors quote the statement, which can hold credentials when a
-    # script statement was split wrongly, so only the type goes in the report.
-    return type(error).__name__ if error else "unknown"
 
 
 @platform_name("Qlik Sense")

@@ -10,6 +10,8 @@ DATA_FILES_CONNECTION = "datafiles"
 QLIK_APP_QRI_RE = re.compile(r"^qri:app:(?:sense|dataprep)://([^#]+)")
 # Entities per DataHub request when checking that a skipped app's entities exist.
 ENTITY_CHECK_BATCH_SIZE = 100
+# A table Qlik renamed because its name was taken, such as `Orders-1`.
+DUPLICATE_TABLE_NAME_RE = re.compile(r"^(?P<name>.+)-\d+$")
 
 # Why the QVD writes of an app with an unresolved STORE are not all known.
 UNRESOLVED_STORE = "a STORE path could not be resolved"
