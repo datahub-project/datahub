@@ -495,7 +495,7 @@ scripts/dev/datahub-dev.sh <command>
 
 Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `stop`, `suspend`,
 `setup`, `frontend`, `docs`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`,
-`sync-flags`, `reset`, `nuke`, `instances list/clean`, `shell-env`).
+`sync-flags`, `reset`, `nuke`, `instances list/clean/repair`, `indices list/drop/prune`, `shell-env`).
 
 ### Docker-free stack
 
@@ -519,6 +519,17 @@ and `shell-env` recognize local stacks. Local `nuke` removes this stack's data,
 indices, profiles and registry entry without restarting; `nuke --keep-data` only
 stops it and clears stale H2 locks. The shared search node survives both commands.
 Unmarked local registry entries are read-only and keep their slots reserved.
+Service env values come from the layered files under `env/` (see [env/README.md](env/README.md)).
+`start --local --timeout 600 --verbose` streams the launcher log; `status` reports boot timings.
+
+**Removing a worktree:** run `nuke` before `git worktree remove`, so the shared OpenSearch drops
+this stack's indices. `instances clean` and `indices list|drop|prune` are dry runs without `--yes`
+and act only on stacks with matching ownership records.
+
+**Capacity:** `max_docker_instances` and `max_docker_free_instances` in `~/.datahub/dev/config.json`
+each limit how many stacks of that kind run at once (default 4 each). Stopped stacks keep their
+slots and ports reserved but don't count. The older `max_local_instances` key is a deprecated
+fallback, used only when the new keys are absent.
 
 Start refreshes CLI profiles `local-<worktree-id>` and `local-<worktree-id>-gms-N`
 without changing the machine default. Select the default instance for this shell
@@ -599,7 +610,8 @@ from other worktrees/compose projects that occupy the same ports.
 
 ```json
 {
-  "max_local_instances": 2,
+  "max_docker_instances": 4,
+  "max_docker_free_instances": 4,
   "max_remote_instances": 10,
   "runner": "/path/to/your-runner.sh"
 }

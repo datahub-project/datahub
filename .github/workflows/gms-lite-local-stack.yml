@@ -17,8 +17,11 @@ on:
       - "datahub-upgrade/**"
       - "scripts/dev/datahub-dev.sh"
       - "scripts/dev/datahub_dev.py"
-      - "scripts/dev/datahub_dev_local.py"
-      - "scripts/dev/tests/local_stack_e2e.sh"
+      - "scripts/dev/*.py"
+      - "scripts/dev/extensions/**"
+      - "scripts/dev/local/**"
+      - "env/**"
+      - "scripts/dev/tests/**"
       - "scripts/dev/tests/local_frontend_e2e.sh"
       - "datahub-web-react/devtools/**"
       - "datahub-web-react/vite.config.*"
@@ -124,6 +127,53 @@ jobs:
           yarn install --frozen-lockfile
           npx playwright install --with-deps chromium
 
+      - name: Measure a lean local boot
+        env:
+          GMS_LITE_HEAP: "2g"
+          GMS_LITE_OPENSEARCH_READY_TIMEOUT: "240"
+          GMS_LITE_GMS_HEALTH_TIMEOUT: "240"
+          DATAHUB_TELEMETRY_ENABLED: "false"
+        run: scripts/dev/datahub-dev.sh start --local --fresh --skip-build --no-frontend --timeout 600
+
+      - name: Boot timings
+        if: always()
+        run: |
+          python3 - <<'PYEOF'
+          import json
+          import os
+          import pathlib
+          import shutil
+
+          root = pathlib.Path.home() / ".datahub/local/stacks"
+          # Preserve diagnostics before lifecycle tests nuke the stack. Discovery holds secrets.
+          for path in root.glob("*"):
+              destination = pathlib.Path("build/lean-boot") / path.name
+              files = [path / "timings.json", path / "launcher.log", *path.glob("logs/*.log")]
+              for source in files:
+                  if source.is_file():
+                      target = destination / source.relative_to(path)
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      shutil.copyfile(source, target)
+          paths = sorted(root.glob("*/timings.json"), key=lambda p: p.stat().st_mtime)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              if not paths:
+                  summary.write("No timings.json produced.\n")
+                  raise SystemExit(1)
+              for path in paths:
+                  timings = json.loads(path.read_text())
+                  summary.write("### GMS-lite boot timings\n\n| Phase | Seconds |\n| --- | ---: |\n")
+                  for name, seconds in timings.get("phases", {}).items():
+                      summary.write(f"| {name} | {seconds:.1f} |\n")
+                  summary.write(f"| total | {timings['total_s']:.1f} |\n")
+                  for name, seconds in timings.get("datahub_dev", {}).items():
+                      summary.write(f"| datahub-dev: {name.removesuffix('_s')} | {seconds:.1f} |\n")
+                  summary.write(f"\nwarm: {timings['warm']}\n")
+          PYEOF
+
+      - name: Remove the lean stack before lifecycle checks
+        if: always()
+        run: scripts/dev/datahub-dev.sh nuke
+
       - name: Start, use, restart and nuke the local stack
         env:
           LOCAL_STACK_OPENSEARCH: ${{ matrix.opensearch }}
@@ -151,12 +201,15 @@ jobs:
           python3 metadata-service/gms-lite/bin/_opensearch_manager.py \
             stop --dir ~/.datahub/local/opensearch-${{ matrix.opensearch }} || true
 
-      - name: Upload logs on failure
-        if: failure()
+      - name: Upload logs
+        if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: gms-lite-local-stack-logs-os${{ matrix.opensearch }}
           path: |
+            build/lean-boot/
+            ~/.datahub/local/stacks/*/resolved-env.json
+            ~/.datahub/local/stacks/*/timings.json
             ~/.datahub/local/stacks/*/launcher.log
             ~/.datahub/local/stacks/*/frontend.log
             ~/.datahub/local/stacks/*/logs/
