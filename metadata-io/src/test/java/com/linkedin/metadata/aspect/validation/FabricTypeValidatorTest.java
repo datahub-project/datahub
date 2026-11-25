@@ -112,7 +112,10 @@ public class FabricTypeValidatorTest {
     assertTrue(validator.shouldApply(ChangeType.PATCH, DATA_FLOW, "dataFlowInfo"));
     assertFalse(validator.shouldApply(ChangeType.RESTATE, DATASET, "datasetKey"));
     assertFalse(validator.shouldApply(ChangeType.RESTATE, DATA_FLOW, "dataFlowInfo"));
-    assertFalse(validator.shouldApply(ChangeType.UPSERT, DATASET, "datasetProperties"));
+    assertFalse(validator.shouldApply(ChangeType.UPSERT, ACTOR, "corpUserInfo"));
+    // Every aspect of an entity whose key holds an env is in scope, so an async write without
+    // its key aspect is still checked.
+    assertTrue(validator.shouldApply(ChangeType.UPSERT, DATASET, "datasetProperties"));
   }
 
   @Test
@@ -449,6 +452,44 @@ public class FabricTypeValidatorTest {
                 "application/json-patch+json content type is not supported"));
 
     assertTrue(validateProposed(retriever, List.of(patch)).isEmpty());
+    verifyNoInteractions(retriever);
+  }
+
+  /** An async status write carries no key aspect, so its env is only visible in the URN. */
+  @Test
+  public void proposedStatusWithUnregisteredUrnEnvIsRefused() {
+    MockAspectRetriever retriever = new MockAspectRetriever(types);
+
+    assertEquals(
+        validateProposed(
+                retriever, List.of(proposed(DATASET, "status", new Status().setRemoved(false))))
+            .size(),
+        1);
+  }
+
+  @Test
+  public void proposedStatusWithCustomUrnEnvIsRefusedWithoutReadWhenCustomTypesAreOff() {
+    enabled.set(false);
+    CachingAspectRetriever retriever = mock(CachingAspectRetriever.class);
+
+    assertEquals(
+        validateProposed(
+                retriever, List.of(proposed(DATASET, "status", new Status().setRemoved(false))))
+            .size(),
+        1);
+    verifyNoInteractions(retriever);
+  }
+
+  @Test
+  public void proposedStatusWithBuiltInUrnEnvNeedsNoRead() {
+    enabled.set(false);
+    CachingAspectRetriever retriever = mock(CachingAspectRetriever.class);
+
+    assertTrue(
+        validateProposed(
+                retriever,
+                List.of(proposed(PROD_DATASET, "status", new Status().setRemoved(false))))
+            .isEmpty());
     verifyNoInteractions(retriever);
   }
 

@@ -48,8 +48,9 @@ import lombok.experimental.Accessors;
  *
  * <p>Only a new use is checked: a value equal to the one already stored is always kept, so turning
  * custom types off, deprecating or deleting a type never blocks updates to entities that already
- * use it. Key aspects reach this validator only when their entity is created, so they are always a
- * new use. Restore-indices (RESTATE) is not in scope.
+ * use it in pre-commit. At request time, with custom types off, a proposal carrying a custom env is
+ * refused without reading the stored value, so it can block a non-key write to such an entity until
+ * custom types are back on. Restore-indices (RESTATE) is not in scope.
  */
 @Setter
 @Getter
@@ -83,6 +84,9 @@ public class FabricTypeValidator extends AspectPayloadValidator {
     List<AspectPluginConfig.EntityAspectName> scope =
         new ArrayList<>(FabricTypeNameFields.entityAspectNames(discovered));
     references.getAspects().stream().filter(pair -> !scope.contains(pair)).forEach(scope::add);
+    keyedEntityAspectNames(entityRegistry, discovered).stream()
+        .filter(pair -> !scope.contains(pair))
+        .forEach(scope::add);
     return new FabricTypeValidator()
         .setFields(discovered)
         .setReferences(references)
@@ -94,6 +98,37 @@ public class FabricTypeValidator extends AspectPayloadValidator {
                 .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "PATCH"))
                 .supportedEntityAspectNames(scope)
                 .build());
+  }
+
+  /**
+   * Every aspect of an entity whose key holds an environment. An async write carries only the
+   * aspects it changes; the key aspect is added by the consumer, so a write such as a dataset
+   * status with an unregistered env in its URN must be in scope to be refused at request time.
+   */
+  private static List<AspectPluginConfig.EntityAspectName> keyedEntityAspectNames(
+      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull List<FabricTypeNameFields.Field> discovered) {
+    Set<String> entities =
+        discovered.stream()
+            .filter(FabricTypeNameFields.Field::isKeyAspect)
+            .map(FabricTypeNameFields.Field::getEntityName)
+            .collect(Collectors.toSet());
+    return entities.stream()
+        .flatMap(
+            entityName ->
+                entityRegistry
+                    .findEntitySpec(entityName)
+                    .map(
+                        spec ->
+                            spec.getAspectSpecs().stream()
+                                .map(
+                                    aspect ->
+                                        AspectPluginConfig.EntityAspectName.builder()
+                                            .entityName(entityName)
+                                            .aspectName(aspect.getName())
+                                            .build()))
+                    .orElseGet(Stream::empty))
+        .collect(Collectors.toList());
   }
 
   public FabricTypeValidator setFields(@Nonnull List<FabricTypeNameFields.Field> discovered) {
@@ -119,10 +154,10 @@ public class FabricTypeValidator extends AspectPayloadValidator {
    * #validatePreCommitAspects} then run. PATCH has no record before it is applied, so it is only
    * checked in pre-commit, which remains the authoritative check.
    *
-   * <p>This runs with custom types off too, where every new use is refused. An async write is
-   * acknowledged once it is proposed and only checked in the consumer's pre-commit, so deferring
-   * here would accept a URN with an unknown env that the URN parser used to reject. A built-in env
-   * still needs no read.
+   * <p>With custom types off every non-built-in value is refused, so nothing is read: the stored
+   * value cannot make it acceptable. That refuses a write to an existing custom-env entity's
+   * non-key aspect while custom types are off; pre-commit still keeps stored values. A built-in env
+   * needs no read either way.
    */
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
@@ -130,6 +165,7 @@ public class FabricTypeValidator extends AspectPayloadValidator {
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     List<Candidate> candidates = new ArrayList<>();
+    List<Use> refusedWhenOff = new ArrayList<>();
     for (BatchItem item : mcpItems) {
       // A PATCH has no record before it is applied, and its aspect is JSON patch content that
       // getRecordTemplate cannot deserialize. Pre-commit checks it once applied.
@@ -143,10 +179,15 @@ public class FabricTypeValidator extends AspectPayloadValidator {
       collectUrnUses(item, null, inUrn);
       if (!own.isEmpty() || !inUrn.isEmpty()) {
         candidates.add(new Candidate(item, !own.isEmpty(), !inUrn.isEmpty()));
+        refusedWhenOff.addAll(own);
+        refusedWhenOff.addAll(inUrn);
       }
     }
     if (candidates.isEmpty()) {
       return Stream.empty();
+    }
+    if (!customTypesEnabled.getAsBoolean()) {
+      return evaluate(refusedWhenOff, operationContext, retrieverContext);
     }
 
     // Read only what a decision needs, aspect by aspect: the item's own aspect when it holds the
