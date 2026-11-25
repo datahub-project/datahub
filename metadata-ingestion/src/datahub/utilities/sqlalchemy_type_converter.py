@@ -114,16 +114,11 @@ class SqlAlchemyColumnToAvroConverter:
                     column_type.item_type, dimensions=dimensions - 1
                 )
             items = cls.get_avro_type(column_type=array_type, nullable=nullable)
-            item_native = (
-                items["native_data_type"]
-                if isinstance(array_type, types.ARRAY)
-                else str(array_type)
-            )
 
             return {
                 "type": "array",
                 "items": items,
-                "native_data_type": f"array<{item_native}>",
+                "native_data_type": f"array<{items['native_data_type']}>",
             }
         if isinstance(column_type, MapType):
             try:
