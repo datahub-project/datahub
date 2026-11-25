@@ -843,6 +843,9 @@ _CATALOG_CTE_BODY = "SELECT table_name FROM information_schema.tables"
         ("postgres", '"t"', '"T"'),
         ("postgres", '"T"', '"t"'),
         ("postgres", '"T"', "t"),
+        # Postgres folds only ASCII letters in an unquoted name, so a non-ASCII
+        # name in another case is a different object, and is compared as written.
+        ("postgres", "\u00c4", "\u00e4"),
     ],
 )
 def test_a_cte_name_in_another_quoted_case_is_a_physical_table(
@@ -867,6 +870,8 @@ def test_a_cte_name_in_another_quoted_case_is_a_physical_table(
         ("postgres", '"t"', "T"),
         ("postgres", "T", '"t"'),
         ("postgres", "t", "T"),
+        ("postgres", "\u00e4", "\u00e4"),
+        ("mysql", "\u00c4", "\u00c4"),
     ],
 )
 def test_a_cte_name_resolving_to_the_cte_is_the_cte(
