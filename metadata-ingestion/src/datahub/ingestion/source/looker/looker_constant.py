@@ -29,5 +29,12 @@ EXPLORE_GIT_LINK_RUN_WIDE_HTTP_STATUSES = frozenset({401, 429})
 LOOKER_DEFAULT_GIT_BRANCH = "master"
 # LookML IDE link path: /projects/<project>/files/<url-encoded repo path>
 LOOKML_LINK_PATH_PATTERN = re.compile(r"^/projects/[^/]+/files/(.+)$")
-# SCP-style SSH remotes like git@github.com:org/repo.git
-GIT_SCP_REMOTE_PATTERN = re.compile(r"^[^@/]+@([^:/]+):(.+)$")
+# SCP-style SSH remotes like git@github.com:org/repo.git; the user is optional.
+# No "@" after the user, so user:token@host/path can't parse with the token as host.
+GIT_SCP_REMOTE_PATTERN = re.compile(r"^(?:[^@/]+@)?([^:/@]+):([^@]+)$")
+# Alternate hosts that serve the same repositories as github.com and gitlab.com.
+GIT_HOST_ALIASES = {
+    "www.github.com": "github.com",
+    "ssh.github.com": "github.com",
+    "altssh.gitlab.com": "gitlab.com",
+}

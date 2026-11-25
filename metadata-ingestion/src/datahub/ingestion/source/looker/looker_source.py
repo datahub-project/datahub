@@ -1109,7 +1109,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             # The remote itself is not echoed: it may carry credentials.
             self.reporter.warning(
                 title="Malformed Git remote for Explore links",
-                message="The project's Git remote is not a URL or user@host:path remote; explores in this project get no new or updated Git link; existing links are left unchanged.",
+                message="The project's Git remote is not a URL or [user@]host:path remote; explores in this project get no new or updated Git link; existing links are left unchanged.",
                 context=project_name,
             )
             return None

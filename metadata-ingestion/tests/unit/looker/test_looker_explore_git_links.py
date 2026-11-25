@@ -127,6 +127,13 @@ def test_lookml_file_path_from_link(
         ("org-123@github.com:example-org/lookml.git", REPO),
         ("git@GitHub.com:example-org/lookml.git", REPO),
         ("ssh://git@github.com:22/example-org/lookml.git", REPO),
+        ("github.com:example-org/lookml.git", REPO),
+        ("ssh://git@ssh.github.com:443/example-org/lookml.git", REPO),
+        ("https://www.github.com/example-org/lookml", REPO),
+        (
+            "git@altssh.gitlab.com:group/lookml.git",
+            "https://gitlab.com/group/lookml",
+        ),
         ("https://user:secret-token@github.com/example-org/lookml.git", REPO),
         (
             "https://gitlab.com/group/sub/lookml.git",
@@ -423,6 +430,12 @@ def test_no_datahub_connection_adds_only_and_notes_it_once(
         ),
         (
             Project(git_remote_url="example-org/lookml"),
+            "Malformed Git remote for Explore links",
+        ),
+        (
+            Project(
+                git_remote_url="user:secret-token@github.com/example-org/lookml.git"
+            ),
             "Malformed Git remote for Explore links",
         ),
         (

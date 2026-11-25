@@ -53,6 +53,7 @@ from datahub.ingestion.source.looker.looker_config import (
     ViewNamingPatternMapping,
 )
 from datahub.ingestion.source.looker.looker_constant import (
+    GIT_HOST_ALIASES,
     GIT_SCP_REMOTE_PATTERN,
     IMPORTED_PROJECTS_PREFIX,
     LOOKML_LINK_PATH_PATTERN,
@@ -219,7 +220,7 @@ def lookml_file_path_from_link(lookml_link: Optional[str]) -> Optional[str]:
 
 
 def https_repo_url_from_git_remote(remote: str) -> Optional[str]:
-    """https URL of a scheme:// or user@host:path Git remote, without credentials or port; None if malformed."""
+    """https URL of a scheme:// or [user@]host:path Git remote, without credentials or port; None if malformed."""
     try:
         if "://" in remote:
             parts = urlsplit(remote)
@@ -235,7 +236,7 @@ def https_repo_url_from_git_remote(remote: str) -> Optional[str]:
     # Needs at least owner/repo; never fall back to guessing a host.
     if not host or "/" not in repo_path:
         return None
-    return f"https://{host}/{repo_path}"
+    return f"https://{GIT_HOST_ALIASES.get(host, host)}/{repo_path}"
 
 
 @dataclass

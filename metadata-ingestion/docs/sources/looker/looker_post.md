@@ -23,7 +23,7 @@ Set `extract_explore_git_links: true` to add a **View in Git** button to each Ex
 
 With a DataHub connection, each run reads the Explore's links (one read per Explore) and replaces any outdated "View in Git" link, including one added by hand, so use another label for your own links. If DataHub can't be reached, the report shows a warning and links are skipped for the rest of the run; if only one Explore's links can't be read, only that Explore is skipped. Without a connection, links are only added.
 
-Only github.com and gitlab.com remotes are supported. Projects that can't be read or have an unsupported remote get a warning, and their Explores keep any existing link. Explores from imported projects get no link. Turning the option off does not remove links.
+Only github.com and gitlab.com remotes are supported. Projects that can't be read or have an unsupported remote get a warning, and their Explores keep any existing link. Explores from imported projects get no link, and an Explore that moves into an imported project or loses its LookML file keeps the link it already has. Turning the option off does not remove links.
 
 #### LookML projects ingested under other platform instances
 
