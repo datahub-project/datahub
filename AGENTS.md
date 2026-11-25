@@ -520,6 +520,8 @@ indices, profiles and registry entry without restarting; `nuke --keep-data` only
 stops it and clears stale H2 locks. The shared search node survives both commands.
 Unmarked local registry entries are read-only and keep their slots reserved.
 Service env values come from the layered files under `env/` (see [env/README.md](env/README.md)).
+`start --local --job smoke-test` adds the smoke job layer `smoke-test/env/`, as in CI; restarts keep it.
+`smoke-test/check_env_parity.py` compares the smoke values with the Docker quickstart's.
 `start --local --timeout 600 --verbose` streams the launcher log; `status` reports boot timings.
 
 ```bash
