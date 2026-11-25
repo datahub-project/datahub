@@ -69,10 +69,17 @@ jobs:
           aggressive: "false"
       # build-cache-1 (excluded by setup-toolchain's default) is managed explicitly below with a
       # run-scoped key so the legs restore exactly this run's compiled output.
+      # Basic provider, read-only: restores the Gradle User Home that
+      # ci-cache-warmup.yml warm-metadata-io-gradle-home writes on both cache
+      # backends (one entry per Gradle build-file hash). The default provider fell
+      # back to whichever job saved last and restored only that job's dependencies,
+      # so the rest came from Maven Central (429s on fork PRs).
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
           python: false
+          gradle-cache-provider: basic
+          gradle-cache-read-only: true
       # Deliberately no restore-keys. This entry exists to hand the seed job's
       # build cache to the parallel jobs in the SAME run, which match on the exact
       # run-scoped key. A prefix restore-key here instead made it a ratchet: each
@@ -129,7 +136,9 @@ jobs:
         uses: ./.github/actions/setup-toolchain
         with:
           python: false
-          # Legs read the seed's build cache; only the seed writes. Avoids matrix write races.
+          # Same Gradle User Home as metadata-io-seed (see there). The legs read
+          # the seed's build cache below; only the seed writes that.
+          gradle-cache-provider: basic
           gradle-cache-read-only: true
       - name: Restore Gradle build cache (seed's output, this run)
         # cache/restore, not cache: these jobs consume the seed's output and

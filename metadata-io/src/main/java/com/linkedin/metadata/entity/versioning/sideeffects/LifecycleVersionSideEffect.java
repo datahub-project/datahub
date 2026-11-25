@@ -32,8 +32,13 @@ import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.versionset.VersionSetProperties;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -251,26 +256,26 @@ public class LifecycleVersionSideEffect extends MCPSideEffect {
 
     Urn entityUrn = item.getUrn();
     Urn versionSetUrn = vp.getVersionSet();
-    String entityType = entityUrn.getEntityType();
 
-    List<SearchEntity> siblings =
-        fetchAllVersionsSortedDesc(entityType, versionSetUrn, retrieverContext);
+    // A soft-deleted version stays out of the running even though it is always added
+    // to the sibling list below (search, which excludes it, used to keep it out).
+    Status newStatus = item.getAspect(Status.class);
+    if (newStatus != null && newStatus.isRemoved()) {
+      return Stream.empty();
+    }
+
+    List<VersionedSibling> siblings =
+        fetchVersionsIncludingSelfSortedDesc(
+            operationContext, entityUrn, vp, versionSetUrn, retrieverContext);
 
     // Walk siblings (sortId DESC) to find: (a) best visible, (b) current effective-latest
     Urn bestVisibleUrn = null;
     Urn currentEffectiveLatestUrn = null;
     VersionProperties currentEffectiveLatestVp = null;
 
-    for (SearchEntity sibling : siblings) {
-      Urn siblingUrn = sibling.getEntity();
-      Aspect siblingVpAspect =
-          retrieverContext
-              .getAspectRetriever()
-              .getLatestAspectObject(operationContext, siblingUrn, VERSION_PROPERTIES_ASPECT_NAME);
-      if (siblingVpAspect == null) {
-        continue;
-      }
-      VersionProperties siblingVp = new VersionProperties(siblingVpAspect.data());
+    for (VersionedSibling sibling : siblings) {
+      Urn siblingUrn = sibling.urn();
+      VersionProperties siblingVp = sibling.versionProperties();
 
       if (currentEffectiveLatestUrn == null && Boolean.TRUE.equals(siblingVp.isIsLatest())) {
         currentEffectiveLatestUrn = siblingUrn;
@@ -287,7 +292,11 @@ public class LifecycleVersionSideEffect extends MCPSideEffect {
               (siblingStatus != null && siblingStatus.hasLifecycleStage())
                   ? siblingStatus.getLifecycleStage()
                   : null;
-          if (!isHiddenStage(operationContext, siblingStageUrn, retrieverContext)) {
+          // A soft-deleted version can be in the list (the stored latest is added without
+          // search's soft-delete filter). It may still be demoted but is never visible.
+          boolean siblingRemoved = siblingStatus != null && siblingStatus.isRemoved();
+          if (!siblingRemoved
+              && !isHiddenStage(operationContext, siblingStageUrn, retrieverContext)) {
             bestVisibleUrn = siblingUrn;
           }
         }
@@ -325,6 +334,78 @@ public class LifecycleVersionSideEffect extends MCPSideEffect {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+
+  private record VersionedSibling(Urn urn, VersionProperties versionProperties) {}
+
+  /**
+   * The versions in the set, sorted by the sortId stored in the primary store, highest first.
+   *
+   * <p>Search only finds the members of the set. A version created moments ago may not be in the
+   * index yet, and publishing it then would leave it unpromoted, since search showed only the
+   * older, visible versions. So the entity itself is always included, and the order comes from each
+   * version's stored sortId rather than from the index.
+   */
+  private List<VersionedSibling> fetchVersionsIncludingSelfSortedDesc(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull VersionProperties entityVp,
+      @Nonnull Urn versionSetUrn,
+      @Nonnull RetrieverContext retrieverContext) {
+    Set<Urn> siblingUrns = new LinkedHashSet<>();
+    for (SearchEntity sibling :
+        fetchAllVersionsSortedDesc(entityUrn.getEntityType(), versionSetUrn, retrieverContext)) {
+      siblingUrns.add(sibling.getEntity());
+    }
+    // The set's current latest comes from the primary store too, so it is demoted even
+    // when search has indexed none of the set's versions yet.
+    Urn setLatestUrn = fetchVersionSetLatest(operationContext, versionSetUrn, retrieverContext);
+    if (setLatestUrn != null) {
+      siblingUrns.add(setLatestUrn);
+    }
+    // One batched read for every version, instead of one read per version.
+    Map<Urn, Map<String, Aspect>> siblingAspects =
+        siblingUrns.isEmpty()
+            ? Map.of()
+            : retrieverContext
+                .getAspectRetriever()
+                .getLatestAspectObjects(
+                    operationContext, siblingUrns, Set.of(VERSION_PROPERTIES_ASPECT_NAME));
+    Map<Urn, VersionedSibling> byUrn = new LinkedHashMap<>();
+    for (Urn siblingUrn : siblingUrns) {
+      Aspect siblingVpAspect =
+          siblingAspects.getOrDefault(siblingUrn, Map.of()).get(VERSION_PROPERTIES_ASPECT_NAME);
+      if (siblingVpAspect != null) {
+        byUrn.put(
+            siblingUrn,
+            new VersionedSibling(siblingUrn, new VersionProperties(siblingVpAspect.data())));
+      }
+    }
+    byUrn.putIfAbsent(entityUrn, new VersionedSibling(entityUrn, entityVp));
+    return byUrn.values().stream()
+        .sorted(
+            Comparator.comparing(
+                    (VersionedSibling s) -> s.versionProperties().getSortId(),
+                    Comparator.nullsFirst(Comparator.<String>naturalOrder()))
+                .reversed())
+        .toList();
+  }
+
+  @Nullable
+  private Urn fetchVersionSetLatest(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Urn versionSetUrn,
+      @Nonnull RetrieverContext retrieverContext) {
+    Aspect vspAspect =
+        retrieverContext
+            .getAspectRetriever()
+            .getLatestAspectObject(
+                operationContext, versionSetUrn, VERSION_SET_PROPERTIES_ASPECT_NAME);
+    if (vspAspect == null) {
+      return null;
+    }
+    VersionSetProperties vsp = new VersionSetProperties(vspAspect.data());
+    return vsp.hasLatest() ? vsp.getLatest() : null;
+  }
 
   private List<SearchEntity> fetchAllVersionsSortedDesc(
       @Nonnull String entityType,

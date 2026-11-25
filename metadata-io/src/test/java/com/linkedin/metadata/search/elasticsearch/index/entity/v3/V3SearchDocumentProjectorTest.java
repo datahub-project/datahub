@@ -22,8 +22,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.Siblings;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -100,6 +102,47 @@ public class V3SearchDocumentProjectorTest {
     when(entitySpec.getKeyAspectName()).thenReturn("datasetKey");
     when(entitySpec.getSearchGroup()).thenReturn("primary");
     when(auditStamp.getTime()).thenReturn(123L);
+  }
+
+  /**
+   * A has* field with no searchLabel is written directly on the root. Clearing the source stores
+   * false, so "written then cleared" stays different from a document that never had the aspect.
+   */
+  @Test
+  public void testDirectHasValuesKeepsTrueAndFalseOnTheRoot() {
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    V3SearchDocumentProjector realProjector = new V3SearchDocumentProjector(transformer);
+    EntitySpec dataset = opContext.getEntityRegistry().getEntitySpec("dataset");
+    Siblings linked =
+        new Siblings()
+            .setPrimary(true)
+            .setSiblings(
+                new UrnArray(
+                    UrnUtils.getUrn(
+                        "urn:li:dataset:(urn:li:dataPlatform:dbt,my_db.my_table,PROD)")));
+    Siblings cleared = new Siblings().setPrimary(true).setSiblings(new UrnArray());
+    when(event.getAspectName()).thenReturn("siblings");
+    when(event.getAspectSpec()).thenReturn(dataset.getAspectSpec("siblings"));
+    when(event.getEntitySpec()).thenReturn(dataset);
+    when(event.getSystemMetadata()).thenReturn(null);
+    ObjectNode document = realProjector.newEntityDocument(urn, dataset);
+
+    when(event.getRecordTemplate()).thenReturn(linked);
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    realProjector.applyProjection(
+        document, realProjector.projectAspect(opContext, event).orElseThrow());
+    assertTrue(document.get("hasSiblings").booleanValue(), document.toString());
+    assertFalse(
+        document.get(MappingConstants.ASPECTS_FIELD_NAME).get("siblings").has("hasSiblings"),
+        document.toString());
+
+    when(event.getRecordTemplate()).thenReturn(cleared);
+    when(event.getPreviousRecordTemplate()).thenReturn(linked);
+    realProjector.applyProjection(
+        document, realProjector.projectAspect(opContext, event).orElseThrow());
+    assertTrue(document.get("hasSiblings").isBoolean(), document.toString());
+    assertFalse(document.get("hasSiblings").booleanValue(), document.toString());
   }
 
   @Test
@@ -749,7 +792,7 @@ public class V3SearchDocumentProjectorTest {
   }
 
   @Test
-  public void testProfileRowCountDoesNotProjectHasRowCount() throws Exception {
+  public void testProfileRowCountWritesDirectHasRowCountOnTheRoot() throws Exception {
     V3SearchDocumentProjector realProjector = realProjector();
     EntityRegistry registry = opContext.getEntityRegistry();
     EntitySpec dataset = registry.getEntitySpec("dataset");
@@ -764,7 +807,8 @@ public class V3SearchDocumentProjectorTest {
     V3SearchDocumentProjector.ProjectedAspect projected =
         realProjector.projectAspect(opContext, event).orElseThrow();
 
-    assertFalse(projected.rootFields().has("hasRowCount"));
+    // A count of 0 is still a value, as in V2.
+    assertTrue(projected.rootFields().get("hasRowCount").booleanValue());
     assertFalse(projected.aspectFields().has("hasRowCount"));
     assertEquals(projected.rootFields().get("rowCount").asLong(), 0L);
   }

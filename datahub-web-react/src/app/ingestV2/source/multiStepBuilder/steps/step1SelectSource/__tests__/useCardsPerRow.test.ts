@@ -1,8 +1,8 @@
 import { act } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useCardsPerRow } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/useCardsPerRow';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 class MockResizeObserver {
     callback: ResizeObserverCallback;

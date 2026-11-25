@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import operator
+import random
 import textwrap
 import time
 from datetime import datetime
@@ -37,7 +38,8 @@ from datahub.cli import config_utils
 from datahub.cli.cli_utils import guess_frontend_url_from_gms_url
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
-from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
+from datahub.emitter.emit_mode import EmitMode
+from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
@@ -75,6 +77,7 @@ from datahub.metadata.schema_classes import (
     ASPECT_NAME_MAP,
     KEY_ASPECTS,
     AspectBag,
+    AuditStampClass,
     BrowsePathsClass,
     DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
@@ -85,6 +88,8 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     SchemaMetadataClass,
     StatusClass,
+    StructuredPropertiesClass,
+    StructuredPropertyValueAssignmentClass,
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
@@ -97,8 +102,14 @@ from datahub.metadata.urns import (
     MlPrimaryKeyUrn,
     Urn,
 )
+from datahub.specific.aspect_helpers.structured_properties import (
+    HasStructuredPropertiesPatch,
+)
 from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities.server_state_disk_cache import ServerStateDiskCache
+from datahub.utilities.urns.structured_properties_urn import (
+    make_structured_property_urn,
+)
 from datahub.utilities.urns.urn import guess_entity_type
 
 if TYPE_CHECKING:
@@ -125,6 +136,14 @@ _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
 _FLOAT32_MAX = 3.4028234663852886e38
 # Largest value of the GraphQL Long scalar (a Java long).
 _LONG_MAX = 2**63 - 1
+# Attempts for add_structured_property_values when a concurrent write changes the aspect,
+# with jittered exponential backoff between them (capped at _APPEND_MAX_BACKOFF_S).
+_APPEND_MAX_ATTEMPTS = 8
+_APPEND_MAX_BACKOFF_S = 2.0
+# A failed If-Version-Match precondition. The OpenAPI ingest path reports it as 412 with an
+# error of "Precondition Error". The restli path reports every failed validation as 422,
+# preconditions included, so there the status alone cannot identify a conflict.
+_PRECONDITION_FAILED = 412
 
 # Disk cache for entity/aspect specs, keyed by server URL + commit hash so it
 # survives across short-lived processes and invalidates on server upgrade.
@@ -133,6 +152,13 @@ _ENTITY_SPECS_CACHE = ServerStateDiskCache("entity_aspect_specs")
 # Alias for backwards compatibility.
 # DEPRECATION: Remove in v0.10.2.
 DataHubGraphConfig = DatahubClientConfig
+
+
+def _audit_stamp_now() -> AuditStampClass:
+    # Imported here: datahub.sdk imports this module, so a top-level import is circular.
+    from datahub.sdk._utils import DEFAULT_ACTOR_URN
+
+    return AuditStampClass(time=make_ts_millis(datetime.now()), actor=DEFAULT_ACTOR_URN)
 
 
 def entity_type_to_graphql(entity_type: str) -> str:
@@ -1802,7 +1828,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         Returns:
             A string containing the result of the restore indices operation. This format is subject to change.
         """
-        payload_obj = {}
+        payload_obj: Dict[str, Union[str, int]] = {}
         if file is not None:
             with open(file) as f:
                 for urn in progressbar.progressbar(f.readlines()):
@@ -1908,6 +1934,179 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
 
         res = self.execute_graphql(query=graph_query)
         return res["removeTag"]
+
+    @staticmethod
+    def _is_version_conflict(error: OperationalError) -> bool:
+        """Whether a write failed its If-Version-Match precondition and can be retried.
+
+        The OpenAPI ingest path is identified by status, so rewording the server's message
+        does not turn a retryable conflict into a hard failure. The restli path reports a
+        precondition failure as 422, the same status it uses for every other rejected write,
+        so there the message is the only thing that separates the two: the text check below
+        is load-bearing for that transport, not a legacy fallback. It also covers servers
+        that predate the structured precondition response.
+        """
+        info = error.info
+        if info.get("status") == _PRECONDITION_FAILED:
+            return True
+        if info.get("error") == "Precondition Error":
+            return True
+        return "Expected version" in str(error)
+
+    def add_structured_property_values(
+        self,
+        entity_urn: str,
+        property: str,
+        values: Union[str, float, Sequence[Union[str, float]]],
+    ) -> bool:
+        """Append values to a structured property on an entity, keeping the values it already has.
+
+        A patch's ``add_structured_property`` replaces the property's whole value list. This
+        reads the entity's current values for the property, adds the ones that are missing
+        (exact match, existing order kept) and writes the merged list back as a patch. Only
+        this property is written, so other properties and other aspects of the entity are
+        left alone.
+
+        The write is conditional on the structured properties being unchanged since the
+        read. If another writer changed them in between, the read and merge are retried, so
+        concurrent appends do not drop each other's values. Two limits apply: the retries
+        stop after eight attempts and raise ``OperationalError``, and servers that ignore
+        conditional headers on patches apply the write unconditionally, so on those a
+        parallel append can still drop values.
+
+        When there is something to append, the merged list is written as a manual edit, the
+        same way an edit in the UI is: if the property's current value was written by an
+        automation (for example propagation), its attribution is removed and the property
+        keeps all of its values. When every value is already present nothing is written at
+        all, so an automation's attribution is left as it is.
+        The server still enforces the property definition, so appending to a single-value
+        property that already has a value fails.
+
+        Args:
+            entity_urn: The entity to update. It must already exist.
+            property: The structured property, as a bare qualified name or a urn.
+            values: A value or a list of values to append.
+
+        Repeated values are collapsed: if the entity somehow holds the same value twice,
+        the merged list keeps one of them.
+
+        Returns:
+            True if values were written, False if all of them were already present.
+
+        Raises:
+            ValueError: If the entity does not exist.
+            OperationalError: If the write is rejected, or still conflicts after retries.
+        """
+        property_urn = make_structured_property_urn(property)
+        to_add = [values] if isinstance(values, (str, int, float)) else list(values)
+
+        for attempt in range(_APPEND_MAX_ATTEMPTS):
+            current, version = self._get_structured_properties_with_version(entity_urn)
+            if current is None and not self.exists(entity_urn):
+                raise ValueError(f"Entity {entity_urn} does not exist")
+
+            # The server allows one entry per property; merge them all in case an older
+            # aspect still holds several.
+            entries = [
+                assignment
+                for assignment in (current.properties if current else [])
+                if assignment.propertyUrn == property_urn
+            ]
+            merged: List[Union[str, float]] = []
+            seen: Set[Union[str, float]] = set()
+            for value in [v for entry in entries for v in entry.values]:
+                if value not in seen:
+                    seen.add(value)
+                    merged.append(value)
+            existing_count = len(merged)
+            for value in to_add:
+                if value not in seen:
+                    seen.add(value)
+                    merged.append(value)
+            if len(merged) == existing_count:
+                return False
+
+            patch = HasStructuredPropertiesPatch(entity_urn)
+            # Patch entries are keyed by attribution source. Remove the attributed entries so
+            # the manual entry below is the only one; the add replaces an unattributed entry.
+            # Removing the whole property instead would also drop the map the add writes to.
+            for source in {
+                entry.attribution.source
+                for entry in entries
+                if entry.attribution and entry.attribution.source
+            }:
+                patch.remove_structured_property(
+                    key=property_urn, attribution_source=source
+                )
+            # Stamp the entry the way the SDK's Entity.set_structured_property does: keep the
+            # stored `created` (the earliest, when entries are merged), else now; and set
+            # `lastModified` to now. A bare set would write the entry without either.
+            now = _audit_stamp_now()
+            created = min(
+                (entry.created for entry in entries if entry.created),
+                key=lambda stamp: stamp.time,
+                default=now,
+            )
+            patch.set_structured_property_manual(
+                StructuredPropertyValueAssignmentClass(
+                    propertyUrn=property_urn,
+                    values=merged,
+                    created=created,
+                    lastModified=now,
+                )
+            )
+            try:
+                for mcp in patch.build():
+                    mcp.headers = {"If-Version-Match": version}
+                    # The compare-and-set result has to be known before returning, so this
+                    # write is always synchronous on primary storage. Under the graph's
+                    # default emit mode an async client returns before the precondition is
+                    # evaluated, so a version conflict would surface after this call and
+                    # never be retried.
+                    self.emit_mcp(mcp, emit_mode=EmitMode.SYNC_PRIMARY)
+                return True
+            except OperationalError as e:
+                if (
+                    not self._is_version_conflict(e)
+                    or attempt == _APPEND_MAX_ATTEMPTS - 1
+                ):
+                    raise
+                logger.debug(
+                    f"Structured properties of {entity_urn} changed during append; retrying"
+                )
+                time.sleep(
+                    random.uniform(0, min(_APPEND_MAX_BACKOFF_S, 0.05 * 2**attempt))
+                )
+        raise AssertionError("unreachable")
+
+    def _get_structured_properties_with_version(
+        self, entity_urn: str
+    ) -> Tuple[Optional[StructuredPropertiesClass], str]:
+        """Returns the structuredProperties aspect and the version to assert on a write.
+
+        The version mirrors the server's ``ConditionalWriteValidator.resolveAspectVersion``:
+        ``systemMetadata.version`` when the server stamped one, otherwise ``max(1, aspect
+        version)``. ``"-1"`` is returned only when the aspect is absent, where it asserts
+        that no aspect exists; sending it for an aspect that does exist would make every
+        write conflict.
+        """
+        aspect_name = StructuredPropertiesClass.ASPECT_NAME
+        try:
+            raw = self.get_entity_raw(entity_urn, aspects=[aspect_name])
+        except HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                return None, "-1"
+            raise
+        envelope = raw.get("aspects", {}).get(aspect_name)
+        if not envelope:
+            return None, "-1"
+        version = (envelope.get("systemMetadata") or {}).get("version")
+        if version is None:
+            version = str(max(1, envelope.get("version") or 0))
+        aspect = StructuredPropertiesClass.from_obj(
+            post_json_transform(envelope["value"])
+        )
+        return aspect, version
 
     def _assertion_result_shared(self) -> str:
         fragment: str = """

@@ -129,8 +129,7 @@ export class ChangeHistoryChart extends BasePage {
   async closeDayDrawer(timeout: number = TIMEOUTS.SHORT): Promise<void> {
     this.logger?.step('closeDayDrawer');
     await this.closeDrawerButton.click({ timeout });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
+    await expect(this.drawerTitleContainer).toBeHidden();
   }
 
   /**
@@ -146,14 +145,14 @@ export class ChangeHistoryChart extends BasePage {
   // ── Interaction Helpers ────────────────────────────────────────────────────
 
   /**
-   * Hover over a day cell and wait for popover
+   * Hover over a day cell and wait for popover. Every calendar day renders a popover
+   * (ChangeHistoryPopover), including days with no changes or no data.
    */
   async hoverDay(dateString: string, timeout: number = TIMEOUTS.LONG): Promise<void> {
     const dayCell = this.getDayCell(dateString);
     await dayCell.scrollIntoViewIfNeeded();
     await dayCell.hover({ timeout });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
+    await expect(this.getDayPopover(dateString)).toBeVisible({ timeout });
   }
 
   /**
@@ -161,8 +160,6 @@ export class ChangeHistoryChart extends BasePage {
    */
   async toggleOperationType(opType: string, timeout: number = TIMEOUTS.SHORT): Promise<void> {
     await this.getOperationTypeOption(opType).click({ timeout });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 
   /**

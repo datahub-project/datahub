@@ -8,6 +8,7 @@ interface Props<OptionType extends NestedSelectOption> {
     children: OptionType[];
     selectableChildren: OptionType[];
     implicitlySelectChildren: boolean;
+    isOptionImplicitlySelected?: (option: OptionType, selectedOptions: OptionType[]) => boolean;
     selectChildrenWithParent: boolean;
     areParentsSelectable: boolean;
     addOptions: (nodes: OptionType[]) => void;
@@ -24,6 +25,7 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
     selectableChildren,
     areParentsSelectable,
     implicitlySelectChildren,
+    isOptionImplicitlySelected,
     selectChildrenWithParent,
     addOptions,
     removeOptions,
@@ -66,19 +68,20 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
         ],
     );
 
-    const isImplicitlySelected = useMemo(
-        () =>
+    const isImplicitlySelected = useMemo(() => {
+        if (isOptionImplicitlySelected) return isOptionImplicitlySelected(option, selectedOptions);
+        return (
             implicitlySelectChildren &&
             !option.isParent &&
-            !!selectedOptions.find((o) => o.value === option.parentValue),
-        [selectedOptions, option.isParent, option.parentValue, implicitlySelectChildren],
-    );
+            !!selectedOptions.find((o) => o.value === option.parentValue)
+        );
+    }, [selectedOptions, option, implicitlySelectChildren, isOptionImplicitlySelected]);
 
     const isParentMissingChildren = useMemo(() => !!option.isParent && !children.length, [children, option.isParent]);
 
     const isPartialSelected = useMemo(
         () =>
-            areParentsSelectable && !isMultiSelect
+            areParentsSelectable && (!isMultiSelect || !selectChildrenWithParent)
                 ? false
                 : (!areAllChildrenSelected && areAnyChildrenSelected) ||
                   (isSelected && isParentMissingChildren) ||
@@ -100,6 +103,7 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
             isParentMissingChildren,
             areParentsSelectable,
             isMultiSelect,
+            selectChildrenWithParent,
         ],
     );
 
@@ -125,7 +129,7 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
         } else if (isSelected && option.isParent && !selectChildrenWithParent) {
             // When selectChildrenWithParent is false, deselect only the parent (children stay selected)
             removeOptions([option]);
-        } else if (isPartialSelected || (!isSelected && !areAnyChildrenSelected)) {
+        } else if (isPartialSelected || (!isSelected && (!areAnyChildrenSelected || !selectChildrenWithParent))) {
             if (!isMultiSelect) {
                 // Single select: use handleOptionChange to ensure closeDropdown is called
                 handleOptionChange(option);

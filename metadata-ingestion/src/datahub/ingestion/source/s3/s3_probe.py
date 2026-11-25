@@ -34,6 +34,14 @@ def s3_probe_refusal(config: DataLakeSourceConfig) -> Optional[str]:
             f"this recipe's path_specs are on the '{config.platform}' platform "
             f"(local paths, not s3://); the probe lists and judges S3 only"
         )
+    if config.aws_accounts:
+        # The probe lists with aws_config alone, which is not any one account's
+        # identity, so its listing would not match what ingestion sees.
+        return (
+            "this recipe ingests several accounts through aws_accounts; probe a "
+            "copy of it with one account's role in aws_config.aws_role and no "
+            "aws_accounts"
+        )
     if config.aws_config is None:
         return (
             "aws_config is not set, and S3 ingestion refuses to browse S3 "

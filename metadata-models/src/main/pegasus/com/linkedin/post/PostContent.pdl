@@ -29,6 +29,10 @@ record PostContent {
   /**
    * Type of content held in the post.
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "fieldName": "contentType"
+  }
   type: PostContentType
 
   /**

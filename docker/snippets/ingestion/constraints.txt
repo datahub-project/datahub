@@ -68,10 +68,10 @@ werkzeug>=3.1.6
 azure-core>=1.38.0
 # CVE-2026-25087: Apache Arrow C++ Use After Free; fixed in pyarrow 23.0.1. Docker minimum.
 pyarrow>=23.0.1
-# opentelemetry-api: CVE-2026-114603; fixed in 1.45.1. Transitive via
-# google-cloud-logging / mlflow-skinny; the sdk and semantic-conventions
-# packages version-lock to the api, so they move together.
-opentelemetry-api>=1.45.1
+# opentelemetry-api: CVE-2026-114603 (fixed in 1.45.1), CVE-2026-126360 (fixed in
+# 1.45.2). Transitive via google-cloud-logging / mlflow-skinny; the sdk and
+# semantic-conventions packages version-lock to the api, so they move together.
+opentelemetry-api>=1.45.2
 # Docker minimum; CVE-2026-112940 fixed in 4.2.1 (reachable once unstructured 0.27+
 # lifted its <4 cap). airflow-plugin accepts older filelock from Airflow 2.7.3+
 # constraints for compatibility.
@@ -135,8 +135,11 @@ Pygments>=2.20.0
 pypdf>=6.19.0,<7.0.0
 # soupsieve: CVE-2026-49476, CVE-2026-49477 (memory exhaustion / ReDoS; 2.8.4),
 # CVE-2026-85999 (ReDoS RE_WS_END), CVE-2026-86000 (ReDoS IDENTIFIER/VALUE);
-# all fixed in 2.9.0. Transitive (beautifulsoup4); not in setup.py.
+# all fixed in 2.9.0. CVE-2026-126190, CVE-2026-126191, CVE-2026-126193 are fixed
+# only in 4.0.0, which requires Python >=3.11.5. Transitive (beautifulsoup4); not
+# in setup.py.
 soupsieve>=2.9.0
+soupsieve>=4.0.0 ; python_full_version >= '3.11.5'
 # torch: CVE-2025-3001 (fixed 2.10.0), CVE-2025-3000 (fixed 2.13.0). pytorch-lightning only
 # requires torch>=2.1.0 (no upper bound), so this is compatible. Cap major until reviewed.
 torch>=2.13.0,<3.0.0

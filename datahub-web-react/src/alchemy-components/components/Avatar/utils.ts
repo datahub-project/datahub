@@ -1,8 +1,4 @@
-import { AvatarType } from '@components/components/AvatarStack/types';
-
 import ColorTheme from '@conf/theme/colorThemes/types';
-
-import { EntityType } from '@types';
 
 export type AvatarColorScheme = 'brand' | 'info' | 'neutral';
 
@@ -80,14 +76,4 @@ export const getAvatarNameSizes = (size) => {
     if (size === 'sm') return '10px';
     if (size === 'md') return '14px';
     return '12px';
-};
-
-export const mapEntityTypeToAvatarType = (entityType: EntityType): AvatarType => {
-    if (entityType === EntityType.CorpGroup) return AvatarType.group;
-    return AvatarType.user;
-};
-
-export const mapAvatarTypeToEntityType = (avatarType: AvatarType): EntityType => {
-    if (avatarType === AvatarType.group) return EntityType.CorpGroup;
-    return EntityType.CorpUser;
 };

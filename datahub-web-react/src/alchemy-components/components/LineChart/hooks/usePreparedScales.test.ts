@@ -1,9 +1,10 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { Mock, vi } from 'vitest';
 
 import useBasicallyPreparedScales from '@components/components/BarChart/hooks/usePreparedScales';
 import { Scale } from '@components/components/BarChart/types';
 import usePreparedLineChartScales from '@components/components/LineChart/hooks/usePreparedScales';
+
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@components/components/BarChart/hooks/usePreparedScales');
 

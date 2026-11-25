@@ -3,30 +3,31 @@ package com.linkedin.datahub.upgrade.cleanup;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.datahub.upgrade.UpgradeCliApplication;
 import com.linkedin.datahub.upgrade.UpgradeCliApplicationTestConfiguration;
 import com.linkedin.datahub.upgrade.config.GeneralUpgradeConfiguration;
 import com.linkedin.datahub.upgrade.loadindices.LoadIndicesUpgradeConfig;
+import com.linkedin.datahub.upgrade.shared.NoOpKafkaEventProducer;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupUpgradeConfig;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.RetentionBufferFactory;
 import com.linkedin.gms.factory.entity.RetentionBufferSchedulingConfig;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.event.EventProducer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
@@ -37,11 +38,7 @@ import org.testng.annotations.Test;
  */
 @ActiveProfiles({"upgrade", "test"})
 @SpringBootTest(
-    classes = {
-      UpgradeCliApplication.class,
-      UpgradeCliApplicationTestConfiguration.class,
-      CleanupUpgradeConfigContextTest.CleanupTestConfig.class
-    },
+    classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
     args = {"-u", "Cleanup"})
 public class CleanupUpgradeConfigContextTest extends AbstractTestNGSpringContextTests {
 
@@ -54,19 +51,8 @@ public class CleanupUpgradeConfigContextTest extends AbstractTestNGSpringContext
   /** Kafka producer/consumer factories; Cleanup builds its own admin client from properties. */
   private static final String KAFKA_FACTORY_PACKAGE = "com.linkedin.gms.factory.kafka.";
 
-  /**
-   * CleanupUpgradeConfig does not scan the Kafka factories, but EntityServiceFactory (pulled in
-   * through the common/entity scans) depends on {@code kafkaEventProducer}, which nothing in the
-   * Cleanup context defines. Without this mock the context does not start. Supply one so the rest
-   * of the context can be inspected; remove it once the Cleanup context defines its own.
-   */
-  @TestConfiguration
-  static class CleanupTestConfig {
-    @Bean(name = "kafkaEventProducer")
-    public EventProducer kafkaEventProducer() {
-      return Mockito.mock(EventProducer.class);
-    }
-  }
+  // No kafkaEventProducer override on purpose: the Cleanup context must supply its own (via
+  // NoOpKafkaEventProducerConfig), because EntityServiceFactory depends on it by name.
 
   @Autowired private ConfigurableApplicationContext context;
 
@@ -75,6 +61,16 @@ public class CleanupUpgradeConfigContextTest extends AbstractTestNGSpringContext
     assertTrue(context.containsBean("cleanup"));
     assertNotNull(context.getBean("cleanup", Cleanup.class));
     assertEquals(beanNamesForType(CleanupUpgradeConfig.class).size(), 1);
+  }
+
+  @Test
+  public void testKafkaEventProducerIsNoOp() {
+    EventProducer producer = context.getBean("kafkaEventProducer", EventProducer.class);
+    assertTrue(
+        producer instanceof NoOpKafkaEventProducer,
+        "Cleanup must not publish to Kafka; got " + producer.getClass());
+    EntityService<?> entityService = context.getBean("entityService", EntityService.class);
+    assertSame(((EntityServiceImpl) entityService).getProducer(), producer);
   }
 
   @Test

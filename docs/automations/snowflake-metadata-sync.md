@@ -104,7 +104,7 @@ GRANT OWNERSHIP ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATA
 
 ## Propagating for Existing Assets
 
-You can back-fill historical data for existing assets to ensure that all current column and table Glossary Terms are propagated to Snowflake.
+You can back-fill existing assets so that their current glossary terms and descriptions reach Snowflake.
 Note that it may take some time to complete the initial back-filling process, depending on the number of Snowflake assets you have.
 
 To do so, navigate to the Automation you created in Step 3 above, click the 3-dot "More" menu
@@ -119,8 +119,17 @@ and then click "Initialize".
   <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-initialize.png"/>
 </p>
 
-This one-time step will kick off the back-filling process for existing terms. If you only want to begin propagating
-terms going forward, you can skip this step.
+This step back-fills existing terms and descriptions. If you only want to propagate changes from now on, you can skip it.
+
+As of DataHub Cloud v2.3.3, Initialize also fills in Snowflake comments from descriptions written in DataHub:
+
+- For each table and column with a description written in DataHub, it writes that description where the Snowflake comment is empty or different.
+- It leaves matching comments alone, and it never clears a comment.
+- It doesn't write descriptions from ingestion or from a YAML file applied with `datahub dataset upsert`. Those reach Snowflake only when their text changes.
+- It skips objects that Snowflake doesn't have, or that the automation's role can't see.
+- Running Initialize again writes only the comments that no longer match.
+- With **Sync descriptions from logical models** turned on, it also writes logical-model descriptions. See [Logical model descriptions](#logical-model-descriptions).
+- On the Automations page, Initialize stays greyed out until the run finishes.
 
 :::info
 
@@ -136,13 +145,27 @@ You can view propagated Tags, Terms, and updated Comments (and corresponding Dat
 
 Tags and glossary terms will appear as Snowflake tags on your tables and columns:
 
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/view-snowflake-tags.png"/>
+</p>
+
 ### Descriptions
 
 DataHub descriptions will be synced as Snowflake comments on tables and columns, visible in the Snowflake UI and accessible via `SHOW TABLES` and `DESCRIBE TABLE` commands.
 
-<p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/view-snowflake-tags.png"/>
-</p>
+As of DataHub Cloud v2.3.3, descriptions written in DataHub come first. If someone wrote a description in DataHub, in the UI or through the API, that is what Snowflake gets, even when ingestion later brings in different text. If nobody wrote one, Snowflake gets the description from ingestion or from a YAML file applied with `datahub dataset upsert`, each time that text changes.
+
+When you delete a description you wrote in DataHub, the Snowflake comment is cleared too. What happens next depends on how it was deleted:
+
+- **Deleted in the UI**, or with the GraphQL `updateDescription` mutation: DataHub saves an empty description, which still counts as yours. DataHub writes nothing else to the comment until someone writes a new description.
+- **Set to null** in the `editableDatasetProperties` or `editableSchemaMetadata` aspect, for example with the OpenAPI or Rest.li aspect endpoints or the Python SDK: no description of yours is left, so a later change to the description from ingestion is synced again.
+
+The Snowflake comment is not cleared when:
+
+- an ingestion run is rolled back, or the dataset is deleted in DataHub
+- a description from ingestion is removed in DataHub, for example when a later ingestion run no longer brings it
+- you remove a description from a YAML file
+- the whole `editableDatasetProperties` or `editableSchemaMetadata` aspect is deleted (setting a description to null or to an empty string clears it)
 
 ## Logical model descriptions
 

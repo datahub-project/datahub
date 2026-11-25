@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import 'dayjs/locale/ja';
 
 import { IncidentListFilter } from '@app/entityV2/shared/tabs/Incident/types';
 import {
@@ -9,12 +9,11 @@ import {
     getFormattedDateForResolver,
     getLinkedAssetsCount,
     getLinkedAssetsData,
-    getSortedIncidents,
     useSiblingOptionsForIncidentBuilder,
     validateForm,
 } from '@app/entityV2/shared/tabs/Incident/utils';
-import { SortingState } from '@src/alchemy-components/components/Table/types';
 import { EntityType } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
 
 describe('Utility Functions', () => {
     test('getFilteredTransformedIncidentData should filter and transform incident data', () => {
@@ -97,20 +96,27 @@ describe('Utility Functions', () => {
     });
 
     test('getFormattedDateForResolver should return formatted date', () => {
-        const timestamp = new Date('2023-10-10T12:00:00Z').getTime();
-        expect(getFormattedDateForResolver(timestamp)).toBe(format(new Date(timestamp), "M/d/yyyy 'at' h:mm a"));
+        // Built in local time so the expected string doesn't depend on the machine's timezone
+        const timestamp = new Date(2023, 9, 10, 15, 5).getTime();
+        expect(getFormattedDateForResolver(timestamp)).toBe('10/10/2023 at 3:05 PM');
+    });
+
+    test('getFormattedDateForResolver stays English when another locale is active', () => {
+        dayjs.locale('ja');
+        try {
+            expect(getFormattedDateForResolver(new Date(2023, 9, 10, 15, 5).getTime())).toBe('10/10/2023 at 3:05 PM');
+        } finally {
+            dayjs.locale('en');
+        }
+    });
+
+    test('getFormattedDateForResolver shows a placeholder when the time is missing', () => {
+        expect(getFormattedDateForResolver(undefined)).toBe('-');
     });
 
     test('validateForm should return true if no errors exist', () => {
         const form = { getFieldsError: () => [{ errors: [] }] };
         expect(validateForm(form)).toBe(true);
-    });
-
-    test('getSortedIncidents should sort incidents based on column', () => {
-        const incidents = [{ title: 'B' }, { title: 'A' }];
-        const record = { incidents };
-        const sorted = getSortedIncidents(record, { sortColumn: 'name', sortOrder: SortingState.ASCENDING });
-        expect(sorted[0].title).toBe('A');
     });
 
     test('getExistingIncidents should return combined incidents from entity data', () => {

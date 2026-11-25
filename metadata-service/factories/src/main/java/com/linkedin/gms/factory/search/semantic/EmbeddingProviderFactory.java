@@ -18,8 +18,10 @@ import com.linkedin.metadata.search.embedding.VertexAiEmbeddingProvider;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -122,12 +124,9 @@ public class EmbeddingProviderFactory {
     }
 
     EmbeddingProviderConfiguration.BedrockConfig bedrockConfig = config.getBedrock();
-    String bedrockRegion = bedrockConfig.getAwsRegion();
-    if (bedrockRegion == null || bedrockRegion.trim().isEmpty()) {
-      throw new IllegalStateException(
-          "embeddingProvider.bedrock.awsRegion is required when using the aws-bedrock embedding provider");
-    }
-    bedrockRegion = bedrockRegion.trim();
+    String bedrockRegion =
+        resolveBedrockRegion(
+            bedrockConfig.getAwsRegion(), EmbeddingProviderFactory::readEnvOrProperty);
 
     String podRegion = System.getenv("AWS_REGION");
     if (podRegion == null || podRegion.isBlank()) {
@@ -155,6 +154,32 @@ public class EmbeddingProviderFactory {
             config.getMaxCharacterLength(),
             defaultAwsCredentialsProvider);
     return managedBedrockProvider;
+  }
+
+  /**
+   * Chooses the Bedrock embedding region. A blank configured region counts as unset, so the
+   * environment decides: BEDROCK_EMBEDDING_AWS_REGION, BEDROCK_AWS_REGION, AWS_REGION, then
+   * us-west-2. application.yaml resolves the same chain with the same default; change both
+   * together.
+   */
+  static String resolveBedrockRegion(
+      @Nullable String configuredRegion, Function<String, String> environment) {
+    if (configuredRegion != null && !configuredRegion.isBlank()) {
+      return configuredRegion.trim();
+    }
+    for (String name :
+        List.of("BEDROCK_EMBEDDING_AWS_REGION", "BEDROCK_AWS_REGION", "AWS_REGION")) {
+      String value = environment.apply(name);
+      if (value != null && !value.isBlank()) {
+        return value.trim();
+      }
+    }
+    return "us-west-2";
+  }
+
+  private static String readEnvOrProperty(String name) {
+    String value = System.getenv(name);
+    return value == null || value.isBlank() ? System.getProperty(name) : value;
   }
 
   @PreDestroy

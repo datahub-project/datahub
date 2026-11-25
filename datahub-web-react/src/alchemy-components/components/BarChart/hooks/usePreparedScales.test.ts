@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import usePreparedScales, { DEFAULT_MAX_DOMAIN_VALUE } from '@components/components/BarChart/hooks/usePreparedScales';
 import { Scale } from '@components/components/BarChart/types';
+
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const MOCK_X_ACCESSOR = (d) => d.x;
 const MOCK_Y_ACCESSOR = (d) => d.y;

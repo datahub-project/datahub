@@ -13,6 +13,8 @@ public class Constants {
 
   // Use on specific MCP to request an synchronous index update avoid the kafka lag.
   public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
+  // Use on specific MCP to drop the write instead of creating the entity when it doesn't exist.
+  public static final String IF_ENTITY_EXISTS_HEADER_NAME = "If-Entity-Exists";
   public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
   // MCP header carrying the caller of a queued write; only trusted from system writers.
   public static final String ATTRIBUTED_ACTOR_HEADER_NAME = "X-DataHub-Attributed-Actor";
@@ -549,7 +551,6 @@ public class Constants {
   // Business Attribute
   public static final String BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME = "businessAttributeKey";
   public static final String BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME = "businessAttributeInfo";
-  public static final String BUSINESS_ATTRIBUTE_ASSOCIATION = "businessAttributeAssociation";
   public static final String BUSINESS_ATTRIBUTE_ASPECT = "businessAttributes";
 
   // Knowledge Article
@@ -606,7 +607,8 @@ public class Constants {
           "identity",
           "search",
           "searchLight",
-          "autocomplete");
+          "autocomplete",
+          "semantic");
 
   // Module
   public static final String DATAHUB_PAGE_MODULE_ENTITY_NAME = "dataHubPageModule";

@@ -26,11 +26,14 @@ If a constructor, fixture, or `test.use` signature changes, then:
   runtime. Flag missing updates as High.
 
 If a spec under `e2e-test/ui/playwright/tests/` imports `test` (the runner) from
-`@playwright/test` instead of `fixtures/base-test` or `fixtures/login-test`,
-then:
+`@playwright/test` instead of `fixtures/base-test`, `fixtures/login-test` or
+`fixtures/unit-test`, then:
 
 - Flag Medium: bypasses auth/logging/mocking composition.
-- Body: "Import `test` from fixtures/base-test or fixtures/login-test."
+- Body: "Import `test` from fixtures/base-test or fixtures/login-test
+  (fixtures/unit-test for stub-only framework checks)."
+- `fixtures/unit-test` is correct for specs that never use a page or GMS; do
+  not ask them to switch to base-test, whose seeding fixture needs a live DataHub.
 - Type-only or utility imports (`Page`, `Locator`, `Route`, `request`, `expect`
   as a type/matcher when `test` already comes from fixtures) are fine.
 

@@ -6,12 +6,14 @@ import { MemoryRouter } from 'react-router';
 
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import PreviewContext from '@app/entityV2/shared/PreviewContext';
+import { DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
 import DefaultPreviewCardFooter from '@app/previewV2/DefaultPreviewCardFooter';
 import { SearchResultProvider } from '@app/search/context/SearchResultContext';
 import { SearchResultLineageStatusProvider } from '@app/searchV2/SearchResultLineageStatusContext';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { EntityRegistryContext } from '@src/entityRegistryContext';
 import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
+import { NEUTRAL, SIXTY_DAYS_AGO, clockColor } from '@utils/test-utils/freshnessClock';
 
 import { EntityType } from '@types';
 
@@ -24,7 +26,11 @@ const searchResult = {
 
 function renderFooter(
     previewData: Record<string, unknown> | null,
-    { asSearchResult = true, lineageCountsFailed = false } = {},
+    {
+        asSearchResult = true,
+        lineageCountsFailed = false,
+        lastUpdatedMs,
+    }: { asSearchResult?: boolean; lineageCountsFailed?: boolean; lastUpdatedMs?: DatasetLastUpdatedMs } = {},
 ) {
     const entityRegistry = getTestEntityRegistry();
     const footer = (
@@ -34,6 +40,7 @@ function renderFooter(
             urn={URN}
             entityRegistry={entityRegistry}
             isFullViewCard
+            lastUpdatedMs={lastUpdatedMs}
         />
     );
     const withPreview = (
@@ -122,5 +129,15 @@ describe('DefaultPreviewCardFooter lineage badge', () => {
 
         expect(screen.queryByTestId('lineage-badge-placeholder')).not.toBeInTheDocument();
         expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    });
+});
+
+describe('DefaultPreviewCardFooter freshness clock', () => {
+    it('shows the time of a view in the neutral icon color', () => {
+        renderFooter(
+            { urn: URN, type: EntityType.Dataset },
+            { lastUpdatedMs: { property: 'lastModified', lastUpdatedMs: SIXTY_DAYS_AGO, definitionTime: true } },
+        );
+        expect(clockColor()).toBe(NEUTRAL);
     });
 });

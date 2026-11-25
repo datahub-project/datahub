@@ -4,15 +4,15 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
-from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -35,24 +35,10 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
 logger = logging.getLogger(__name__)
 
 
-class PlatformDetail(ConfigModel):
-    """Platform instance configuration for external datasets referenced in Vertex AI lineage."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    platform_instance: Optional[str] = Field(
-        default=None,
-        description="Platform instance for URN generation. If not set, no platform instance in URN.",
-    )
-    env: str = Field(
-        default=DEFAULT_ENV,
-        description="Environment for all assets from this platform",
-    )
-    convert_urns_to_lowercase: bool = Field(
-        default=False,
-        description="Convert dataset names to lowercase. Set to true for Snowflake (which defaults to lowercase URNs). "
-        "Leave false for GCS, BigQuery, S3, and ABS.",
-    )
+class PlatformDetail(
+    PlatformInstanceConfigMixin, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
+):
+    """Platform instance, env and URN casing of one external platform whose datasets Vertex AI lineage references. Set convert_urns_to_lowercase to true for Snowflake, which lower-cases its URNs; leave it false for GCS, BigQuery, S3 and ABS."""
 
 
 class VertexAIConfig(
@@ -206,13 +192,13 @@ class VertexAIConfig(
     regions: List[str] = Field(
         default_factory=list,
         description=(
-            "List of Vertex AI regions to scan. If empty and discover_regions is false, falls back to 'region'."
+            "List of Vertex AI regions to scan. If empty and discover_regions is false, falls back to 'region'. When discover_regions is true and discovery fails for a reason other than the API being off or the project being invalid, the listed regions the installed SDK can read are read instead, never 'global'."
         ),
     )
     discover_regions: bool = Field(
         default=False,
         description=(
-            "If true, discover available Vertex AI regions per project and scan all."
+            "If true, discover available Vertex AI regions per project and scan all. If discovery fails for a reason other than the API being off or the project being invalid, the regions listed in 'regions' (else 'region') that the installed SDK can read are read instead, never 'global'."
         ),
     )
     bucket_uri: Optional[str] = Field(
@@ -327,6 +313,9 @@ class VertexAIConfig(
                 "Must specify at least one of: 'region' (deprecated), 'regions', or 'discover_regions=true'."
             )
         return self
+
+    def get_listed_regions(self) -> List[str]:
+        return self.regions or ([self.region] if self.region else [])
 
     def get_credentials(self) -> Optional[Dict[str, Any]]:
         if self.credential:

@@ -1,4 +1,4 @@
-import type { XYPosition } from '@reactflow/core/dist/esm/types';
+import type { XYPosition } from 'reactflow';
 
 import {
     BOUNDING_BOX_LABEL_HEIGHT,

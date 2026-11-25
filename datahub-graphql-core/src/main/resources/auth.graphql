@@ -399,6 +399,11 @@ type EntityPrivileges {
   canEditDataProducts: Boolean
 
   """
+  Whether or not a user can create and manage data products within this domain. Only populated for Domains.
+  """
+  canManageDataProducts: Boolean
+
+  """
   Whether or not a user can update the owners for the entity
   """
   canEditOwners: Boolean
@@ -439,6 +444,13 @@ type EntityPrivileges {
   Whether or not a user can update the schema field tags for a dataset
   """
   canEditSchemaFieldDescription: Boolean
+
+  """
+  Whether or not a user can update structured properties on a dataset's schema fields.
+  Edit Entity Properties does not grant this. Edit Dataset Column Properties or Edit Entity does,
+  on the parent dataset or on the schema field.
+  """
+  canEditSchemaFieldProperties: Boolean
 
   """
   Whether the user can view dataset usage stats

@@ -98,11 +98,22 @@ public class PartialGraphReadBackend {
     for (String root : roots) {
       Optional<String> cacheKey =
           shared.findCacheKeyForSeeds(definition.getGraphId(), source, Set.of(root));
-      if (cacheKey.isEmpty() || distributedStore.getStatus(cacheKey.get()) != CacheStatus.ACTIVE) {
+      if (cacheKey.isEmpty() || !rootServable(definition, cacheKey.get())) {
         return false;
       }
     }
     return true;
+  }
+
+  private boolean rootServable(
+      @Nonnull EntityGraphDefinition definition, @Nonnull String cacheKey) {
+    CacheStatus status = distributedStore.getStatus(cacheKey);
+    if (status == CacheStatus.ACTIVE) {
+      return true;
+    }
+    return SnapshotFreshnessEvaluator.usesStaleWhileRevalidate(definition)
+        && status == CacheStatus.BUILDING
+        && distributedStore.hasServableSnapshot(cacheKey);
   }
 
   @Nonnull

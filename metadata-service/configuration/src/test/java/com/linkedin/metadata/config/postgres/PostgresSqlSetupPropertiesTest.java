@@ -2,11 +2,36 @@ package com.linkedin.metadata.config.postgres;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import java.util.Map;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class PostgresSqlSetupPropertiesTest {
+
+  @DataProvider
+  public Object[][] queueStores() {
+    return new Object[][] {{null}, {""}, {"   "}, {"postgres"}, {"INMEMORY"}};
+  }
+
+  @Test(dataProvider = "queueStores")
+  public void validateForUse_acceptsSupportedQueueStores(String store) {
+    PostgresSqlSetupProperties props = basePgQueueProps();
+    props.getPgQueue().setStore(store);
+    props.validateForUse(DatabaseType.POSTGRES);
+  }
+
+  @Test
+  public void validateForUse_rejectsUnknownQueueStore() {
+    PostgresSqlSetupProperties props = basePgQueueProps();
+    props.getPgQueue().setStore("memory");
+    IllegalStateException error =
+        expectThrows(
+            IllegalStateException.class, () -> props.validateForUse(DatabaseType.POSTGRES));
+    assertTrue(error.getMessage().contains("memory"));
+  }
 
   @Test
   public void disabled_pgQueueNotBuilt() {
